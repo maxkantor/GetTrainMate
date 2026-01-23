@@ -55,10 +55,3 @@ export const PRICING_VIBE_IMAGES = [
     fallback: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',
   },
 ];
-    alt: 'Kettlebell workout',
-    caption: 'Strength days',
-    width: 600,
-    height: 400,
-    fallback: 'https://images.unsplash.com/photo-1546484950-1c2a58f6a67b?auto=format&fit=crop&w=600&q=60',
-  },
-];

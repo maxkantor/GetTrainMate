@@ -1,0 +1,271 @@
+.cardsWrapper {
+  position: relative;
+  height: 520px;
+  width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.card {
+  position: absolute;
+  width: 300px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow: 
+    0 20px 70px rgba(0, 0, 0, 0.45),
+    0 10px 30px rgba(15, 23, 42, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 24px 80px rgba(0, 0, 0, 0.5),
+    0 12px 35px rgba(124, 80, 237, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Shine overlay on top card */
+.shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Card positioning with stagger */
+.card1 {
+  top: 0;
+  left: 0;
+  z-index: 3;
+  animation: floatY 6s ease-in-out infinite;
+}
+
+.card2 {
+  top: 100px;
+  left: 60px;
+  z-index: 2;
+  animation: floatY 7s ease-in-out infinite 0.5s;
+}
+
+.card3 {
+  top: 200px;
+  left: 120px;
+  z-index: 1;
+  animation: floatY 5.5s ease-in-out infinite 1s;
+}
+
+@keyframes floatY {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+/* Card Header */
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.profileInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(124, 80, 237, 0.4), rgba(91, 108, 242, 0.4));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.nameSection {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.2;
+}
+
+.verifiedBadge {
+  color: #00d4ff;
+  flex-shrink: 0;
+}
+
+.matchScore {
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, #7c50ed 0%, #00bfff 100%);
+  padding: 4px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(124, 80, 237, 0.4);
+}
+
+/* Location */
+.location {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 12px;
+}
+
+.location svg {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+/* Tags */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+}
+
+/* Schedule */
+.schedule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.scheduleTag {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(124, 80, 237, 0.2);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(124, 80, 237, 0.3);
+  white-space: nowrap;
+}
+
+/* CTA */
+.cta {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ctaText {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ctaText:hover {
+  color: #00d4ff;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .cardsWrapper {
+    height: 420px;
+    order: -1;
+  }
+
+  .card {
+    width: 260px;
+  }
+
+  .card1 {
+    left: 20px;
+  }
+
+  .card2 {
+    left: 70px;
+  }
+
+  .card3 {
+    left: 120px;
+  }
+}
+
+@media (max-width: 768px) {
+  .cardsWrapper {
+    height: 360px;
+    max-width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .card {
+    width: 240px;
+  }
+
+  .card1 {
+    left: 0;
+  }
+
+  .card2 {
+    left: 40px;
+  }
+
+  .card3 {
+    left: 80px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card1,
+  .card2,
+  .card3 {
+    animation: none;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+}

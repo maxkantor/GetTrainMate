@@ -3,6 +3,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
 import { Container } from '@/components/layout/Container';
 import { Button } from '@/components/ui/Button';
+import { PartnerMatchCards } from '@/components/hero/PartnerMatchCards';
 import styles from './sections.module.css';
 
 export const Hero: React.FC = () => {
@@ -22,7 +23,7 @@ export const Hero: React.FC = () => {
         <div className={styles.heroBlob} />
       </div>
 
-      <Container>
+      <Container size="wide">
         <div className={styles.heroContent}>
           {/* Left Content */}
           <div className={`${styles.heroText} ${isVisible ? styles.heroTextVisible : ''}`}>
@@ -93,43 +94,9 @@ export const Hero: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Visual - Mock Cards */}
+          {/* Right Visual - Partner Match Cards */}
           <div className={`${styles.heroVisual} ${isVisible ? styles.heroVisualVisible : ''}`}>
-            <div className={styles.mockCards}>
-              <div className={`${styles.mockCard} ${styles.mockCard1}`}>
-                <div className={styles.mockCardImage} />
-                <div className={styles.mockCardContent}>
-                  <div className={styles.mockCardTitle} />
-                  <div className={styles.mockCardMeta} />
-                  <div className={styles.mockCardTags}>
-                    <div className={styles.mockTag} />
-                    <div className={styles.mockTag} />
-                  </div>
-                </div>
-              </div>
-              <div className={`${styles.mockCard} ${styles.mockCard2}`}>
-                <div className={styles.mockCardImage} />
-                <div className={styles.mockCardContent}>
-                  <div className={styles.mockCardTitle} />
-                  <div className={styles.mockCardMeta} />
-                  <div className={styles.mockCardTags}>
-                    <div className={styles.mockTag} />
-                    <div className={styles.mockTag} />
-                  </div>
-                </div>
-              </div>
-              <div className={`${styles.mockCard} ${styles.mockCard3}`}>
-                <div className={styles.mockCardImage} />
-                <div className={styles.mockCardContent}>
-                  <div className={styles.mockCardTitle} />
-                  <div className={styles.mockCardMeta} />
-                  <div className={styles.mockCardTags}>
-                    <div className={styles.mockTag} />
-                    <div className={styles.mockTag} />
-                  </div>
-                </div>
-              </div>
-            </div>
+            <PartnerMatchCards />
           </div>
         </div>
       </Container>

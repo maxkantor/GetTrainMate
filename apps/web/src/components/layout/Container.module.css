@@ -1,23 +1,27 @@
 .container {
   width: 100%;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: var(--container-padding);
-  padding-right: var(--container-padding);
+  margin: 0 auto;
+  max-width: 1200px;
+  padding: 0 24px;
+}
+
+.containerWide {
+  max-width: 1550px;
+  padding: 0 32px;
 }
 
 .sm {
-  max-width: var(--container-sm);
+  max-width: 960px;
 }
 
 .md {
-  max-width: var(--container-md);
+  max-width: 1080px;
 }
 
 .lg {
-  max-width: var(--container-lg);
+  max-width: 1200px;
 }
 
 .xl {
-  max-width: var(--container-xl);
+  max-width: 1300px;
 }

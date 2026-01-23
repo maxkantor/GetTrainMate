@@ -7,7 +7,7 @@ export const FinalCTA: React.FC = () => {
   return (
     <section className={styles.finalCta}>
       <div className={styles.ctaBackground} />
-      <Container>
+      <Container size="wide">
         <div className={styles.ctaContent}>
           <h2 className={styles.ctaTitle}>
             Ready to find your perfect training partner?

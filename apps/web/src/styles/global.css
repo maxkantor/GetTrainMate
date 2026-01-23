@@ -155,9 +155,14 @@ button:disabled {
 
 .container {
   width: 100%;
-  max-width: var(--container-xl);
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: var(--container-padding);
-  padding-right: var(--container-padding);
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.containerWide {
+  width: 100%;
+  max-width: 1550px;
+  margin: 0 auto;
+  padding: 0 32px;
 }

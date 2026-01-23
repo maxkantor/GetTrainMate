@@ -2,6 +2,7 @@ import React from 'react';
 import { Container } from '@/components/layout/Container';
 import { Button } from '@/components/ui/Button';
 import { pricingPlans } from '@/data/pricingData';
+import { IMAGE_BUCKET_BASE } from '@/config/media';
 import styles from './PricingCards.module.css';
 
 interface PricingCardsProps {
@@ -13,8 +14,7 @@ const sidePanels = [
     kicker: 'Community',
     title: 'Real training partners',
     subtitle: 'Verified athletes near you for focused sessions.',
-    image:
-      'https://images.unsplash.com/photo-1546484959-f9b7f6a2d6d2?auto=format&fit=crop&w=800&q=60',
+    image: `${IMAGE_BUCKET_BASE}/pricing/vibe/strength.jpg`,
     alt: 'Athlete preparing for a workout',
     width: 800,
     height: 1000,
@@ -23,8 +23,7 @@ const sidePanels = [
     kicker: 'Consistency',
     title: 'Motivation + accountability',
     subtitle: 'Streaks, reminders, and boosts to keep you on track.',
-    image:
-      'https://images.unsplash.com/photo-1546484950-1c2a58f6a67b?auto=format&fit=crop&w=800&q=60',
+    image: `${IMAGE_BUCKET_BASE}/pricing/vibe/gym.jpg`,
     alt: 'Athletes training together',
     width: 800,
     height: 1000,
