@@ -1,0 +1,191 @@
+.comparisonSection {
+  padding: var(--space-16) 0;
+  background: var(--color-neutral-50);
+}
+
+.sectionHeader {
+  text-align: center;
+  margin-bottom: var(--space-12);
+}
+
+.sectionTitle {
+  font-size: var(--font-4xl);
+  font-weight: 800;
+  color: var(--color-neutral-900);
+  margin-bottom: var(--space-3);
+}
+
+.sectionSubtitle {
+  font-size: var(--font-lg);
+  color: var(--color-neutral-600);
+}
+
+.tableContainer {
+  overflow: auto;
+  background: white;
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-6);
+  max-height: 720px;
+}
+
+.comparisonTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+}
+
+
+.comparisonTable thead th {
+  padding: var(--space-6) var(--space-4);
+  font-size: var(--font-base);
+  font-weight: 700;
+  color: var(--color-neutral-900);
+  border-bottom: 2px solid var(--color-neutral-200);
+  text-align: left;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 3;
+  box-shadow: inset 0 -1px 0 var(--color-neutral-200);
+}
+
+.comparisonTable thead th:first-child {
+  width: 40%;
+}
+
+.comparisonTable thead th:not(:first-child) {
+  text-align: center;
+  width: 20%;
+}
+
+.featureHead {
+  width: 40%;
+}
+
+.planHead {
+  text-align: center;
+}
+
+.planHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.planName {
+  font-size: var(--font-xl);
+  font-weight: 700;
+  color: var(--color-primary-600);
+}
+
+.comparisonTable tbody tr {
+  border-bottom: 1px solid var(--color-neutral-100);
+  transition: background var(--transition-base);
+}
+
+.comparisonTable tbody tr:hover {
+  background: #f5f7ff;
+}
+
+.comparisonTable tbody tr:nth-child(even) td {
+  background: #fbfbff;
+}
+
+.comparisonTable tbody td {
+  padding: var(--space-4);
+  font-size: var(--font-sm);
+  color: var(--color-neutral-700);
+}
+
+.comparisonTable tbody td:first-child {
+  font-weight: 600;
+  color: var(--color-neutral-900);
+}
+
+.comparisonTable tbody td:not(:first-child) {
+  text-align: center;
+}
+
+.featureCell {
+  font-weight: 700;
+  color: var(--color-neutral-900);
+}
+
+.planCell {
+  text-align: center;
+}
+
+.checkmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-primary-100);
+  color: var(--color-primary-600);
+  font-weight: 700;
+}
+
+.cross {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-400);
+  font-weight: 700;
+}
+
+.textValue {
+  font-weight: 600;
+  color: var(--color-neutral-900);
+}
+
+.comparisonTable tfoot td {
+  padding: var(--space-6) var(--space-4) var(--space-4);
+  text-align: center;
+  border-top: 2px solid var(--color-neutral-200);
+}
+
+.eliteCol {
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.06) 100%);
+  color: var(--color-primary-700);
+  font-weight: 700;
+  box-shadow: inset 1px 0 0 rgba(102, 126, 234, 0.2);
+}
+
+.comparisonTable tbody tr:nth-child(even) .eliteCol {
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.08) 100%);
+}
+
+.upgradeButton {
+  min-width: 140px;
+}
+
+@media (max-width: 768px) {
+  .comparisonSection {
+    padding: var(--space-10) 0;
+  }
+
+  .sectionTitle {
+    font-size: var(--font-3xl);
+  }
+
+  .tableContainer {
+    padding: var(--space-4);
+    border-radius: var(--radius-xl);
+  }
+
+  .comparisonTable {
+    min-width: 500px;
+  }
+
+  .planName {
+    font-size: var(--font-base);
+  }
+}

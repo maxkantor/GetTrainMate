@@ -1,0 +1,10 @@
+{
+  "app": "node lib/bin/index.js",
+  "watch": {
+    "include": ["lib/**", "bin/**"],
+    "exclude": ["lib/**/*.d.ts", "node_modules/**"]
+  },
+  "context": {
+    "@aws-cdk/core:newStyleStackSynthesis": true
+  }
+}

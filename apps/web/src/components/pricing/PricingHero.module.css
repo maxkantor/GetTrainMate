@@ -1,0 +1,102 @@
+.pricingHero {
+  text-align: center;
+  padding: var(--space-20) 0 var(--space-16);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.06) 0%, rgba(118, 75, 162, 0.06) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.pricingHero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 50%, rgba(118, 75, 162, 0.1) 0%, transparent 50%);
+  z-index: 0;
+}
+
+/* Athlete background image overlay for premium feel */
+.pricingHero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('https://images.unsplash.com/photo-1546484959-f9b7f6a2d6d2?auto=format&fit=crop&w=1600&q=60');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.18;
+  filter: blur(4px) saturate(110%);
+  z-index: 0;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: white;
+  border: 1px solid var(--color-primary-200);
+  border-radius: var(--radius-full);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-primary-600);
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.heroTitle {
+  font-size: var(--font-5xl);
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: var(--space-4);
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-700) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.heroSubtitle {
+  font-size: var(--font-xl);
+  line-height: 1.6;
+  color: var(--color-neutral-600);
+  margin-bottom: var(--space-8);
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.heroCta {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .pricingHero {
+    padding: var(--space-14) 0 var(--space-12);
+  }
+
+  .heroTitle {
+    font-size: var(--font-4xl);
+  }
+
+  .heroSubtitle {
+    font-size: var(--font-lg);
+  }
+
+  .heroCta {
+    flex-direction: column;
+    width: 100%;
+  }
+}

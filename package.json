@@ -1,0 +1,34 @@
+{
+  "name": "gettrainmate-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GetTrainMate - Training-first partner matching SaaS",
+  "keywords": [
+    "training",
+    "partner",
+    "matching",
+    "gym",
+    "crossfit",
+    "running",
+    "hyrox"
+  ],
+  "license": "MIT",
+  "workspaces": [
+    "apps/web",
+    "infra"
+  ],
+  "scripts": {
+    "web:dev": "cd apps/web && npm run dev",
+    "web:build": "cd apps/web && npm run build",
+    "web:preview": "cd apps/web && npm run preview",
+    "web:lint": "cd apps/web && npm run lint",
+    "infra:synth": "cd infra && npm run synth",
+    "infra:build": "cd infra && npm run build",
+    "infra:deploy": "cd infra && npm run deploy",
+    "seed": "cd scripts && node seed.js",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "husky": "^8.0.3"
+  }
+}
