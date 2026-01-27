@@ -67,13 +67,19 @@ export class GetTrainMateStack extends cdk.Stack {
     const tables = this.createDynamoDBTables();
 
     // S3 Bucket for media storage
-    // Note: S3 bucket names must be globally unique, so we use a hash
-    const mediaBucket = new s3.Bucket(this, 'MediaBucket', {
-      // Remove explicit bucketName to let CDK generate a unique name
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      versioned: false,
-    });
+    // Reference existing bucket if it exists, otherwise CDK will create a new one
+    let mediaBucket: s3.IBucket;
+    try {
+      // Try to reference existing bucket
+      mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', 'getrainmate-media-bucket');
+    } catch {
+      // If bucket doesn't exist, create a new one
+      mediaBucket = new s3.Bucket(this, 'MediaBucket', {
+        encryption: s3.BucketEncryption.S3_MANAGED,
+        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+        versioned: false,
+      });
+    }
 
     // Lambda function for API
     // Note: The Lambda code needs to be built and published first:
@@ -161,120 +167,48 @@ export class GetTrainMateStack extends cdk.Stack {
     });
   }
 
-  private createDynamoDBTables(): dynamodb.Table[] {
-    const tables: dynamodb.Table[] = [];
+  private createDynamoDBTables(): dynamodb.ITable[] {
+    const tables: dynamodb.ITable[] = [];
 
+    // Reference existing DynamoDB tables instead of creating new ones
     // Users table
-    const usersTable = new dynamodb.Table(this, 'UsersTable', {
-      tableName: 'gettrainmate-users',
-      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.DEFAULT,
-      pointInTimeRecovery: true,
-    });
+    const usersTable = dynamodb.Table.fromTableName(this, 'UsersTable', 'gettrainmate-users');
     tables.push(usersTable);
 
     // Profiles table
-    const profilesTable = new dynamodb.Table(this, 'ProfilesTable', {
-      tableName: 'gettrainmate-profiles',
-      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.DEFAULT,
-      pointInTimeRecovery: true,
-    });
+    const profilesTable = dynamodb.Table.fromTableName(this, 'ProfilesTable', 'gettrainmate-profiles');
     tables.push(profilesTable);
 
     // Matches table
-    const matchesTable = new dynamodb.Table(this, 'MatchesTable', {
-      tableName: 'gettrainmate-matches',
-      partitionKey: { name: 'matchId', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.DEFAULT,
-      pointInTimeRecovery: true,
-    });
-    matchesTable.addGlobalSecondaryIndex({
-      indexName: 'userId1-index',
-      partitionKey: { name: 'userId1', type: dynamodb.AttributeType.STRING },
-    });
-    matchesTable.addGlobalSecondaryIndex({
-      indexName: 'userId2-index',
-      partitionKey: { name: 'userId2', type: dynamodb.AttributeType.STRING },
-    });
+    const matchesTable = dynamodb.Table.fromTableName(this, 'MatchesTable', 'gettrainmate-matches');
     tables.push(matchesTable);
 
     // Messages table
-    const messagesTable = new dynamodb.Table(this, 'MessagesTable', {
-      tableName: 'gettrainmate-messages',
-      partitionKey: { name: 'threadId', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.DEFAULT,
-      pointInTimeRecovery: true,
-    });
+    const messagesTable = dynamodb.Table.fromTableName(this, 'MessagesTable', 'gettrainmate-messages');
     tables.push(messagesTable);
 
     // Events table
-    const eventsTable = new dynamodb.Table(this, 'EventsTable', {
-      tableName: 'gettrainmate-events',
-      partitionKey: { name: 'eventId', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.DEFAULT,
-      pointInTimeRecovery: true,
-    });
+    const eventsTable = dynamodb.Table.fromTableName(this, 'EventsTable', 'gettrainmate-events');
     tables.push(eventsTable);
 
     // Content table (CMS)
-    const contentTable = new dynamodb.Table(this, 'ContentTable', {
-      tableName: 'gettrainmate-content',
-      partitionKey: { name: 'contentId', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.DEFAULT,
-      pointInTimeRecovery: true,
-    });
+    const contentTable = dynamodb.Table.fromTableName(this, 'ContentTable', 'gettrainmate-content');
     tables.push(contentTable);
 
     // Translations table
-    const translationsTable = new dynamodb.Table(this, 'TranslationsTable', {
-      tableName: 'gettrainmate-translations',
-      partitionKey: { name: 'key', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.DEFAULT,
-      pointInTimeRecovery: true,
-    });
-    translationsTable.addGlobalSecondaryIndex({
-      indexName: 'locale-index',
-      partitionKey: { name: 'locale', type: dynamodb.AttributeType.STRING },
-    });
+    const translationsTable = dynamodb.Table.fromTableName(this, 'TranslationsTable', 'gettrainmate-translations');
     tables.push(translationsTable);
 
     // Entitlements table
-    const entitlementsTable = new dynamodb.Table(this, 'EntitlementsTable', {
-      tableName: 'gettrainmate-entitlements',
-      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.DEFAULT,
-      pointInTimeRecovery: true,
-    });
+    const entitlementsTable = dynamodb.Table.fromTableName(this, 'EntitlementsTable', 'gettrainmate-entitlements');
     tables.push(entitlementsTable);
 
     // Leads table
-    const leadsTable = new dynamodb.Table(this, 'LeadsTable', {
-      tableName: 'gettrainmate-leads',
-      partitionKey: { name: 'leadId', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.DEFAULT,
-      pointInTimeRecovery: true,
-    });
+    const leadsTable = dynamodb.Table.fromTableName(this, 'LeadsTable', 'gettrainmate-leads');
     tables.push(leadsTable);
 
     // Audit log table
-    const auditLogTable = new dynamodb.Table(this, 'AuditLogTable', {
-      tableName: 'gettrainmate-audit-log',
-      partitionKey: { name: 'logId', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.DEFAULT,
-      pointInTimeRecovery: true,
-    });
+    const auditLogTable = dynamodb.Table.fromTableName(this, 'AuditLogTable', 'gettrainmate-audit-log');
     tables.push(auditLogTable);
 
     return tables;
