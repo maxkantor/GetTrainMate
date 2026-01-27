@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { AdminRoute } from '@/components/AdminRoute';
 import { LandingPage } from '@/pages/Landing';
 import { PricingPage } from '@/pages/Pricing';
 import { AboutPage } from '@/pages/About';
@@ -20,8 +21,13 @@ import { ChatPage } from '@/pages/app/Chat';
 import { EventsPage } from '@/pages/app/Events';
 import { SubscriptionPage } from '@/pages/app/Subscription';
 import { AdminDashboard } from '@/pages/admin/Dashboard';
+import { DashboardPage } from '@/pages/admin/DashboardPage';
+import { UsersPage } from '@/pages/admin/UsersPage';
+import { DevicesPage } from '@/pages/admin/DevicesPage';
+import { ContactsPage } from '@/pages/admin/ContactsPage';
 import { AdminLoginPage } from '@/pages/admin/AdminLogin';
 import { CMSPage } from '@/pages/admin/CMS';
+import { AdminLayout } from '@/pages/admin/AdminLayout';
 
 export const Router: React.FC = () => {
   return (
@@ -56,13 +62,25 @@ export const Router: React.FC = () => {
             </Route>
 
             {/* Protected admin routes */}
-            <Route element={<ProtectedRoute isAdmin={true} />}>
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/content" element={<CMSPage />} />
-              <Route path="/admin/translations" element={<AdminDashboard />} />
-              <Route path="/admin/media" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<AdminDashboard />} />
-              <Route path="/admin/leads" element={<AdminDashboard />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AdminRoute />}>
+                <Route element={<AdminLayout />}>
+                  <Route path="/admin" element={<DashboardPage />} />
+                  <Route path="/admin/dashboard" element={<DashboardPage />} />
+                  <Route path="/admin/users" element={<UsersPage />} />
+                  <Route path="/admin/devices" element={<DevicesPage />} />
+                  <Route path="/admin/chats" element={<AdminDashboard />} />
+                  <Route path="/admin/events" element={<AdminDashboard />} />
+                  <Route path="/admin/tickets" element={<AdminDashboard />} />
+                  <Route path="/admin/stripe" element={<AdminDashboard />} />
+                  <Route path="/admin/contacts" element={<ContactsPage />} />
+                  <Route path="/admin/audit" element={<AdminDashboard />} />
+                  <Route path="/admin/content" element={<CMSPage />} />
+                  <Route path="/admin/translations" element={<AdminDashboard />} />
+                  <Route path="/admin/media" element={<AdminDashboard />} />
+                  <Route path="/admin/leads" element={<AdminDashboard />} />
+                </Route>
+              </Route>
             </Route>
 
             {/* Catch-all */}

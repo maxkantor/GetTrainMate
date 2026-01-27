@@ -1,3 +1,5 @@
+using Amazon.DynamoDBv2.DataModel;
+
 namespace GetTrainMate.Api.Models;
 
 public class ChatThread
@@ -9,10 +11,15 @@ public class ChatThread
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+[DynamoDBTable("gettrainmate-messages")]
 public class ChatMessage
 {
-    public string MessageId { get; set; } = Guid.NewGuid().ToString();
+    [DynamoDBHashKey]
     public string ThreadId { get; set; } = string.Empty;
+
+    [DynamoDBRangeKey]
+    public string MessageId { get; set; } = Guid.NewGuid().ToString();
+    
     public string SenderId { get; set; } = string.Empty;
     public string SenderName { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;

@@ -1,8 +1,13 @@
+using Amazon.DynamoDBv2.DataModel;
+
 namespace GetTrainMate.Api.Models;
 
+[DynamoDBTable("gettrainmate-events")]
 public class Event
 {
+    [DynamoDBHashKey]
     public string EventId { get; set; } = Guid.NewGuid().ToString();
+    
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Sport { get; set; } = string.Empty;

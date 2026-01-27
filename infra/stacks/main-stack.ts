@@ -66,7 +66,9 @@ export class GetTrainMateStack extends cdk.Stack {
     // DynamoDB Tables
     const tables = this.createDynamoDBTables();
     const adminTables = this.createAdminAndCRMTables();
-    const allTables = [...tables, ...adminTables];
+    const contactsTables = this.createContactsTables();
+    const tokenWalletTables = this.createTokenWalletTables();
+    const allTables = [...tables, ...adminTables, ...contactsTables, ...tokenWalletTables];
 
     // S3 Bucket for media storage
     // Reference existing bucket
@@ -114,6 +116,16 @@ export class GetTrainMateStack extends cdk.Stack {
         'secretsmanager:DescribeSecret',
       ],
       resources: [`arn:aws:secretsmanager:${this.region}:${this.account}:secret:gettrainmate/*`],
+    }));
+
+    // Grant Lambda access to SES for email sending
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'ses:SendEmail',
+        'ses:SendRawEmail',
+      ],
+      resources: ['*'], // SES doesn't support resource-level permissions for SendEmail
     }));
 
     // API Gateway HTTP API
@@ -287,6 +299,95 @@ export class GetTrainMateStack extends cdk.Stack {
       partitionKey: { name: 'EventType', type: dynamodb.AttributeType.STRING },
     });
     tables.push(analyticsTable);
+
+    return tables;
+  }
+
+  private createContactsTables(): dynamodb.ITable[] {
+    const tables: dynamodb.ITable[] = [];
+
+    // Contacts table
+    const contactsTable = new dynamodb.Table(this, 'ContactsTable', {
+      tableName: 'gettrainmate-contacts',
+      partitionKey: { name: 'ContactId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    contactsTable.addGlobalSecondaryIndex({
+      indexName: 'email-index',
+      partitionKey: { name: 'Email', type: dynamodb.AttributeType.STRING },
+    });
+    tables.push(contactsTable);
+
+    // Contact email threads table
+    const threadsTable = new dynamodb.Table(this, 'ContactEmailThreadsTable', {
+      tableName: 'gettrainmate-contact-email-threads',
+      partitionKey: { name: 'ContactId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'ThreadId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(threadsTable);
+
+    // Contact email messages table
+    const messagesTable = new dynamodb.Table(this, 'ContactEmailMessagesTable', {
+      tableName: 'gettrainmate-contact-email-messages',
+      partitionKey: { name: 'ThreadId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'MessageId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(messagesTable);
+
+    return tables;
+  }
+
+  private createTokenWalletTables(): dynamodb.ITable[] {
+    const tables: dynamodb.ITable[] = [];
+
+    // Token wallets table
+    const walletsTable = new dynamodb.Table(this, 'TokenWalletsTable', {
+      tableName: 'gettrainmate-token-wallets',
+      partitionKey: { name: 'WalletId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    walletsTable.addGlobalSecondaryIndex({
+      indexName: 'userId-index',
+      partitionKey: { name: 'UserId', type: dynamodb.AttributeType.STRING },
+    });
+    walletsTable.addGlobalSecondaryIndex({
+      indexName: 'email-index',
+      partitionKey: { name: 'Email', type: dynamodb.AttributeType.STRING },
+    });
+    tables.push(walletsTable);
+
+    // Token ledger table
+    const ledgerTable = new dynamodb.Table(this, 'TokenLedgerTable', {
+      tableName: 'gettrainmate-token-ledger',
+      partitionKey: { name: 'EntryId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'Timestamp', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    ledgerTable.addGlobalSecondaryIndex({
+      indexName: 'walletId-index',
+      partitionKey: { name: 'WalletId', type: dynamodb.AttributeType.STRING },
+    });
+    tables.push(ledgerTable);
+
+    // Stripe customers table
+    const stripeCustomersTable = new dynamodb.Table(this, 'StripeCustomersTable', {
+      tableName: 'gettrainmate-stripe-customers',
+      partitionKey: { name: 'StripeCustomerId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    stripeCustomersTable.addGlobalSecondaryIndex({
+      indexName: 'email-index',
+      partitionKey: { name: 'Email', type: dynamodb.AttributeType.STRING },
+    });
+    tables.push(stripeCustomersTable);
 
     return tables;
   }

@@ -3,139 +3,78 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
+using Microsoft.AspNetCore.Http;
 
 namespace GetTrainMate.Api.Controllers;
 
 [ApiController]
 [Route("api/admin")]
+[Authorize] // Requires JWT authentication
 public class AdminController : ControllerBase
 {
-    private readonly IAdminService _adminService;
+    private readonly IAdminAuthorizationService _adminAuthService;
+    private readonly IAuditLogService _auditLogService;
     private readonly ILogger<AdminController> _logger;
 
-    public AdminController(IAdminService adminService, ILogger<AdminController> logger)
+    public AdminController(
+        IAdminAuthorizationService adminAuthService,
+        IAuditLogService auditLogService,
+        ILogger<AdminController> logger)
     {
-        _adminService = adminService;
+        _adminAuthService = adminAuthService;
+        _auditLogService = auditLogService;
         _logger = logger;
     }
 
-    private string GetAdminId()
+    private AdminIdentity GetAdminIdentity()
     {
-        return User.FindFirst("admin_id")?.Value 
-            ?? throw new UnauthorizedAccessException("Admin ID not found");
+        if (HttpContext.Items["AdminIdentity"] is AdminIdentity identity)
+        {
+            return identity;
+        }
+        
+        // Fallback: extract from claims (shouldn't happen if middleware works)
+        var sub = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            ?? User.FindFirst("sub")?.Value 
+            ?? throw new UnauthorizedAccessException("Admin identity not found");
+        
+        return new AdminIdentity
+        {
+            Sub = sub,
+            CognitoUsername = User.FindFirst("cognito:username")?.Value,
+            Email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value
+        };
     }
 
-    [HttpPost("login")]
-    [AllowAnonymous]
-    public async Task<ActionResult<AdminTokenResponse>> Login([FromBody] AdminLoginRequest request)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password))
-                return BadRequest(new { error = "Email and password required" });
-
-            var response = await _adminService.LoginAsync(request.Email, request.Password);
-            return Ok(response);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            _logger.LogWarning($"Failed admin login attempt for: {request.Email}");
-            return Unauthorized(new { error = "Invalid credentials" });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Admin login error: {ex.Message}");
-            return StatusCode(500, new { error = "Login failed" });
-        }
-    }
-
+    /// <summary>
+    /// GET /api/admin/me
+    /// Get current admin identity
+    /// </summary>
     [HttpGet("me")]
-    [Authorize]
-    public async Task<ActionResult<AdminUserDto>> GetCurrentAdmin()
+    public ActionResult<AdminIdentityResponse> GetCurrentAdmin()
     {
         try
         {
-            var adminId = GetAdminId();
-            var admin = await _adminService.GetAdminAsync(adminId);
-
-            return Ok(new AdminUserDto
+            var identity = GetAdminIdentity();
+            return Ok(new AdminIdentityResponse
             {
-                AdminId = admin.AdminId,
-                Email = admin.Email,
-                Name = admin.Name,
-                Permissions = admin.Permissions,
-                IsActive = admin.IsActive
+                Sub = identity.Sub,
+                CognitoUsername = identity.CognitoUsername,
+                Email = identity.Email
             });
         }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = "Admin not found" });
-        }
         catch (Exception ex)
         {
-            _logger.LogError($"Error retrieving current admin: {ex.Message}");
-            return StatusCode(500, new { error = "Failed to retrieve admin info" });
+            _logger.LogError(ex, "Error getting current admin");
+            return StatusCode(500, new { error = "Failed to get admin identity" });
         }
     }
+}
 
-    [HttpGet("{adminId}")]
-    [Authorize]
-    public async Task<ActionResult<AdminUserDto>> GetAdmin(string adminId)
-    {
-        try
-        {
-            var admin = await _adminService.GetAdminAsync(adminId);
-
-            return Ok(new AdminUserDto
-            {
-                AdminId = admin.AdminId,
-                Email = admin.Email,
-                Name = admin.Name,
-                Permissions = admin.Permissions,
-                IsActive = admin.IsActive
-            });
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = "Admin not found" });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Error retrieving admin: {ex.Message}");
-            return StatusCode(500, new { error = "Failed to retrieve admin" });
-        }
-    }
-
-    [HttpPut("{adminId}")]
-    [Authorize]
-    public async Task<ActionResult> UpdateAdmin(string adminId, [FromBody] AdminUser adminUpdate)
-    {
-        try
-        {
-            var currentAdminId = GetAdminId();
-            
-            // Only allow self-updates or super admin updates
-            if (currentAdminId != adminId)
-            {
-                _logger.LogWarning($"Unauthorized admin update attempt by {currentAdminId}");
-                return Forbid();
-            }
-
-            var admin = await _adminService.GetAdminAsync(adminId);
-            admin.Name = adminUpdate.Name ?? admin.Name;
-            admin.IsActive = adminUpdate.IsActive;
-
-            await _adminService.UpdateAdminAsync(admin);
-            return Ok(new { message = "Admin updated successfully" });
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = "Admin not found" });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Error updating admin: {ex.Message}");
-            return StatusCode(500, new { error = "Failed to update admin" });
-        }
-    }
+// Response models
+public class AdminIdentityResponse
+{
+    public string Sub { get; set; } = string.Empty;
+    public string? CognitoUsername { get; set; }
+    public string? Email { get; set; }
 }
