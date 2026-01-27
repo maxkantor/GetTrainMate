@@ -60,9 +60,19 @@ export const authService = {
     });
   },
 
-  async confirmSignInWithNewPassword(newPassword: string) {
+  async confirmSignInWithNewPassword(newPassword: string, name?: string) {
+    const options: any = {};
+    
+    // If name is provided, include it in user attributes
+    if (name) {
+      options.userAttributes = {
+        name,
+      };
+    }
+    
     return confirmSignIn({
       challengeResponse: newPassword,
+      options,
     });
   },
 

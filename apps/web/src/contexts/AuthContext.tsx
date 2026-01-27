@@ -14,7 +14,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; requiresNewPassword?: boolean }>;
-  confirmSignInWithNewPassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  confirmSignInWithNewPassword: (newPassword: string, name?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
   confirmSignUp: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
@@ -186,10 +186,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const confirmSignInWithNewPassword = async (newPassword: string) => {
+  const confirmSignInWithNewPassword = async (newPassword: string, name?: string) => {
     try {
       setIsLoading(true);
-      const result = await authService.confirmSignInWithNewPassword(newPassword);
+      const result = await authService.confirmSignInWithNewPassword(newPassword, name);
       console.log('ConfirmSignIn result:', result);
       
       // Check if sign-in is now complete
