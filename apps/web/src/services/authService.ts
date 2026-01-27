@@ -48,6 +48,7 @@ export const authService = {
         userAttributes: {
           email,
           given_name: name, // Cognito standard attribute for first name
+          name: name, // Also send as 'name' since it's required in Cognito
         },
       },
     });
@@ -61,13 +62,14 @@ export const authService = {
   },
 
   async confirmSignInWithNewPassword(newPassword: string) {
-    // Cognito requires given_name attribute, so we'll use a default value
-    // derived from email or a placeholder
+    // Cognito requires both given_name and name attributes, so we'll use default values
+    // since we don't collect names during password reset
     return confirmSignIn({
       challengeResponse: newPassword,
       options: {
         userAttributes: {
           given_name: 'User', // Default value since we don't collect names
+          name: 'User', // Also required by Cognito
         },
       },
     });
