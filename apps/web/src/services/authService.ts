@@ -47,7 +47,7 @@ export const authService = {
       options: {
         userAttributes: {
           email,
-          name,
+          given_name: name, // Cognito standard attribute for first name
         },
       },
     });
