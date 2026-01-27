@@ -48,7 +48,13 @@ export const DiscoverPage: React.FC = () => {
       setCurrentIndex(0);
     } catch (err: any) {
       console.error('Error loading feed:', err);
-      setError(err.message || 'Failed to load discovery feed');
+      
+      // Check if it's a network error (API not deployed)
+      if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error') || err.message?.includes('ERR_CONNECTION_REFUSED')) {
+        setError('API is not available. The backend API needs to be deployed. Please check your API configuration or contact support.');
+      } else {
+        setError(err.message || 'Failed to load discovery feed');
+      }
     } finally {
       setLoading(false);
     }
@@ -113,7 +119,12 @@ export const DiscoverPage: React.FC = () => {
   if (error && feed.length === 0) {
     return (
       <Container maxWidth="md" sx={{ py: 8 }}>
-        <Alert severity="info">{error}</Alert>
+        <Alert 
+          severity={error.includes('API is not available') ? 'warning' : 'info'}
+          sx={{ mb: 2 }}
+        >
+          {error}
+        </Alert>
         <Button
           fullWidth
           variant="contained"
@@ -121,7 +132,7 @@ export const DiscoverPage: React.FC = () => {
           onClick={loadFeed}
           sx={{ mt: 2 }}
         >
-          {t('common.back')}
+          Retry
         </Button>
       </Container>
     );
