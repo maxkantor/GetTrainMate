@@ -93,7 +93,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const nextStepType = result.nextStep.signInStep;
         console.log('SignIn nextStep:', nextStepType);
         
-        if (nextStepType === 'CONFIRM_SIGN_IN_WITH_SMS_MFA_CODE' || 
+        if (nextStepType === 'CONFIRM_SIGN_IN_WITH_SMS_CODE' || 
             nextStepType === 'CONFIRM_SIGN_IN_WITH_TOTP_CODE' ||
             nextStepType === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
           return { 
