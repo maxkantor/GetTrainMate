@@ -67,8 +67,9 @@ export class GetTrainMateStack extends cdk.Stack {
     const tables = this.createDynamoDBTables();
 
     // S3 Bucket for media storage
+    // Note: S3 bucket names must be globally unique, so we use a hash
     const mediaBucket = new s3.Bucket(this, 'MediaBucket', {
-      bucketName: `gettrainmate-media-${this.account}-${this.region}`,
+      // Remove explicit bucketName to let CDK generate a unique name
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       versioned: false,
