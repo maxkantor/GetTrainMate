@@ -144,7 +144,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return { success: false, error: 'Login completed but unable to fetch user data' };
     } catch (error: any) {
       console.error('Login error:', error);
-      const message = error.message || error.toString() || 'Login failed';
+      
+      // Provide more helpful error messages
+      let message = 'Login failed';
+      if (error.name === 'NotAuthorizedException') {
+        message = 'Incorrect email or password. Please check your credentials and try again.';
+      } else if (error.name === 'UserNotConfirmedException') {
+        message = 'Your account needs to be confirmed. Please check your email for a verification code.';
+      } else if (error.name === 'UserNotFoundException') {
+        message = 'No account found with this email. Please sign up first.';
+      } else if (error.message) {
+        message = error.message;
+      }
+      
       return { success: false, error: message };
     } finally {
       setIsLoading(false);
