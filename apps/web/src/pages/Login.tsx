@@ -22,13 +22,12 @@ export const LoginPage: React.FC = () => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [requiresNewPassword, setRequiresNewPassword] = useState(false);
   const [error, setError] = useState('');
-  const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string; name?: string; newPassword?: string; confirmNewPassword?: string }>({});
+  const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string; newPassword?: string; confirmNewPassword?: string }>({});
 
   const validateForm = () => {
     const errors: typeof validationErrors = {};
@@ -48,9 +47,6 @@ export const LoginPage: React.FC = () => {
 
   const validateNewPasswordForm = () => {
     const errors: typeof validationErrors = {};
-    if (!name || name.trim().length < 2) {
-      errors.name = t('validation.nameRequired');
-    }
     if (!newPassword) {
       errors.newPassword = t('validation.passwordRequired');
     } else if (newPassword.length < 8) {
@@ -99,7 +95,7 @@ export const LoginPage: React.FC = () => {
     }
 
     try {
-      const result = await confirmSignInWithNewPassword(newPassword, name);
+      const result = await confirmSignInWithNewPassword(newPassword);
       if (result.success) {
         if (rememberMe) {
           localStorage.setItem('rememberEmail', email);
@@ -132,19 +128,6 @@ export const LoginPage: React.FC = () => {
           )}
 
           <form onSubmit={handleNewPasswordSubmit}>
-            <TextField
-              fullWidth
-              label={t('auth.name')}
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              error={!!validationErrors.name}
-              helperText={validationErrors.name}
-              disabled={isLoading}
-              margin="normal"
-              autoComplete="name"
-            />
-
             <TextField
               fullWidth
               label="New Password"

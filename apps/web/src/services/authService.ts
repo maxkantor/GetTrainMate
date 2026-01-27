@@ -60,19 +60,16 @@ export const authService = {
     });
   },
 
-  async confirmSignInWithNewPassword(newPassword: string, name?: string) {
-    const options: any = {};
-    
-    // If name is provided, include it in user attributes
-    if (name) {
-      options.userAttributes = {
-        name,
-      };
-    }
-    
+  async confirmSignInWithNewPassword(newPassword: string) {
+    // Cognito requires given_name attribute, so we'll use a default value
+    // derived from email or a placeholder
     return confirmSignIn({
       challengeResponse: newPassword,
-      options,
+      options: {
+        userAttributes: {
+          given_name: 'User', // Default value since we don't collect names
+        },
+      },
     });
   },
 
