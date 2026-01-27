@@ -229,6 +229,11 @@ export class GetTrainMateStack extends cdk.Stack {
       encryption: dynamodb.TableEncryption.DEFAULT,
       pointInTimeRecovery: true,
     });
+    // Add GSI for querying payments by userId (without needing PaymentId)
+    paymentsTable.addGlobalSecondaryIndex({
+      indexName: 'userId-index',
+      partitionKey: { name: 'UserId', type: dynamodb.AttributeType.STRING },
+    });
     tables.push(paymentsTable);
 
     // Subscriptions table - for subscription management and CRM
