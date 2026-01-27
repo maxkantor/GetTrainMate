@@ -60,10 +60,16 @@ export const authService = {
   },
 
   async login(email: string, password: string) {
-    return signIn({
-      username: email,
-      password,
-    });
+    try {
+      const result = await signIn({
+        username: email,
+        password,
+      });
+      return result;
+    } catch (error: any) {
+      console.error('SignIn error:', error);
+      throw error;
+    }
   },
 
   async logout() {

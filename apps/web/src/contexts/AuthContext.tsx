@@ -39,16 +39,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Helper to extract user data from Amplify user
   const extractUserData = async (amplifyUser: any): Promise<AuthUser> => {
-    // Get groups from JWT token
-    const session = await fetchAuthSession();
-    const groups = (session.tokens?.accessToken?.payload['cognito:groups'] as string[]) || [];
+    try {
+      // Get groups from JWT token
+      const session = await fetchAuthSession();
+      const groups = (session.tokens?.accessToken?.payload['cognito:groups'] as string[]) || [];
 
-    return {
-      email: amplifyUser.signInDetails?.loginId || amplifyUser.username,
-      name: amplifyUser.username,
-      sub: amplifyUser.userId,
-      groups,
-    };
+      return {
+        email: amplifyUser.signInDetails?.loginId || amplifyUser.username,
+        name: amplifyUser.username,
+        sub: amplifyUser.userId,
+        groups,
+      };
+    } catch (error) {
+      console.error('Error extracting user data:', error);
+      // Return basic user data even if session fetch fails
+      return {
+        email: amplifyUser.signInDetails?.loginId || amplifyUser.username || '',
+        name: amplifyUser.username || '',
+        sub: amplifyUser.userId || '',
+        groups: [],
+      };
+    }
   };
 
   // Initialize auth on mount
@@ -73,18 +84,58 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
+      console.log('Attempting login for:', email);
       const result = await authService.login(email, password);
+      console.log('SignIn result:', result);
       
-      // Fetch user data after successful login
+      // Check if sign-in requires additional steps
+      if (result.nextStep) {
+        const nextStepType = result.nextStep.signInStep;
+        console.log('SignIn nextStep:', nextStepType);
+        
+        if (nextStepType === 'CONFIRM_SIGN_IN_WITH_SMS_MFA_CODE' || 
+            nextStepType === 'CONFIRM_SIGN_IN_WITH_TOTP_CODE' ||
+            nextStepType === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+          return { 
+            success: false, 
+            error: `Additional authentication required: ${nextStepType}` 
+          };
+        }
+        
+        if (nextStepType === 'DONE') {
+          // Sign-in is complete, wait a moment for session to be established
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Fetch user data after successful login
+          const currentUser = await authService.getCurrentUser();
+          console.log('Current user after login:', currentUser);
+          
+          if (currentUser) {
+            const userData = await extractUserData(currentUser);
+            console.log('Extracted user data:', userData);
+            setUser(userData);
+            return { success: true };
+          } else {
+            return { success: false, error: 'Login completed but unable to fetch user data' };
+          }
+        }
+      }
+      
+      // If no nextStep, try to get current user anyway (for backwards compatibility)
+      await new Promise(resolve => setTimeout(resolve, 100));
       const currentUser = await authService.getCurrentUser();
+      console.log('Current user (no nextStep):', currentUser);
+      
       if (currentUser) {
         const userData = await extractUserData(currentUser);
         setUser(userData);
+        return { success: true };
       }
       
-      return { success: true };
+      return { success: false, error: 'Login completed but unable to fetch user data' };
     } catch (error: any) {
-      const message = error.message || 'Login failed';
+      console.error('Login error:', error);
+      const message = error.message || error.toString() || 'Login failed';
       return { success: false, error: message };
     } finally {
       setIsLoading(false);
