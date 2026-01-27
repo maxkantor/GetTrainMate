@@ -4,6 +4,7 @@ import {
   signIn,
   signOut,
   confirmSignUp,
+  confirmSignIn,
   resetPassword,
   confirmResetPassword,
   fetchAuthSession,
@@ -56,6 +57,12 @@ export const authService = {
     return confirmSignUp({
       username: email,
       confirmationCode: code,
+    });
+  },
+
+  async confirmSignInWithNewPassword(newPassword: string) {
+    return confirmSignIn({
+      challengeResponse: newPassword,
     });
   },
 

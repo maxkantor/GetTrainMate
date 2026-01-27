@@ -18,13 +18,16 @@ import styles from '@/styles/Auth.module.css';
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { login, isLoading } = useAuthContext();
+  const { login, confirmSignInWithNewPassword, isLoading } = useAuthContext();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [requiresNewPassword, setRequiresNewPassword] = useState(false);
   const [error, setError] = useState('');
-  const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string }>({});
+  const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string; newPassword?: string; confirmNewPassword?: string }>({});
 
   const validateForm = () => {
     const errors: typeof validationErrors = {};
@@ -37,6 +40,20 @@ export const LoginPage: React.FC = () => {
       errors.password = t('validation.passwordRequired');
     } else if (password.length < 8) {
       errors.password = t('validation.passwordMinLength');
+    }
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateNewPasswordForm = () => {
+    const errors: typeof validationErrors = {};
+    if (!newPassword) {
+      errors.newPassword = t('validation.passwordRequired');
+    } else if (newPassword.length < 8) {
+      errors.newPassword = t('validation.passwordMinLength');
+    }
+    if (newPassword !== confirmNewPassword) {
+      errors.confirmNewPassword = t('validation.passwordMismatch');
     }
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -57,6 +74,9 @@ export const LoginPage: React.FC = () => {
           localStorage.setItem('rememberEmail', email);
         }
         navigate('/app/discover');
+      } else if (result.requiresNewPassword) {
+        setRequiresNewPassword(true);
+        setError('');
       } else {
         setError(result.error || t('errors.loginFailed'));
       }
@@ -65,6 +85,90 @@ export const LoginPage: React.FC = () => {
       setError(errMessage);
     }
   };
+
+  const handleNewPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!validateNewPasswordForm()) {
+      return;
+    }
+
+    try {
+      const result = await confirmSignInWithNewPassword(newPassword);
+      if (result.success) {
+        if (rememberMe) {
+          localStorage.setItem('rememberEmail', email);
+        }
+        navigate('/app/discover');
+      } else {
+        setError(result.error || 'Failed to set new password');
+      }
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : 'Failed to set new password';
+      setError(errMessage);
+    }
+  };
+
+  if (requiresNewPassword) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 8 }}>
+        <Box sx={{ backgroundColor: '#fff', padding: 4, borderRadius: 2, boxShadow: 1 }}>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
+            Set New Password
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ marginBottom: 3 }}>
+            Please set a new password to continue
+          </Typography>
+
+          {error && (
+            <Alert severity="error" sx={{ marginBottom: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          <form onSubmit={handleNewPasswordSubmit}>
+            <TextField
+              fullWidth
+              label="New Password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              error={!!validationErrors.newPassword}
+              helperText={validationErrors.newPassword}
+              disabled={isLoading}
+              margin="normal"
+              autoComplete="new-password"
+            />
+
+            <TextField
+              fullWidth
+              label="Confirm New Password"
+              type="password"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              error={!!validationErrors.confirmNewPassword}
+              helperText={validationErrors.confirmNewPassword}
+              disabled={isLoading}
+              margin="normal"
+              autoComplete="new-password"
+            />
+
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              type="submit"
+              disabled={isLoading}
+              sx={{ marginY: 2, padding: '10px' }}
+            >
+              {isLoading ? <CircularProgress size={24} /> : 'Set New Password'}
+            </Button>
+          </form>
+        </Box>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="sm" sx={{ py: 8 }}>

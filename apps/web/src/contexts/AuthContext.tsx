@@ -13,7 +13,8 @@ interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; requiresNewPassword?: boolean }>;
+  confirmSignInWithNewPassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
   confirmSignUp: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
@@ -24,6 +25,7 @@ export const AuthContext = createContext<AuthContextType>({
   isLoading: false,
   isAuthenticated: false,
   login: async () => ({ success: false }),
+  confirmSignInWithNewPassword: async () => ({ success: false }),
   logout: async () => {},
   signup: async () => ({ success: false }),
   confirmSignUp: async () => ({ success: false }),
@@ -94,11 +96,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('SignIn nextStep:', nextStepType);
         
         if (nextStepType === 'CONFIRM_SIGN_IN_WITH_SMS_CODE' || 
-            nextStepType === 'CONFIRM_SIGN_IN_WITH_TOTP_CODE' ||
-            nextStepType === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+            nextStepType === 'CONFIRM_SIGN_IN_WITH_TOTP_CODE') {
           return { 
             success: false, 
             error: `Additional authentication required: ${nextStepType}` 
+          };
+        }
+        
+        if (nextStepType === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED') {
+          return { 
+            success: false, 
+            requiresNewPassword: true,
+            error: 'Please set a new password to continue' 
           };
         }
         
@@ -177,6 +186,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const confirmSignInWithNewPassword = async (newPassword: string) => {
+    try {
+      setIsLoading(true);
+      const result = await authService.confirmSignInWithNewPassword(newPassword);
+      console.log('ConfirmSignIn result:', result);
+      
+      // Check if sign-in is now complete
+      if (result.nextStep?.signInStep === 'DONE' || result.isSignedIn) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const currentUser = await authService.getCurrentUser();
+        if (currentUser) {
+          const userData = await extractUserData(currentUser);
+          setUser(userData);
+          return { success: true };
+        }
+      }
+      
+      return { success: false, error: 'Password updated but unable to complete sign-in' };
+    } catch (error: any) {
+      console.error('ConfirmSignIn error:', error);
+      const message = error.message || 'Failed to set new password';
+      return { success: false, error: message };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -184,6 +220,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading,
         isAuthenticated: !!user,
         login,
+        confirmSignInWithNewPassword,
         logout,
         signup,
         confirmSignUp,
