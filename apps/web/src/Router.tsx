@@ -25,7 +25,7 @@ import { DashboardPage as AdminDashboardPage } from '@/pages/admin/DashboardPage
 import { UsersPage } from '@/pages/admin/UsersPage';
 import { DevicesPage } from '@/pages/admin/DevicesPage';
 import { ContactsPage } from '@/pages/admin/ContactsPage';
-import { AdminLoginPage } from '@/pages/admin/AdminLogin';
+import { AdminLoginPage } from '@/pages/admin/AdminLoginPage';
 import { CMSPage } from '@/pages/admin/CMS';
 import { AdminLayout } from '@/pages/admin/AdminLayout';
 
@@ -62,8 +62,7 @@ export const Router: React.FC = () => {
             </Route>
 
             {/* Protected admin routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<AdminRoute />}>
+            <Route element={<AdminRoute />}>
                 <Route element={<AdminLayout />}>
                   <Route path="/admin" element={<AdminDashboardPage />} />
                   <Route path="/admin/dashboard" element={<AdminDashboardPage />} />

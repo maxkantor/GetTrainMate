@@ -1,76 +1,65 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuthContext } from '@/hooks/useAuthContext';
-import { fetchAuthSession } from 'aws-amplify/auth';
 import { Alert, Snackbar } from '@mui/material';
+import { adminApiService } from '@/services/adminApiService';
+
+const SESSION_STORAGE_KEY = 'admin_session';
 
 interface AdminRouteProps {
   // No props needed - uses Outlet pattern
 }
 
 /**
- * Admin route guard that checks if user is in admin allowlist
- * Checks JWT claims (sub, cognito:username, email) against allowlist
+ * Admin route guard that checks for valid admin session
+ * Uses SSM-based password authentication with cached sessions
  */
 export const AdminRoute: React.FC<AdminRouteProps> = () => {
-  const { isAuthenticated } = useAuthContext();
   const location = useLocation();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkAdminAccess = async () => {
-      if (!isAuthenticated) {
-        setIsAdmin(false);
-        return;
-      }
-
+    const checkAdminSession = async () => {
       try {
-        // Get ID token from Amplify
-        const session = await fetchAuthSession();
-        const idToken = session.tokens?.idToken;
-
-        if (!idToken) {
+        const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
+        
+        if (!sessionData) {
           setIsAdmin(false);
-          setError('No authentication token found');
           return;
         }
 
-        // Extract claims
-        const sub = idToken.payload.sub as string | undefined;
-        const cognitoUsername = idToken.payload['cognito:username'] as string | undefined;
-        const email = idToken.payload.email as string | undefined;
+        const session = JSON.parse(sessionData);
+        
+        // Check if session is expired
+        if (new Date(session.expiresAt) <= new Date()) {
+          localStorage.removeItem(SESSION_STORAGE_KEY);
+          setIsAdmin(false);
+          return;
+        }
 
-        // Get allowlist from environment (same as backend)
-        const allowlistEnv = import.meta.env.VITE_ADMIN_ALLOWLIST || 'mykantor@bellsouth.net';
-        const allowlist = allowlistEnv
-          .split(',')
-          .map((item: string) => item.trim().toLowerCase())
-          .filter((item: string) => item.length > 0);
-
-        // Check if ANY claim matches ANY allowlist entry
-        const claims = [sub, cognitoUsername, email]
-          .filter((claim): claim is string => !!claim)
-          .map((claim) => claim.toLowerCase());
-
-        const isInAllowlist = claims.some((claim) =>
-          allowlist.some((allowed: string) => claim === allowed)
-        );
-
-        setIsAdmin(isInAllowlist);
-
-        if (!isInAllowlist) {
-          setError('Access denied: You are not authorized to access the admin portal');
+        // Validate session with backend
+        try {
+          await adminApiService.post('/api/admin/login/validate-session', {
+            sessionToken: session.sessionToken,
+            email: session.email,
+          });
+          
+          setIsAdmin(true);
+        } catch (err) {
+          // Session invalid
+          localStorage.removeItem(SESSION_STORAGE_KEY);
+          setIsAdmin(false);
+          setError('Session expired. Please login again.');
         }
       } catch (err) {
-        console.error('Error checking admin access:', err);
+        console.error('Error checking admin session:', err);
         setIsAdmin(false);
         setError('Error checking admin access');
       }
     };
 
-    checkAdminAccess();
-  }, [isAuthenticated]);
+    checkAdminSession();
+  }, []);
 
   if (isAdmin === null) {
     // Still checking
@@ -80,7 +69,7 @@ export const AdminRoute: React.FC<AdminRouteProps> = () => {
   if (!isAdmin) {
     return (
       <>
-        <Navigate to="/" replace state={{ from: location }} />
+        <Navigate to="/admin/login" replace state={{ from: location }} />
         <Snackbar
           open={!!error}
           autoHideDuration={6000}
@@ -88,7 +77,7 @@ export const AdminRoute: React.FC<AdminRouteProps> = () => {
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
           <Alert severity="error" onClose={() => setError(null)}>
-            {error || 'Access denied'}
+            {error || 'Please login to access the admin portal'}
           </Alert>
         </Snackbar>
       </>

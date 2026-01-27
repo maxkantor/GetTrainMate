@@ -32,8 +32,16 @@ class AdminApiService {
     return response.json();
   }
 
-  async post(endpoint: string, data?: any): Promise<any> {
-    const headers = await this.getAuthHeaders();
+  async post(endpoint: string, data?: any, skipAuth: boolean = false): Promise<any> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (!skipAuth) {
+      const authHeaders = await this.getAuthHeaders();
+      Object.assign(headers, authHeaders);
+    }
+    
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers,
