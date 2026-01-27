@@ -12,5 +12,5 @@
     "resolveJsonModule": true,
     "moduleResolution": "node"
   },
-  "include": ["bin/**/*.ts", "lib/**/*.ts"]
+  "include": ["bin/**/*.ts", "stacks/**/*.ts"]
 }
