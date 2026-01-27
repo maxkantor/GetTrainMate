@@ -14,14 +14,14 @@ import { TermsPage } from '@/pages/Terms';
 import { GearPage } from '@/pages/Gear';
 import { LoginPage } from '@/pages/Login';
 import { SignupPage } from '@/pages/Signup';
-import { DashboardPage } from '@/pages/app/Dashboard';
+import { DashboardPage as AppDashboardPage } from '@/pages/app/Dashboard';
 import { ProfilePage } from '@/pages/app/Profile';
 import { DiscoverPage } from '@/pages/app/Discover';
 import { ChatPage } from '@/pages/app/Chat';
 import { EventsPage } from '@/pages/app/Events';
 import { SubscriptionPage } from '@/pages/app/Subscription';
 import { AdminDashboard } from '@/pages/admin/Dashboard';
-import { DashboardPage } from '@/pages/admin/DashboardPage';
+import { DashboardPage as AdminDashboardPage } from '@/pages/admin/DashboardPage';
 import { UsersPage } from '@/pages/admin/UsersPage';
 import { DevicesPage } from '@/pages/admin/DevicesPage';
 import { ContactsPage } from '@/pages/admin/ContactsPage';
@@ -53,20 +53,20 @@ export const Router: React.FC = () => {
             {/* Protected app routes */}
             <Route element={<ProtectedRoute />}>
               <Route path="/app/discover" element={<DiscoverPage />} />
-              <Route path="/app/matches" element={<DashboardPage />} />
+              <Route path="/app/matches" element={<AppDashboardPage />} />
               <Route path="/app/chat" element={<ChatPage />} />
               <Route path="/app/events" element={<EventsPage />} />
               <Route path="/app/subscription" element={<SubscriptionPage />} />
               <Route path="/app/profile" element={<ProfilePage />} />
-              <Route path="/app/settings" element={<DashboardPage />} />
+              <Route path="/app/settings" element={<AppDashboardPage />} />
             </Route>
 
             {/* Protected admin routes */}
             <Route element={<ProtectedRoute />}>
               <Route element={<AdminRoute />}>
                 <Route element={<AdminLayout />}>
-                  <Route path="/admin" element={<DashboardPage />} />
-                  <Route path="/admin/dashboard" element={<DashboardPage />} />
+                  <Route path="/admin" element={<AdminDashboardPage />} />
+                  <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                   <Route path="/admin/users" element={<UsersPage />} />
                   <Route path="/admin/devices" element={<DevicesPage />} />
                   <Route path="/admin/chats" element={<AdminDashboard />} />

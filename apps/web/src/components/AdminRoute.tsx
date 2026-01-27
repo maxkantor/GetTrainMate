@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthContext } from '@/hooks/useAuthContext';
-import { fetchAuthSession, getCurrentUser } from 'aws-amplify/auth';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import { Alert, Snackbar } from '@mui/material';
 
 interface AdminRouteProps {
-  children: React.ReactNode;
+  // No props needed - uses Outlet pattern
 }
 
 /**
  * Admin route guard that checks if user is in admin allowlist
  * Checks JWT claims (sub, cognito:username, email) against allowlist
  */
-export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
+export const AdminRoute: React.FC<AdminRouteProps> = () => {
   const { isAuthenticated } = useAuthContext();
   const location = useLocation();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -54,7 +54,7 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
           .map((claim) => claim.toLowerCase());
 
         const isInAllowlist = claims.some((claim) =>
-          allowlist.some((allowed) => claim === allowed)
+          allowlist.some((allowed: string) => claim === allowed)
         );
 
         setIsAdmin(isInAllowlist);
@@ -95,5 +95,5 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
     );
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 };
