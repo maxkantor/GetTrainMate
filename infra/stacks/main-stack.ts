@@ -65,6 +65,8 @@ export class GetTrainMateStack extends cdk.Stack {
 
     // DynamoDB Tables
     const tables = this.createDynamoDBTables();
+    const adminTables = this.createAdminAndCRMTables();
+    const allTables = [...tables, ...adminTables];
 
     // S3 Bucket for media storage
     // Reference existing bucket
@@ -89,7 +91,7 @@ export class GetTrainMateStack extends cdk.Stack {
     });
 
     // Grant Lambda permissions
-    tables.forEach(table => {
+    allTables.forEach(table => {
       table.grantReadWriteData(apiLambda);
     });
     mediaBucket.grantReadWrite(apiLambda);
@@ -199,6 +201,87 @@ export class GetTrainMateStack extends cdk.Stack {
     // Audit log table
     const auditLogTable = dynamodb.Table.fromTableName(this, 'AuditLogTable', 'gettrainmate-audit-log');
     tables.push(auditLogTable);
+
+    return tables;
+  }
+
+  private createAdminAndCRMTables(): dynamodb.ITable[] {
+    const tables: dynamodb.ITable[] = [];
+
+    // Admins table - for admin user management
+    // Note: Table uses Email as partition key and AdminId as sort key
+    const adminsTable = new dynamodb.Table(this, 'AdminsTable', {
+      tableName: 'gettrainmate-admins',
+      partitionKey: { name: 'Email', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'AdminId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(adminsTable);
+
+    // Payments table - for payment tracking
+    // Note: Payment model uses PaymentId as partition key and UserId as sort key
+    const paymentsTable = new dynamodb.Table(this, 'PaymentsTable', {
+      tableName: 'gettrainmate-payments',
+      partitionKey: { name: 'PaymentId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'UserId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+      pointInTimeRecovery: true,
+    });
+    tables.push(paymentsTable);
+
+    // Subscriptions table - for subscription management and CRM
+    const subscriptionsTable = new dynamodb.Table(this, 'SubscriptionsTable', {
+      tableName: 'gettrainmate-subscriptions',
+      partitionKey: { name: 'SubscriptionId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+      pointInTimeRecovery: true,
+    });
+    subscriptionsTable.addGlobalSecondaryIndex({
+      indexName: 'userId-index',
+      partitionKey: { name: 'UserId', type: dynamodb.AttributeType.STRING },
+    });
+    subscriptionsTable.addGlobalSecondaryIndex({
+      indexName: 'status-index',
+      partitionKey: { name: 'Status', type: dynamodb.AttributeType.STRING },
+    });
+    tables.push(subscriptionsTable);
+
+    // Support tickets table - for customer support CRM
+    const supportTicketsTable = new dynamodb.Table(this, 'SupportTicketsTable', {
+      tableName: 'gettrainmate-support-tickets',
+      partitionKey: { name: 'TicketId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    supportTicketsTable.addGlobalSecondaryIndex({
+      indexName: 'userId-index',
+      partitionKey: { name: 'UserId', type: dynamodb.AttributeType.STRING },
+    });
+    supportTicketsTable.addGlobalSecondaryIndex({
+      indexName: 'status-index',
+      partitionKey: { name: 'Status', type: dynamodb.AttributeType.STRING },
+    });
+    tables.push(supportTicketsTable);
+
+    // Analytics/Usage tracking table - for admin analytics dashboard
+    const analyticsTable = new dynamodb.Table(this, 'AnalyticsTable', {
+      tableName: 'gettrainmate-analytics',
+      partitionKey: { name: 'EventId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    analyticsTable.addGlobalSecondaryIndex({
+      indexName: 'date-index',
+      partitionKey: { name: 'Date', type: dynamodb.AttributeType.STRING },
+    });
+    analyticsTable.addGlobalSecondaryIndex({
+      indexName: 'eventType-index',
+      partitionKey: { name: 'EventType', type: dynamodb.AttributeType.STRING },
+    });
+    tables.push(analyticsTable);
 
     return tables;
   }
