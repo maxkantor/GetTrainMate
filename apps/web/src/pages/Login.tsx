@@ -51,11 +51,15 @@ export const LoginPage: React.FC = () => {
     }
 
     try {
-      await login(email, password);
-      if (rememberMe) {
-        localStorage.setItem('rememberEmail', email);
+      const result = await login(email, password);
+      if (result.success) {
+        if (rememberMe) {
+          localStorage.setItem('rememberEmail', email);
+        }
+        navigate('/app/discover');
+      } else {
+        setError(result.error || t('errors.loginFailed'));
       }
-      navigate('/app/discover');
     } catch (err) {
       const errMessage = err instanceof Error ? err.message : t('errors.loginFailed');
       setError(errMessage);

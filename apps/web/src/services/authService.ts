@@ -13,14 +13,27 @@ import {
 } from 'aws-amplify/auth';
 
 const configureAmplify = () => {
-  Amplify.configure({
-    Auth: {
-      Cognito: {
-        userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID || '',
-        userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID || '',
+  const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID;
+  const userPoolClientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
+
+  if (!userPoolId || !userPoolClientId) {
+    console.error('Missing Cognito configuration. Please set VITE_COGNITO_USER_POOL_ID and VITE_COGNITO_CLIENT_ID');
+    return;
+  }
+
+  try {
+    Amplify.configure({
+      Auth: {
+        Cognito: {
+          userPoolId,
+          userPoolClientId,
+        },
       },
-    },
-  });
+    });
+    console.log('Amplify configured successfully');
+  } catch (error) {
+    console.error('Failed to configure Amplify:', error);
+  }
 };
 
 export const authService = {

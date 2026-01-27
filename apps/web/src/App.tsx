@@ -1,9 +1,12 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { I18nProvider } from '@/contexts/I18nContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Router } from '@/Router';
 import { authService } from '@/services/authService';
+
+// Initialize AWS Amplify before React renders
+authService.configure();
 
 const theme = createTheme({
   palette: {
@@ -23,10 +26,6 @@ const theme = createTheme({
 });
 
 function App() {
-  useEffect(() => {
-    // Initialize AWS Amplify
-    authService.configure();
-  }, []);
 
   return (
     <ThemeProvider theme={theme}>
