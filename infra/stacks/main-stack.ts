@@ -41,10 +41,6 @@ export class GetTrainMateStack extends cdk.Stack {
             required: true,
             mutable: true,
           },
-          name: {
-            required: true,
-            mutable: true,
-          },
         },
         passwordPolicy: {
           minLength: 8,
@@ -76,26 +72,20 @@ export class GetTrainMateStack extends cdk.Stack {
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       versioned: false,
-      lifecycleRules: [
-        {
-          id: 'DeleteOldVersions',
-          enabled: true,
-        },
-      ],
     });
 
     // Lambda function for API
     // Note: The Lambda code needs to be built and published first:
     // cd apps/api && dotnet publish -c Release
     const apiLambda = new lambda.Function(this, 'ApiFunction', {
-      runtime: lambda.Runtime.DOTNET_8,
+      runtime: lambda.Runtime.DOTNET_6,
       handler: 'GetTrainMate.Api::GetTrainMate.Api.LambdaEntryPoint::FunctionHandlerAsync',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../../../apps/api/bin/Release/net8.0/publish')),
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../apps/api/bin/Release/net8.0/publish')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: {
         ASPNETCORE_ENVIRONMENT: 'Production',
-        AWS_REGION: this.region,
+        // AWS_REGION is automatically set by Lambda runtime
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         DYNAMODB_TABLE_PREFIX: 'gettrainmate-',
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
@@ -178,7 +168,7 @@ export class GetTrainMateStack extends cdk.Stack {
       tableName: 'gettrainmate-users',
       partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      encryption: dynamodb.TableEncryption.DEFAULT,
       pointInTimeRecovery: true,
     });
     tables.push(usersTable);
@@ -188,7 +178,7 @@ export class GetTrainMateStack extends cdk.Stack {
       tableName: 'gettrainmate-profiles',
       partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      encryption: dynamodb.TableEncryption.DEFAULT,
       pointInTimeRecovery: true,
     });
     tables.push(profilesTable);
@@ -198,7 +188,7 @@ export class GetTrainMateStack extends cdk.Stack {
       tableName: 'gettrainmate-matches',
       partitionKey: { name: 'matchId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      encryption: dynamodb.TableEncryption.DEFAULT,
       pointInTimeRecovery: true,
     });
     matchesTable.addGlobalSecondaryIndex({
@@ -217,7 +207,7 @@ export class GetTrainMateStack extends cdk.Stack {
       partitionKey: { name: 'threadId', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      encryption: dynamodb.TableEncryption.DEFAULT,
       pointInTimeRecovery: true,
     });
     tables.push(messagesTable);
@@ -227,7 +217,7 @@ export class GetTrainMateStack extends cdk.Stack {
       tableName: 'gettrainmate-events',
       partitionKey: { name: 'eventId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      encryption: dynamodb.TableEncryption.DEFAULT,
       pointInTimeRecovery: true,
     });
     tables.push(eventsTable);
@@ -237,7 +227,7 @@ export class GetTrainMateStack extends cdk.Stack {
       tableName: 'gettrainmate-content',
       partitionKey: { name: 'contentId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      encryption: dynamodb.TableEncryption.DEFAULT,
       pointInTimeRecovery: true,
     });
     tables.push(contentTable);
@@ -247,7 +237,7 @@ export class GetTrainMateStack extends cdk.Stack {
       tableName: 'gettrainmate-translations',
       partitionKey: { name: 'key', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      encryption: dynamodb.TableEncryption.DEFAULT,
       pointInTimeRecovery: true,
     });
     translationsTable.addGlobalSecondaryIndex({
@@ -261,7 +251,7 @@ export class GetTrainMateStack extends cdk.Stack {
       tableName: 'gettrainmate-entitlements',
       partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      encryption: dynamodb.TableEncryption.DEFAULT,
       pointInTimeRecovery: true,
     });
     tables.push(entitlementsTable);
@@ -271,7 +261,7 @@ export class GetTrainMateStack extends cdk.Stack {
       tableName: 'gettrainmate-leads',
       partitionKey: { name: 'leadId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      encryption: dynamodb.TableEncryption.DEFAULT,
       pointInTimeRecovery: true,
     });
     tables.push(leadsTable);
@@ -281,7 +271,7 @@ export class GetTrainMateStack extends cdk.Stack {
       tableName: 'gettrainmate-audit-log',
       partitionKey: { name: 'logId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      encryption: dynamodb.TableEncryption.DEFAULT,
       pointInTimeRecovery: true,
     });
     tables.push(auditLogTable);
