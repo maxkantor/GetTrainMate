@@ -67,19 +67,8 @@ export class GetTrainMateStack extends cdk.Stack {
     const tables = this.createDynamoDBTables();
 
     // S3 Bucket for media storage
-    // Reference existing bucket if it exists, otherwise CDK will create a new one
-    let mediaBucket: s3.IBucket;
-    try {
-      // Try to reference existing bucket
-      mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', 'getrainmate-media-bucket');
-    } catch {
-      // If bucket doesn't exist, create a new one
-      mediaBucket = new s3.Bucket(this, 'MediaBucket', {
-        encryption: s3.BucketEncryption.S3_MANAGED,
-        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-        versioned: false,
-      });
-    }
+    // Reference existing bucket
+    const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', 'getrainmate-media-bucket');
 
     // Lambda function for API
     // Note: The Lambda code needs to be built and published first:
