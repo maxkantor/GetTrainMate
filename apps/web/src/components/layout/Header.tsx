@@ -20,10 +20,10 @@ export const Header: React.FC = () => {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-  // Handle scroll for sticky header shadow
+  // Handle scroll for transparent header
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 10);
+      setScrolled(window.scrollY > 20);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -43,7 +43,6 @@ export const Header: React.FC = () => {
           setProfileComplete(true);
           return;
         }
-
         const profile = await profileService.getMyProfile(token);
         setProfileComplete(profile.isComplete || false);
       } catch (error) {
@@ -64,7 +63,6 @@ export const Header: React.FC = () => {
         setUserMenuOpen(false);
       }
     };
-
     if (userMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -81,14 +79,13 @@ export const Header: React.FC = () => {
         }
       }
     };
-
     if (mobileMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [mobileMenuOpen]);
 
-  // Close mobile menu on ESC key
+  // Close menus on ESC
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -96,7 +93,6 @@ export const Header: React.FC = () => {
         setUserMenuOpen(false);
       }
     };
-
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
   }, []);
@@ -108,21 +104,24 @@ export const Header: React.FC = () => {
     navigate('/');
   };
 
-  const navItems = [
+  // Public nav items (only show when NOT authenticated)
+  const publicNavItems = [
     { label: t('header.pricing'), href: '/pricing' },
     { label: t('header.about'), href: '/about' },
     { label: t('header.faq'), href: '/faq' },
     { label: t('header.contact'), href: '/contact' },
   ];
 
-  const appNavItems = [
+  // Authenticated nav items (only show when authenticated)
+  const authNavItems = [
     { label: t('nav.dashboard'), href: '/app/discover' },
     { label: t('nav.match'), href: '/app/matches' },
     { label: t('nav.chat'), href: '/app/chat' },
     { label: t('nav.events'), href: '/app/events' },
   ];
 
-  const currentNavItems = isAuthenticated ? appNavItems : navItems;
+  // Determine which nav items to show based on auth state
+  const navItems = isAuthenticated ? authNavItems : publicNavItems;
 
   const isActiveRoute = (href: string) => {
     if (href === '/app/discover' || href === '/app/dashboard') {
@@ -131,15 +130,15 @@ export const Header: React.FC = () => {
     return location.pathname === href || location.pathname.startsWith(href + '/');
   };
 
-  // Check if we're on the landing page (for transparent header)
+  // Transparent header on landing page when not scrolled
   const isLandingPage = location.pathname === '/';
-  const shouldBeTransparent = isLandingPage && !scrolled;
+  const isTransparent = isLandingPage && !scrolled;
 
   return (
-    <header className={`${styles.header} ${scrolled ? styles.scrolled : ''} ${shouldBeTransparent ? styles.transparent : ''}`}>
+    <header className={`${styles.header} ${scrolled ? styles.scrolled : ''} ${isTransparent ? styles.transparent : ''}`}>
       <Container>
         <div className={styles.headerInner}>
-          {/* Logo */}
+          {/* Logo - Left */}
           <RouterLink to="/" className={styles.logo} aria-label="GetTrainMate Home">
             <span className={styles.logoIcon}>⚡</span>
             <span className={styles.logoText}>{t('common.appName')}</span>
@@ -147,7 +146,7 @@ export const Header: React.FC = () => {
 
           {/* Desktop Navigation - Center */}
           <nav className={styles.desktopNav} aria-label="Main navigation">
-            {currentNavItems.map((item) => (
+            {navItems.map((item) => (
               <RouterLink
                 key={item.href}
                 to={item.href}
@@ -158,9 +157,9 @@ export const Header: React.FC = () => {
             ))}
           </nav>
 
-          {/* Right Side - Language & Auth */}
-          <div className={styles.headerActions}>
-            {/* Language Selector */}
+          {/* Right Side - Language + Auth */}
+          <div className={styles.headerRight}>
+            {/* Language Selector - Desktop only */}
             <div className={styles.languageSelector}>
               <select
                 value={locale}
@@ -176,7 +175,7 @@ export const Header: React.FC = () => {
               </select>
             </div>
 
-            {/* Auth Buttons / User Menu */}
+            {/* Auth Section */}
             {isAuthenticated && user ? (
               <div className={styles.userMenuWrapper} ref={userMenuRef}>
                 <button
@@ -188,7 +187,7 @@ export const Header: React.FC = () => {
                 >
                   <div className={styles.avatarWrapper}>
                     <div className={styles.avatar}>
-                      {user.name?.charAt(0).toUpperCase() || 'U'}
+                      {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
                     </div>
                     {!profileComplete && (
                       <span className={styles.profileBadge} aria-label="Complete your profile">
@@ -196,14 +195,12 @@ export const Header: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <span className={styles.userName}>{user.name || 'User'}</span>
                   <svg
                     className={`${styles.chevron} ${userMenuOpen ? styles.chevronOpen : ''}`}
                     width="12"
                     height="12"
                     viewBox="0 0 12 12"
                     fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
                   >
                     <path
                       d="M3 4.5L6 7.5L9 4.5"
@@ -215,7 +212,7 @@ export const Header: React.FC = () => {
                   </svg>
                 </button>
 
-                {/* User Dropdown Menu */}
+                {/* User Dropdown */}
                 {userMenuOpen && (
                   <div className={styles.userDropdown} role="menu">
                     <RouterLink
@@ -225,9 +222,7 @@ export const Header: React.FC = () => {
                       role="menuitem"
                     >
                       <span>{t('header.profile')}</span>
-                      {!profileComplete && (
-                        <span className={styles.incompleteIndicator}>!</span>
-                      )}
+                      {!profileComplete && <span className={styles.incompleteBadge}>!</span>}
                     </RouterLink>
                     <RouterLink
                       to="/app/subscription"
@@ -286,7 +281,7 @@ export const Header: React.FC = () => {
         </div>
       </Container>
 
-      {/* Mobile Menu Drawer */}
+      {/* Mobile Menu */}
       {mobileMenuOpen && (
         <>
           <div
@@ -314,7 +309,7 @@ export const Header: React.FC = () => {
             </div>
 
             <nav className={styles.mobileNav} aria-label="Mobile navigation">
-              {currentNavItems.map((item) => (
+              {navItems.map((item) => (
                 <RouterLink
                   key={item.href}
                   to={item.href}
@@ -353,9 +348,7 @@ export const Header: React.FC = () => {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     {t('header.profile')}
-                    {!profileComplete && (
-                      <span className={styles.mobileIncompleteBadge}>!</span>
-                    )}
+                    {!profileComplete && <span className={styles.mobileIncompleteBadge}>!</span>}
                   </RouterLink>
                   <RouterLink
                     to="/app/subscription"
