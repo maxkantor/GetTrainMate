@@ -139,10 +139,13 @@ export const DiscoverPage: React.FC = () => {
     );
   }
 
-  if (feed.length === 0) {
+  if (feed.length === 0 && !loading && !error) {
     return (
       <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
-        <Typography>{t('errors.notFound')}</Typography>
+        <Typography variant="h6" gutterBottom>No profiles to discover</Typography>
+        <Typography variant="body2" color="textSecondary">
+          Check back later for new training partners!
+        </Typography>
       </Container>
     );
   }
