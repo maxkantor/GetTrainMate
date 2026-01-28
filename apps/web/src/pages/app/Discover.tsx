@@ -143,9 +143,12 @@ export const DiscoverPage: React.FC = () => {
     return (
       <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
         <Typography variant="h6" gutterBottom>No profiles to discover</Typography>
-        <Typography variant="body2" color="textSecondary">
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
           Check back later for new training partners!
         </Typography>
+        <Button variant="contained" onClick={loadFeed}>
+          Refresh
+        </Button>
       </Container>
     );
   }
