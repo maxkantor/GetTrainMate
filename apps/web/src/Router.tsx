@@ -22,6 +22,7 @@ import { MatchesPage } from '@/pages/app/Matches';
 import { ChatPage } from '@/pages/app/Chat';
 import { EventsPage } from '@/pages/app/Events';
 import { SubscriptionPage } from '@/pages/app/Subscription';
+import { ProfileOnboardingPage } from '@/pages/onboarding/ProfileOnboarding';
 import { AdminDashboard } from '@/pages/admin/Dashboard';
 import { DashboardPage as AdminDashboardPage } from '@/pages/admin/DashboardPage';
 import { UsersPage } from '@/pages/admin/UsersPage';
@@ -52,8 +53,13 @@ export const Router: React.FC = () => {
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
 
-            {/* Protected app routes */}
-            <Route path="/app" element={<ProtectedRoute />}>
+            {/* Onboarding route - requires auth but not profile completion */}
+            <Route path="/onboarding/profile" element={<ProtectedRoute requireProfileComplete={false} />}>
+              <Route index element={<ProfileOnboardingPage />} />
+            </Route>
+
+            {/* Protected app routes - require profile completion */}
+            <Route path="/app" element={<ProtectedRoute requireProfileComplete={true} />}>
               <Route index element={<DiscoverPage />} />
               <Route path="dashboard" element={<DiscoverPage />} />
               <Route path="discover" element={<DiscoverPage />} />

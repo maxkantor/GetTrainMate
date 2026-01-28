@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
+import { Badge } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { profileService } from '@/services/profileService';
+import { authService } from '@/services/authService';
 import { SUPPORTED_LOCALES } from '@/i18n';
 import { Container } from './Container';
 import styles from './Header.module.css';
@@ -14,6 +17,7 @@ export const Header: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState('');
+  const [profileComplete, setProfileComplete] = useState(true);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -43,6 +47,34 @@ export const Header: React.FC = () => {
 
     return () => observer.disconnect();
   }, [location]);
+
+  // Check profile completion status
+  useEffect(() => {
+    const checkProfile = async () => {
+      if (!isAuthenticated) {
+        setProfileComplete(true);
+        return;
+      }
+
+      try {
+        const token = await authService.getJWT();
+        if (!token) {
+          setProfileComplete(true);
+          return;
+        }
+
+        const profile = await profileService.getMyProfile(token);
+        setProfileComplete(profile.isComplete || false);
+      } catch (error) {
+        console.error('Error checking profile:', error);
+        setProfileComplete(false);
+      }
+    };
+
+    if (isAuthenticated) {
+      checkProfile();
+    }
+  }, [isAuthenticated, location.pathname]);
 
   const handleLogout = async () => {
     await logout();
@@ -124,11 +156,24 @@ export const Header: React.FC = () => {
             {/* Auth Buttons */}
             {isAuthenticated && user ? (
               <div className={styles.userMenu}>
-                <RouterLink to="/app/profile" className={styles.userButton}>
-                  <div className={styles.avatar}>
-                    {user.name?.charAt(0).toUpperCase() || 'U'}
-                  </div>
-                  <span className={styles.userName}>{user.name}</span>
+                <RouterLink 
+                  to={profileComplete ? "/app/profile" : "/onboarding/profile"} 
+                  className={styles.userButton}
+                >
+                  <Badge 
+                    badgeContent={!profileComplete ? "!" : 0} 
+                    color="error"
+                    overlap="circular"
+                    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                  >
+                    <div className={styles.avatar}>
+                      {user.name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                  </Badge>
+                  <span className={styles.userName}>
+                    {user.name}
+                    {!profileComplete && <span style={{ color: '#ff4444', marginLeft: '4px' }}>•</span>}
+                  </span>
                 </RouterLink>
                 <button onClick={handleLogout} className={styles.logoutButton}>
                   {t('common.logout')}
@@ -202,11 +247,12 @@ export const Header: React.FC = () => {
               {isAuthenticated && user ? (
                 <div className={styles.mobileAuthButtons}>
                   <RouterLink 
-                    to="/app/profile" 
+                    to={profileComplete ? "/app/profile" : "/onboarding/profile"} 
                     className={styles.mobileButton}
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     {t('header.profile')}
+                    {!profileComplete && <span style={{ color: '#ff4444', marginLeft: '4px' }}>• Complete Profile</span>}
                   </RouterLink>
                   <button
                     onClick={() => {

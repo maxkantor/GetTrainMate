@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using GetTrainMate.Api.Models;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace GetTrainMate.Api.Services;
 
@@ -77,6 +78,8 @@ public class ProfileService : IProfileService
             // Update fields
             if (request.Name != null) existingProfile.Name = request.Name;
             if (request.City != null) existingProfile.City = request.City;
+            if (request.State != null) existingProfile.State = request.State;
+            if (request.Country != null) existingProfile.Country = request.Country;
             if (request.Bio != null) existingProfile.Bio = request.Bio;
             if (request.BirthDate != null) existingProfile.BirthDate = request.BirthDate;
             if (request.Gender != null) existingProfile.Gender = request.Gender;
@@ -87,6 +90,8 @@ public class ProfileService : IProfileService
             if (request.Mode != null) existingProfile.Mode = request.Mode;
             if (request.Latitude != null) existingProfile.Latitude = request.Latitude;
             if (request.Longitude != null) existingProfile.Longitude = request.Longitude;
+            if (request.PhotoKey != null) existingProfile.PhotoKey = request.PhotoKey;
+            if (request.PreferredDistanceMiles != null) existingProfile.PreferredDistanceMiles = request.PreferredDistanceMiles;
 
             existingProfile.UpdatedAt = DateTime.UtcNow;
             existingProfile.IsComplete = IsProfileComplete(existingProfile);
@@ -163,15 +168,24 @@ public class ProfileService : IProfileService
         };
 
         if (!string.IsNullOrEmpty(profile.City)) doc["city"] = profile.City;
+        if (!string.IsNullOrEmpty(profile.State)) doc["state"] = profile.State;
+        if (!string.IsNullOrEmpty(profile.Country)) doc["country"] = profile.Country;
         if (!string.IsNullOrEmpty(profile.Bio)) doc["bio"] = profile.Bio;
         if (profile.BirthDate.HasValue) doc["birthDate"] = profile.BirthDate.Value.ToString("yyyy-MM-dd");
         if (!string.IsNullOrEmpty(profile.Gender)) doc["gender"] = profile.Gender;
         if (profile.SportTags.Any()) doc["sportTags"] = new DynamoDBList(profile.SportTags.Select(t => new Primitive(t)));
         if (!string.IsNullOrEmpty(profile.Level)) doc["level"] = profile.Level;
-        if (!string.IsNullOrEmpty(profile.Goals)) doc["goals"] = profile.Goals;
-        if (profile.AvailabilitySchedule.Any()) doc["availabilitySchedule"] = new DynamoDBList(profile.AvailabilitySchedule.Select(s => new Primitive(s)));
+        if (profile.Goals.Any()) doc["goals"] = new DynamoDBList(profile.Goals.Select(g => new Primitive(g)));
+        if (profile.AvailabilitySchedule.Any())
+        {
+            // Serialize AvailabilitySchedule as JSON array
+            var availabilityJson = JsonSerializer.Serialize(profile.AvailabilitySchedule);
+            doc["availabilitySchedule"] = availabilityJson;
+        }
         if (profile.Latitude.HasValue) doc["latitude"] = profile.Latitude.Value;
         if (profile.Longitude.HasValue) doc["longitude"] = profile.Longitude.Value;
+        if (!string.IsNullOrEmpty(profile.PhotoKey)) doc["photoKey"] = profile.PhotoKey;
+        if (profile.PreferredDistanceMiles.HasValue) doc["preferredDistanceMiles"] = profile.PreferredDistanceMiles.Value;
         if (profile.PhotoUrls.Any()) doc["photoUrls"] = new DynamoDBList(profile.PhotoUrls.Select(u => new Primitive(u)));
 
         return doc;
@@ -179,35 +193,109 @@ public class ProfileService : IProfileService
 
     private UserProfile DocumentToProfile(Document document)
     {
-        return new UserProfile
+        var profile = new UserProfile
         {
             UserId = document["userId"],
             Email = document["email"],
             Name = document["name"],
             City = document.ContainsKey("city") ? document["city"] : null,
+            State = document.ContainsKey("state") ? document["state"] : null,
+            Country = document.ContainsKey("country") ? document["country"] : "US",
             Bio = document.ContainsKey("bio") ? document["bio"] : null,
             BirthDate = document.ContainsKey("birthDate") ? DateTime.Parse(document["birthDate"]) : null,
             Gender = document.ContainsKey("gender") ? document["gender"] : null,
             SportTags = document.ContainsKey("sportTags") ? document["sportTags"].AsListOfString() : new List<string>(),
             Level = document.ContainsKey("level") ? document["level"] : null,
-            Goals = document.ContainsKey("goals") ? document["goals"] : null,
-            AvailabilitySchedule = document.ContainsKey("availabilitySchedule") ? document["availabilitySchedule"].AsListOfString() : new List<string>(),
+            Goals = document.ContainsKey("goals") ? 
+                (document["goals"] is DynamoDBList goalsList ? goalsList.AsListOfString() : 
+                 document["goals"].AsString() is string goalsStr && !string.IsNullOrEmpty(goalsStr) ? new List<string> { goalsStr } : 
+                 new List<string>()) : new List<string>(),
             Mode = document["mode"],
             Latitude = document.ContainsKey("latitude") ? (double?)document["latitude"].AsDouble() : null,
             Longitude = document.ContainsKey("longitude") ? (double?)document["longitude"].AsDouble() : null,
+            PhotoKey = document.ContainsKey("photoKey") ? document["photoKey"] : null,
+            PreferredDistanceMiles = document.ContainsKey("preferredDistanceMiles") ? (double?)document["preferredDistanceMiles"].AsDouble() : null,
             PhotoUrls = document.ContainsKey("photoUrls") ? document["photoUrls"].AsListOfString() : new List<string>(),
             IsComplete = document["isComplete"].AsBoolean(),
             CreatedAt = DateTime.Parse(document["createdAt"]),
             UpdatedAt = DateTime.Parse(document["updatedAt"])
         };
+
+        // Handle AvailabilitySchedule - support both old (List<string>) and new (List<AvailabilitySlot>) formats
+        if (document.ContainsKey("availabilitySchedule"))
+        {
+            try
+            {
+                var availabilityEntry = document["availabilitySchedule"];
+                
+                // Check if it's a string (JSON serialized)
+                if (availabilityEntry is Primitive primitive && primitive.Type == DynamoDBEntryType.String)
+                {
+                    var availabilityStr = primitive.AsString();
+                    if (!string.IsNullOrEmpty(availabilityStr) && availabilityStr.StartsWith("["))
+                    {
+                        profile.AvailabilitySchedule = JsonSerializer.Deserialize<List<AvailabilitySlot>>(availabilityStr) ?? new List<AvailabilitySlot>();
+                    }
+                    else
+                    {
+                        profile.AvailabilitySchedule = new List<AvailabilitySlot>();
+                    }
+                }
+                // Check if it's a DynamoDBList (old format - List<string>)
+                else if (availabilityEntry is DynamoDBList)
+                {
+                    // Old format - convert to empty list (can't convert old format automatically)
+                    profile.AvailabilitySchedule = new List<AvailabilitySlot>();
+                }
+                else
+                {
+                    profile.AvailabilitySchedule = new List<AvailabilitySlot>();
+                }
+            }
+            catch
+            {
+                profile.AvailabilitySchedule = new List<AvailabilitySlot>();
+            }
+        }
+        else
+        {
+            profile.AvailabilitySchedule = new List<AvailabilitySlot>();
+        }
+
+        return profile;
     }
 
     private bool IsProfileComplete(UserProfile profile)
     {
-        return !string.IsNullOrEmpty(profile.Name) &&
-               !string.IsNullOrEmpty(profile.City) &&
-               profile.SportTags.Any() &&
-               !string.IsNullOrEmpty(profile.Level) &&
-               profile.AvailabilitySchedule.Any();
+        // Required fields for profile completion:
+        // 1. Display name (Name)
+        // 2. Bio (20-500 characters)
+        // 3. At least one training type (SportTags)
+        // 4. Skill level
+        // 5. At least one availability slot
+        
+        if (string.IsNullOrWhiteSpace(profile.Name))
+            return false;
+        
+        if (string.IsNullOrWhiteSpace(profile.Bio) || profile.Bio.Length < 20 || profile.Bio.Length > 500)
+            return false;
+        
+        if (!profile.SportTags.Any())
+            return false;
+        
+        if (string.IsNullOrWhiteSpace(profile.Level))
+            return false;
+        
+        if (!profile.AvailabilitySchedule.Any())
+            return false;
+        
+        // Validate availability slots have required fields
+        foreach (var slot in profile.AvailabilitySchedule)
+        {
+            if (!slot.Days.Any() || string.IsNullOrWhiteSpace(slot.TimeStart) || string.IsNullOrWhiteSpace(slot.TimeEnd))
+                return false;
+        }
+        
+        return true;
     }
 }

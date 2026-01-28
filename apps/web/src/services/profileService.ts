@@ -3,40 +3,54 @@ import { handleApiError } from '@/utils/apiErrorHandler';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
 
+export interface AvailabilitySlot {
+  days: string[]; // e.g., ["Mon", "Wed", "Fri"]
+  timeStart: string; // e.g., "18:00"
+  timeEnd: string; // e.g., "20:00"
+}
+
 export interface UserProfile {
   userId: string;
   email: string;
-  name: string;
+  name: string; // Display name (required)
   city?: string;
-  bio?: string;
+  state?: string;
+  country?: string;
+  bio?: string; // Required, 20-500 chars
   birthDate?: string;
   gender?: string;
-  sportTags: string[];
-  level?: string;
-  goals?: string;
-  availabilitySchedule: string[];
+  sportTags: string[]; // Training types (required, at least 1)
+  level?: string; // Required
+  goals: string[]; // Training goals (optional)
+  availabilitySchedule: AvailabilitySlot[]; // Required, at least 1 slot
   mode: 'TRAIN' | 'VIBE' | 'DATE';
   latitude?: number;
   longitude?: number;
-  photoUrls: string[];
+  photoKey?: string; // S3 key for profile photo
+  photoUrls: string[]; // Legacy support
+  preferredDistanceMiles?: number;
   isComplete: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export interface UpdateProfileRequest {
-  name?: string;
+  name?: string; // Display name (required for completion)
   city?: string;
-  bio?: string;
+  state?: string;
+  country?: string;
+  bio?: string; // Required, 20-500 chars
   birthDate?: string;
   gender?: string;
-  sportTags?: string[];
-  level?: string;
-  goals?: string;
-  availabilitySchedule?: string[];
+  sportTags?: string[]; // Training types (required, at least 1)
+  level?: string; // Required
+  goals?: string[];
+  availabilitySchedule?: AvailabilitySlot[]; // Required, at least 1 slot
   mode?: 'TRAIN' | 'VIBE' | 'DATE';
   latitude?: number;
   longitude?: number;
+  photoKey?: string; // S3 key for profile photo
+  preferredDistanceMiles?: number;
 }
 
 export interface PhotoUploadInfo {

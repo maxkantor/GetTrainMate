@@ -31,15 +31,44 @@ const sidePanels = [
 ];
 
 export const PricingCards: React.FC<PricingCardsProps> = ({ isAnnual }) => {
-  const handleUpgrade = (planId: string) => {
-    // TODO: Connect to backend Stripe integration
-    console.log('Upgrade to:', planId, 'billing:', isAnnual ? 'annual' : 'monthly');
-    // Navigate to signup or checkout
-    if (planId === 'free') {
+  const handleUpgrade = async (planId: string) => {
+    // Check if user is authenticated and has completed profile
+    try {
+      const { authService } = await import('@/services/authService');
+      const { profileService } = await import('@/services/profileService');
+      
+      const token = await authService.getJWT();
+      if (!token) {
+        // Not authenticated - redirect to signup
+        window.location.href = '/signup';
+        return;
+      }
+
+      // Check profile completion
+      try {
+        const profile = await profileService.getMyProfile(token);
+        if (!profile.isComplete) {
+          // Profile incomplete - redirect to onboarding
+          window.location.href = '/onboarding/profile';
+          return;
+        }
+      } catch (err) {
+        // Profile doesn't exist or error - redirect to onboarding
+        window.location.href = '/onboarding/profile';
+        return;
+      }
+
+      // Profile complete - proceed to checkout
+      if (planId === 'free') {
+        window.location.href = '/app/discover';
+      } else {
+        // TODO: Open Stripe checkout modal or redirect to subscription page
+        window.location.href = `/app/subscription?plan=${planId}&billing=${isAnnual ? 'annual' : 'monthly'}`;
+      }
+    } catch (err) {
+      console.error('Error checking profile:', err);
+      // On error, redirect to signup
       window.location.href = '/signup';
-    } else {
-      // TODO: Open Stripe checkout modal
-      alert(`Upgrading to ${planId} - ${isAnnual ? 'Annual' : 'Monthly'} plan. Stripe integration coming soon!`);
     }
   };
 

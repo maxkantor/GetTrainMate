@@ -117,7 +117,7 @@ public class MatchService : IMatchService
                 UserId2 = targetUserId,
                 CompatibilityScore = CalculateCompatibilityScore(userProfile, targetProfile),
                 CommonSports = GetCommonSports(userProfile.SportTags, targetProfile.SportTags),
-                CommonSchedule = GetCommonSchedule(userProfile.AvailabilitySchedule, targetProfile.AvailabilitySchedule)
+                CommonSchedule = GetCommonScheduleSlots(userProfile.AvailabilitySchedule, targetProfile.AvailabilitySchedule)
             };
 
             match.User1Liked = true;
@@ -247,7 +247,7 @@ public class MatchService : IMatchService
         score += (int)(commonSports > 0 ? (commonSports / (double)totalSports) * SportsMatchWeight : 0);
 
         // Schedule match (25 points max)
-        var commonSchedule = GetCommonSchedule(user1.AvailabilitySchedule, user2.AvailabilitySchedule).Count;
+        var commonSchedule = GetCommonScheduleSlots(user1.AvailabilitySchedule, user2.AvailabilitySchedule).Count;
         score += Math.Min(commonSchedule * 2, ScheduleMatchWeight); // 2 points per common slot, max 25
 
         // Level compatibility (20 points max)
@@ -277,6 +277,51 @@ public class MatchService : IMatchService
     private List<string> GetCommonSchedule(List<string> schedule1, List<string> schedule2)
     {
         return schedule1.Intersect(schedule2, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private List<string> GetCommonScheduleSlots(List<AvailabilitySlot> schedule1, List<AvailabilitySlot> schedule2)
+    {
+        // Compare availability slots by days and time windows
+        var common = new List<string>();
+        foreach (var slot1 in schedule1)
+        {
+            foreach (var slot2 in schedule2)
+            {
+                // Check if days overlap
+                var commonDays = slot1.Days.Intersect(slot2.Days, StringComparer.OrdinalIgnoreCase).ToList();
+                if (commonDays.Any())
+                {
+                    // Check if time windows overlap
+                    if (TimeWindowsOverlap(slot1.TimeStart, slot1.TimeEnd, slot2.TimeStart, slot2.TimeEnd))
+                    {
+                        common.Add($"{string.Join(",", commonDays)}: {slot1.TimeStart}-{slot1.TimeEnd}");
+                    }
+                }
+            }
+        }
+        return common;
+    }
+
+    private bool TimeWindowsOverlap(string start1, string end1, string start2, string end2)
+    {
+        // Simple time overlap check (24-hour format "HH:mm")
+        try
+        {
+            var time1Start = TimeSpan.Parse(start1);
+            var time1End = TimeSpan.Parse(end1);
+            var time2Start = TimeSpan.Parse(start2);
+            var time2End = TimeSpan.Parse(end2);
+
+            // Handle wrap-around (e.g., 21:00 to 00:00)
+            if (time1End < time1Start) time1End = time1End.Add(TimeSpan.FromDays(1));
+            if (time2End < time2Start) time2End = time2End.Add(TimeSpan.FromDays(1));
+
+            return time1Start < time2End && time2Start < time1End;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private bool LevelsCompatible(string? level1, string? level2)
@@ -369,8 +414,11 @@ public class MatchService : IMatchService
             Bio = document.ContainsKey("bio") ? document["bio"].AsString() : null,
             SportTags = document.ContainsKey("sportTags") ? document["sportTags"].AsListOfString() : new List<string>(),
             Level = document.ContainsKey("level") ? document["level"].AsString() : null,
-            Goals = document.ContainsKey("goals") ? document["goals"].AsString() : null,
-            AvailabilitySchedule = document.ContainsKey("availabilitySchedule") ? document["availabilitySchedule"].AsListOfString() : new List<string>(),
+            Goals = document.ContainsKey("goals") ? 
+                (document["goals"] is DynamoDBList goalsList ? goalsList.AsListOfString() : 
+                 document["goals"].AsString() is string goalsStr && !string.IsNullOrEmpty(goalsStr) ? new List<string> { goalsStr } : 
+                 new List<string>()) : new List<string>(),
+            AvailabilitySchedule = new List<AvailabilitySlot>(), // Legacy support - will be empty for old format
             Mode = document["mode"],
             Latitude = document.ContainsKey("latitude") ? (double?)document["latitude"].AsDouble() : null,
             Longitude = document.ContainsKey("longitude") ? (double?)document["longitude"].AsDouble() : null,

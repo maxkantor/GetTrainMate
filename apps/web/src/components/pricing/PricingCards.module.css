@@ -7,19 +7,23 @@
 
 .cardsLayout {
   display: grid;
-  grid-template-columns: 1fr 1.4fr 1fr;
+  grid-template-columns: 1fr;
   gap: var(--space-6);
   align-items: stretch;
-  max-width: 1300px;
+  max-width: 1400px;
   margin: 0 auto;
+  width: 100%;
 }
 
-@media (max-width: 1200px) {
+/* Desktop: show side panels */
+@media (min-width: 1200px) {
   .cardsLayout {
-    grid-template-columns: 1fr;
-    gap: var(--space-8);
+    grid-template-columns: 1fr 1.4fr 1fr;
+    gap: var(--space-6);
   }
-  
+}
+
+@media (max-width: 1199px) {
   .sidePanel {
     display: none;
   }
@@ -27,14 +31,25 @@
 
 .cardsContainer {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--space-8);
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
   width: 100%;
+  max-width: 100%;
 }
 
-@media (max-width: 768px) {
+/* Tablet: 2 columns */
+@media (min-width: 768px) {
   .cardsContainer {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-6);
+  }
+}
+
+/* Desktop: 3 columns */
+@media (min-width: 1024px) {
+  .cardsContainer {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-8);
   }
 }
 
@@ -110,6 +125,9 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  min-height: 500px;
+  max-width: 100%;
+  width: 100%;
 }
 
 .card:hover {
@@ -121,11 +139,16 @@
 .card.featured {
   border-color: #667eea;
   box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
-  transform: scale(1.02);
 }
 
-.card.featured:hover {
-  transform: scale(1.04) translateY(-4px);
+@media (min-width: 1024px) {
+  .card.featured {
+    transform: scale(1.02);
+  }
+  
+  .card.featured:hover {
+    transform: scale(1.04) translateY(-4px);
+  }
 }
 
 .popularBadge {
@@ -259,6 +282,8 @@
 
 .ctaButton {
   margin-top: auto;
+  min-height: 48px;
+  width: 100%;
 }
 
 .trustLine {
@@ -267,3 +292,4 @@
   color: #999;
   margin: var(--space-4) 0 0 0;
 }
+
