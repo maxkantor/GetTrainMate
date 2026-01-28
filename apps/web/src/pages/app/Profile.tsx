@@ -98,7 +98,12 @@ export const ProfilePage: React.FC = () => {
       setMyPhotos(profile.photoUrls || []);
     } catch (err: any) {
       console.error('Error loading profile:', err);
-      setError(err.message || 'Failed to load profile');
+      const apiError = handleApiError(err);
+      if (isNetworkError(err) || apiError.isCorsError) {
+        setError('Unable to connect to the API. Please check your connection and try again.');
+      } else {
+        setError(apiError.message || 'Failed to load profile');
+      }
     } finally {
       setLoading(false);
     }
@@ -124,7 +129,12 @@ export const ProfilePage: React.FC = () => {
         navigate('/app/discover');
       }, 1500);
     } catch (err: any) {
-      setError(err.message || 'Failed to update profile');
+      const apiError = handleApiError(err);
+      if (isNetworkError(err) || apiError.isCorsError) {
+        setError('Unable to connect to the API. Please check your connection and try again.');
+      } else {
+        setError(apiError.message || 'Failed to update profile');
+      }
     } finally {
       setSaving(false);
     }
