@@ -52,15 +52,15 @@ export const Router: React.FC = () => {
             <Route path="/admin/login" element={<AdminLoginPage />} />
 
             {/* Protected app routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/app/dashboard" element={<DiscoverPage />} />
-              <Route path="/app/discover" element={<DiscoverPage />} />
-              <Route path="/app/matches" element={<AppDashboardPage />} />
-              <Route path="/app/chat" element={<ChatPage />} />
-              <Route path="/app/events" element={<EventsPage />} />
-              <Route path="/app/subscription" element={<SubscriptionPage />} />
-              <Route path="/app/profile" element={<ProfilePage />} />
-              <Route path="/app/settings" element={<AppDashboardPage />} />
+            <Route path="/app" element={<ProtectedRoute />}>
+              <Route path="dashboard" element={<DiscoverPage />} />
+              <Route path="discover" element={<DiscoverPage />} />
+              <Route path="matches" element={<AppDashboardPage />} />
+              <Route path="chat" element={<ChatPage />} />
+              <Route path="events" element={<EventsPage />} />
+              <Route path="subscription" element={<SubscriptionPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="settings" element={<AppDashboardPage />} />
             </Route>
 
             {/* Protected admin routes */}
