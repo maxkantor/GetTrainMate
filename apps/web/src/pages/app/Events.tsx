@@ -25,6 +25,11 @@ import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 const SPORTS = [
   'Running', 'Cycling', 'Swimming', 'Tennis', 'Basketball', 'Soccer',
   'Volleyball', 'Gym', 'Yoga', 'Hiking', 'Climbing', 'CrossFit',
+  'Hyrox', 'Pickleball', 'Fishing', 'Boxing', 'MMA', 'Dancing',
+  'Golf', 'Skiing', 'Surfing', 'Rowing', 'Paddleboarding', 'Rock Climbing',
+  'Martial Arts', 'Pilates', 'Barre', 'HIIT', 'Powerlifting', 'Weightlifting',
+  'Rugby', 'Baseball', 'Softball', 'Badminton', 'Squash', 'Racquetball',
+  'Table Tennis', 'Archery', 'Kayaking', 'Canoeing', 'Triathlon', 'Ultramarathon',
 ];
 
 const LEVELS = ['beginner', 'intermediate', 'advanced', 'pro'];
