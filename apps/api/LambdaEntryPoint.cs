@@ -1,10 +1,16 @@
 using Amazon.Lambda.AspNetCoreServer;
-using Microsoft.AspNetCore.Hosting;
 
 namespace GetTrainMate.Api;
 
+/// <summary>
+/// Lambda entry point for API Gateway HTTP API
+/// This class is required by Lambda but the actual configuration is in Program.cs
+/// </summary>
 public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
 {
+    /// <summary>
+    /// Initialize the web host builder
+    /// </summary>
     protected override void Init(IWebHostBuilder builder)
     {
         builder
@@ -13,15 +19,3 @@ public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
     }
 }
 
-public class Startup
-{
-    public void ConfigureServices(IServiceCollection services)
-    {
-        // Services are configured in Program.cs
-    }
-
-    public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
-    {
-        // Configuration is done in Program.cs
-    }
-}

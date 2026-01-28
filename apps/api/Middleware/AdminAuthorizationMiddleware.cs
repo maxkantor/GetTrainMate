@@ -22,6 +22,13 @@ public class AdminAuthorizationMiddleware
 
     public async Task InvokeAsync(HttpContext context, IAdminAuthorizationService adminAuthService)
     {
+        // Skip OPTIONS requests (handled by CORS middleware)
+        if (context.Request.Method == "OPTIONS")
+        {
+            await _next(context);
+            return;
+        }
+
         // Only check admin routes
         if (!context.Request.Path.StartsWithSegments("/api/admin"))
         {
