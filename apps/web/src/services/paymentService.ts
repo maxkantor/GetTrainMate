@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { handleApiError } from '@/utils/apiErrorHandler';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
 
 export interface SubscriptionStatus {
   isPremium: boolean;

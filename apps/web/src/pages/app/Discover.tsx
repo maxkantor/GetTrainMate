@@ -18,6 +18,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { matchService, MatchFeedItem } from '@/services/matchService';
 import { authService } from '@/services/authService';
+import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 
 export const DiscoverPage: React.FC = () => {
   const { t } = useI18n();
@@ -48,12 +49,12 @@ export const DiscoverPage: React.FC = () => {
       setCurrentIndex(0);
     } catch (err: any) {
       console.error('Error loading feed:', err);
+      const apiError = handleApiError(err);
       
-      // Check if it's a network error (API not deployed)
-      if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error') || err.message?.includes('ERR_CONNECTION_REFUSED')) {
-        setError('API is not available. The backend API needs to be deployed. Please check your API configuration or contact support.');
+      if (isNetworkError(err) || apiError.isCorsError) {
+        setError('Unable to connect to the API. The backend may not be deployed or CORS is not configured. Please check your API configuration.');
       } else {
-        setError(err.message || 'Failed to load discovery feed');
+        setError(apiError.message || 'Failed to load discovery feed');
       }
     } finally {
       setLoading(false);

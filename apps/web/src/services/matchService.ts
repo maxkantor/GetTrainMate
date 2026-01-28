@@ -1,7 +1,8 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { UpdateProfileRequest } from './profileService';
+import { handleApiError } from '@/utils/apiErrorHandler';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
 
 export interface MatchFeedItem {
   userId: string;
@@ -33,11 +34,16 @@ class MatchService {
   }
 
   async getDiscoveryFeed(token: string, limit: number = 20): Promise<MatchFeedItem[]> {
-    const response = await axios.get<MatchFeedItem[]>(
-      `${API_BASE_URL}/api/match/discover?limit=${limit}`,
-      this.getHeaders(token)
-    );
-    return response.data;
+    try {
+      const response = await axios.get<MatchFeedItem[]>(
+        `${API_BASE_URL}/api/match/discover?limit=${limit}`,
+        this.getHeaders(token)
+      );
+      return response.data;
+    } catch (error) {
+      const apiError = handleApiError(error);
+      throw new Error(apiError.message);
+    }
   }
 
   async likeUser(token: string, targetUserId: string): Promise<MatchResponse> {

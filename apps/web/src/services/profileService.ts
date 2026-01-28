@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { handleApiError } from '@/utils/apiErrorHandler';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
 
 export interface UserProfile {
   userId: string;
@@ -55,11 +56,16 @@ class ProfileService {
   }
 
   async getMyProfile(token: string): Promise<UserProfile> {
-    const response = await axios.get<UserProfile>(
-      `${API_BASE_URL}/api/profile/me`,
-      this.getHeaders(token)
-    );
-    return response.data;
+    try {
+      const response = await axios.get<UserProfile>(
+        `${API_BASE_URL}/api/profile/me`,
+        this.getHeaders(token)
+      );
+      return response.data;
+    } catch (error) {
+      const apiError = handleApiError(error);
+      throw new Error(apiError.message);
+    }
   }
 
   async updateMyProfile(token: string, data: UpdateProfileRequest): Promise<UserProfile> {
