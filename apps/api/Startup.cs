@@ -62,40 +62,37 @@ public class Startup
         }
 
         // Configure Cognito JWT Authentication
+        // For now, disable automatic JWT validation - controllers will handle it manually
+        // This avoids issues with User Pool configuration
         var userPoolId = Environment.GetEnvironmentVariable("COGNITO_USER_POOL_ID")
-            ?? Configuration["Cognito:UserPoolId"]
-            ?? "us-east-1_MRv5xL215"; // Default for now - should be set via env var
+            ?? Configuration["Cognito:UserPoolId"];
 
-        var region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "us-east-1";
-        var issuer = $"https://cognito-idp.{region}.amazonaws.com/{userPoolId}";
+        // Only configure JWT if User Pool ID is provided
+        if (!string.IsNullOrEmpty(userPoolId))
+        {
+            var region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "us-east-1";
+            var issuer = $"https://cognito-idp.{region}.amazonaws.com/{userPoolId}";
 
-        services.AddAuthentication(options =>
-        {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-        })
-        .AddJwtBearer(options =>
-        {
-            options.Authority = issuer;
-            options.MetadataAddress = $"{issuer}/.well-known/openid-configuration";
-            options.TokenValidationParameters = new TokenValidationParameters
+            services.AddAuthentication(options =>
             {
-                ValidateIssuer = true,
-                ValidIssuer = issuer,
-                ValidateAudience = false,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                NameClaimType = ClaimTypes.NameIdentifier,
-                RoleClaimType = ClaimTypes.Role,
-                // Allow unsigned tokens for now (will validate manually in controllers)
-                RequireSignedTokens = false,
-                // Don't validate signature automatically - we'll do it manually
-                SignatureValidator = (token, parameters) => 
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.Authority = issuer;
+                options.MetadataAddress = $"{issuer}/.well-known/openid-configuration";
+                options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    // Return the token as-is - we'll validate in controllers
-                    return new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(token);
-                }
-            };
+                    ValidateIssuer = true,
+                    ValidIssuer = issuer,
+                    ValidateAudience = false,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    NameClaimType = ClaimTypes.NameIdentifier,
+                    RoleClaimType = ClaimTypes.Role,
+                    RequireSignedTokens = false
+                };
 
                 // Handle authentication failures gracefully
                 options.Events = new JwtBearerEvents
@@ -141,7 +138,39 @@ public class Startup
                 options.BackchannelTimeout = TimeSpan.FromSeconds(60);
                 // Don't throw on configuration errors
                 options.IncludeErrorDetails = true;
+                
+                // Handle authentication failures gracefully
+                options.Events = new JwtBearerEvents
+                {
+                    OnAuthenticationFailed = context =>
+                    {
+                        // Don't fail the request - let it continue without authentication
+                        context.NoResult();
+                        return Task.CompletedTask;
+                    },
+                    OnMessageReceived = context =>
+                    {
+                        var token = context.Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+                        if (string.IsNullOrEmpty(token))
+                        {
+                            token = context.Request.Query["access_token"].FirstOrDefault();
+                        }
+
+                        if (!string.IsNullOrEmpty(token))
+                        {
+                            context.Token = token;
+                        }
+
+                        return Task.CompletedTask;
+                    }
+                };
             });
+        }
+        else
+        {
+            // No User Pool configured - authentication will be handled manually in controllers
+            services.AddAuthentication();
+        }
 
         services.AddAuthorization(options =>
         {
