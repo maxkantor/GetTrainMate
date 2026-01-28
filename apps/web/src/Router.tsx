@@ -53,6 +53,7 @@ export const Router: React.FC = () => {
 
             {/* Protected app routes */}
             <Route path="/app" element={<ProtectedRoute />}>
+              <Route index element={<DiscoverPage />} />
               <Route path="dashboard" element={<DiscoverPage />} />
               <Route path="discover" element={<DiscoverPage />} />
               <Route path="matches" element={<AppDashboardPage />} />
