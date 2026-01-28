@@ -27,6 +27,7 @@ export const en = {
     admin: 'Admin',
     profile: 'Profile',
     settings: 'Settings',
+    billing: 'Billing',
   },
   nav: {
     dashboard: 'Dashboard',
