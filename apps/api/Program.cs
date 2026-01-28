@@ -107,9 +107,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", builder =>
     {
-        builder.AllowAnyOrigin()
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+        builder
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .WithExposedHeaders("Content-Type", "Authorization");
     });
 });
 
@@ -118,8 +120,10 @@ builder.Services.AddHealthChecks();
 // Build app
 var app = builder.Build();
 
-app.UseHttpsRedirection();
+// CORS must be before UseRouting
+app.UseMiddleware<CorsMiddleware>(); // Handle OPTIONS requests first
 app.UseCors("AllowAll");
+app.UseHttpsRedirection();
 app.UseRouting();
 
 // Add authentication and authorization middleware

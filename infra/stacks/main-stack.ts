@@ -134,9 +134,25 @@ export class GetTrainMateStack extends cdk.Stack {
       description: 'GetTrainMate API Gateway',
       corsPreflight: {
         allowOrigins: ['*'], // In production, restrict this to your domain
-        allowMethods: [apigateway.CorsHttpMethod.GET, apigateway.CorsHttpMethod.POST, apigateway.CorsHttpMethod.PUT, apigateway.CorsHttpMethod.DELETE],
-        allowHeaders: ['Content-Type', 'Authorization'],
+        allowMethods: [
+          apigateway.CorsHttpMethod.GET,
+          apigateway.CorsHttpMethod.POST,
+          apigateway.CorsHttpMethod.PUT,
+          apigateway.CorsHttpMethod.DELETE,
+          apigateway.CorsHttpMethod.OPTIONS,
+          apigateway.CorsHttpMethod.PATCH,
+        ],
+        allowHeaders: [
+          'Content-Type',
+          'Authorization',
+          'X-Requested-With',
+          'Accept',
+          'Origin',
+          'Access-Control-Request-Method',
+          'Access-Control-Request-Headers',
+        ],
         maxAge: cdk.Duration.days(1),
+        allowCredentials: false,
       },
     });
 
