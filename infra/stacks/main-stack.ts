@@ -78,9 +78,9 @@ export class GetTrainMateStack extends cdk.Stack {
     // Note: The Lambda code needs to be built and published first:
     // cd apps/api && dotnet publish -c Release
     const apiLambda = new lambda.Function(this, 'ApiFunction', {
-      runtime: lambda.Runtime.DOTNET_6,
+      runtime: lambda.Runtime.DOTNET_8, // Use .NET 8 managed runtime
       handler: 'GetTrainMate.Api::GetTrainMate.Api.LambdaEntryPoint::FunctionHandlerAsync',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../apps/api/bin/Release/net6.0/publish')),
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../apps/api/bin/Release/net8.0/publish')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: {

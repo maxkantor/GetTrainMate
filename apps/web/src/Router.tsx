@@ -1,5 +1,6 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link as RouterLink } from 'react-router-dom';
+import { Container, Typography, Button } from '@mui/material';
 import { Layout } from '@/components/Layout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -52,6 +53,7 @@ export const Router: React.FC = () => {
 
             {/* Protected app routes */}
             <Route element={<ProtectedRoute />}>
+              <Route path="/app/dashboard" element={<DiscoverPage />} />
               <Route path="/app/discover" element={<DiscoverPage />} />
               <Route path="/app/matches" element={<AppDashboardPage />} />
               <Route path="/app/chat" element={<ChatPage />} />
@@ -81,8 +83,20 @@ export const Router: React.FC = () => {
                 </Route>
             </Route>
 
-            {/* Catch-all */}
-            <Route path="*" element={<LandingPage />} />
+            {/* Catch-all - show 404 page */}
+            <Route path="*" element={
+              <Container maxWidth="lg" sx={{ py: 8, textAlign: 'center' }}>
+                <Typography variant="h3" component="h1" gutterBottom>
+                  Page not found
+                </Typography>
+                <Typography variant="body1" color="textSecondary" sx={{ mb: 4 }}>
+                  The page you're looking for doesn't exist.
+                </Typography>
+                <Button variant="contained" component={RouterLink} to="/">
+                  Go Home
+                </Button>
+              </Container>
+            } />
           </Routes>
         </Layout>
       </BrowserRouter>
