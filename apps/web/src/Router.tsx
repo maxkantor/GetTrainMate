@@ -79,7 +79,6 @@ export const Router: React.FC = () => {
                   <Route path="/admin/media" element={<AdminDashboard />} />
                   <Route path="/admin/leads" element={<AdminDashboard />} />
                 </Route>
-              </Route>
             </Route>
 
             {/* Catch-all */}
