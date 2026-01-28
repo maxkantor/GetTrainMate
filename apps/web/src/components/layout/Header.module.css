@@ -119,7 +119,7 @@
 
 /* Language Selector */
 .languageSelector {
-  display: none;
+  display: block;
 }
 
 .languageSelect {
@@ -151,7 +151,7 @@
 
 /* Auth Buttons */
 .authButtons {
-  display: none;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
 }
@@ -210,7 +210,6 @@
 /* User Menu */
 .userMenuWrapper {
   position: relative;
-  display: none;
 }
 
 .userButton {
@@ -647,15 +646,6 @@
     display: flex;
   }
 
-  .languageSelector {
-    display: block;
-  }
-
-  .authButtons,
-  .userMenuWrapper {
-    display: flex;
-  }
-
   .mobileMenuButton {
     display: none;
   }
@@ -679,47 +669,154 @@
     font-size: var(--font-xl);
   }
 
+  .desktopNav {
+    display: none;
+  }
+
+  .languageSelector {
+    display: none;
+  }
+
+  .authButtons,
+  .userMenuWrapper {
+    display: none;
+  }
+
   .mobileMenuButton {
     display: flex;
   }
 }
 
-/* Dark mode support for hero page (optional) */
+/* Transparent mode for landing page hero */
 .header.transparent {
-  background: rgba(10, 12, 22, 0.3);
-  backdrop-filter: blur(12px);
+  background: rgba(10, 12, 22, 0.4);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
 }
 
-.header.transparent .navLink,
-.header.transparent .userName,
-.header.transparent .languageSelect {
+.header.transparent .logoText {
+  background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header.transparent .navLink {
   color: rgba(255, 255, 255, 0.9);
 }
 
 .header.transparent .navLink:hover {
   color: white;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.header.transparent .navLink.activeLink {
+  color: white;
+}
+
+.header.transparent .navLink.activeLink::after {
+  background: white;
+}
+
+.header.transparent .userName,
+.header.transparent .languageSelect {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.header.transparent .languageSelect {
   background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+}
+
+.header.transparent .languageSelect:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .header.transparent .loginButton {
   color: rgba(255, 255, 255, 0.9);
   border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .header.transparent .loginButton:hover {
   color: white;
   border-color: rgba(255, 255, 255, 0.5);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.header.transparent .signupButton {
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--color-neutral-900);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.header.transparent .signupButton:hover {
+  background: white;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.header.transparent .userButton {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.header.transparent .userButton:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.header.transparent .chevron {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.header.transparent .mobileMenuButton {
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.header.transparent .mobileMenuButton:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .header.transparent.scrolled {
   background: rgba(255, 255, 255, 0.95);
   border-bottom-color: var(--color-neutral-200);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.header.transparent.scrolled .logoText {
+  background: var(--gradient-hero);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .header.transparent.scrolled .navLink,
 .header.transparent.scrolled .userName,
 .header.transparent.scrolled .languageSelect {
   color: var(--color-neutral-700);
+}
+
+.header.transparent.scrolled .languageSelect {
+  background: var(--color-neutral-50);
+  border-color: var(--color-neutral-200);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+}
+
+.header.transparent.scrolled .loginButton {
+  color: var(--color-neutral-700);
+  border-color: var(--color-neutral-300);
+  background: transparent;
+}
+
+.header.transparent.scrolled .userButton {
+  color: var(--color-neutral-700);
+}
+
+.header.transparent.scrolled .mobileMenuButton {
+  color: var(--color-neutral-700);
+  border-color: var(--color-neutral-300);
 }

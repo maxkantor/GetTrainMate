@@ -131,8 +131,12 @@ export const Header: React.FC = () => {
     return location.pathname === href || location.pathname.startsWith(href + '/');
   };
 
+  // Check if we're on the landing page (for transparent header)
+  const isLandingPage = location.pathname === '/';
+  const shouldBeTransparent = isLandingPage && !scrolled;
+
   return (
-    <header className={`${styles.header} ${scrolled ? styles.scrolled : ''}`}>
+    <header className={`${styles.header} ${scrolled ? styles.scrolled : ''} ${shouldBeTransparent ? styles.transparent : ''}`}>
       <Container>
         <div className={styles.headerInner}>
           {/* Logo */}
