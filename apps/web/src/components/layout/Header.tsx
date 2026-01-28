@@ -57,7 +57,7 @@ export const Header: React.FC = () => {
   ];
 
   const appNavItems = [
-    { label: t('nav.dashboard'), href: '/app/discover' },
+    { label: t('nav.dashboard'), href: '/app/discover' }, // Dashboard = Discover feed
     { label: t('nav.match'), href: '/app/matches' },
     { label: t('nav.chat'), href: '/app/chat' },
     { label: t('nav.events'), href: '/app/events' },
