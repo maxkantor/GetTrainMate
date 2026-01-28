@@ -56,8 +56,25 @@ export const MatchesPage: React.FC = () => {
       }
 
       // Get matches from the API
-      const matchesData = await matchService.getMatches(token);
-      setMatches(matchesData);
+      const matchesData = await matchService.getMyMatches(token);
+      // The API returns Match objects with userId1 and userId2
+      // We need to get the other user's profile to display their info
+      // For now, we'll create a simplified version that will be enhanced later
+      const transformedMatches: Match[] = matchesData.map((match: any) => {
+        const otherUserId = match.userId1 === user?.sub ? match.userId2 : match.userId1;
+        return {
+          userId: otherUserId,
+          name: match.otherUserName || 'Unknown User',
+          photoUrls: match.otherUserPhotoUrls || [],
+          bio: match.otherUserBio || '',
+          city: match.otherUserCity || '',
+          level: match.otherUserLevel || '',
+          sportTags: match.otherUserSportTags || [],
+          matchedAt: match.matchedAt || match.createdAt || new Date().toISOString(),
+          compatibilityScore: match.compatibilityScore || 0,
+        };
+      });
+      setMatches(transformedMatches);
     } catch (err: any) {
       console.error('Error loading matches:', err);
       const apiError = handleApiError(err);
