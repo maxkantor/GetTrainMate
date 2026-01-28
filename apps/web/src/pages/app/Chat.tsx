@@ -20,6 +20,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { chatService, ThreadPreviewResponse, ChatMessage } from '@/services/chatService';
 import { authService } from '@/services/authService';
+import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 
 export const ChatPage: React.FC = () => {
   const { t } = useI18n();
@@ -70,7 +71,12 @@ export const ChatPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Error loading threads:', err);
-      setError(err.message || 'Failed to load chats');
+      const apiError = handleApiError(err);
+      if (isNetworkError(err) || apiError.isCorsError) {
+        setError('Unable to connect to the API. Please check your connection and try again.');
+      } else {
+        setError(apiError.message || 'Failed to load chats');
+      }
     } finally {
       setLoading(false);
     }

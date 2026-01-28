@@ -26,6 +26,7 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { profileService, UpdateProfileRequest } from '@/services/profileService';
 import { authService } from '@/services/authService';
 import { Alert as MUIAlert, Snackbar } from '@mui/material';
+import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 
 const SPORTS = [
   'Running', 'Cycling', 'Swimming', 'Tennis', 'Basketball', 'Soccer',

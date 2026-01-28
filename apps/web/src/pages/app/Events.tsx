@@ -20,6 +20,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { eventService, EventResponse, CreateEventRequest } from '@/services/eventService';
 import { authService } from '@/services/authService';
+import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 
 const SPORTS = [
   'Running', 'Cycling', 'Swimming', 'Tennis', 'Basketball', 'Soccer',
@@ -65,7 +66,12 @@ export const EventsPage: React.FC = () => {
       setEvents(data);
     } catch (err: any) {
       console.error('Error loading events:', err);
-      setError(err.message || 'Failed to load events');
+      const apiError = handleApiError(err);
+      if (isNetworkError(err) || apiError.isCorsError) {
+        setError('Unable to connect to the API. Please check your connection and try again.');
+      } else {
+        setError(apiError.message || 'Failed to load events');
+      }
     } finally {
       setLoading(false);
     }
