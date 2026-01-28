@@ -18,6 +18,7 @@ import { SignupPage } from '@/pages/Signup';
 import { DashboardPage as AppDashboardPage } from '@/pages/app/Dashboard';
 import { ProfilePage } from '@/pages/app/Profile';
 import { DiscoverPage } from '@/pages/app/Discover';
+import { MatchesPage } from '@/pages/app/Matches';
 import { ChatPage } from '@/pages/app/Chat';
 import { EventsPage } from '@/pages/app/Events';
 import { SubscriptionPage } from '@/pages/app/Subscription';
@@ -56,7 +57,7 @@ export const Router: React.FC = () => {
               <Route index element={<DiscoverPage />} />
               <Route path="dashboard" element={<DiscoverPage />} />
               <Route path="discover" element={<DiscoverPage />} />
-              <Route path="matches" element={<AppDashboardPage />} />
+              <Route path="matches" element={<MatchesPage />} />
               <Route path="chat" element={<ChatPage />} />
               <Route path="events" element={<EventsPage />} />
               <Route path="subscription" element={<SubscriptionPage />} />
