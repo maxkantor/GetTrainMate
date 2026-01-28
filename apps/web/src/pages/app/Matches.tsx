@@ -16,6 +16,7 @@ import {
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { matchService } from '@/services/matchService';
+import { profileService } from '@/services/profileService';
 import { authService } from '@/services/authService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 import { useNavigate } from 'react-router-dom';
@@ -57,23 +58,45 @@ export const MatchesPage: React.FC = () => {
 
       // Get matches from the API
       const matchesData = await matchService.getMyMatches(token);
+      
       // The API returns Match objects with userId1 and userId2
-      // We need to get the other user's profile to display their info
-      // For now, we'll create a simplified version that will be enhanced later
-      const transformedMatches: Match[] = matchesData.map((match: any) => {
-        const otherUserId = match.userId1 === user?.sub ? match.userId2 : match.userId1;
-        return {
-          userId: otherUserId,
-          name: match.otherUserName || 'Unknown User',
-          photoUrls: match.otherUserPhotoUrls || [],
-          bio: match.otherUserBio || '',
-          city: match.otherUserCity || '',
-          level: match.otherUserLevel || '',
-          sportTags: match.otherUserSportTags || [],
-          matchedAt: match.matchedAt || match.createdAt || new Date().toISOString(),
-          compatibilityScore: match.compatibilityScore || 0,
-        };
-      });
+      // We need to fetch the other user's profile for each match
+      const transformedMatches: Match[] = await Promise.all(
+        matchesData.map(async (match: any) => {
+          const otherUserId = match.userId1 === user?.sub ? match.userId2 : match.userId1;
+          
+          // Fetch the other user's profile
+          try {
+            const profile = await profileService.getProfile(token, otherUserId);
+            return {
+              userId: otherUserId,
+              name: profile.name || 'Unknown User',
+              photoUrls: profile.photoUrls || [],
+              bio: profile.bio || '',
+              city: profile.city || '',
+              level: profile.level || '',
+              sportTags: profile.sportTags || [],
+              matchedAt: match.createdAt || new Date().toISOString(),
+              compatibilityScore: match.compatibilityScore || 0,
+            };
+          } catch (err) {
+            // If profile fetch fails, return minimal info
+            console.error(`Failed to fetch profile for ${otherUserId}:`, err);
+            return {
+              userId: otherUserId,
+              name: 'Unknown User',
+              photoUrls: [],
+              bio: '',
+              city: '',
+              level: '',
+              sportTags: [],
+              matchedAt: match.createdAt || new Date().toISOString(),
+              compatibilityScore: match.compatibilityScore || 0,
+            };
+          }
+        })
+      );
+      
       setMatches(transformedMatches);
     } catch (err: any) {
       console.error('Error loading matches:', err);
