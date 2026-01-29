@@ -18,7 +18,8 @@ public class ProfileService : IProfileService
         ILogger<ProfileService> logger)
     {
         _dynamoDb = dynamoDb;
-        _tableName = configuration["DYNAMODB_TABLE_PROFILES"] ?? "gettrainmate-profiles-dev";
+        var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
+        _tableName = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
         _logger = logger;
     }
 
@@ -26,17 +27,29 @@ public class ProfileService : IProfileService
     {
         try
         {
+            _logger.LogDebug("Loading profile from table {TableName} for user {UserId}", _tableName, userId);
             var table = Table.LoadTable(_dynamoDb, _tableName);
             var document = await table.GetItemAsync(userId);
 
             if (document == null)
+            {
+                _logger.LogDebug("No profile found for user {UserId}", userId);
                 return null;
+            }
 
+            _logger.LogDebug("Profile found for user {UserId}, deserializing", userId);
             return DocumentToProfile(document);
+        }
+        catch (Amazon.DynamoDBv2.AmazonDynamoDBException dbEx)
+        {
+            _logger.LogError(dbEx, "DynamoDB error getting profile for user {UserId}. Table: {TableName}, Error: {Error}", 
+                userId, _tableName, dbEx.Message);
+            throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting profile for user {UserId}", userId);
+            _logger.LogError(ex, "Error getting profile for user {UserId}. Table: {TableName}, Error: {Error}", 
+                userId, _tableName, ex.Message);
             throw;
         }
     }

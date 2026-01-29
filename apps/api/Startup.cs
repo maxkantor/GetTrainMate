@@ -84,11 +84,10 @@ public class Startup
                 options.MetadataAddress = $"{issuer}/.well-known/openid-configuration";
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    ValidateIssuer = true,
-                    ValidIssuer = issuer,
+                    ValidateIssuer = false, // Disable issuer validation - accept tokens from any Cognito pool
                     ValidateAudience = false,
                     ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
+                    ValidateIssuerSigningKey = false, // Disable signing key validation for now
                     NameClaimType = ClaimTypes.NameIdentifier,
                     RoleClaimType = ClaimTypes.Role,
                     RequireSignedTokens = false

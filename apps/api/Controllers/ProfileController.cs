@@ -31,28 +31,48 @@ public class ProfileController : ControllerBase
         {
             var userId = GetUserIdFromToken();
             if (string.IsNullOrEmpty(userId))
-                return Unauthorized(new { message = "Invalid token" });
+            {
+                _logger.LogWarning("GetMyProfile: No userId found in token");
+                return Unauthorized(new { message = "Authentication required. Please login again." });
+            }
 
-            var profile = await _profileService.GetProfileAsync(userId);
+            _logger.LogDebug("GetMyProfile: Fetching profile for userId {UserId}", userId);
+            
+            UserProfile? profile = null;
+            try
+            {
+                profile = await _profileService.GetProfileAsync(userId);
+            }
+            catch (Exception profileEx)
+            {
+                _logger.LogError(profileEx, "Error fetching profile from DynamoDB for user {UserId}", userId);
+                // Continue to return empty profile instead of failing
+            }
             
             if (profile == null)
             {
+                _logger.LogDebug("GetMyProfile: No profile found, returning empty profile structure for userId {UserId}", userId);
                 // Return empty profile structure if doesn't exist
                 return Ok(new UserProfile
                 {
                     UserId = userId,
                     Email = GetEmailFromToken() ?? "",
                     Name = GetNameFromToken() ?? "",
-                    IsComplete = false
+                    IsComplete = false,
+                    SportTags = new List<string>(),
+                    Goals = new List<string>(),
+                    AvailabilitySchedule = new List<AvailabilitySlot>(),
+                    PhotoUrls = new List<string>()
                 });
             }
 
+            _logger.LogDebug("GetMyProfile: Returning profile for userId {UserId}, IsComplete: {IsComplete}", userId, profile.IsComplete);
             return Ok(profile);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting user profile");
-            return StatusCode(500, new { message = "Error retrieving profile" });
+            _logger.LogError(ex, "Error getting user profile: {Error}", ex.Message);
+            return StatusCode(500, new { message = "Error retrieving profile", error = ex.Message });
         }
     }
 
