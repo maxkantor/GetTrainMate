@@ -243,7 +243,24 @@ export const ProfileOnboardingPage: React.FC = () => {
       }
 
       setPhotoKey(uploadInfo.key);
-      setPhotoPreview(uploadInfo.publicUrl);
+
+      // Use signed URL for preview (publicUrl fails for private S3 buckets)
+      try {
+        const signedUrl = await profileService.getPhotoUrl(token, uploadInfo.key);
+        setPhotoPreview(signedUrl);
+        setError('');
+      } catch (urlErr) {
+        console.warn('Could not get signed URL for preview', urlErr);
+        // Keep showing local file as data URL so user still sees their photo
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (reader.result && typeof reader.result === 'string' && reader.result.startsWith('data:image/')) {
+            setPhotoPreview(reader.result);
+            setError('');
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     } catch (err: any) {
       console.error('Error uploading photo:', err);
       setError(handleApiError(err).message || 'Failed to upload photo');
