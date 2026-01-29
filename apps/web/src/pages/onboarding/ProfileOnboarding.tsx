@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -26,7 +26,17 @@ import {
   Card,
   CardContent,
   Stack,
+  Grid,
+  IconButton,
+  StepConnector,
+  stepConnectorClasses,
 } from '@mui/material';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
+import PeopleIcon from '@mui/icons-material/People';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { profileService, UpdateProfileRequest, AvailabilitySlot } from '@/services/profileService';
 import { authService } from '@/services/authService';
@@ -68,6 +78,8 @@ export const ProfileOnboardingPage: React.FC = () => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoKey, setPhotoKey] = useState<string | null>(null);
   const [otherSport, setOtherSport] = useState<string>('');
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<UpdateProfileRequest>({
     name: '',
@@ -140,10 +152,7 @@ export const ProfileOnboardingPage: React.FC = () => {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (!selectedFile) return;
-
+  const processFile = (selectedFile: File) => {
     // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!validTypes.includes(selectedFile.type)) {
@@ -161,40 +170,47 @@ export const ProfileOnboardingPage: React.FC = () => {
     setError('');
 
     // Create preview
-    console.log('Creating preview for file:', selectedFile.name, selectedFile.type, selectedFile.size);
     const reader = new FileReader();
     reader.onloadend = () => {
-      console.log('FileReader onloadend, result type:', typeof reader.result, 'result length:', reader.result ? (reader.result as string).length : 0);
       if (reader.result && typeof reader.result === 'string') {
-        // Validate it's a proper data URL
         if (reader.result.startsWith('data:image/')) {
           setPhotoPreview(reader.result);
-          console.log('Preview set successfully, preview length:', reader.result.length);
         } else {
           setError('Invalid image data format');
-          console.error('FileReader result is not a valid image data URL:', reader.result.substring(0, 50));
         }
       } else {
         setError('Failed to load image preview');
-        console.error('FileReader result is null or invalid');
       }
     };
-    reader.onerror = (event) => {
+    reader.onerror = () => {
       setError('Failed to read image file');
-      console.error('FileReader error:', reader.error, event);
     };
-    reader.onload = () => {
-      console.log('FileReader onload fired');
-    };
-    reader.onabort = () => {
-      console.error('FileReader aborted');
-      setError('Image reading was cancelled');
-    };
-    try {
-      reader.readAsDataURL(selectedFile);
-    } catch (err) {
-      console.error('Error starting FileReader:', err);
-      setError('Failed to read image file');
+    reader.readAsDataURL(selectedFile);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+    processFile(selectedFile);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
     }
   };
 
@@ -367,85 +383,126 @@ export const ProfileOnboardingPage: React.FC = () => {
       case 0: // Photo
         return (
           <Box>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
               Add Your Profile Photo
             </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
-              Upload a clear photo of yourself (optional but recommended)
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Profiles with photos get more matches
             </Typography>
 
-            {(file || photoPreview) && (
-              <Box sx={{ mb: 2, textAlign: 'center' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              {/* Large Circular Avatar Placeholder */}
+              <Box
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                sx={{
+                  width: 200,
+                  height: 200,
+                  borderRadius: '50%',
+                  border: dragActive ? '3px dashed #6366f1' : photoPreview ? 'none' : '2px dashed #d1d5db',
+                  backgroundColor: photoPreview ? 'transparent' : '#f9fafb',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    borderColor: '#6366f1',
+                    backgroundColor: photoPreview ? 'transparent' : '#f3f4f6',
+                  },
+                }}
+              >
                 {photoPreview ? (
-                  <img
-                    src={photoPreview}
-                    alt="Profile preview"
-                    onError={(e) => {
-                      console.error('Image failed to load:', photoPreview);
-                      setError('Failed to display image preview');
-                      setPhotoPreview(null);
-                    }}
-                    style={{
-                      width: 200,
-                      height: 200,
-                      objectFit: 'cover',
-                      borderRadius: '50%',
-                      border: '2px solid #e0e0e0',
-                      display: 'block',
-                      margin: '0 auto',
-                    }}
-                  />
+                  <>
+                    <img
+                      src={photoPreview}
+                      alt="Profile preview"
+                      onError={(e) => {
+                        setError('Failed to display image preview');
+                        setPhotoPreview(null);
+                      }}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: '50%',
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                        borderRadius: '50%',
+                        p: 0.5,
+                        '&:hover': {
+                          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        },
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFile(null);
+                        setPhotoPreview(null);
+                        setPhotoKey(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                    >
+                      <DeleteIcon sx={{ color: 'white', fontSize: 20 }} />
+                    </Box>
+                  </>
                 ) : (
-                  <Box
-                    sx={{
-                      width: 200,
-                      height: 200,
-                      borderRadius: '50%',
-                      border: '2px solid #e0e0e0',
-                      backgroundColor: '#f5f5f5',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto',
-                    }}
-                  >
-                    <Typography variant="body2" color="textSecondary">
-                      Loading preview...
+                  <>
+                    <CloudUploadIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 1 }} />
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                      Click or drag & drop
                     </Typography>
-                  </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      JPG, PNG, or WebP (max 5MB)
+                    </Typography>
+                  </>
                 )}
               </Box>
-            )}
 
-            <Box sx={{ mb: 2 }}>
-              <Button variant="outlined" component="label" disabled={uploading}>
-                Choose Photo
-                <input type="file" hidden accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleFileChange} />
-              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                hidden
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                onChange={handleFileChange}
+              />
+
               {file && !photoKey && (
                 <Button
                   variant="contained"
                   onClick={handleUploadPhoto}
                   disabled={uploading}
-                  sx={{ ml: 2 }}
+                  startIcon={uploading ? <CircularProgress size={16} color="inherit" /> : <CloudUploadIcon />}
+                  sx={{ borderRadius: 2 }}
                 >
-                  {uploading ? <CircularProgress size={20} /> : 'Upload'}
+                  {uploading ? 'Uploading...' : 'Upload Photo'}
                 </Button>
               )}
-            </Box>
 
-            {file && (
-              <Typography variant="body2" color="textSecondary">
-                Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-              </Typography>
-            )}
+              {file && photoKey && (
+                <Typography variant="body2" color="success.main" sx={{ fontWeight: 500 }}>
+                  ✓ Photo uploaded successfully
+                </Typography>
+              )}
+            </Box>
           </Box>
         );
 
       case 1: // Basics
         return (
           <Box>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
               Basic Information
             </Typography>
 
@@ -454,40 +511,59 @@ export const ProfileOnboardingPage: React.FC = () => {
               label="Display Name *"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              margin="normal"
+              sx={{ mb: 2 }}
               required
             />
 
-            <TextField
-              fullWidth
-              label="City"
-              value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-              margin="normal"
-            />
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="City"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="State"
+                  value={formData.state}
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                />
+              </Grid>
+            </Grid>
 
-            <TextField
-              fullWidth
-              label="State"
-              value={formData.state}
-              onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-              margin="normal"
-            />
+            <Box sx={{ mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  Bio *
+                </Typography>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: formData.bio && (formData.bio.length < 20 || formData.bio.length > 500) 
+                      ? 'error.main' 
+                      : 'text.secondary' 
+                  }}
+                >
+                  {formData.bio?.length || 0}/500
+                </Typography>
+              </Box>
+              <TextField
+                fullWidth
+                value={formData.bio}
+                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                multiline
+                rows={4}
+                placeholder="Tell potential training partners about yourself, your fitness goals, and what you're looking for..."
+                required
+                error={formData.bio ? (formData.bio.length < 20 || formData.bio.length > 500) : false}
+                helperText={formData.bio && formData.bio.length < 20 ? 'Minimum 20 characters required' : ''}
+              />
+            </Box>
 
-            <TextField
-              fullWidth
-              label="Bio *"
-              value={formData.bio}
-              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-              margin="normal"
-              multiline
-              rows={4}
-              required
-              helperText={`${formData.bio?.length || 0}/500 characters (minimum 20)`}
-              error={formData.bio ? (formData.bio.length < 20 || formData.bio.length > 500) : false}
-            />
-
-            <FormControl fullWidth margin="normal">
+            <FormControl fullWidth>
               <InputLabel>Gender (Optional)</InputLabel>
               <Select
                 value={formData.gender}
@@ -507,11 +583,11 @@ export const ProfileOnboardingPage: React.FC = () => {
       case 2: // Training
         return (
           <Box>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
               Training Preferences
             </Typography>
 
-            <FormControl fullWidth margin="normal">
+            <FormControl fullWidth sx={{ mb: 3 }}>
               <InputLabel id="sport-tags-label">Training Types *</InputLabel>
               <Select
                 labelId="sport-tags-label"
@@ -605,7 +681,7 @@ export const ProfileOnboardingPage: React.FC = () => {
               )}
             </FormControl>
 
-            <FormControl fullWidth margin="normal">
+            <FormControl fullWidth sx={{ mb: 3 }}>
               <InputLabel>Skill Level *</InputLabel>
               <Select
                 value={formData.level}
@@ -621,99 +697,195 @@ export const ProfileOnboardingPage: React.FC = () => {
               </Select>
             </FormControl>
 
-            <FormControl component="fieldset" margin="normal">
-              <FormLabel component="legend">Training Mode</FormLabel>
-              <RadioGroup
-                value={formData.mode}
-                onChange={(e) => setFormData({ ...formData, mode: e.target.value as 'TRAIN' | 'VIBE' | 'DATE' })}
-              >
-                <FormControlLabel value="TRAIN" control={<Radio />} label="TRAIN (Fitness Partners)" />
-                <FormControlLabel value="VIBE" control={<Radio />} label="VIBE (Buddies)" />
-                <FormControlLabel value="DATE" control={<Radio />} label="DATE (Interested)" />
-              </RadioGroup>
-            </FormControl>
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="body2" sx={{ fontWeight: 500, mb: 2 }}>
+                Training Mode
+              </Typography>
+              <Grid container spacing={2}>
+                {[
+                  { 
+                    value: 'TRAIN', 
+                    title: 'TRAIN', 
+                    description: 'Fitness Partners',
+                    icon: <FitnessCenterIcon sx={{ fontSize: 32 }} />,
+                    color: '#6366f1'
+                  },
+                  { 
+                    value: 'VIBE', 
+                    title: 'VIBE', 
+                    description: 'Buddies',
+                    icon: <PeopleIcon sx={{ fontSize: 32 }} />,
+                    color: '#8b5cf6'
+                  },
+                  { 
+                    value: 'DATE', 
+                    title: 'DATE', 
+                    description: 'Interested',
+                    icon: <FavoriteIcon sx={{ fontSize: 32 }} />,
+                    color: '#ec4899'
+                  },
+                ].map((mode) => (
+                  <Grid item xs={12} sm={4} key={mode.value}>
+                    <Card
+                      onClick={() => setFormData({ ...formData, mode: mode.value as 'TRAIN' | 'VIBE' | 'DATE' })}
+                      sx={{
+                        cursor: 'pointer',
+                        border: formData.mode === mode.value ? `2px solid ${mode.color}` : '2px solid transparent',
+                        borderRadius: 2,
+                        transition: 'all 0.2s ease',
+                        backgroundColor: formData.mode === mode.value ? `${mode.color}08` : 'transparent',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: formData.mode === mode.value 
+                            ? `0 8px 16px ${mode.color}30` 
+                            : '0 4px 12px rgba(0,0,0,0.1)',
+                          borderColor: mode.color,
+                        },
+                        ...(formData.mode === mode.value && {
+                          boxShadow: `0 4px 12px ${mode.color}40`,
+                        }),
+                      }}
+                    >
+                      <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                        <Box sx={{ color: mode.color, mb: 1 }}>
+                          {mode.icon}
+                        </Box>
+                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                          {mode.title}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {mode.description}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
           </Box>
         );
 
       case 3: // Availability
         return (
           <Box>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
               Availability
             </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Add at least one time slot when you're available to train
             </Typography>
 
             {(formData.availabilitySchedule || []).map((slot, index) => (
-              <Card key={index} sx={{ mb: 2 }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="subtitle1">Slot {index + 1}</Typography>
-                    <Button size="small" color="error" onClick={() => handleRemoveAvailability(index)}>
-                      Remove
-                    </Button>
-                  </Box>
-
-                  <FormControl fullWidth margin="normal">
-                    <InputLabel>Days</InputLabel>
-                    <Select
-                      multiple
-                      value={slot.days}
-                      onChange={(e) => handleUpdateAvailability(index, 'days', e.target.value)}
-                      input={<OutlinedInput label="Days" />}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {(selected as string[]).map((day) => (
-                            <Chip key={day} label={day} size="small" />
-                          ))}
-                        </Box>
-                      )}
+              <Card 
+                key={index} 
+                elevation={0}
+                sx={{ 
+                  mb: 2, 
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                }}
+              >
+                <CardContent sx={{ py: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      Time Slot {index + 1}
+                    </Typography>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleRemoveAvailability(index)}
+                      sx={{ 
+                        color: 'text.secondary',
+                        '&:hover': {
+                          color: 'error.main',
+                          backgroundColor: 'error.light',
+                        },
+                      }}
                     >
-                      {DAYS.map((day) => (
-                        <MenuItem key={day} value={day}>
-                          {day}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <FormControl fullWidth margin="normal">
-                      <InputLabel>Start Time</InputLabel>
-                      <Select
-                        value={slot.timeStart}
-                        onChange={(e) => handleUpdateAvailability(index, 'timeStart', e.target.value)}
-                        label="Start Time"
-                      >
-                        {TIME_SLOTS.map((ts) => (
-                          <MenuItem key={ts.start} value={ts.start}>
-                            {ts.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    <FormControl fullWidth margin="normal">
-                      <InputLabel>End Time</InputLabel>
-                      <Select
-                        value={slot.timeEnd}
-                        onChange={(e) => handleUpdateAvailability(index, 'timeEnd', e.target.value)}
-                        label="End Time"
-                      >
-                        {TIME_SLOTS.map((ts) => (
-                          <MenuItem key={ts.end} value={ts.end}>
-                            {ts.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
                   </Box>
+
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                      Days
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {DAYS.map((day) => {
+                        const isSelected = slot.days?.includes(day);
+                        return (
+                          <Chip
+                            key={day}
+                            label={day}
+                            onClick={() => {
+                              const currentDays = slot.days || [];
+                              const newDays = isSelected
+                                ? currentDays.filter(d => d !== day)
+                                : [...currentDays, day];
+                              handleUpdateAvailability(index, 'days', newDays);
+                            }}
+                            sx={{
+                              backgroundColor: isSelected ? 'primary.main' : 'transparent',
+                              color: isSelected ? 'white' : 'text.primary',
+                              border: `1px solid ${isSelected ? 'primary.main' : 'divider'}`,
+                              cursor: 'pointer',
+                              '&:hover': {
+                                backgroundColor: isSelected ? 'primary.dark' : 'action.hover',
+                              },
+                            }}
+                          />
+                        );
+                      })}
+                    </Box>
+                  </Box>
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Start Time</InputLabel>
+                        <Select
+                          value={slot.timeStart}
+                          onChange={(e) => handleUpdateAvailability(index, 'timeStart', e.target.value)}
+                          label="Start Time"
+                        >
+                          {TIME_SLOTS.map((ts) => (
+                            <MenuItem key={ts.start} value={ts.start}>
+                              {ts.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>End Time</InputLabel>
+                        <Select
+                          value={slot.timeEnd}
+                          onChange={(e) => handleUpdateAvailability(index, 'timeEnd', e.target.value)}
+                          label="End Time"
+                        >
+                          {TIME_SLOTS.map((ts) => (
+                            <MenuItem key={ts.end} value={ts.end}>
+                              {ts.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
                 </CardContent>
               </Card>
             ))}
 
-            <Button variant="outlined" onClick={handleAddAvailability} sx={{ mt: 2 }}>
+            <Button 
+              variant="outlined" 
+              onClick={handleAddAvailability} 
+              sx={{ 
+                mt: 1,
+                borderRadius: 2,
+              }}
+            >
               + Add Availability Slot
             </Button>
           </Box>
@@ -722,52 +894,109 @@ export const ProfileOnboardingPage: React.FC = () => {
       case 4: // Review
         return (
           <Box>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
               Review Your Profile
             </Typography>
 
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
-                <Typography variant="subtitle2" color="textSecondary">Display Name</Typography>
-                <Typography variant="body1">{formData.name || 'Not set'}</Typography>
-              </CardContent>
-            </Card>
-
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
-                <Typography variant="subtitle2" color="textSecondary">Bio</Typography>
-                <Typography variant="body1">{formData.bio || 'Not set'}</Typography>
-              </CardContent>
-            </Card>
-
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
-                <Typography variant="subtitle2" color="textSecondary">Training Types</Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-                  {(formData.sportTags || []).map((tag) => (
-                    <Chip key={tag} label={tag} size="small" />
-                  ))}
-                </Box>
-              </CardContent>
-            </Card>
-
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
-                <Typography variant="subtitle2" color="textSecondary">Skill Level</Typography>
-                <Typography variant="body1">{formData.level || 'Not set'}</Typography>
-              </CardContent>
-            </Card>
-
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
-                <Typography variant="subtitle2" color="textSecondary">Availability</Typography>
-                {(formData.availabilitySchedule || []).map((slot, idx) => (
-                  <Typography key={idx} variant="body2" sx={{ mt: 1 }}>
-                    {slot.days.join(', ')}: {slot.timeStart} - {slot.timeEnd}
-                  </Typography>
-                ))}
-              </CardContent>
-            </Card>
+            {[
+              {
+                title: 'Display Name',
+                value: formData.name || 'Not set',
+                step: 1,
+              },
+              {
+                title: 'Bio',
+                value: formData.bio || 'Not set',
+                step: 1,
+              },
+              {
+                title: 'Training Types',
+                value: formData.sportTags && formData.sportTags.length > 0 
+                  ? formData.sportTags.filter(t => t !== 'Other').join(', ')
+                  : 'Not set',
+                step: 2,
+                chips: formData.sportTags?.filter(t => t !== 'Other'),
+              },
+              {
+                title: 'Skill Level',
+                value: formData.level ? formData.level.charAt(0).toUpperCase() + formData.level.slice(1) : 'Not set',
+                step: 2,
+              },
+              {
+                title: 'Training Mode',
+                value: formData.mode || 'Not set',
+                step: 2,
+              },
+              {
+                title: 'Availability',
+                value: formData.availabilitySchedule && formData.availabilitySchedule.length > 0
+                  ? formData.availabilitySchedule.map((slot, idx) => 
+                      `${slot.days?.join(', ') || 'No days'}: ${slot.timeStart} - ${slot.timeEnd}`
+                    ).join('; ')
+                  : 'Not set',
+                step: 3,
+                slots: formData.availabilitySchedule,
+              },
+            ].map((section, idx) => (
+              <Card 
+                key={idx}
+                elevation={0}
+                sx={{ 
+                  mb: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    boxShadow: 2,
+                  },
+                }}
+              >
+                <CardContent sx={{ py: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5, fontSize: '0.75rem', fontWeight: 500 }}>
+                        {section.title}
+                      </Typography>
+                      {section.chips ? (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {section.chips.map((tag) => (
+                            <Chip key={tag} label={tag} size="small" sx={{ borderRadius: 1 }} />
+                          ))}
+                        </Box>
+                      ) : section.slots ? (
+                        <Box sx={{ mt: 0.5 }}>
+                          {section.slots.map((slot: AvailabilitySlot, slotIdx: number) => (
+                            <Typography key={slotIdx} variant="body2" sx={{ mb: 0.5 }}>
+                              {slot.days?.join(', ') || 'No days'}: {slot.timeStart} - {slot.timeEnd}
+                            </Typography>
+                          ))}
+                        </Box>
+                      ) : (
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          {section.value}
+                        </Typography>
+                      )}
+                    </Box>
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setActiveStep(section.step);
+                        setError('');
+                      }}
+                      sx={{
+                        color: 'primary.main',
+                        '&:hover': {
+                          backgroundColor: 'primary.light',
+                        },
+                      }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
           </Box>
         );
 
@@ -776,45 +1005,132 @@ export const ProfileOnboardingPage: React.FC = () => {
     }
   };
 
-  return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom align="center">
-        Complete Your Profile
-      </Typography>
-      <Typography variant="body1" color="textSecondary" align="center" sx={{ mb: 4 }}>
-        Help us match you with the perfect training partner
-      </Typography>
+  const CustomStepConnector = () => (
+    <StepConnector
+      sx={{
+        [`&.${stepConnectorClasses.active}`]: {
+          [`& .${stepConnectorClasses.line}`]: {
+            borderColor: '#6366f1',
+          },
+        },
+        [`&.${stepConnectorClasses.completed}`]: {
+          [`& .${stepConnectorClasses.line}`]: {
+            borderColor: '#6366f1',
+          },
+        },
+        [`& .${stepConnectorClasses.line}`]: {
+          borderTopWidth: 2,
+          borderRadius: 1,
+        },
+      }}
+    />
+  );
 
-      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-        {STEPS.map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
-          </Step>
-        ))}
-      </Stepper>
+  return (
+    <Container maxWidth="md" sx={{ py: { xs: 3, md: 4 } }}>
+      <Box sx={{ mb: 3, textAlign: 'center' }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 0.5 }}>
+          Complete Your Profile
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Help us match you with the perfect training partner
+        </Typography>
+        
+        {/* Compact Stepper with Step X of 5 */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+            Step {activeStep + 1} of {STEPS.length}
+          </Typography>
+        </Box>
+        
+        <Stepper 
+          activeStep={activeStep} 
+          connector={<CustomStepConnector />}
+          sx={{ 
+            mb: 0,
+            '& .MuiStepLabel-root': {
+              '& .MuiStepLabel-label': {
+                fontSize: '0.75rem',
+                fontWeight: activeStep === STEPS.indexOf(STEPS[activeStep]) ? 600 : 400,
+              },
+            },
+            '& .MuiStepIcon-root': {
+              '&.Mui-active': {
+                color: '#6366f1',
+                '& .MuiStepIcon-text': {
+                  fill: 'white',
+                },
+              },
+              '&.Mui-completed': {
+                color: '#6366f1',
+              },
+            },
+          }}
+        >
+          {STEPS.map((label, index) => (
+            <Step key={label} completed={index < activeStep} active={index === activeStep}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+      </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
           {error}
         </Alert>
       )}
 
-      <Card>
-        <CardContent sx={{ py: 4 }}>
+      <Card 
+        elevation={0}
+        sx={{ 
+          borderRadius: 3,
+          border: '1px solid',
+          borderColor: 'divider',
+          mb: 3,
+        }}
+      >
+        <CardContent sx={{ py: { xs: 3, md: 4 }, px: { xs: 2, md: 4 } }}>
           {renderStepContent()}
         </CardContent>
       </Card>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-        <Button disabled={activeStep === 0} onClick={handleBack}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Button 
+          disabled={activeStep === 0} 
+          onClick={handleBack}
+          sx={{ minWidth: 100 }}
+        >
           Back
         </Button>
         {activeStep === STEPS.length - 1 ? (
-          <Button variant="contained" onClick={handleSubmit} disabled={loading}>
-            {loading ? <CircularProgress size={24} /> : 'Complete Profile'}
+          <Button 
+            variant="contained" 
+            onClick={handleSubmit} 
+            disabled={loading}
+            size="large"
+            sx={{ 
+              minWidth: 200,
+              fontWeight: 600,
+              px: 4,
+              py: 1.5,
+              borderRadius: 2,
+            }}
+          >
+            {loading ? <CircularProgress size={24} color="inherit" /> : "You're ready to find your training mate 💪"}
           </Button>
         ) : (
-          <Button variant="contained" onClick={handleNext}>
+          <Button 
+            variant="contained" 
+            onClick={handleNext}
+            size="large"
+            sx={{ 
+              minWidth: 100,
+              fontWeight: 600,
+              px: 3,
+              borderRadius: 2,
+            }}
+          >
             Next
           </Button>
         )}
