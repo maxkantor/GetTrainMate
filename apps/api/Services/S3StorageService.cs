@@ -37,4 +37,17 @@ public class S3StorageService : IStorageService
     {
         return $"https://{_bucket}.s3.amazonaws.com/{key}";
     }
+
+    public string GetPresignedDownloadUrl(string key, TimeSpan expiresIn)
+    {
+        var request = new GetPreSignedUrlRequest
+        {
+            BucketName = _bucket,
+            Key = key,
+            Verb = HttpVerb.GET,
+            Expires = DateTime.UtcNow.Add(expiresIn)
+        };
+
+        return _s3.GetPreSignedURL(request);
+    }
 }

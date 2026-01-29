@@ -90,6 +90,38 @@ public class ProfileController : ControllerBase
         }
     }
 
+    public class GetPhotoUrlRequest
+    {
+        public string Key { get; set; } = string.Empty;
+    }
+
+    [HttpPost("me/photos/url")]
+    public ActionResult GetPhotoUrl([FromBody] GetPhotoUrlRequest request)
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "Invalid token" });
+
+            if (string.IsNullOrWhiteSpace(request.Key))
+                return BadRequest(new { message = "Key is required" });
+
+            // Verify the key belongs to this user
+            if (!request.Key.StartsWith($"profiles/{userId}/"))
+                return Forbid("You can only access your own photos");
+
+            // Generate signed URL valid for 1 hour
+            var signedUrl = _storageService.GetPresignedDownloadUrl(request.Key, TimeSpan.FromHours(1));
+            return Ok(new { url: signedUrl });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating photo URL");
+            return StatusCode(500, new { message = "Error generating photo URL" });
+        }
+    }
+
     public class AddPhotoRequest
     {
         public string Url { get; set; } = string.Empty;

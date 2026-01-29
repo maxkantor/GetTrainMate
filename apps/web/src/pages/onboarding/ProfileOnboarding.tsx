@@ -110,9 +110,16 @@ export const ProfileOnboardingPage: React.FC = () => {
         });
         if (profile.photoKey) {
           setPhotoKey(profile.photoKey);
-          // Generate preview URL from photoKey
-          const publicUrl = `https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/${profile.photoKey}`;
-          setPhotoPreview(publicUrl);
+          try {
+            // Get signed URL for the photo
+            const signedUrl = await profileService.getPhotoUrl(token, profile.photoKey);
+            setPhotoPreview(signedUrl);
+          } catch (err) {
+            console.error('Error loading photo URL:', err);
+            // Fallback to direct URL if signed URL fails
+            const publicUrl = `https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/${profile.photoKey}`;
+            setPhotoPreview(publicUrl);
+          }
         }
       }
     } catch (err) {

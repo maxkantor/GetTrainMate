@@ -108,6 +108,15 @@ class ProfileService {
     return response.data;
   }
 
+  async getPhotoUrl(token: string, photoKey: string): Promise<string> {
+    const response = await axios.post<{ url: string }>(
+      `${API_BASE_URL}/api/profile/me/photos/url`,
+      { key: photoKey },
+      this.getHeaders(token)
+    );
+    return response.data.url;
+  }
+
   async addPhoto(token: string, url: string): Promise<UserProfile> {
     const response = await axios.post<UserProfile>(
       `${API_BASE_URL}/api/profile/me/photos`,

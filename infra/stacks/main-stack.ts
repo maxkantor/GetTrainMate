@@ -6,6 +6,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as customResources from 'aws-cdk-lib/custom-resources';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -73,6 +74,10 @@ export class GetTrainMateStack extends cdk.Stack {
     // S3 Bucket for media storage
     // Reference existing bucket
     const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', 'getrainmate-media-bucket');
+    
+    // Add CORS configuration to the S3 bucket
+    // Since we're referencing an existing bucket, we use a custom resource
+    this.addS3CorsConfiguration(mediaBucket);
 
     // Lambda function for API
     // Note: The Lambda code needs to be built and published first:
@@ -406,5 +411,82 @@ export class GetTrainMateStack extends cdk.Stack {
     tables.push(stripeCustomersTable);
 
     return tables;
+  }
+
+  /**
+   * Add CORS configuration to the S3 bucket using a custom resource
+   */
+  private addS3CorsConfiguration(bucket: s3.IBucket): void {
+    // Custom resource Lambda to set CORS configuration
+    const corsLambda = new lambda.Function(this, 'S3CorsConfigLambda', {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'index.handler',
+      code: lambda.Code.fromInline(`
+import boto3
+import cfnresponse
+import json
+
+def handler(event, context):
+    s3_client = boto3.client('s3')
+    bucket_name = '${bucket.bucketName}'
+    
+    cors_configuration = {
+        'CORSRules': [
+            {
+                'AllowedOrigins': [
+                    'https://main.d3tocp1533tn5q.amplifyapp.com',
+                    'http://localhost:3000',
+                    'http://localhost:5173',
+                    'http://localhost:5174'
+                ],
+                'AllowedMethods': ['GET', 'PUT', 'POST', 'HEAD'],
+                'AllowedHeaders': ['*'],
+                'ExposeHeaders': ['ETag'],
+                'MaxAgeSeconds': 3000
+            }
+        ]
+    }
+    
+    try:
+        if event['RequestType'] == 'Delete':
+            # On delete, remove CORS configuration
+            s3_client.delete_bucket_cors(Bucket=bucket_name)
+        else:
+            # Create or update CORS configuration
+            s3_client.put_bucket_cors(
+                Bucket=bucket_name,
+                CORSConfiguration=cors_configuration
+            )
+        cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+      `),
+      timeout: cdk.Duration.seconds(30),
+    });
+
+    // Grant permissions to modify bucket CORS
+    corsLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        's3:PutBucketCORS',
+        's3:GetBucketCORS',
+        's3:DeleteBucketCORS',
+      ],
+      resources: [bucket.bucketArn],
+    }));
+
+    // Custom resource provider
+    const provider = new customResources.Provider(this, 'S3CorsConfigProvider', {
+      onEventHandler: corsLambda,
+    });
+
+    // Custom resource to trigger the Lambda
+    new cdk.CustomResource(this, 'S3CorsConfigResource', {
+      serviceToken: provider.serviceToken,
+      properties: {
+        BucketName: bucket.bucketName,
+      },
+    });
   }
 }

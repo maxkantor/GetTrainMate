@@ -107,9 +107,18 @@ export const ProfilePage: React.FC = () => {
       });
       // Show photo from photoKey if available, otherwise use photoUrls
       if (profile.photoKey) {
-        const photoUrl = `https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/${profile.photoKey}`;
-        setMyPhotos([photoUrl]);
-        setPhotoKey(profile.photoKey);
+        try {
+          // Get signed URL for the photo
+          const signedUrl = await profileService.getPhotoUrl(token, profile.photoKey);
+          setMyPhotos([signedUrl]);
+          setPhotoKey(profile.photoKey);
+        } catch (err) {
+          console.error('Error loading photo URL:', err);
+          // Fallback to direct URL if signed URL fails
+          const photoUrl = `https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/${profile.photoKey}`;
+          setMyPhotos([photoUrl]);
+          setPhotoKey(profile.photoKey);
+        }
       } else {
         setMyPhotos(profile.photoUrls || []);
       }
