@@ -1,103 +1,141 @@
-# 🎉 Admin Portal Deployment Complete
+# Deployment Complete ✅
 
-## ✅ Infrastructure Deployed
+## Lambda Deployment Status
 
-**Stack Status**: `UPDATE_COMPLETE`  
-**API URL**: `https://goskwzjzjg.execute-api.us-east-1.amazonaws.com/`
+### Function Updated
+- **Function Name:** `GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u`
+- **Runtime:** `.NET 8`
+- **Handler:** `GetTrainMate.Api::GetTrainMate.Api.LambdaEntryPoint::FunctionHandlerAsync`
+- **Package:** `deploy/gettrainmate-api-lambda.zip` (4.1 MB)
 
-## 📋 Next Steps
+### New Features Deployed
+1. ✅ S3 CORS configuration (via CDK custom resource)
+2. ✅ Photo signed URL endpoint (`POST /api/profile/me/photos/url`)
+3. ✅ Updated frontend to use signed URLs for photo display
 
-### 1. Set Lambda Environment Variables ✅
+## Testing Instructions
 
-Already set via script:
-- `ADMIN_ALLOWLIST=mykantor@bellsouth.net`
-- `SES_FROM_EMAIL=noreply@gettrainmate.com`
-- `SES_REGION=us-east-1`
+### 1. Test Photo Upload
+1. Navigate to `/onboarding/profile` or `/app/profile`
+2. Click "CHOOSE PHOTO" and select an image
+3. Click "UPLOAD"
+4. Verify upload succeeds without CORS errors
+5. Check browser console for any errors
 
-### 2. Set Amplify Environment Variables
+### 2. Test Photo Display
+1. After uploading, verify photo appears in preview
+2. Navigate to profile page
+3. Verify photo displays correctly
+4. Check browser DevTools Network tab:
+   - Should see request to `/api/profile/me/photos/url`
+   - Response should contain signed URL
+   - Image should load without CORS errors
 
-**Go to AWS Amplify Console:**
-1. Navigate to your app
-2. Go to **Environment variables**
-3. Add/Update:
-   ```
-   VITE_ADMIN_ALLOWLIST=mykantor@bellsouth.net
-   VITE_API_URL=https://goskwzjzjg.execute-api.us-east-1.amazonaws.com/
-   ```
-4. **Save** and trigger a new build
-
-### 3. Verify SES Setup
-
-**In AWS SES Console:**
-1. Go to **Verified identities**
-2. Verify sender email/domain: `noreply@gettrainmate.com`
-3. If in sandbox, request production access
-4. Test email sending
-
-### 4. Test Admin Access
-
-**Option A: Using the test script:**
-```bash
-./scripts/test-admin-access.sh
+### 3. Verify CORS Configuration
+Open browser DevTools Console and run:
+```javascript
+fetch('https://getrainmate-media-bucket.s3.amazonaws.com/profiles/test.jpg', {
+  method: 'HEAD',
+  mode: 'cors'
+}).then(r => {
+  console.log('CORS Headers:', {
+    'Access-Control-Allow-Origin': r.headers.get('Access-Control-Allow-Origin'),
+    'Access-Control-Allow-Methods': r.headers.get('Access-Control-Allow-Methods')
+  });
+});
 ```
 
-**Option B: Manual testing:**
-1. Login to your app as `mykantor@bellsouth.net`
-2. Navigate to: `https://your-amplify-url/admin`
-3. Should load admin portal
+### 4. Test on Different Origins
+- ✅ Amplify domain: `https://main.d3tocp1533tn5q.amplifyapp.com`
+- ✅ Localhost: `http://localhost:5173` or `http://localhost:3000`
 
-**Option C: Test API directly:**
-```bash
-# Get token
-TOKEN=$(aws cognito-idp initiate-auth \
-  --auth-flow USER_PASSWORD_AUTH \
-  --client-id 7phu8vk1o9s4nmmqofvcfmbntq \
-  --auth-parameters USERNAME=mykantor@bellsouth.net,PASSWORD=YourPassword \
-  --query 'AuthenticationResult.IdToken' \
-  --output text)
+## API Endpoints
 
-# Test admin endpoint
-curl -H "Authorization: Bearer $TOKEN" \
-  https://goskwzjzjg.execute-api.us-east-1.amazonaws.com/api/admin/me
+### Get Photo Signed URL
+```
+POST /api/profile/me/photos/url
+Authorization: Bearer <token>
+Content-Type: application/json
+
+Body:
+{
+  "key": "profiles/userId/photo.jpg"
+}
+
+Response:
+{
+  "url": "https://getrainmate-media-bucket.s3.amazonaws.com/profiles/userId/photo.jpg?X-Amz-Algorithm=..."
+}
 ```
 
-## 🧪 Testing Checklist
+### Upload Photo (Presigned URL)
+```
+POST /api/profile/me/photos/upload-url
+Authorization: Bearer <token>
+Content-Type: application/json
 
-- [ ] Lambda environment variables set
-- [ ] Amplify environment variables set
-- [ ] SES sender email verified
-- [ ] Admin API endpoint returns 200 for admin user
-- [ ] Admin API endpoint returns 403 for non-admin user
-- [ ] Frontend `/admin` route loads for admin user
-- [ ] Frontend `/admin` route redirects for non-admin user
-- [ ] Dashboard page loads
-- [ ] Users page loads
-- [ ] Devices page loads
-- [ ] Contacts page loads
-- [ ] Email sending works (after SES setup)
+Body:
+{
+  "contentType": "image/jpeg"
+}
 
-## 📊 Deployment Summary
+Response:
+{
+  "key": "profiles/userId/guid.jpg",
+  "uploadUrl": "https://getrainmate-media-bucket.s3.amazonaws.com/...",
+  "publicUrl": "https://getrainmate-media-bucket.s3.amazonaws.com/..."
+}
+```
 
-**API Gateway URL**: `https://goskwzjzjg.execute-api.us-east-1.amazonaws.com/`  
-**Lambda Function**: Deployed with all admin controllers  
-**DynamoDB Tables**: All tables created (admins, payments, subscriptions, tickets, analytics, contacts, email threads, token wallets, etc.)  
-**SES Permissions**: Configured for Lambda  
+## Troubleshooting
 
-## 🔗 Quick Links
+### If upload fails:
+1. Check Lambda logs: `aws logs tail /aws/lambda/GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u --follow`
+2. Verify S3 bucket permissions
+3. Check CORS configuration: `aws s3api get-bucket-cors --bucket getrainmate-media-bucket`
 
-- **API Base**: `https://goskwzjzjg.execute-api.us-east-1.amazonaws.com/api`
-- **Admin Endpoint**: `https://goskwzjzjg.execute-api.us-east-1.amazonaws.com/api/admin/me`
-- **CloudFormation**: [View Stack](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/GetTrainMateStack)
-- **Lambda Console**: [View Function](https://console.aws.amazon.com/lambda/home?region=us-east-1#/functions)
-- **SES Console**: [Verify Email](https://console.aws.amazon.com/ses/home?region=us-east-1#/verified-identities)
+### If display fails:
+1. Verify signed URL endpoint is accessible
+2. Check photo key format: `profiles/{userId}/{guid}.{ext}`
+3. Verify user owns the photo (endpoint validates ownership)
 
-## ⚠️ Important Notes
+### If CORS errors persist:
+1. Verify CDK custom resource deployed successfully
+2. Check S3 CORS configuration: `aws s3api get-bucket-cors --bucket getrainmate-media-bucket`
+3. Clear browser cache and retry
 
-1. **SES Email**: Must verify sender email before sending emails
-2. **Amplify Build**: After setting env vars, trigger a new build
-3. **Admin Access**: Only `mykantor@bellsouth.net` has access (configured in allowlist)
-4. **API Testing**: Use the test script or curl commands above
+## Deployment Commands Reference
 
-## 🎯 Ready to Use!
+### Update Lambda Code
+```bash
+aws lambda update-function-code \
+  --function-name GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u \
+  --zip-file fileb://deploy/gettrainmate-api-lambda.zip
+```
 
-Your admin portal is deployed and ready. Set the Amplify environment variables and you're good to go!
+### Update Lambda Runtime
+```bash
+aws lambda update-function-configuration \
+  --function-name GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u \
+  --runtime dotnet8 \
+  --handler GetTrainMate.Api::GetTrainMate.Api.LambdaEntryPoint::FunctionHandlerAsync
+```
+
+### Check Lambda Status
+```bash
+aws lambda get-function \
+  --function-name GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u \
+  --query 'Configuration.{Runtime:Runtime,Handler:Handler,LastModified:LastModified}'
+```
+
+### View Lambda Logs
+```bash
+aws logs tail /aws/lambda/GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u --follow
+```
+
+## Next Steps
+1. ✅ Lambda deployed
+2. ✅ Runtime updated to .NET 8
+3. ⏳ Test photo upload flow
+4. ⏳ Test photo display flow
+5. ⏳ Verify CORS headers in browser DevTools
