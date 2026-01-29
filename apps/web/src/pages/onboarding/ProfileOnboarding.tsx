@@ -40,6 +40,7 @@ const SPORTS = [
   'Martial Arts', 'Pilates', 'Barre', 'HIIT', 'Powerlifting', 'Weightlifting',
   'Rugby', 'Baseball', 'Softball', 'Badminton', 'Squash', 'Racquetball',
   'Table Tennis', 'Archery', 'Kayaking', 'Canoeing', 'Triathlon', 'Ultramarathon',
+  'Other',
 ];
 
 const LEVELS = ['beginner', 'intermediate', 'advanced', 'pro'];
@@ -66,6 +67,7 @@ export const ProfileOnboardingPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoKey, setPhotoKey] = useState<string | null>(null);
+  const [otherSport, setOtherSport] = useState<string>('');
 
   const [formData, setFormData] = useState<UpdateProfileRequest>({
     name: '',
@@ -94,6 +96,17 @@ export const ProfileOnboardingPage: React.FC = () => {
 
       const profile = await profileService.getMyProfile(token);
       if (profile) {
+        const sportTags = profile.sportTags || [];
+        // Check if there's a custom sport (not in SPORTS list)
+        const customSport = sportTags.find(s => !SPORTS.includes(s));
+        if (customSport) {
+          setOtherSport(customSport);
+          // Add "Other" to sportTags if not already present
+          if (!sportTags.includes('Other')) {
+            sportTags.push('Other');
+          }
+        }
+        
         setFormData({
           name: profile.name || '',
           city: profile.city || '',
@@ -102,7 +115,7 @@ export const ProfileOnboardingPage: React.FC = () => {
           bio: profile.bio || '',
           birthDate: profile.birthDate || '',
           gender: profile.gender || '',
-          sportTags: profile.sportTags || [],
+          sportTags: sportTags,
           level: profile.level || '',
           goals: profile.goals || [],
           availabilitySchedule: profile.availabilitySchedule || [],
@@ -148,11 +161,41 @@ export const ProfileOnboardingPage: React.FC = () => {
     setError('');
 
     // Create preview
+    console.log('Creating preview for file:', selectedFile.name, selectedFile.type, selectedFile.size);
     const reader = new FileReader();
     reader.onloadend = () => {
-      setPhotoPreview(reader.result as string);
+      console.log('FileReader onloadend, result type:', typeof reader.result, 'result length:', reader.result ? (reader.result as string).length : 0);
+      if (reader.result && typeof reader.result === 'string') {
+        // Validate it's a proper data URL
+        if (reader.result.startsWith('data:image/')) {
+          setPhotoPreview(reader.result);
+          console.log('Preview set successfully, preview length:', reader.result.length);
+        } else {
+          setError('Invalid image data format');
+          console.error('FileReader result is not a valid image data URL:', reader.result.substring(0, 50));
+        }
+      } else {
+        setError('Failed to load image preview');
+        console.error('FileReader result is null or invalid');
+      }
     };
-    reader.readAsDataURL(selectedFile);
+    reader.onerror = (event) => {
+      setError('Failed to read image file');
+      console.error('FileReader error:', reader.error, event);
+    };
+    reader.onload = () => {
+      console.log('FileReader onload fired');
+    };
+    reader.onabort = () => {
+      console.error('FileReader aborted');
+      setError('Image reading was cancelled');
+    };
+    try {
+      reader.readAsDataURL(selectedFile);
+    } catch (err) {
+      console.error('Error starting FileReader:', err);
+      setError('Failed to read image file');
+    }
   };
 
   const handleUploadPhoto = async () => {
@@ -272,16 +315,48 @@ export const ProfileOnboardingPage: React.FC = () => {
         return;
       }
 
-      const updateData: UpdateProfileRequest = {
-        ...formData,
-        photoKey: photoKey || undefined,
-      };
+      // Prepare update data, ensuring proper serialization
+      // Remove undefined and empty string values to avoid backend issues
+      const updateData: UpdateProfileRequest = {};
+      
+      if (formData.name?.trim()) updateData.name = formData.name.trim();
+      if (formData.city?.trim()) updateData.city = formData.city.trim();
+      if (formData.state?.trim()) updateData.state = formData.state.trim();
+      if (formData.country) updateData.country = formData.country;
+      if (formData.bio?.trim()) updateData.bio = formData.bio.trim();
+      if (formData.birthDate) updateData.birthDate = formData.birthDate;
+      if (formData.gender) updateData.gender = formData.gender;
+      if (formData.sportTags && formData.sportTags.length > 0) {
+        // Remove "Other" from the list before sending - only send actual sport values
+        updateData.sportTags = formData.sportTags.filter(tag => tag !== 'Other');
+      }
+      if (formData.level) updateData.level = formData.level;
+      if (formData.goals && formData.goals.length > 0) {
+        updateData.goals = formData.goals;
+      }
+      if (formData.availabilitySchedule && formData.availabilitySchedule.length > 0) {
+        updateData.availabilitySchedule = formData.availabilitySchedule.map(slot => ({
+          days: slot.days || [],
+          timeStart: slot.timeStart || '',
+          timeEnd: slot.timeEnd || '',
+        }));
+      }
+      if (formData.mode) updateData.mode = formData.mode;
+      if (photoKey) updateData.photoKey = photoKey;
+
+      console.log('Submitting profile data:', JSON.stringify(updateData, null, 2));
 
       await profileService.updateMyProfile(token, updateData);
       navigate('/app/discover');
     } catch (err: any) {
       console.error('Error saving profile:', err);
-      setError(handleApiError(err).message || 'Failed to save profile');
+      const apiError = handleApiError(err);
+      setError(apiError.message || 'Failed to save profile');
+      // Log more details for debugging
+      if (err.response) {
+        console.error('API Error Response:', err.response.data);
+        console.error('API Error Status:', err.response.status);
+      }
     } finally {
       setLoading(false);
     }
@@ -299,19 +374,46 @@ export const ProfileOnboardingPage: React.FC = () => {
               Upload a clear photo of yourself (optional but recommended)
             </Typography>
 
-            {photoPreview && (
+            {(file || photoPreview) && (
               <Box sx={{ mb: 2, textAlign: 'center' }}>
-                <img
-                  src={photoPreview}
-                  alt="Profile preview"
-                  style={{
-                    width: 200,
-                    height: 200,
-                    objectFit: 'cover',
-                    borderRadius: '50%',
-                    border: '2px solid #e0e0e0',
-                  }}
-                />
+                {photoPreview ? (
+                  <img
+                    src={photoPreview}
+                    alt="Profile preview"
+                    onError={(e) => {
+                      console.error('Image failed to load:', photoPreview);
+                      setError('Failed to display image preview');
+                      setPhotoPreview(null);
+                    }}
+                    style={{
+                      width: 200,
+                      height: 200,
+                      objectFit: 'cover',
+                      borderRadius: '50%',
+                      border: '2px solid #e0e0e0',
+                      display: 'block',
+                      margin: '0 auto',
+                    }}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      width: 200,
+                      height: 200,
+                      borderRadius: '50%',
+                      border: '2px solid #e0e0e0',
+                      backgroundColor: '#f5f5f5',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto',
+                    }}
+                  >
+                    <Typography variant="body2" color="textSecondary">
+                      Loading preview...
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             )}
 
@@ -410,26 +512,97 @@ export const ProfileOnboardingPage: React.FC = () => {
             </Typography>
 
             <FormControl fullWidth margin="normal">
-              <InputLabel>Training Types *</InputLabel>
+              <InputLabel id="sport-tags-label">Training Types *</InputLabel>
               <Select
+                labelId="sport-tags-label"
                 multiple
                 value={formData.sportTags || []}
-                onChange={(e) => setFormData({ ...formData, sportTags: e.target.value as string[] })}
+                onChange={(e) => {
+                  const newValue = e.target.value as string[];
+                  let processedValue = [...newValue];
+                  
+                  if (newValue.includes('Other')) {
+                    // If "Other" is selected, keep it in the list for UI
+                    // The custom sport will be added separately when user types in the text field
+                    if (otherSport.trim() && !processedValue.includes(otherSport.trim())) {
+                      processedValue.push(otherSport.trim());
+                    }
+                  } else {
+                    // Remove custom sport if "Other" is deselected
+                    const customSport = formData.sportTags?.find(s => !SPORTS.includes(s) && s !== 'Other');
+                    if (customSport) {
+                      processedValue = processedValue.filter(v => v !== customSport);
+                    }
+                    setOtherSport('');
+                  }
+                  setFormData({ ...formData, sportTags: processedValue });
+                }}
                 input={<OutlinedInput label="Training Types *" />}
-                renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {(selected as string[]).map((value) => (
-                      <Chip key={value} label={value} size="small" />
-                    ))}
-                  </Box>
-                )}
+                renderValue={(selected) => {
+                  // Filter out "Other" from display if we have a custom sport
+                  const displayTags = (selected as string[]).filter(tag => {
+                    if (tag === 'Other') {
+                      return !otherSport.trim() || !(selected as string[]).some(s => !SPORTS.includes(s));
+                    }
+                    return true;
+                  });
+                  return (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {displayTags.map((value) => (
+                        <Chip 
+                          key={value} 
+                          label={value} 
+                          size="small"
+                          onDelete={(e) => {
+                            e.stopPropagation();
+                            const newTags = (formData.sportTags || []).filter(t => t !== value);
+                            // If deleting custom sport, also clear otherSport
+                            if (value === otherSport.trim() || (!SPORTS.includes(value) && value !== 'Other')) {
+                              setOtherSport('');
+                              // Also remove "Other" if it exists
+                              const finalTags = newTags.filter(t => t !== 'Other');
+                              setFormData({ ...formData, sportTags: finalTags });
+                            } else {
+                              setFormData({ ...formData, sportTags: newTags });
+                            }
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  );
+                }}
               >
                 {SPORTS.map((sport) => (
                   <MenuItem key={sport} value={sport}>
-                    {sport}
+                    <Checkbox checked={(formData.sportTags || []).indexOf(sport) > -1} />
+                    <span>{sport}</span>
                   </MenuItem>
                 ))}
               </Select>
+              {formData.sportTags?.includes('Other') && (
+                <TextField
+                  fullWidth
+                  label="Specify other sport"
+                  value={otherSport}
+                  onChange={(e) => {
+                    const newOtherSport = e.target.value.trim();
+                    setOtherSport(e.target.value);
+                    // Update sportTags: remove old custom value, add new one
+                    const currentTags = formData.sportTags || [];
+                    const customSport = currentTags.find(s => !SPORTS.includes(s) && s !== 'Other');
+                    let updatedTags = currentTags.filter(s => s !== customSport && s !== 'Other');
+                    // Always keep "Other" in the list for UI
+                    updatedTags.push('Other');
+                    if (newOtherSport && !updatedTags.includes(newOtherSport)) {
+                      updatedTags.push(newOtherSport);
+                    }
+                    setFormData({ ...formData, sportTags: updatedTags });
+                  }}
+                  margin="normal"
+                  placeholder="Enter your sport"
+                  sx={{ mt: 1 }}
+                />
+              )}
             </FormControl>
 
             <FormControl fullWidth margin="normal">
