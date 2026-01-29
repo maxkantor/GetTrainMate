@@ -274,13 +274,60 @@ public class ProfileController : ControllerBase
 
     private string? GetEmailFromToken()
     {
-        return User.FindFirst(ClaimTypes.Email)?.Value 
+        // Try authenticated user claims first
+        var email = User.FindFirst(ClaimTypes.Email)?.Value 
             ?? User.FindFirst("email")?.Value;
+        
+        // If not found, try manual JWT parsing
+        if (string.IsNullOrEmpty(email))
+        {
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+            {
+                var token = authHeader.Substring("Bearer ".Length).Trim();
+                try
+                {
+                    var handler = new JwtSecurityTokenHandler();
+                    var jsonToken = handler.ReadJwtToken(token);
+                    email = jsonToken.Claims.FirstOrDefault(c => c.Type == "email" || c.Type == ClaimTypes.Email)?.Value;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to extract email from JWT token");
+                }
+            }
+        }
+        
+        return email;
     }
 
     private string? GetNameFromToken()
     {
-        return User.FindFirst(ClaimTypes.Name)?.Value 
-            ?? User.FindFirst("name")?.Value;
+        // Try authenticated user claims first
+        var name = User.FindFirst(ClaimTypes.Name)?.Value 
+            ?? User.FindFirst("name")?.Value
+            ?? User.FindFirst("given_name")?.Value;
+        
+        // If not found, try manual JWT parsing
+        if (string.IsNullOrEmpty(name))
+        {
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+            {
+                var token = authHeader.Substring("Bearer ".Length).Trim();
+                try
+                {
+                    var handler = new JwtSecurityTokenHandler();
+                    var jsonToken = handler.ReadJwtToken(token);
+                    name = jsonToken.Claims.FirstOrDefault(c => c.Type == "name" || c.Type == "given_name" || c.Type == ClaimTypes.Name)?.Value;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to extract name from JWT token");
+                }
+            }
+        }
+        
+        return name;
     }
 }
