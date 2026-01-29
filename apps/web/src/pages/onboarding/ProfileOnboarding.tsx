@@ -380,7 +380,7 @@ export const ProfileOnboardingPage: React.FC = () => {
       console.log('Submitting profile data:', JSON.stringify(updateData, null, 2));
 
       await profileService.updateMyProfile(token, updateData);
-      navigate('/app/discover');
+      navigate('/app/discover', { state: { profileJustCompleted: true }, replace: true });
     } catch (err: any) {
       console.error('Error saving profile:', err);
       const apiError = handleApiError(err);

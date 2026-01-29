@@ -19,7 +19,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileComplete, setProfileComplete] = useState(false);
 
-  // Check profile completion if required
+  // Check profile completion if required; re-run when pathname changes so we get fresh data after onboarding
   useEffect(() => {
     const checkProfile = async () => {
       if (!isAuthenticated || !requireProfileComplete) {
@@ -49,7 +49,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     } else {
       setProfileLoading(false);
     }
-  }, [isAuthenticated, requireProfileComplete]);
+  }, [isAuthenticated, requireProfileComplete, location.pathname]);
 
   // Debug logging
   console.log('ProtectedRoute:', { 
@@ -87,8 +87,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/app/discover" replace />;
   }
 
-  // Check profile completion for non-admin routes
-  if (requireProfileComplete && !profileComplete) {
+  // Check profile completion for non-admin routes (allow through if we just completed onboarding)
+  const profileJustCompleted = (location.state as { profileJustCompleted?: boolean } | null)?.profileJustCompleted;
+  if (requireProfileComplete && !profileComplete && !profileJustCompleted) {
     console.log('ProtectedRoute: Profile incomplete, redirecting to /onboarding/profile');
     return <Navigate to="/onboarding/profile" replace state={{ from: location }} />;
   }
