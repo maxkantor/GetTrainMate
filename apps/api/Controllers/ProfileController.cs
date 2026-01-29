@@ -109,11 +109,11 @@ public class ProfileController : ControllerBase
 
             // Verify the key belongs to this user
             if (!request.Key.StartsWith($"profiles/{userId}/"))
-                return Forbid("You can only access your own photos");
+                return StatusCode(403, new { message = "You can only access your own photos" });
 
             // Generate signed URL valid for 1 hour
             var signedUrl = _storageService.GetPresignedDownloadUrl(request.Key, TimeSpan.FromHours(1));
-            return Ok(new { url: signedUrl });
+            return Ok(new { url = signedUrl });
         }
         catch (Exception ex)
         {
