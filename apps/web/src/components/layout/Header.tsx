@@ -121,7 +121,8 @@ export const Header: React.FC = () => {
   ];
 
   // Determine which nav items to show based on auth state
-  const navItems = isAuthenticated ? authNavItems : publicNavItems;
+  // CRITICAL: Only show authenticated nav if user is actually authenticated AND has a user object
+  const navItems = (isAuthenticated && user) ? authNavItems : publicNavItems;
 
   const isActiveRoute = (href: string) => {
     if (href === '/app/discover' || href === '/app/dashboard') {
@@ -176,7 +177,7 @@ export const Header: React.FC = () => {
             </div>
 
             {/* Auth Section */}
-            {isAuthenticated && user ? (
+            {(isAuthenticated && user) ? (
               <div className={styles.userMenuWrapper} ref={userMenuRef}>
                 <button
                   className={styles.userButton}
@@ -340,7 +341,7 @@ export const Header: React.FC = () => {
                 </select>
               </div>
 
-              {isAuthenticated && user ? (
+              {(isAuthenticated && user) ? (
                 <div className={styles.mobileAuthButtons}>
                   <RouterLink
                     to={profileComplete ? '/app/profile' : '/onboarding/profile'}
