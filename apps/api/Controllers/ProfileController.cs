@@ -212,8 +212,43 @@ public class ProfileController : ControllerBase
 
     private string? GetUserIdFromToken()
     {
-        return User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+        // Try to get from authenticated user claims first
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
             ?? User.FindFirst("sub")?.Value;
+        
+        // If not found and user is authenticated, log for debugging
+        if (string.IsNullOrEmpty(userId) && User.Identity?.IsAuthenticated == true)
+        {
+            _logger.LogWarning("User authenticated but no 'sub' or NameIdentifier claim found. Available claims: {Claims}", 
+                string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
+        }
+        
+        // If still not found and we have a token, try to parse it manually
+        if (string.IsNullOrEmpty(userId))
+        {
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+            {
+                var token = authHeader.Substring("Bearer ".Length).Trim();
+                try
+                {
+                    var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+                    var jsonToken = handler.ReadJwtToken(token);
+                    userId = jsonToken.Claims.FirstOrDefault(c => c.Type == "sub" || c.Type == ClaimTypes.NameIdentifier)?.Value;
+                    
+                    if (!string.IsNullOrEmpty(userId))
+                    {
+                        _logger.LogDebug("Extracted userId from JWT token manually: {UserId}", userId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse JWT token manually");
+                }
+            }
+        }
+        
+        return userId;
     }
 
     private string? GetEmailFromToken()

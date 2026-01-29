@@ -94,11 +94,22 @@ public class Startup
                     RequireSignedTokens = false
                 };
 
+                // Don't require HTTPS metadata endpoint in Lambda
+                options.RequireHttpsMetadata = false;
+                // Increase timeout for metadata retrieval
+                options.BackchannelTimeout = TimeSpan.FromSeconds(60);
+                // Don't throw on configuration errors
+                options.IncludeErrorDetails = true;
+                
                 // Handle authentication failures gracefully
                 options.Events = new JwtBearerEvents
                 {
                     OnAuthenticationFailed = context =>
                     {
+                        // Log the error for debugging
+                        var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Startup>>();
+                        logger.LogWarning(context.Exception, "JWT authentication failed: {Error}", context.Exception?.Message);
+                        
                         // Don't fail the request - let it continue without authentication
                         // Controllers will check if authentication is needed
                         context.NoResult();
@@ -127,40 +138,11 @@ public class Startup
                     },
                     OnTokenValidated = context =>
                     {
-                        // Token is valid - continue
-                        return Task.CompletedTask;
-                    }
-                };
-                
-                // Don't require HTTPS metadata endpoint in Lambda
-                options.RequireHttpsMetadata = false;
-                // Increase timeout for metadata retrieval
-                options.BackchannelTimeout = TimeSpan.FromSeconds(60);
-                // Don't throw on configuration errors
-                options.IncludeErrorDetails = true;
-                
-                // Handle authentication failures gracefully
-                options.Events = new JwtBearerEvents
-                {
-                    OnAuthenticationFailed = context =>
-                    {
-                        // Don't fail the request - let it continue without authentication
-                        context.NoResult();
-                        return Task.CompletedTask;
-                    },
-                    OnMessageReceived = context =>
-                    {
-                        var token = context.Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
-                        if (string.IsNullOrEmpty(token))
-                        {
-                            token = context.Request.Query["access_token"].FirstOrDefault();
-                        }
-
-                        if (!string.IsNullOrEmpty(token))
-                        {
-                            context.Token = token;
-                        }
-
+                        // Token is valid - log for debugging
+                        var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Startup>>();
+                        var userId = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                            ?? context.Principal?.FindFirst("sub")?.Value;
+                        logger.LogDebug("JWT token validated for user: {UserId}", userId);
                         return Task.CompletedTask;
                     }
                 };
