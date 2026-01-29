@@ -12,7 +12,11 @@ public class S3StorageService : IStorageService
     public S3StorageService(IAmazonS3 s3, IConfiguration configuration)
     {
         _s3 = s3;
-        _bucket = configuration["MEDIA_BUCKET"] ?? Environment.GetEnvironmentVariable("MEDIA_BUCKET") ?? string.Empty;
+        _bucket = configuration["MEDIA_BUCKET"] 
+            ?? configuration["MEDIA_BUCKET_NAME"]
+            ?? Environment.GetEnvironmentVariable("MEDIA_BUCKET") 
+            ?? Environment.GetEnvironmentVariable("MEDIA_BUCKET_NAME") 
+            ?? string.Empty;
         if (string.IsNullOrWhiteSpace(_bucket))
         {
             throw new InvalidOperationException("MEDIA_BUCKET is not configured");
