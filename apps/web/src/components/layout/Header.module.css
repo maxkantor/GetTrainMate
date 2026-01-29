@@ -9,7 +9,7 @@
   background: white;
   border-bottom: 1px solid var(--color-neutral-200);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all var(--transition-base);
+  transition: background-color var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
   z-index: var(--z-sticky);
 }
 
@@ -22,7 +22,10 @@
   align-items: center;
   justify-content: space-between;
   height: 64px;
-  gap: var(--space-6);
+  gap: var(--space-4);
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
 }
 
 /* ============================================
@@ -68,9 +71,10 @@
 .desktopNav {
   display: none;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1);
   flex: 1;
-  justify-content: center;
+  min-width: 0;
 }
 
 .navLink {
@@ -83,6 +87,9 @@
   border-radius: var(--radius-lg);
   transition: all var(--transition-fast);
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .navLink:hover {
@@ -128,7 +135,7 @@
 }
 
 .languageSelect {
-  padding: 6px 28px 6px 10px;
+  padding: 6px 26px 6px 10px;
   font-size: 11px;
   font-weight: var(--font-semibold);
   color: var(--color-neutral-600);
@@ -178,6 +185,9 @@
   background: transparent;
   transition: all var(--transition-fast);
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .loginButton:hover {
@@ -205,6 +215,9 @@
   white-space: nowrap;
   border: none;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .signupButton:hover {
@@ -349,6 +362,17 @@
   outline-offset: -2px;
 }
 
+.dropdownItemHighlight {
+  background: var(--color-error);
+  color: white;
+  font-weight: var(--font-semibold);
+}
+
+.dropdownItemHighlight:hover {
+  background: var(--color-error);
+  opacity: 0.9;
+}
+
 .dropdownItemDanger {
   color: var(--color-error);
 }
@@ -364,8 +388,8 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  background: var(--color-error);
-  color: white;
+  background: white;
+  color: var(--color-error);
   font-size: var(--font-xs);
   font-weight: var(--font-bold);
   border-radius: var(--radius-full);
@@ -612,6 +636,17 @@
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
+.mobileButtonHighlight {
+  background: var(--color-error);
+  color: white;
+  border-color: transparent;
+  font-weight: var(--font-bold);
+}
+
+.mobileButtonHighlight:hover {
+  opacity: 0.9;
+}
+
 .mobileButtonDanger {
   color: var(--color-error);
   background: transparent;
@@ -629,8 +664,8 @@
   justify-content: center;
   width: 20px;
   height: 20px;
-  background: var(--color-error);
-  color: white;
+  background: white;
+  color: var(--color-error);
   font-size: var(--font-xs);
   font-weight: var(--font-bold);
   border-radius: var(--radius-full);
@@ -640,7 +675,7 @@
    TRANSPARENT MODE (Landing Page)
    ============================================ */
 .header.transparent {
-  background: rgba(10, 12, 22, 0.4);
+  background: rgba(10, 12, 22, 0.3);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom-color: rgba(255, 255, 255, 0.1);

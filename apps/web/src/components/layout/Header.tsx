@@ -20,43 +20,39 @@ export const Header: React.FC = () => {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-  // Handle scroll for transparent header
+  // Track scroll for transparent header on landing page
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
+      setScrolled(window.scrollY > 8);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Check profile completion status
+  // Check profile completion
   useEffect(() => {
     const checkProfile = async () => {
-      if (!isAuthenticated) {
+      if (!isAuthenticated || !user) {
         setProfileComplete(true);
         return;
       }
-
       try {
         const token = await authService.getJWT();
-        if (!token) {
-          setProfileComplete(true);
-          return;
+        if (token) {
+          const profile = await profileService.getMyProfile(token);
+          setProfileComplete(profile.isComplete || false);
         }
-        const profile = await profileService.getMyProfile(token);
-        setProfileComplete(profile.isComplete || false);
       } catch (error) {
         console.error('Error checking profile:', error);
         setProfileComplete(false);
       }
     };
-
-    if (isAuthenticated) {
+    if (isAuthenticated && user) {
       checkProfile();
     }
-  }, [isAuthenticated, location.pathname]);
+  }, [isAuthenticated, user, location.pathname]);
 
-  // Close user menu when clicking outside
+  // Close user menu on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
@@ -69,7 +65,7 @@ export const Header: React.FC = () => {
     }
   }, [userMenuOpen]);
 
-  // Close mobile menu when clicking outside
+  // Close mobile menu on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
@@ -104,7 +100,10 @@ export const Header: React.FC = () => {
     navigate('/');
   };
 
-  // Public nav items (only show when NOT authenticated)
+  // STRICT: Only show authenticated nav if BOTH isAuthenticated AND user exist
+  const isAuthenticatedUser = isAuthenticated && !!user;
+
+  // Public nav items (shown when NOT authenticated)
   const publicNavItems = [
     { label: t('header.pricing'), href: '/pricing' },
     { label: t('header.about'), href: '/about' },
@@ -112,7 +111,7 @@ export const Header: React.FC = () => {
     { label: t('header.contact'), href: '/contact' },
   ];
 
-  // Authenticated nav items (only show when authenticated)
+  // Authenticated nav items (shown when authenticated)
   const authNavItems = [
     { label: t('nav.dashboard'), href: '/app/discover' },
     { label: t('nav.match'), href: '/app/matches' },
@@ -120,11 +119,8 @@ export const Header: React.FC = () => {
     { label: t('nav.events'), href: '/app/events' },
   ];
 
-  // Determine which nav items to show based on auth state
-  // CRITICAL: Only show authenticated nav if user is actually authenticated AND has a user object
-  // Use strict check to prevent showing authenticated nav when not logged in
-  const showAuthenticatedNav = isAuthenticated && !!user;
-  const navItems = showAuthenticatedNav ? authNavItems : publicNavItems;
+  // Determine which nav to show
+  const navItems = isAuthenticatedUser ? authNavItems : publicNavItems;
 
   const isActiveRoute = (href: string) => {
     if (href === '/app/discover' || href === '/app/dashboard') {
@@ -133,7 +129,7 @@ export const Header: React.FC = () => {
     return location.pathname === href || location.pathname.startsWith(href + '/');
   };
 
-  // Transparent header on landing page when not scrolled
+  // Transparent header only on landing page when not scrolled
   const isLandingPage = location.pathname === '/';
   const isTransparent = isLandingPage && !scrolled;
 
@@ -179,7 +175,7 @@ export const Header: React.FC = () => {
             </div>
 
             {/* Auth Section */}
-            {showAuthenticatedNav ? (
+            {isAuthenticatedUser ? (
               <div className={styles.userMenuWrapper} ref={userMenuRef}>
                 <button
                   className={styles.userButton}
@@ -218,14 +214,24 @@ export const Header: React.FC = () => {
                 {/* User Dropdown */}
                 {userMenuOpen && (
                   <div className={styles.userDropdown} role="menu">
+                    {!profileComplete && (
+                      <RouterLink
+                        to="/onboarding/profile"
+                        className={`${styles.dropdownItem} ${styles.dropdownItemHighlight}`}
+                        onClick={() => setUserMenuOpen(false)}
+                        role="menuitem"
+                      >
+                        <span>Complete Profile</span>
+                        <span className={styles.incompleteBadge}>!</span>
+                      </RouterLink>
+                    )}
                     <RouterLink
                       to={profileComplete ? '/app/profile' : '/onboarding/profile'}
                       className={styles.dropdownItem}
                       onClick={() => setUserMenuOpen(false)}
                       role="menuitem"
                     >
-                      <span>{t('header.profile')}</span>
-                      {!profileComplete && <span className={styles.incompleteBadge}>!</span>}
+                      {t('header.profile')}
                     </RouterLink>
                     <RouterLink
                       to="/app/subscription"
@@ -273,6 +279,7 @@ export const Header: React.FC = () => {
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle menu"
               aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-menu"
             >
               <span className={`${styles.hamburger} ${mobileMenuOpen ? styles.hamburgerOpen : ''}`}>
                 <span></span>
@@ -292,7 +299,7 @@ export const Header: React.FC = () => {
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden="true"
           />
-          <div className={styles.mobileMenu} ref={mobileMenuRef}>
+          <div className={styles.mobileMenu} id="mobile-menu" ref={mobileMenuRef}>
             <div className={styles.mobileMenuHeader}>
               <RouterLink
                 to="/"
@@ -343,15 +350,23 @@ export const Header: React.FC = () => {
                 </select>
               </div>
 
-              {showAuthenticatedNav ? (
+              {isAuthenticatedUser ? (
                 <div className={styles.mobileAuthButtons}>
+                  {!profileComplete && (
+                    <RouterLink
+                      to="/onboarding/profile"
+                      className={`${styles.mobileButton} ${styles.mobileButtonHighlight}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Complete Profile <span className={styles.mobileIncompleteBadge}>!</span>
+                    </RouterLink>
+                  )}
                   <RouterLink
                     to={profileComplete ? '/app/profile' : '/onboarding/profile'}
                     className={styles.mobileButton}
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     {t('header.profile')}
-                    {!profileComplete && <span className={styles.mobileIncompleteBadge}>!</span>}
                   </RouterLink>
                   <RouterLink
                     to="/app/subscription"
