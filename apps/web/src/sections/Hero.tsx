@@ -29,7 +29,7 @@ export const Hero: React.FC = () => {
           <div className={`${styles.heroText} ${isVisible ? styles.heroTextVisible : ''}`}>
             <div className={styles.heroBadge}>
               <span className={styles.badgeIcon}>✨</span>
-              <span>Trusted by 10,000+ athletes</span>
+              <span>{t('landing.hero_badge')}</span>
             </div>
 
             <h1 className={styles.heroTitle}>
@@ -46,19 +46,19 @@ export const Hero: React.FC = () => {
                 <svg className={styles.valuePropIcon} width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M5 13l4 4L19 7" />
                 </svg>
-                <span>AI-powered matching</span>
+                <span>{t('landing.value_1')}</span>
               </div>
               <div className={styles.valueProp}>
                 <svg className={styles.valuePropIcon} width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M5 13l4 4L19 7" />
                 </svg>
-                <span>Verified profiles</span>
+                <span>{t('landing.value_2')}</span>
               </div>
               <div className={styles.valueProp}>
                 <svg className={styles.valuePropIcon} width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M5 13l4 4L19 7" />
                 </svg>
-                <span>Safe & secure</span>
+                <span>{t('landing.value_3')}</span>
               </div>
             </div>
 
@@ -84,7 +84,7 @@ export const Hero: React.FC = () => {
 
             {/* Trust Logos */}
             <div className={styles.trustLogos}>
-              <span className={styles.trustLabel}>Featured in</span>
+              <span className={styles.trustLabel}>{t('landing.featured_in')}</span>
               <div className={styles.logoGrid}>
                 <div className={styles.trustLogo}>TechCrunch</div>
                 <div className={styles.trustLogo}>Forbes</div>

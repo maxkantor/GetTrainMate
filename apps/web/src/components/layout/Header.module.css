@@ -98,6 +98,10 @@
   background: var(--color-neutral-100);
 }
 
+.navLink:active {
+  background: var(--color-neutral-200);
+}
+
 .navLink:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -207,6 +211,10 @@
   background: var(--color-neutral-50);
 }
 
+.loginButton:active {
+  background: var(--color-neutral-200);
+}
+
 .loginButton:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -236,6 +244,11 @@
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
+.signupButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
 .signupButton:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -261,6 +274,10 @@
 
 .userButton:hover {
   background: var(--color-neutral-100);
+}
+
+.userButton:active {
+  background: var(--color-neutral-200);
 }
 
 .userButton:focus-visible {
@@ -431,6 +448,10 @@
 .mobileMenuButton:hover {
   background: var(--color-neutral-100);
   border-color: var(--color-neutral-400);
+}
+
+.mobileMenuButton:active {
+  background: var(--color-neutral-200);
 }
 
 .mobileMenuButton:focus-visible {

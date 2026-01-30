@@ -1,4 +1,5 @@
 import React from 'react';
+import { useI18n } from '@/hooks/useI18n';
 import styles from './PartnerMatchCards.module.css';
 
 interface PartnerProfile {
@@ -50,6 +51,7 @@ const mockProfiles: PartnerProfile[] = [
 ];
 
 export const PartnerMatchCards: React.FC = () => {
+  const { t } = useI18n();
   return (
     <div className={styles.cardsWrapper}>
       {mockProfiles.map((profile, index) => (
@@ -84,7 +86,7 @@ export const PartnerMatchCards: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className={styles.matchScore}>{profile.match}% Match</div>
+            <div className={styles.matchScore}>{profile.match}% {t('landing.match_pct')}</div>
           </div>
 
           {/* Location */}
@@ -101,7 +103,7 @@ export const PartnerMatchCards: React.FC = () => {
               <circle cx="12" cy="9" r="2.5" />
             </svg>
             <span>
-              {profile.location} • {profile.distance} away
+              {profile.location} • {profile.distance} {t('landing.away')}
             </span>
           </div>
 
@@ -125,7 +127,9 @@ export const PartnerMatchCards: React.FC = () => {
 
           {/* CTA */}
           <div className={styles.cta}>
-            <span className={styles.ctaText}>View Profile →</span>
+            <a href="#discover" className={styles.ctaText} aria-label={t('landing.view_profile')}>
+              {t('landing.view_profile')} →
+            </a>
           </div>
         </div>
       ))}

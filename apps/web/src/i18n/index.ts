@@ -1,18 +1,20 @@
 import { en } from './locales/en';
 import { es } from './locales/es';
 import { ru } from './locales/ru';
+import { ua } from './locales/ua';
 import { hi } from './locales/hi';
 import { zh } from './locales/zh';
 
-export type Locale = 'en' | 'es' | 'ru' | 'hi' | 'zh';
+export type Locale = 'en' | 'es' | 'ru' | 'ua' | 'hi' | 'zh';
 
-export const SUPPORTED_LOCALES: Locale[] = ['en', 'es', 'ru', 'hi', 'zh'];
+export const SUPPORTED_LOCALES: Locale[] = ['en', 'es', 'ru', 'ua', 'hi', 'zh'];
 export const DEFAULT_LOCALE: Locale = 'en';
 
 const translations = {
   en,
   es,
   ru,
+  ua,
   hi,
   zh,
 };

@@ -6,6 +6,7 @@ import { profileService } from '@/services/profileService';
 import { authService } from '@/services/authService';
 import { SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/i18n';
 import { Container } from './Container';
+import { LanguageDropdown } from './LanguageDropdown';
 import styles from './Header.module.css';
 
 export const Header: React.FC = () => {
@@ -158,21 +159,9 @@ export const Header: React.FC = () => {
 
           {/* Right Side - Language + Auth */}
           <div className={styles.headerRight}>
-            {/* Language Selector - Desktop */}
+            {/* Language Dropdown - Globe + EN/ES/RU/UA etc. */}
             <div className={styles.languageSelector}>
-              <select
-                value={SUPPORTED_LOCALES.includes(locale) ? locale : DEFAULT_LOCALE}
-                onChange={(e) => setLocale((e.target.value || DEFAULT_LOCALE) as Locale)}
-                className={styles.languageSelect}
-                aria-label="Select language"
-                title={t('common.language')}
-              >
-                {SUPPORTED_LOCALES.map((loc) => (
-                  <option key={loc} value={loc}>
-                    {loc.toUpperCase()}
-                  </option>
-                ))}
-              </select>
+              <LanguageDropdown />
             </div>
 
             {/* Auth Section */}
@@ -339,9 +328,10 @@ export const Header: React.FC = () => {
                 </label>
                 <select
                   id="mobile-language-select"
-                  value={locale}
-                  onChange={(e) => setLocale(e.target.value as any)}
+                  value={SUPPORTED_LOCALES.includes(locale) ? locale : DEFAULT_LOCALE}
+                  onChange={(e) => setLocale((e.target.value || DEFAULT_LOCALE) as Locale)}
                   className={styles.languageSelect}
+                  aria-label={t('common.language')}
                 >
                   {SUPPORTED_LOCALES.map((loc) => (
                     <option key={loc} value={loc}>

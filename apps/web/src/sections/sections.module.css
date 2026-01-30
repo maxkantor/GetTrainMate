@@ -55,10 +55,10 @@
   z-index: 1;
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
-  gap: 72px;
+  gap: var(--space-16);
   align-items: center;
   width: 100%;
-  max-width: 1550px;
+  max-width: 1280px;
   margin: 0 auto;
 }
 
@@ -111,6 +111,7 @@
   font-weight: var(--font-extrabold);
   line-height: 1.05;
   color: white;
+  margin-top: 0;
   margin-bottom: var(--space-5);
   letter-spacing: -0.02em;
   text-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -119,9 +120,10 @@
 
 .heroSubtitle {
   font-size: var(--font-xl);
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.88);
-  margin-bottom: var(--space-6);
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: var(--space-7);
+  max-width: 32ch;
   animation: slideDown 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s backwards;
 }
 
@@ -133,6 +135,7 @@
   margin-bottom: var(--space-8);
   animation: slideDown 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.5s backwards;
 }
+
 
 .valueProp {
   display: flex;
@@ -157,10 +160,12 @@
 /* Hero Buttons */
 .heroButtons {
   display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-10);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-12);
   animation: slideDown 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.6s backwards;
 }
+
 
 /* Trust Logos */
 .trustLogos {
@@ -334,6 +339,9 @@
 .sectionHeader {
   text-align: center;
   margin-bottom: var(--space-16);
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .sectionLabel {
@@ -349,13 +357,17 @@
 
 .sectionTitle {
   font-size: var(--font-5xl);
+  margin-top: 0;
   margin-bottom: var(--space-4);
+  line-height: var(--leading-tight);
+  color: var(--color-neutral-900);
 }
 
 .sectionSubtitle {
   font-size: var(--font-xl);
   color: var(--color-neutral-600);
-  max-width: 640px;
+  line-height: var(--leading-relaxed);
+  max-width: 560px;
   margin: 0 auto;
 }
 
@@ -617,7 +629,7 @@
   .heroContent {
     grid-template-columns: 1fr;
     gap: var(--space-12);
-    padding: 0 20px;
+    padding: 0 var(--container-padding);
   }
 
   .heroTitle {
@@ -653,7 +665,7 @@
   .heroContent {
     grid-template-columns: 1fr;
     gap: var(--space-8);
-    padding: 0 16px;
+    padding: 0 var(--container-padding);
   }
 
   .heroTitle {

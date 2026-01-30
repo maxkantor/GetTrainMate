@@ -23,8 +23,9 @@ export const I18nProvider: React.FC<I18nProviderProps> = ({ children }) => {
       return stored as Locale;
     }
     
-    // Try browser language
-    const browserLang = navigator.language.split('-')[0];
+    // Try browser language (map 'uk' to 'ua' for Ukrainian)
+    let browserLang = navigator.language.split('-')[0];
+    if (browserLang === 'uk') browserLang = 'ua';
     if (SUPPORTED_LOCALES.includes(browserLang as Locale)) {
       return browserLang as Locale;
     }
@@ -41,7 +42,7 @@ export const I18nProvider: React.FC<I18nProviderProps> = ({ children }) => {
 
   useEffect(() => {
     document.documentElement.lang = locale;
-  }, []);
+  }, [locale]);
 
   return (
     <I18nContext.Provider value={{ locale, setLocale: handleSetLocale }}>
