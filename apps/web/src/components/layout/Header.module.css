@@ -130,10 +130,14 @@
   flex-shrink: 0;
 }
 
-/* Language Selector - visible on desktop, hidden on mobile (see media queries) */
+/* Language Selector - visible by default, hidden only on mobile (max-width: 767px) */
 .languageSelector {
-  display: none;
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
+  min-width: 56px;
+  position: relative;
+  z-index: 1;
 }
 
 .languageSelect {
@@ -823,11 +827,6 @@
 
   .desktopNav {
     display: flex;
-  }
-
-  .languageSelector {
-    display: flex;
-    align-items: center;
   }
 
   .authButtons,
