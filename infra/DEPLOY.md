@@ -42,3 +42,5 @@
 2. Add it to Amplify environment variables as `VITE_API_URL`
 3. Trigger a new build in Amplify
 4. Your app should now connect to the API!
+
+Set S3 CORS once on the bucket (Console → Permissions → CORS) if the web app calls S3 from the browser; see README. No Lambda.
