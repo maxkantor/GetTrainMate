@@ -25,7 +25,8 @@
   gap: var(--space-4);
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 var(--space-6);
+  /* Extra right padding so language dropdown and user menu aren't covered by browser UI (extensions, "Finish update") */
+  padding: 0 calc(var(--space-6) + 72px) 0 var(--space-6);
 }
 
 /* ============================================
