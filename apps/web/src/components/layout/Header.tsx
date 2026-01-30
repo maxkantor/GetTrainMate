@@ -4,7 +4,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { profileService } from '@/services/profileService';
 import { authService } from '@/services/authService';
-import { SUPPORTED_LOCALES } from '@/i18n';
+import { SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/i18n';
 import { Container } from './Container';
 import styles from './Header.module.css';
 
@@ -158,13 +158,14 @@ export const Header: React.FC = () => {
 
           {/* Right Side - Language + Auth */}
           <div className={styles.headerRight}>
-            {/* Language Selector - Desktop only */}
+            {/* Language Selector - Desktop */}
             <div className={styles.languageSelector}>
               <select
-                value={locale}
-                onChange={(e) => setLocale(e.target.value as any)}
+                value={SUPPORTED_LOCALES.includes(locale) ? locale : DEFAULT_LOCALE}
+                onChange={(e) => setLocale((e.target.value || DEFAULT_LOCALE) as Locale)}
                 className={styles.languageSelect}
                 aria-label="Select language"
+                title={t('common.language')}
               >
                 {SUPPORTED_LOCALES.map((loc) => (
                   <option key={loc} value={loc}>
