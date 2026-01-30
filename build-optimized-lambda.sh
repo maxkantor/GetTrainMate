@@ -1,12 +1,15 @@
 #!/bin/bash
-# Optimized Lambda build - reduces package size from 55MB to ~20-30MB
+# Optimized Lambda build - always creates deploy/gettrainmate-api-lambda.zip
 
 set -e
+
+REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+ZIP_PATH="$REPO_ROOT/deploy/gettrainmate-api-lambda.zip"
 
 echo "🔨 Building optimized .NET 8 Lambda package..."
 echo ""
 
-cd "$(dirname "$0")/apps/api"
+cd "$REPO_ROOT/apps/api"
 
 # Clean previous builds
 echo "🧹 Cleaning previous builds..."
@@ -16,18 +19,15 @@ rm -rf bin obj publish
 echo "📦 Publishing .NET 8 Release build..."
 dotnet publish -c Release -o ./publish
 
-# Create optimized zip
-echo "📦 Creating optimized zip (excluding runtimes, test libs, debug files)..."
+# Always create zip at deploy/gettrainmate-api-lambda.zip
+mkdir -p "$REPO_ROOT/deploy"
+echo "📦 Creating zip at deploy/gettrainmate-api-lambda.zip..."
 cd publish
-rm -f ../../../deploy/gettrainmate-api-lambda.zip
+rm -f "$ZIP_PATH"
 
 # For .NET 8 managed runtime, we need ALL DLLs and dependencies
-# Only exclude:
-# - Debug symbols (.pdb)
-# - XML documentation (.xml)
-# - Test libraries (xunit, Moq)
-# DO NOT exclude runtimes/ - some packages need native libraries
-zip -r ../../../deploy/gettrainmate-api-lambda.zip . \
+# Only exclude: .pdb, .xml, test libs
+zip -r "$ZIP_PATH" . \
   -x "*.pdb" \
   -x "*.xml" \
   -x "*xunit*" \
@@ -35,9 +35,13 @@ zip -r ../../../deploy/gettrainmate-api-lambda.zip . \
   -x "*Test*.dll" \
   -x "*Tests*.dll"
 
-# Show results
-SIZE=$(du -sh ../../../deploy/gettrainmate-api-lambda.zip | cut -f1)
-SIZE_BYTES=$(du -b ../../../deploy/gettrainmate-api-lambda.zip | cut -f1)
+# Show results (macOS: use stat for bytes; Linux: du -b)
+if command -v stat >/dev/null 2>&1; then
+  SIZE_BYTES=$(stat -f%z "$ZIP_PATH" 2>/dev/null || stat -c%s "$ZIP_PATH" 2>/dev/null || echo 0)
+else
+  SIZE_BYTES=$(du -b "$ZIP_PATH" 2>/dev/null | cut -f1 || echo 0)
+fi
+SIZE=$(du -sh "$ZIP_PATH" | cut -f1)
 SIZE_MB=$(awk "BEGIN {printf \"%.2f\", $SIZE_BYTES / 1024 / 1024}")
 
 echo ""
@@ -47,7 +51,7 @@ echo "📍 Location: deploy/gettrainmate-api-lambda.zip"
 echo ""
 
 SIZE_MB_INT=${SIZE_MB%.*}
-if [ "$SIZE_MB_INT" -gt 50 ]; then
+if [ "${SIZE_MB_INT:-0}" -gt 50 ] 2>/dev/null; then
   echo "⚠️  Size exceeds 50 MB limit. Deploy via S3:"
   echo ""
   echo "  aws s3 cp deploy/gettrainmate-api-lambda.zip s3://getrainmate-media-bucket/lambda/gettrainmate-api-lambda.zip"

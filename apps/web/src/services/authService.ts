@@ -115,10 +115,24 @@ export const authService = {
     }
   },
 
-  async getJWT() {
+  /**
+   * Get JWT for API calls. Use forceRefresh when retrying after 401.
+   * Returns id token (Cognito); backend accepts it for sub claim.
+   */
+  async getJWT(forceRefresh = false): Promise<string | null> {
     try {
-      const session = await fetchAuthSession();
-      return session.tokens?.idToken?.toString() || null;
+      const session = await fetchAuthSession({ forceRefresh });
+      const token = session.tokens?.idToken?.toString() || null;
+      if (import.meta.env.DEV && token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const exp = payload.exp ? new Date(payload.exp * 1000) : null;
+          console.debug('[auth] Token present, exp:', exp?.toISOString() ?? 'n/a');
+        } catch {
+          // ignore decode errors
+        }
+      }
+      return token;
     } catch {
       return null;
     }

@@ -51,16 +51,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
   }, [isAuthenticated, requireProfileComplete, location.pathname]);
 
-  // Debug logging
-  console.log('ProtectedRoute:', { 
-    isAuthenticated, 
-    isLoading, 
-    profileLoading,
-    profileComplete,
-    isAdmin, 
-    user: user?.email,
-    requireProfileComplete,
-  });
+  if (import.meta.env.DEV) {
+    console.debug('ProtectedRoute:', { isAuthenticated, profileComplete, requireProfileComplete });
+  }
 
   if (isLoading || profileLoading) {
     return (
@@ -78,22 +71,17 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!isAuthenticated) {
-    console.log('ProtectedRoute: Not authenticated, redirecting to /login');
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   if (isAdmin && !user?.groups?.includes('Admin')) {
-    console.log('ProtectedRoute: Not admin, redirecting to /app/discover');
     return <Navigate to="/app/discover" replace />;
   }
 
-  // Check profile completion for non-admin routes (allow through if we just completed onboarding)
   const profileJustCompleted = (location.state as { profileJustCompleted?: boolean } | null)?.profileJustCompleted;
   if (requireProfileComplete && !profileComplete && !profileJustCompleted) {
-    console.log('ProtectedRoute: Profile incomplete, redirecting to /onboarding/profile');
     return <Navigate to="/onboarding/profile" replace state={{ from: location }} />;
   }
 
-  console.log('ProtectedRoute: Authenticated and profile complete, rendering Outlet');
   return <Outlet />;
 };

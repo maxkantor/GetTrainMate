@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using GetTrainMate.Api.Models;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -88,22 +89,33 @@ public class ProfileService : IProfileService
                 };
             }
 
-            // Update fields
-            if (request.Name != null) existingProfile.Name = request.Name;
-            if (request.City != null) existingProfile.City = request.City;
-            if (request.State != null) existingProfile.State = request.State;
-            if (request.Country != null) existingProfile.Country = request.Country;
-            if (request.Bio != null) existingProfile.Bio = request.Bio;
+            // Update fields (use empty lists/defaults to avoid null refs)
+            if (request.Name != null) existingProfile.Name = request.Name.Trim();
+            if (request.City != null) existingProfile.City = request.City.Trim();
+            if (request.State != null) existingProfile.State = request.State.Trim();
+            if (request.Country != null) existingProfile.Country = request.Country.Trim();
+            if (request.Bio != null) existingProfile.Bio = request.Bio.Trim();
             if (request.BirthDate != null) existingProfile.BirthDate = request.BirthDate;
-            if (request.Gender != null) existingProfile.Gender = request.Gender;
+            if (request.Gender != null) existingProfile.Gender = request.Gender.Trim();
             if (request.SportTags != null) existingProfile.SportTags = request.SportTags;
-            if (request.Level != null) existingProfile.Level = request.Level;
+            if (request.Level != null) existingProfile.Level = request.Level.Trim();
             if (request.Goals != null) existingProfile.Goals = request.Goals;
-            if (request.AvailabilitySchedule != null) existingProfile.AvailabilitySchedule = request.AvailabilitySchedule;
-            if (request.Mode != null) existingProfile.Mode = request.Mode;
+            if (request.AvailabilitySchedule != null)
+            {
+                // Normalize slots: ensure Days/TimeStart/TimeEnd are non-null
+                existingProfile.AvailabilitySchedule = request.AvailabilitySchedule
+                    .Select(s => new AvailabilitySlot
+                    {
+                        Days = s.Days ?? new List<string>(),
+                        TimeStart = s.TimeStart ?? string.Empty,
+                        TimeEnd = s.TimeEnd ?? string.Empty
+                    })
+                    .ToList();
+            }
+            if (!string.IsNullOrWhiteSpace(request.Mode)) existingProfile.Mode = request.Mode.Trim();
             if (request.Latitude != null) existingProfile.Latitude = request.Latitude;
             if (request.Longitude != null) existingProfile.Longitude = request.Longitude;
-            if (request.PhotoKey != null) existingProfile.PhotoKey = request.PhotoKey;
+            if (request.PhotoKey != null) existingProfile.PhotoKey = request.PhotoKey.Trim();
             if (request.PreferredDistanceMiles != null) existingProfile.PreferredDistanceMiles = request.PreferredDistanceMiles;
 
             existingProfile.UpdatedAt = DateTime.UtcNow;
@@ -206,32 +218,41 @@ public class ProfileService : IProfileService
 
     private UserProfile DocumentToProfile(Document document)
     {
+        // Defensive: old records may lack "mode", "isComplete", "createdAt", "updatedAt"
+        var userId = document.ContainsKey("userId") ? document["userId"].AsString() : string.Empty;
+        var email = document.ContainsKey("email") ? document["email"].AsString() : string.Empty;
+        var name = document.ContainsKey("name") ? document["name"].AsString() : string.Empty;
+        var mode = document.ContainsKey("mode") ? document["mode"].AsString() : "TRAIN";
+        var isComplete = document.ContainsKey("isComplete") ? document["isComplete"].AsBoolean() : false;
+        var createdAt = document.ContainsKey("createdAt") && DateTime.TryParse(document["createdAt"].AsString(), out var ca) ? ca : DateTime.UtcNow;
+        var updatedAt = document.ContainsKey("updatedAt") && DateTime.TryParse(document["updatedAt"].AsString(), out var ua) ? ua : DateTime.UtcNow;
+
         var profile = new UserProfile
         {
-            UserId = document["userId"],
-            Email = document["email"],
-            Name = document["name"],
+            UserId = userId,
+            Email = email,
+            Name = name,
             City = document.ContainsKey("city") ? document["city"] : null,
             State = document.ContainsKey("state") ? document["state"] : null,
             Country = document.ContainsKey("country") ? document["country"] : "US",
             Bio = document.ContainsKey("bio") ? document["bio"] : null,
-            BirthDate = document.ContainsKey("birthDate") ? DateTime.Parse(document["birthDate"]) : null,
+            BirthDate = document.ContainsKey("birthDate") && DateTime.TryParse(document["birthDate"].AsString(), out var bd) ? bd : null,
             Gender = document.ContainsKey("gender") ? document["gender"] : null,
             SportTags = document.ContainsKey("sportTags") ? document["sportTags"].AsListOfString() : new List<string>(),
             Level = document.ContainsKey("level") ? document["level"] : null,
-            Goals = document.ContainsKey("goals") ? 
-                (document["goals"] is DynamoDBList goalsList ? goalsList.AsListOfString() : 
-                 document["goals"].AsString() is string goalsStr && !string.IsNullOrEmpty(goalsStr) ? new List<string> { goalsStr } : 
+            Goals = document.ContainsKey("goals") ?
+                (document["goals"] is DynamoDBList goalsList ? goalsList.AsListOfString() :
+                 document["goals"].AsString() is string goalsStr && !string.IsNullOrEmpty(goalsStr) ? new List<string> { goalsStr } :
                  new List<string>()) : new List<string>(),
-            Mode = document["mode"],
+            Mode = mode,
             Latitude = document.ContainsKey("latitude") ? (double?)document["latitude"].AsDouble() : null,
             Longitude = document.ContainsKey("longitude") ? (double?)document["longitude"].AsDouble() : null,
             PhotoKey = document.ContainsKey("photoKey") ? document["photoKey"] : null,
             PreferredDistanceMiles = document.ContainsKey("preferredDistanceMiles") ? (double?)document["preferredDistanceMiles"].AsDouble() : null,
             PhotoUrls = document.ContainsKey("photoUrls") ? document["photoUrls"].AsListOfString() : new List<string>(),
-            IsComplete = document["isComplete"].AsBoolean(),
-            CreatedAt = DateTime.Parse(document["createdAt"]),
-            UpdatedAt = DateTime.Parse(document["updatedAt"])
+            IsComplete = isComplete,
+            CreatedAt = createdAt,
+            UpdatedAt = updatedAt
         };
 
         // Handle AvailabilitySchedule - support both old (List<string>) and new (List<AvailabilitySlot>) formats

@@ -73,6 +73,7 @@ export const ProfileOnboardingPage: React.FC = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -342,54 +343,66 @@ export const ProfileOnboardingPage: React.FC = () => {
     try {
       setLoading(true);
       setError('');
+      setFieldErrors({});
       const token = await authService.getJWT();
       if (!token) {
         setError('Not authenticated');
+        setLoading(false);
         return;
       }
 
-      // Prepare update data, ensuring proper serialization
-      // Remove undefined and empty string values to avoid backend issues
+      // Build payload: include all required fields for completion (Review step)
       const updateData: UpdateProfileRequest = {};
-      
-      if (formData.name?.trim()) updateData.name = formData.name.trim();
+      if (formData.name != null) updateData.name = formData.name.trim();
       if (formData.city?.trim()) updateData.city = formData.city.trim();
       if (formData.state?.trim()) updateData.state = formData.state.trim();
       if (formData.country) updateData.country = formData.country;
-      if (formData.bio?.trim()) updateData.bio = formData.bio.trim();
+      if (formData.bio != null) updateData.bio = formData.bio.trim();
       if (formData.birthDate) updateData.birthDate = formData.birthDate;
       if (formData.gender) updateData.gender = formData.gender;
-      if (formData.sportTags && formData.sportTags.length > 0) {
-        // Remove "Other" from the list before sending - only send actual sport values
+      if (formData.sportTags != null) {
         updateData.sportTags = formData.sportTags.filter(tag => tag !== 'Other');
       }
       if (formData.level) updateData.level = formData.level;
-      if (formData.goals && formData.goals.length > 0) {
-        updateData.goals = formData.goals;
-      }
+      if (formData.goals && formData.goals.length > 0) updateData.goals = formData.goals;
       if (formData.availabilitySchedule && formData.availabilitySchedule.length > 0) {
         updateData.availabilitySchedule = formData.availabilitySchedule.map(slot => ({
-          days: slot.days || [],
-          timeStart: slot.timeStart || '',
-          timeEnd: slot.timeEnd || '',
+          days: slot.days ?? [],
+          timeStart: slot.timeStart ?? '',
+          timeEnd: slot.timeEnd ?? '',
         }));
       }
       if (formData.mode) updateData.mode = formData.mode;
       if (photoKey) updateData.photoKey = photoKey;
 
-      console.log('Submitting profile data:', JSON.stringify(updateData, null, 2));
+      if (import.meta.env.DEV) {
+        console.log('Submitting profile data:', JSON.stringify(updateData, null, 2));
+      }
 
       await profileService.updateMyProfile(token, updateData);
       navigate('/app/discover', { state: { profileJustCompleted: true }, replace: true });
     } catch (err: any) {
       console.error('Error saving profile:', err);
+      if (err.response) {
+        if (import.meta.env.DEV) {
+          console.error('API Error Response:', err.response.data);
+          console.error('API Error Status:', err.response.status);
+        }
+        if (err.response.status === 401) {
+          setError('Session expired. Please sign in again.');
+          setTimeout(() => navigate('/login', { state: { from: '/onboarding/profile' }, replace: true }), 1500);
+          setLoading(false);
+          return;
+        }
+        if (err.response.status === 400 && err.response.data?.errors) {
+          setFieldErrors(err.response.data.errors);
+          setError(err.response.data.message || 'Please fix the errors below.');
+          setLoading(false);
+          return;
+        }
+      }
       const apiError = handleApiError(err);
       setError(apiError.message || 'Failed to save profile');
-      // Log more details for debugging
-      if (err.response) {
-        console.error('API Error Response:', err.response.data);
-        console.error('API Error Status:', err.response.status);
-      }
     } finally {
       setLoading(false);
     }
@@ -915,6 +928,23 @@ export const ProfileOnboardingPage: React.FC = () => {
               Review Your Profile
             </Typography>
 
+            {Object.keys(fieldErrors).length > 0 && (
+              <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Please fix the following:
+                </Typography>
+                <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                  {Object.entries(fieldErrors).map(([field, messages]) =>
+                    (messages || []).map((msg, i) => (
+                      <li key={`${field}-${i}`}>
+                        <Typography variant="body2">{msg}</Typography>
+                      </li>
+                    ))
+                  )}
+                </Box>
+              </Alert>
+            )}
+
             {[
               {
                 title: 'Display Name',
@@ -1134,7 +1164,14 @@ export const ProfileOnboardingPage: React.FC = () => {
               borderRadius: 2,
             }}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : "You're ready to find your training mate 💪"}
+            {loading ? (
+              <>
+                <CircularProgress size={24} color="inherit" sx={{ mr: 1 }} />
+                Saving...
+              </>
+            ) : (
+              "You're ready to find your training mate 💪"
+            )}
           </Button>
         ) : (
           <Button 

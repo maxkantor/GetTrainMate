@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -22,7 +23,8 @@ import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 
 export const DiscoverPage: React.FC = () => {
   const { t } = useI18n();
-  const { user } = useAuthContext();
+  const { user, logout } = useAuthContext();
+  const navigate = useNavigate();
   
   const [feed, setFeed] = useState<MatchFeedItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -34,13 +36,15 @@ export const DiscoverPage: React.FC = () => {
     loadFeed();
   }, []);
 
-  const loadFeed = async () => {
+  const loadFeed = async (isRetryAfter401 = false) => {
     try {
       setLoading(true);
       setError('');
-      const token = await authService.getJWT();
+      // Use fresh token when retrying after 401
+      const token = await authService.getJWT(isRetryAfter401);
       if (!token) {
         setError('Not authenticated');
+        setLoading(false);
         return;
       }
 
@@ -48,11 +52,42 @@ export const DiscoverPage: React.FC = () => {
       setFeed(feedData);
       setCurrentIndex(0);
     } catch (err: any) {
-      console.error('Error loading feed:', err);
+      const status = err.response?.status;
       const apiError = handleApiError(err);
-      
+
+      // On 401: try once with refreshed token, then show auth error
+      if (status === 401 && !isRetryAfter401) {
+        const freshToken = await authService.getJWT(true);
+        if (freshToken) {
+          try {
+            const feedData = await matchService.getDiscoveryFeed(freshToken, 50);
+            setFeed(feedData);
+            setCurrentIndex(0);
+            setLoading(false);
+            return;
+          } catch (retryErr: any) {
+            if (retryErr.response?.status === 401) {
+              setError('Session expired. Please sign in again.');
+              setLoading(false);
+              await logout();
+              navigate('/login', { state: { from: '/app/discover' }, replace: true });
+              return;
+            }
+            throw retryErr;
+          }
+        }
+        setError('Session expired. Please sign in again.');
+        setLoading(false);
+        await logout();
+        navigate('/login', { state: { from: '/app/discover' }, replace: true });
+        return;
+      }
+
+      console.error('Error loading feed:', err);
       if (isNetworkError(err) || apiError.isCorsError) {
         setError('Unable to connect to the API. The backend may not be deployed or CORS is not configured. Please check your API configuration.');
+      } else if (status === 401) {
+        setError('Authentication required. Please sign in again.');
       } else {
         setError(apiError.message || 'Failed to load discovery feed');
       }

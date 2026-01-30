@@ -1,11 +1,14 @@
 #!/bin/bash
-# Optimized Lambda build script - excludes unnecessary files
+# Optimized Lambda build - always creates deploy/gettrainmate-api-lambda.zip
 
 set -e
 
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ZIP_PATH="$REPO_ROOT/deploy/gettrainmate-api-lambda.zip"
+
 echo "🔨 Building .NET 8 Lambda package (optimized)..."
 
-cd "$(dirname "$0")/../apps/api"
+cd "$REPO_ROOT/apps/api"
 
 # Clean previous builds
 rm -rf bin obj publish
@@ -16,11 +19,12 @@ dotnet publish -c Release -o ./publish
 
 cd publish
 
-# Create optimized zip (exclude runtimes, test libs, debug files)
-echo "📦 Creating optimized zip..."
-rm -f ../../../deploy/gettrainmate-api-lambda.zip
+# Always create zip at deploy/gettrainmate-api-lambda.zip
+mkdir -p "$REPO_ROOT/deploy"
+echo "📦 Creating zip at deploy/gettrainmate-api-lambda.zip..."
+rm -f "$ZIP_PATH"
 
-zip -r ../../../deploy/gettrainmate-api-lambda.zip . \
+zip -r "$ZIP_PATH" . \
   -x "*.pdb" \
   -x "*.xml" \
   -x "runtimes/*" \
@@ -30,7 +34,7 @@ zip -r ../../../deploy/gettrainmate-api-lambda.zip . \
   -x "*.Test*" \
   -x "publish/*"
 
-SIZE=$(du -sh ../../../deploy/gettrainmate-api-lambda.zip | cut -f1)
+SIZE=$(du -sh "$ZIP_PATH" | cut -f1)
 echo ""
 echo "✅ Lambda zip created: deploy/gettrainmate-api-lambda.zip"
 echo "📊 Size: $SIZE"

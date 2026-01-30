@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
+using GetTrainMate.Api.Validation;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 
@@ -171,28 +172,53 @@ public class ProfileController : ControllerBase
     }
 
     [HttpPut("me")]
-    public async Task<ActionResult<UserProfile>> UpdateMyProfile([FromBody] UpdateProfileRequest request)
+    public async Task<ActionResult<UserProfile>> UpdateMyProfile([FromBody] UpdateProfileRequest? request)
     {
+        var requestId = System.Diagnostics.Activity.Current?.Id ?? Guid.NewGuid().ToString("N")[..12];
+        _logger.LogInformation("UpdateMyProfile requestId={RequestId}", requestId);
+
+        if (request == null)
+        {
+            _logger.LogWarning("UpdateMyProfile requestId={RequestId}: body is null", requestId);
+            return BadRequest(new { message = "Request body is required", requestId, errors = new { _ = new[] { "Body must be valid JSON" } } });
+        }
+
         try
         {
             var userId = GetUserIdFromToken();
             if (string.IsNullOrEmpty(userId))
-                return Unauthorized(new { message = "Invalid token" });
-
-            var profile = await _profileService.UpdateProfileAsync(userId, request);
-            
-            // Update email from token if creating for first time
-            if (string.IsNullOrEmpty(profile.Email))
             {
-                profile.Email = GetEmailFromToken() ?? "";
+                _logger.LogWarning("UpdateMyProfile requestId={RequestId}: no userId in token", requestId);
+                return Unauthorized(new { message = "Authentication required. Please login again.", requestId });
             }
 
+            // Server-side validation: return 400 with field errors (never 500)
+            var validationErrors = ProfileRequestValidator.Validate(request);
+            if (validationErrors.Count > 0)
+            {
+                _logger.LogWarning("UpdateMyProfile requestId={RequestId} userId={UserId}: validation failed: {Errors}", requestId, userId, string.Join("; ", validationErrors.Select(e => e.Key + ": " + string.Join(", ", e.Value))));
+                return BadRequest(new { message = "Validation failed", requestId, errors = validationErrors });
+            }
+
+            _logger.LogDebug("UpdateMyProfile requestId={RequestId} userId={UserId} updating profile", requestId, userId);
+
+            var profile = await _profileService.UpdateProfileAsync(userId, request);
+
+            if (string.IsNullOrEmpty(profile.Email))
+                profile.Email = GetEmailFromToken() ?? "";
+
+            _logger.LogInformation("UpdateMyProfile requestId={RequestId} userId={UserId} success IsComplete={IsComplete}", requestId, userId, profile.IsComplete);
             return Ok(profile);
+        }
+        catch (Amazon.DynamoDBv2.AmazonDynamoDBException dbEx)
+        {
+            _logger.LogError(dbEx, "UpdateMyProfile requestId={RequestId}: DynamoDB error", requestId);
+            return StatusCode(500, new { message = "Error saving profile. Please try again.", requestId });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating user profile");
-            return StatusCode(500, new { message = "Error updating profile" });
+            _logger.LogError(ex, "UpdateMyProfile requestId={RequestId}: unexpected error", requestId);
+            return StatusCode(500, new { message = "Error updating profile", requestId });
         }
     }
 

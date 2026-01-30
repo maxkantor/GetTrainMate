@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace GetTrainMate.Api.Controllers;
@@ -104,7 +105,32 @@ public class MatchController : ControllerBase
 
     private string? GetUserIdFromToken()
     {
-        return User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+        // Prefer claims set by JWT middleware
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
             ?? User.FindFirst("sub")?.Value;
+
+        // Fallback: parse Authorization header when middleware didn't validate (e.g. expired token still has valid sub)
+        if (string.IsNullOrEmpty(userId))
+        {
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+            {
+                var token = authHeader.Substring("Bearer ".Length).Trim();
+                try
+                {
+                    var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+                    var jsonToken = handler.ReadJwtToken(token);
+                    userId = jsonToken.Claims.FirstOrDefault(c => c.Type == "sub" || c.Type == ClaimTypes.NameIdentifier)?.Value;
+                    if (!string.IsNullOrEmpty(userId))
+                        _logger.LogDebug("MatchController: extracted userId from JWT manually: {UserId}", userId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "MatchController: failed to parse JWT manually");
+                }
+            }
+        }
+
+        return userId;
     }
 }
