@@ -165,7 +165,7 @@ export const DiscoverPage: React.FC = () => {
           fullWidth
           variant="contained"
           color="primary"
-          onClick={loadFeed}
+          onClick={() => loadFeed()}
           sx={{ mt: 2 }}
         >
           Retry
@@ -181,7 +181,7 @@ export const DiscoverPage: React.FC = () => {
         <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
           Check back later for new training partners!
         </Typography>
-        <Button variant="contained" onClick={loadFeed}>
+        <Button variant="contained" onClick={() => loadFeed()}>
           Refresh
         </Button>
       </Container>
