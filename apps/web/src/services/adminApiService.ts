@@ -60,14 +60,14 @@ class AdminApiService {
       body: data ? JSON.stringify(data) : undefined,
     });
 
-    const data = await this.parseResponse(response);
+    const parsed = await this.parseResponse(response);
 
     if (!response.ok) {
-      const error = data?.error ?? data?.message ?? 'Request failed';
+      const error = parsed?.error ?? parsed?.message ?? 'Request failed';
       throw new Error(typeof error === 'string' ? error : `HTTP ${response.status}`);
     }
 
-    return data;
+    return parsed;
   }
 
   async put(endpoint: string, data?: any): Promise<any> {
