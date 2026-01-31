@@ -15,19 +15,17 @@
    - Go to `/admin/login`
    - Use your admin email and password
 
-2. **Call the seed endpoint**:
+2. **Get your admin token**: After logging in at `/admin/login`, open DevTools → Application → Local Storage → copy the `adminToken` value.
+
+3. **Run the seed script** (easiest):
    ```bash
-   # Get your admin token from browser localStorage (adminToken)
-   ADMIN_TOKEN=your-admin-token
-   
+   ADMIN_TOKEN=your-admin-token ./scripts/seed-users-via-admin.sh
+   ```
+   Or call the API directly:
+   ```bash
    curl -X POST "https://goskwzjzjg.execute-api.us-east-1.amazonaws.com/api/admin/users/seed-dummy" \
      -H "Authorization: Bearer $ADMIN_TOKEN" \
      -H "Content-Type: application/json"
-   ```
-
-3. **Or use the script**:
-   ```bash
-   ADMIN_TOKEN=your-admin-token ./scripts/seed-users-via-admin.sh
    ```
 
 This will create 8 dummy users:
@@ -70,11 +68,17 @@ Once the admin panel user creation is implemented, you can create users directly
 
 1. **Go to Dashboard** (`/app/discover`)
 2. **You should now see the dummy user profiles**
-3. **Start swiping**:
+3. **View Profile** on a card opens their full profile; you can **Like** from there too.
+4. **Start swiping**:
    - Click **Like** on profiles you're interested in
    - Click **Pass** on profiles you're not interested in
-4. **Check Matches** tab to see mutual likes
-5. **Start Chatting** with your matches
+5. **Check Matches** tab to see mutual likes
+6. **Start Chatting** with your matches
+
+## Free vs paid: how users communicate
+
+- **Free:** 10 matches/day, 5 messages/day. Basic discovery and chat.
+- **Paid (Pro/Elite):** Unlimited matches and messages, advanced filters, see who liked you, verified badge, and more. See **Subscription** in the app or `/app/subscription`.
 
 ## Troubleshooting
 

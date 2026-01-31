@@ -42,7 +42,17 @@ export const DashboardPage: React.FC = () => {
   const loadMetrics = async () => {
     try {
       const data = await adminApiService.get('/api/admin/metrics?range=7d');
-      setMetrics(data);
+      setMetrics(data ?? {
+        totalUsers: 0,
+        activeUsers: 0,
+        newUsers: 0,
+        totalMatches: 0,
+        totalMessages: 0,
+        totalEvents: 0,
+        premiumSubscriptions: 0,
+        revenue: 0,
+        recentActivity: [],
+      });
     } catch (err: any) {
       setError(err.message || 'Failed to load metrics');
     } finally {

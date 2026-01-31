@@ -17,6 +17,16 @@ class AdminApiService {
     };
   }
 
+  private async parseResponse(response: Response): Promise<any> {
+    const text = await response.text();
+    if (!text || !text.trim()) return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+
   async get(endpoint: string): Promise<any> {
     const headers = await this.getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -24,12 +34,14 @@ class AdminApiService {
       headers,
     });
 
+    const data = await this.parseResponse(response);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(error.error || error.message || `HTTP ${response.status}`);
+      const error = data?.error ?? data?.message ?? 'Request failed';
+      throw new Error(typeof error === 'string' ? error : `HTTP ${response.status}`);
     }
 
-    return response.json();
+    return data;
   }
 
   async post(endpoint: string, data?: any, skipAuth: boolean = false): Promise<any> {
@@ -48,12 +60,14 @@ class AdminApiService {
       body: data ? JSON.stringify(data) : undefined,
     });
 
+    const data = await this.parseResponse(response);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(error.error || error.message || `HTTP ${response.status}`);
+      const error = data?.error ?? data?.message ?? 'Request failed';
+      throw new Error(typeof error === 'string' ? error : `HTTP ${response.status}`);
     }
 
-    return response.json();
+    return data;
   }
 
   async put(endpoint: string, data?: any): Promise<any> {
@@ -64,12 +78,14 @@ class AdminApiService {
       body: data ? JSON.stringify(data) : undefined,
     });
 
+    const parsed = await this.parseResponse(response);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(error.error || error.message || `HTTP ${response.status}`);
+      const error = parsed?.error ?? parsed?.message ?? 'Request failed';
+      throw new Error(typeof error === 'string' ? error : `HTTP ${response.status}`);
     }
 
-    return response.json();
+    return parsed;
   }
 
   async delete(endpoint: string, data?: any): Promise<any> {
@@ -80,12 +96,14 @@ class AdminApiService {
       body: data ? JSON.stringify(data) : undefined,
     });
 
+    const parsed = await this.parseResponse(response);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(error.error || error.message || `HTTP ${response.status}`);
+      const error = parsed?.error ?? parsed?.message ?? 'Request failed';
+      throw new Error(typeof error === 'string' ? error : `HTTP ${response.status}`);
     }
 
-    return response.json();
+    return parsed;
   }
 }
 

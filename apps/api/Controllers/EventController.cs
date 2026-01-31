@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace GetTrainMate.Api.Controllers;
@@ -217,8 +218,26 @@ public class EventController : ControllerBase
 
     private string? GetUserIdFromToken()
     {
-        return User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
             ?? User.FindFirst("sub")?.Value;
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+            {
+                var token = authHeader.Substring("Bearer ".Length).Trim();
+                try
+                {
+                    var handler = new JwtSecurityTokenHandler();
+                    var jsonToken = handler.ReadJwtToken(token);
+                    userId = jsonToken.Claims.FirstOrDefault(c => c.Type == "sub" || c.Type == ClaimTypes.NameIdentifier)?.Value;
+                }
+                catch { /* ignore parse errors */ }
+            }
+        }
+
+        return userId;
     }
 
     private string? GetNameFromToken()

@@ -292,6 +292,15 @@ export const DiscoverPage: React.FC = () => {
               <Chip label={`Mode: ${currentCard.mode}`} color="secondary" />
             </Box>
           )}
+
+          <Button
+            fullWidth
+            variant="outlined"
+            sx={{ mt: 2 }}
+            onClick={() => navigate(`/app/profile/${currentCard.userId}`)}
+          >
+            {t('landing.view_profile')} →
+          </Button>
         </CardContent>
       </Card>
 

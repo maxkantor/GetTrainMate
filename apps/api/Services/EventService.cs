@@ -16,7 +16,8 @@ public class EventService : IEventService
         ILogger<EventService> logger)
     {
         _dynamoDb = dynamoDb;
-        _eventsTable = configuration["DYNAMODB_TABLE_EVENTS"] ?? "gettrainmate-events-dev";
+        var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
+        _eventsTable = configuration["DYNAMODB_TABLE_EVENTS"] ?? $"{prefix}events";
         _logger = logger;
     }
 

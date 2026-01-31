@@ -20,8 +20,9 @@ public class ChatService : IChatService
     {
         _dynamoDb = dynamoDb;
         _profileService = profileService;
-        _messagesTable = configuration["DYNAMODB_TABLE_MESSAGES"] ?? "gettrainmate-messages-dev";
-        _threadsTable = configuration["DYNAMODB_TABLE_CHAT_THREADS"] ?? "gettrainmate-chat-threads-dev";
+        var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
+        _messagesTable = configuration["DYNAMODB_TABLE_MESSAGES"] ?? $"{prefix}messages";
+        _threadsTable = configuration["DYNAMODB_TABLE_CHAT_THREADS"] ?? $"{prefix}chat-threads";
         _logger = logger;
     }
 

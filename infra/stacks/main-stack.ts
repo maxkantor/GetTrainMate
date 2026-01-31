@@ -127,6 +127,19 @@ export class GetTrainMateStack extends cdk.Stack {
       resources: ['*'], // SES doesn't support resource-level permissions for SendEmail
     }));
 
+    // Grant Lambda access to SSM Parameter Store (admin portal password at /gettrainmate/admin/password)
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'ssm:GetParameter',
+        'ssm:GetParameters',
+        'ssm:PutParameter',
+      ],
+      resources: [
+        `arn:aws:ssm:${this.region}:${this.account}:parameter/gettrainmate/*`,
+      ],
+    }));
+
     // API Gateway HTTP API
     const httpApi = new apigateway.HttpApi(this, 'HttpApi', {
       apiName: 'gettrainmate-api',

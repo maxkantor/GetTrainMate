@@ -28,8 +28,9 @@ public class MatchService : IMatchService
     {
         _dynamoDb = dynamoDb;
         _profileService = profileService;
-        _matchesTable = configuration["DYNAMODB_TABLE_MATCHES"] ?? "gettrainmate-matches-dev";
-        _profilesTable = configuration["DYNAMODB_TABLE_PROFILES"] ?? "gettrainmate-profiles-dev";
+        var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
+        _matchesTable = configuration["DYNAMODB_TABLE_MATCHES"] ?? $"{prefix}matches";
+        _profilesTable = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
         _logger = logger;
     }
 
@@ -405,27 +406,35 @@ public class MatchService : IMatchService
 
     private UserProfile DocumentToProfile(Document document)
     {
+        var userId = document.ContainsKey("userId") ? document["userId"].AsString() : string.Empty;
+        var email = document.ContainsKey("email") ? document["email"].AsString() : string.Empty;
+        var name = document.ContainsKey("name") ? document["name"].AsString() : string.Empty;
+        var mode = document.ContainsKey("mode") ? document["mode"].AsString() : "TRAIN";
+        var isComplete = document.ContainsKey("isComplete") ? document["isComplete"].AsBoolean() : false;
+        var createdAt = document.ContainsKey("createdAt") && DateTime.TryParse(document["createdAt"].AsString(), out var ca) ? ca : DateTime.UtcNow;
+        var updatedAt = document.ContainsKey("updatedAt") && DateTime.TryParse(document["updatedAt"].AsString(), out var ua) ? ua : DateTime.UtcNow;
+
         return new UserProfile
         {
-            UserId = document["userId"],
-            Email = document["email"],
-            Name = document["name"],
+            UserId = userId,
+            Email = email,
+            Name = name,
             City = document.ContainsKey("city") ? document["city"].AsString() : null,
             Bio = document.ContainsKey("bio") ? document["bio"].AsString() : null,
             SportTags = document.ContainsKey("sportTags") ? document["sportTags"].AsListOfString() : new List<string>(),
             Level = document.ContainsKey("level") ? document["level"].AsString() : null,
-            Goals = document.ContainsKey("goals") ? 
-                (document["goals"] is DynamoDBList goalsList ? goalsList.AsListOfString() : 
-                 document["goals"].AsString() is string goalsStr && !string.IsNullOrEmpty(goalsStr) ? new List<string> { goalsStr } : 
+            Goals = document.ContainsKey("goals") ?
+                (document["goals"] is DynamoDBList goalsList ? goalsList.AsListOfString() :
+                 document["goals"].AsString() is string goalsStr && !string.IsNullOrEmpty(goalsStr) ? new List<string> { goalsStr } :
                  new List<string>()) : new List<string>(),
-            AvailabilitySchedule = new List<AvailabilitySlot>(), // Legacy support - will be empty for old format
-            Mode = document["mode"],
+            AvailabilitySchedule = new List<AvailabilitySlot>(),
+            Mode = mode,
             Latitude = document.ContainsKey("latitude") ? (double?)document["latitude"].AsDouble() : null,
             Longitude = document.ContainsKey("longitude") ? (double?)document["longitude"].AsDouble() : null,
             PhotoUrls = document.ContainsKey("photoUrls") ? document["photoUrls"].AsListOfString() : new List<string>(),
-            IsComplete = document["isComplete"].AsBoolean(),
-            CreatedAt = DateTime.Parse(document["createdAt"]),
-            UpdatedAt = DateTime.Parse(document["updatedAt"])
+            IsComplete = isComplete,
+            CreatedAt = createdAt,
+            UpdatedAt = updatedAt
         };
     }
 }

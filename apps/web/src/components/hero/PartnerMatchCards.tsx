@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
 import styles from './PartnerMatchCards.module.css';
 
@@ -52,6 +53,8 @@ const mockProfiles: PartnerProfile[] = [
 
 export const PartnerMatchCards: React.FC = () => {
   const { t } = useI18n();
+  const navigate = useNavigate();
+
   return (
     <div className={styles.cardsWrapper}>
       {mockProfiles.map((profile, index) => (
@@ -127,9 +130,17 @@ export const PartnerMatchCards: React.FC = () => {
 
           {/* CTA */}
           <div className={styles.cta}>
-            <a href="#discover" className={styles.ctaText} aria-label={t('landing.view_profile')}>
+            <Link
+              to="/app/discover"
+              className={styles.ctaText}
+              aria-label={t('landing.view_profile')}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/app/discover');
+              }}
+            >
               {t('landing.view_profile')} →
-            </a>
+            </Link>
           </div>
         </div>
       ))}

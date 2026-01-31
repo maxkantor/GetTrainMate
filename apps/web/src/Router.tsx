@@ -17,6 +17,7 @@ import { LoginPage } from '@/pages/Login';
 import { SignupPage } from '@/pages/Signup';
 import { DashboardPage as AppDashboardPage } from '@/pages/app/Dashboard';
 import { ProfilePage } from '@/pages/app/Profile';
+import { PublicProfilePage } from '@/pages/app/PublicProfile';
 import { DiscoverPage } from '@/pages/app/Discover';
 import { MatchesPage } from '@/pages/app/Matches';
 import { ChatPage } from '@/pages/app/Chat';
@@ -68,6 +69,7 @@ export const Router: React.FC = () => {
               <Route path="events" element={<EventsPage />} />
               <Route path="subscription" element={<SubscriptionPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="profile/:userId" element={<PublicProfilePage />} />
               <Route path="settings" element={<AppDashboardPage />} />
             </Route>
 

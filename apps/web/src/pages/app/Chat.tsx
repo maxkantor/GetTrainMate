@@ -140,7 +140,15 @@ export const ChatPage: React.FC = () => {
   if (threads.length === 0) {
     return (
       <Container sx={{ py: 8 }}>
-        <Alert severity="info">No chats yet. Start by liking someone on the discovery page!</Alert>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          No chats yet. Start by liking someone on the discovery page!
+        </Alert>
+        <Typography variant="body2" color="text.secondary">
+          <strong>Free:</strong> 5 messages/day. <strong>Paid (Pro/Elite):</strong> Unlimited messages, advanced filters, see who liked you, and more.
+        </Typography>
+        <Button variant="outlined" size="small" href="/app/subscription" sx={{ mt: 2 }}>
+          View plans
+        </Button>
       </Container>
     );
   }
