@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Container } from '@/components/layout/Container';
 import { Button } from '@/components/ui/Button';
 import { pricingPlans } from '@/data/pricingData';
+import { authService } from '@/services/authService';
+import { profileService } from '@/services/profileService';
+import { paymentService } from '@/services/paymentService';
 import styles from './PricingCards.module.css';
 
 /* Order: Elite first on mobile, Free | Pro | Elite on desktop */
@@ -9,10 +12,10 @@ const MOBILE_ORDER = ['elite', 'free', 'pro'];
 const DESKTOP_ORDER: Array<'free' | 'pro' | 'elite'> = ['free', 'pro', 'elite'];
 
 export const PricingCards: React.FC = () => {
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
   const handleCta = async (planId: string) => {
     try {
-      const { authService } = await import('@/services/authService');
-      const { profileService } = await import('@/services/profileService');
       const token = await authService.getJWT();
       if (!token) {
         window.location.href = '/signup';
@@ -30,11 +33,18 @@ export const PricingCards: React.FC = () => {
       }
       if (planId === 'free') {
         window.location.href = '/app/discover';
-      } else {
-        window.location.href = `/app/subscription?plan=${planId}&billing=monthly`;
+        return;
       }
-    } catch {
-      window.location.href = '/signup';
+      setLoadingPlan(planId);
+      const { checkoutUrl } = await paymentService.createCheckoutSession(
+        token,
+        planId as 'pro' | 'elite'
+      );
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setLoadingPlan(null);
+      window.location.href = '/app/subscription?error=checkout_failed';
     }
   };
 
@@ -71,14 +81,38 @@ export const PricingCards: React.FC = () => {
                     </li>
                   ))}
                 </ul>
-                <Button
-                  variant={plan.featured ? 'primary' : 'secondary'}
-                  size="lg"
-                  fullWidth
-                  onClick={() => handleCta(plan.id)}
-                >
-                  {plan.cta}
-                </Button>
+                {plan.id === 'free' && (
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    fullWidth
+                    onClick={() => handleCta('free')}
+                  >
+                    Start Free
+                  </Button>
+                )}
+                {plan.id === 'pro' && (
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    fullWidth
+                    onClick={() => handleCta('pro')}
+                    disabled={loadingPlan !== null}
+                  >
+                    {loadingPlan === 'pro' ? 'Redirecting…' : 'Upgrade to Pro'}
+                  </Button>
+                )}
+                {plan.id === 'elite' && (
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    onClick={() => handleCta('elite')}
+                    disabled={loadingPlan !== null}
+                  >
+                    {loadingPlan === 'elite' ? 'Redirecting…' : 'Go Elite'}
+                  </Button>
+                )}
               </div>
             );
           })}

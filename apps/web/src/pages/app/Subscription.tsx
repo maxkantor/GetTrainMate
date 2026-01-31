@@ -22,7 +22,7 @@ import { paymentService, SubscriptionStatus } from '@/services/paymentService';
 import { authService } from '@/services/authService';
 
 interface PricingPlan {
-  id: 'premium_monthly' | 'premium_yearly' | 'lifetime';
+  id: 'free' | 'pro' | 'elite';
   name: string;
   price: number;
   billing: string;
@@ -32,44 +32,39 @@ interface PricingPlan {
 
 const PRICING_PLANS: PricingPlan[] = [
   {
-    id: 'premium_monthly',
-    name: 'Premium Monthly',
-    price: 9.99,
+    id: 'free',
+    name: 'Free',
+    price: 0,
+    billing: '/month',
+    features: [
+      '10 matches per day',
+      '5 messages per day',
+      'Basic filters',
+    ],
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: 5.99,
     billing: '/month',
     features: [
       'Unlimited matches',
+      'Unlimited messaging',
       'Advanced filters',
-      'Message history',
-      'Event creation',
-      'Priority support',
+      'AI compatibility',
+      'See who liked you',
     ],
   },
   {
-    id: 'premium_yearly',
-    name: 'Premium Yearly',
-    price: 89.99,
-    billing: '/year',
+    id: 'elite',
+    name: 'Elite',
+    price: 9.99,
+    billing: '/month',
     features: [
-      'Everything in Monthly',
-      'Save 25% vs monthly',
-      'Priority matching',
-      'Custom profile',
-      'Analytics dashboard',
+      'Everything in Pro',
+      'Priority placement',
     ],
     featured: true,
-  },
-  {
-    id: 'lifetime',
-    name: 'Lifetime Access',
-    price: 199.99,
-    billing: 'one-time',
-    features: [
-      'Everything forever',
-      'No recurring charges',
-      'VIP status',
-      'Early feature access',
-      'Premium support',
-    ],
   },
 ];
 
@@ -84,6 +79,14 @@ export const SubscriptionPage: React.FC = () => {
 
   useEffect(() => {
     loadSubscriptionStatus();
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true' || params.get('canceled') === 'true') {
+      window.history.replaceState({}, '', '/app/subscription');
+      loadSubscriptionStatus();
+    }
   }, []);
 
   const loadSubscriptionStatus = async () => {
@@ -106,22 +109,22 @@ export const SubscriptionPage: React.FC = () => {
     }
   };
 
-  const handleUpgrade = async (planId: 'premium_monthly' | 'premium_yearly' | 'lifetime') => {
+  const handleUpgrade = async (planId: 'free' | 'pro' | 'elite') => {
+    if (planId === 'free') {
+      window.location.href = '/app/discover';
+      return;
+    }
     try {
       setProcessingPlan(planId);
       setError('');
       const token = await authService.getJWT();
       if (!token) return;
 
-      // Skip payment for demo (in production, this would redirect to Stripe)
-      console.log(`Upgrading to ${planId}`);
-      
-      // For demo purposes, show success message
-      Alert;
-      setProcessingPlan(null);
+      const { checkoutUrl } = await paymentService.createCheckoutSession(token, planId);
+      window.location.href = checkoutUrl;
     } catch (err: any) {
       console.error('Error processing upgrade:', err);
-      setError(err.message || 'Failed to process upgrade');
+      setError(err.response?.data?.error || err.message || 'Failed to start checkout');
       setProcessingPlan(null);
     }
   };
@@ -229,7 +232,15 @@ export const SubscriptionPage: React.FC = () => {
                     ))}
                   </Box>
 
-                  {subscription?.isPremium && subscription.planType === plan.id ? (
+                  {plan.id === 'free' ? (
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      onClick={() => handleUpgrade('free')}
+                    >
+                      Use Free
+                    </Button>
+                  ) : subscription?.isPremium && (subscription.planType === plan.id || (plan.id === 'elite' && ['premium', 'premium_monthly', 'premium_yearly', 'lifetime'].includes(subscription.planType))) ? (
                     <Button fullWidth variant="outlined" disabled>
                       Current Plan
                     </Button>
@@ -241,7 +252,7 @@ export const SubscriptionPage: React.FC = () => {
                       onClick={() => handleUpgrade(plan.id)}
                       disabled={processingPlan !== null}
                     >
-                      {processingPlan === plan.id ? 'Processing...' : 'Upgrade'}
+                      {processingPlan === plan.id ? 'Redirecting…' : plan.id === 'pro' ? 'Upgrade to Pro' : 'Go Elite'}
                     </Button>
                   )}
                 </CardContent>

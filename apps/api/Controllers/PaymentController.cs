@@ -124,14 +124,17 @@ public class PaymentController : ControllerBase
             if (stripeEvent.Type == Events.CheckoutSessionCompleted)
             {
                 var session = stripeEvent.Data.Object as Stripe.Checkout.Session;
-                if (session?.PaymentStatus == "paid")
+                if (session?.PaymentStatus == "paid" && session.Metadata != null)
                 {
-                    var metadata = session.Metadata;
-                    var planType = metadata["planType"];
-                    var paymentIntentId = session.PaymentIntentId;
-
-                    await _paymentService.CompletePaymentAsync(session.Id, paymentIntentId);
-                    _logger.LogInformation($"Payment completed for session {session.Id}");
+                    if (!session.Metadata.TryGetValue("paymentId", out var paymentId) ||
+                        !session.Metadata.TryGetValue("userId", out var userId))
+                    {
+                        _logger.LogWarning("Checkout session missing paymentId or userId in metadata");
+                        return BadRequest(new { error = "Invalid session metadata" });
+                    }
+                    var paymentIntentId = session.PaymentIntentId ?? string.Empty;
+                    await _paymentService.CompletePaymentAsync(paymentId, userId, paymentIntentId);
+                    _logger.LogInformation("Payment completed for paymentId {PaymentId}", paymentId);
                 }
             }
 
@@ -152,30 +155,7 @@ public class PaymentController : ControllerBase
     [HttpPost("refund/{paymentId}")]
     public async Task<ActionResult> RefundPayment(string paymentId)
     {
-        try
-        {
-            var userId = GetUserId();
-            var payment = await _paymentService.GetPaymentAsync(paymentId);
-
-            // Only allow users to refund their own payments
-            if (payment.UserId != userId)
-                return Forbid();
-
-            var success = await _paymentService.RefundPaymentAsync(paymentId);
-            return success ? Ok(new { message = "Refund processed successfully" }) : BadRequest();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound(new { error = "Payment not found" });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Error processing refund: {ex.Message}");
-            return StatusCode(500, new { error = "Failed to process refund" });
-        }
+        // Refunds are not available via API; admins should process refunds in Stripe Dashboard
+        return StatusCode(403, new { error = "Refunds must be processed in the Stripe Dashboard. Contact support for assistance." });
     }
 }

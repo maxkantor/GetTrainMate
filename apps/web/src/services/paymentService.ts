@@ -37,7 +37,7 @@ class PaymentService {
 
   async createCheckoutSession(
     token: string,
-    planType: 'premium_monthly' | 'premium_yearly' | 'lifetime'
+    planType: 'pro' | 'elite' | 'premium_monthly' | 'premium_yearly' | 'lifetime'
   ): Promise<CheckoutSessionResponse> {
     const response = await axios.post<CheckoutSessionResponse>(
       `${API_BASE_URL}/api/payment/checkout`,
@@ -69,14 +69,6 @@ class PaymentService {
       this.getHeaders(token)
     );
     return response.data;
-  }
-
-  async refundPayment(token: string, paymentId: string): Promise<void> {
-    await axios.post(
-      `${API_BASE_URL}/api/payment/refund/${paymentId}`,
-      {},
-      this.getHeaders(token)
-    );
   }
 }
 

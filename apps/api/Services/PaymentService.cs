@@ -12,8 +12,12 @@ public class PaymentService : IPaymentService
     private readonly IDynamoDBContext _context;
     private readonly ILogger<PaymentService> _logger;
 
+    // Pricing aligned with frontend: Free | Pro | Elite (monthly only)
     private readonly Dictionary<string, (decimal amount, string description)> PricingPlans = new()
     {
+        { "pro", (5.99m, "Pro - Monthly") },
+        { "elite", (9.99m, "Elite - Monthly") },
+        // Legacy plans kept for backward compatibility
         { "premium_monthly", (9.99m, "Premium - Monthly") },
         { "premium_yearly", (89.99m, "Premium - Yearly") },
         { "lifetime", (199.99m, "Premium - Lifetime Access") }
@@ -34,6 +38,7 @@ public class PaymentService : IPaymentService
 
         try
         {
+            var paymentId = Guid.NewGuid().ToString();
             var options = new SessionCreateOptions
             {
                 PaymentMethodTypes = new List<string> { "card" },
@@ -60,17 +65,18 @@ public class PaymentService : IPaymentService
                 Metadata = new Dictionary<string, string>
                 {
                     { "userId", userId },
-                    { "planType", planType }
+                    { "planType", planType },
+                    { "paymentId", paymentId }
                 }
             };
 
             var service = new SessionService();
             var session = await service.CreateAsync(options);
 
-            // Store payment record as pending
+            // Store payment record as pending (paymentId in metadata for webhook lookup)
             var payment = new Payment
             {
-                PaymentId = Guid.NewGuid().ToString(),
+                PaymentId = paymentId,
                 UserId = userId,
                 StripeSessionId = session.Id,
                 Amount = amount,
@@ -104,15 +110,13 @@ public class PaymentService : IPaymentService
         }
     }
 
-    public async Task<bool> CompletePaymentAsync(string sessionId, string paymentIntentId)
+    public async Task<bool> CompletePaymentAsync(string paymentId, string userId, string paymentIntentId)
     {
         try
         {
-            var payments = await _context.QueryAsync<Payment>(sessionId).GetRemainingAsync();
-            var payment = payments.FirstOrDefault();
-
+            var payment = await _context.LoadAsync<Payment>(paymentId, userId);
             if (payment == null)
-                throw new KeyNotFoundException($"Payment with session {sessionId} not found");
+                throw new KeyNotFoundException($"Payment {paymentId} not found");
 
             payment.Status = "completed";
             payment.StripePaymentIntentId = paymentIntentId;
@@ -120,9 +124,11 @@ public class PaymentService : IPaymentService
 
             await _context.SaveAsync(payment);
 
-            // Grant entitlement
+            // Grant entitlement (pro/elite = 1 month, yearly = 1 year, lifetime = no expiry)
             DateTime? expiresAt = payment.PlanType switch
             {
+                "pro" => DateTime.UtcNow.AddMonths(1),
+                "elite" => DateTime.UtcNow.AddMonths(1),
                 "premium_monthly" => DateTime.UtcNow.AddMonths(1),
                 "premium_yearly" => DateTime.UtcNow.AddYears(1),
                 "lifetime" => null,
@@ -185,7 +191,10 @@ public class PaymentService : IPaymentService
             var payments = await GetUserPaymentsAsync(userId, 5);
 
             var isPremium = premiumEntitlement?.IsActive ?? false;
-            var planType = isPremium ? "premium" : "none";
+            // Return actual plan from latest payment (pro, elite, etc.) or "premium" for legacy
+            var planType = isPremium
+                ? (payments.FirstOrDefault(p => p.Status == "completed")?.PlanType ?? "premium")
+                : "free";
 
             return new SubscriptionStatus
             {
