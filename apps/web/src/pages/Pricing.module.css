@@ -1,0 +1,23 @@
+.page {
+  background: #fff;
+}
+
+.trustLine {
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  margin: 0;
+  padding: var(--space-4) var(--space-4) var(--space-6);
+}
+
+.finalCta {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  background: #fafafa;
+}
+
+.finalCtaText {
+  font-size: 0.9375rem;
+  color: #4b5563;
+  margin: 0 0 var(--space-4);
+}

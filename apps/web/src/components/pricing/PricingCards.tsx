@@ -4,25 +4,20 @@ import { Button } from '@/components/ui/Button';
 import { pricingPlans } from '@/data/pricingData';
 import styles from './PricingCards.module.css';
 
-interface PricingCardsProps {
-  isAnnual: boolean;
-}
+/* Order: Elite first on mobile, Free | Pro | Elite on desktop */
+const MOBILE_ORDER = ['elite', 'free', 'pro'];
+const DESKTOP_ORDER: Array<'free' | 'pro' | 'elite'> = ['free', 'pro', 'elite'];
 
-/* Display order: Free | Pro | Elite (Elite dominant, mobile: Elite first) */
-const PLAN_ORDER: Array<'free' | 'pro' | 'elite'> = ['free', 'pro', 'elite'];
-
-export const PricingCards: React.FC<PricingCardsProps> = ({ isAnnual }) => {
-  const handleUpgrade = async (planId: string) => {
+export const PricingCards: React.FC = () => {
+  const handleCta = async (planId: string) => {
     try {
       const { authService } = await import('@/services/authService');
       const { profileService } = await import('@/services/profileService');
-
       const token = await authService.getJWT();
       if (!token) {
         window.location.href = '/signup';
         return;
       }
-
       try {
         const profile = await profileService.getMyProfile(token);
         if (!profile.isComplete) {
@@ -33,99 +28,57 @@ export const PricingCards: React.FC<PricingCardsProps> = ({ isAnnual }) => {
         window.location.href = '/onboarding/profile';
         return;
       }
-
       if (planId === 'free') {
         window.location.href = '/app/discover';
       } else {
-        window.location.href = `/app/subscription?plan=${planId}&billing=${isAnnual ? 'annual' : 'monthly'}`;
+        window.location.href = `/app/subscription?plan=${planId}&billing=monthly`;
       }
     } catch {
       window.location.href = '/signup';
     }
   };
 
-  const orderedPlans = PLAN_ORDER.map((id) => pricingPlans.find((p) => p.id === id)!).filter(Boolean);
+  const plansById = Object.fromEntries(pricingPlans.map((p) => [p.id, p]));
 
   return (
-    <section id="pricing-plans" className={styles.cardsSection}>
+    <section id="pricing-plans" className={styles.section}>
       <Container size="xl">
-        <div className={styles.cardsContainer}>
-          {orderedPlans.map((plan) => {
-            const monthlyPrice = plan.monthlyPrice;
-            const yearlyPrice = plan.yearlyPrice;
-            const yearlyEmphasized = isAnnual;
-            const monthlyEmphasized = !isAnnual;
-            const showSavings = yearlyEmphasized && plan.id !== 'free';
-
+        <div className={styles.cards}>
+          {DESKTOP_ORDER.map((id, idx) => {
+            const plan = plansById[id];
+            if (!plan) return null;
             return (
               <div
                 key={plan.id}
                 className={`${styles.card} ${plan.featured ? styles.featured : ''}`}
+                style={{ '--mobile-order': MOBILE_ORDER.indexOf(id) } as React.CSSProperties}
               >
-                {plan.featured && (
-                  <div className={styles.popularBadge}>Most Popular</div>
-                )}
-
-                <div className={styles.cardHeader}>
-                  <h3 className={styles.planName}>{plan.name}</h3>
-                  <p className={styles.planTagline}>{plan.tagline}</p>
-
-                  <div className={styles.dualPrices}>
-                    <div className={`${styles.priceRow} ${monthlyEmphasized ? styles.emphasized : ''}`}>
-                      <span className={styles.currency}>$</span>
-                      <span className={styles.price}>{monthlyPrice}</span>
-                      <span className={styles.period}>/month</span>
-                    </div>
-                    <div className={`${styles.priceRow} ${yearlyEmphasized ? styles.emphasized : ''}`}>
-                      {plan.id === 'free' ? (
-                        <span className={styles.period}>$0/year</span>
-                      ) : (
-                        <>
-                          <span className={styles.currency}>$</span>
-                          <span className={styles.priceSmall}>{yearlyPrice}</span>
-                          <span className={styles.period}>/year</span>
-                          {showSavings && (
-                            <span className={styles.saveBadge}>Save 17%</span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
+                {plan.featured && <span className={styles.badge}>Most Popular</span>}
+                <h3 className={styles.planName}>{plan.name}</h3>
+                <p className={styles.tagline}>{plan.tagline}</p>
+                <div className={styles.price}>
+                  <span className={styles.currency}>$</span>
+                  <span className={styles.amount}>{plan.monthlyPrice}</span>
+                  <span className={styles.period}>/month</span>
                 </div>
-
                 <ul className={styles.features}>
-                  {plan.features.map((feature, idx) => (
-                    <li
-                      key={idx}
-                      className={`${styles.feature} ${!feature.included ? styles.greyed : ''}`}
-                    >
-                      <span
-                        className={`${styles.checkIcon} ${
-                          feature.included ? styles.included : styles.notIncluded
-                        }`}
-                      >
-                        {feature.included ? '✓' : '—'}
+                  {plan.features.map((f, i) => (
+                    <li key={i} className={f.included ? '' : styles.greyed}>
+                      <span className={f.included ? styles.check : styles.dash}>
+                        {f.included ? '✓' : '—'}
                       </span>
-                      <span>{feature.text}</span>
+                      {f.text}
                     </li>
                   ))}
                 </ul>
-
                 <Button
                   variant={plan.featured ? 'primary' : 'secondary'}
                   size="lg"
                   fullWidth
-                  onClick={() => handleUpgrade(plan.id)}
-                  className={styles.ctaButton}
+                  onClick={() => handleCta(plan.id)}
                 >
-                  {plan.id === 'free'
-                    ? 'Start Free'
-                    : yearlyEmphasized
-                    ? 'Save with Annual'
-                    : 'Start Monthly'}
+                  {plan.cta}
                 </Button>
-
-                <p className={styles.trustLine}>Cancel anytime • Secure payments</p>
               </div>
             );
           })}
