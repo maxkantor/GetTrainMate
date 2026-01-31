@@ -31,8 +31,28 @@ public class PaymentService : IPaymentService
 
     public async Task<(string SessionId, string CheckoutUrl)> CreateCheckoutSessionAsync(string userId, string planType)
     {
+        _logger.LogInformation("CreateCheckoutSession: plan={Plan}, userId={UserId}", planType, userId);
+
         if (!PricingPlans.ContainsKey(planType))
+        {
+            _logger.LogWarning("Invalid plan type: {Plan}", planType);
             throw new ArgumentException($"Invalid plan type: {planType}");
+        }
+
+        var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL");
+        if (string.IsNullOrWhiteSpace(frontendUrl))
+        {
+            _logger.LogError("FRONTEND_URL env var is not set");
+            throw new InvalidOperationException("FRONTEND_URL environment variable is not configured. Set it to your app URL (e.g. https://yourdomain.com).");
+        }
+
+        var stripeKey = Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY")
+            ?? Stripe.StripeConfiguration.ApiKey;
+        if (string.IsNullOrWhiteSpace(stripeKey))
+        {
+            _logger.LogError("Stripe secret key not found. Set STRIPE_SECRET_KEY env or /gettrainmate/stripe/secret-key in SSM.");
+            throw new InvalidOperationException("Stripe is not configured. Set STRIPE_SECRET_KEY or add /gettrainmate/stripe/secret-key to SSM Parameter Store.");
+        }
 
         var (amount, description) = PricingPlans[planType];
 
@@ -60,8 +80,8 @@ public class PaymentService : IPaymentService
                     }
                 },
                 Mode = "payment",
-                SuccessUrl = $"{Environment.GetEnvironmentVariable("FRONTEND_URL")}/app/subscription?session_id={{CHECKOUT_SESSION_ID}}&success=true",
-                CancelUrl = $"{Environment.GetEnvironmentVariable("FRONTEND_URL")}/app/subscription?canceled=true",
+                SuccessUrl = $"{frontendUrl.TrimEnd('/')}/app/subscription?session_id={{CHECKOUT_SESSION_ID}}&success=true",
+                CancelUrl = $"{frontendUrl.TrimEnd('/')}/pricing?canceled=1",
                 Metadata = new Dictionary<string, string>
                 {
                     { "userId", userId },
@@ -85,7 +105,14 @@ public class PaymentService : IPaymentService
             };
 
             await _context.SaveAsync(payment);
-            _logger.LogInformation($"Created checkout session {session.Id} for user {userId}, plan {planType}");
+            _logger.LogInformation("Stripe checkout session created: sessionId={SessionId}, userId={UserId}, plan={Plan}, url={HasUrl}",
+                session.Id, userId, planType, !string.IsNullOrEmpty(session.Url));
+
+            if (string.IsNullOrEmpty(session.Url))
+            {
+                _logger.LogError("Stripe session has no URL");
+                throw new InvalidOperationException("Stripe did not return a checkout URL.");
+            }
 
             return (session.Id, session.Url);
         }

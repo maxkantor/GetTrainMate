@@ -114,3 +114,62 @@
   color: #d1d5db;
   flex-shrink: 0;
 }
+
+/* Explicit button styles - dark text on light bg for secondary, no empty labels */
+.btnPrimary {
+  width: 100%;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-top: auto;
+  min-height: 48px;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  width: 100%;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  background: #fff;
+  border: 2px solid #7c3aed;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-top: auto;
+  min-height: 48px;
+}
+
+.btnSecondary:hover:not(:disabled) {
+  background: #f5f3ff;
+}
+
+.btnSecondary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.errorBanner {
+  max-width: 900px;
+  margin: 0 auto 16px;
+  padding: 12px 16px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}

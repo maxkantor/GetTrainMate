@@ -88,6 +88,8 @@ export class GetTrainMateStack extends cdk.Stack {
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         DYNAMODB_TABLE_PREFIX: 'gettrainmate-',
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
+        // Required for Stripe checkout redirect URLs. Set: npx cdk deploy --context frontendUrl=https://yourdomain.com
+        FRONTEND_URL: this.node.tryGetContext('frontendUrl') || process.env.FRONTEND_URL || '',
       },
     });
 

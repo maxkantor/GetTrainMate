@@ -14,11 +14,16 @@ public class PaymentController : ControllerBase
 {
     private readonly IPaymentService _paymentService;
     private readonly ILogger<PaymentController> _logger;
+    private readonly StripeWebhookSecret _webhookSecret;
 
-    public PaymentController(IPaymentService paymentService, ILogger<PaymentController> logger)
+    public PaymentController(
+        IPaymentService paymentService,
+        ILogger<PaymentController> logger,
+        StripeWebhookSecret webhookSecret)
     {
         _paymentService = paymentService;
         _logger = logger;
+        _webhookSecret = webhookSecret;
     }
 
     private string GetUserId()
@@ -32,23 +37,36 @@ public class PaymentController : ControllerBase
     public async Task<ActionResult<CheckoutSessionResponse>> CreateCheckoutSession(
         [FromBody] CreateCheckoutSessionRequest request)
     {
+        if (request == null || string.IsNullOrWhiteSpace(request.PlanType))
+        {
+            _logger.LogWarning("Checkout request missing PlanType");
+            return BadRequest(new { error = "Plan type is required. Use { planType: \"pro\" } or { planType: \"elite\" }." });
+        }
+
         try
         {
             var userId = GetUserId();
+            _logger.LogInformation("Checkout request: plan={Plan}, userId={UserId}", request.PlanType, userId);
+
             var (sessionId, checkoutUrl) = await _paymentService.CreateCheckoutSessionAsync(userId, request.PlanType);
 
-            _logger.LogInformation($"Created checkout session for user {userId}");
+            _logger.LogInformation("Checkout session created for user {UserId}, redirecting to Stripe", userId);
             return Ok(new CheckoutSessionResponse { SessionId = sessionId, CheckoutUrl = checkoutUrl });
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning($"Invalid plan type: {ex.Message}");
+            _logger.LogWarning("Invalid plan type: {Message}", ex.Message);
             return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError("Checkout config error: {Message}", ex.Message);
+            return StatusCode(500, new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error creating checkout session: {ex.Message}");
-            return StatusCode(500, new { error = "Failed to create checkout session" });
+            _logger.LogError(ex, "Checkout failed: {Message}", ex.Message);
+            return StatusCode(500, new { error = ex.Message });
         }
     }
 
@@ -116,9 +134,20 @@ public class PaymentController : ControllerBase
         try
         {
             var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
-            var stripeEvent = EventUtility.ParseEvent(json);
+            var signature = Request.Headers["Stripe-Signature"].FirstOrDefault();
 
-            _logger.LogInformation($"Received Stripe webhook: {stripeEvent.Type}");
+            Stripe.Event stripeEvent;
+            if (!string.IsNullOrEmpty(_webhookSecret.Value) && !string.IsNullOrEmpty(signature))
+            {
+                stripeEvent = EventUtility.ConstructEvent(json, signature, _webhookSecret.Value);
+            }
+            else
+            {
+                _logger.LogWarning("Webhook secret not configured; skipping signature verification");
+                stripeEvent = EventUtility.ParseEvent(json);
+            }
+
+            _logger.LogInformation("Received Stripe webhook: {Type}", stripeEvent.Type);
 
             // Handle payment success
             if (stripeEvent.Type == Events.CheckoutSessionCompleted)

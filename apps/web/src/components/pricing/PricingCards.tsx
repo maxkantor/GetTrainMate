@@ -1,62 +1,105 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
-import { Button } from '@/components/ui/Button';
-import { pricingPlans } from '@/data/pricingData';
 import { authService } from '@/services/authService';
 import { profileService } from '@/services/profileService';
 import { paymentService } from '@/services/paymentService';
 import styles from './PricingCards.module.css';
 
-/* Order: Elite first on mobile, Free | Pro | Elite on desktop */
+/* Order: Elite first on mobile, Free | Pro | Elite on desktop.
+ * Buttons use native elements with explicit text - no abstraction, no empty labels. */
 const MOBILE_ORDER = ['elite', 'free', 'pro'];
 const DESKTOP_ORDER: Array<'free' | 'pro' | 'elite'> = ['free', 'pro', 'elite'];
 
-export const PricingCards: React.FC = () => {
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+const PLANS = [
+  { id: 'free' as const, name: 'Free', price: 0, featured: false },
+  { id: 'pro' as const, name: 'Pro', price: 5.99, featured: false },
+  { id: 'elite' as const, name: 'Elite', price: 9.99, featured: true },
+];
 
-  const handleCta = async (planId: string) => {
+export const PricingCards: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const canceled = searchParams.get('canceled');
+    const err = searchParams.get('error');
+    if (canceled === '1') {
+      setError('Checkout was canceled.');
+      setSearchParams({}, { replace: true });
+    } else if (err) {
+      setError(err === 'checkout_failed' ? 'Checkout failed. Please try again.' : decodeURIComponent(err));
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleFree = () => {
+    window.location.href = '/signup';
+  };
+
+  const handlePro = async () => {
+    setError(null);
     try {
       const token = await authService.getJWT();
       if (!token) {
         window.location.href = '/signup';
         return;
       }
-      try {
-        const profile = await profileService.getMyProfile(token);
-        if (!profile.isComplete) {
-          window.location.href = '/onboarding/profile';
-          return;
-        }
-      } catch {
+      const profile = await profileService.getMyProfile(token);
+      if (!profile?.isComplete) {
         window.location.href = '/onboarding/profile';
         return;
       }
-      if (planId === 'free') {
-        window.location.href = '/app/discover';
-        return;
-      }
-      setLoadingPlan(planId);
-      const { checkoutUrl } = await paymentService.createCheckoutSession(
-        token,
-        planId as 'pro' | 'elite'
-      );
-      window.location.href = checkoutUrl;
+      setLoadingPlan('pro');
+      const url = await paymentService.createCheckoutSessionAndGetUrl(token, 'pro');
+      if (!url) throw new Error('No checkout URL returned');
+      window.location.href = url;
     } catch (err) {
-      console.error('Checkout error:', err);
+      console.error('[Pricing] Pro checkout error:', err);
       setLoadingPlan(null);
-      window.location.href = '/app/subscription?error=checkout_failed';
+      setError(err instanceof Error ? err.message : 'Checkout failed. Try again or contact support.');
     }
   };
 
-  const plansById = Object.fromEntries(pricingPlans.map((p) => [p.id, p]));
+  const handleElite = async () => {
+    setError(null);
+    try {
+      const token = await authService.getJWT();
+      if (!token) {
+        window.location.href = '/signup';
+        return;
+      }
+      const profile = await profileService.getMyProfile(token);
+      if (!profile?.isComplete) {
+        window.location.href = '/onboarding/profile';
+        return;
+      }
+      setLoadingPlan('elite');
+      const url = await paymentService.createCheckoutSessionAndGetUrl(token, 'elite');
+      if (!url) throw new Error('No checkout URL returned');
+      window.location.href = url;
+    } catch (err) {
+      console.error('[Pricing] Elite checkout error:', err);
+      setLoadingPlan(null);
+      setError(err instanceof Error ? err.message : 'Checkout failed. Try again or contact support.');
+    }
+  };
 
   return (
     <section id="pricing-plans" className={styles.section}>
+      {error && (
+        <div className={styles.errorBanner} role="alert">
+          {error}
+        </div>
+      )}
       <Container size="xl">
         <div className={styles.cards}>
-          {DESKTOP_ORDER.map((id, idx) => {
-            const plan = plansById[id];
+          {DESKTOP_ORDER.map((id) => {
+            const plan = PLANS.find((p) => p.id === id);
             if (!plan) return null;
+            const isLoading = loadingPlan === plan.id;
             return (
               <div
                 key={plan.id}
@@ -65,53 +108,72 @@ export const PricingCards: React.FC = () => {
               >
                 {plan.featured && <span className={styles.badge}>Most Popular</span>}
                 <h3 className={styles.planName}>{plan.name}</h3>
-                <p className={styles.tagline}>{plan.tagline}</p>
+                <p className={styles.tagline}>
+                  {plan.id === 'free' && 'Get started'}
+                  {plan.id === 'pro' && 'Serious athletes'}
+                  {plan.id === 'elite' && 'Maximum visibility'}
+                </p>
                 <div className={styles.price}>
                   <span className={styles.currency}>$</span>
-                  <span className={styles.amount}>{plan.monthlyPrice}</span>
+                  <span className={styles.amount}>{plan.price}</span>
                   <span className={styles.period}>/month</span>
                 </div>
                 <ul className={styles.features}>
-                  {plan.features.map((f, i) => (
-                    <li key={i} className={f.included ? '' : styles.greyed}>
-                      <span className={f.included ? styles.check : styles.dash}>
-                        {f.included ? '✓' : '—'}
-                      </span>
-                      {f.text}
-                    </li>
-                  ))}
+                  {plan.id === 'free' && (
+                    <>
+                      <li>✓ 10 matches per day</li>
+                      <li>✓ 5 messages per day</li>
+                      <li>✓ Basic filters</li>
+                      <li className={styles.greyed}>— AI compatibility</li>
+                      <li className={styles.greyed}>— See who liked you</li>
+                      <li className={styles.greyed}>— Priority placement</li>
+                    </>
+                  )}
+                  {plan.id === 'pro' && (
+                    <>
+                      <li>✓ Unlimited matches</li>
+                      <li>✓ Unlimited messaging</li>
+                      <li>✓ Advanced filters</li>
+                      <li>✓ AI compatibility</li>
+                      <li>✓ See who liked you</li>
+                      <li className={styles.greyed}>— Priority placement</li>
+                    </>
+                  )}
+                  {plan.id === 'elite' && (
+                    <>
+                      <li>✓ Unlimited matches</li>
+                      <li>✓ Unlimited messaging</li>
+                      <li>✓ Advanced filters</li>
+                      <li>✓ AI compatibility</li>
+                      <li>✓ See who liked you</li>
+                      <li>✓ Priority placement</li>
+                    </>
+                  )}
                 </ul>
                 {plan.id === 'free' && (
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    fullWidth
-                    onClick={() => handleCta('free')}
-                  >
+                  <button type="button" className={styles.btnSecondary} onClick={handleFree}>
                     Start Free
-                  </Button>
+                  </button>
                 )}
                 {plan.id === 'pro' && (
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    fullWidth
-                    onClick={() => handleCta('pro')}
-                    disabled={loadingPlan !== null}
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={handlePro}
+                    disabled={!!loadingPlan}
                   >
-                    {loadingPlan === 'pro' ? 'Redirecting…' : 'Upgrade to Pro'}
-                  </Button>
+                    {isLoading ? 'Redirecting…' : 'Upgrade to Pro'}
+                  </button>
                 )}
                 {plan.id === 'elite' && (
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    fullWidth
-                    onClick={() => handleCta('elite')}
-                    disabled={loadingPlan !== null}
+                  <button
+                    type="button"
+                    className={styles.btnPrimary}
+                    onClick={handleElite}
+                    disabled={!!loadingPlan}
                   >
-                    {loadingPlan === 'elite' ? 'Redirecting…' : 'Go Elite'}
-                  </Button>
+                    {isLoading ? 'Redirecting…' : 'Go Elite'}
+                  </button>
                 )}
               </div>
             );

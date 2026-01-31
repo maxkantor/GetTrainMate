@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.SimpleSystemsManagement;
+using Amazon.SimpleSystemsManagement.Model;
 using Amazon.S3;
 using GetTrainMate.Api.Services;
 using GetTrainMate.Api.Middleware;
@@ -53,13 +54,46 @@ public class Startup
         services.AddHttpContextAccessor();
         services.AddSingleton<IStorageService, S3StorageService>();
 
-        // Configure Stripe (optional - only if key is provided)
+        // Configure Stripe: config → env → SSM /gettrainmate/stripe/*
         var stripeKey = Configuration["Stripe:SecretKey"]
             ?? Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
+        var stripeWebhookSecret = Configuration["Stripe:WebhookSecret"]
+            ?? Environment.GetEnvironmentVariable("STRIPE_WEBHOOK_SECRET");
+
+        if (string.IsNullOrEmpty(stripeKey) || string.IsNullOrEmpty(stripeWebhookSecret))
+        {
+            try
+            {
+                using var ssm = new AmazonSimpleSystemsManagementClient();
+                if (string.IsNullOrEmpty(stripeKey))
+                {
+                    var keyResponse = ssm.GetParameterAsync(new GetParameterRequest
+                    {
+                        Name = "/gettrainmate/stripe/secret-key",
+                        WithDecryption = true
+                    }).GetAwaiter().GetResult();
+                    stripeKey = keyResponse.Parameter.Value;
+                }
+                if (string.IsNullOrEmpty(stripeWebhookSecret))
+                {
+                    var whResponse = ssm.GetParameterAsync(new GetParameterRequest
+                    {
+                        Name = "/gettrainmate/stripe/webhook-secret",
+                        WithDecryption = true
+                    }).GetAwaiter().GetResult();
+                    stripeWebhookSecret = whResponse.Parameter.Value;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not load Stripe keys from SSM /gettrainmate/stripe/*");
+            }
+        }
         if (!string.IsNullOrEmpty(stripeKey))
         {
             StripeConfiguration.ApiKey = stripeKey;
         }
+        services.AddSingleton(new StripeWebhookSecret(stripeWebhookSecret ?? string.Empty));
 
         // Configure Cognito JWT Authentication
         // For now, disable automatic JWT validation - controllers will handle it manually

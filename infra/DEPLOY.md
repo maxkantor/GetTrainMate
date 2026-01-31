@@ -21,8 +21,10 @@
 
 4. **Deploy with your existing Cognito User Pool:**
    ```bash
-   npx cdk deploy --context userPoolId=us-east-1_MRv5xL215 --context userPoolClientId=7phu8vk1o9s4nmmqofvcfmbntq
+   npx cdk deploy --context userPoolId=us-east-1_XXX --context userPoolClientId=XXX --context frontendUrl=https://your-app.amplifyapp.com
    ```
+   - `frontendUrl`: Required for Stripe checkout redirects (success/cancel URLs). Use your Amplify app URL.
+   - Stripe: Keys loaded from SSM `/gettrainmate/stripe/secret-key` and `/gettrainmate/stripe/webhook-secret` (Lambda has access).
 
 5. **Get the API URL from the output and add it to Amplify:**
    - Go to AWS Amplify Console → Environment variables
