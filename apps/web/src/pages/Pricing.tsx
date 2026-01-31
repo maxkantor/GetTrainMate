@@ -18,10 +18,19 @@ export const PricingPage: React.FC = () => {
   return (
     <Box sx={{ bgcolor: 'background.default' }}>
       <PricingHero />
-      
-      <Box sx={{ py: 4, bgcolor: 'white' }}>
+
+      <Box sx={{ py: 3, bgcolor: 'white', borderBottom: '1px solid #e5e7eb' }}>
         <Container>
           <PricingToggle isAnnual={isAnnual} onChange={setIsAnnual} />
+        </Container>
+      </Box>
+
+      {/* Trust strip: closer to pricing cards */}
+      <Box sx={{ py: 2, bgcolor: '#fafafa', textAlign: 'center' }}>
+        <Container>
+          <p style={{ fontSize: '13px', color: '#6b7280', fontWeight: 600, letterSpacing: '0.5px' }}>
+            Trusted by 10,000+ athletes
+          </p>
         </Container>
       </Box>
 
@@ -78,32 +87,7 @@ export const PricingPage: React.FC = () => {
       
       <ChallengeCards />
 
-      {/* Trusted by section */}
-      <Box sx={{ py: 8, bgcolor: 'white', borderTop: '1px solid #e5e7eb' }}>
-        <Container>
-          <Box sx={{ textAlign: 'center', mb: 6 }}>
-            <p style={{ fontSize: '14px', color: '#999', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '24px' }}>
-              Trusted by Athletes Worldwide
-            </p>
-            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', opacity: 0.4 }}>
-              <div style={{ padding: '16px 32px', border: '2px solid #e5e7eb', borderRadius: '12px', fontWeight: 700, fontSize: '20px' }}>
-                STRAVA
-              </div>
-              <div style={{ padding: '16px 32px', border: '2px solid #e5e7eb', borderRadius: '12px', fontWeight: 700, fontSize: '20px' }}>
-                MYFITNESSPAL
-              </div>
-              <div style={{ padding: '16px 32px', border: '2px solid #e5e7eb', borderRadius: '12px', fontWeight: 700, fontSize: '20px' }}>
-                FITBIT
-              </div>
-              <div style={{ padding: '16px 32px', border: '2px solid #e5e7eb', borderRadius: '12px', fontWeight: 700, fontSize: '20px' }}>
-                GARMIN
-              </div>
-            </Box>
-          </Box>
-        </Container>
-      </Box>
-
-      {/* Mobile sticky upgrade bar */}
+      {/* Mobile sticky CTA: Start Free */}
       <StickyUpgradeBar />
     </Box>
   );

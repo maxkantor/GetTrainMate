@@ -36,32 +36,16 @@ export const StickyUpgradeBar: React.FC = () => {
     };
   }, []);
 
-  const handleUpgrade = (plan: string) => {
-    console.log('Upgrade to:', plan);
-    alert(`Upgrading to ${plan} plan. Stripe integration coming soon!`);
-  };
-
   return (
     <div className={`${styles.stickyBar} ${isVisible ? styles.visible : ''}`}>
       <div className={styles.barContent}>
         <div className={styles.barText}>
-          <div className={styles.barTitle}>Ready to upgrade?</div>
-          <div className={styles.barSubtitle}>Unlock unlimited matches & AI scoring</div>
+          <div className={styles.barTitle}>Ready to find your training partner?</div>
+          <div className={styles.barSubtitle}>Start free — no credit card required</div>
         </div>
         <div className={styles.barButtons}>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => handleUpgrade('pro')}
-          >
-            Pro
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => handleUpgrade('elite')}
-          >
-            Elite
+          <Button variant="primary" size="sm" as="a" href="/signup">
+            Start Free
           </Button>
         </div>
       </div>

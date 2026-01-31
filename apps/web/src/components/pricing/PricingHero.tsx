@@ -12,14 +12,11 @@ export const PricingHero: React.FC = () => {
     <section className={styles.pricingHero}>
       <Container>
         <div className={styles.heroContent}>
-          <div className={styles.badge}>
-            ⚡ Trusted by 10,000+ athletes worldwide
-          </div>
           <h1 className={styles.heroTitle}>
-            Simple pricing. Start free.
+            Train Smarter. Match Faster. Get Results.
           </h1>
           <p className={styles.heroSubtitle}>
-            Upgrade only when you want unlimited matching, AI compatibility scoring, and priority placement.
+            AI-powered matching, verified athletes, and accountability partners. Start free and upgrade when you’re ready.
           </p>
           <div className={styles.heroCta}>
             <Button as="a" href="/signup" variant="primary" size="lg">

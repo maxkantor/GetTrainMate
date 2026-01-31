@@ -129,16 +129,9 @@
   font-weight: 700;
 }
 
-.cross {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--color-neutral-100);
+.greyed {
   color: var(--color-neutral-400);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .textValue {

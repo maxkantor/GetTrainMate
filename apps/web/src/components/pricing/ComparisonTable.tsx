@@ -10,7 +10,7 @@ export const ComparisonTable: React.FC = () => {
       return value ? (
         <span className={styles.checkmark}>✓</span>
       ) : (
-        <span className={styles.cross}>×</span>
+        <span className={styles.greyed}>—</span>
       );
     }
     return <span className={styles.textValue}>{value}</span>;
