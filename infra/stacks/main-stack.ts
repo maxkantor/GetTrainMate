@@ -97,6 +97,12 @@ export class GetTrainMateStack extends cdk.Stack {
     allTables.forEach(table => {
       table.grantReadWriteData(apiLambda);
     });
+    // Explicit DescribeTable (required by low-level DynamoDB Table.LoadTable)
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['dynamodb:DescribeTable', 'dynamodb:DescribeTimeToLive'],
+      resources: [`arn:aws:dynamodb:${this.region}:${this.account}:table/gettrainmate-*`],
+    }));
     mediaBucket.grantReadWrite(apiLambda);
 
     // Grant Lambda access to Cognito
