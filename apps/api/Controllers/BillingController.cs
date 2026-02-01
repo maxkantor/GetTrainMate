@@ -108,8 +108,8 @@ public class BillingController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning("Checkout failed: {Message}", ex.Message);
-            var isConfigError = ex.Message.Contains("Stripe Price") || ex.Message.Contains("no Stripe");
-            return StatusCode(isConfigError ? 503 : 400, new { error = isConfigError ? "Billing is being configured. Please try again in a minute." : ex.Message });
+            var isConfigError = ex.Message.Contains("not configured") || ex.Message.Contains("Stripe Price") || ex.Message.Contains("no Stripe");
+            return StatusCode(isConfigError ? 503 : 400, new { error = isConfigError ? "Billing not configured. Add Payment Link URLs to SSM." : ex.Message });
         }
         catch (Exception ex)
         {
@@ -178,7 +178,18 @@ public class BillingController : ControllerBase
 
         var subscriptionService = new Stripe.SubscriptionService();
         var subscription = await subscriptionService.GetAsync(session.SubscriptionId);
-        await UpsertSubscription(subscription, session.Metadata);
+        var metadata = session.Metadata != null ? new Dictionary<string, string>(session.Metadata) : new Dictionary<string, string>();
+        // Payment Links pass userId__planKey in client_reference_id
+        if (!string.IsNullOrEmpty(session.ClientReferenceId) && session.ClientReferenceId.Contains("__"))
+        {
+            var parts = session.ClientReferenceId.Split(new[] { "__" }, 2, StringSplitOptions.None);
+            if (parts.Length == 2)
+            {
+                if (!metadata.ContainsKey("userId")) metadata["userId"] = parts[0];
+                if (!metadata.ContainsKey("planKey")) metadata["planKey"] = parts[1];
+            }
+        }
+        await UpsertSubscription(subscription, metadata);
     }
 
     private async Task HandleSubscriptionCreatedOrUpdated(Stripe.Event evt)
@@ -211,8 +222,7 @@ public class BillingController : ControllerBase
 
     private async Task UpsertSubscription(Stripe.Subscription stripeSubscription, Dictionary<string, string>? metadata)
     {
-        var priceId = stripeSubscription.Items?.Data?.FirstOrDefault()?.Price?.Id;
-        var planKey = await ResolvePlanKeyFromPriceId(priceId) ?? metadata?.GetValueOrDefault("planKey") ?? "unknown";
+        var planKey = metadata?.GetValueOrDefault("planKey") ?? "unknown";
 
         string? userId = metadata?.GetValueOrDefault("userId");
         if (string.IsNullOrEmpty(userId))
@@ -233,18 +243,6 @@ public class BillingController : ControllerBase
         };
 
         await _billingService.SaveOrUpdateSubscriptionAsync(record);
-    }
-
-    private async Task<string?> ResolvePlanKeyFromPriceId(string? priceId)
-    {
-        if (string.IsNullOrEmpty(priceId)) return null;
-        foreach (var key in new[] { "pro", "elite" })
-        {
-            var plan = await _billingService.GetPlanByKeyAsync(key);
-            if (plan?.StripePriceIdMonthly == priceId)
-                return key;
-        }
-        return null;
     }
 
     private async Task<string?> ResolveUserIdFromCustomer(string? customerId)

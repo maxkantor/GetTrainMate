@@ -2,9 +2,9 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
+using Amazon.SimpleSystemsManagement;
+using Amazon.SimpleSystemsManagement.Model;
 using GetTrainMate.Api.Models;
-using Stripe;
-using Stripe.Checkout;
 
 namespace GetTrainMate.Api.Services;
 
@@ -12,6 +12,7 @@ public class BillingService : IBillingService
 {
     private readonly IDynamoDBContext _context;
     private readonly IAmazonDynamoDB _dynamoDb;
+    private readonly IAmazonSimpleSystemsManagement _ssm;
     private readonly ILogger<BillingService> _logger;
     private const string PlansTable = "gettrainmate-billing-plans";
     private const string SubscriptionsTable = "gettrainmate-subscriptions";
@@ -19,10 +20,12 @@ public class BillingService : IBillingService
     public BillingService(
         IDynamoDBContext context,
         IAmazonDynamoDB dynamoDb,
+        IAmazonSimpleSystemsManagement ssm,
         ILogger<BillingService> logger)
     {
         _context = context;
         _dynamoDb = dynamoDb;
+        _ssm = ssm;
         _logger = logger;
     }
 
@@ -155,45 +158,33 @@ public class BillingService : IBillingService
         if (planKey != "pro" && planKey != "elite")
             throw new ArgumentException("Invalid plan key. Use pro or elite.");
 
-        var plan = await GetPlanByKeyAsync(planKey);
-        if (plan == null || !plan.IsActive)
-            throw new InvalidOperationException($"Plan {planKey} not found or inactive.");
-        if (string.IsNullOrWhiteSpace(plan.StripePriceIdMonthly))
-            throw new InvalidOperationException($"Plan {planKey} has no Stripe Price ID. Configure it in Admin CRM.");
-
-        var baseUrlClean = baseUrl.TrimEnd('/');
-        var successUrl = $"{baseUrlClean}/billing/success?session_id={{CHECKOUT_SESSION_ID}}";
-        var cancelUrl = $"{baseUrlClean}/pricing?canceled=1";
-
-        var options = new SessionCreateOptions
+        // Use Stripe Payment Links from SSM (no products/prices to create in app)
+        var ssmName = $"/gettrainmate/stripe/payment-link-{planKey}";
+        string? paymentLinkUrl;
+        try
         {
-            PaymentMethodTypes = new List<string> { "card" },
-            LineItems = new List<SessionLineItemOptions>
-            {
-                new()
-                {
-                    Price = plan.StripePriceIdMonthly,
-                    Quantity = 1,
-                },
-            },
-            Mode = "subscription",
-            SuccessUrl = successUrl,
-            CancelUrl = cancelUrl,
-            Metadata = new Dictionary<string, string>
-            {
-                { "userId", userId },
-                { "planKey", planKey },
-            },
-        };
+            var response = await _ssm.GetParameterAsync(new GetParameterRequest { Name = ssmName });
+            paymentLinkUrl = response.Parameter?.Value?.Trim();
+        }
+        catch (ParameterNotFoundException)
+        {
+            _logger.LogWarning("Payment link not configured at {Path}. Add it in SSM.", ssmName);
+            throw new InvalidOperationException($"Billing not configured for {planKey}. Add {ssmName} in SSM Parameter Store.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not read Payment Link from SSM {Path}", ssmName);
+            throw new InvalidOperationException("Billing configuration not available. Try again later.");
+        }
 
-        var service = new SessionService();
-        var session = await service.CreateAsync(options);
+        if (string.IsNullOrWhiteSpace(paymentLinkUrl))
+            throw new InvalidOperationException($"Payment link empty at {ssmName}.");
 
-        if (string.IsNullOrEmpty(session.Url))
-            throw new InvalidOperationException("Stripe did not return a checkout URL.");
-
-        _logger.LogInformation("Checkout session created for user {UserId}, plan {Plan}", userId, planKey);
-        return session.Url;
+        // Append client_reference_id so webhook can link subscription to user
+        var sep = paymentLinkUrl.Contains('?') ? "&" : "?";
+        var checkoutUrl = $"{paymentLinkUrl.TrimEnd('/')}{sep}client_reference_id={Uri.EscapeDataString(userId + "__" + planKey)}";
+        _logger.LogInformation("Checkout redirect for user {UserId}, plan {Plan}", userId, planKey);
+        return checkoutUrl;
     }
 
     public async Task SaveOrUpdateSubscriptionAsync(SubscriptionRecord record)
