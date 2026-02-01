@@ -2,8 +2,6 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
-using Amazon.SimpleSystemsManagement;
-using Amazon.SimpleSystemsManagement.Model;
 using GetTrainMate.Api.Models;
 using Stripe;
 using Stripe.Checkout;
@@ -14,7 +12,6 @@ public class BillingService : IBillingService
 {
     private readonly IDynamoDBContext _context;
     private readonly IAmazonDynamoDB _dynamoDb;
-    private readonly IAmazonSimpleSystemsManagement _ssm;
     private readonly ILogger<BillingService> _logger;
     private const string PlansTable = "gettrainmate-billing-plans";
     private const string SubscriptionsTable = "gettrainmate-subscriptions";
@@ -22,12 +19,10 @@ public class BillingService : IBillingService
     public BillingService(
         IDynamoDBContext context,
         IAmazonDynamoDB dynamoDb,
-        IAmazonSimpleSystemsManagement ssm,
         ILogger<BillingService> logger)
     {
         _context = context;
         _dynamoDb = dynamoDb;
-        _ssm = ssm;
         _logger = logger;
     }
 
@@ -160,27 +155,11 @@ public class BillingService : IBillingService
         if (planKey != "pro" && planKey != "elite")
             throw new ArgumentException("Invalid plan key. Use pro or elite.");
 
-        // Price ID from SSM (no products/prices to create in app - use existing from Stripe)
-        var ssmName = $"/gettrainmate/stripe/price-{planKey}";
-        string? priceId;
-        try
-        {
-            var response = await _ssm.GetParameterAsync(new GetParameterRequest { Name = ssmName });
-            priceId = response.Parameter?.Value?.Trim();
-        }
-        catch (ParameterNotFoundException)
-        {
-            _logger.LogWarning("Price ID not configured at {Path}. Add it in SSM.", ssmName);
-            throw new InvalidOperationException($"Billing not configured for {planKey}. Add {ssmName} in SSM with Stripe Price ID (e.g. price_xxx).");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not read Price ID from SSM {Path}", ssmName);
-            throw new InvalidOperationException("Billing configuration not available. Try again later.");
-        }
-
-        if (string.IsNullOrWhiteSpace(priceId) || !priceId.StartsWith("price_", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException($"Invalid Price ID at {ssmName}. Use a Stripe Price ID (price_xxx).");
+        var plan = await GetPlanByKeyAsync(planKey);
+        if (plan == null || !plan.IsActive)
+            throw new InvalidOperationException($"Plan {planKey} not found or inactive.");
+        if (string.IsNullOrWhiteSpace(plan.StripePriceIdMonthly))
+            throw new InvalidOperationException($"Plan {planKey} has no Stripe Price ID. Configure it in Admin CRM → Billing Plans.");
 
         var baseUrlClean = baseUrl.TrimEnd('/');
         var successUrl = $"{baseUrlClean}/billing/success?session_id={{CHECKOUT_SESSION_ID}}";
@@ -191,7 +170,7 @@ public class BillingService : IBillingService
             PaymentMethodTypes = new List<string> { "card" },
             LineItems = new List<SessionLineItemOptions>
             {
-                new() { Price = priceId, Quantity = 1 },
+                new() { Price = plan.StripePriceIdMonthly, Quantity = 1 },
             },
             Mode = "subscription",
             SuccessUrl = successUrl,
@@ -216,17 +195,12 @@ public class BillingService : IBillingService
     public async Task<string?> ResolvePlanKeyFromPriceIdAsync(string priceId)
     {
         if (string.IsNullOrWhiteSpace(priceId)) return null;
-        try
+        foreach (var key in new[] { "pro", "elite" })
         {
-            foreach (var key in new[] { "pro", "elite" })
-            {
-                var ssmName = $"/gettrainmate/stripe/price-{key}";
-                var r = await _ssm.GetParameterAsync(new GetParameterRequest { Name = ssmName });
-                var stored = r.Parameter?.Value?.Trim();
-                if (stored == priceId) return key;
-            }
+            var plan = await GetPlanByKeyAsync(key);
+            if (plan?.StripePriceIdMonthly == priceId)
+                return key;
         }
-        catch { /* ignore */ }
         return null;
     }
 

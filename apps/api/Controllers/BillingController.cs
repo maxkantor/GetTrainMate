@@ -108,8 +108,8 @@ public class BillingController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning("Checkout failed: {Message}", ex.Message);
-            var isConfigError = ex.Message.Contains("not configured") || ex.Message.Contains("Stripe Price") || ex.Message.Contains("no Stripe");
-            return StatusCode(isConfigError ? 503 : 400, new { error = isConfigError ? "Billing not configured. Add Payment Link URLs to SSM." : ex.Message });
+            var isConfigError = ex.Message.Contains("Stripe Price") || ex.Message.Contains("no Stripe") || ex.Message.Contains("Admin CRM");
+            return StatusCode(isConfigError ? 503 : 400, new { error = isConfigError ? "Billing is being configured. Set Stripe Price IDs in Admin CRM → Billing Plans." : ex.Message });
         }
         catch (Exception ex)
         {
