@@ -32,7 +32,7 @@ public class BillingController : ControllerBase
         try
         {
             await _billingService.SeedDefaultPlansIfEmptyAsync();
-            return Ok(new { message = "Plans seeded. Configure Stripe Price IDs for Pro and Elite in Admin CRM." });
+            return Ok(new { message = "Plans seeded. Prices are sent directly from plans." });
         }
         catch (Exception ex)
         {
@@ -108,8 +108,8 @@ public class BillingController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning("Checkout failed: {Message}", ex.Message);
-            var isConfigError = ex.Message.Contains("Stripe Price") || ex.Message.Contains("no Stripe") || ex.Message.Contains("Admin CRM");
-            return StatusCode(isConfigError ? 503 : 400, new { error = isConfigError ? "Billing is being configured. Set Stripe Price IDs in Admin CRM → Billing Plans." : ex.Message });
+            var isConfigError = ex.Message.Contains("invalid price") || ex.Message.Contains("Admin CRM");
+            return StatusCode(isConfigError ? 503 : 400, new { error = isConfigError ? "Billing is being configured. Set monthly price in Admin CRM → Billing Plans." : ex.Message });
         }
         catch (Exception ex)
         {

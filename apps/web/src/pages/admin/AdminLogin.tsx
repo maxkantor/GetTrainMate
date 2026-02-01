@@ -14,7 +14,13 @@ export const AdminLoginPage: React.FC = () => {
     try {
       setLoading(true);
       const res = await adminService.login(email, password);
-      localStorage.setItem('adminToken', res.token);
+      const token = res.token ?? (res as { sessionToken?: string }).sessionToken;
+      if (token) localStorage.setItem('adminToken', token);
+      localStorage.setItem('admin_session', JSON.stringify({
+        sessionToken: token,
+        email: res.admin?.email ?? (res as { email?: string }).email ?? email,
+        expiresAt: (res as { expiresAt?: string }).expiresAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      }));
       window.location.href = '/admin/content';
     } catch (err: unknown) {
       const ax = err && typeof err === 'object' && 'response' in err ? err as { response?: { data?: { error?: string } }; message?: string } : null;

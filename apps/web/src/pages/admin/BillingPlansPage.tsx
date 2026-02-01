@@ -24,7 +24,6 @@ interface BillingPlanAdmin {
   features: string[];
   isActive: boolean;
   sortOrder: number;
-  stripePriceIdMonthly: string;
 }
 
 export const BillingPlansPage: React.FC = () => {
@@ -86,7 +85,6 @@ export const BillingPlansPage: React.FC = () => {
       features: e.features ?? plan.features,
       isActive: e.isActive ?? plan.isActive,
       sortOrder: e.sortOrder ?? plan.sortOrder,
-      stripePriceIdMonthly: e.stripePriceIdMonthly ?? plan.stripePriceIdMonthly,
     };
 
     try {
@@ -115,7 +113,7 @@ export const BillingPlansPage: React.FC = () => {
         Billing Plans
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Configure plans and Stripe Price IDs. Pro and Elite require stripePriceIdMonthly for checkout.
+        Configure plans and monthly prices. Price is sent directly at checkout (no Stripe Price IDs needed).
       </Typography>
       <Button variant="outlined" onClick={handleSeed} sx={{ mb: 2 }}>
         Seed default plans
@@ -126,8 +124,7 @@ export const BillingPlansPage: React.FC = () => {
           <TableRow>
             <TableCell>Key</TableCell>
             <TableCell>Display Name</TableCell>
-            <TableCell>Monthly Price</TableCell>
-            <TableCell>Stripe Price ID (Pro/Elite)</TableCell>
+            <TableCell>Monthly Price ($)</TableCell>
             <TableCell>Active</TableCell>
             <TableCell align="right">Actions</TableCell>
           </TableRow>
@@ -153,17 +150,6 @@ export const BillingPlansPage: React.FC = () => {
                   onChange={(e) => updateEdit(plan.key, 'monthlyPrice', parseFloat(e.target.value) || 0)}
                   sx={{ width: 100 }}
                 />
-              </TableCell>
-              <TableCell>
-                {(plan.key === 'pro' || plan.key === 'elite') && (
-                  <TextField
-                    size="small"
-                    placeholder="price_xxx"
-                    value={getValue(plan, 'stripePriceIdMonthly')}
-                    onChange={(e) => updateEdit(plan.key, 'stripePriceIdMonthly', e.target.value)}
-                    fullWidth
-                  />
-                )}
               </TableCell>
               <TableCell>
                 <FormControlLabel

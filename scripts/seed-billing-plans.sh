@@ -9,4 +9,4 @@ echo "Seeding billing plans..."
 curl -s -X POST "$API_URL/api/billing/seed" -H "Content-Type: application/json" -d '{}'
 
 echo ""
-echo "Done. Configure Stripe Price IDs for Pro and Elite in Admin CRM → Billing Plans."
+echo "Done. Prices are sent directly from plans (no Stripe Price IDs needed)."

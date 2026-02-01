@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace GetTrainMate.Api.Models;
 
-[DynamoDBTable("admins")]
+[DynamoDBTable("gettrainmate-admins")]
 public class AdminUser
 {
     [DynamoDBHashKey]

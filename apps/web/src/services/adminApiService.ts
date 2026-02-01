@@ -2,19 +2,28 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
 
+const ADMIN_TOKEN_KEY = 'adminToken';
+
 class AdminApiService {
   private async getAuthHeaders(): Promise<HeadersInit> {
-    const session = await fetchAuthSession();
-    const token = session.tokens?.idToken?.toString();
-    
-    if (!token) {
-      throw new Error('No authentication token found');
+    const adminToken = localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (adminToken) {
+      return {
+        'X-Admin-Token': adminToken,
+        'Content-Type': 'application/json',
+      };
     }
 
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
+    const session = await fetchAuthSession();
+    const token = session.tokens?.idToken?.toString();
+    if (token) {
+      return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+    }
+
+    throw new Error('No admin or auth token found. Please log in.');
   }
 
   private async parseResponse(response: Response): Promise<any> {

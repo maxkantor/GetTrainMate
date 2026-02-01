@@ -2,104 +2,88 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
-using Microsoft.Extensions.Configuration;
+using GetTrainMate.Api.Models;
+using GetTrainMate.Api.Services;
 
 namespace GetTrainMate.Api.Controllers;
 
 [ApiController]
 [Route("api/admin/login")]
-[AllowAnonymous] // Allow unauthenticated access for login
+[AllowAnonymous]
 public class AdminLoginController : ControllerBase
 {
+    private readonly IAdminService _adminService;
     private readonly IAmazonSimpleSystemsManagement _ssm;
-    private readonly IConfiguration _configuration;
     private readonly ILogger<AdminLoginController> _logger;
 
     public AdminLoginController(
+        IAdminService adminService,
         IAmazonSimpleSystemsManagement ssm,
-        IConfiguration configuration,
         ILogger<AdminLoginController> logger)
     {
+        _adminService = adminService;
         _ssm = ssm;
-        _configuration = configuration;
         _logger = logger;
     }
 
     /// <summary>
     /// POST /api/admin/login
-    /// Validate admin credentials against SSM Parameter Store
+    /// Uses AdminService: SSM password, AdminUser in DynamoDB, returns token for X-Admin-Token.
     /// </summary>
     [HttpPost]
-    public async Task<ActionResult<AdminLoginResponse>> Login([FromBody] AdminLoginRequest request)
+    public async Task<ActionResult<AdminLoginApiResponse>> Login([FromBody] AdminLoginRequest request)
     {
         try
         {
             if (string.IsNullOrEmpty(request.Email) || string.IsNullOrEmpty(request.Password))
-            {
                 return BadRequest(new { error = "Email and password are required" });
-            }
-
-            // Get admin email from allowlist
-            var allowlist = _configuration["ADMIN_ALLOWLIST"] ?? "mykantor@bellsouth.net";
-            var allowedEmails = allowlist.Split(',')
-                .Select(e => e.Trim().ToLowerInvariant())
-                .ToList();
-
-            var emailLower = request.Email.Trim().ToLowerInvariant();
-            if (!allowedEmails.Contains(emailLower))
-            {
-                return Unauthorized(new { error = "Invalid email" });
-            }
-
-            // Get password from SSM Parameter Store
-            var ssmPath = $"/gettrainmate/admin/password";
-            string storedPassword;
 
             try
             {
-                var ssmRequest = new GetParameterRequest
+                var response = await _adminService.LoginAsync(request.Email, request.Password);
+                return Ok(new AdminLoginApiResponse
                 {
-                    Name = ssmPath,
-                    WithDecryption = true
-                };
-
-                var ssmResponse = await _ssm.GetParameterAsync(ssmRequest);
-                storedPassword = ssmResponse.Parameter.Value;
+                    Success = true,
+                    Token = response.Token,
+                    SessionToken = response.Token,
+                    ExpiresAt = DateTime.UtcNow.AddDays(7),
+                    Email = response.Admin.Email,
+                    Admin = response.Admin
+                });
             }
-            catch (ParameterNotFoundException)
+            catch (UnauthorizedAccessException ex) when (ex.Message.Contains("not found"))
             {
-                _logger.LogWarning("Admin password not found in SSM at {Path}. Creating it now.", ssmPath);
-                
-                // Create the parameter if it doesn't exist (first time setup)
-                var putRequest = new PutParameterRequest
+                _logger.LogInformation("Admin user not found, initializing for {Email}", request.Email);
+                try
                 {
-                    Name = ssmPath,
-                    Value = request.Password, // Use provided password as initial value
-                    Type = ParameterType.SecureString,
-                    Description = "Admin portal password"
-                };
-
-                await _ssm.PutParameterAsync(putRequest);
-                storedPassword = request.Password;
+                    await _ssm.GetParameterAsync(new GetParameterRequest { Name = "/gettrainmate/admin/password", WithDecryption = true });
+                }
+                catch (ParameterNotFoundException)
+                {
+                    await _ssm.PutParameterAsync(new PutParameterRequest
+                    {
+                        Name = "/gettrainmate/admin/password",
+                        Value = request.Password,
+                        Type = ParameterType.SecureString,
+                        Description = "Admin portal password"
+                    });
+                }
+                await _adminService.InitializeAdminAsync(request.Email, "Admin");
+                var r = await _adminService.LoginAsync(request.Email, request.Password);
+                return Ok(new AdminLoginApiResponse
+                {
+                    Success = true,
+                    Token = r.Token,
+                    SessionToken = r.Token,
+                    ExpiresAt = DateTime.UtcNow.AddDays(7),
+                    Email = r.Admin.Email,
+                    Admin = r.Admin
+                });
             }
-
-            // Validate password
-            if (request.Password != storedPassword)
-            {
-                return Unauthorized(new { error = "Invalid password" });
-            }
-
-            // Generate a simple session token (or use JWT if preferred)
-            var sessionToken = Guid.NewGuid().ToString();
-            var expiresAt = DateTime.UtcNow.AddDays(7); // 7 day session
-
-            return Ok(new AdminLoginResponse
-            {
-                Success = true,
-                SessionToken = sessionToken,
-                ExpiresAt = expiresAt,
-                Email = request.Email
-            });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized(new { error = "Invalid credentials" });
         }
         catch (Exception ex)
         {
@@ -146,12 +130,14 @@ public class AdminLoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
-public class AdminLoginResponse
+public class AdminLoginApiResponse
 {
     public bool Success { get; set; }
+    public string Token { get; set; } = string.Empty;
     public string SessionToken { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
     public string Email { get; set; } = string.Empty;
+    public AdminUserDto? Admin { get; set; }
 }
 
 public class ValidateSessionRequest

@@ -158,19 +158,37 @@ public class BillingService : IBillingService
         var plan = await GetPlanByKeyAsync(planKey);
         if (plan == null || !plan.IsActive)
             throw new InvalidOperationException($"Plan {planKey} not found or inactive.");
-        if (string.IsNullOrWhiteSpace(plan.StripePriceIdMonthly))
-            throw new InvalidOperationException($"Plan {planKey} has no Stripe Price ID. Configure it in Admin CRM → Billing Plans.");
+        if (plan.MonthlyPrice <= 0)
+            throw new InvalidOperationException($"Plan {planKey} has invalid price. Set monthly price in Admin CRM → Billing Plans.");
 
         var baseUrlClean = baseUrl.TrimEnd('/');
         var successUrl = $"{baseUrlClean}/billing/success?session_id={{CHECKOUT_SESSION_ID}}";
         var cancelUrl = $"{baseUrlClean}/pricing?canceled=1";
 
+        var amountCents = (long)(plan.MonthlyPrice * 100);
         var options = new SessionCreateOptions
         {
             PaymentMethodTypes = new List<string> { "card" },
             LineItems = new List<SessionLineItemOptions>
             {
-                new() { Price = plan.StripePriceIdMonthly, Quantity = 1 },
+                new()
+                {
+                    PriceData = new SessionLineItemPriceDataOptions
+                    {
+                        Currency = "usd",
+                        UnitAmount = amountCents,
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = plan.DisplayName,
+                            Description = $"GetTrainMate {plan.DisplayName} - Monthly",
+                        },
+                        Recurring = new SessionLineItemPriceDataRecurringOptions
+                        {
+                            Interval = "month",
+                        },
+                    },
+                    Quantity = 1,
+                },
             },
             Mode = "subscription",
             SuccessUrl = successUrl,

@@ -3,14 +3,17 @@ import axios from 'axios';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
 
 export interface AdminLoginResponse {
-  token: string;
-  admin: {
+  token?: string;
+  sessionToken?: string;
+  admin?: {
     adminId: string;
     email: string;
     name: string;
     permissions: string[];
     isActive: boolean;
   };
+  email?: string;
+  expiresAt?: string;
 }
 
 class AdminService {

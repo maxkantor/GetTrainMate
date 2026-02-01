@@ -2,21 +2,40 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
+using System.Linq;
 
 namespace GetTrainMate.Api.Controllers;
 
 [ApiController]
 [Route("api/admin/billing")]
-[Authorize]
+[AllowAnonymous]
 public class AdminBillingController : ControllerBase
 {
     private readonly IBillingService _billingService;
+    private readonly IAdminService _adminService;
     private readonly ILogger<AdminBillingController> _logger;
 
-    public AdminBillingController(IBillingService billingService, ILogger<AdminBillingController> logger)
+    public AdminBillingController(
+        IBillingService billingService,
+        IAdminService adminService,
+        ILogger<AdminBillingController> logger)
     {
         _billingService = billingService;
+        _adminService = adminService;
         _logger = logger;
+    }
+
+    private async Task ValidateAdminAsync()
+    {
+        var token = Request.Headers["X-Admin-Token"].FirstOrDefault()
+            ?? (Request.Headers["Authorization"].FirstOrDefault()?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
+                ? Request.Headers["Authorization"].FirstOrDefault()!.Substring("Bearer ".Length).Trim()
+                : null);
+
+        if (string.IsNullOrWhiteSpace(token))
+            throw new UnauthorizedAccessException("Missing admin token");
+
+        await _adminService.ValidateAdminTokenAsync(token);
     }
 
     [HttpGet("plans")]
@@ -24,6 +43,7 @@ public class AdminBillingController : ControllerBase
     {
         try
         {
+            await ValidateAdminAsync();
             var plans = await _billingService.GetAllPlansForAdminAsync();
             return Ok(plans.Select(p => new BillingPlanAdminDto
             {
@@ -36,6 +56,11 @@ public class AdminBillingController : ControllerBase
                 StripePriceIdMonthly = p.StripePriceIdMonthly ?? "",
             }).ToList());
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex.Message);
+            return Unauthorized(new { error = ex.Message });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching billing plans");
@@ -46,6 +71,15 @@ public class AdminBillingController : ControllerBase
     [HttpPut("plans/{key}")]
     public async Task<ActionResult> UpdatePlan(string key, [FromBody] UpdatePlanRequest request)
     {
+        try
+        {
+            await ValidateAdminAsync();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+
         if (request == null)
             return BadRequest(new { error = "Request body required" });
 
@@ -58,9 +92,6 @@ public class AdminBillingController : ControllerBase
         plan.Features = request.Features ?? plan.Features;
         plan.IsActive = request.IsActive ?? plan.IsActive;
         plan.SortOrder = request.SortOrder ?? plan.SortOrder;
-        if (request.StripePriceIdMonthly != null)
-            plan.StripePriceIdMonthly = string.IsNullOrWhiteSpace(request.StripePriceIdMonthly) ? null : request.StripePriceIdMonthly.Trim();
-
         await _billingService.SavePlanAsync(plan);
         return Ok(new { message = "Plan updated" });
     }
@@ -68,6 +99,15 @@ public class AdminBillingController : ControllerBase
     [HttpPost("plans/seed")]
     public async Task<ActionResult> SeedPlans()
     {
+        try
+        {
+            await ValidateAdminAsync();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+
         var defaults = new[]
         {
             new BillingPlan
@@ -78,7 +118,6 @@ public class AdminBillingController : ControllerBase
                 Features = new List<string> { "10 matches per day", "5 messages per day", "Basic filters" },
                 IsActive = true,
                 SortOrder = 1,
-                StripePriceIdMonthly = null,
                 CreatedAt = DateTime.UtcNow,
             },
             new BillingPlan
@@ -89,7 +128,6 @@ public class AdminBillingController : ControllerBase
                 Features = new List<string> { "Unlimited matches", "Unlimited messaging", "Advanced filters", "AI compatibility" },
                 IsActive = true,
                 SortOrder = 2,
-                StripePriceIdMonthly = null,
                 CreatedAt = DateTime.UtcNow,
             },
             new BillingPlan
@@ -100,7 +138,6 @@ public class AdminBillingController : ControllerBase
                 Features = new List<string> { "Unlimited matches", "Unlimited messaging", "Advanced filters", "AI compatibility", "See who liked you", "Priority placement" },
                 IsActive = true,
                 SortOrder = 3,
-                StripePriceIdMonthly = null,
                 CreatedAt = DateTime.UtcNow,
             },
         };
@@ -115,7 +152,7 @@ public class AdminBillingController : ControllerBase
             await _billingService.SavePlanAsync(plan);
         }
 
-        return Ok(new { message = "Plans seeded. Configure Stripe Price IDs for Pro and Elite." });
+        return Ok(new { message = "Plans seeded. Prices are sent directly from plans." });
     }
 }
 

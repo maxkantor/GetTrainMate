@@ -5,35 +5,12 @@ import { authService } from '@/services/authService';
 import { profileService } from '@/services/profileService';
 import { billingService, BillingPlanDto } from '@/services/billingService';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { DEFAULT_PRICING_PLANS } from '@/data/pricingPlans';
 import styles from '@/pages/Pricing.module.css';
 
 const SELECTED_PLAN_KEY = 'selectedPlanKey';
 
-/** Default plans for display when API fails (UI fallback) */
-const DEFAULT_BILLING_PLANS: BillingPlanDto[] = [
-  {
-    key: 'free',
-    displayName: 'Free',
-    monthlyPrice: 0,
-    features: ['10 matches per day', '5 messages per day', 'Basic filters'],
-    isConfigured: true,
-  },
-  {
-    key: 'pro',
-    displayName: 'Pro',
-    monthlyPrice: 5.99,
-    features: ['Unlimited matches', 'Unlimited messaging', 'Advanced filters', 'AI compatibility', 'See who liked you'],
-    isConfigured: false,
-  },
-  {
-    key: 'elite',
-    displayName: 'Elite',
-    monthlyPrice: 9.99,
-    features: ['Unlimited matches', 'Unlimited messaging', 'Advanced filters', 'AI compatibility', 'See who liked you', 'Priority placement'],
-    isConfigured: false,
-  },
-];
-
+const DEFAULT_BILLING_PLANS: BillingPlanDto[] = DEFAULT_PRICING_PLANS;
 const PLAN_ORDER = ['free', 'pro', 'elite'] as const;
 
 export const PricingPage: React.FC = () => {
