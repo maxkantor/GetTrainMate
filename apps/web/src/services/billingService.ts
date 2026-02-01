@@ -22,8 +22,8 @@ export interface SubscriptionStatusDto {
 }
 
 export const billingService = {
-  async getPlans(): Promise<BillingPlanDto[]> {
-    const response = await axios.get<BillingPlanDto[]>(
+  async getPlans(): Promise<{ plans: BillingPlanDto[]; source: string }> {
+    const response = await axios.get<{ plans: BillingPlanDto[]; source: string }>(
       `${API_BASE_URL}/api/billing/plans`
     );
     return response.data;
@@ -46,6 +46,7 @@ export const billingService = {
     token: string,
     planKey: 'pro' | 'elite'
   ): Promise<string> {
+    try {
     const response = await axios.post<CreateCheckoutResponse>(
       `${API_BASE_URL}/api/billing/create-checkout-session`,
       { planKey },
@@ -59,5 +60,12 @@ export const billingService = {
     const url = response.data?.url;
     if (!url) throw new Error('No checkout URL returned');
     return url;
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.status === 503) {
+        const msg = err.response?.data?.error;
+        throw new Error(typeof msg === 'string' ? msg : 'Billing is being configured. Please try again in a minute.');
+      }
+      throw err;
+    }
   },
 };

@@ -5,6 +5,7 @@ namespace GetTrainMate.Api.Services;
 public interface IBillingService
 {
     Task<List<BillingPlanDto>> GetActivePlansAsync();
+    Task<(List<BillingPlanDto> plans, string source)> GetActivePlansWithSourceAsync();
     Task<List<BillingPlan>> GetAllPlansForAdminAsync();
     Task<BillingPlan?> GetPlanByKeyAsync(string key);
     Task SavePlanAsync(BillingPlan plan);

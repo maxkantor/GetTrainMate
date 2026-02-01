@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -17,7 +17,15 @@ import styles from '@/styles/Auth.module.css';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t } = useI18n();
+
+  useEffect(() => {
+    const plan = searchParams.get('plan');
+    if (plan === 'pro' || plan === 'elite') {
+      localStorage.setItem('selectedPlanKey', plan);
+    }
+  }, [searchParams]);
   const { login, confirmSignInWithNewPassword, isLoading } = useAuthContext();
 
   const [email, setEmail] = useState('');
@@ -73,6 +81,12 @@ export const LoginPage: React.FC = () => {
         if (rememberMe) {
           localStorage.setItem('rememberEmail', email);
         }
+        const plan = localStorage.getItem('selectedPlanKey');
+        if (plan === 'pro' || plan === 'elite') {
+          localStorage.removeItem('selectedPlanKey');
+          navigate(`/pricing?checkout=${plan}`);
+          return;
+        }
         navigate('/app/discover');
       } else if (result.requiresNewPassword) {
         setRequiresNewPassword(true);
@@ -99,6 +113,12 @@ export const LoginPage: React.FC = () => {
       if (result.success) {
         if (rememberMe) {
           localStorage.setItem('rememberEmail', email);
+        }
+        const plan = localStorage.getItem('selectedPlanKey');
+        if (plan === 'pro' || plan === 'elite') {
+          localStorage.removeItem('selectedPlanKey');
+          navigate(`/pricing?checkout=${plan}`);
+          return;
         }
         navigate('/app/discover');
       } else {

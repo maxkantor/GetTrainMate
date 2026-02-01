@@ -26,12 +26,12 @@ public class BillingController : ControllerBase
 
     [HttpGet("plans")]
     [AllowAnonymous]
-    public async Task<ActionResult<List<BillingPlanDto>>> GetPlans()
+    public async Task<ActionResult<BillingPlansResponse>> GetPlans()
     {
         try
         {
-            var plans = await _billingService.GetActivePlansAsync();
-            return Ok(plans);
+            var (plans, source) = await _billingService.GetActivePlansWithSourceAsync();
+            return Ok(new BillingPlansResponse { Plans = plans, Source = source });
         }
         catch (Exception ex)
         {
@@ -91,7 +91,8 @@ public class BillingController : ControllerBase
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning("Checkout failed: {Message}", ex.Message);
-            return BadRequest(new { error = ex.Message });
+            var isConfigError = ex.Message.Contains("Stripe Price") || ex.Message.Contains("no Stripe");
+            return StatusCode(isConfigError ? 503 : 400, new { error = isConfigError ? "Billing is being configured. Please try again in a minute." : ex.Message });
         }
         catch (Exception ex)
         {
@@ -270,4 +271,10 @@ public class SubscriptionStatusDto
     public string PlanKey { get; set; } = "free";
     public string? ExpiresAt { get; set; }
     public List<object> RecentPayments { get; set; } = new();
+}
+
+public class BillingPlansResponse
+{
+    public List<BillingPlanDto> Plans { get; set; } = new();
+    public string Source { get; set; } = "default";
 }

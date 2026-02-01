@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -14,7 +14,15 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t } = useI18n();
+
+  useEffect(() => {
+    const plan = searchParams.get('plan');
+    if (plan === 'pro' || plan === 'elite') {
+      localStorage.setItem('selectedPlanKey', plan);
+    }
+  }, [searchParams]);
   const { signup, isLoading } = useAuthContext();
 
   const [name, setName] = useState('');

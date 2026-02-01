@@ -28,6 +28,12 @@ public class BillingService : IBillingService
 
     public async Task<List<BillingPlanDto>> GetActivePlansAsync()
     {
+        var (plans, _) = await GetActivePlansWithSourceAsync();
+        return plans;
+    }
+
+    public async Task<(List<BillingPlanDto> plans, string source)> GetActivePlansWithSourceAsync()
+    {
         try
         {
             var table = Table.LoadTable(_dynamoDb, PlansTable);
@@ -40,7 +46,7 @@ public class BillingService : IBillingService
                 .ToList();
             if (plans.Count > 0)
             {
-                return plans.Select(p => new BillingPlanDto
+                var dtos = plans.Select(p => new BillingPlanDto
                 {
                     Key = p!.Key,
                     DisplayName = p.DisplayName,
@@ -48,6 +54,7 @@ public class BillingService : IBillingService
                     Features = p.Features,
                     IsConfigured = p.Key == "free" || !string.IsNullOrWhiteSpace(p.StripePriceIdMonthly),
                 }).ToList();
+                return (dtos, "db");
             }
         }
         catch (ResourceNotFoundException ex)
@@ -59,7 +66,7 @@ public class BillingService : IBillingService
             _logger.LogWarning(ex, "Error loading billing plans from DB. Return default plans.");
         }
 
-        return GetDefaultPlans();
+        return (GetDefaultPlans(), "default");
     }
 
     private static List<BillingPlanDto> GetDefaultPlans()
@@ -67,7 +74,7 @@ public class BillingService : IBillingService
         return new List<BillingPlanDto>
         {
             new() { Key = "free", DisplayName = "Free", MonthlyPrice = 0, Features = new List<string> { "10 matches per day", "5 messages per day", "Basic filters" }, IsConfigured = true },
-            new() { Key = "pro", DisplayName = "Pro", MonthlyPrice = 5.99m, Features = new List<string> { "Unlimited matches", "Unlimited messaging", "Advanced filters", "AI compatibility" }, IsConfigured = false },
+            new() { Key = "pro", DisplayName = "Pro", MonthlyPrice = 5.99m, Features = new List<string> { "Unlimited matches", "Unlimited messaging", "Advanced filters", "AI compatibility", "See who liked you" }, IsConfigured = false },
             new() { Key = "elite", DisplayName = "Elite", MonthlyPrice = 9.99m, Features = new List<string> { "Unlimited matches", "Unlimited messaging", "Advanced filters", "AI compatibility", "See who liked you", "Priority placement" }, IsConfigured = false },
         };
     }

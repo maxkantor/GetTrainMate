@@ -104,21 +104,21 @@ export const Header: React.FC = () => {
   // STRICT: Only show authenticated nav if BOTH isAuthenticated AND user exist
   const isAuthenticatedUser = isAuthenticated && !!user;
 
-  // Public nav items (shown when NOT authenticated)
+  // Public nav items (Pricing last for consistency)
   const publicNavItems = [
-    { label: t('header.pricing'), href: '/pricing' },
     { label: t('header.about'), href: '/about' },
     { label: t('header.faq'), href: '/faq' },
     { label: t('header.contact'), href: '/contact' },
+    { label: t('header.pricing'), href: '/pricing' },
   ];
 
-  // Authenticated nav items (shown when authenticated)
+  // Authenticated nav: Dashboard | Match | Chat | Events | Pricing (exact order)
   const authNavItems = [
-    { label: t('header.pricing'), href: '/pricing' },
     { label: t('nav.dashboard'), href: '/app/discover' },
     { label: t('nav.match'), href: '/app/matches' },
     { label: t('nav.chat'), href: '/app/chat' },
     { label: t('nav.events'), href: '/app/events' },
+    { label: t('header.pricing'), href: '/pricing' },
   ];
 
   // Determine which nav to show
