@@ -178,18 +178,7 @@ public class BillingController : ControllerBase
 
         var subscriptionService = new Stripe.SubscriptionService();
         var subscription = await subscriptionService.GetAsync(session.SubscriptionId);
-        var metadata = session.Metadata != null ? new Dictionary<string, string>(session.Metadata) : new Dictionary<string, string>();
-        // Payment Links pass userId__planKey in client_reference_id
-        if (!string.IsNullOrEmpty(session.ClientReferenceId) && session.ClientReferenceId.Contains("__"))
-        {
-            var parts = session.ClientReferenceId.Split(new[] { "__" }, 2, StringSplitOptions.None);
-            if (parts.Length == 2)
-            {
-                if (!metadata.ContainsKey("userId")) metadata["userId"] = parts[0];
-                if (!metadata.ContainsKey("planKey")) metadata["planKey"] = parts[1];
-            }
-        }
-        await UpsertSubscription(subscription, metadata);
+        await UpsertSubscription(subscription, session.Metadata);
     }
 
     private async Task HandleSubscriptionCreatedOrUpdated(Stripe.Event evt)
@@ -222,7 +211,8 @@ public class BillingController : ControllerBase
 
     private async Task UpsertSubscription(Stripe.Subscription stripeSubscription, Dictionary<string, string>? metadata)
     {
-        var planKey = metadata?.GetValueOrDefault("planKey") ?? "unknown";
+        var priceId = stripeSubscription.Items?.Data?.FirstOrDefault()?.Price?.Id;
+        var planKey = await ResolvePlanKeyFromPriceId(priceId) ?? metadata?.GetValueOrDefault("planKey") ?? "unknown";
 
         string? userId = metadata?.GetValueOrDefault("userId");
         if (string.IsNullOrEmpty(userId))
@@ -243,6 +233,12 @@ public class BillingController : ControllerBase
         };
 
         await _billingService.SaveOrUpdateSubscriptionAsync(record);
+    }
+
+    private async Task<string?> ResolvePlanKeyFromPriceId(string? priceId)
+    {
+        if (string.IsNullOrEmpty(priceId)) return null;
+        return await _billingService.ResolvePlanKeyFromPriceIdAsync(priceId);
     }
 
     private async Task<string?> ResolveUserIdFromCustomer(string? customerId)

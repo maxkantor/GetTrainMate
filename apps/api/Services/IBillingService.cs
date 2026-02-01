@@ -11,6 +11,7 @@ public interface IBillingService
     Task SavePlanAsync(BillingPlan plan);
     Task SeedDefaultPlansIfEmptyAsync();
     Task<string> CreateCheckoutSessionAsync(string userId, string planKey, string baseUrl);
+    Task<string?> ResolvePlanKeyFromPriceIdAsync(string priceId);
     Task SaveOrUpdateSubscriptionAsync(SubscriptionRecord record);
     Task<SubscriptionRecord?> GetSubscriptionByStripeIdAsync(string stripeSubscriptionId);
     Task<SubscriptionRecord?> GetActiveSubscriptionByUserIdAsync(string userId);

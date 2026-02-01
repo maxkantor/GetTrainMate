@@ -5,6 +5,8 @@ using Amazon.DynamoDBv2.Model;
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
 using GetTrainMate.Api.Models;
+using Stripe;
+using Stripe.Checkout;
 
 namespace GetTrainMate.Api.Services;
 
@@ -158,33 +160,74 @@ public class BillingService : IBillingService
         if (planKey != "pro" && planKey != "elite")
             throw new ArgumentException("Invalid plan key. Use pro or elite.");
 
-        // Use Stripe Payment Links from SSM (no products/prices to create in app)
-        var ssmName = $"/gettrainmate/stripe/payment-link-{planKey}";
-        string? paymentLinkUrl;
+        // Price ID from SSM (no products/prices to create in app - use existing from Stripe)
+        var ssmName = $"/gettrainmate/stripe/price-{planKey}";
+        string? priceId;
         try
         {
             var response = await _ssm.GetParameterAsync(new GetParameterRequest { Name = ssmName });
-            paymentLinkUrl = response.Parameter?.Value?.Trim();
+            priceId = response.Parameter?.Value?.Trim();
         }
         catch (ParameterNotFoundException)
         {
-            _logger.LogWarning("Payment link not configured at {Path}. Add it in SSM.", ssmName);
-            throw new InvalidOperationException($"Billing not configured for {planKey}. Add {ssmName} in SSM Parameter Store.");
+            _logger.LogWarning("Price ID not configured at {Path}. Add it in SSM.", ssmName);
+            throw new InvalidOperationException($"Billing not configured for {planKey}. Add {ssmName} in SSM with Stripe Price ID (e.g. price_xxx).");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not read Payment Link from SSM {Path}", ssmName);
+            _logger.LogWarning(ex, "Could not read Price ID from SSM {Path}", ssmName);
             throw new InvalidOperationException("Billing configuration not available. Try again later.");
         }
 
-        if (string.IsNullOrWhiteSpace(paymentLinkUrl))
-            throw new InvalidOperationException($"Payment link empty at {ssmName}.");
+        if (string.IsNullOrWhiteSpace(priceId) || !priceId.StartsWith("price_", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Invalid Price ID at {ssmName}. Use a Stripe Price ID (price_xxx).");
 
-        // Append client_reference_id so webhook can link subscription to user
-        var sep = paymentLinkUrl.Contains('?') ? "&" : "?";
-        var checkoutUrl = $"{paymentLinkUrl.TrimEnd('/')}{sep}client_reference_id={Uri.EscapeDataString(userId + "__" + planKey)}";
-        _logger.LogInformation("Checkout redirect for user {UserId}, plan {Plan}", userId, planKey);
-        return checkoutUrl;
+        var baseUrlClean = baseUrl.TrimEnd('/');
+        var successUrl = $"{baseUrlClean}/billing/success?session_id={{CHECKOUT_SESSION_ID}}";
+        var cancelUrl = $"{baseUrlClean}/pricing?canceled=1";
+
+        var options = new SessionCreateOptions
+        {
+            PaymentMethodTypes = new List<string> { "card" },
+            LineItems = new List<SessionLineItemOptions>
+            {
+                new() { Price = priceId, Quantity = 1 },
+            },
+            Mode = "subscription",
+            SuccessUrl = successUrl,
+            CancelUrl = cancelUrl,
+            Metadata = new Dictionary<string, string>
+            {
+                { "userId", userId },
+                { "planKey", planKey },
+            },
+        };
+
+        var service = new SessionService();
+        var session = await service.CreateAsync(options);
+
+        if (string.IsNullOrEmpty(session.Url))
+            throw new InvalidOperationException("Stripe did not return a checkout URL.");
+
+        _logger.LogInformation("Checkout session created for user {UserId}, plan {Plan}", userId, planKey);
+        return session.Url;
+    }
+
+    public async Task<string?> ResolvePlanKeyFromPriceIdAsync(string priceId)
+    {
+        if (string.IsNullOrWhiteSpace(priceId)) return null;
+        try
+        {
+            foreach (var key in new[] { "pro", "elite" })
+            {
+                var ssmName = $"/gettrainmate/stripe/price-{key}";
+                var r = await _ssm.GetParameterAsync(new GetParameterRequest { Name = ssmName });
+                var stored = r.Parameter?.Value?.Trim();
+                if (stored == priceId) return key;
+            }
+        }
+        catch { /* ignore */ }
+        return null;
     }
 
     public async Task SaveOrUpdateSubscriptionAsync(SubscriptionRecord record)
