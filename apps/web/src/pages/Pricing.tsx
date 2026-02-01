@@ -40,13 +40,13 @@ export const PricingPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuthContext();
   const [plans, setPlans] = useState<BillingPlanDto[]>(DEFAULT_BILLING_PLANS);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   useEffect(() => {
     billingService.getPlans().then((data) => {
-      const arr = data?.plans ?? [];
+      const arr = Array.isArray(data) ? data : (data?.plans ?? []);
       if (arr.length >= 3) {
         const merged = PLAN_ORDER.map((key) => {
           const dbPlan = arr.find((p: BillingPlanDto) => p.key === key);
@@ -57,11 +57,9 @@ export const PricingPage: React.FC = () => {
         });
         setPlans(merged);
       }
-    }).catch((e) => {
-      const msg = e?.response?.data?.error ?? e?.message ?? 'Failed to load plans';
-      setError(typeof msg === 'string' ? msg : 'Failed to load plans');
+    }).catch(() => {
       setPlans(DEFAULT_BILLING_PLANS);
-    }).finally(() => setLoading(false));
+    });
   }, []);
 
   useEffect(() => {

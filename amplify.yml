@@ -5,11 +5,10 @@ frontend:
   phases:
     preBuild:
       commands:
-        - cd apps/web
         - npm ci --ignore-scripts
     build:
       commands:
-        - npm run build
+        - npm run web:build
   artifacts:
     baseDirectory: apps/web/dist
     files:
@@ -18,6 +17,7 @@ frontend:
     paths:
       - node_modules/**/*
       - apps/web/node_modules/**/*
+      - ~/.npm/**/*
   customRedirects:
     - source: '/app/<*>'
       target: '/index.html'
