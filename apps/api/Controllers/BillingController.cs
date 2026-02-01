@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using GetTrainMate.Api.Services;
 using Stripe;
@@ -41,12 +42,12 @@ public class BillingController : ControllerBase
     }
 
     [HttpGet("subscription-status")]
-    [Authorize]
+    [AllowAnonymous]
     public async Task<ActionResult<SubscriptionStatusDto>> GetSubscriptionStatus()
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-            ?? User.FindFirst("sub")?.Value
-            ?? throw new UnauthorizedAccessException("User ID not found");
+        var userId = GetUserIdFromToken();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized(new { error = "Valid authentication required." });
 
         var sub = await _billingService.GetActiveSubscriptionByUserIdAsync(userId);
         return Ok(new SubscriptionStatusDto
@@ -59,7 +60,7 @@ public class BillingController : ControllerBase
     }
 
     [HttpPost("create-checkout-session")]
-    [Authorize]
+    [AllowAnonymous]
     public async Task<ActionResult<CreateCheckoutResponse>> CreateCheckoutSession(
         [FromBody] CreateCheckoutRequest request)
     {
@@ -68,9 +69,9 @@ public class BillingController : ControllerBase
             return BadRequest(new { error = "planKey is required. Use \"pro\" or \"elite\"." });
         }
 
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-            ?? User.FindFirst("sub")?.Value
-            ?? throw new UnauthorizedAccessException("User ID not found");
+        var userId = GetUserIdFromToken();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized(new { error = "Valid authentication required. Please sign in again." });
 
         var baseUrl = GetBaseUrl();
         if (string.IsNullOrEmpty(baseUrl))
@@ -239,6 +240,29 @@ public class BillingController : ControllerBase
         if (string.IsNullOrEmpty(email)) return null;
         // Could look up user by email - for now return null; webhook will store customerId for later linking
         return null;
+    }
+
+    private string? GetUserIdFromToken()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
+        if (!string.IsNullOrEmpty(userId)) return userId;
+
+        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+            return null;
+
+        var token = authHeader.Substring("Bearer ".Length).Trim();
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jsonToken = handler.ReadJwtToken(token);
+            return jsonToken.Claims.FirstOrDefault(c => c.Type == "sub" || c.Type == ClaimTypes.NameIdentifier)?.Value;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Billing: failed to parse JWT");
+            return null;
+        }
     }
 
     private string? GetBaseUrl()
