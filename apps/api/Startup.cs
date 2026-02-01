@@ -73,7 +73,7 @@ public class Startup
                         Name = "/gettrainmate/stripe/secret-key",
                         WithDecryption = true
                     }).GetAwaiter().GetResult();
-                    stripeKey = keyResponse.Parameter.Value;
+                    stripeKey = keyResponse.Parameter.Value?.Trim() ?? "";
                 }
                 if (string.IsNullOrEmpty(stripeWebhookSecret))
                 {
@@ -82,7 +82,7 @@ public class Startup
                         Name = "/gettrainmate/stripe/webhook-secret",
                         WithDecryption = true
                     }).GetAwaiter().GetResult();
-                    stripeWebhookSecret = whResponse.Parameter.Value;
+                    stripeWebhookSecret = whResponse.Parameter.Value?.Trim() ?? "";
                 }
             }
             catch (Exception ex)
