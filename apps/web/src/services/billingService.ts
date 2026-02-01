@@ -1,6 +1,8 @@
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
+const PLANS_CACHE_KEY = 'billing_plans_cache';
+const PLANS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 
 export interface BillingPlanDto {
   key: string;
@@ -22,12 +24,37 @@ export interface SubscriptionStatusDto {
 }
 
 export const billingService = {
-  async getPlans(): Promise<{ plans: BillingPlanDto[]; source: string } | BillingPlanDto[]> {
-    const response = await axios.get<{ plans: BillingPlanDto[]; source: string } | BillingPlanDto[]>(
-      `${API_BASE_URL}/api/billing/plans`,
-      { timeout: 8000 }
-    );
-    return response.data;
+  async getPlans(): Promise<{ plans: BillingPlanDto[]; source: string }> {
+    try {
+      const cached = sessionStorage.getItem(PLANS_CACHE_KEY);
+      if (cached) {
+        const { data, expires } = JSON.parse(cached);
+        if (expires > Date.now()) return data;
+      }
+    } catch {
+      /* ignore cache parse errors */
+    }
+
+    try {
+      const response = await axios.get<{ plans: BillingPlanDto[]; source: string }>(
+        `${API_BASE_URL}/api/billing/plans`,
+        { timeout: 8000 }
+      );
+      const data = response.data;
+      if (data?.plans?.length) {
+        try {
+          sessionStorage.setItem(
+            PLANS_CACHE_KEY,
+            JSON.stringify({ data, expires: Date.now() + PLANS_CACHE_TTL_MS })
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+      return data ?? { plans: [], source: 'default' };
+    } catch {
+      return { plans: [], source: 'default' };
+    }
   },
 
   async getSubscriptionStatus(token: string): Promise<SubscriptionStatusDto> {

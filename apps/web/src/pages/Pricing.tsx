@@ -45,21 +45,20 @@ export const PricingPage: React.FC = () => {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   useEffect(() => {
-    billingService.getPlans().then((data) => {
-      const arr = Array.isArray(data) ? data : (data?.plans ?? []);
-      if (arr.length >= 3) {
-        const merged = PLAN_ORDER.map((key) => {
-          const dbPlan = arr.find((p: BillingPlanDto) => p.key === key);
-          const def = DEFAULT_BILLING_PLANS.find((p) => p.key === key)!;
-          return dbPlan
-            ? { ...def, ...dbPlan, features: dbPlan.features?.length ? dbPlan.features : def.features }
-            : def;
-        });
-        setPlans(merged);
-      }
-    }).catch(() => {
-      setPlans(DEFAULT_BILLING_PLANS);
-    });
+    billingService.getPlans().then((res) => {
+      const arr = res?.plans ?? [];
+      const merged =
+        arr.length >= 3
+          ? PLAN_ORDER.map((key) => {
+              const dbPlan = arr.find((p: BillingPlanDto) => p.key === key);
+              const def = DEFAULT_BILLING_PLANS.find((p) => p.key === key)!;
+              return dbPlan
+                ? { ...def, ...dbPlan, features: dbPlan.features?.length ? dbPlan.features : def.features }
+                : def;
+            })
+          : DEFAULT_BILLING_PLANS;
+      setPlans(merged);
+    }).catch(() => setPlans(DEFAULT_BILLING_PLANS));
   }, []);
 
   useEffect(() => {
