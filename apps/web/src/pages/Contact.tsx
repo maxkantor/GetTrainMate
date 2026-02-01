@@ -17,7 +17,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { useI18n } from '@/hooks/useI18n';
 
 export const ContactPage: React.FC = () => {
-  const { t } = useI18n();
+  const { t: _t } = useI18n();
   const [formData, setFormData] = useState({
     name: '',
     email: '',

@@ -696,7 +696,7 @@ export const ProfileOnboardingPage: React.FC = () => {
                     // Update sportTags: remove old custom value, add new one
                     const currentTags = formData.sportTags || [];
                     const customSport = currentTags.find(s => !SPORTS.includes(s) && s !== 'Other');
-                    let updatedTags = currentTags.filter(s => s !== customSport && s !== 'Other');
+                    const updatedTags = currentTags.filter(s => s !== customSport && s !== 'Other');
                     // Always keep "Other" in the list for UI
                     updatedTags.push('Other');
                     if (newOtherSport && !updatedTags.includes(newOtherSport)) {
@@ -977,7 +977,7 @@ export const ProfileOnboardingPage: React.FC = () => {
               {
                 title: 'Availability',
                 value: formData.availabilitySchedule && formData.availabilitySchedule.length > 0
-                  ? formData.availabilitySchedule.map((slot, idx) => 
+                  ? formData.availabilitySchedule.map((slot) => 
                       `${slot.days?.join(', ') || 'No days'}: ${slot.timeStart} - ${slot.timeEnd}`
                     ).join('; ')
                   : 'Not set',

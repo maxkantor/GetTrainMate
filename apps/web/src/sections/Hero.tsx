@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import React, { useState } from 'react';
 import { useI18n } from '@/hooks/useI18n';
 import { Container } from '@/components/layout/Container';
 import { Button } from '@/components/ui/Button';
@@ -8,11 +7,7 @@ import styles from './sections.module.css';
 
 export const Hero: React.FC = () => {
   const { t } = useI18n();
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    setIsVisible(true);
-  }, []);
+  const [isVisible] = useState(true);
 
   return (
     <section className={styles.hero}>

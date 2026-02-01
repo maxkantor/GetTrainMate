@@ -13,8 +13,6 @@ import {
 } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
-import styles from '@/styles/Auth.module.css';
-
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

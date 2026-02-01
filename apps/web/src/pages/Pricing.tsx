@@ -40,7 +40,6 @@ export const PricingPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuthContext();
   const [plans, setPlans] = useState<BillingPlanDto[]>(DEFAULT_BILLING_PLANS);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
@@ -146,10 +145,7 @@ export const PricingPage: React.FC = () => {
 
       <section id="pricing-plans" className={styles.section}>
         <Container size="xl">
-          {loading ? (
-            <p className={styles.loading}>Loading plans…</p>
-          ) : (
-            <>
+          <>
               <div className={styles.cards}>
                 {sortedPlans.map((plan) => {
                   const isElite = plan.key === 'elite';
@@ -217,7 +213,6 @@ export const PricingPage: React.FC = () => {
                 </span>
               </div>
             </>
-          )}
         </Container>
       </section>
     </main>

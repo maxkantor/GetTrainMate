@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Button, Card, CardContent, Container, TextField, Typography, Alert, Link } from '@mui/material';
+import { Box, Button, Card, CardContent, Container, TextField, Typography, Alert } from '@mui/material';
 import { adminService } from '@/services/adminService';
 
 export const AdminLoginPage: React.FC = () => {
@@ -16,8 +16,9 @@ export const AdminLoginPage: React.FC = () => {
       const res = await adminService.login(email, password);
       localStorage.setItem('adminToken', res.token);
       window.location.href = '/admin/content';
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || err.message || 'Login failed';
+    } catch (err: unknown) {
+      const ax = err && typeof err === 'object' && 'response' in err ? err as { response?: { data?: { error?: string } }; message?: string } : null;
+      const msg = ax?.response?.data?.error ?? ax?.message ?? (err instanceof Error ? err.message : 'Login failed');
       setError(msg);
     } finally {
       setLoading(false);

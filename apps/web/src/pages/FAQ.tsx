@@ -4,7 +4,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useI18n } from '@/hooks/useI18n';
 
 export const FAQPage: React.FC = () => {
-  const { t } = useI18n();
+  const { t: _t } = useI18n();
   const [expanded, setExpanded] = useState<string | false>('panel1');
 
   const handleChange = (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {

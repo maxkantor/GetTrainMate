@@ -3,7 +3,7 @@ import { Container, Typography, Box, Grid, Card, CardContent } from '@mui/materi
 import { useI18n } from '@/hooks/useI18n';
 
 export const AboutPage: React.FC = () => {
-  const { t } = useI18n();
+  const { t: _t } = useI18n();
 
   const stats = [
     { value: '10,000+', label: 'Active Athletes' },
