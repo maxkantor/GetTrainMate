@@ -9,7 +9,6 @@ export const Footer: React.FC = () => {
 
   const footerSections = {
     product: [
-      { label: t('header.pricing'), href: '/pricing' },
       { label: t('header.about'), href: '/about' },
       { label: t('header.faq'), href: '/faq' },
     ],

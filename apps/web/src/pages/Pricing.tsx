@@ -6,6 +6,13 @@ import { profileService } from '@/services/profileService';
 import { billingService, BillingPlanDto } from '@/services/billingService';
 import styles from '@/pages/Pricing.module.css';
 
+/** Display features for each plan (UI-only override) */
+const PLAN_FEATURES: Record<string, string[]> = {
+  free: ['10 matches per day', '5 messages per day', 'Basic filters'],
+  pro: ['Unlimited matches', 'Unlimited messaging', 'Advanced filters', 'AI compatibility', 'See who liked you'],
+  elite: ['Unlimited matches', 'Unlimited messaging', 'Advanced filters', 'AI compatibility', 'See who liked you', 'Priority placement'],
+};
+
 /**
  * Pricing page: header, 3 cards from API, footer line.
  * No duplicate CTAs. One button per card only.
@@ -89,17 +96,21 @@ export const PricingPage: React.FC = () => {
           ) : sortedPlans.length === 0 ? (
             <p className={styles.loading}>No plans available.</p>
           ) : (
+            <>
             <div className={styles.cards}>
               {sortedPlans.map((plan) => {
                 const isElite = plan.key === 'elite';
                 const isFree = plan.key === 'free';
+                const isPro = plan.key === 'pro';
                 const isPaidUnavailable = !isFree && !plan.isConfigured;
                 const isLoading = loadingPlan === plan.key;
+                const displayFeatures = PLAN_FEATURES[plan.key] ?? plan.features;
+                const ctaLabel = isPro ? 'Upgrade to Pro' : 'Go Elite';
 
                 return (
                   <div
                     key={plan.key}
-                    className={`${styles.card} ${isElite ? styles.featured : ''}`}
+                    className={`${styles.card} ${isPro ? styles.cardPro : ''} ${isElite ? styles.cardElite : ''}`}
                   >
                     {isElite && <span className={styles.badge}>Most Popular</span>}
                     <h3 className={styles.planName}>{plan.displayName}</h3>
@@ -109,7 +120,7 @@ export const PricingPage: React.FC = () => {
                       <span className={styles.period}>/month</span>
                     </div>
                     <ul className={styles.features}>
-                      {plan.features.map((f, i) => (
+                      {displayFeatures.map((f, i) => (
                         <li key={i}>✓ {f}</li>
                       ))}
                     </ul>
@@ -118,30 +129,30 @@ export const PricingPage: React.FC = () => {
                         Start Free
                       </button>
                     )}
-                    {!isFree && isPaidUnavailable && (
-                      <button type="button" className={styles.btnSecondary} disabled>
-                        Temporarily unavailable
-                      </button>
-                    )}
-                    {!isFree && !isPaidUnavailable && (
-                      <button
-                        type="button"
-                        className={isElite ? styles.btnPrimary : styles.btnSecondary}
-                        onClick={() => handlePaid(plan.key)}
-                        disabled={!!loadingPlan}
-                      >
-                        {isLoading ? 'Redirecting…' : plan.key === 'pro' ? 'Upgrade to Pro' : 'Go Elite'}
-                      </button>
+                    {!isFree && (
+                      <>
+                        <button
+                          type="button"
+                          className={isElite ? styles.btnPrimary : styles.btnSecondary}
+                          onClick={() => handlePaid(plan.key)}
+                          disabled={!!loadingPlan || isPaidUnavailable}
+                        >
+                          {isLoading ? 'Redirecting…' : ctaLabel}
+                        </button>
+                        {isPaidUnavailable && (
+                          <p className={styles.helperText}>Billing not configured yet</p>
+                        )}
+                      </>
                     )}
                   </div>
                 );
               })}
             </div>
+            <p className={styles.trustLine}>Cancel anytime. Secure payments.</p>
+            </>
           )}
         </Container>
       </section>
-
-      <p className={styles.trustLine}>Cancel anytime. Secure payments.</p>
     </main>
   );
 };

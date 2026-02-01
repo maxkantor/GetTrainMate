@@ -59,7 +59,11 @@
   position: relative;
 }
 
-.card.featured {
+.cardPro {
+  border-color: #d1d5db;
+}
+
+.cardElite {
   border-color: #7c3aed;
   box-shadow: 0 4px 14px rgba(124, 58, 237, 0.15);
 }
@@ -135,10 +139,6 @@
   transform: translateY(-1px);
 }
 
-.btnPrimary:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
 
 .btnSecondary {
   width: 100%;
@@ -158,9 +158,20 @@
   background: #f5f3ff;
 }
 
-.btnSecondary:disabled {
-  opacity: 0.7;
+.btnSecondary:disabled,
+.btnPrimary:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  pointer-events: none;
+}
+
+.helperText {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-align: center;
+  margin: var(--space-2) 0 0;
+  padding: 0;
 }
 
 .errorBanner {
@@ -178,6 +189,6 @@
   text-align: center;
   font-size: 0.8125rem;
   color: #6b7280;
-  margin: 0;
-  padding: var(--space-4) var(--space-4) var(--space-6);
+  margin: var(--space-4) 0 0;
+  padding: 0 0 var(--space-6);
 }

@@ -114,6 +114,7 @@ export const Header: React.FC = () => {
 
   // Authenticated nav items (shown when authenticated)
   const authNavItems = [
+    { label: t('header.pricing'), href: '/pricing' },
     { label: t('nav.dashboard'), href: '/app/discover' },
     { label: t('nav.match'), href: '/app/matches' },
     { label: t('nav.chat'), href: '/app/chat' },
