@@ -94,6 +94,42 @@ public class BillingService : IBillingService
         return doc != null ? ToBillingPlan(doc) : null;
     }
 
+    public async Task SeedDefaultPlansIfEmptyAsync()
+    {
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, PlansTable);
+            var scan = table.Scan(new ScanFilter());
+            var docs = await scan.GetNextSetAsync();
+            if (docs.Count > 0)
+            {
+                _logger.LogInformation("Billing plans already exist ({Count}). Skip seed.", docs.Count);
+                return;
+            }
+        }
+        catch (ResourceNotFoundException)
+        {
+            _logger.LogWarning("Billing plans table not found. Cannot seed.");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error checking billing plans. Attempting seed.");
+        }
+
+        var defaults = new[]
+        {
+            new BillingPlan { Key = "free", DisplayName = "Free", MonthlyPrice = 0, Features = new List<string> { "10 matches per day", "5 messages per day", "Basic filters" }, IsActive = true, SortOrder = 1, StripePriceIdMonthly = null },
+            new BillingPlan { Key = "pro", DisplayName = "Pro", MonthlyPrice = 5.99m, Features = new List<string> { "Unlimited matches", "Unlimited messaging", "Advanced filters", "AI compatibility", "See who liked you" }, IsActive = true, SortOrder = 2, StripePriceIdMonthly = null },
+            new BillingPlan { Key = "elite", DisplayName = "Elite", MonthlyPrice = 9.99m, Features = new List<string> { "Unlimited matches", "Unlimited messaging", "Advanced filters", "AI compatibility", "See who liked you", "Priority placement" }, IsActive = true, SortOrder = 3, StripePriceIdMonthly = null },
+        };
+        foreach (var plan in defaults)
+        {
+            await SavePlanAsync(plan);
+        }
+        _logger.LogInformation("Billing plans seeded (free, pro, elite).");
+    }
+
     public async Task SavePlanAsync(BillingPlan plan)
     {
         var table = Table.LoadTable(_dynamoDb, PlansTable);

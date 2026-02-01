@@ -25,6 +25,22 @@ public class BillingController : ControllerBase
         _logger = logger;
     }
 
+    [HttpPost("seed")]
+    [AllowAnonymous]
+    public async Task<ActionResult> SeedPlans()
+    {
+        try
+        {
+            await _billingService.SeedDefaultPlansIfEmptyAsync();
+            return Ok(new { message = "Plans seeded. Configure Stripe Price IDs for Pro and Elite in Admin CRM." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error seeding billing plans");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
     [HttpGet("plans")]
     [AllowAnonymous]
     public async Task<ActionResult<BillingPlansResponse>> GetPlans()

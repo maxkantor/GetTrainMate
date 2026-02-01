@@ -9,6 +9,7 @@ public interface IBillingService
     Task<List<BillingPlan>> GetAllPlansForAdminAsync();
     Task<BillingPlan?> GetPlanByKeyAsync(string key);
     Task SavePlanAsync(BillingPlan plan);
+    Task SeedDefaultPlansIfEmptyAsync();
     Task<string> CreateCheckoutSessionAsync(string userId, string planKey, string baseUrl);
     Task SaveOrUpdateSubscriptionAsync(SubscriptionRecord record);
     Task<SubscriptionRecord?> GetSubscriptionByStripeIdAsync(string stripeSubscriptionId);
