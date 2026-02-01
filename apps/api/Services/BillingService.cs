@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
+using Amazon.DynamoDBv2.Model;
 using GetTrainMate.Api.Models;
 using Stripe;
 using Stripe.Checkout;
@@ -27,22 +28,48 @@ public class BillingService : IBillingService
 
     public async Task<List<BillingPlanDto>> GetActivePlansAsync()
     {
-        var table = Table.LoadTable(_dynamoDb, PlansTable);
-        var scan = table.Scan(new ScanFilter());
-        var docs = await scan.GetNextSetAsync();
-        var plans = docs
-            .Select(ToBillingPlan)
-            .Where(p => p != null && p.IsActive)
-            .OrderBy(p => p!.SortOrder)
-            .ToList();
-        return plans!.Select(p => new BillingPlanDto
+        try
         {
-            Key = p!.Key,
-            DisplayName = p.DisplayName,
-            MonthlyPrice = p.MonthlyPrice,
-            Features = p.Features,
-            IsConfigured = p.Key == "free" || !string.IsNullOrWhiteSpace(p.StripePriceIdMonthly),
-        }).ToList();
+            var table = Table.LoadTable(_dynamoDb, PlansTable);
+            var scan = table.Scan(new ScanFilter());
+            var docs = await scan.GetNextSetAsync();
+            var plans = docs
+                .Select(ToBillingPlan)
+                .Where(p => p != null && p.IsActive)
+                .OrderBy(p => p!.SortOrder)
+                .ToList();
+            if (plans.Count > 0)
+            {
+                return plans.Select(p => new BillingPlanDto
+                {
+                    Key = p!.Key,
+                    DisplayName = p.DisplayName,
+                    MonthlyPrice = p.MonthlyPrice,
+                    Features = p.Features,
+                    IsConfigured = p.Key == "free" || !string.IsNullOrWhiteSpace(p.StripePriceIdMonthly),
+                }).ToList();
+            }
+        }
+        catch (ResourceNotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Billing plans table not found. Return default plans.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error loading billing plans from DB. Return default plans.");
+        }
+
+        return GetDefaultPlans();
+    }
+
+    private static List<BillingPlanDto> GetDefaultPlans()
+    {
+        return new List<BillingPlanDto>
+        {
+            new() { Key = "free", DisplayName = "Free", MonthlyPrice = 0, Features = new List<string> { "10 matches per day", "5 messages per day", "Basic filters" }, IsConfigured = true },
+            new() { Key = "pro", DisplayName = "Pro", MonthlyPrice = 5.99m, Features = new List<string> { "Unlimited matches", "Unlimited messaging", "Advanced filters", "AI compatibility" }, IsConfigured = false },
+            new() { Key = "elite", DisplayName = "Elite", MonthlyPrice = 9.99m, Features = new List<string> { "Unlimited matches", "Unlimited messaging", "Advanced filters", "AI compatibility", "See who liked you", "Priority placement" }, IsConfigured = false },
+        };
     }
 
     public async Task<List<BillingPlan>> GetAllPlansForAdminAsync()
