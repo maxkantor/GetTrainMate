@@ -8,14 +8,13 @@ This folder contains the Lambda deployment package for the GetTrainMate API.
 
 ## Building the Package
 
-To rebuild the Lambda package:
+From repo root:
 
 ```bash
-cd apps/api
-dotnet publish -c Release -o ./publish
-cd publish
-zip -r ../../../deploy/gettrainmate-api-lambda.zip . -x "*.pdb" "*.xml"
+npm run zip
 ```
+
+Creates `deploy/gettrainmate-api-lambda.zip`.
 
 ## Deploying
 

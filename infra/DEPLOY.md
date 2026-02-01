@@ -2,12 +2,11 @@
 
 ## Quick Start
 
-1. **Build the .NET API:**
+1. **Build the .NET API and Lambda zip (in deploy/):**
    ```bash
-   cd apps/api
-   dotnet publish -c Release
-   cd ../../infra
+   npm run zip
    ```
+   Creates `deploy/gettrainmate-api-lambda.zip`. CDK uses `apps/api/publish`; the zip is for manual Lambda upload.
 
 2. **Install CDK dependencies:**
    ```bash
@@ -40,7 +39,10 @@
 
 ## After Deployment
 
-1. Copy the `ApiUrl` from the CDK output
+1. **Seed billing plans** (Admin CRM → Billing Plans → "Seed default plans", or `POST /api/admin/billing/plans/seed`)
+2. **Configure Stripe Price IDs** for Pro and Elite in Admin CRM → Billing Plans
+3. **Stripe webhook**: Point to `POST /api/billing/webhook` (see docs/BILLING_SETUP.md)
+4. Copy the `ApiUrl` from the CDK output
 2. Add it to Amplify environment variables as `VITE_API_URL`
 3. Trigger a new build in Amplify
 4. Your app should now connect to the API!

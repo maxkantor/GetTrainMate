@@ -51,6 +51,7 @@ public class Startup
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ICmsService, CmsService>();
+        services.AddScoped<IBillingService, BillingService>();
         services.AddHttpContextAccessor();
         services.AddSingleton<IStorageService, S3StorageService>();
 

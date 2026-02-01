@@ -278,6 +278,15 @@ export class GetTrainMateStack extends cdk.Stack {
     });
     tables.push(paymentsTable);
 
+    // Billing plans table - DB-driven, editable in Admin CRM (no Stripe price IDs in env)
+    const billingPlansTable = new dynamodb.Table(this, 'BillingPlansTable', {
+      tableName: 'gettrainmate-billing-plans',
+      partitionKey: { name: 'Key', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(billingPlansTable);
+
     // Subscriptions table - for subscription management and CRM
     const subscriptionsTable = new dynamodb.Table(this, 'SubscriptionsTable', {
       tableName: 'gettrainmate-subscriptions',

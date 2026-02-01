@@ -25,6 +25,7 @@
     "infra:synth": "cd infra && npm run synth",
     "infra:build": "cd infra && npm run build",
     "infra:deploy": "cd infra && npm run deploy",
+    "zip": "bash scripts/build-lambda-zip.sh",
     "seed": "cd scripts && node seed.js",
     "prepare": "husky install"
   },

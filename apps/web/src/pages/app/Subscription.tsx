@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
-import { paymentService, SubscriptionStatus } from '@/services/paymentService';
+import { billingService, SubscriptionStatusDto } from '@/services/billingService';
 import { authService } from '@/services/authService';
 
 interface PricingPlan {
@@ -72,7 +72,7 @@ export const SubscriptionPage: React.FC = () => {
   const { t } = useI18n();
   const { user } = useAuthContext();
 
-  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionStatusDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
@@ -99,7 +99,7 @@ export const SubscriptionPage: React.FC = () => {
         return;
       }
 
-      const status = await paymentService.getSubscriptionStatus(token);
+      const status = await billingService.getSubscriptionStatus(token);
       setSubscription(status);
     } catch (err: any) {
       console.error('Error loading subscription:', err);
@@ -120,8 +120,8 @@ export const SubscriptionPage: React.FC = () => {
       const token = await authService.getJWT();
       if (!token) return;
 
-      const { checkoutUrl } = await paymentService.createCheckoutSession(token, planId);
-      window.location.href = checkoutUrl;
+      const url = await billingService.createCheckoutSession(token, planId);
+      window.location.href = url;
     } catch (err: any) {
       console.error('Error processing upgrade:', err);
       setError(err.response?.data?.error || err.message || 'Failed to start checkout');
@@ -154,7 +154,7 @@ export const SubscriptionPage: React.FC = () => {
                   </Typography>
                   <Typography variant="h6">
                     {subscription.isPremium ? (
-                      <Chip label={subscription.planType} color="primary" />
+                      <Chip label={subscription.planKey} color="primary" />
                     ) : (
                       <Chip label="Free" variant="outlined" />
                     )}
@@ -240,7 +240,7 @@ export const SubscriptionPage: React.FC = () => {
                     >
                       Use Free
                     </Button>
-                  ) : subscription?.isPremium && (subscription.planType === plan.id || (plan.id === 'elite' && ['premium', 'premium_monthly', 'premium_yearly', 'lifetime'].includes(subscription.planType))) ? (
+                  ) : subscription?.isPremium && (subscription.planKey === plan.id || (plan.id === 'elite' && ['premium', 'premium_monthly', 'premium_yearly', 'lifetime'].includes(subscription.planKey))) ? (
                     <Button fullWidth variant="outlined" disabled>
                       Current Plan
                     </Button>
@@ -263,7 +263,7 @@ export const SubscriptionPage: React.FC = () => {
       </Box>
 
       {/* Payment History */}
-      {subscription && subscription.recentPayments.length > 0 && (
+      {subscription && subscription.recentPayments && subscription.recentPayments.length > 0 && (
         <Box>
           <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
             Payment History

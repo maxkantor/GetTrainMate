@@ -37,6 +37,7 @@ const menuItems = [
   { path: '/admin/events', label: 'Events CRM', icon: <EventIcon /> },
   { path: '/admin/tickets', label: 'Support Tickets', icon: <SupportIcon /> },
   { path: '/admin/stripe', label: 'Stripe / Subscriptions', icon: <PaymentIcon /> },
+  { path: '/admin/billing', label: 'Billing Plans', icon: <PaymentIcon /> },
   { path: '/admin/contacts', label: 'Contacts CRM', icon: <ContactsIcon /> },
   { path: '/admin/audit', label: 'Audit Logs', icon: <AssessmentIcon /> },
   { path: '/admin/content', label: 'CMS', icon: <SettingsIcon /> },
