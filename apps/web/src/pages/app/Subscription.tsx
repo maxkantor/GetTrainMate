@@ -78,15 +78,24 @@ export const SubscriptionPage: React.FC = () => {
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
 
   useEffect(() => {
-    loadSubscriptionStatus();
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('success') === 'true' || params.get('canceled') === 'true') {
-      window.history.replaceState({}, '', '/app/subscription');
+    const init = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('session_id');
+      const success = params.get('success') === 'true';
+      if (sessionId && success) {
+        try {
+          const token = await authService.getJWT();
+          if (token) {
+            await billingService.confirmSession(token, sessionId);
+          }
+        } catch (e) {
+          console.warn('Confirm session failed:', e);
+        }
+        window.history.replaceState({}, '', '/app/subscription');
+      }
       loadSubscriptionStatus();
-    }
+    };
+    init();
   }, []);
 
   const loadSubscriptionStatus = async () => {

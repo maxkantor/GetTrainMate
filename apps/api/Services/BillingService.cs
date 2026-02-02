@@ -271,6 +271,45 @@ public class BillingService : IBillingService
         }
     }
 
+    public async Task<bool> ConfirmCheckoutSessionAsync(string sessionId, string userId)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId) || string.IsNullOrWhiteSpace(userId))
+            return false;
+        try
+        {
+            var sessionService = new SessionService();
+            var session = await sessionService.GetAsync(sessionId);
+            if (session?.SubscriptionId == null) return false;
+            var metadataUserId = session.Metadata?.GetValueOrDefault("userId");
+            var metadataPlanKey = session.Metadata?.GetValueOrDefault("planKey");
+            if (string.IsNullOrEmpty(metadataUserId) || metadataUserId != userId)
+                return false;
+            var subscriptionService = new SubscriptionService();
+            var stripeSubscription = await subscriptionService.GetAsync(session.SubscriptionId);
+            if (stripeSubscription == null) return false;
+            var planKey = metadataPlanKey ?? "pro";
+            if (planKey != "pro" && planKey != "elite") planKey = "pro";
+            var record = new SubscriptionRecord
+            {
+                StripeSubscriptionId = stripeSubscription.Id,
+                StripeCustomerId = stripeSubscription.CustomerId,
+                UserId = userId,
+                PlanKey = planKey,
+                Status = stripeSubscription.Status ?? "active",
+                CurrentPeriodEnd = stripeSubscription.CurrentPeriodEnd,
+                CancelAtPeriodEnd = stripeSubscription.CancelAtPeriodEnd,
+            };
+            await SaveOrUpdateSubscriptionAsync(record);
+            _logger.LogInformation("Confirmed checkout session {SessionId} for user {UserId}, plan {Plan}", sessionId, userId, planKey);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to confirm checkout session {SessionId}", sessionId);
+            return false;
+        }
+    }
+
     public async Task<SubscriptionRecord?> GetActiveSubscriptionByUserIdAsync(string userId)
     {
         var table = Table.LoadTable(_dynamoDb, SubscriptionsTable);

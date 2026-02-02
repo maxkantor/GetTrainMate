@@ -15,6 +15,7 @@ public interface IBillingService
     Task SaveOrUpdateSubscriptionAsync(SubscriptionRecord record);
     Task<SubscriptionRecord?> GetSubscriptionByStripeIdAsync(string stripeSubscriptionId);
     Task<SubscriptionRecord?> GetActiveSubscriptionByUserIdAsync(string userId);
+    Task<bool> ConfirmCheckoutSessionAsync(string sessionId, string userId);
 }
 
 public class BillingPlanDto

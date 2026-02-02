@@ -79,7 +79,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   const profileJustCompleted = (location.state as { profileJustCompleted?: boolean } | null)?.profileJustCompleted;
-  if (requireProfileComplete && !profileComplete && !profileJustCompleted) {
+  const isSubscriptionPage = location.pathname === '/app/subscription';
+  const isProfilePage = location.pathname === '/app/profile';
+  if (requireProfileComplete && !profileComplete && !profileJustCompleted && !isSubscriptionPage && !isProfilePage) {
     return <Navigate to="/onboarding/profile" replace state={{ from: location }} />;
   }
 

@@ -217,7 +217,7 @@ export const Header: React.FC = () => {
                       </RouterLink>
                     )}
                     <RouterLink
-                      to={profileComplete ? '/app/profile' : '/onboarding/profile'}
+                      to="/app/profile"
                       className={styles.dropdownItem}
                       onClick={() => setUserMenuOpen(false)}
                       role="menuitem"
@@ -354,7 +354,7 @@ export const Header: React.FC = () => {
                     </RouterLink>
                   )}
                   <RouterLink
-                    to={profileComplete ? '/app/profile' : '/onboarding/profile'}
+                    to="/app/profile"
                     className={styles.mobileButton}
                     onClick={() => setMobileMenuOpen(false)}
                   >

@@ -75,6 +75,19 @@ public class BillingController : ControllerBase
         });
     }
 
+    [HttpPost("confirm-session")]
+    [AllowAnonymous]
+    public async Task<ActionResult> ConfirmSession([FromBody] ConfirmSessionRequest request)
+    {
+        var userId = GetUserIdFromToken();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized(new { error = "Valid authentication required." });
+        if (request == null || string.IsNullOrWhiteSpace(request.SessionId))
+            return BadRequest(new { error = "sessionId is required." });
+        var ok = await _billingService.ConfirmCheckoutSessionAsync(request.SessionId, userId);
+        return ok ? Ok(new { message = "Subscription confirmed." }) : BadRequest(new { error = "Could not confirm session." });
+    }
+
     [HttpPost("create-checkout-session")]
     [AllowAnonymous]
     public async Task<ActionResult<CreateCheckoutResponse>> CreateCheckoutSession(
@@ -119,6 +132,8 @@ public class BillingController : ControllerBase
     }
 
     [HttpPost("webhook")]
+    [Route("~/stripe/webhook")]
+    [Route("~/api/billing/webhook")]
     [AllowAnonymous]
     public async Task<ActionResult> HandleWebhook()
     {
@@ -287,6 +302,11 @@ public class BillingController : ControllerBase
 
         return null;
     }
+}
+
+public class ConfirmSessionRequest
+{
+    public string SessionId { get; set; } = string.Empty;
 }
 
 public class CreateCheckoutRequest

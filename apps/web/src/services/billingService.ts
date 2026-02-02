@@ -57,6 +57,19 @@ export const billingService = {
     }
   },
 
+  async confirmSession(token: string, sessionId: string): Promise<void> {
+    await axios.post(
+      `${API_BASE_URL}/api/billing/confirm-session`,
+      { sessionId },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  },
+
   async getSubscriptionStatus(token: string): Promise<SubscriptionStatusDto> {
     const response = await axios.get<SubscriptionStatusDto>(
       `${API_BASE_URL}/api/billing/subscription-status`,

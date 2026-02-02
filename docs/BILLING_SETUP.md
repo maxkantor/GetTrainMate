@@ -33,7 +33,7 @@ Or: `bash scripts/seed-billing-plans.sh`
 
 Configure webhook in Stripe Dashboard → Developers → Webhooks:
 
-- **URL**: `https://your-api-url/api/billing/webhook`
+- **URL**: `https://your-api-url/stripe/webhook` (or `/api/billing/webhook`)
 - **Events**: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
 - **Signing secret**: Store in SSM `/gettrainmate/stripe/webhook-secret`
 
