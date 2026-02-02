@@ -34,11 +34,13 @@ import { AdminLoginPage } from '@/pages/admin/AdminLoginPage';
 import { CMSPage } from '@/pages/admin/CMS';
 import { AdminLayout } from '@/pages/admin/AdminLayout';
 import { BillingPlansPage as AdminBillingPlansPage } from '@/pages/admin/BillingPlansPage';
+import { ScrollToTop } from '@/components/ScrollToTop';
 
 export const Router: React.FC = () => {
   return (
     <ErrorBoundary>
       <BrowserRouter>
+        <ScrollToTop />
         <Layout>
           <Routes>
             {/* Public routes */}
