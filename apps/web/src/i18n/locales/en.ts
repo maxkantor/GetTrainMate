@@ -113,6 +113,10 @@ export const en = {
     pro: 'Pro',
     save_profile: 'Save Profile',
   },
+  footer: {
+    privacy: 'Privacy',
+    terms: 'Terms',
+  },
   admin: {
     dashboard: 'Admin Dashboard',
     content: 'Content',

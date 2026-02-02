@@ -89,6 +89,10 @@ export const hi = {
     pro: 'पेशेवर',
     save_profile: 'प्रोफाइल सहेजें',
   },
+  footer: {
+    privacy: 'गोपनीयता',
+    terms: 'नियम और शर्तें',
+  },
   admin: {
     dashboard: 'एडमिन डैशबोर्ड',
     content: 'सामग्री',

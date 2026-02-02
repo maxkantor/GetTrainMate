@@ -31,6 +31,7 @@ export const DiscoverPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [matched, setMatched] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     loadFeed();
@@ -120,6 +121,26 @@ export const DiscoverPage: React.FC = () => {
     }
   };
 
+  const handleSeedDemo = async () => {
+    try {
+      setSeeding(true);
+      setError('');
+      const token = await authService.getJWT();
+      if (!token) {
+        setError('Not authenticated');
+        return;
+      }
+      const result = await matchService.seedDemoProfiles(token);
+      setError('');
+      await loadFeed();
+    } catch (err: unknown) {
+      const apiError = handleApiError(err as Error);
+      setError(apiError.message || 'Failed to load demo profiles');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const handlePass = async () => {
     if (currentIndex >= feed.length) return;
 
@@ -179,11 +200,23 @@ export const DiscoverPage: React.FC = () => {
       <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
         <Typography variant="h6" gutterBottom>No profiles to discover</Typography>
         <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-          Check back later for new training partners!
+          Load demo profiles to try matching, or check back later for new training partners!
         </Typography>
-        <Button variant="contained" onClick={() => loadFeed()}>
-          Refresh
-        </Button>
+        <Stack direction="row" spacing={2} justifyContent="center" flexWrap="wrap">
+          <Button
+            variant="contained"
+            onClick={handleSeedDemo}
+            disabled={seeding}
+          >
+            {seeding ? 'Loading…' : 'Load demo profiles'}
+          </Button>
+          <Button variant="outlined" onClick={() => loadFeed()}>
+            Refresh
+          </Button>
+        </Stack>
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
+        )}
       </Container>
     );
   }

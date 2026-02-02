@@ -113,6 +113,10 @@ export const ua = {
     pro: 'Про',
     save_profile: 'Зберегти профіль',
   },
+  footer: {
+    privacy: 'Конфіденційність',
+    terms: 'Умови',
+  },
   admin: {
     dashboard: 'Адмін-панель',
     content: 'Контент',

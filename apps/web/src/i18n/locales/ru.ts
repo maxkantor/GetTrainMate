@@ -89,6 +89,10 @@ export const ru = {
     pro: 'Профессионал',
     save_profile: 'Сохранить профиль',
   },
+  footer: {
+    privacy: 'Конфиденциальность',
+    terms: 'Условия',
+  },
   admin: {
     dashboard: 'Админ-панель',
     content: 'Содержание',

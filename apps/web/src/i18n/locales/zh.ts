@@ -89,6 +89,10 @@ export const zh = {
     pro: '专业',
     save_profile: '保存个人资料',
   },
+  footer: {
+    privacy: '隐私',
+    terms: '条款',
+  },
   admin: {
     dashboard: '管理仪表盘',
     content: '内容',

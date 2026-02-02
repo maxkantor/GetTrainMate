@@ -89,6 +89,10 @@ export const es = {
     pro: 'Profesional',
     save_profile: 'Guardar Perfil',
   },
+  footer: {
+    privacy: 'Privacidad',
+    terms: 'Términos',
+  },
   admin: {
     dashboard: 'Panel de Admin',
     content: 'Contenido',

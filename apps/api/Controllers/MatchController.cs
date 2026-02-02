@@ -21,6 +21,24 @@ public class MatchController : ControllerBase
         _logger = logger;
     }
 
+    [HttpPost("seed-demo")]
+    public async Task<ActionResult<object>> SeedDemoProfiles()
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "Invalid token" });
+            var created = await _matchService.SeedDemoProfilesAsync();
+            return Ok(new { message = $"Added {created} demo profiles. Refresh to discover!", created });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error seeding demo profiles");
+            return StatusCode(500, new { message = "Error seeding demo profiles" });
+        }
+    }
+
     [HttpGet("discover")]
     public async Task<ActionResult<List<MatchFeedItem>>> GetDiscoveryFeed([FromQuery] int limit = 20)
     {

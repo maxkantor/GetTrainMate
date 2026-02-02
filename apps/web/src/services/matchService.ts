@@ -32,6 +32,15 @@ class MatchService {
     };
   }
 
+  async seedDemoProfiles(token: string): Promise<{ created: number; message: string }> {
+    const response = await axios.post<{ created: number; message: string }>(
+      `${API_BASE_URL}/api/match/seed-demo`,
+      {},
+      this.getHeaders(token)
+    );
+    return response.data;
+  }
+
   async getDiscoveryFeed(token: string, limit: number = 20): Promise<MatchFeedItem[]> {
     try {
       const response = await axios.get<MatchFeedItem[]>(
