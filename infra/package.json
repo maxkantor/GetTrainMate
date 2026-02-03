@@ -8,7 +8,7 @@
     "watch": "tsc -w",
     "synth": "npx cdk synth",
     "diff": "npx cdk diff",
-    "deploy": "npx cdk deploy --require-approval=manual",
+    "deploy": "npx cdk deploy --require-approval never",
     "destroy": "npx cdk destroy"
   },
   "dependencies": {

@@ -1,39 +1,60 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Snackbar } from '@mui/material';
 import { Container } from '@/components/layout/Container';
 import { authService } from '@/services/authService';
-import { profileService } from '@/services/profileService';
 import { billingService, CreditPackDto } from '@/services/billingService';
 import { useAuthContext } from '@/hooks/useAuthContext';
-import { DEFAULT_CREDIT_PACKS, CREDIT_FEATURES } from '@/data/creditPacks';
+import {
+  CreditPack,
+  FALLBACK_CREDIT_PACKS,
+  CREDIT_PACK_FEATURES,
+  CreditPackKey,
+} from '@/data/creditPacks';
 import styles from '@/pages/Pricing.module.css';
 
-const DEFAULT_PACKS: CreditPackDto[] = DEFAULT_CREDIT_PACKS.map((p) => ({
-  key: p.key,
-  title: p.title,
-  priceUsd: p.priceUsd,
-  credits: p.credits,
-  isActive: true,
-  sortOrder: p.sortOrder,
-  isBestValue: p.isBestValue,
-}));
+const KNOWN_KEYS: CreditPackKey[] = ['FREE_3', 'PACK_10', 'PACK_25', 'PACK_100'];
+
+function mapApiToCreditPack(dto: CreditPackDto): CreditPack {
+  const key: CreditPackKey = KNOWN_KEYS.includes(dto.key as CreditPackKey)
+    ? (dto.key as CreditPackKey)
+    : 'FREE_3';
+  const fallback = FALLBACK_CREDIT_PACKS.find((p) => p.key === key);
+  return {
+    key,
+    title: dto.title || fallback?.title || key,
+    priceUsd: dto.priceUsd ?? fallback?.priceUsd ?? 0,
+    credits: dto.credits ?? fallback?.credits ?? 0,
+    sortOrder: dto.sortOrder ?? fallback?.sortOrder ?? 0,
+    isBestValue: dto.isBestValue ?? fallback?.isBestValue ?? false,
+    isFree: key === 'FREE_3',
+  };
+}
+
+function toCreditPacks(dtos: CreditPackDto[]): CreditPack[] {
+  if (!dtos?.length) return FALLBACK_CREDIT_PACKS;
+  return dtos
+    .filter((d) => KNOWN_KEYS.includes(d.key as CreditPackKey) && (d.isActive !== false))
+    .map(mapApiToCreditPack)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
 
 export const PricingPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuthContext();
-  const [packs, setPacks] = useState<CreditPackDto[]>(DEFAULT_PACKS);
+  const [packs, setPacks] = useState<CreditPack[]>(FALLBACK_CREDIT_PACKS);
   const [error, setError] = useState<string | null>(null);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    billingService.getCreditPacks().then((res) => {
-      const arr = res?.packs ?? [];
-      const merged =
-        arr.length >= 4
-          ? [...arr].sort((a, b) => a.sortOrder - b.sortOrder)
-          : DEFAULT_PACKS;
-      setPacks(merged);
-    }).catch(() => setPacks(DEFAULT_PACKS));
+    billingService
+      .getCreditPacks()
+      .then((res) => {
+        const arr = res?.packs ?? [];
+        setPacks(toCreditPacks(arr));
+      })
+      .catch(() => setPacks(FALLBACK_CREDIT_PACKS));
   }, []);
 
   useEffect(() => {
@@ -56,10 +77,12 @@ export const PricingPage: React.FC = () => {
       const url = await billingService.createCheckoutSession(token, packKey);
       window.location.assign(url);
     } catch (err: unknown) {
-      const res = err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { error?: string }; status?: number } }).response
-        : null;
-      const msg = res?.data?.error ?? (err instanceof Error ? err.message : 'Checkout failed');
+      const res =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { error?: string } } }).response
+          : null;
+      const msg =
+        res?.data?.error ?? (err instanceof Error ? err.message : 'Checkout failed');
       setError(typeof msg === 'string' ? msg : 'Checkout failed. Try again later.');
     } finally {
       setLoadingPack(null);
@@ -80,34 +103,41 @@ export const PricingPage: React.FC = () => {
         return;
       }
       await billingService.grantFreeSignup(token);
-      window.location.href = '/app/discover';
+      setToast('3 credits added');
     } catch {
       setError('Could not grant free credits. Try again.');
+    } finally {
       setLoadingPack(null);
     }
   }, [isAuthenticated, user]);
 
-  const handlePaid = useCallback((packKey: string) => {
-    if (packKey === 'FREE_3') {
-      handleFree();
-      return;
-    }
-    if (!isAuthenticated || !user) {
-      window.location.href = '/signup';
-      return;
-    }
-    startCheckout(packKey);
-  }, [isAuthenticated, user, handleFree, startCheckout]);
+  const handleCta = useCallback(
+    (pack: CreditPack) => {
+      if (pack.key === 'FREE_3') {
+        handleFree();
+        return;
+      }
+      if (!isAuthenticated || !user) {
+        window.location.href = '/signup';
+        return;
+      }
+      startCheckout(pack.key);
+    },
+    [isAuthenticated, user, handleFree, startCheckout]
+  );
 
-  const sortedPacks = [...packs].sort((a, b) => a.sortOrder - b.sortOrder).filter((p) => p.isActive);
+  const sortedPacks = [...packs].sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
         <Container>
-          <h1 className={styles.title}>Credits for Training Together</h1>
+          <h1 className={styles.title}>Credits Marketplace</h1>
           <p className={styles.subtext}>
-            Get credits to unlock chat, boost visibility, and get AI insights. Start free or buy a pack.
+            Get credits to unlock chat, boosts, and AI insights. Start free or buy a pack.
+          </p>
+          <p className={styles.typicalCosts}>
+            Typical costs: Chat unlock = 1 credit · Boost (24h) = 2 · AI insight = 2 · See likes (7d) = 3
           </p>
         </Container>
       </section>
@@ -122,15 +152,16 @@ export const PricingPage: React.FC = () => {
         <Container size="xl">
           <div className={styles.cards}>
             {sortedPacks.map((pack) => {
-              const isFree = pack.key === 'FREE_3';
+              const isFree = pack.isFree;
               const isBestValue = pack.isBestValue;
               const isLoading = loadingPack === pack.key;
+              const features = CREDIT_PACK_FEATURES[pack.key] ?? [];
               const ctaLabel = isFree ? 'Start Free' : 'Buy Credits';
 
               return (
                 <div
                   key={pack.key}
-                  className={`${styles.card} ${isBestValue ? styles.cardPro : ''} ${pack.key === 'PACK_100' ? styles.cardElite : ''}`}
+                  className={`${styles.card} ${isBestValue ? styles.cardBestValue : ''}`}
                 >
                   {isBestValue && <span className={styles.badge}>Best Value</span>}
                   <h3 className={styles.planName}>{pack.title}</h3>
@@ -138,18 +169,17 @@ export const PricingPage: React.FC = () => {
                     <span className={styles.currency}>$</span>
                     <span className={styles.amount}>{pack.priceUsd.toFixed(2)}</span>
                     {!isFree && <span className={styles.period}> one-time</span>}
-                    {isFree && <span className={styles.period}></span>}
                   </div>
                   <p className={styles.creditsLabel}>{pack.credits} credits</p>
                   <ul className={styles.features}>
-                    {CREDIT_FEATURES.map((f, i) => (
+                    {features.map((f, i) => (
                       <li key={i}>{f}</li>
                     ))}
                   </ul>
                   <button
                     type="button"
                     className={isBestValue ? styles.btnPrimary : styles.btnSecondary}
-                    onClick={() => handlePaid(pack.key)}
+                    onClick={() => handleCta(pack)}
                     disabled={!!loadingPack}
                   >
                     {isLoading ? 'Redirecting…' : ctaLabel}
@@ -183,6 +213,14 @@ export const PricingPage: React.FC = () => {
           </div>
         </Container>
       </section>
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </main>
   );
 };
