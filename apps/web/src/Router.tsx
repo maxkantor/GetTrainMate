@@ -8,6 +8,7 @@ import { AdminRoute } from '@/components/AdminRoute';
 import { LandingPage } from '@/pages/Landing';
 import { PricingPage } from '@/pages/Pricing';
 import { BillingSuccessPage } from '@/pages/BillingSuccess';
+import { BillingCancelPage } from '@/pages/BillingCancel';
 import { AboutPage } from '@/pages/About';
 import { FAQPage } from '@/pages/FAQ';
 import { ContactPage } from '@/pages/Contact';
@@ -33,7 +34,7 @@ import { ContactsPage } from '@/pages/admin/ContactsPage';
 import { AdminLoginPage } from '@/pages/admin/AdminLoginPage';
 import { CMSPage } from '@/pages/admin/CMS';
 import { AdminLayout } from '@/pages/admin/AdminLayout';
-import { BillingPlansPage as AdminBillingPlansPage } from '@/pages/admin/BillingPlansPage';
+import { CreditPacksPage as AdminCreditPacksPage } from '@/pages/admin/CreditPacksPage';
 import { ScrollToTop } from '@/components/ScrollToTop';
 
 export const Router: React.FC = () => {
@@ -47,6 +48,7 @@ export const Router: React.FC = () => {
             <Route path="/" element={<LandingPage />} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/billing/success" element={<BillingSuccessPage />} />
+            <Route path="/billing/cancel" element={<BillingCancelPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/contact" element={<ContactPage />} />
@@ -95,7 +97,7 @@ export const Router: React.FC = () => {
                   <Route path="/admin/translations" element={<AdminDashboard />} />
                   <Route path="/admin/media" element={<AdminDashboard />} />
                   <Route path="/admin/leads" element={<AdminDashboard />} />
-                  <Route path="/admin/billing" element={<AdminBillingPlansPage />} />
+                  <Route path="/admin/credit-packs" element={<AdminCreditPacksPage />} />
                 </Route>
             </Route>
 

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { CircularProgress, Box } from '@mui/material';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { profileService } from '@/services/profileService';
 import { authService } from '@/services/authService';
+import { billingService } from '@/services/billingService';
 
 interface ProtectedRouteProps {
   isAdmin?: boolean;
@@ -18,6 +19,16 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const location = useLocation();
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileComplete, setProfileComplete] = useState(false);
+  const freeCreditsRequested = useRef(false);
+
+  // Grant free signup credits once (idempotent on backend)
+  useEffect(() => {
+    if (!isAuthenticated || freeCreditsRequested.current) return;
+    freeCreditsRequested.current = true;
+    authService.getJWT().then((token) => {
+      if (token) billingService.grantFreeSignup(token).catch(() => {});
+    });
+  }, [isAuthenticated]);
 
   // Check profile completion if required; re-run when pathname changes so we get fresh data after onboarding
   useEffect(() => {

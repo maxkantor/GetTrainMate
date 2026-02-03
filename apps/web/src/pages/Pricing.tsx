@@ -3,38 +3,37 @@ import { useSearchParams } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { authService } from '@/services/authService';
 import { profileService } from '@/services/profileService';
-import { billingService, BillingPlanDto } from '@/services/billingService';
+import { billingService, CreditPackDto } from '@/services/billingService';
 import { useAuthContext } from '@/hooks/useAuthContext';
-import { DEFAULT_PRICING_PLANS } from '@/data/pricingPlans';
+import { DEFAULT_CREDIT_PACKS, CREDIT_FEATURES } from '@/data/creditPacks';
 import styles from '@/pages/Pricing.module.css';
 
-const SELECTED_PLAN_KEY = 'selectedPlanKey';
-
-const DEFAULT_BILLING_PLANS: BillingPlanDto[] = DEFAULT_PRICING_PLANS;
-const PLAN_ORDER = ['free', 'pro', 'elite'] as const;
+const DEFAULT_PACKS: CreditPackDto[] = DEFAULT_CREDIT_PACKS.map((p) => ({
+  key: p.key,
+  title: p.title,
+  priceUsd: p.priceUsd,
+  credits: p.credits,
+  isActive: true,
+  sortOrder: p.sortOrder,
+  isBestValue: p.isBestValue,
+}));
 
 export const PricingPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuthContext();
-  const [plans, setPlans] = useState<BillingPlanDto[]>(DEFAULT_BILLING_PLANS);
+  const [packs, setPacks] = useState<CreditPackDto[]>(DEFAULT_PACKS);
   const [error, setError] = useState<string | null>(null);
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [loadingPack, setLoadingPack] = useState<string | null>(null);
 
   useEffect(() => {
-    billingService.getPlans().then((res) => {
-      const arr = res?.plans ?? [];
+    billingService.getCreditPacks().then((res) => {
+      const arr = res?.packs ?? [];
       const merged =
-        arr.length >= 3
-          ? PLAN_ORDER.map((key) => {
-              const dbPlan = arr.find((p: BillingPlanDto) => p.key === key);
-              const def = DEFAULT_BILLING_PLANS.find((p) => p.key === key)!;
-              return dbPlan
-                ? { ...def, ...dbPlan, features: dbPlan.features?.length ? dbPlan.features : def.features }
-                : def;
-            })
-          : DEFAULT_BILLING_PLANS;
-      setPlans(merged);
-    }).catch(() => setPlans(DEFAULT_BILLING_PLANS));
+        arr.length >= 4
+          ? [...arr].sort((a, b) => a.sortOrder - b.sortOrder)
+          : DEFAULT_PACKS;
+      setPacks(merged);
+    }).catch(() => setPacks(DEFAULT_PACKS));
   }, []);
 
   useEffect(() => {
@@ -45,22 +44,16 @@ export const PricingPage: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const startCheckout = useCallback(async (planKey: 'pro' | 'elite') => {
+  const startCheckout = useCallback(async (packKey: string) => {
     setError(null);
-    setLoadingPlan(planKey);
+    setLoadingPack(packKey);
     try {
       const token = await authService.getJWT();
       if (!token) {
-        localStorage.setItem(SELECTED_PLAN_KEY, planKey);
-        window.location.href = `/signup?plan=${planKey}`;
+        window.location.href = '/signup';
         return;
       }
-      const profile = await profileService.getMyProfile(token);
-      if (!profile?.isComplete) {
-        window.location.href = '/onboarding/profile';
-        return;
-      }
-      const url = await billingService.createCheckoutSession(token, planKey);
+      const url = await billingService.createCheckoutSession(token, packKey);
       window.location.assign(url);
     } catch (err: unknown) {
       const res = err && typeof err === 'object' && 'response' in err
@@ -69,47 +62,52 @@ export const PricingPage: React.FC = () => {
       const msg = res?.data?.error ?? (err instanceof Error ? err.message : 'Checkout failed');
       setError(typeof msg === 'string' ? msg : 'Checkout failed. Try again later.');
     } finally {
-      setLoadingPlan(null);
+      setLoadingPack(null);
     }
   }, []);
 
-  useEffect(() => {
-    const checkout = searchParams.get('checkout') as 'pro' | 'elite' | null;
-    if ((checkout === 'pro' || checkout === 'elite') && isAuthenticated && user && !loadingPlan) {
-      setSearchParams({}, { replace: true });
-      startCheckout(checkout);
-    }
-  }, [searchParams, isAuthenticated, user, startCheckout, loadingPlan, setSearchParams]);
-
-  const handleFree = () => {
-    if (isAuthenticated && user) {
-      window.location.href = '/app/discover';
-    } else {
-      window.location.href = '/signup';
-    }
-  };
-
-  const handlePaid = (planKey: string) => {
-    if (planKey !== 'pro' && planKey !== 'elite') return;
+  const handleFree = useCallback(async () => {
     if (!isAuthenticated || !user) {
-      localStorage.setItem(SELECTED_PLAN_KEY, planKey);
-      window.location.href = `/signup?plan=${planKey}`;
+      window.location.href = '/signup';
       return;
     }
-    startCheckout(planKey as 'pro' | 'elite');
-  };
+    setError(null);
+    setLoadingPack('FREE_3');
+    try {
+      const token = await authService.getJWT();
+      if (!token) {
+        window.location.href = '/signup';
+        return;
+      }
+      await billingService.grantFreeSignup(token);
+      window.location.href = '/app/discover';
+    } catch {
+      setError('Could not grant free credits. Try again.');
+      setLoadingPack(null);
+    }
+  }, [isAuthenticated, user]);
 
-  const sortedPlans = PLAN_ORDER
-    .map((k) => plans.find((p) => p.key === k))
-    .filter((p): p is BillingPlanDto => p != null);
+  const handlePaid = useCallback((packKey: string) => {
+    if (packKey === 'FREE_3') {
+      handleFree();
+      return;
+    }
+    if (!isAuthenticated || !user) {
+      window.location.href = '/signup';
+      return;
+    }
+    startCheckout(packKey);
+  }, [isAuthenticated, user, handleFree, startCheckout]);
+
+  const sortedPacks = [...packs].sort((a, b) => a.sortOrder - b.sortOrder).filter((p) => p.isActive);
 
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
         <Container>
-          <h1 className={styles.title}>Find the Right Training Partner. Faster.</h1>
+          <h1 className={styles.title}>Credits for Training Together</h1>
           <p className={styles.subtext}>
-            Upgrade only when you want unlimited matches, AI compatibility, and priority placement.
+            Get credits to unlock chat, boost visibility, and get AI insights. Start free or buy a pack.
           </p>
         </Container>
       </section>
@@ -122,74 +120,67 @@ export const PricingPage: React.FC = () => {
 
       <section id="pricing-plans" className={styles.section}>
         <Container size="xl">
-          <>
-              <div className={styles.cards}>
-                {sortedPlans.map((plan) => {
-                  const isElite = plan.key === 'elite';
-                  const isFree = plan.key === 'free';
-                  const isPro = plan.key === 'pro';
-                  const isLoading = loadingPlan === plan.key;
-                  const ctaLabel = isPro ? 'Upgrade to Pro' : 'Go Elite';
+          <div className={styles.cards}>
+            {sortedPacks.map((pack) => {
+              const isFree = pack.key === 'FREE_3';
+              const isBestValue = pack.isBestValue;
+              const isLoading = loadingPack === pack.key;
+              const ctaLabel = isFree ? 'Start Free' : 'Buy Credits';
 
-                  return (
-                    <div
-                      key={plan.key}
-                      className={`${styles.card} ${isPro ? styles.cardPro : ''} ${isElite ? styles.cardElite : ''}`}
-                    >
-                      {isElite && <span className={styles.badge}>Most Popular</span>}
-                      <h3 className={styles.planName}>{plan.displayName}</h3>
-                      <div className={styles.price}>
-                        <span className={styles.currency}>$</span>
-                        <span className={styles.amount}>{plan.monthlyPrice}</span>
-                        <span className={styles.period}>/month</span>
-                      </div>
-                      <ul className={styles.features}>
-                        {plan.features.map((f, i) => (
-                          <li key={i}>{f}</li>
-                        ))}
-                      </ul>
-                      {isFree ? (
-                        <button type="button" className={styles.btnSecondary} onClick={handleFree}>
-                          Start Free
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className={isElite ? styles.btnPrimary : styles.btnSecondary}
-                          onClick={() => handlePaid(plan.key)}
-                          disabled={!!loadingPlan}
-                        >
-                          {isLoading ? 'Redirecting…' : ctaLabel}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className={styles.trustRow}>
-                <span className={styles.trustItem}>
-                  <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  </svg>
-                  Cancel anytime
-                </span>
-                <span className={styles.trustItem}>
-                  <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0110 0v4" />
-                  </svg>
-                  Secure payments
-                </span>
-                <span className={styles.trustItem}>
-                  <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="23 4 23 10 17 10" />
-                    <polyline points="1 20 1 14 7 14" />
-                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-                  </svg>
-                  Instant upgrade
-                </span>
-              </div>
-            </>
+              return (
+                <div
+                  key={pack.key}
+                  className={`${styles.card} ${isBestValue ? styles.cardPro : ''} ${pack.key === 'PACK_100' ? styles.cardElite : ''}`}
+                >
+                  {isBestValue && <span className={styles.badge}>Best Value</span>}
+                  <h3 className={styles.planName}>{pack.title}</h3>
+                  <div className={styles.price}>
+                    <span className={styles.currency}>$</span>
+                    <span className={styles.amount}>{pack.priceUsd.toFixed(2)}</span>
+                    {!isFree && <span className={styles.period}> one-time</span>}
+                    {isFree && <span className={styles.period}></span>}
+                  </div>
+                  <p className={styles.creditsLabel}>{pack.credits} credits</p>
+                  <ul className={styles.features}>
+                    {CREDIT_FEATURES.map((f, i) => (
+                      <li key={i}>{f}</li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className={isBestValue ? styles.btnPrimary : styles.btnSecondary}
+                    onClick={() => handlePaid(pack.key)}
+                    disabled={!!loadingPack}
+                  >
+                    {isLoading ? 'Redirecting…' : ctaLabel}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div className={styles.trustRow}>
+            <span className={styles.trustItem}>
+              <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              Secure payments
+            </span>
+            <span className={styles.trustItem}>
+              <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0110 0v4" />
+              </svg>
+              Credits never expire
+            </span>
+            <span className={styles.trustItem}>
+              <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+              </svg>
+              Instant delivery
+            </span>
+          </div>
         </Container>
       </section>
     </main>

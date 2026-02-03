@@ -12,17 +12,58 @@ namespace GetTrainMate.Api.Controllers;
 public class BillingController : ControllerBase
 {
     private readonly IBillingService _billingService;
+    private readonly ICreditsService _creditsService;
     private readonly StripeWebhookSecret _webhookSecret;
     private readonly ILogger<BillingController> _logger;
 
     public BillingController(
         IBillingService billingService,
+        ICreditsService creditsService,
         StripeWebhookSecret webhookSecret,
         ILogger<BillingController> logger)
     {
         _billingService = billingService;
+        _creditsService = creditsService;
         _webhookSecret = webhookSecret;
         _logger = logger;
+    }
+
+    [HttpGet("credit-packs")]
+    [AllowAnonymous]
+    public async Task<ActionResult<CreditPacksResponse>> GetCreditPacks()
+    {
+        try
+        {
+            var (packs, source) = await _creditsService.GetActiveCreditPacksWithSourceAsync();
+            return Ok(new CreditPacksResponse { Packs = packs, Source = source });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching credit packs");
+            return StatusCode(500, new { error = "Failed to load credit packs" });
+        }
+    }
+
+    [HttpGet("credits-balance")]
+    [AllowAnonymous]
+    public async Task<ActionResult<CreditsBalanceDto>> GetCreditsBalance()
+    {
+        var userId = GetUserIdFromToken();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized(new { error = "Valid authentication required." });
+        var balance = await _creditsService.GetCreditsBalanceAsync(userId);
+        return Ok(balance);
+    }
+
+    [HttpPost("grant-free-signup")]
+    [AllowAnonymous]
+    public async Task<ActionResult> GrantFreeSignup()
+    {
+        var userId = GetUserIdFromToken();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized(new { error = "Valid authentication required." });
+        var ok = await _creditsService.GrantFreeSignupCreditsAsync(userId);
+        return ok ? Ok(new { message = "Free credits granted.", credits = 3 }) : BadRequest(new { error = "Could not grant free credits." });
     }
 
     [HttpPost("seed")]
@@ -93,9 +134,9 @@ public class BillingController : ControllerBase
     public async Task<ActionResult<CreateCheckoutResponse>> CreateCheckoutSession(
         [FromBody] CreateCheckoutRequest request)
     {
-        if (request == null || string.IsNullOrWhiteSpace(request.PlanKey))
+        if (request == null || string.IsNullOrWhiteSpace(request.PackKey))
         {
-            return BadRequest(new { error = "planKey is required. Use \"pro\" or \"elite\"." });
+            return BadRequest(new { error = "packKey is required. Use FREE_3, PACK_10, PACK_25, or PACK_100." });
         }
 
         var userId = GetUserIdFromToken();
@@ -111,7 +152,7 @@ public class BillingController : ControllerBase
 
         try
         {
-            var url = await _billingService.CreateCheckoutSessionAsync(userId, request.PlanKey, baseUrl);
+            var url = await _creditsService.CreateCreditsCheckoutSessionAsync(userId, request.PackKey, baseUrl);
             return Ok(new CreateCheckoutResponse { Url = url });
         }
         catch (ArgumentException ex)
@@ -122,7 +163,7 @@ public class BillingController : ControllerBase
         {
             _logger.LogWarning("Checkout failed: {Message}", ex.Message);
             var isConfigError = ex.Message.Contains("invalid price") || ex.Message.Contains("Admin CRM");
-            return StatusCode(isConfigError ? 503 : 400, new { error = isConfigError ? "Billing is being configured. Set monthly price in Admin CRM → Billing Plans." : ex.Message });
+            return StatusCode(isConfigError ? 503 : 400, new { error = isConfigError ? "Credit packs are being configured. Set price in Admin CRM → Credit Packs." : ex.Message });
         }
         catch (Exception ex)
         {
@@ -189,8 +230,16 @@ public class BillingController : ControllerBase
     private async Task HandleCheckoutSessionCompleted(Stripe.Event evt)
     {
         var session = evt.Data.Object as Stripe.Checkout.Session;
-        if (session?.SubscriptionId == null) return;
+        if (session == null) return;
 
+        if (session.Mode == "payment")
+        {
+            await _creditsService.RecordWebhookEventReceivedAsync(evt.Id, evt.Type);
+            await _creditsService.ProcessCheckoutSessionCompletedAsync(evt.Id, session);
+            return;
+        }
+
+        if (session.SubscriptionId == null) return;
         var subscriptionService = new Stripe.SubscriptionService();
         var subscription = await subscriptionService.GetAsync(session.SubscriptionId);
         await UpsertSubscription(subscription, session.Metadata);
@@ -312,6 +361,13 @@ public class ConfirmSessionRequest
 public class CreateCheckoutRequest
 {
     public string PlanKey { get; set; } = string.Empty;
+    public string PackKey { get; set; } = string.Empty;
+}
+
+public class CreditPacksResponse
+{
+    public List<CreditPackDto> Packs { get; set; } = new();
+    public string Source { get; set; } = "default";
 }
 
 public class CreateCheckoutResponse

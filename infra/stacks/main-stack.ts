@@ -68,7 +68,8 @@ export class GetTrainMateStack extends cdk.Stack {
     const adminTables = this.createAdminAndCRMTables();
     const contactsTables = this.createContactsTables();
     const tokenWalletTables = this.createTokenWalletTables();
-    const allTables = [...tables, ...adminTables, ...contactsTables, ...tokenWalletTables];
+    const creditsTables = this.createCreditsTables();
+    const allTables = [...tables, ...adminTables, ...contactsTables, ...tokenWalletTables, ...creditsTables];
 
     // S3 Bucket for media storage (existing bucket; set CORS once in Console → Permissions → CORS)
     const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', 'getrainmate-media-bucket');
@@ -433,6 +434,57 @@ export class GetTrainMateStack extends cdk.Stack {
       partitionKey: { name: 'Email', type: dynamodb.AttributeType.STRING },
     });
     tables.push(stripeCustomersTable);
+
+    return tables;
+  }
+
+  private createCreditsTables(): dynamodb.ITable[] {
+    const tables: dynamodb.ITable[] = [];
+
+    // Credit pack config - DB-driven, editable in Admin CRM
+    const creditPackConfigTable = new dynamodb.Table(this, 'CreditPackConfigTable', {
+      tableName: 'gettrainmate-credit-pack-config',
+      partitionKey: { name: 'Key', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(creditPackConfigTable);
+
+    // User credits balance
+    const userCreditsTable = new dynamodb.Table(this, 'UserCreditsTable', {
+      tableName: 'gettrainmate-user-credits',
+      partitionKey: { name: 'UserId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(userCreditsTable);
+
+    // Credit transactions (ledger)
+    const creditTransactionsTable = new dynamodb.Table(this, 'CreditTransactionsTable', {
+      tableName: 'gettrainmate-credit-transactions',
+      partitionKey: { name: 'Id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    creditTransactionsTable.addGlobalSecondaryIndex({
+      indexName: 'userId-index',
+      partitionKey: { name: 'UserId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'CreatedAt', type: dynamodb.AttributeType.STRING },
+    });
+    creditTransactionsTable.addGlobalSecondaryIndex({
+      indexName: 'checkoutSessionId-index',
+      partitionKey: { name: 'StripeCheckoutSessionId', type: dynamodb.AttributeType.STRING },
+    });
+    tables.push(creditTransactionsTable);
+
+    // Stripe webhook events (idempotency)
+    const stripeWebhookEventsTable = new dynamodb.Table(this, 'StripeWebhookEventsTable', {
+      tableName: 'gettrainmate-stripe-webhook-events',
+      partitionKey: { name: 'EventId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(stripeWebhookEventsTable);
 
     return tables;
   }

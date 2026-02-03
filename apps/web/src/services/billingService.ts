@@ -2,6 +2,7 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
 const PLANS_CACHE_KEY = 'billing_plans_cache';
+const CREDIT_PACKS_CACHE_KEY = 'credit_packs_cache';
 const PLANS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 
 export interface BillingPlanDto {
@@ -21,6 +22,21 @@ export interface SubscriptionStatusDto {
   planKey: string;
   expiresAt?: string;
   recentPayments?: Array<{ paymentId: string; amount: number; status: string; planType: string; createdAt: string }>;
+}
+
+export interface CreditPackDto {
+  key: string;
+  title: string;
+  priceUsd: number;
+  credits: number;
+  isActive: boolean;
+  sortOrder: number;
+  isBestValue: boolean;
+}
+
+export interface CreditsBalanceDto {
+  balance: number;
+  lifetimeEarned: number;
 }
 
 export const billingService = {
@@ -83,14 +99,69 @@ export const billingService = {
     return response.data;
   },
 
+  async getCreditPacks(): Promise<{ packs: CreditPackDto[]; source: string }> {
+    try {
+      const cached = sessionStorage.getItem(CREDIT_PACKS_CACHE_KEY);
+      if (cached) {
+        const { data, expires } = JSON.parse(cached);
+        if (expires > Date.now()) return data;
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      const response = await axios.get<{ packs: CreditPackDto[]; source: string }>(
+        `${API_BASE_URL}/api/billing/credit-packs`,
+        { timeout: 8000 }
+      );
+      const data = response.data;
+      if (data?.packs?.length) {
+        try {
+          sessionStorage.setItem(
+            CREDIT_PACKS_CACHE_KEY,
+            JSON.stringify({ data, expires: Date.now() + PLANS_CACHE_TTL_MS })
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+      return data ?? { packs: [], source: 'default' };
+    } catch {
+      return { packs: [], source: 'default' };
+    }
+  },
+
+  async getCreditsBalance(token: string): Promise<CreditsBalanceDto> {
+    const response = await axios.get<CreditsBalanceDto>(
+      `${API_BASE_URL}/api/billing/credits-balance`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    return response.data;
+  },
+
+  async grantFreeSignup(token: string): Promise<void> {
+    await axios.post(
+      `${API_BASE_URL}/api/billing/grant-free-signup`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  },
+
   async createCheckoutSession(
     token: string,
-    planKey: 'pro' | 'elite'
+    packKey: string
   ): Promise<string> {
     try {
       const response = await axios.post<CreateCheckoutResponse>(
         `${API_BASE_URL}/api/billing/create-checkout-session`,
-        { planKey },
+        { packKey },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -109,7 +180,7 @@ export const billingService = {
         }
         if (err.response?.status === 503) {
           const msg = err.response?.data?.error;
-          throw new Error(typeof msg === 'string' ? msg : 'Billing is being configured. Please try again in a minute.');
+          throw new Error(typeof msg === 'string' ? msg : 'Credit packs are being configured. Please try again in a minute.');
         }
         const msg = err.response?.data?.error;
         if (typeof msg === 'string') throw new Error(msg);
