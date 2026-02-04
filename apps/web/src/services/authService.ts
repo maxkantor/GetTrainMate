@@ -14,13 +14,21 @@ import {
 } from 'aws-amplify/auth';
 import { isGraphQLEnabled, APPSYNC_GRAPHQL_URL } from '@/config/appsync';
 
-const configureAmplify = () => {
+let isConfigured = false;
+
+const configureAmplify = (): boolean => {
   const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID;
   const userPoolClientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
+  const region = import.meta.env.VITE_COGNITO_REGION || 'us-east-1';
 
   if (!userPoolId || !userPoolClientId) {
-    console.error('Missing Cognito configuration. Please set VITE_COGNITO_USER_POOL_ID and VITE_COGNITO_CLIENT_ID');
-    return;
+    console.error(
+      'Auth UserPool not configured. Create apps/web/.env with:\n' +
+        '  VITE_COGNITO_USER_POOL_ID=us-east-1_XXXXX  (from CDK output UserPoolId)\n' +
+        '  VITE_COGNITO_CLIENT_ID=XXXXX               (from CDK output UserPoolClientId or AWS Cognito Console)\n' +
+        '  VITE_COGNITO_REGION=us-east-1'
+    );
+    return false;
   }
 
   try {
@@ -29,6 +37,7 @@ const configureAmplify = () => {
         Cognito: {
           userPoolId,
           userPoolClientId,
+          userPoolRegion: region,
         },
       },
     };
@@ -42,11 +51,16 @@ const configureAmplify = () => {
       };
     }
     Amplify.configure(config);
+    isConfigured = true;
     console.log('Amplify configured successfully');
+    return true;
   } catch (error) {
     console.error('Failed to configure Amplify:', error);
+    return false;
   }
 };
+
+export const isAuthConfigured = (): boolean => isConfigured;
 
 export const authService = {
   configure: configureAmplify,

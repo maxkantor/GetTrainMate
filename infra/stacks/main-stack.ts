@@ -21,8 +21,10 @@ export class GetTrainMateStack extends cdk.Stack {
 
     // Reference existing Cognito User Pool (or create new one if needed)
     let userPool: cognito.IUserPool;
+    let userPoolClientIdOutput: string | undefined;
     if (userPoolId) {
       userPool = cognito.UserPool.fromUserPoolId(this, 'UserPool', userPoolId);
+      userPoolClientIdOutput = userPoolClientId || undefined;
     } else {
       // Create new User Pool if one doesn't exist
       userPool = new cognito.UserPool(this, 'UserPool', {
@@ -53,8 +55,8 @@ export class GetTrainMateStack extends cdk.Stack {
         },
       });
 
-      // Create User Pool Client
-      new cognito.UserPoolClient(this, 'UserPoolClient', {
+      // Create User Pool Client and capture for output
+      const userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
         userPool,
         userPoolClientName: 'gettrainmate-web-client',
         generateSecret: false,
@@ -63,6 +65,7 @@ export class GetTrainMateStack extends cdk.Stack {
           userSrp: true,
         },
       });
+      userPoolClientIdOutput = userPoolClient.userPoolClientId;
     }
 
     // DynamoDB Tables
@@ -273,9 +276,17 @@ export class GetTrainMateStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'UserPoolId', {
       value: userPool.userPoolId,
-      description: 'Cognito User Pool ID',
+      description: 'Cognito User Pool ID - set as VITE_COGNITO_USER_POOL_ID in apps/web/.env',
       exportName: 'GetTrainMateUserPoolId',
     });
+
+    if (userPoolClientIdOutput) {
+      new cdk.CfnOutput(this, 'UserPoolClientId', {
+        value: userPoolClientIdOutput,
+        description: 'Cognito User Pool Client ID - set as VITE_COGNITO_CLIENT_ID in apps/web/.env',
+        exportName: 'GetTrainMateUserPoolClientId',
+      });
+    }
 
     new cdk.CfnOutput(this, 'MediaBucketName', {
       value: mediaBucket.bucketName,

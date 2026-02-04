@@ -27,6 +27,7 @@
     "infra:deploy": "cd infra && npm run deploy",
     "zip": "bash scripts/build-lambda-zip.sh",
     "seed": "cd scripts && node seed.js",
+    "env:sync": "node scripts/sync-env-from-aws.js",
     "prepare": "husky install"
   },
   "devDependencies": {

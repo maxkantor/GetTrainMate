@@ -113,25 +113,30 @@
   color: var(--color-primary);
 }
 
-/* Transparent header overrides (for landing hero) */
-:global(.header.transparent) .trigger {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-:global(.header.transparent) .trigger:hover {
+/* Hero: white trigger – explicit color, force white text */
+:global(header[data-variant='hero']) .trigger {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
   background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
-:global(.header.transparent.scrolled) .trigger {
-  color: var(--color-neutral-700);
-  background: var(--color-neutral-50);
+:global(header[data-variant='hero']) .trigger:hover {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Solid: dark trigger */
+:global(header[data-variant='solid']) .trigger {
+  color: #0f172a !important;
+  background: var(--color-neutral-100);
   border-color: var(--color-neutral-200);
 }
 
-:global(.header.transparent.scrolled) .trigger:hover {
-  background: var(--color-neutral-100);
+:global(header[data-variant='solid']) .trigger:hover {
+  color: #0f172a !important;
+  background: var(--color-neutral-200);
   border-color: var(--color-neutral-300);
 }

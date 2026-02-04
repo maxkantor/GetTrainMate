@@ -85,17 +85,6 @@ export const Hero: React.FC = () => {
                 {t('landing.cta_secondary')}
               </Button>
             </div>
-
-            {/* Trust Logos */}
-            <div className={styles.trustLogos}>
-              <span className={styles.trustLabel}>{t('landing.featured_in')}</span>
-              <div className={styles.logoGrid}>
-                <div className={styles.trustLogo}>TechCrunch</div>
-                <div className={styles.trustLogo}>Forbes</div>
-                <div className={styles.trustLogo}>Wired</div>
-                <div className={styles.trustLogo}>Product Hunt</div>
-              </div>
-            </div>
           </div>
 
           {/* Right Visual - Partner Match Cards */}

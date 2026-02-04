@@ -13,6 +13,8 @@ import {
 } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { isAuthConfigured } from '@/services/authService';
+
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -198,6 +200,12 @@ export const LoginPage: React.FC = () => {
           {t('auth.welcomeBack')}
         </Typography>
 
+        {!isAuthConfigured() && (
+          <Alert severity="warning" sx={{ marginBottom: 2 }}>
+            Auth not configured. Run <code>npm run env:sync</code> to fetch Cognito config from the deployed CDK stack and create <code>apps/web/.env</code>.
+          </Alert>
+        )}
+
         {error && (
           <Alert severity="error" sx={{ marginBottom: 2 }}>
             {error}
@@ -248,7 +256,7 @@ export const LoginPage: React.FC = () => {
             variant="contained"
             color="primary"
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || !isAuthConfigured()}
             sx={{ marginY: 2, padding: '10px' }}
           >
             {isLoading ? <CircularProgress size={24} /> : t('auth.login')}
