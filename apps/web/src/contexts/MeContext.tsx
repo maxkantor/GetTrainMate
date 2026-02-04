@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { authService } from '@/services/authService';
 import { meService, type MeResponse } from '@/services/meService';
+import { isGraphQLEnabled, graphqlGetMe, graphqlEnsureFreeStartCredits } from '@/services/graphqlService';
 
 interface MeContextType {
   me: MeResponse | null;
@@ -21,6 +22,33 @@ interface MeProviderProps {
   children: React.ReactNode;
 }
 
+function mapGraphQLMeToResponse(g: Awaited<ReturnType<typeof graphqlGetMe>>): MeResponse {
+  const profile = g.profile
+    ? {
+        userId: (g.profile as { userId?: string }).userId ?? '',
+        email: '',
+        name: (g.profile as { displayName?: string }).displayName ?? '',
+        city: (g.profile as { city?: string }).city,
+        bio: (g.profile as { bio?: string }).bio,
+        sportTags: ((g.profile as { sports?: string[] }).sports as string[]) ?? [],
+        level: (g.profile as { level?: string }).level,
+        goals: ((g.profile as { goals?: string[] }).goals as string[]) ?? [],
+        availabilitySchedule: ((g.profile as { schedule?: unknown[] }).schedule as { days: string[]; timeStart: string; timeEnd: string }[]) ?? [],
+        mode: 'TRAIN' as const,
+        photoUrls: (g.profile as { avatarUrl?: string }).avatarUrl ? [(g.profile as { avatarUrl: string }).avatarUrl] : [],
+        isComplete: g.isProfileComplete,
+        updatedAt: (g.profile as { updatedAt?: string }).updatedAt,
+      }
+    : null;
+  return {
+    user: { id: g.user.id, email: g.user.email ?? '' },
+    profile,
+    credits: g.credits,
+    isProfileComplete: g.isProfileComplete,
+    isAdmin: g.user.isAdmin ?? false,
+  };
+}
+
 export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
   const { isAuthenticated } = useAuthContext();
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -36,14 +64,20 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      const token = await authService.getJWT();
-      if (!token) {
-        setMe(null);
-        setLoading(false);
-        return;
+      if (isGraphQLEnabled) {
+        const data = await graphqlGetMe();
+        setMe(mapGraphQLMeToResponse(data));
+        graphqlEnsureFreeStartCredits().then(() => fetchMe()).catch(() => {});
+      } else {
+        const token = await authService.getJWT();
+        if (!token) {
+          setMe(null);
+          setLoading(false);
+          return;
+        }
+        const data = await meService.getMe(token);
+        setMe(data);
       }
-      const data = await meService.getMe(token);
-      setMe(data);
     } catch (err) {
       console.error('Error fetching /me:', err);
       setError(err instanceof Error ? err.message : 'Failed to load account');

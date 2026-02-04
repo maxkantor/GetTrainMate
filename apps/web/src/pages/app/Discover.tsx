@@ -21,6 +21,7 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { matchService, MatchFeedItem } from '@/services/matchService';
 import { authService } from '@/services/authService';
+import { isGraphQLEnabled, graphqlDiscoverCandidates, graphqlLikeUser, graphqlSeedDemoData } from '@/services/graphqlService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 
 export const DiscoverPage: React.FC = () => {
@@ -46,23 +47,39 @@ export const DiscoverPage: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      // Use fresh token when retrying after 401
-      const token = await authService.getJWT(isRetryAfter401);
-      if (!token) {
-        setError('Not authenticated');
-        setLoading(false);
-        return;
+      if (isGraphQLEnabled) {
+        const result = await graphqlDiscoverCandidates(50);
+        const items = (result.items || []) as { userId: string; displayName: string; city?: string; bio?: string; sports?: string[]; avatarUrl?: string; compatibilityScore?: number }[];
+        const feedData: MatchFeedItem[] = items.map((c) => ({
+          userId: c.userId,
+          name: c.displayName,
+          city: c.city,
+          bio: c.bio ?? undefined,
+          sportTags: c.sports ?? [],
+          photoUrls: c.avatarUrl ? [c.avatarUrl] : [],
+          compatibilityScore: c.compatibilityScore ?? 50,
+          commonSports: c.sports ?? [],
+          mode: 'TRAIN',
+        }));
+        setFeed(feedData);
+        setCurrentIndex(0);
+      } else {
+        const token = await authService.getJWT(isRetryAfter401);
+        if (!token) {
+          setError('Not authenticated');
+          setLoading(false);
+          return;
+        }
+        const feedData = await matchService.getDiscoveryFeed(token, 50);
+        setFeed(feedData);
+        setCurrentIndex(0);
       }
-
-      const feedData = await matchService.getDiscoveryFeed(token, 50);
-      setFeed(feedData);
-      setCurrentIndex(0);
     } catch (err: any) {
       const status = err.response?.status;
       const apiError = handleApiError(err);
 
-      // On 401: try once with refreshed token, then show auth error
-      if (status === 401 && !isRetryAfter401) {
+      // On 401: try once with refreshed token, then show auth error (REST only)
+      if (!isGraphQLEnabled && status === 401 && !isRetryAfter401) {
         const freshToken = await authService.getJWT(true);
         if (freshToken) {
           try {
@@ -107,31 +124,50 @@ export const DiscoverPage: React.FC = () => {
 
     try {
       setLikeLoading(true);
-      const token = await authService.getJWT();
-      if (!token) return;
-
       const currentCard = feed[currentIndex];
-      const result = await matchService.likeUser(token, currentCard.userId);
-      await refreshMe();
-
-      if (result.isMatched) {
-        setMatched(true);
-        setToast("It's a match! You can chat after you both unlock.");
-        setTimeout(() => {
+      if (isGraphQLEnabled) {
+        const result = await graphqlLikeUser(currentCard.userId);
+        await refreshMe();
+        if (result.isMatched) {
+          setMatched(true);
+          setToast("It's a match! You can chat after you both unlock.");
+          setTimeout(() => {
+            nextCard();
+            setMatched(false);
+          }, 1500);
+        } else {
+          setToast('Liked');
           nextCard();
-          setMatched(false);
-        }, 1500);
+        }
       } else {
-        setToast('Liked');
-        nextCard();
+        const token = await authService.getJWT();
+        if (!token) return;
+        const result = await matchService.likeUser(token, currentCard.userId);
+        await refreshMe();
+        if (result.isMatched) {
+          setMatched(true);
+          setToast("It's a match! You can chat after you both unlock.");
+          setTimeout(() => {
+            nextCard();
+            setMatched(false);
+          }, 1500);
+        } else {
+          setToast('Liked');
+          nextCard();
+        }
       }
     } catch (err: unknown) {
-      const apiError = handleApiError(err);
-      if (apiError.code === 'INSUFFICIENT_CREDITS' || (err as { response?: { status?: number } })?.response?.status === 402) {
-        setToast(apiError.message || 'Not enough credits. Get more on the Pricing page.');
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('INSUFFICIENT_CREDITS') || msg.includes('Insufficient')) {
+        setToast('Not enough credits. Get more on the Pricing page.');
       } else {
-        console.error('Error liking user:', err);
-        setToast(apiError.message || 'Failed to like');
+        const apiError = handleApiError(err);
+        if (apiError.code === 'INSUFFICIENT_CREDITS' || (err as { response?: { status?: number } })?.response?.status === 402) {
+          setToast(apiError.message || 'Not enough credits. Get more on the Pricing page.');
+        } else {
+          console.error('Error liking user:', err);
+          setToast(apiError.message || 'Failed to like');
+        }
       }
     } finally {
       setLikeLoading(false);
@@ -142,14 +178,20 @@ export const DiscoverPage: React.FC = () => {
     try {
       setSeeding(true);
       setError('');
-      const token = await authService.getJWT();
-      if (!token) {
-        setError('Not authenticated');
-        return;
+      if (isGraphQLEnabled) {
+        await graphqlSeedDemoData();
+        setError('');
+        await loadFeed();
+      } else {
+        const token = await authService.getJWT();
+        if (!token) {
+          setError('Not authenticated');
+          return;
+        }
+        await matchService.seedDemoProfiles(token);
+        setError('');
+        await loadFeed();
       }
-      const result = await matchService.seedDemoProfiles(token);
-      setError('');
-      await loadFeed();
     } catch (err: unknown) {
       const apiError = handleApiError(err as Error);
       setError(apiError.message || 'Failed to load demo profiles');
@@ -162,6 +204,10 @@ export const DiscoverPage: React.FC = () => {
     if (currentIndex >= feed.length) return;
 
     try {
+      if (isGraphQLEnabled) {
+        nextCard();
+        return;
+      }
       const token = await authService.getJWT();
       if (!token) return;
 

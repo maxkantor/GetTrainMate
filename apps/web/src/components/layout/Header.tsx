@@ -23,14 +23,20 @@ export const Header: React.FC = () => {
   const profileComplete = me?.isProfileComplete ?? true;
   const isAdminUser = me?.isAdmin ?? user?.groups?.includes('Admin') ?? false;
 
-  // Track scroll for transparent header on landing page
+  // Hero mode: only on landing page (pathname === '/')
+  const variant = location.pathname === '/' ? 'hero' : 'solid';
+  const isHeroMode = variant === 'hero';
+
+  // Track scroll only in hero mode; after ~24px header becomes frosted
   useEffect(() => {
+    if (!isHeroMode) return;
     const handleScroll = () => {
-      setScrolled(window.scrollY > 8);
+      setScrolled(window.scrollY > 24);
     };
+    handleScroll(); // set initial state
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isHeroMode]);
 
   // Close user menu on outside click
   useEffect(() => {
@@ -110,12 +116,13 @@ export const Header: React.FC = () => {
     return location.pathname === href || location.pathname.startsWith(href + '/');
   };
 
-  // Transparent header only on landing page when not scrolled
-  const isLandingPage = location.pathname === '/';
-  const isTransparent = isLandingPage && !scrolled;
+  // Hero: transparent at top, frosted after scroll. Solid: always frosted.
+  const isTransparent = isHeroMode && !scrolled;
 
   return (
-    <header className={`${styles.header} ${scrolled ? styles.scrolled : ''} ${isTransparent ? styles.transparent : ''}`}>
+    <header
+      className={`${styles.header} ${styles[variant]} ${isTransparent ? styles.transparent : ''} ${isHeroMode && scrolled ? styles.heroScrolled : ''}`}
+    >
       <Container>
         <div className={styles.headerInner}>
           {/* Logo - Left */}

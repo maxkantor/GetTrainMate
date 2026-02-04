@@ -23,6 +23,15 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { chatService, ThreadPreviewResponse, ChatMessage } from '@/services/chatService';
 import { authService } from '@/services/authService';
+import {
+  isGraphQLEnabled,
+  graphqlGetThreadByMatch,
+  graphqlListMessages,
+  graphqlUnlockChat,
+  graphqlCreateMessage,
+  graphqlSubscribeMessages,
+  graphqlListMyMatches,
+} from '@/services/graphqlService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 
 export const ChatPage: React.FC = () => {
@@ -51,17 +60,31 @@ export const ChatPage: React.FC = () => {
   useEffect(() => {
     if (threadIdFromUrl) {
       const checkLock = async () => {
-        const token = await authService.getJWT();
-        if (!token) return;
-        try {
-          const status = await chatService.getThreadByMatch(token, threadIdFromUrl);
-          setThreadLocked(!status.unlockedByCurrentUser);
-          setSelectedThreadId(threadIdFromUrl);
-          const threadPreview = threads.find((t) => t.threadId === threadIdFromUrl);
-          if (threadPreview) setOtherName(threadPreview.otherUserName);
-        } catch {
-          setThreadLocked(true);
-          setSelectedThreadId(threadIdFromUrl);
+        if (isGraphQLEnabled) {
+          try {
+            const data = await graphqlGetThreadByMatch(threadIdFromUrl) as { unlockedByCurrentUser?: boolean; otherUserProfile?: { displayName?: string } } | null;
+            if (data) {
+              setThreadLocked(!data.unlockedByCurrentUser);
+              if (data.otherUserProfile?.displayName) setOtherName(data.otherUserProfile.displayName);
+            } else setThreadLocked(true);
+            setSelectedThreadId(threadIdFromUrl);
+          } catch {
+            setThreadLocked(true);
+            setSelectedThreadId(threadIdFromUrl);
+          }
+        } else {
+          const token = await authService.getJWT();
+          if (!token) return;
+          try {
+            const status = await chatService.getThreadByMatch(token, threadIdFromUrl);
+            setThreadLocked(!status.unlockedByCurrentUser);
+            setSelectedThreadId(threadIdFromUrl);
+            const threadPreview = threads.find((t) => t.threadId === threadIdFromUrl);
+            if (threadPreview) setOtherName(threadPreview.otherUserName);
+          } catch {
+            setThreadLocked(true);
+            setSelectedThreadId(threadIdFromUrl);
+          }
         }
       };
       checkLock();
@@ -89,20 +112,39 @@ export const ChatPage: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      const token = await authService.getJWT();
-      if (!token) {
-        setError('Not authenticated');
-        return;
-      }
-
-      const data = await chatService.getThreads(token);
-      setThreads(data);
-      if (data.length > 0 && !selectedThreadId && !threadIdFromUrl) {
-        setSelectedThreadId(data[0].threadId);
-      }
-      if (threadIdFromUrl) {
-        const preview = data.find((t) => t.threadId === threadIdFromUrl);
-        if (preview) setOtherName(preview.otherUserName);
+      if (isGraphQLEnabled) {
+        const items = await graphqlListMyMatches() as { matchId: string; threadId: string; otherUserProfile?: { displayName?: string } }[];
+        const data: ThreadPreviewResponse[] = items.map((m) => ({
+          threadId: m.threadId ?? m.matchId,
+          otherUserId: '',
+          otherUserName: m.otherUserProfile?.displayName ?? 'Unknown',
+          lastMessage: '',
+          lastMessageAt: '',
+          unreadCount: 0,
+        }));
+        setThreads(data);
+        if (data.length > 0 && !selectedThreadId && !threadIdFromUrl) {
+          setSelectedThreadId(data[0].threadId);
+        }
+        if (threadIdFromUrl) {
+          const preview = data.find((t) => t.threadId === threadIdFromUrl);
+          if (preview) setOtherName(preview.otherUserName);
+        }
+      } else {
+        const token = await authService.getJWT();
+        if (!token) {
+          setError('Not authenticated');
+          return;
+        }
+        const data = await chatService.getThreads(token);
+        setThreads(data);
+        if (data.length > 0 && !selectedThreadId && !threadIdFromUrl) {
+          setSelectedThreadId(data[0].threadId);
+        }
+        if (threadIdFromUrl) {
+          const preview = data.find((t) => t.threadId === threadIdFromUrl);
+          if (preview) setOtherName(preview.otherUserName);
+        }
       }
     } catch (err: unknown) {
       console.error('Error loading threads:', err);
@@ -122,9 +164,13 @@ export const ChatPage: React.FC = () => {
     try {
       setUnlocking(true);
       setError('');
-      const token = await authService.getJWT();
-      if (!token) return;
-      await chatService.unlockChat(token, threadIdFromUrl);
+      if (isGraphQLEnabled) {
+        await graphqlUnlockChat(threadIdFromUrl);
+      } else {
+        const token = await authService.getJWT();
+        if (!token) return;
+        await chatService.unlockChat(token, threadIdFromUrl);
+      }
       await refreshMe();
       setThreadLocked(false);
       await loadThreads();
@@ -140,11 +186,25 @@ export const ChatPage: React.FC = () => {
 
   const loadMessages = async (threadId: string) => {
     try {
-      const token = await authService.getJWT();
-      if (!token) return;
-
-      const data = await chatService.getMessages(token, threadId, 100);
-      setMessages(data);
+      if (isGraphQLEnabled) {
+        const result = await graphqlListMessages(threadId, 100);
+        const items = (result.items || []) as { id: string; threadId: string; createdAt: string; fromUserId: string; body: string; senderName?: string }[];
+        const data: ChatMessage[] = items.map((m) => ({
+          messageId: m.id,
+          threadId: m.threadId,
+          senderId: m.fromUserId,
+          senderName: m.senderName ?? '',
+          content: m.body,
+          isRead: false,
+          createdAt: m.createdAt,
+        }));
+        setMessages(data);
+      } else {
+        const token = await authService.getJWT();
+        if (!token) return;
+        const data = await chatService.getMessages(token, threadId, 100);
+        setMessages(data);
+      }
     } catch (err: any) {
       console.error('Error loading messages:', err);
     }
@@ -171,11 +231,29 @@ export const ChatPage: React.FC = () => {
 
     try {
       setSending(true);
-      const token = await authService.getJWT();
-      if (!token) return;
-
-      const newMessage = await chatService.sendMessage(token, selectedThreadId, messageContent);
-      setMessages([...messages, newMessage]);
+      if (isGraphQLEnabled) {
+        const newMessage = await graphqlCreateMessage({
+          matchId: selectedThreadId,
+          body: messageContent.trim(),
+        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            messageId: newMessage.id,
+            threadId: newMessage.threadId,
+            senderId: newMessage.fromUserId,
+            senderName: newMessage.senderName ?? '',
+            content: newMessage.body,
+            isRead: false,
+            createdAt: newMessage.createdAt,
+          },
+        ]);
+      } else {
+        const token = await authService.getJWT();
+        if (!token) return;
+        const newMessage = await chatService.sendMessage(token, selectedThreadId, messageContent);
+        setMessages([...messages, newMessage]);
+      }
       setMessageContent('');
     } catch (err: any) {
       console.error('Error sending message:', err);

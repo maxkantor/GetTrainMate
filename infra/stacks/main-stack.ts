@@ -2,7 +2,9 @@ import * as cdk from 'aws-cdk-lib';
 import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigatewayIntegrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as appsync from 'aws-cdk-lib/aws-appsync';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
@@ -187,6 +189,81 @@ export class GetTrainMateStack extends cdk.Stack {
       integration: lambdaIntegration,
     });
 
+    // ----- AppSync GraphQL API (chat, discover, matches, credits) -----
+    const schemaPath = path.join(__dirname, '../appsync/schema.graphql');
+    const graphqlApi = new appsync.GraphqlApi(this, 'GraphqlApi', {
+      name: 'gettrainmate-graphql',
+      definition: appsync.Definition.fromFile(schemaPath),
+      authorizationConfig: {
+        defaultAuthorization: {
+          authorizationType: appsync.AuthorizationType.USER_POOL,
+          userPoolConfig: {
+            userPool,
+          },
+        },
+        additionalAuthorizationModes: [],
+      },
+      xrayEnabled: false,
+    });
+
+    const resolverLambda = new nodejs.NodejsFunction(this, 'AppSyncResolver', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'handler',
+      entry: path.join(__dirname, '../lambdas/appsync-resolver/index.js'),
+      timeout: cdk.Duration.seconds(25),
+      memorySize: 256,
+      environment: {
+        DYNAMODB_TABLE_PREFIX: 'gettrainmate-',
+        COGNITO_USER_POOL_ID: userPool.userPoolId,
+        ADMIN_EMAILS: process.env.ADMIN_EMAILS || '',
+      },
+      bundling: {
+        format: nodejs.OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+        externalModules: [],
+      },
+    });
+    allTables.forEach((table) => table.grantReadWriteData(resolverLambda));
+    resolverLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['cognito-idp:AdminGetUser'],
+        resources: [userPool.userPoolArn],
+      }),
+    );
+
+    const lambdaDs = graphqlApi.addLambdaDataSource('ResolverDataSource', resolverLambda);
+
+    const queryType = 'Query';
+    const mutationType = 'Mutation';
+    const subscriptionType = 'Subscription';
+    ['getMe', 'discoverCandidates', 'listMyMatches', 'getThreadByMatch', 'listMessages'].forEach(
+      (field) => {
+        lambdaDs.createResolver(`${queryType}${field}`, {
+          typeName: queryType,
+          fieldName: field,
+        });
+      },
+    );
+    [
+      'upsertProfile',
+      'ensureFreeStartCredits',
+      'likeUser',
+      'unlockChat',
+      'createMessage',
+      'seedDemoData',
+    ].forEach((field) => {
+      lambdaDs.createResolver(`${mutationType}${field}`, {
+        typeName: mutationType,
+        fieldName: field,
+      });
+    });
+    lambdaDs.createResolver(`${subscriptionType}onMessageCreated`, {
+      typeName: subscriptionType,
+      fieldName: 'onMessageCreated',
+    });
+
     // Outputs
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: httpApi.url!,
@@ -204,6 +281,18 @@ export class GetTrainMateStack extends cdk.Stack {
       value: mediaBucket.bucketName,
       description: 'S3 Media Bucket Name',
       exportName: 'GetTrainMateMediaBucket',
+    });
+
+    new cdk.CfnOutput(this, 'GraphqlApiUrl', {
+      value: graphqlApi.graphqlUrl,
+      description: 'AppSync GraphQL API URL',
+      exportName: 'GetTrainMateGraphqlApiUrl',
+    });
+
+    new cdk.CfnOutput(this, 'GraphqlApiId', {
+      value: graphqlApi.apiId,
+      description: 'AppSync API ID',
+      exportName: 'GetTrainMateGraphqlApiId',
     });
   }
 

@@ -12,6 +12,7 @@ import {
   updateUserAttributes,
   updatePassword,
 } from 'aws-amplify/auth';
+import { isGraphQLEnabled, APPSYNC_GRAPHQL_URL } from '@/config/appsync';
 
 const configureAmplify = () => {
   const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID;
@@ -23,14 +24,24 @@ const configureAmplify = () => {
   }
 
   try {
-    Amplify.configure({
+    const config: Record<string, unknown> = {
       Auth: {
         Cognito: {
           userPoolId,
           userPoolClientId,
         },
       },
-    });
+    };
+    if (isGraphQLEnabled && APPSYNC_GRAPHQL_URL) {
+      config.API = {
+        GraphQL: {
+          endpoint: APPSYNC_GRAPHQL_URL,
+          region: import.meta.env.VITE_APPSYNC_REGION || 'us-east-1',
+          defaultAuthMode: 'userPool' as const,
+        },
+      };
+    }
+    Amplify.configure(config);
     console.log('Amplify configured successfully');
   } catch (error) {
     console.error('Failed to configure Amplify:', error);

@@ -22,6 +22,7 @@ import { matchService } from '@/services/matchService';
 import { profileService } from '@/services/profileService';
 import { chatService } from '@/services/chatService';
 import { authService } from '@/services/authService';
+import { isGraphQLEnabled, graphqlListMyMatches, graphqlUnlockChat } from '@/services/graphqlService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 import { useNavigate } from 'react-router-dom';
 
@@ -58,60 +59,76 @@ export const MatchesPage: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      const token = await authService.getJWT();
-      if (!token) {
-        setError('Not authenticated');
-        return;
+      if (isGraphQLEnabled) {
+        const items = await graphqlListMyMatches();
+        const transformedMatches: Match[] = (items as { matchId: string; threadId: string; unlockedByMe: boolean; createdAt?: string; otherUserProfile?: { userId: string; displayName: string; city?: string; bio?: string; sports?: string[]; avatarUrl?: string } }[]).map((m) => ({
+          matchId: m.matchId,
+          userId: m.otherUserProfile?.userId ?? '',
+          name: m.otherUserProfile?.displayName ?? 'Unknown User',
+          photoUrls: m.otherUserProfile?.avatarUrl ? [m.otherUserProfile.avatarUrl] : [],
+          bio: m.otherUserProfile?.bio ?? '',
+          city: m.otherUserProfile?.city ?? '',
+          sportTags: m.otherUserProfile?.sports ?? [],
+          matchedAt: m.createdAt ?? new Date().toISOString(),
+          unlockedByMe: m.unlockedByMe,
+        }));
+        setMatches(transformedMatches);
+      } else {
+        const token = await authService.getJWT();
+        if (!token) {
+          setError('Not authenticated');
+          return;
+        }
+
+        const matchesData = await matchService.getMyMatches(token);
+        const currentUserId = user?.sub ?? '';
+
+        const transformedMatches: Match[] = await Promise.all(
+          matchesData.map(async (match: { matchId: string; userId1: string; userId2: string; createdAt?: string; compatibilityScore?: number }) => {
+            const otherUserId = match.userId1 === currentUserId ? match.userId2 : match.userId1;
+            let unlockedByMe = false;
+            try {
+              const threadStatus = await chatService.getThreadByMatch(token, match.matchId);
+              unlockedByMe = threadStatus.unlockedByCurrentUser;
+            } catch {
+              // thread may not exist yet
+            }
+            try {
+              const profile = await profileService.getProfile(token, otherUserId);
+              return {
+                matchId: match.matchId,
+                userId: otherUserId,
+                name: profile.name || 'Unknown User',
+                photoUrls: profile.photoUrls || [],
+                bio: profile.bio || '',
+                city: profile.city || '',
+                level: profile.level || '',
+                sportTags: profile.sportTags || [],
+                matchedAt: match.createdAt || new Date().toISOString(),
+                compatibilityScore: match.compatibilityScore || 0,
+                unlockedByMe,
+              };
+            } catch (err) {
+              console.error(`Failed to fetch profile for ${otherUserId}:`, err);
+              return {
+                matchId: match.matchId,
+                userId: otherUserId,
+                name: 'Unknown User',
+                photoUrls: [],
+                bio: '',
+                city: '',
+                level: '',
+                sportTags: [],
+                matchedAt: match.createdAt || new Date().toISOString(),
+                compatibilityScore: match.compatibilityScore || 0,
+                unlockedByMe,
+              };
+            }
+          })
+        );
+
+        setMatches(transformedMatches);
       }
-
-      const matchesData = await matchService.getMyMatches(token);
-      const currentUserId = user?.sub ?? '';
-
-      const transformedMatches: Match[] = await Promise.all(
-        matchesData.map(async (match: { matchId: string; userId1: string; userId2: string; createdAt?: string; compatibilityScore?: number }) => {
-          const otherUserId = match.userId1 === currentUserId ? match.userId2 : match.userId1;
-          let unlockedByMe = false;
-          try {
-            const threadStatus = await chatService.getThreadByMatch(token, match.matchId);
-            unlockedByMe = threadStatus.unlockedByCurrentUser;
-          } catch {
-            // thread may not exist yet
-          }
-          try {
-            const profile = await profileService.getProfile(token, otherUserId);
-            return {
-              matchId: match.matchId,
-              userId: otherUserId,
-              name: profile.name || 'Unknown User',
-              photoUrls: profile.photoUrls || [],
-              bio: profile.bio || '',
-              city: profile.city || '',
-              level: profile.level || '',
-              sportTags: profile.sportTags || [],
-              matchedAt: match.createdAt || new Date().toISOString(),
-              compatibilityScore: match.compatibilityScore || 0,
-              unlockedByMe,
-            };
-          } catch (err) {
-            console.error(`Failed to fetch profile for ${otherUserId}:`, err);
-            return {
-              matchId: match.matchId,
-              userId: otherUserId,
-              name: 'Unknown User',
-              photoUrls: [],
-              bio: '',
-              city: '',
-              level: '',
-              sportTags: [],
-              matchedAt: match.createdAt || new Date().toISOString(),
-              compatibilityScore: match.compatibilityScore || 0,
-              unlockedByMe,
-            };
-          }
-        })
-      );
-
-      setMatches(transformedMatches);
     } catch (err: any) {
       console.error('Error loading matches:', err);
       const apiError = handleApiError(err);
@@ -136,9 +153,13 @@ export const MatchesPage: React.FC = () => {
     if (unlockingMatchId || (me?.credits ?? 0) < 1) return;
     try {
       setUnlockingMatchId(m.matchId);
-      const token = await authService.getJWT();
-      if (!token) return;
-      await chatService.unlockChat(token, m.matchId);
+      if (isGraphQLEnabled) {
+        await graphqlUnlockChat(m.matchId);
+      } else {
+        const token = await authService.getJWT();
+        if (!token) return;
+        await chatService.unlockChat(token, m.matchId);
+      }
       await refreshMe();
       setMatches((prev) =>
         prev.map((x) => (x.matchId === m.matchId ? { ...x, unlockedByMe: true } : x))

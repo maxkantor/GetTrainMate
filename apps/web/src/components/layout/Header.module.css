@@ -6,15 +6,33 @@
   top: 0;
   width: 100%;
   height: 64px;
-  background: white;
-  border-bottom: 1px solid var(--color-neutral-200);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: background-color var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
-  z-index: var(--z-sticky);
+  z-index: 50;
 }
 
-.header.scrolled {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+/* Solid mode: internal app pages – always frosted white */
+.header.solid {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Hero mode at top: transparent */
+.header.hero.transparent {
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  box-shadow: none;
+}
+
+/* Hero mode after scroll: dark frosted glass */
+.header.hero.heroScrolled {
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .headerInner {
@@ -107,21 +125,33 @@
   outline-offset: 2px;
 }
 
+/* Active tab: pill – consistent styling */
 .navLink.activeLink {
-  color: var(--color-primary);
   font-weight: var(--font-semibold);
 }
 
-.navLink.activeLink::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 24px;
-  height: 2px;
-  background: var(--color-primary);
-  border-radius: var(--radius-full);
+/* Solid mode: light gray/blue pill */
+.header.solid .navLink.activeLink {
+  background: rgba(99, 102, 241, 0.1);
+  color: #111827;
+}
+
+.header.solid .navLink.activeLink:hover {
+  background: rgba(99, 102, 241, 0.15);
+  color: #111827;
+}
+
+/* Hero mode (transparent or scrolled): translucent light pill on dark/transparent */
+.header.hero.transparent .navLink.activeLink,
+.header.hero.heroScrolled .navLink.activeLink {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.header.hero.transparent .navLink.activeLink:hover,
+.header.hero.heroScrolled .navLink.activeLink:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
 }
 
 /* ============================================
@@ -704,134 +734,151 @@
 }
 
 /* ============================================
-   TRANSPARENT MODE (Landing Page)
+   HERO MODE (Landing page)
    ============================================ */
-.header.transparent {
-  background: rgba(10, 12, 22, 0.3);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom-color: rgba(255, 255, 255, 0.1);
-  box-shadow: none;
-}
-
-.header.transparent .logoText {
+/* Hero transparent at top: light text over hero */
+.header.hero.transparent .logoText {
   background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.header.transparent .navLink {
+.header.hero.transparent .navLink {
   color: rgba(255, 255, 255, 0.9);
 }
 
-.header.transparent .navLink:hover {
-  color: white;
-  background: rgba(255, 255, 255, 0.15);
+.header.hero.transparent .navLink:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.header.transparent .navLink.activeLink {
-  color: white;
-}
-
-.header.transparent .navLink.activeLink::after {
-  background: white;
-}
-
-.header.transparent .languageSelect {
+.header.hero.transparent .languageSelect {
   color: rgba(255, 255, 255, 0.9);
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.2);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
 }
 
-.header.transparent .languageSelect:hover {
+.header.hero.transparent .languageSelect:hover {
   background: rgba(255, 255, 255, 0.15);
   border-color: rgba(255, 255, 255, 0.3);
 }
 
-.header.transparent .loginButton {
+.header.hero.transparent .loginButton {
   color: rgba(255, 255, 255, 0.9);
   border-color: rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.1);
 }
 
-.header.transparent .loginButton:hover {
-  color: white;
+.header.hero.transparent .loginButton:hover {
+  color: #ffffff;
   border-color: rgba(255, 255, 255, 0.5);
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.18);
 }
 
-.header.transparent .signupButton {
+.header.hero.transparent .signupButton {
   background: rgba(255, 255, 255, 0.95);
-  color: var(--color-neutral-900);
+  color: #111827;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.header.transparent .signupButton:hover {
-  background: white;
+.header.hero.transparent .signupButton:hover {
+  background: #ffffff;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
-.header.transparent .userButton {
+.header.hero.transparent .userButton {
   color: rgba(255, 255, 255, 0.9);
 }
 
-.header.transparent .userButton:hover {
-  background: rgba(255, 255, 255, 0.15);
+.header.hero.transparent .userButton:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.header.transparent .chevron {
+.header.hero.transparent .chevron {
   color: rgba(255, 255, 255, 0.7);
 }
 
-.header.transparent .mobileMenuButton {
+.header.hero.transparent .mobileMenuButton {
   color: rgba(255, 255, 255, 0.9);
   border-color: rgba(255, 255, 255, 0.3);
 }
 
-.header.transparent .mobileMenuButton:hover {
-  background: rgba(255, 255, 255, 0.15);
+.header.hero.transparent .mobileMenuButton:hover {
+  background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-.header.transparent.scrolled {
-  background: rgba(255, 255, 255, 0.95);
-  border-bottom-color: var(--color-neutral-200);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.header.transparent.scrolled .logoText {
-  background: var(--gradient-hero);
+/* Hero scrolled: dark frosted – keep light text for readability */
+.header.hero.heroScrolled .logoText {
+  background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.header.transparent.scrolled .navLink,
-.header.transparent.scrolled .languageSelect {
-  color: var(--color-neutral-700);
+.header.hero.heroScrolled .navLink {
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.header.transparent.scrolled .languageSelect {
-  background: var(--color-neutral-50);
-  border-color: var(--color-neutral-200);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+.header.hero.heroScrolled .navLink:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.header.transparent.scrolled .loginButton {
-  color: var(--color-neutral-700);
-  border-color: var(--color-neutral-300);
-  background: transparent;
+.header.hero.heroScrolled .languageSelect {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
 }
 
-.header.transparent.scrolled .userButton {
-  color: var(--color-neutral-700);
+.header.hero.heroScrolled .languageSelect:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
-.header.transparent.scrolled .mobileMenuButton {
-  color: var(--color-neutral-700);
-  border-color: var(--color-neutral-300);
+.header.hero.heroScrolled .loginButton {
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.header.hero.heroScrolled .loginButton:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.header.hero.heroScrolled .signupButton {
+  background: rgba(255, 255, 255, 0.95);
+  color: #111827;
+}
+
+.header.hero.heroScrolled .signupButton:hover {
+  background: #ffffff;
+}
+
+.header.hero.heroScrolled .userButton {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.header.hero.heroScrolled .userButton:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.header.hero.heroScrolled .chevron {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.header.hero.heroScrolled .mobileMenuButton {
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.header.hero.heroScrolled .mobileMenuButton:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* ============================================

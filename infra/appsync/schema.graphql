@@ -1,0 +1,173 @@
+# GetTrainMate AppSync GraphQL API
+# Auth: Cognito User Pools (identity in context.identity.sub)
+
+scalar AWSDateTime
+scalar AWSEmail
+scalar AWSURL
+
+# ----- Profile / User (read from existing DynamoDB) -----
+type User {
+  id: ID!
+  email: String
+  isAdmin: Boolean
+  createdAt: AWSDateTime
+  updatedAt: AWSDateTime
+}
+
+type AvailabilitySlot {
+  days: [String!]!
+  timeStart: String!
+  timeEnd: String!
+}
+
+type Profile {
+  userId: ID!
+  displayName: String!
+  age: Int
+  city: String
+  bio: String
+  sports: [String!]
+  goals: [String!]
+  schedule: [String!]
+  avatarUrl: String
+  isComplete: Boolean
+  updatedAt: AWSDateTime
+}
+
+type CreditsBalance {
+  userId: ID!
+  credits: Int!
+  updatedAt: AWSDateTime
+}
+
+# ----- Me aggregate -----
+type Me {
+  user: User!
+  profile: Profile
+  credits: Int!
+  isProfileComplete: Boolean!
+}
+
+# ----- Discovery -----
+type DiscoverCandidate {
+  userId: ID!
+  displayName: String!
+  age: Int
+  city: String
+  bio: String
+  sports: [String!]!
+  goals: [String!]
+  avatarUrl: String
+  compatibilityScore: Int
+}
+
+type DiscoverCandidatesResult {
+  items: [DiscoverCandidate!]!
+  nextToken: String
+}
+
+# ----- Matches -----
+type MatchWithThread {
+  matchId: ID!
+  otherUserProfile: Profile!
+  threadId: ID!
+  unlockedByMe: Boolean!
+  createdAt: AWSDateTime
+}
+
+type ListMyMatchesResult {
+  items: [MatchWithThread!]!
+}
+
+# ----- Chat -----
+type ChatThreadInfo {
+  threadId: ID!
+  matchId: ID!
+  userA: ID!
+  userB: ID!
+  unlockedByUserA: Boolean!
+  unlockedByUserB: Boolean!
+  unlockedByCurrentUser: Boolean!
+  otherUserProfile: Profile
+  createdAt: AWSDateTime
+  updatedAt: AWSDateTime
+}
+
+type Message {
+  id: ID!
+  threadId: ID!
+  createdAt: AWSDateTime!
+  fromUserId: ID!
+  body: String!
+  senderName: String
+}
+
+type ListMessagesResult {
+  items: [Message!]!
+  nextToken: String
+}
+
+# ----- Mutations input -----
+input UpsertProfileInput {
+  displayName: String
+  age: Int
+  city: String
+  bio: String
+  sports: [String!]
+  goals: [String!]
+  schedule: [AvailabilitySlotInput!]
+  avatarUrl: String
+}
+
+input AvailabilitySlotInput {
+  days: [String!]!
+  timeStart: String!
+  timeEnd: String!
+}
+
+# ----- Queries -----
+type Query {
+  getMe: Me
+  discoverCandidates(limit: Int, nextToken: String): DiscoverCandidatesResult
+  listMyMatches: ListMyMatchesResult
+  getThreadByMatch(matchId: ID!): ChatThreadInfo
+  listMessages(threadId: ID!, limit: Int, nextToken: String): ListMessagesResult
+}
+
+# ----- Mutations -----
+type Mutation {
+  upsertProfile(input: UpsertProfileInput!): Profile
+  ensureFreeStartCredits: Boolean
+  likeUser(toUserId: ID!): LikeResult
+  unlockChat(matchId: ID!): UnlockChatResult
+  createMessage(matchId: ID, threadId: ID, body: String!): Message
+  seedDemoData: SeedDemoResult
+}
+
+type LikeResult {
+  matchId: ID!
+  isMatched: Boolean!
+  compatibilityScore: Int!
+}
+
+type UnlockChatResult {
+  threadId: ID!
+  unlocked: Boolean!
+}
+
+type SeedDemoResult {
+  created: Int!
+  message: String!
+}
+
+# ----- Subscriptions (real-time messages) -----
+type Subscription {
+  onMessageCreated(threadId: ID!): Message
+    @aws_subscribe(mutations: ["createMessage"])
+}
+
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
