@@ -178,6 +178,20 @@ public class CreditsService : ICreditsService
         if (session.Mode != "payment" || session.PaymentStatus != "paid")
             return false;
 
+        // Webhook payload can omit metadata; fetch full session if needed
+        if (session.Metadata == null || !session.Metadata.ContainsKey("credits"))
+        {
+            try
+            {
+                var sessionService = new SessionService();
+                session = await sessionService.GetAsync(session.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not fetch session {SessionId} for metadata", session.Id);
+            }
+        }
+
         var userId = session.ClientReferenceId ?? session.Metadata?.GetValueOrDefault("userId");
         var packKey = session.Metadata?.GetValueOrDefault("packKey");
         var creditsStr = session.Metadata?.GetValueOrDefault("credits");

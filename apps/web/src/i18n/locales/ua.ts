@@ -31,6 +31,7 @@ export const ua = {
   },
   nav: {
     dashboard: 'Головна',
+    discover: 'Відкрити',
     match: 'Пари',
     chat: 'Чат',
     events: 'Події',
@@ -97,6 +98,9 @@ export const ua = {
     signupFailed: 'Помилка реєстрації. Спробуйте знову.',
     unauthorized: 'У вас немає доступу до цієї сторінки',
     notFound: 'Сторінку не знайдено',
+  },
+  discover: {
+    no_photo: 'Немає фото',
   },
   profile: {
     my_profile: 'Мій профіль',

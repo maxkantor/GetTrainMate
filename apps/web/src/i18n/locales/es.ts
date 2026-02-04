@@ -30,6 +30,7 @@ export const es = {
   },
   nav: {
     dashboard: 'Panel de Control',
+    discover: 'Descubrir',
     match: 'Emparejar',
     chat: 'Chat',
     events: 'Eventos',
@@ -73,6 +74,9 @@ export const es = {
     forgot_password_title: 'Restablecer Contraseña',
     verify_email_title: 'Verificar Correo',
     verify_code: 'Código de Verificación',
+  },
+  discover: {
+    no_photo: 'Sin foto',
   },
   profile: {
     my_profile: 'Mi Perfil',

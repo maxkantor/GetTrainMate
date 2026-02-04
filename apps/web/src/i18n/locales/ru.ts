@@ -30,6 +30,7 @@ export const ru = {
   },
   nav: {
     dashboard: 'Панель управления',
+    discover: 'Поиск',
     match: 'Подбор',
     chat: 'Чат',
     events: 'События',
@@ -73,6 +74,9 @@ export const ru = {
     forgot_password_title: 'Восстановить пароль',
     verify_email_title: 'Проверить электронную почту',
     verify_code: 'Код проверки',
+  },
+  discover: {
+    no_photo: 'Нет фото',
   },
   profile: {
     my_profile: 'Мой профиль',

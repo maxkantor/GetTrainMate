@@ -30,6 +30,7 @@ export const hi = {
   },
   nav: {
     dashboard: 'डैशबोर्ड',
+    discover: 'खोजें',
     match: 'मैच',
     chat: 'चैट',
     events: 'इवेंट्स',
@@ -73,6 +74,9 @@ export const hi = {
     forgot_password_title: 'पासवर्ड रीसेट करें',
     verify_email_title: 'ईमेल सत्यापित करें',
     verify_code: 'सत्यापन कोड',
+  },
+  discover: {
+    no_photo: 'कोई फोटो नहीं',
   },
   profile: {
     my_profile: 'मेरी प्रोफाइल',

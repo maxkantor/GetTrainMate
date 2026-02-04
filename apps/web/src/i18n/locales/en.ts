@@ -31,6 +31,7 @@ export const en = {
   },
   nav: {
     dashboard: 'Dashboard',
+    discover: 'Discover',
     match: 'Match',
     chat: 'Chat',
     events: 'Events',
@@ -97,6 +98,9 @@ export const en = {
     signupFailed: 'Signup failed. Please try again.',
     unauthorized: 'You are not authorized to access this page',
     notFound: 'Page not found',
+  },
+  discover: {
+    no_photo: 'No photo',
   },
   profile: {
     my_profile: 'My Profile',

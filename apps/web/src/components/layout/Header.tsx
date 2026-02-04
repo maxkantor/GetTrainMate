@@ -112,9 +112,9 @@ export const Header: React.FC = () => {
     { label: t('header.pricing'), href: '/pricing' },
   ];
 
-  // Authenticated nav: Dashboard | Match | Chat | Events | Pricing (exact order)
+  // Authenticated nav: Discover | Match | Chat | Events | Pricing (exact order)
   const authNavItems = [
-    { label: t('nav.dashboard'), href: '/app/discover' },
+    { label: t('nav.discover'), href: '/app/discover' },
     { label: t('nav.match'), href: '/app/matches' },
     { label: t('nav.chat'), href: '/app/chat' },
     { label: t('nav.events'), href: '/app/events' },

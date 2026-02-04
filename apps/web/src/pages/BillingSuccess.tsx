@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { authService } from '@/services/authService';
 import { billingService, CreditsBalanceDto } from '@/services/billingService';
 
-/** Credits one-time payment success: show confirmation and optionally poll balance. */
+/** Credits one-time payment success: show confirmation and poll balance (frequently at first). */
 export const BillingSuccessPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session_id');
@@ -23,7 +23,7 @@ export const BillingSuccessPage: React.FC = () => {
       }
     };
     load();
-    const t = setInterval(load, 3000);
+    const t = setInterval(load, 1500);
     return () => clearInterval(t);
   }, [sessionId]);
 
@@ -31,7 +31,7 @@ export const BillingSuccessPage: React.FC = () => {
     <div style={{ textAlign: 'center', padding: 48, maxWidth: 480, margin: '0 auto' }}>
       <h1 style={{ fontSize: '1.5rem', marginBottom: 8 }}>Payment received</h1>
       <p style={{ color: '#64748b', marginBottom: 24 }}>
-        Your credits will appear shortly. You can close this page or go to your account.
+        Your credits will appear shortly. If you just purchased, your balance may take a few seconds to update.
       </p>
       {balance !== null && (
         <p style={{ fontWeight: 600, marginBottom: 24 }}>

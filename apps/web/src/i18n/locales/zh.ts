@@ -30,6 +30,7 @@ export const zh = {
   },
   nav: {
     dashboard: '仪表盘',
+    discover: '发现',
     match: '匹配',
     chat: '聊天',
     events: '事件',
@@ -73,6 +74,9 @@ export const zh = {
     forgot_password_title: '重置密码',
     verify_email_title: '验证电子邮件',
     verify_code: '验证码',
+  },
+  discover: {
+    no_photo: '无照片',
   },
   profile: {
     my_profile: '我的个人资料',

@@ -272,7 +272,7 @@ export const DiscoverPage: React.FC = () => {
               justifyContent: 'center',
             }}
           >
-            <Typography color="textSecondary">{t('profile.my_profile')}</Typography>
+            <Typography color="textSecondary">{t('discover.no_photo')}</Typography>
           </Box>
         )}
 
