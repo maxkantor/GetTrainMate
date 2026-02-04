@@ -5,6 +5,7 @@ import { Container } from '@/components/layout/Container';
 import { authService } from '@/services/authService';
 import { billingService, CreditPackDto } from '@/services/billingService';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { useMe } from '@/hooks/useMe';
 import {
   CreditPack,
   FALLBACK_CREDIT_PACKS,
@@ -42,6 +43,7 @@ function toCreditPacks(dtos: CreditPackDto[]): CreditPack[] {
 export const PricingPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuthContext();
+  const { me } = useMe();
   const [packs, setPacks] = useState<CreditPack[]>(FALLBACK_CREDIT_PACKS);
   const [error, setError] = useState<string | null>(null);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
@@ -128,10 +130,17 @@ export const PricingPage: React.FC = () => {
 
   const sortedPacks = [...packs].sort((a, b) => a.sortOrder - b.sortOrder);
 
+  const credits = me?.credits ?? 0;
+
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
         <Container>
+          {isAuthenticated && (
+            <p className={styles.yourCredits} data-testid="pricing-your-credits">
+              Your credits: <strong>{credits}</strong>
+            </p>
+          )}
           <h1 className={styles.title}>Credits Marketplace</h1>
           <p className={styles.subtext}>
             Get credits to unlock chat, boosts, and AI insights. Start free or buy a pack.

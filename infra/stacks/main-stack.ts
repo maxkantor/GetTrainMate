@@ -365,6 +365,15 @@ export class GetTrainMateStack extends cdk.Stack {
     });
     tables.push(contactsTable);
 
+    // App chat threads (match-based; threadId = matchId for match threads)
+    const chatThreadsTable = new dynamodb.Table(this, 'ChatThreadsTable', {
+      tableName: 'gettrainmate-chat-threads',
+      partitionKey: { name: 'threadId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(chatThreadsTable);
+
     // Contact email threads table
     const threadsTable = new dynamodb.Table(this, 'ContactEmailThreadsTable', {
       tableName: 'gettrainmate-contact-email-threads',

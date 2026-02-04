@@ -11,6 +11,8 @@ public interface ICreditsService
     Task<bool> ProcessCheckoutSessionCompletedAsync(string stripeEventId, Stripe.Checkout.Session session);
     Task<CreditsBalanceDto> GetCreditsBalanceAsync(string userId);
     Task<bool> GrantFreeSignupCreditsAsync(string userId);
+    /// <summary>Spend credits. Throws <see cref="Models.InsufficientCreditsException"/> if balance &lt; amount.</summary>
+    Task SpendCreditsAsync(string userId, int amount, string reason, string? refId = null);
     Task<List<CreditPackConfig>> GetAllCreditPacksForAdminAsync();
     Task SaveCreditPackAsync(CreditPackConfig pack);
     Task SeedDefaultCreditPacksIfEmptyAsync();

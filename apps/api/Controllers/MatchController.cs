@@ -65,13 +65,17 @@ public class MatchController : ControllerBase
         {
             var userId = GetUserIdFromToken();
             if (string.IsNullOrEmpty(userId))
-                return Unauthorized(new { message = "Invalid token" });
+                return Unauthorized(new { code = "NOT_AUTHENTICATED", message = "Invalid token" });
 
             if (string.IsNullOrEmpty(request.TargetUserId))
-                return BadRequest(new { message = "TargetUserId is required" });
+                return BadRequest(new { code = "VALIDATION_ERROR", message = "TargetUserId is required" });
 
             var result = await _matchService.LikeUserAsync(userId, request.TargetUserId);
             return Ok(result);
+        }
+        catch (InsufficientCreditsException ex)
+        {
+            return StatusCode(402, new { code = InsufficientCreditsException.ErrorCode, message = ex.Message });
         }
         catch (Exception ex)
         {

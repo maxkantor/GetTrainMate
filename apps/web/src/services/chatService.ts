@@ -80,6 +80,23 @@ class ChatService {
       this.getHeaders(token)
     );
   }
+
+  async getThreadByMatch(token: string, matchId: string): Promise<{ threadId: string; unlockedByCurrentUser: boolean }> {
+    const response = await axios.get<{ threadId: string; unlockedByCurrentUser: boolean }>(
+      `${API_BASE_URL}/api/chat/thread-by-match?matchId=${encodeURIComponent(matchId)}`,
+      this.getHeaders(token)
+    );
+    return response.data;
+  }
+
+  async unlockChat(token: string, matchId: string): Promise<{ threadId: string; unlocked: boolean }> {
+    const response = await axios.post<{ threadId: string; unlocked: boolean }>(
+      `${API_BASE_URL}/api/chat/unlock`,
+      { matchId },
+      this.getHeaders(token)
+    );
+    return response.data;
+  }
 }
 
 export const chatService = new ChatService();

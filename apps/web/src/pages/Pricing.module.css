@@ -45,6 +45,12 @@
   margin: 0 auto;
 }
 
+.yourCredits {
+  font-size: var(--font-base);
+  color: #475569;
+  margin: 0 0 var(--space-2);
+}
+
 .title {
   font-size: clamp(2rem, 5vw, 3rem);
   font-weight: 800;

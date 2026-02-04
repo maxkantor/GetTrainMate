@@ -10,4 +10,5 @@ public interface IMatchService
     Task<MatchResponse> PassUserAsync(string userId, string targetUserId);
     Task<List<Match>> GetUserMatchesAsync(string userId);
     Task<Match?> GetMatchAsync(string userId1, string userId2);
+    Task<Match?> GetMatchByIdAsync(string matchId);
 }

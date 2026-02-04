@@ -10,6 +10,7 @@ public class MatchService : IMatchService
     private readonly IAmazonDynamoDB _dynamoDb;
     private readonly IProfileService _profileService;
     private readonly IStorageService _storageService;
+    private readonly ICreditsService _creditsService;
     private readonly string _matchesTable;
     private readonly string _profilesTable;
     private readonly ILogger<MatchService> _logger;
@@ -25,12 +26,14 @@ public class MatchService : IMatchService
         IAmazonDynamoDB dynamoDb,
         IProfileService profileService,
         IStorageService storageService,
+        ICreditsService creditsService,
         IConfiguration configuration,
         ILogger<MatchService> logger)
     {
         _dynamoDb = dynamoDb;
         _profileService = profileService;
         _storageService = storageService;
+        _creditsService = creditsService;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _matchesTable = configuration["DYNAMODB_TABLE_MATCHES"] ?? $"{prefix}matches";
         _profilesTable = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
@@ -172,6 +175,9 @@ public class MatchService : IMatchService
 
     public async Task<MatchResponse> LikeUserAsync(string userId, string targetUserId)
     {
+        // Like costs 1 credit; fail fast if insufficient
+        await _creditsService.SpendCreditsAsync(userId, 1, CreditLedgerReason.Like, targetUserId);
+
         try
         {
             var existingMatch = await GetMatchAsync(userId, targetUserId);
@@ -303,6 +309,23 @@ public class MatchService : IMatchService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting match between {UserId1} and {UserId2}", userId1, userId2);
+            return null;
+        }
+    }
+
+    public async Task<Match?> GetMatchByIdAsync(string matchId)
+    {
+        if (string.IsNullOrEmpty(matchId)) return null;
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, _matchesTable);
+            var keyDoc = new Document { ["matchId"] = matchId };
+            var doc = await table.GetItemAsync(keyDoc);
+            return doc != null ? DocumentToMatch(doc) : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error getting match by id {MatchId}", matchId);
             return null;
         }
     }

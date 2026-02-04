@@ -361,6 +361,54 @@ public class CreditsService : ICreditsService
         }
     }
 
+    public async Task SpendCreditsAsync(string userId, int amount, string reason, string? refId = null)
+    {
+        if (amount <= 0)
+            throw new ArgumentException("Amount must be positive.", nameof(amount));
+
+        var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
+        var userDoc = await userTable.GetItemAsync(userId);
+        var balance = 0;
+        var lifetimeEarned = 0;
+        if (userDoc != null)
+        {
+            balance = userDoc.Contains("Balance") ? userDoc["Balance"].AsInt() : 0;
+            lifetimeEarned = userDoc.Contains("LifetimeEarned") ? userDoc["LifetimeEarned"].AsInt() : 0;
+        }
+
+        if (balance < amount)
+        {
+            _logger.LogWarning("Insufficient credits for user {UserId}: balance={Balance}, required={Amount}, reason={Reason}", userId, balance, amount, reason);
+            throw new InsufficientCreditsException($"Insufficient credits. Balance: {balance}, required: {amount}.");
+        }
+
+        var newBalance = balance - amount;
+        await userTable.PutItemAsync(new Document
+        {
+            ["UserId"] = userId,
+            ["Balance"] = newBalance,
+            ["LifetimeEarned"] = lifetimeEarned,
+            ["UpdatedAt"] = DateTime.UtcNow.ToString("O"),
+        });
+
+        var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
+        var txId = Guid.NewGuid().ToString("N");
+        var txDoc = new Document
+        {
+            ["Id"] = txId,
+            ["UserId"] = userId,
+            ["Type"] = CreditTransactionType.Spend,
+            ["CreditsDelta"] = -amount,
+            ["Reason"] = reason,
+            ["CreatedAt"] = DateTime.UtcNow.ToString("O"),
+        };
+        if (!string.IsNullOrEmpty(refId))
+            txDoc["RefId"] = refId;
+        await txTable.PutItemAsync(txDoc);
+
+        _logger.LogInformation("Spent {Amount} credits for user {UserId}, reason={Reason}, newBalance={NewBalance}", amount, userId, reason, newBalance);
+    }
+
     public async Task RecordWebhookEventReceivedAsync(string eventId, string type)
     {
         try

@@ -2,6 +2,7 @@ import React from 'react';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { I18nProvider } from '@/contexts/I18nContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { MeProvider } from '@/contexts/MeContext';
 import { Router } from '@/Router';
 import { authService } from '@/services/authService';
 
@@ -26,13 +27,14 @@ const theme = createTheme({
 });
 
 function App() {
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <I18nProvider>
         <AuthProvider>
-          <Router />
+          <MeProvider>
+            <Router />
+          </MeProvider>
         </AuthProvider>
       </I18nProvider>
     </ThemeProvider>

@@ -8,6 +8,8 @@ public class ChatService : IChatService
 {
     private readonly IAmazonDynamoDB _dynamoDb;
     private readonly IProfileService _profileService;
+    private readonly ICreditsService _creditsService;
+    private readonly IMatchService _matchService;
     private readonly string _messagesTable;
     private readonly string _threadsTable;
     private readonly ILogger<ChatService> _logger;
@@ -15,11 +17,15 @@ public class ChatService : IChatService
     public ChatService(
         IAmazonDynamoDB dynamoDb,
         IProfileService profileService,
+        ICreditsService creditsService,
+        IMatchService matchService,
         IConfiguration configuration,
         ILogger<ChatService> logger)
     {
         _dynamoDb = dynamoDb;
         _profileService = profileService;
+        _creditsService = creditsService;
+        _matchService = matchService;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _messagesTable = configuration["DYNAMODB_TABLE_MESSAGES"] ?? $"{prefix}messages";
         _threadsTable = configuration["DYNAMODB_TABLE_CHAT_THREADS"] ?? $"{prefix}chat-threads";
@@ -66,6 +72,101 @@ public class ChatService : IChatService
             _logger.LogError(ex, "Error getting thread {ThreadId}", threadId);
             return null;
         }
+    }
+
+    public Task<ChatThread?> GetThreadByMatchIdAsync(string matchId)
+    {
+        return GetThreadAsync(matchId);
+    }
+
+    public async Task<ChatThread> GetOrCreateThreadForMatchAsync(string matchId, string userId1, string userId2)
+    {
+        var existing = await GetThreadByMatchIdAsync(matchId);
+        if (existing != null)
+            return existing;
+
+        var thread = new ChatThread
+        {
+            ThreadId = matchId,
+            MatchId = matchId,
+            ParticipantIds = new List<string> { userId1, userId2 },
+            UnlockedByUserA = false,
+            UnlockedByUserB = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var table = Table.LoadTable(_dynamoDb, _threadsTable);
+        var doc = ThreadToDocument(thread);
+        await table.PutItemAsync(doc);
+        _logger.LogInformation("Created chat thread for match {MatchId}", matchId);
+        return thread;
+    }
+
+    public async Task<bool> UnlockThreadForUserAsync(string matchId, string userId)
+    {
+        var thread = await GetThreadByMatchIdAsync(matchId);
+        if (thread == null)
+        {
+            var match = await _matchService.GetMatchByIdAsync(matchId);
+            if (match == null)
+            {
+                _logger.LogWarning("Match {MatchId} not found for unlock", matchId);
+                return false;
+            }
+            thread = await GetOrCreateThreadForMatchAsync(matchId, match.UserId1, match.UserId2);
+        }
+
+        var userId1 = thread.ParticipantIds.ElementAtOrDefault(0);
+        var userId2 = thread.ParticipantIds.ElementAtOrDefault(1);
+        if (string.IsNullOrEmpty(userId1) || string.IsNullOrEmpty(userId2))
+        {
+            _logger.LogWarning("Thread {MatchId} has invalid participants", matchId);
+            return false;
+        }
+
+        var isUserA = userId == userId1;
+        var isUserB = userId == userId2;
+        if (!isUserA && !isUserB)
+        {
+            _logger.LogWarning("User {UserId} is not a participant of thread {MatchId}", userId, matchId);
+            return false;
+        }
+
+        if (isUserA && thread.UnlockedByUserA || isUserB && thread.UnlockedByUserB)
+        {
+            _logger.LogInformation("User {UserId} already unlocked thread {MatchId}", userId, matchId);
+            return true;
+        }
+
+        await _creditsService.SpendCreditsAsync(userId, 1, CreditLedgerReason.ChatUnlock, matchId);
+
+        if (isUserA)
+            thread.UnlockedByUserA = true;
+        else
+            thread.UnlockedByUserB = true;
+
+        var table = Table.LoadTable(_dynamoDb, _threadsTable);
+        var doc = ThreadToDocument(thread);
+        await table.PutItemAsync(doc);
+        _logger.LogInformation("User {UserId} unlocked chat for match {MatchId}", userId, matchId);
+        return true;
+    }
+
+    public async Task<ThreadByMatchResponse?> GetThreadByMatchIdForUserAsync(string matchId, string userId)
+    {
+        var thread = await GetThreadByMatchIdAsync(matchId);
+        if (thread == null) return null;
+        var userId1 = thread.ParticipantIds.ElementAtOrDefault(0);
+        var userId2 = thread.ParticipantIds.ElementAtOrDefault(1);
+        var isUserA = userId == userId1;
+        var isUserB = userId == userId2;
+        if (!isUserA && !isUserB) return null;
+        var unlockedByCurrentUser = isUserA ? thread.UnlockedByUserA : thread.UnlockedByUserB;
+        return new ThreadByMatchResponse
+        {
+            ThreadId = thread.ThreadId,
+            UnlockedByCurrentUser = unlockedByCurrentUser
+        };
     }
 
     public async Task<List<ThreadPreviewResponse>> GetUserThreadsAsync(string userId)
@@ -261,13 +362,16 @@ public class ChatService : IChatService
             ["lastMessageAt"] = thread.LastMessageAt.ToString("O"),
             ["createdAt"] = thread.CreatedAt.ToString("O")
         };
-
+        if (!string.IsNullOrEmpty(thread.MatchId))
+            doc["matchId"] = thread.MatchId;
+        doc["unlockedByUserA"] = thread.UnlockedByUserA;
+        doc["unlockedByUserB"] = thread.UnlockedByUserB;
         return doc;
     }
 
     private ChatThread DocumentToThread(Document doc)
     {
-        return new ChatThread
+        var thread = new ChatThread
         {
             ThreadId = doc["threadId"],
             ParticipantIds = doc["participantIds"].AsListOfString(),
@@ -275,6 +379,13 @@ public class ChatService : IChatService
             LastMessageAt = DateTime.Parse(doc["lastMessageAt"]),
             CreatedAt = DateTime.Parse(doc["createdAt"])
         };
+        if (doc.ContainsKey("matchId"))
+            thread.MatchId = doc["matchId"];
+        if (doc.ContainsKey("unlockedByUserA"))
+            thread.UnlockedByUserA = doc["unlockedByUserA"].AsBoolean();
+        if (doc.ContainsKey("unlockedByUserB"))
+            thread.UnlockedByUserB = doc["unlockedByUserB"].AsBoolean();
+        return thread;
     }
 
     private Document MessageToDocument(ChatMessage message)

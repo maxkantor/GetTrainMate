@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -16,8 +17,10 @@ import {
   Grid,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import LockIcon from '@mui/icons-material/Lock';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { useMe } from '@/hooks/useMe';
 import { chatService, ThreadPreviewResponse, ChatMessage } from '@/services/chatService';
 import { authService } from '@/services/authService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
@@ -25,6 +28,9 @@ import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 export const ChatPage: React.FC = () => {
   const { t } = useI18n();
   const { user } = useAuthContext();
+  const { me, refreshMe } = useMe();
+  const [searchParams] = useSearchParams();
+  const threadIdFromUrl = searchParams.get('thread');
 
   const [threads, setThreads] = useState<ThreadPreviewResponse[]>([]);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
@@ -33,6 +39,9 @@ export const ChatPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [threadLocked, setThreadLocked] = useState<boolean | null>(null);
+  const [unlocking, setUnlocking] = useState(false);
+  const [otherName, setOtherName] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,11 +49,33 @@ export const ChatPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedThreadId) {
+    if (threadIdFromUrl) {
+      const checkLock = async () => {
+        const token = await authService.getJWT();
+        if (!token) return;
+        try {
+          const status = await chatService.getThreadByMatch(token, threadIdFromUrl);
+          setThreadLocked(!status.unlockedByCurrentUser);
+          setSelectedThreadId(threadIdFromUrl);
+          const threadPreview = threads.find((t) => t.threadId === threadIdFromUrl);
+          if (threadPreview) setOtherName(threadPreview.otherUserName);
+        } catch {
+          setThreadLocked(true);
+          setSelectedThreadId(threadIdFromUrl);
+        }
+      };
+      checkLock();
+    } else {
+      setThreadLocked(null);
+    }
+  }, [threadIdFromUrl, threads.length]);
+
+  useEffect(() => {
+    if (selectedThreadId && threadLocked !== true) {
       loadMessages(selectedThreadId);
       markThreadAsRead(selectedThreadId);
     }
-  }, [selectedThreadId]);
+  }, [selectedThreadId, threadLocked]);
 
   useEffect(() => {
     scrollToBottom();
@@ -66,10 +97,14 @@ export const ChatPage: React.FC = () => {
 
       const data = await chatService.getThreads(token);
       setThreads(data);
-      if (data.length > 0 && !selectedThreadId) {
+      if (data.length > 0 && !selectedThreadId && !threadIdFromUrl) {
         setSelectedThreadId(data[0].threadId);
       }
-    } catch (err: any) {
+      if (threadIdFromUrl) {
+        const preview = data.find((t) => t.threadId === threadIdFromUrl);
+        if (preview) setOtherName(preview.otherUserName);
+      }
+    } catch (err: unknown) {
       console.error('Error loading threads:', err);
       const apiError = handleApiError(err);
       if (isNetworkError(err) || apiError.isCorsError) {
@@ -79,6 +114,27 @@ export const ChatPage: React.FC = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUnlockChat = async () => {
+    if (!threadIdFromUrl || unlocking || (me?.credits ?? 0) < 1) return;
+    try {
+      setUnlocking(true);
+      setError('');
+      const token = await authService.getJWT();
+      if (!token) return;
+      await chatService.unlockChat(token, threadIdFromUrl);
+      await refreshMe();
+      setThreadLocked(false);
+      await loadThreads();
+      setSelectedThreadId(threadIdFromUrl);
+      await loadMessages(threadIdFromUrl);
+    } catch (err: unknown) {
+      const apiError = handleApiError(err);
+      setError(apiError.message || 'Failed to unlock chat');
+    } finally {
+      setUnlocking(false);
     }
   };
 
@@ -137,28 +193,49 @@ export const ChatPage: React.FC = () => {
     );
   }
 
-  if (threads.length === 0) {
+  if (!threadIdFromUrl && threads.length === 0) {
     return (
-      <Container sx={{ py: 8 }}>
+      <Container sx={{ py: 6 }}>
         <Alert severity="info" sx={{ mb: 2 }}>
-          No chats yet. Start by liking someone on the discovery page!
+          No chats yet. Like someone on Discover — when you both like each other, you match. Unlock chat (1 credit) to message.
         </Alert>
-        <Typography variant="body2" color="text.secondary">
-          <strong>Free:</strong> 5 messages/day. <strong>Paid (Pro/Elite):</strong> Unlimited messages, advanced filters, see who liked you, and more.
-        </Typography>
-        <Button variant="outlined" size="small" href="/app/subscription" sx={{ mt: 2 }}>
-          View plans
+        <Button variant="outlined" size="small" href="/app/discover" sx={{ mt: 2 }}>
+          Go to Discover
         </Button>
       </Container>
     );
   }
 
+  if (threadIdFromUrl && threadLocked === true) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 6 }}>
+        <Paper sx={{ p: 3, textAlign: 'center' }}>
+          <LockIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" gutterBottom>Chat locked</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Unlock this chat to send messages (1 credit). Your credits: {me?.credits ?? 0}
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<LockIcon />}
+            onClick={handleUnlockChat}
+            disabled={unlocking || (me?.credits ?? 0) < 1}
+          >
+            {unlocking ? 'Unlocking…' : 'Unlock chat (1 credit)'}
+          </Button>
+          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+        </Paper>
+      </Container>
+    );
+  }
+
   const selectedThread = threads.find(t => t.threadId === selectedThreadId);
+  const displayName = selectedThread?.otherUserName || otherName || 'Chat';
 
   return (
     <Container maxWidth="lg" sx={{ py: 2, height: '85vh', display: 'flex', flexDirection: 'column' }}>
       <Grid container spacing={2} sx={{ height: '100%', overflow: 'hidden' }}>
-        {/* Thread List */}
+        {/* Thread List - hide on small when opening from match */}
         <Grid item xs={12} sm={4} sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Typography variant="h6" sx={{ pb: 1 }}>
             {t('nav.chat')}
@@ -194,10 +271,10 @@ export const ChatPage: React.FC = () => {
 
         {/* Messages */}
         <Grid item xs={12} sm={8} sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {selectedThread && (
+          {selectedThreadId && (
             <>
               <Box sx={{ pb: 1, borderBottom: '1px solid #eee' }}>
-                <Typography variant="h6">{selectedThread.otherUserName}</Typography>
+                <Typography variant="h6">{displayName}</Typography>
               </Box>
 
               {error && (

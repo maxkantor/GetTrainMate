@@ -12,11 +12,13 @@ import {
   CircularProgress,
   Alert,
   Stack,
+  Snackbar,
 } from '@mui/material';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { useMe } from '@/hooks/useMe';
 import { matchService, MatchFeedItem } from '@/services/matchService';
 import { authService } from '@/services/authService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
@@ -24,14 +26,17 @@ import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 export const DiscoverPage: React.FC = () => {
   const { t } = useI18n();
   const { user, logout } = useAuthContext();
+  const { me, refreshMe } = useMe();
   const navigate = useNavigate();
-  
+
   const [feed, setFeed] = useState<MatchFeedItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [matched, setMatched] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [likeLoading, setLikeLoading] = useState(false);
 
   useEffect(() => {
     loadFeed();
@@ -101,23 +106,35 @@ export const DiscoverPage: React.FC = () => {
     if (currentIndex >= feed.length) return;
 
     try {
+      setLikeLoading(true);
       const token = await authService.getJWT();
       if (!token) return;
 
       const currentCard = feed[currentIndex];
       const result = await matchService.likeUser(token, currentCard.userId);
-      
+      await refreshMe();
+
       if (result.isMatched) {
         setMatched(true);
+        setToast("It's a match! You can chat after you both unlock.");
         setTimeout(() => {
           nextCard();
           setMatched(false);
         }, 1500);
       } else {
+        setToast('Liked');
         nextCard();
       }
-    } catch (err: any) {
-      console.error('Error liking user:', err);
+    } catch (err: unknown) {
+      const apiError = handleApiError(err);
+      if (apiError.code === 'INSUFFICIENT_CREDITS' || (err as { response?: { status?: number } })?.response?.status === 402) {
+        setToast(apiError.message || 'Not enough credits. Get more on the Pricing page.');
+      } else {
+        console.error('Error liking user:', err);
+        setToast(apiError.message || 'Failed to like');
+      }
+    } finally {
+      setLikeLoading(false);
     }
   };
 
@@ -197,10 +214,10 @@ export const DiscoverPage: React.FC = () => {
 
   if (feed.length === 0 && !loading && !error) {
     return (
-      <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
-        <Typography variant="h6" gutterBottom>No profiles to discover</Typography>
+      <Container maxWidth="md" sx={{ py: 6, textAlign: 'center' }}>
+        <Typography variant="h6" gutterBottom>No profiles yet</Typography>
         <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-          Load demo profiles to try matching, or check back later for new training partners!
+          Try expanding filters or check back soon. You can load demo profiles to try the flow.
         </Typography>
         <Stack direction="row" spacing={2} justifyContent="center" flexWrap="wrap">
           <Button
@@ -209,6 +226,9 @@ export const DiscoverPage: React.FC = () => {
             disabled={seeding}
           >
             {seeding ? 'Loading…' : 'Load demo profiles'}
+          </Button>
+          <Button variant="outlined" onClick={() => navigate('/app/profile')}>
+            Edit profile
           </Button>
           <Button variant="outlined" onClick={() => loadFeed()}>
             Refresh
@@ -224,8 +244,16 @@ export const DiscoverPage: React.FC = () => {
   const currentCard = feed[currentIndex];
   const progress = ((currentIndex + 1) / feed.length) * 100;
 
+  const credits = me?.credits ?? 0;
+
   return (
     <Container maxWidth="sm" sx={{ py: 4 }}>
+      <Alert severity="info" sx={{ mb: 2 }} icon={false}>
+        <Typography variant="body2">
+          <strong>Credits: {credits}</strong> · Like costs 1 credit
+        </Typography>
+      </Alert>
+
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
           <Typography variant="body2" color="textSecondary">
@@ -355,8 +383,9 @@ export const DiscoverPage: React.FC = () => {
           size="large"
           startIcon={<ThumbUpIcon />}
           onClick={handleLike}
+          disabled={likeLoading || credits < 1}
         >
-          Like
+          Like {credits < 1 ? '(no credits)' : ''}
         </Button>
       </Stack>
 
@@ -365,6 +394,14 @@ export const DiscoverPage: React.FC = () => {
           🎉 It's a match! You can now chat with {currentCard.name}
         </Alert>
       )}
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={5000}
+        onClose={() => setToast(null)}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Container>
   );
 };

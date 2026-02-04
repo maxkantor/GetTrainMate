@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
+import { useAuthContext } from '@/hooks/useAuthContext';
+import { useMe } from '@/hooks/useMe';
 import { Container } from '@/components/layout/Container';
 import { Button } from '@/components/ui/Button';
 import { PartnerMatchCards } from '@/components/hero/PartnerMatchCards';
@@ -7,7 +10,21 @@ import styles from './sections.module.css';
 
 export const Hero: React.FC = () => {
   const { t } = useI18n();
+  const { isAuthenticated } = useAuthContext();
+  const { me } = useMe();
   const [isVisible] = useState(true);
+
+  const profileComplete = me?.isProfileComplete ?? true;
+  const ctaPrimaryHref = !isAuthenticated
+    ? '/signup'
+    : !profileComplete
+      ? '/onboarding/profile'
+      : '/app/discover';
+  const ctaPrimaryLabel = !isAuthenticated
+    ? (t('landing.cta_create_profile') || t('landing.cta_primary'))
+    : !profileComplete
+      ? t('landing.cta_finish_profile')
+      : t('landing.cta_start_discovering');
 
   return (
     <section className={styles.hero}>
@@ -59,20 +76,12 @@ export const Hero: React.FC = () => {
 
             {/* CTA Buttons */}
             <div className={styles.heroButtons}>
-              <Button 
-                as="a" 
-                href="/signup" 
-                variant="primary" 
-                size="lg"
-              >
-                {t('landing.cta_primary')}
-              </Button>
-              <Button 
-                as="a" 
-                href="#how-it-works" 
-                variant="secondary" 
-                size="lg"
-              >
+              <Link to={ctaPrimaryHref} style={{ textDecoration: 'none' }}>
+                <Button variant="primary" size="lg" as="button">
+                  {ctaPrimaryLabel}
+                </Button>
+              </Link>
+              <Button as="a" href="#how-it-works" variant="secondary" size="lg">
                 {t('landing.cta_secondary')}
               </Button>
             </div>

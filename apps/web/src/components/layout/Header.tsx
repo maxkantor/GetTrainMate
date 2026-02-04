@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
-import { profileService } from '@/services/profileService';
-import { authService } from '@/services/authService';
+import { useMe } from '@/hooks/useMe';
 import { SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/i18n';
 import { Container } from './Container';
 import { LanguageDropdown } from './LanguageDropdown';
@@ -12,14 +11,17 @@ import styles from './Header.module.css';
 export const Header: React.FC = () => {
   const { t, locale, setLocale } = useI18n();
   const { isAuthenticated, user, logout } = useAuthContext();
+  const { me } = useMe();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [profileComplete, setProfileComplete] = useState(true);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  const profileComplete = me?.isProfileComplete ?? true;
+  const isAdminUser = me?.isAdmin ?? user?.groups?.includes('Admin') ?? false;
 
   // Track scroll for transparent header on landing page
   useEffect(() => {
@@ -29,29 +31,6 @@ export const Header: React.FC = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  // Check profile completion
-  useEffect(() => {
-    const checkProfile = async () => {
-      if (!isAuthenticated || !user) {
-        setProfileComplete(true);
-        return;
-      }
-      try {
-        const token = await authService.getJWT();
-        if (token) {
-          const profile = await profileService.getMyProfile(token);
-          setProfileComplete(profile.isComplete || false);
-        }
-      } catch (error) {
-        console.error('Error checking profile:', error);
-        setProfileComplete(false);
-      }
-    };
-    if (isAuthenticated && user) {
-      checkProfile();
-    }
-  }, [isAuthenticated, user, location.pathname]);
 
   // Close user menu on outside click
   useEffect(() => {
@@ -232,7 +211,7 @@ export const Header: React.FC = () => {
                     >
                       {t('header.billing') || 'Billing'}
                     </RouterLink>
-                    {user.groups?.includes('Admin') && (
+                    {isAdminUser && (
                       <RouterLink
                         to="/admin"
                         className={styles.dropdownItem}
@@ -367,7 +346,7 @@ export const Header: React.FC = () => {
                   >
                     {t('header.billing') || 'Billing'}
                   </RouterLink>
-                  {user.groups?.includes('Admin') && (
+                  {isAdminUser && (
                     <RouterLink
                       to="/admin"
                       className={styles.mobileButton}

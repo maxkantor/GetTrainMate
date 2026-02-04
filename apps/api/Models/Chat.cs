@@ -5,7 +5,10 @@ namespace GetTrainMate.Api.Models;
 public class ChatThread
 {
     public string ThreadId { get; set; } = Guid.NewGuid().ToString();
+    public string? MatchId { get; set; }
     public List<string> ParticipantIds { get; set; } = new();
+    public bool UnlockedByUserA { get; set; }
+    public bool UnlockedByUserB { get; set; }
     public string LastMessage { get; set; } = string.Empty;
     public DateTime LastMessageAt { get; set; } = DateTime.UtcNow;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -46,4 +49,15 @@ public class ThreadPreviewResponse
     public string LastMessage { get; set; } = string.Empty;
     public DateTime LastMessageAt { get; set; }
     public int UnreadCount { get; set; } = 0;
+}
+
+public class ThreadByMatchResponse
+{
+    public string ThreadId { get; set; } = string.Empty;
+    public bool UnlockedByCurrentUser { get; set; }
+}
+
+public class UnlockChatRequest
+{
+    public string MatchId { get; set; } = string.Empty;
 }

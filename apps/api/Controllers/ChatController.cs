@@ -135,6 +135,58 @@ public class ChatController : ControllerBase
         }
     }
 
+    /// <summary>Get thread and unlock status for a match. Used by Matches page.</summary>
+    [HttpGet("thread-by-match")]
+    public async Task<ActionResult<ThreadByMatchResponse>> GetThreadByMatch([FromQuery] string matchId)
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { code = "NOT_AUTHENTICATED", message = "Invalid token" });
+            if (string.IsNullOrEmpty(matchId))
+                return BadRequest(new { code = "VALIDATION_ERROR", message = "matchId is required" });
+
+            var result = await _chatService.GetThreadByMatchIdForUserAsync(matchId, userId);
+            if (result == null)
+                return NotFound(new { code = "NOT_FOUND", message = "Thread or match not found" });
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting thread by match {MatchId}", matchId);
+            return StatusCode(500, new { message = "Error retrieving thread" });
+        }
+    }
+
+    /// <summary>Unlock chat for a match (costs 1 credit).</summary>
+    [HttpPost("unlock")]
+    public async Task<ActionResult<object>> UnlockChat([FromBody] UnlockChatRequest request)
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { code = "NOT_AUTHENTICATED", message = "Invalid token" });
+            if (string.IsNullOrEmpty(request?.MatchId))
+                return BadRequest(new { code = "VALIDATION_ERROR", message = "matchId is required" });
+
+            var unlocked = await _chatService.UnlockThreadForUserAsync(request.MatchId, userId);
+            if (!unlocked)
+                return BadRequest(new { code = "VALIDATION_ERROR", message = "Could not unlock chat" });
+            return Ok(new { threadId = request.MatchId, unlocked = true });
+        }
+        catch (InsufficientCreditsException ex)
+        {
+            return StatusCode(402, new { code = InsufficientCreditsException.ErrorCode, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error unlocking chat for match {MatchId}", request?.MatchId);
+            return StatusCode(500, new { message = "Error unlocking chat" });
+        }
+    }
+
     private string? GetUserIdFromToken()
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value

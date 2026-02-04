@@ -13,15 +13,20 @@ import {
   Chip,
   Stack,
 } from '@mui/material';
+import LockIcon from '@mui/icons-material/Lock';
+import ChatIcon from '@mui/icons-material/Chat';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { useMe } from '@/hooks/useMe';
 import { matchService } from '@/services/matchService';
 import { profileService } from '@/services/profileService';
+import { chatService } from '@/services/chatService';
 import { authService } from '@/services/authService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 import { useNavigate } from 'react-router-dom';
 
 interface Match {
+  matchId: string;
   userId: string;
   name: string;
   photoUrls?: string[];
@@ -31,16 +36,19 @@ interface Match {
   sportTags: string[];
   matchedAt: string;
   compatibilityScore?: number;
+  unlockedByMe?: boolean;
 }
 
 export const MatchesPage: React.FC = () => {
   const { t } = useI18n();
   const { user } = useAuthContext();
+  const { me, refreshMe } = useMe();
   const navigate = useNavigate();
-  
+
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [unlockingMatchId, setUnlockingMatchId] = useState<string | null>(null);
 
   useEffect(() => {
     loadMatches();
@@ -56,19 +64,23 @@ export const MatchesPage: React.FC = () => {
         return;
       }
 
-      // Get matches from the API
       const matchesData = await matchService.getMyMatches(token);
-      
-      // The API returns Match objects with userId1 and userId2
-      // We need to fetch the other user's profile for each match
+      const currentUserId = user?.sub ?? '';
+
       const transformedMatches: Match[] = await Promise.all(
-        matchesData.map(async (match: any) => {
-          const otherUserId = match.userId1 === user?.sub ? match.userId2 : match.userId1;
-          
-          // Fetch the other user's profile
+        matchesData.map(async (match: { matchId: string; userId1: string; userId2: string; createdAt?: string; compatibilityScore?: number }) => {
+          const otherUserId = match.userId1 === currentUserId ? match.userId2 : match.userId1;
+          let unlockedByMe = false;
+          try {
+            const threadStatus = await chatService.getThreadByMatch(token, match.matchId);
+            unlockedByMe = threadStatus.unlockedByCurrentUser;
+          } catch {
+            // thread may not exist yet
+          }
           try {
             const profile = await profileService.getProfile(token, otherUserId);
             return {
+              matchId: match.matchId,
               userId: otherUserId,
               name: profile.name || 'Unknown User',
               photoUrls: profile.photoUrls || [],
@@ -78,11 +90,12 @@ export const MatchesPage: React.FC = () => {
               sportTags: profile.sportTags || [],
               matchedAt: match.createdAt || new Date().toISOString(),
               compatibilityScore: match.compatibilityScore || 0,
+              unlockedByMe,
             };
           } catch (err) {
-            // If profile fetch fails, return minimal info
             console.error(`Failed to fetch profile for ${otherUserId}:`, err);
             return {
+              matchId: match.matchId,
               userId: otherUserId,
               name: 'Unknown User',
               photoUrls: [],
@@ -92,11 +105,12 @@ export const MatchesPage: React.FC = () => {
               sportTags: [],
               matchedAt: match.createdAt || new Date().toISOString(),
               compatibilityScore: match.compatibilityScore || 0,
+              unlockedByMe,
             };
           }
         })
       );
-      
+
       setMatches(transformedMatches);
     } catch (err: any) {
       console.error('Error loading matches:', err);
@@ -112,8 +126,30 @@ export const MatchesPage: React.FC = () => {
     }
   };
 
-  const handleChat = (matchUserId: string) => {
-    navigate(`/app/chat?thread=${matchUserId}`);
+  const handleOpenChat = (m: Match) => {
+    if (m.unlockedByMe) {
+      navigate(`/app/chat?thread=${m.matchId}`);
+    }
+  };
+
+  const handleUnlockChat = async (m: Match) => {
+    if (unlockingMatchId || (me?.credits ?? 0) < 1) return;
+    try {
+      setUnlockingMatchId(m.matchId);
+      const token = await authService.getJWT();
+      if (!token) return;
+      await chatService.unlockChat(token, m.matchId);
+      await refreshMe();
+      setMatches((prev) =>
+        prev.map((x) => (x.matchId === m.matchId ? { ...x, unlockedByMe: true } : x))
+      );
+      navigate(`/app/chat?thread=${m.matchId}`);
+    } catch (err) {
+      const apiError = handleApiError(err);
+      setError(apiError.message || 'Failed to unlock chat');
+    } finally {
+      setUnlockingMatchId(null);
+    }
   };
 
   if (loading) {
@@ -148,10 +184,10 @@ export const MatchesPage: React.FC = () => {
 
   if (matches.length === 0) {
     return (
-      <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
+      <Container maxWidth="md" sx={{ py: 6, textAlign: 'center' }}>
         <Typography variant="h5" gutterBottom>No matches yet</Typography>
         <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-          Start discovering profiles to find your perfect training partner!
+          Matches happen when both users like each other. Unlock chat when you match (1 credit).
         </Typography>
         <Button variant="contained" onClick={() => navigate('/app/discover')}>
           Start Discovering
@@ -246,14 +282,28 @@ export const MatchesPage: React.FC = () => {
                   </Box>
                 )}
 
-                <Button
-                  variant="contained"
-                  fullWidth
-                  onClick={() => handleChat(match.userId)}
-                  sx={{ mt: 'auto' }}
-                >
-                  Start Chat
-                </Button>
+                {match.unlockedByMe ? (
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    startIcon={<ChatIcon />}
+                    onClick={() => handleOpenChat(match)}
+                    sx={{ mt: 'auto' }}
+                  >
+                    Open chat
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    startIcon={<LockIcon />}
+                    onClick={() => handleUnlockChat(match)}
+                    disabled={unlockingMatchId === match.matchId || (me?.credits ?? 0) < 1}
+                    sx={{ mt: 'auto' }}
+                  >
+                    {unlockingMatchId === match.matchId ? 'Unlocking…' : 'Unlock chat (1 credit)'}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </Grid>

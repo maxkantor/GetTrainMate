@@ -23,11 +23,15 @@ export function handleApiError(error: any): ApiError {
   if (error.response) {
     // Server responded with error status
     apiError.status = error.response.status;
-    apiError.message = error.response.data?.error || error.response.data?.message || `Server error (${error.response.status})`;
-    
+    apiError.code = error.response.data?.code;
+    apiError.message = error.response.data?.message || error.response.data?.error || `Server error (${error.response.status})`;
+
     if (error.response.status === 401 || error.response.status === 403) {
       apiError.isAuthError = true;
       apiError.message = 'Authentication required. Please login again.';
+    }
+    if (error.response.status === 402 && error.response.data?.code === 'INSUFFICIENT_CREDITS') {
+      apiError.message = error.response.data?.message || 'Not enough credits. Get more on the Pricing page.';
     }
   } else if (error.request) {
     // Request made but no response (network error)

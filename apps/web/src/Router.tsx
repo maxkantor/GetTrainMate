@@ -35,6 +35,7 @@ import { AdminLoginPage } from '@/pages/admin/AdminLoginPage';
 import { CMSPage } from '@/pages/admin/CMS';
 import { AdminLayout } from '@/pages/admin/AdminLayout';
 import { CreditPacksPage as AdminCreditPacksPage } from '@/pages/admin/CreditPacksPage';
+import { TestUsersPage } from '@/pages/admin/TestUsersPage';
 import { ScrollToTop } from '@/components/ScrollToTop';
 
 export const Router: React.FC = () => {
@@ -98,6 +99,7 @@ export const Router: React.FC = () => {
                   <Route path="/admin/media" element={<AdminDashboard />} />
                   <Route path="/admin/leads" element={<AdminDashboard />} />
                   <Route path="/admin/credit-packs" element={<AdminCreditPacksPage />} />
+                  <Route path="/admin/test-users" element={<TestUsersPage />} />
                 </Route>
             </Route>
 
