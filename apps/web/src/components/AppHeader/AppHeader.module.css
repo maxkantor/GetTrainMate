@@ -1,44 +1,55 @@
 /**
- * AppHeader – fully scoped, no inherited styles.
- * All colors explicit via data-variant and data-scrolled.
+ * AppHeader – single grey header on all routes.
+ * position: sticky; one content offset via layout padding-top.
  */
 
 .root {
   position: sticky;
   top: 0;
   width: 100%;
-  height: 64px;
-  z-index: 2000;
-  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  height: var(--nav-height-desktop, 64px);
+  z-index: 1000;
+  background: var(--nav-bg) !important;
+  background-color: var(--nav-bg) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .inner {
   display: flex;
   align-items: center;
-  height: 64px;
+  height: var(--nav-height-desktop, 64px);
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 24px;
   gap: 1rem;
 }
 
-/* Logo – brand only, no pill/border/background */
+/* Logo – high visibility on grey nav */
 .logo {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.3125rem;
+  font-weight: 800;
+  color: #111827 !important;
   text-decoration: none;
   background: none !important;
   border: none !important;
   padding: 0 !important;
   flex-shrink: 0;
+  letter-spacing: -0.02em;
 }
 
 .logoIcon {
   font-size: 1.5rem;
   line-height: 1;
+  color: #111827 !important;
+}
+
+.logoText {
+  color: #111827 !important;
+  font-weight: 800 !important;
 }
 
 /* Nav – center column, flex:1 for perfect centering */
@@ -51,15 +62,30 @@
 }
 
 .navLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 12px;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #111827 !important;
   text-decoration: none;
   background: transparent;
   border: none;
   border-radius: 999px;
   transition: background-color 0.12s ease;
   outline: none;
+  letter-spacing: 0.01em;
+}
+
+.navLink:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #111827 !important;
+}
+
+.navActive {
+  background: rgba(0, 0, 0, 0.12);
+  color: #111827 !important;
 }
 
 .navLink:focus-visible {
@@ -79,33 +105,43 @@
   flex-shrink: 0;
 }
 
-.langSelect {
-  padding: 6px 10px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  border-radius: 6px;
-  cursor: pointer;
-  outline: none;
-  border: 1px solid transparent;
-}
-
 .authWrap {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.loginBtn,
+.loginBtn {
+  padding: 8px 16px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #111827 !important;
+  background: rgba(0, 0, 0, 0.1);
+  text-decoration: none;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  transition: background-color 0.12s ease, color 0.12s ease;
+  outline: none;
+  cursor: pointer;
+}
+
 .signupBtn {
   padding: 8px 16px;
   font-size: 0.875rem;
   font-weight: 600;
+  color: #fff !important;
+  background: #4f46e5;
   text-decoration: none;
   border-radius: 8px;
+  border: 1px solid transparent;
   transition: background-color 0.12s ease, color 0.12s ease;
   outline: none;
-  border: 1px solid transparent;
   cursor: pointer;
+}
+
+.signupBtn:hover {
+  background: #4338ca;
+  color: #fff !important;
 }
 
 .loginBtn:focus-visible,
@@ -123,6 +159,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px;
+  color: #1f2937 !important;
   background: transparent;
   border: none;
   border-radius: 8px;
@@ -184,7 +221,7 @@
   border-radius: 8px;
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   padding: 4px;
-  z-index: 2001;
+  z-index: 1001;
 }
 
 .dropItem {
@@ -224,6 +261,7 @@
 .mobileBtn {
   display: none;
   padding: 8px;
+  color: #1f2937 !important;
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -265,7 +303,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.4);
-  z-index: 1999;
+  z-index: 999;
 }
 
 .mobileMenu {
@@ -276,7 +314,7 @@
   height: 100vh;
   background: #fff;
   box-shadow: -4px 0 24px rgba(0,0,0,0.15);
-  z-index: 2000;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
   padding: 80px 24px 24px;
@@ -311,11 +349,8 @@
   gap: 8px;
 }
 
-.mobileLang {
-  padding: 12px;
-  font-size: 0.875rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+.mobileLangWrap {
+  margin-bottom: 8px;
 }
 
 .mobileLogout {
@@ -340,132 +375,10 @@
   text-align: center;
 }
 
-/* ========== HERO VARIANT ========== */
-/* At top: subtle dark tint so white text visible over light page container */
-.root[data-variant='hero'][data-scrolled='false'] {
-  background: rgba(15, 23, 42, 0.35) !important;
-  background-color: rgba(15, 23, 42, 0.35) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  box-shadow: none;
-}
-
-.root[data-variant='hero'][data-scrolled='true'] {
-  background: rgba(15, 23, 42, 0.72) !important;
-  background-color: rgba(15, 23, 42, 0.72) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-}
-
-.root[data-variant='hero'] .logo,
-.root[data-variant='hero'] .logoText,
-.root[data-variant='hero'] .logoIcon {
-  color: #fff !important;
-}
-
-.root[data-variant='hero'] .navLink {
-  color: #fff !important;
-}
-
-.root[data-variant='hero'] .navLink:hover {
-  background: rgba(255,255,255,0.08);
-  color: #fff !important;
-}
-
-.root[data-variant='hero'] .navActive {
-  background: rgba(255,255,255,0.14);
-  color: #fff !important;
-}
-
-.root[data-variant='hero'] .langSelect {
-  color: #fff;
-  background: rgba(255,255,255,0.15);
-  border-color: rgba(255,255,255,0.4);
-}
-
-.root[data-variant='hero'] .loginBtn {
-  color: #fff !important;
-  background: rgba(255,255,255,0.1);
-  border-color: rgba(255,255,255,0.5);
-}
-
-.root[data-variant='hero'] .signupBtn {
-  color: #0f172a !important;
-  background: #fff;
-  border-color: transparent;
-}
-
-.root[data-variant='hero'] .userBtn {
-  color: #fff !important;
-}
-
-.root[data-variant='hero'] .mobileBtn {
-  color: #fff !important;
-}
-
-/* ========== SOLID VARIANT ========== */
-.root[data-variant='solid'] {
-  background: rgba(255,255,255,0.92) !important;
-  background-color: rgba(255,255,255,0.92) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(15,23,42,0.08);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-}
-
-.root[data-variant='solid'] .logo,
-.root[data-variant='solid'] .logoText,
-.root[data-variant='solid'] .logoIcon {
-  color: #0f172a !important;
-}
-
-.root[data-variant='solid'] .navLink {
-  color: #0f172a !important;
-}
-
-.root[data-variant='solid'] .navLink:hover {
-  background: rgba(15,23,42,0.06);
-  color: #0f172a !important;
-}
-
-.root[data-variant='solid'] .navActive {
-  background: rgba(99,102,241,0.1);
-  color: #0f172a !important;
-}
-
-.root[data-variant='solid'] .langSelect {
-  color: #0f172a;
-  background: #f3f4f6;
-  border-color: #e5e7eb;
-}
-
-.root[data-variant='solid'] .loginBtn {
-  color: #0f172a !important;
-  background: transparent;
-  border-color: rgba(15,23,42,0.2);
-}
-
-.root[data-variant='solid'] .signupBtn {
-  color: #fff !important;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
-  border-color: transparent;
-}
-
-.root[data-variant='solid'] .userBtn {
-  color: #0f172a !important;
-}
-
-.root[data-variant='solid'] .mobileBtn {
-  color: #0f172a !important;
-}
-
 /* ========== RESPONSIVE ========== */
 @media (min-width: 768px) {
-  .root { height: 64px; }
-  .inner { height: 64px; padding: 0 24px; }
+  .root { height: var(--nav-height-desktop, 64px); }
+  .inner { height: var(--nav-height-desktop, 64px); padding: 0 24px; }
   .nav { display: flex; }
   .authWrap, .userWrap { display: flex; }
   .langWrap { display: block; }
@@ -473,8 +386,8 @@
 }
 
 @media (max-width: 767px) {
-  .root { height: 56px; }
-  .inner { height: 56px; padding: 0 16px; }
+  .root { height: var(--nav-height, 56px); }
+  .inner { height: var(--nav-height, 56px); padding: 0 16px; }
   .logo { font-size: 1.125rem; }
   .logoIcon { font-size: 1.25rem; }
   .nav { display: none; }

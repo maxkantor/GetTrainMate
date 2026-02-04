@@ -29,7 +29,6 @@ export const Features: React.FC = () => {
     <Section id="features" background="white" paddingSize="xl">
       <Container>
         <div className={styles.sectionHeader}>
-          <span className={styles.sectionLabel}>Why GetTrainMate?</span>
           <h2 className={styles.sectionTitle}>{t('landing.features_title')}</h2>
           <p className={styles.sectionSubtitle}>
             Everything you need to find the perfect training partner and reach your fitness goals faster.

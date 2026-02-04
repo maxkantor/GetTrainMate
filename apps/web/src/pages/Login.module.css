@@ -1,0 +1,6 @@
+/* Back link strip: below nav, left-aligned with form content */
+.backStrip {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 8px 24px 0;
+}

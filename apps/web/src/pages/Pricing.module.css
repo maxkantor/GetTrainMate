@@ -6,6 +6,15 @@
   overflow-x: hidden;
 }
 
+/* Back link: directly below nav, left-aligned with page content */
+.backStrip {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 8px 24px 0;
+}
+
 /* Full-page hero background: soft gradient + radial glow */
 .page::before {
   content: '';

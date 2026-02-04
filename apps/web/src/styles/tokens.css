@@ -18,6 +18,11 @@
   --color-neutral-800: #1f2937;
   --color-neutral-900: #111827;
   
+  /* Layout - Nav (single source for all pages) */
+  --nav-bg: #9aa0a6;
+  --nav-height: 56px;
+  --nav-height-desktop: 64px;
+
   /* Colors - Semantic */
   --color-success: #10b981;
   --color-warning: #f59e0b;

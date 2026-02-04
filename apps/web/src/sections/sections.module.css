@@ -1,13 +1,20 @@
 /* ======================
    HERO SECTION
    ====================== */
+/* Top padding reserves space so floating cards never sit under sticky nav */
 .hero {
   position: relative;
   min-height: min(760px, 100vh);
   display: flex;
   align-items: center;
   overflow: hidden;
-  padding: var(--space-18) 0 var(--space-16);
+  padding: var(--nav-height, 56px) 0 var(--space-16);
+}
+
+@media (min-width: 768px) {
+  .hero {
+    padding-top: var(--nav-height-desktop, 64px);
+  }
 }
 
 /* Hero Background */

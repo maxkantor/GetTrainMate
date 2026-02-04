@@ -3,39 +3,22 @@ import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
-import { SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/i18n';
+import { LanguageDropdown } from '@/components/layout/LanguageDropdown';
 import styles from './AppHeader.module.css';
 
-export type HeaderVariant = 'hero' | 'solid';
-
-interface AppHeaderProps {
-  variant: HeaderVariant;
-}
-
-export const AppHeader: React.FC<AppHeaderProps> = ({ variant }) => {
-  const { t, locale, setLocale } = useI18n();
+export const AppHeader: React.FC = () => {
+  const { t } = useI18n();
   const { user, logout } = useAuthContext();
   const { me } = useMe();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
 
   const isLoggedIn = !!user;
   const profileComplete = me?.isProfileComplete ?? true;
   const isAdmin = me?.isAdmin ?? user?.groups?.includes('Admin') ?? false;
-
-  const dataScrolled = variant === 'hero' && scrolled;
-
-  useEffect(() => {
-    if (variant !== 'hero') return;
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [variant]);
 
   useEffect(() => {
     const fn = (e: MouseEvent) => {
@@ -65,18 +48,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ variant }) => {
     { label: t('nav.discover'), href: '/app/discover' },
     { label: t('nav.match'), href: '/app/matches' },
     { label: t('nav.chat'), href: '/app/chat' },
+    { label: t('nav.events'), href: '/app/events' },
     { label: t('header.pricing'), href: '/pricing' },
   ];
   const navItems = isLoggedIn ? loggedInNav : loggedOutNav;
+  const logoTo = isLoggedIn ? '/app/discover' : '/';
 
   return (
-    <header
-      className={styles.root}
-      data-variant={variant}
-      data-scrolled={String(dataScrolled)}
-    >
+    <header className={styles.root}>
       <div className={styles.inner}>
-        <RouterLink to="/" className={styles.logo} aria-label={t('common.appName')}>
+        <RouterLink to={logoTo} className={styles.logo} aria-label={t('common.appName')}>
           <span className={styles.logoIcon}>⚡</span>
           <span className={styles.logoText}>{t('common.appName')}</span>
         </RouterLink>
@@ -88,23 +69,21 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ variant }) => {
               to={href}
               className={`${styles.navLink} ${isActive(href) ? styles.navActive : ''}`}
             >
-              {label}
+              {href === '/pricing' ? (
+                <>
+                  <span aria-hidden>💰</span>
+                  {label}
+                </>
+              ) : (
+                label
+              )}
             </RouterLink>
           ))}
         </nav>
 
         <div className={styles.actions}>
           <div className={styles.langWrap}>
-            <select
-              value={SUPPORTED_LOCALES.includes(locale) ? locale : DEFAULT_LOCALE}
-              onChange={(e) => setLocale((e.target.value || DEFAULT_LOCALE) as Locale)}
-              className={styles.langSelect}
-              aria-label={t('common.language')}
-            >
-              {SUPPORTED_LOCALES.map((l) => (
-                <option key={l} value={l}>{l.toUpperCase()}</option>
-              ))}
-            </select>
+            <LanguageDropdown />
           </div>
 
           {isLoggedIn ? (
@@ -181,18 +160,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ variant }) => {
             <nav className={styles.mobileNav}>
               {navItems.map(({ label, href }) => (
                 <RouterLink key={href} to={href} className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
-                  {label}
+                  {href === '/pricing' ? <>💰 {label}</> : label}
                 </RouterLink>
               ))}
             </nav>
             <div className={styles.mobileActions}>
-              <select
-                value={locale}
-                onChange={(e) => setLocale((e.target.value || DEFAULT_LOCALE) as Locale)}
-                className={styles.mobileLang}
-              >
-                {SUPPORTED_LOCALES.map((l) => <option key={l} value={l}>{l.toUpperCase()}</option>)}
-              </select>
+              <div className={styles.mobileLangWrap}>
+                <LanguageDropdown />
+              </div>
               {isLoggedIn ? (
                 <>
                   <RouterLink to="/app/profile" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>{t('header.profile')}</RouterLink>

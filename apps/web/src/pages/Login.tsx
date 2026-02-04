@@ -14,6 +14,8 @@ import {
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { isAuthConfigured } from '@/services/authService';
+import { BackLink } from '@/components/ui/BackLink';
+import styles from './Login.module.css';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -132,7 +134,11 @@ export const LoginPage: React.FC = () => {
 
   if (requiresNewPassword) {
     return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
+      <>
+        <div className={styles.backStrip}>
+          <BackLink label="Back" />
+        </div>
+        <Container maxWidth="sm" sx={{ py: 8 }}>
         <Box sx={{ backgroundColor: '#fff', padding: 4, borderRadius: 2, boxShadow: 1 }}>
           <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
             Set New Password
@@ -187,11 +193,16 @@ export const LoginPage: React.FC = () => {
           </form>
         </Box>
       </Container>
+      </>
     );
   }
 
   return (
-    <Container maxWidth="sm" sx={{ py: 8 }}>
+    <>
+      <div className={styles.backStrip}>
+        <BackLink label="Back" />
+      </div>
+      <Container maxWidth="sm" sx={{ py: 8 }}>
       <Box sx={{ backgroundColor: '#fff', padding: 4, borderRadius: 2, boxShadow: 1 }}>
         <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
           {t('auth.login_title')}
@@ -278,5 +289,6 @@ export const LoginPage: React.FC = () => {
         </Box>
       </Box>
     </Container>
+    </>
   );
 };

@@ -11,6 +11,8 @@ import {
 } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { BackLink } from '@/components/ui/BackLink';
+import styles from './Signup.module.css';
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
@@ -82,7 +84,11 @@ export const SignupPage: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 8 }}>
+    <>
+      <div style={{ maxWidth: 600, margin: '0 auto', padding: '8px 24px 0' }}>
+        <BackLink label="Back" />
+      </div>
+      <Container maxWidth="sm" sx={{ py: 8 }}>
       <Box sx={{ backgroundColor: '#fff', padding: 4, borderRadius: 2, boxShadow: 1 }}>
         <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
           {t('auth.signup_title')}
@@ -172,5 +178,6 @@ export const SignupPage: React.FC = () => {
         </Box>
       </Box>
     </Container>
+    </>
   );
 };

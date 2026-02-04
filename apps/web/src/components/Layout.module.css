@@ -4,6 +4,7 @@
   flex-direction: column;
 }
 
+/* Header is in flow; main starts directly below it. No padding-top (that caused white band). */
 .main {
   flex: 1;
 }

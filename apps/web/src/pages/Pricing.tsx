@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Snackbar } from '@mui/material';
 import { Container } from '@/components/layout/Container';
+import { BackLink } from '@/components/ui/BackLink';
 import { authService } from '@/services/authService';
 import { billingService, CreditPackDto } from '@/services/billingService';
 import { useAuthContext } from '@/hooks/useAuthContext';
@@ -134,6 +135,9 @@ export const PricingPage: React.FC = () => {
 
   return (
     <main className={styles.page}>
+      <div className={styles.backStrip}>
+        <BackLink label="Back" />
+      </div>
       <section className={styles.hero}>
         <Container>
           {isAuthenticated && (
