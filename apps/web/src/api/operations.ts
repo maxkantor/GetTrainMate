@@ -16,6 +16,14 @@ export const GET_ME = /* GraphQL */ `
   }
 `;
 
+export const GET_PROFILE = /* GraphQL */ `
+  query GetProfile($userId: ID!) {
+    getProfile(userId: $userId) {
+      userId displayName age city bio sports goals schedule avatarUrl isComplete updatedAt
+    }
+  }
+`;
+
 export const DISCOVER_CANDIDATES = /* GraphQL */ `
   query DiscoverCandidates($limit: Int, $nextToken: String) {
     discoverCandidates(limit: $limit, nextToken: $nextToken) {

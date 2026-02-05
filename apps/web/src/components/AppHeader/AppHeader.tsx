@@ -49,12 +49,12 @@ export const AppHeader: React.FC = () => {
     { label: t('header.pricing'), href: '/pricing', icon: '💰', exact: true },
   ];
   const navItems = isLoggedIn ? loggedInNav : loggedOutNav;
-  const logoTo = isLoggedIn ? '/app/discover' : '/';
+  const logoTo = '/';
 
   return (
     <header className={styles.root}>
       <div className={styles.inner}>
-        <RouterLink to={logoTo} className={styles.logo} aria-label={t('common.appName')}>
+        <RouterLink to={logoTo} className={styles.logo} aria-label={t('common.appName')} onClick={(e) => e.stopPropagation()}>
           <span className={styles.logoIcon}>⚡</span>
           <span className={styles.logoText}>{t('common.appName')}</span>
         </RouterLink>

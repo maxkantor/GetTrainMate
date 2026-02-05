@@ -128,6 +128,7 @@ input AvailabilitySlotInput {
 # ----- Queries -----
 type Query {
   getMe: Me
+  getProfile(userId: ID!): Profile
   discoverCandidates(limit: Int, nextToken: String): DiscoverCandidatesResult
   listMyMatches: ListMyMatchesResult
   getThreadByMatch(matchId: ID!): ChatThreadInfo

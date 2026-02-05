@@ -40,6 +40,50 @@ If you want to make `given_name` optional in Cognito:
 
 **Note**: This means users can sign up without providing a name, which may not be desired.
 
+## Local login: "Works on Amplify, not on localhost"
+
+If you get **"No account found with this email"** on localhost but the same account works on the deployed Amplify app, localhost is using a **different Cognito User Pool** than Amplify.
+
+### Fix: use the same pool as Amplify
+
+1. **Find which pool has your user**
+   - AWS Console → **Cognito** → **User pools**
+   - Open each pool → **Users** → search for your email (e.g. `mykantor@bellsouth.net`)
+   - Note the **User pool ID** (e.g. `us-east-1_XXXXXXXXX`) of the pool where the user exists
+
+2. **Get the App client ID for that pool**
+   - In that same User Pool → **App integration** → **App client list**
+   - Copy the **Client ID** of the app client your app uses (e.g. the one named like `gettrainmate-web-client` or the one Amplify uses)
+
+3. **Set localhost to use that pool**
+   - Edit **`apps/web/.env`** and set:
+     ```bash
+     VITE_COGNITO_USER_POOL_ID=us-east-1_XXXXXXXXX   # from step 1
+     VITE_COGNITO_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxx   # from step 2
+     VITE_COGNITO_REGION=us-east-1
+     ```
+   - Or copy **the same values** from Amplify: **Amplify Console** → your app → **Environment variables** → copy `VITE_COGNITO_USER_POOL_ID`, `VITE_COGNITO_CLIENT_ID`, `VITE_COGNITO_REGION` into `apps/web/.env`
+
+4. **Restart the dev server**
+   - Stop it (Ctrl+C), then run `npm run web:dev` again so Vite reloads `.env`
+
+On the Login page in dev you’ll see **"Local Cognito pool: us-east-1_••••XXXX"**. That must match the pool where your user exists (and the one Amplify uses).
+
+### 401 after login (Discover / profile / feed)
+
+If login works but you then see **"We couldn't load your profile"** or **401** in the console when loading `/app/discover`, localhost is using a **different backend** than Amplify. The API/AppSync only accepts tokens from the User Pool they were configured with.
+
+**Fix:** Use the **same full config as Amplify**. In **Amplify Console** → your app → **Environment variables**, copy **all** of these into `apps/web/.env`:
+
+- `VITE_COGNITO_USER_POOL_ID`
+- `VITE_COGNITO_CLIENT_ID`
+- `VITE_COGNITO_REGION`
+- `VITE_API_URL`
+- `VITE_APPSYNC_GRAPHQL_URL` (if present)
+- `VITE_APPSYNC_REGION` (if present)
+
+Restart the dev server. Then localhost uses the same Cognito pool **and** the same API/AppSync as Amplify, so the backend will accept your token.
+
 ## Current Implementation
 
 The current code:

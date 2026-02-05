@@ -154,7 +154,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else if (error.name === 'UserNotConfirmedException') {
         message = 'Your account needs to be confirmed. Please check your email for a verification code.';
       } else if (error.name === 'UserNotFoundException') {
-        message = 'No account found with this email. Please sign up first.';
+        message = import.meta.env.DEV
+          ? 'No account found in this Cognito pool. If login works on Amplify, use the same pool: copy VITE_COGNITO_USER_POOL_ID and VITE_COGNITO_CLIENT_ID from Amplify → Environment variables into apps/web/.env and restart the dev server.'
+          : 'No account found with this email. Please sign up first.';
       } else if (error.message) {
         message = error.message;
       }

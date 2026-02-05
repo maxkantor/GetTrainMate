@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link as RouterLink } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link as RouterLink, useParams } from 'react-router-dom';
 import { Container, Typography, Button } from '@mui/material';
 import { Layout } from '@/components/Layout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -37,6 +37,11 @@ import { AdminLayout } from '@/pages/admin/AdminLayout';
 import { CreditPacksPage as AdminCreditPacksPage } from '@/pages/admin/CreditPacksPage';
 import { TestUsersPage } from '@/pages/admin/TestUsersPage';
 import { ScrollToTop } from '@/components/ScrollToTop';
+
+function PublicProfileRoute() {
+  const { userId } = useParams<{ userId: string }>();
+  return <PublicProfilePage key={userId} />;
+}
 
 export const Router: React.FC = () => {
   return (
@@ -76,8 +81,8 @@ export const Router: React.FC = () => {
               <Route path="chat" element={<ChatPage />} />
               <Route path="events" element={<EventsPage />} />
               <Route path="subscription" element={<SubscriptionPage />} />
+              <Route path="profile/:userId" element={<PublicProfileRoute />} />
               <Route path="profile" element={<ProfilePage />} />
-              <Route path="profile/:userId" element={<PublicProfilePage />} />
               <Route path="settings" element={<AppDashboardPage />} />
             </Route>
 

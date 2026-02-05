@@ -43,7 +43,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       } else if (me != null) {
         console.log('[ProtectedRoute] Profile loaded:', me.user?.id ?? 'no-id', 'onboarding required:', !profileComplete, 'reason:', profileComplete ? 'profile complete' : 'profile incomplete');
       } else if (meError) {
-        console.log('[ProtectedRoute] Profile load failed (not redirecting to onboarding):', meError);
+        console.log('[ProtectedRoute] Profile load failed (not redirecting to onboarding):', typeof meError === 'string' ? meError : 'An unexpected error occurred');
       }
     }
   }

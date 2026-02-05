@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
-import { isAuthConfigured } from '@/services/authService';
+import { isAuthConfigured, getAuthPoolDebug } from '@/services/authService';
 import { PageShell } from '@/components/layout/PageShell';
 
 export const LoginPage: React.FC = () => {
@@ -207,6 +207,14 @@ export const LoginPage: React.FC = () => {
         {!isAuthConfigured() && (
           <Alert severity="warning" sx={{ marginBottom: 2 }}>
             Auth not configured. Run <code>npm run env:sync</code> to fetch Cognito config from the deployed CDK stack and create <code>apps/web/.env</code>.
+          </Alert>
+        )}
+
+        {isAuthConfigured() && import.meta.env.DEV && getAuthPoolDebug() && (
+          <Alert severity="info" sx={{ marginBottom: 2 }} icon={false}>
+            <Typography variant="caption" component="span">
+              Local Cognito pool: <strong>{getAuthPoolDebug()}</strong>. If login works on Amplify but not here, use the <strong>same</strong> pool: Amplify → Environment variables → copy <code>VITE_COGNITO_USER_POOL_ID</code> and <code>VITE_COGNITO_CLIENT_ID</code> into <code>apps/web/.env</code>, then restart dev server.
+            </Typography>
           </Alert>
         )}
 

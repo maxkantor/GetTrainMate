@@ -9,8 +9,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
   },
-  // Load .env from monorepo root so root .env works; apps/web/.env overrides
-  envDir: path.resolve(__dirname, '../..'),
+  // Load .env from apps/web (sync script writes here: npm run env:sync)
+  envDir: path.resolve(__dirname),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

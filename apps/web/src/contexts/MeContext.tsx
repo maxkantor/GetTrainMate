@@ -2,7 +2,8 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { authService } from '@/services/authService';
 import { meService, type MeResponse } from '@/services/meService';
-import { isGraphQLEnabled, graphqlGetMe, graphqlEnsureFreeStartCredits } from '@/services/graphqlService';
+import { isGraphQLEnabled, graphqlGetMe, graphqlEnsureFreeStartCredits, GraphQLApiError } from '@/services/graphqlService';
+import { handleApiError, getErrorMessage } from '@/utils/apiErrorHandler';
 
 interface MeContextType {
   me: MeResponse | null;
@@ -70,7 +71,8 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
         if (import.meta.env.DEV) {
           console.log('[MeContext] Profile loaded:', (data as { user?: { id?: string } }).user?.id, 'onboarding required:', !(data as { isProfileComplete?: boolean }).isProfileComplete);
         }
-        graphqlEnsureFreeStartCredits().then(() => fetchMe()).catch(() => {});
+        // Fire-and-forget: ensure free credits; do NOT call fetchMe() again (causes infinite loop)
+        graphqlEnsureFreeStartCredits().catch(() => {});
       } else {
         const token = await authService.getJWT();
         if (!token) {
@@ -85,12 +87,20 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
           console.log('[MeContext] Profile loaded:', data.user?.id, 'onboarding required:', !data.isProfileComplete);
         }
       }
-    } catch (err) {
-      console.error('Error fetching /me:', err);
-      const errMessage = err instanceof Error ? err.message : 'Failed to load account';
-      setError(errMessage);
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number }; status?: number }).response?.status ?? (err as { status?: number }).status;
+      const graphqlErrors = err instanceof GraphQLApiError ? err.graphqlErrors : undefined;
+      if (import.meta.env.DEV) {
+        console.error('[MeContext] /me failed:', status ?? 'no status', graphqlErrors ?? (err instanceof Error ? err.message : err));
+        if (status == null && err != null && typeof err === 'object') {
+          const keys = Object.keys(err as object).filter((k) => !k.startsWith('_'));
+          console.error('[MeContext] raw error shape (for debugging):', keys, err instanceof Error ? err.message : (err as { message?: string }).message);
+        }
+      }
+      const message = getErrorMessage(err);
+      setError(message);
       setMe(null);
-      if (import.meta.env.DEV) console.log('[MeContext] Profile fetch failed (not redirecting to onboarding):', errMessage);
+      if (import.meta.env.DEV) console.log('[MeContext] Profile fetch failed (not redirecting to onboarding):', message);
     } finally {
       setLoading(false);
     }

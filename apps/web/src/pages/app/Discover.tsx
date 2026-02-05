@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -18,8 +18,24 @@ import { useMe } from '@/hooks/useMe';
 import { matchService, MatchFeedItem } from '@/services/matchService';
 import { authService } from '@/services/authService';
 import { isGraphQLEnabled, graphqlDiscoverCandidates, graphqlLikeUser, graphqlSeedDemoData } from '@/services/graphqlService';
-import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
+import { handleApiError, getErrorMessage, isNetworkError } from '@/utils/apiErrorHandler';
+import { IMAGE_BUCKET_BASE } from '@/config/media';
 import styles from './Discover.module.css';
+
+/** Person portraits for placeholder avatars (randomuser.me: men/women 1–99). */
+function placeholderPersonUrl(userId: string): string {
+  const n = userId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+  const idx = (n % 99) + 1;
+  const gender = n % 2 === 0 ? 'women' : 'men';
+  return `https://randomuser.me/api/portraits/${gender}/${idx}.jpg`;
+}
+
+/** Backend may return avatarUrl as full URL or S3 key; normalize to full URL for img src. Never return undefined for discover cards - use person placeholder so there is always a photo. */
+function toPhotoUrl(avatarUrl: string | undefined, userId: string): string {
+  if (avatarUrl && (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://'))) return avatarUrl;
+  if (avatarUrl) return `${IMAGE_BUCKET_BASE}/${avatarUrl.replace(/^\//, '')}`;
+  return placeholderPersonUrl(userId);
+}
 
 export const DiscoverPage: React.FC = () => {
   const { t } = useI18n();
@@ -35,10 +51,17 @@ export const DiscoverPage: React.FC = () => {
   const [seeding, setSeeding] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [likeLoading, setLikeLoading] = useState(false);
+  const [photoErrorForIndex, setPhotoErrorForIndex] = useState<number | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadFeed();
   }, []);
+
+  // Reset photo error when changing card (must be at top level with other hooks)
+  useEffect(() => {
+    setPhotoErrorForIndex(null);
+  }, [currentIndex]);
 
   const loadFeed = async (isRetryAfter401 = false) => {
     try {
@@ -47,19 +70,23 @@ export const DiscoverPage: React.FC = () => {
       if (isGraphQLEnabled) {
         const result = await graphqlDiscoverCandidates(50);
         const items = (result.items || []) as { userId: string; displayName: string; city?: string; bio?: string; sports?: string[]; avatarUrl?: string; compatibilityScore?: number }[];
-        const feedData: MatchFeedItem[] = items.map((c) => ({
-          userId: c.userId,
-          name: c.displayName,
-          city: c.city,
-          bio: c.bio ?? undefined,
-          sportTags: c.sports ?? [],
-          photoUrls: c.avatarUrl ? [c.avatarUrl] : [],
-          compatibilityScore: c.compatibilityScore ?? 50,
-          commonSports: c.sports ?? [],
-          mode: 'TRAIN',
-        }));
+        const feedData: MatchFeedItem[] = items.map((c) => {
+          const url = toPhotoUrl(c.avatarUrl, c.userId);
+          return {
+            userId: c.userId,
+            name: c.displayName,
+            city: c.city,
+            bio: c.bio ?? undefined,
+            sportTags: c.sports ?? [],
+            photoUrls: [url],
+            compatibilityScore: c.compatibilityScore ?? 50,
+            commonSports: c.sports ?? [],
+            mode: 'TRAIN',
+          };
+        });
         setFeed(feedData);
         setCurrentIndex(0);
+        setPhotoErrorForIndex(null);
       } else {
         const token = await authService.getJWT(isRetryAfter401);
         if (!token) {
@@ -70,22 +97,46 @@ export const DiscoverPage: React.FC = () => {
         const feedData = await matchService.getDiscoveryFeed(token, 50);
         setFeed(feedData);
         setCurrentIndex(0);
+        setPhotoErrorForIndex(null);
       }
     } catch (err: any) {
-      const status = err.response?.status;
+      const status = err.response?.status ?? err.status;
       const apiError = handleApiError(err);
 
-      if (!isGraphQLEnabled && status === 401 && !isRetryAfter401) {
+      if (status === 401 && !isRetryAfter401) {
         const freshToken = await authService.getJWT(true);
-        if (freshToken) {
+        if (freshToken || isGraphQLEnabled) {
           try {
-            const feedData = await matchService.getDiscoveryFeed(freshToken, 50);
-            setFeed(feedData);
-            setCurrentIndex(0);
+            if (isGraphQLEnabled) {
+              const result = await graphqlDiscoverCandidates(50);
+              const items = (result.items || []) as { userId: string; displayName: string; city?: string; bio?: string; sports?: string[]; avatarUrl?: string; compatibilityScore?: number }[];
+              const feedData: MatchFeedItem[] = items.map((c) => {
+                const url = toPhotoUrl(c.avatarUrl, c.userId);
+                return {
+                  userId: c.userId,
+                  name: c.displayName,
+                  city: c.city,
+                  bio: c.bio ?? undefined,
+                  sportTags: c.sports ?? [],
+                  photoUrls: [url],
+                  compatibilityScore: c.compatibilityScore ?? 50,
+                  commonSports: c.sports ?? [],
+                  mode: 'TRAIN',
+                };
+              });
+              setFeed(feedData);
+              setCurrentIndex(0);
+            } else {
+              const feedData = await matchService.getDiscoveryFeed(freshToken!, 50);
+              setFeed(feedData);
+              setCurrentIndex(0);
+              setPhotoErrorForIndex(null);
+            }
             setLoading(false);
             return;
           } catch (retryErr: any) {
-            if (retryErr.response?.status === 401) {
+            const retryStatus = retryErr.response?.status ?? retryErr.status;
+            if (retryStatus === 401) {
               setError('Session expired. Please sign in again.');
               setLoading(false);
               await logout();
@@ -102,13 +153,20 @@ export const DiscoverPage: React.FC = () => {
         return;
       }
 
-      console.error('Error loading feed:', err);
+      if (import.meta.env.DEV) {
+        const statusLog = err.response?.status ?? err.status ?? 'no status';
+        console.error('[Discover] loadFeed failed:', statusLog, apiError.message, apiError.code ?? '');
+        if (statusLog === 'no status' && err != null && typeof err === 'object') {
+          const keys = Object.keys(err).filter((k) => !k.startsWith('_'));
+          console.error('[Discover] raw error shape (for debugging):', keys, err?.message);
+        }
+      }
       if (isNetworkError(err) || apiError.isCorsError) {
         setError('Unable to connect to the API. The backend may not be deployed or CORS is not configured. Please check your API configuration.');
       } else if (status === 401) {
         setError('Authentication required. Please sign in again.');
       } else {
-        setError(apiError.message || 'Failed to load discovery feed');
+        setError(getErrorMessage(err));
       }
     } finally {
       setLoading(false);
@@ -276,10 +334,18 @@ export const DiscoverPage: React.FC = () => {
   }
 
   const currentCard = feed[currentIndex];
+  currentUserIdRef.current = currentCard?.userId ?? null;
   const progress = feed.length > 0 ? ((currentIndex + 1) / feed.length) * 100 : 0;
   const credits = me?.credits ?? 0;
-  const hasPhoto = currentCard.photoUrls && currentCard.photoUrls.length > 0;
+  const photoFailed = photoErrorForIndex === currentIndex;
+  const primaryPhotoUrl = (currentCard.photoUrls && currentCard.photoUrls[0]) || placeholderPersonUrl(currentCard?.userId || '');
+  const displayPhotoUrl = photoFailed ? placeholderPersonUrl(currentCard?.userId || '') : primaryPhotoUrl;
   const levelLabel = currentCard.level ? currentCard.level.charAt(0).toUpperCase() + currentCard.level.slice(1) : null;
+
+  const handleViewProfile = () => {
+    const uid = currentUserIdRef.current;
+    if (uid) navigate(`/app/profile/${uid}`);
+  };
 
   return (
     <div className={styles.container}>
@@ -296,27 +362,22 @@ export const DiscoverPage: React.FC = () => {
       </div>
 
       <article
-        className={`${styles.cardStack} ${matched ? styles.cardStackMatched : ''}`}
-        aria-label={`Profile card: ${currentCard.name}`}
+        role="button"
+        tabIndex={0}
+        className={`${styles.cardStack} ${styles.cardClickable} ${matched ? styles.cardStackMatched : ''}`}
+        aria-label={`Profile card: ${currentCard.name}. Click to view full profile.`}
+        onClick={handleViewProfile}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewProfile(); } }}
       >
         <div className={styles.mediaWrap}>
-          {hasPhoto ? (
-            <>
-              <img
-                src={currentCard.photoUrls[0]}
-                alt={currentCard.name}
-                className={styles.mediaImage}
-              />
-              <div className={styles.mediaOverlay} aria-hidden />
-            </>
-          ) : (
-            <div className={styles.mediaPlaceholder}>
-              <div className={styles.mediaPlaceholderIcon} aria-hidden>
-                <PersonIcon sx={{ fontSize: 48 }} />
-              </div>
-              <span className={styles.mediaPlaceholderLabel}>{t('discover.no_photo')}</span>
-            </div>
-          )}
+          <img
+            src={displayPhotoUrl}
+            alt={currentCard.name}
+            className={styles.mediaImage}
+            onError={() => setPhotoErrorForIndex(currentIndex)}
+            referrerPolicy="no-referrer"
+          />
+          <div className={styles.mediaOverlay} aria-hidden />
         </div>
 
         <div className={styles.content}>
@@ -386,7 +447,7 @@ export const DiscoverPage: React.FC = () => {
         <button
           type="button"
           className={`${styles.actionBtn} ${styles.actionBtnConnect}`}
-          onClick={() => navigate(`/app/profile/${currentCard.userId}`)}
+          onClick={handleViewProfile}
           aria-label={`View full profile of ${currentCard.name}`}
         >
           <LinkIcon aria-hidden sx={{ fontSize: 22 }} />

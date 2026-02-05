@@ -88,6 +88,10 @@
     0 8px 15px -3px rgba(0, 0, 0, 0.08);
 }
 
+.cardClickable {
+  cursor: pointer;
+}
+
 .cardStackMatched {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4), 0 20px 40px -10px rgba(99, 102, 241, 0.2);
   transform: scale(1.01);

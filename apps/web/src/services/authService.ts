@@ -52,7 +52,9 @@ const configureAmplify = (): boolean => {
     }
     Amplify.configure(config);
     isConfigured = true;
-    console.log('Amplify configured successfully');
+    if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+      console.log('[Auth] Using Cognito User Pool:', userPoolId, '| Client:', userPoolClientId?.slice(0, 8) + '...', '| Region:', region);
+    }
     return true;
   } catch (error) {
     console.error('Failed to configure Amplify:', error);
@@ -61,6 +63,15 @@ const configureAmplify = (): boolean => {
 };
 
 export const isAuthConfigured = (): boolean => isConfigured;
+
+/** Dev only: which pool we're using (for debugging "works on Amplify, not localhost") */
+export const getAuthPoolDebug = (): string | null => {
+  if (!import.meta.env.DEV || !isConfigured) return null;
+  const id = import.meta.env.VITE_COGNITO_USER_POOL_ID as string | undefined;
+  if (!id) return null;
+  const parts = id.split('_');
+  return parts.length >= 2 ? `${parts[0]}_••••${id.slice(-4)}` : '••••';
+};
 
 export const authService = {
   configure: configureAmplify,

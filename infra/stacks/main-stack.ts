@@ -219,6 +219,7 @@ export class GetTrainMateStack extends cdk.Stack {
         DYNAMODB_TABLE_PREFIX: 'gettrainmate-',
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         ADMIN_EMAILS: process.env.ADMIN_EMAILS || '',
+        MEDIA_BUCKET_NAME: mediaBucket.bucketName,
       },
       bundling: {
         format: nodejs.OutputFormat.CJS,
@@ -238,14 +239,35 @@ export class GetTrainMateStack extends cdk.Stack {
 
     const lambdaDs = graphqlApi.addLambdaDataSource('ResolverDataSource', resolverLambda);
 
+    // Explicit request template so Lambda always receives typeName, fieldName, arguments, identity.
+    // Without this, AppSync may send a different payload and the resolver throws "Unknown field: undefined.undefined".
+    // VTL: $ctx and $context are equivalent; use both so typeName/fieldName are always set
+    const lambdaRequestTemplate = appsync.MappingTemplate.fromString(
+      [
+        '{',
+        '  "version": "2018-05-29",',
+        '  "operation": "Invoke",',
+        '  "payload": {',
+        '    "typeName": $util.toJson($context.info.parentTypeName),',
+        '    "fieldName": $util.toJson($context.info.fieldName),',
+        '    "arguments": $util.toJson($context.arguments),',
+        '    "identity": $util.toJson($context.identity)',
+        '  }',
+        '}',
+      ].join('\n')
+    );
+    const lambdaResponseTemplate = appsync.MappingTemplate.lambdaResult();
+
     const queryType = 'Query';
     const mutationType = 'Mutation';
     const subscriptionType = 'Subscription';
-    ['getMe', 'discoverCandidates', 'listMyMatches', 'getThreadByMatch', 'listMessages'].forEach(
+    ['getMe', 'getProfile', 'discoverCandidates', 'listMyMatches', 'getThreadByMatch', 'listMessages'].forEach(
       (field) => {
         lambdaDs.createResolver(`${queryType}${field}`, {
           typeName: queryType,
           fieldName: field,
+          requestMappingTemplate: lambdaRequestTemplate,
+          responseMappingTemplate: lambdaResponseTemplate,
         });
       },
     );
@@ -260,11 +282,15 @@ export class GetTrainMateStack extends cdk.Stack {
       lambdaDs.createResolver(`${mutationType}${field}`, {
         typeName: mutationType,
         fieldName: field,
+        requestMappingTemplate: lambdaRequestTemplate,
+        responseMappingTemplate: lambdaResponseTemplate,
       });
     });
     lambdaDs.createResolver(`${subscriptionType}onMessageCreated`, {
       typeName: subscriptionType,
       fieldName: 'onMessageCreated',
+      requestMappingTemplate: lambdaRequestTemplate,
+      responseMappingTemplate: lambdaResponseTemplate,
     });
 
     // Outputs

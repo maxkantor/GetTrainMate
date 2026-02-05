@@ -19,6 +19,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { authService } from '@/services/authService';
 import { profileService } from '@/services/profileService';
 import { matchService } from '@/services/matchService';
+import { isGraphQLEnabled, graphqlGetProfile, graphqlLikeUser } from '@/services/graphqlService';
 import { handleApiError } from '@/utils/apiErrorHandler';
 
 export const PublicProfilePage: React.FC = () => {
@@ -55,17 +56,27 @@ export const PublicProfilePage: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      const token = await authService.getJWT();
-      if (!token) {
-        setError('Not authenticated');
-        setLoading(false);
-        return;
+      if (isGraphQLEnabled) {
+        const data = await graphqlGetProfile(userId);
+        if (!data) {
+          setError('Profile not found');
+          setProfile(null);
+        } else {
+          setProfile(data as any);
+        }
+      } else {
+        const token = await authService.getJWT();
+        if (!token) {
+          setError('Not authenticated');
+          setLoading(false);
+          return;
+        }
+        const data = await profileService.getProfile(token, userId);
+        setProfile(data as any);
       }
-      const data = await profileService.getProfile(token, userId);
-      setProfile(data as any);
     } catch (err: any) {
       const apiError = handleApiError(err);
-      if (err.response?.status === 404) setError('Profile not found');
+      if (err.response?.status === 404 || err.status === 404) setError('Profile not found');
       else setError(apiError.message || 'Failed to load profile');
     } finally {
       setLoading(false);
@@ -76,13 +87,18 @@ export const PublicProfilePage: React.FC = () => {
     if (!userId || !profile) return;
     try {
       setLiking(true);
-      const token = await authService.getJWT();
-      if (!token) return;
-      const result = await matchService.likeUser(token, userId);
-      if (result.isMatched) setMatched(true);
-      setLiking(false);
+      if (isGraphQLEnabled) {
+        const result = await graphqlLikeUser(userId);
+        if (result.isMatched) setMatched(true);
+      } else {
+        const token = await authService.getJWT();
+        if (!token) return;
+        const result = await matchService.likeUser(token, userId);
+        if (result.isMatched) setMatched(true);
+      }
     } catch (err: any) {
       console.error('Error liking user:', err);
+    } finally {
       setLiking(false);
     }
   };
@@ -107,7 +123,10 @@ export const PublicProfilePage: React.FC = () => {
   }
 
   const name = profile.name || 'Unknown';
-  const photoUrl = profile.photoUrls?.[0];
+  const n = (profile.userId || '').split('').reduce((a: number, b: string) => a + b.charCodeAt(0), 0);
+  const personIdx = (n % 99) + 1;
+  const personGender = n % 2 === 0 ? 'women' : 'men';
+  const photoUrl = profile.photoUrls?.[0] || `https://randomuser.me/api/portraits/${personGender}/${personIdx}.jpg`;
 
   return (
     <Container maxWidth="sm" sx={{ py: 4 }}>
@@ -120,27 +139,13 @@ export const PublicProfilePage: React.FC = () => {
       </Button>
 
       <Card sx={{ boxShadow: 3 }}>
-        {photoUrl ? (
-          <CardMedia
-            component="img"
-            height="400"
-            image={photoUrl}
-            alt={name}
-            sx={{ objectFit: 'cover' }}
-          />
-        ) : (
-          <Box
-            sx={{
-              height: 400,
-              backgroundColor: '#f0f0f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Typography color="textSecondary">{name}</Typography>
-          </Box>
-        )}
+        <CardMedia
+          component="img"
+          height="400"
+          image={photoUrl}
+          alt={name}
+          sx={{ objectFit: 'cover' }}
+        />
 
         <CardContent>
           <Typography variant="h5" component="h2" gutterBottom>

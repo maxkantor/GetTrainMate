@@ -20,6 +20,32 @@ const { CognitoIdentityProviderClient, AdminGetUserCommand } = require('@aws-sdk
 const PREFIX = process.env.DYNAMODB_TABLE_PREFIX || 'gettrainmate-';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || '';
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
+const MEDIA_BUCKET = process.env.MEDIA_BUCKET_NAME || 'getrainmate-media-bucket';
+const AWS_REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-1';
+// Demo profile photos: distinct person portraits so each profile shows a different face (women for female profiles, men for male)
+const RANDOMUSER = 'https://randomuser.me/api/portraits';
+const DEMO_PERSON_PHOTOS = [
+  `${RANDOMUSER}/women/1.jpg`,   // Sarah Runner
+  `${RANDOMUSER}/men/2.jpg`,    // Mike Cyclist
+  `${RANDOMUSER}/women/3.jpg`,  // Emma Yoga
+  `${RANDOMUSER}/men/4.jpg`,    // Alex Hyrox
+  `${RANDOMUSER}/men/5.jpg`,    // Jordan Pickleball
+  `${RANDOMUSER}/women/10.jpg`, // Maya
+  `${RANDOMUSER}/women/11.jpg`, // Jess
+  `${RANDOMUSER}/women/12.jpg`, // Riley
+];
+
+function toAvatarUrl(photoUrls, photoKey, userIdForPlaceholder) {
+  if (photoUrls && photoUrls[0] && (photoUrls[0].startsWith('http://') || photoUrls[0].startsWith('https://'))) return photoUrls[0];
+  if (photoKey) return `https://${MEDIA_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${photoKey.replace(/^\//, '')}`;
+  if (userIdForPlaceholder) {
+    const n = String(userIdForPlaceholder).split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+    const idx = (n % 99) + 1;
+    const gender = n % 2 === 0 ? 'women' : 'men';
+    return `https://randomuser.me/api/portraits/${gender}/${idx}.jpg`;
+  }
+  return null;
+}
 
 const dynamo = new DynamoDBClient({});
 const cognito = new CognitoIdentityProviderClient({});
@@ -86,7 +112,7 @@ function profileFromDoc(d) {
     sports: d.sportTags || [],
     goals: d.goals || [],
     schedule: scheduleParsed,
-    avatarUrl: (d.photoUrls && d.photoUrls[0]) || d.photoKey || null,
+    avatarUrl: toAvatarUrl(d.photoUrls, d.photoKey, d.userId),
     level: d.level || null,
     isComplete: !!d.isComplete,
     updatedAt: d.updatedAt || null,
@@ -182,7 +208,7 @@ async function discoverCandidates(identity, args) {
       bio: p.bio ? p.bio.slice(0, 120) : null,
       sports: p.sports || [],
       goals: p.goals || [],
-      avatarUrl: p.avatarUrl,
+      avatarUrl: p.avatarUrl || (() => { const n = String(p.userId).split('').reduce((a, b) => a + b.charCodeAt(0), 0); const idx = (n % 99) + 1; const g = n % 2 === 0 ? 'women' : 'men'; return `https://randomuser.me/api/portraits/${g}/${idx}.jpg`; })(),
       compatibilityScore,
     });
     if (candidates.length >= limit) break;
@@ -609,14 +635,29 @@ async function seedDemoData(identity) {
     { userId: 'dummy-user-3', name: 'Emma Yoga', city: 'San Francisco', bio: 'Yoga instructor. Morning sessions!', sportTags: ['Yoga', 'Pilates'], goals: ['Build community'], availabilitySchedule: JSON.stringify([{ days: ['Mon', 'Wed'], timeStart: '06:00', timeEnd: '08:00' }]) },
     { userId: 'dummy-user-4', name: 'Alex Hyrox', city: 'San Francisco', bio: 'Hyrox competitor. Training partners!', sportTags: ['Hyrox', 'CrossFit'], goals: ['Qualify Worlds'], availabilitySchedule: JSON.stringify([{ days: ['Tue', 'Thu'], timeStart: '17:00', timeEnd: '20:00' }]) },
     { userId: 'dummy-user-5', name: 'Jordan Pickleball', city: 'San Francisco', bio: 'Pickleball player. Doubles partners!', sportTags: ['Pickleball', 'Tennis'], goals: ['Improve ranking'], availabilitySchedule: JSON.stringify([{ days: ['Mon', 'Wed'], timeStart: '19:00', timeEnd: '21:00' }]) },
+    { userId: 'dummy-user-6', name: 'Maya Chen', city: 'San Francisco', bio: 'CrossFit & running. Looking for motivated training buddies!', sportTags: ['CrossFit', 'Running', 'HIIT'], goals: ['Half marathon'], availabilitySchedule: JSON.stringify([{ days: ['Tue', 'Thu', 'Sat'], timeStart: '07:00', timeEnd: '09:00' }]) },
+    { userId: 'dummy-user-7', name: 'Jess Martinez', city: 'San Francisco', bio: 'Strength and conditioning. Let\'s get strong together.', sportTags: ['Strength', 'Gym', 'Yoga'], goals: ['Build strength'], availabilitySchedule: JSON.stringify([{ days: ['Mon', 'Wed', 'Fri'], timeStart: '18:00', timeEnd: '20:00' }]) },
+    { userId: 'dummy-user-8', name: 'Riley Taylor', city: 'San Francisco', bio: 'Triathlon training. Swim, bike, run — always up for a session.', sportTags: ['Swimming', 'Cycling', 'Running'], goals: ['Sprint tri'], availabilitySchedule: JSON.stringify([{ days: ['Sat', 'Sun'], timeStart: '06:00', timeEnd: '10:00' }]) },
   ];
   let created = 0;
-  for (const u of dummyUsers) {
+  let updated = 0;
+  for (let i = 0; i < dummyUsers.length; i++) {
+    const u = dummyUsers[i];
+    const photoUrls = [DEMO_PERSON_PHOTOS[i]];
     const exists = await dynamo.send(new GetItemCommand({
       TableName: tables.profiles,
       Key: marshall({ userId: u.userId }),
     }));
-    if (exists.Item) continue;
+    if (exists.Item) {
+      await dynamo.send(new UpdateItemCommand({
+        TableName: tables.profiles,
+        Key: marshall({ userId: u.userId }),
+        UpdateExpression: 'SET photoUrls = :urls, updatedAt = :now',
+        ExpressionAttributeValues: marshall({ ':urls': photoUrls, ':now': now }),
+      }));
+      updated++;
+      continue;
+    }
     const doc = {
       userId: u.userId,
       email: `${u.userId}@test.com`,
@@ -629,6 +670,7 @@ async function seedDemoData(identity) {
       mode: 'TRAIN',
       isComplete: true,
       availabilitySchedule: u.availabilitySchedule,
+      photoUrls,
       createdAt: now,
       updatedAt: now,
     };
@@ -638,11 +680,20 @@ async function seedDemoData(identity) {
     }));
     created++;
   }
-  return { created, message: `Seeded ${created} demo profiles.` };
+  const msg = [created && `Created ${created}`, updated && `updated photos for ${updated} existing`].filter(Boolean).join('; ') || 'No changes.';
+  return { created, message: `Demo profiles: ${msg}.` };
+}
+
+async function getProfileByUserId(identity, args) {
+  getUserId(identity);
+  const userId = args?.userId;
+  if (!userId) throw new Error('userId is required');
+  return getProfile(userId);
 }
 
 const queryHandlers = {
   getMe: (identity) => getMe(identity),
+  getProfile: (identity, args) => getProfileByUserId(identity, args),
   discoverCandidates: (identity, args) => discoverCandidates(identity, args),
   listMyMatches: (identity) => listMyMatches(identity),
   getThreadByMatch: (identity, args) => getThreadByMatch(identity, args),
@@ -659,8 +710,21 @@ const mutationHandlers = {
 };
 
 exports.handler = async (event) => {
-  const { typeName, fieldName, arguments: args = {}, identity } = event;
-  const identityObj = identity || (event.request && event.request.identity);
+  // AppSync can send: (a) payload from our VTL template: { payload: { typeName, fieldName, arguments, identity } }
+  // or (b) context directly: { typeName, fieldName, info: { parentTypeName, fieldName }, arguments, identity }
+  const p = event.payload ?? event;
+  const typeName = p.typeName ?? event.typeName ?? p.info?.parentTypeName ?? event.info?.parentTypeName;
+  const fieldName = p.fieldName ?? event.fieldName ?? p.info?.fieldName ?? event.info?.fieldName;
+  const args = p.arguments ?? event.arguments ?? {};
+  const identityObj = p.identity ?? event.identity ?? event.request?.identity;
+
+  if (typeName == null || typeName === '' || fieldName == null || fieldName === '') {
+    console.error('[AppSync] Missing typeName or fieldName. Event keys:', Object.keys(event));
+    console.error('[AppSync] payload keys:', event.payload ? Object.keys(event.payload) : 'no payload');
+    console.error('[AppSync] event.info:', JSON.stringify(event.info));
+    console.error('[AppSync] event.payload (sanitized):', event.payload ? { typeName: p.typeName, fieldName: p.fieldName, hasArguments: !!p.arguments, hasIdentity: !!p.identity } : 'n/a');
+  }
+
   try {
     if (typeName === 'Query' && queryHandlers[fieldName]) {
       return await queryHandlers[fieldName](identityObj, args);
@@ -668,7 +732,7 @@ exports.handler = async (event) => {
     if (typeName === 'Mutation' && mutationHandlers[fieldName]) {
       return await mutationHandlers[fieldName](identityObj, args);
     }
-    throw new Error(`Unknown field: ${typeName}.${fieldName}`);
+    throw new Error(`Unknown field: ${String(typeName)}.${String(fieldName)}`);
   } catch (err) {
     if (err.message === 'UNAUTHORIZED' || err.message === 'FORBIDDEN') throw err;
     if (err.message === 'INSUFFICIENT_CREDITS') throw err;
