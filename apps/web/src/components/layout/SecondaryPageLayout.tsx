@@ -2,7 +2,7 @@ import React from 'react';
 import { BackLink } from '@/components/ui/BackLink';
 import styles from './SecondaryPageLayout.module.css';
 
-export type SecondaryPageVariant = 'form' | 'content' | 'pricing';
+export type SecondaryPageVariant = 'form' | 'content' | 'pricing' | 'onboarding';
 
 interface SecondaryPageLayoutProps {
   variant: SecondaryPageVariant;

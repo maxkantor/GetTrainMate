@@ -67,21 +67,30 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
       if (isGraphQLEnabled) {
         const data = await graphqlGetMe();
         setMe(mapGraphQLMeToResponse(data));
+        if (import.meta.env.DEV) {
+          console.log('[MeContext] Profile loaded:', (data as { user?: { id?: string } }).user?.id, 'onboarding required:', !(data as { isProfileComplete?: boolean }).isProfileComplete);
+        }
         graphqlEnsureFreeStartCredits().then(() => fetchMe()).catch(() => {});
       } else {
         const token = await authService.getJWT();
         if (!token) {
           setMe(null);
           setLoading(false);
+          if (import.meta.env.DEV) console.log('[MeContext] No token, profile not loaded');
           return;
         }
         const data = await meService.getMe(token);
         setMe(data);
+        if (import.meta.env.DEV) {
+          console.log('[MeContext] Profile loaded:', data.user?.id, 'onboarding required:', !data.isProfileComplete);
+        }
       }
     } catch (err) {
       console.error('Error fetching /me:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load account');
+      const errMessage = err instanceof Error ? err.message : 'Failed to load account';
+      setError(errMessage);
       setMe(null);
+      if (import.meta.env.DEV) console.log('[MeContext] Profile fetch failed (not redirecting to onboarding):', errMessage);
     } finally {
       setLoading(false);
     }

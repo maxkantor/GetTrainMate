@@ -14,7 +14,7 @@ import {
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { isAuthConfigured } from '@/services/authService';
-import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
+import { PageShell } from '@/components/layout/PageShell';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -133,7 +133,7 @@ export const LoginPage: React.FC = () => {
 
   if (requiresNewPassword) {
     return (
-      <SecondaryPageLayout variant="form" showBackLink>
+      <PageShell variant="form" showBackLink>
         <Container maxWidth="sm" sx={{ py: 4 }}>
         <Box sx={{ padding: 3 }}>
           <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
@@ -189,12 +189,12 @@ export const LoginPage: React.FC = () => {
           </form>
         </Box>
       </Container>
-      </SecondaryPageLayout>
+      </PageShell>
     );
   }
 
   return (
-    <SecondaryPageLayout variant="form" showBackLink>
+    <PageShell variant="form" showBackLink>
       <Container maxWidth="sm" sx={{ py: 4 }}>
       <Box sx={{ padding: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
@@ -282,6 +282,6 @@ export const LoginPage: React.FC = () => {
         </Box>
       </Box>
     </Container>
-    </SecondaryPageLayout>
+    </PageShell>
   );
 };

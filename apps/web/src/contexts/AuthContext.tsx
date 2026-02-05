@@ -123,6 +123,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const userData = await extractUserData(currentUser);
             console.log('Extracted user data:', userData);
             setUser(userData);
+            if (import.meta.env.DEV) console.log('Auth OK');
             return { success: true };
           } else {
             return { success: false, error: 'Login completed but unable to fetch user data' };
@@ -138,6 +139,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (currentUser) {
         const userData = await extractUserData(currentUser);
         setUser(userData);
+        if (import.meta.env.DEV) console.log('Auth OK');
         return { success: true };
       }
       

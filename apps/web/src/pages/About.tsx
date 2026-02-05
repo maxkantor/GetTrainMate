@@ -1,7 +1,7 @@
 import React from 'react';
 import { Container, Typography, Box, Grid, Card, CardContent } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
-import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
+import { PageShell } from '@/components/layout/PageShell';
 
 export const AboutPage: React.FC = () => {
   const { t: _t } = useI18n();
@@ -27,7 +27,7 @@ export const AboutPage: React.FC = () => {
   ];
 
   return (
-    <SecondaryPageLayout variant="content" showBackLink>
+    <PageShell variant="content" showBackLink>
       <Container maxWidth="lg" disableGutters sx={{ maxWidth: '100%' }}>
         <Box sx={{ textAlign: 'center', mb: 6 }}>
           <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: '1.75rem' }}>
@@ -139,6 +139,6 @@ export const AboutPage: React.FC = () => {
           </Grid>
         </Box>
       </Container>
-    </SecondaryPageLayout>
+    </PageShell>
   );
 };

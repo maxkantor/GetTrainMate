@@ -4,6 +4,11 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+  },
   // Load .env from monorepo root so root .env works; apps/web/.env overrides
   envDir: path.resolve(__dirname, '../..'),
   resolve: {

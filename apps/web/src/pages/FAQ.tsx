@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Container, Typography, Box, Accordion, AccordionSummary, AccordionDetails, Chip } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useI18n } from '@/hooks/useI18n';
-import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
+import { PageShell } from '@/components/layout/PageShell';
 
 export const FAQPage: React.FC = () => {
   const { t: _t } = useI18n();
@@ -136,7 +136,7 @@ export const FAQPage: React.FC = () => {
   ];
 
   return (
-    <SecondaryPageLayout variant="content" showBackLink>
+    <PageShell variant="content" showBackLink>
       <Container maxWidth="md" disableGutters sx={{ maxWidth: '100%' }}>
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: '1.75rem' }}>
@@ -201,6 +201,6 @@ export const FAQPage: React.FC = () => {
           </Box>
         </Box>
       </Container>
-    </SecondaryPageLayout>
+    </PageShell>
   );
 };

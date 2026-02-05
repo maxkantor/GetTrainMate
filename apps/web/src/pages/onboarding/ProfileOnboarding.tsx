@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
-  Container,
   TextField,
   Typography,
   Alert,
@@ -38,6 +37,8 @@ import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import PeopleIcon from '@mui/icons-material/People';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { useMe } from '@/hooks/useMe';
+import { PageShell } from '@/components/layout/PageShell';
 import { profileService, UpdateProfileRequest, AvailabilitySlot } from '@/services/profileService';
 import { authService } from '@/services/authService';
 import { handleApiError } from '@/utils/apiErrorHandler';
@@ -69,6 +70,7 @@ const STEPS = ['Photo', 'Basics', 'Training', 'Availability', 'Review'];
 export const ProfileOnboardingPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthContext();
+  const { refreshMe } = useMe();
 
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -380,6 +382,8 @@ export const ProfileOnboardingPage: React.FC = () => {
       }
 
       await profileService.updateMyProfile(token, updateData);
+      await refreshMe();
+      if (import.meta.env.DEV) console.log('[ProfileOnboarding] Profile saved; onboarding complete, redirecting to /app/discover');
       navigate('/app/discover', { state: { profileJustCompleted: true }, replace: true });
     } catch (err: any) {
       console.error('Error saving profile:', err);
@@ -1074,7 +1078,7 @@ export const ProfileOnboardingPage: React.FC = () => {
   );
 
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 3, md: 4 } }}>
+    <PageShell variant="onboarding" showBackLink>
       <Box sx={{ mb: 3, textAlign: 'center' }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 700, mb: 0.5 }}>
           Complete Your Profile
@@ -1189,6 +1193,6 @@ export const ProfileOnboardingPage: React.FC = () => {
           </Button>
         )}
       </Box>
-    </Container>
+    </PageShell>
   );
 };

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Snackbar } from '@mui/material';
 import { Container } from '@/components/layout/Container';
-import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
+import { PageShell } from '@/components/layout/PageShell';
 import { authService } from '@/services/authService';
 import { billingService, CreditPackDto } from '@/services/billingService';
 import { useAuthContext } from '@/hooks/useAuthContext';
@@ -135,7 +135,7 @@ export const PricingPage: React.FC = () => {
 
   return (
     <>
-      <SecondaryPageLayout variant="pricing" showBackLink>
+      <PageShell variant="pricing" showBackLink>
         <section className={styles.hero}>
           <Container>
             {isAuthenticated && (
@@ -224,7 +224,7 @@ export const PricingPage: React.FC = () => {
           </div>
         </Container>
       </section>
-      </SecondaryPageLayout>
+      </PageShell>
 
       <Snackbar
         open={!!toast}

@@ -3,19 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
-  Card,
-  CardContent,
-  CardMedia,
-  Container,
   Typography,
-  Chip,
   CircularProgress,
   Alert,
-  Stack,
   Snackbar,
 } from '@mui/material';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
+import PersonIcon from '@mui/icons-material/Person';
+import LinkIcon from '@mui/icons-material/Link';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
@@ -23,6 +19,7 @@ import { matchService, MatchFeedItem } from '@/services/matchService';
 import { authService } from '@/services/authService';
 import { isGraphQLEnabled, graphqlDiscoverCandidates, graphqlLikeUser, graphqlSeedDemoData } from '@/services/graphqlService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
+import styles from './Discover.module.css';
 
 export const DiscoverPage: React.FC = () => {
   const { t } = useI18n();
@@ -78,7 +75,6 @@ export const DiscoverPage: React.FC = () => {
       const status = err.response?.status;
       const apiError = handleApiError(err);
 
-      // On 401: try once with refreshed token, then show auth error (REST only)
       if (!isGraphQLEnabled && status === 401 && !isRetryAfter401) {
         const freshToken = await authService.getJWT(true);
         if (freshToken) {
@@ -230,214 +226,177 @@ export const DiscoverPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
-        <CircularProgress />
-      </Container>
+      <div className={styles.container}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 320 }}>
+          <CircularProgress />
+        </Box>
+      </div>
     );
   }
 
   if (error && feed.length === 0) {
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
-        <Alert 
+      <div className={styles.container}>
+        <Alert
           severity={error.includes('API is not available') ? 'warning' : 'info'}
           sx={{ mb: 2 }}
         >
           {error}
         </Alert>
-        <Button
-          fullWidth
-          variant="contained"
-          color="primary"
-          onClick={() => loadFeed()}
-          sx={{ mt: 2 }}
-        >
+        <Button fullWidth variant="contained" color="primary" onClick={() => loadFeed()} sx={{ mt: 2 }}>
           Retry
         </Button>
-      </Container>
+      </div>
     );
   }
 
   if (feed.length === 0 && !loading && !error) {
     return (
-      <Container maxWidth="md" sx={{ py: 6, textAlign: 'center' }}>
-        <Typography variant="h6" gutterBottom>No profiles yet</Typography>
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-          Try expanding filters or check back soon. You can load demo profiles to try the flow.
-        </Typography>
-        <Stack direction="row" spacing={2} justifyContent="center" flexWrap="wrap">
-          <Button
-            variant="contained"
-            onClick={handleSeedDemo}
-            disabled={seeding}
-          >
-            {seeding ? 'Loading…' : 'Load demo profiles'}
-          </Button>
-          <Button variant="outlined" onClick={() => navigate('/app/profile')}>
-            Edit profile
-          </Button>
-          <Button variant="outlined" onClick={() => loadFeed()}>
-            Refresh
-          </Button>
-        </Stack>
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
-        )}
-      </Container>
+      <div className={styles.container}>
+        <Box sx={{ py: 6, textAlign: 'center' }}>
+          <Typography variant="h6" gutterBottom>No profiles yet</Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Try expanding filters or check back soon. You can load demo profiles to try the flow.
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+            <Button variant="contained" onClick={handleSeedDemo} disabled={seeding}>
+              {seeding ? 'Loading…' : 'Load demo profiles'}
+            </Button>
+            <Button variant="outlined" onClick={() => navigate('/app/profile')}>
+              Edit profile
+            </Button>
+            <Button variant="outlined" onClick={() => loadFeed()}>
+              Refresh
+            </Button>
+          </Box>
+          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+        </Box>
+      </div>
     );
   }
 
   const currentCard = feed[currentIndex];
-  const progress = ((currentIndex + 1) / feed.length) * 100;
-
+  const progress = feed.length > 0 ? ((currentIndex + 1) / feed.length) * 100 : 0;
   const credits = me?.credits ?? 0;
+  const hasPhoto = currentCard.photoUrls && currentCard.photoUrls.length > 0;
+  const levelLabel = currentCard.level ? currentCard.level.charAt(0).toUpperCase() + currentCard.level.slice(1) : null;
 
   return (
-    <Container maxWidth="sm" sx={{ py: 4 }}>
-      <Alert severity="info" sx={{ mb: 2 }} icon={false}>
-        <Typography variant="body2">
-          <strong>Credits: {credits}</strong> · Like costs 1 credit
-        </Typography>
-      </Alert>
+    <div className={styles.container}>
+      <p className={styles.creditsStrip}>
+        <strong>Credits: {credits}</strong> · Like costs 1 credit
+      </p>
 
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body2" color="textSecondary">
-            {currentIndex + 1} of {feed.length}
-          </Typography>
-          <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
-            {currentCard.compatibilityScore}% Match
-          </Typography>
-        </Box>
-        <Box sx={{ width: '100%', height: 4, backgroundColor: '#e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
-          <Box
-            sx={{
-              width: `${progress}%`,
-              height: '100%',
-              backgroundColor: 'primary.main',
-              transition: 'width 0.3s ease',
-            }}
-          />
-        </Box>
-      </Box>
+      <div className={styles.headerRow}>
+        <span className={styles.headerCount}>{currentIndex + 1} of {feed.length}</span>
+        <span className={styles.headerMatch}>{currentCard.compatibilityScore}% Match</span>
+      </div>
+      <div className={styles.progressTrack}>
+        <div className={styles.progressFill} style={{ width: `${progress}%` }} />
+      </div>
 
-      <Card
-        sx={{
-          boxShadow: matched ? '0 0 30px rgba(25, 118, 210, 0.5)' : 3,
-          transition: 'all 0.3s ease',
-          transform: matched ? 'scale(1.02)' : 'scale(1)',
-        }}
+      <article
+        className={`${styles.cardStack} ${matched ? styles.cardStackMatched : ''}`}
+        aria-label={`Profile card: ${currentCard.name}`}
       >
-        {currentCard.photoUrls && currentCard.photoUrls.length > 0 ? (
-          <CardMedia
-            component="img"
-            height="400"
-            image={currentCard.photoUrls[0]}
-            alt={currentCard.name}
-            sx={{ objectFit: 'cover' }}
-          />
-        ) : (
-          <Box
-            sx={{
-              height: 400,
-              backgroundColor: '#f0f0f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Typography color="textSecondary">{t('discover.no_photo')}</Typography>
-          </Box>
-        )}
+        <div className={styles.mediaWrap}>
+          {hasPhoto ? (
+            <>
+              <img
+                src={currentCard.photoUrls[0]}
+                alt={currentCard.name}
+                className={styles.mediaImage}
+              />
+              <div className={styles.mediaOverlay} aria-hidden />
+            </>
+          ) : (
+            <div className={styles.mediaPlaceholder}>
+              <div className={styles.mediaPlaceholderIcon} aria-hidden>
+                <PersonIcon sx={{ fontSize: 48 }} />
+              </div>
+              <span className={styles.mediaPlaceholderLabel}>{t('discover.no_photo')}</span>
+            </div>
+          )}
+        </div>
 
-        <CardContent>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="h5" component="h2" gutterBottom>
-              {currentCard.name}, {currentCard.level ? currentCard.level.charAt(0).toUpperCase() + currentCard.level.slice(1) : 'N/A'}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              {currentCard.city || 'Location not set'}
-            </Typography>
-          </Box>
+        <div className={styles.content}>
+          <h2 className={styles.contentName}>
+            {currentCard.name}{levelLabel ? `, ${levelLabel}` : ''}
+          </h2>
+          <p className={styles.contentLocation}>
+            {currentCard.city || 'Location not set'}
+          </p>
 
           {currentCard.bio && (
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              {currentCard.bio}
-            </Typography>
+            <p className={styles.contentBio}>{currentCard.bio}</p>
           )}
 
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Common Sports:
-            </Typography>
-            <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
-              {currentCard.commonSports.length > 0 ? (
-                currentCard.commonSports.map((sport) => (
-                  <Chip key={sport} label={sport} size="small" color="primary" variant="outlined" />
-                ))
-              ) : (
-                <Typography variant="caption" color="textSecondary">
-                  No common sports yet
-                </Typography>
-              )}
-            </Stack>
-          </Box>
+          {currentCard.commonSports && currentCard.commonSports.length > 0 && (
+            <div className={styles.contentSection}>
+              <p className={styles.contentSectionTitle}>Common Sports</p>
+              <div className={styles.chips}>
+                {currentCard.commonSports.map((sport) => (
+                  <span key={sport} className={styles.chipPrimary}>{sport}</span>
+                ))}
+              </div>
+            </div>
+          )}
 
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Sports:
-            </Typography>
-            <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
-              {currentCard.sportTags.map((sport) => (
-                <Chip key={sport} label={sport} size="small" variant="outlined" />
-              ))}
-            </Stack>
-          </Box>
+          {currentCard.sportTags && currentCard.sportTags.length > 0 && (
+            <div className={styles.contentSection}>
+              <p className={styles.contentSectionTitle}>Sports</p>
+              <div className={styles.chips}>
+                {currentCard.sportTags.map((sport) => (
+                  <span key={sport} className={styles.chipDefault}>{sport}</span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {currentCard.mode && (
-            <Box>
-              <Chip label={`Mode: ${currentCard.mode}`} color="secondary" />
-            </Box>
+            <div className={styles.contentSection}>
+              <div className={styles.chips}>
+                <span className={styles.chipDefault}>Mode: {currentCard.mode}</span>
+              </div>
+            </div>
           )}
+        </div>
+      </article>
 
-          <Button
-            fullWidth
-            variant="outlined"
-            sx={{ mt: 2 }}
-            onClick={() => navigate(`/app/profile/${currentCard.userId}`)}
-          >
-            {t('landing.view_profile')} →
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
-        <Button
-          fullWidth
-          variant="outlined"
-          color="error"
-          size="large"
-          startIcon={<ThumbDownIcon />}
+      <div className={styles.actionBar}>
+        <button
+          type="button"
+          className={`${styles.actionBtn} ${styles.actionBtnPass}`}
           onClick={handlePass}
+          aria-label="Pass on this profile"
         >
+          <ThumbDownIcon aria-hidden sx={{ fontSize: 22 }} />
           Pass
-        </Button>
-        <Button
-          fullWidth
-          variant="contained"
-          color="primary"
-          size="large"
-          startIcon={<ThumbUpIcon />}
+        </button>
+        <button
+          type="button"
+          className={`${styles.actionBtn} ${styles.actionBtnLike}`}
           onClick={handleLike}
           disabled={likeLoading || credits < 1}
+          aria-label={credits < 1 ? 'Like (no credits)' : 'Like this profile'}
         >
-          Like {credits < 1 ? '(no credits)' : ''}
-        </Button>
-      </Stack>
+          <ThumbUpIcon aria-hidden sx={{ fontSize: 22 }} />
+          Like{credits < 1 ? ' (no credits)' : ''}
+        </button>
+        <button
+          type="button"
+          className={`${styles.actionBtn} ${styles.actionBtnConnect}`}
+          onClick={() => navigate(`/app/profile/${currentCard.userId}`)}
+          aria-label={`View full profile of ${currentCard.name}`}
+        >
+          <LinkIcon aria-hidden sx={{ fontSize: 22 }} />
+          Connect
+        </button>
+      </div>
 
       {matched && (
-        <Alert severity="success" sx={{ mt: 3 }}>
-          🎉 It's a match! You can now chat with {currentCard.name}
+        <Alert severity="success" className={styles.matchToast}>
+          🎉 It&apos;s a match! You can now chat with {currentCard.name}
         </Alert>
       )}
 
@@ -448,6 +407,6 @@ export const DiscoverPage: React.FC = () => {
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
-    </Container>
+    </div>
   );
 };

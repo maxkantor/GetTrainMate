@@ -1,10 +1,10 @@
 import React from 'react';
 import { Container, Typography, Box } from '@mui/material';
-import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
+import { PageShell } from '@/components/layout/PageShell';
 
 export const PrivacyPage: React.FC = () => {
   return (
-    <SecondaryPageLayout variant="content" showBackLink>
+    <PageShell variant="content" showBackLink>
       <Container maxWidth="md" disableGutters sx={{ maxWidth: '100%', py: 0 }}>
         <Typography variant="h1" component="h1" gutterBottom sx={{ fontSize: '1.75rem', fontWeight: 700 }}>
           Privacy Policy
@@ -70,6 +70,6 @@ export const PrivacyPage: React.FC = () => {
           </Typography>
         </Box>
       </Container>
-    </SecondaryPageLayout>
+    </PageShell>
   );
 };

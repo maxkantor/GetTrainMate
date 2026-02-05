@@ -10,7 +10,7 @@ import {
   MenuItem,
 } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
-import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
+import { PageShell } from '@/components/layout/PageShell';
 
 export const ContactPage: React.FC = () => {
   const { t: _t } = useI18n();
@@ -61,7 +61,7 @@ export const ContactPage: React.FC = () => {
   ];
 
   return (
-    <SecondaryPageLayout variant="content" showBackLink>
+    <PageShell variant="content" showBackLink>
       <Container maxWidth="md" disableGutters sx={{ maxWidth: '100%' }}>
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: '1.75rem' }}>
@@ -155,6 +155,6 @@ export const ContactPage: React.FC = () => {
           </Button>
         </Box>
       </Container>
-    </SecondaryPageLayout>
+    </PageShell>
   );
 };

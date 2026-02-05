@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
-import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
+import { PageShell } from '@/components/layout/PageShell';
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
@@ -83,7 +83,7 @@ export const SignupPage: React.FC = () => {
   };
 
   return (
-    <SecondaryPageLayout variant="form" showBackLink>
+    <PageShell variant="form" showBackLink>
       <Container maxWidth="sm" sx={{ py: 4 }}>
       <Box sx={{ padding: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
@@ -174,6 +174,6 @@ export const SignupPage: React.FC = () => {
         </Box>
       </Box>
     </Container>
-    </SecondaryPageLayout>
+    </PageShell>
   );
 };
