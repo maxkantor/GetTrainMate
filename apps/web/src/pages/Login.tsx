@@ -14,8 +14,7 @@ import {
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { isAuthConfigured } from '@/services/authService';
-import { BackLink } from '@/components/ui/BackLink';
-import styles from './Login.module.css';
+import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -134,12 +133,9 @@ export const LoginPage: React.FC = () => {
 
   if (requiresNewPassword) {
     return (
-      <>
-        <div className={styles.backStrip}>
-          <BackLink label="Back" />
-        </div>
-        <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Box sx={{ backgroundColor: '#fff', padding: 4, borderRadius: 2, boxShadow: 1 }}>
+      <SecondaryPageLayout variant="form" showBackLink>
+        <Container maxWidth="sm" sx={{ py: 4 }}>
+        <Box sx={{ padding: 3 }}>
           <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
             Set New Password
           </Typography>
@@ -193,17 +189,14 @@ export const LoginPage: React.FC = () => {
           </form>
         </Box>
       </Container>
-      </>
+      </SecondaryPageLayout>
     );
   }
 
   return (
-    <>
-      <div className={styles.backStrip}>
-        <BackLink label="Back" />
-      </div>
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Box sx={{ backgroundColor: '#fff', padding: 4, borderRadius: 2, boxShadow: 1 }}>
+    <SecondaryPageLayout variant="form" showBackLink>
+      <Container maxWidth="sm" sx={{ py: 4 }}>
+      <Box sx={{ padding: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
           {t('auth.login_title')}
         </Typography>
@@ -289,6 +282,6 @@ export const LoginPage: React.FC = () => {
         </Box>
       </Box>
     </Container>
-    </>
+    </SecondaryPageLayout>
   );
 };

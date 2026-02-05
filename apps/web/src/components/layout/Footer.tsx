@@ -1,17 +1,11 @@
 import React from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
 import { Container } from './Container';
 import styles from './Footer.module.css';
 
 export const Footer: React.FC = () => {
   const { t } = useI18n();
-  const navigate = useNavigate();
-
-  const handleFooterLink = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    e.preventDefault();
-    navigate(href);
-  };
 
   const footerSections = {
     product: [
@@ -67,9 +61,9 @@ export const Footer: React.FC = () => {
             <ul className={styles.linksList}>
               {footerSections.product.map((link) => (
                 <li key={link.href}>
-                  <a href={link.href} className={styles.link} onClick={(e) => handleFooterLink(e, link.href)}>
+                  <RouterLink to={link.href} className={styles.link}>
                     {link.label}
-                  </a>
+                  </RouterLink>
                 </li>
               ))}
             </ul>
@@ -81,9 +75,9 @@ export const Footer: React.FC = () => {
             <ul className={styles.linksList}>
               {footerSections.company.map((link) => (
                 <li key={link.href}>
-                  <a href={link.href} className={styles.link} onClick={(e) => handleFooterLink(e, link.href)}>
+                  <RouterLink to={link.href} className={styles.link}>
                     {link.label}
-                  </a>
+                  </RouterLink>
                 </li>
               ))}
             </ul>
@@ -95,9 +89,9 @@ export const Footer: React.FC = () => {
             <ul className={styles.linksList}>
               {footerSections.legal.map((link) => (
                 <li key={link.href}>
-                  <a href={link.href} className={styles.link} onClick={(e) => handleFooterLink(e, link.href)}>
+                  <RouterLink to={link.href} className={styles.link}>
                     {link.label}
-                  </a>
+                  </RouterLink>
                 </li>
               ))}
             </ul>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { LanguageDropdown } from '@/components/layout/LanguageDropdown';
+import { HeaderNavLink } from './HeaderNavLink';
 import styles from './AppHeader.module.css';
 
 export const AppHeader: React.FC = () => {
@@ -11,7 +12,6 @@ export const AppHeader: React.FC = () => {
   const { user, logout } = useAuthContext();
   const { me } = useMe();
   const navigate = useNavigate();
-  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
@@ -38,18 +38,15 @@ export const AppHeader: React.FC = () => {
 
   const handleLogout = async () => { setUserOpen(false); setMobileOpen(false); await logout(); navigate('/'); };
 
-  const isActive = (href: string) =>
-    href === '/app/discover' || href === '/app/dashboard'
-      ? location.pathname === '/app/discover' || location.pathname === '/app/dashboard'
-      : location.pathname === href || location.pathname.startsWith(href + '/');
-
-  const loggedOutNav = [{ label: t('header.pricing'), href: '/pricing' }];
-  const loggedInNav = [
+  const loggedOutNav: { label: string; href: string; icon?: string; exact?: boolean }[] = [
+    { label: t('header.pricing'), href: '/pricing', icon: '💰', exact: true },
+  ];
+  const loggedInNav: { label: string; href: string; icon?: string; exact?: boolean }[] = [
     { label: t('nav.discover'), href: '/app/discover' },
     { label: t('nav.match'), href: '/app/matches' },
     { label: t('nav.chat'), href: '/app/chat' },
     { label: t('nav.events'), href: '/app/events' },
-    { label: t('header.pricing'), href: '/pricing' },
+    { label: t('header.pricing'), href: '/pricing', icon: '💰', exact: true },
   ];
   const navItems = isLoggedIn ? loggedInNav : loggedOutNav;
   const logoTo = isLoggedIn ? '/app/discover' : '/';
@@ -63,21 +60,14 @@ export const AppHeader: React.FC = () => {
         </RouterLink>
 
         <nav className={styles.nav} aria-label="Main navigation">
-          {navItems.map(({ label, href }) => (
-            <RouterLink
-              key={href}
-              to={href}
-              className={`${styles.navLink} ${isActive(href) ? styles.navActive : ''}`}
-            >
-              {href === '/pricing' ? (
-                <>
-                  <span aria-hidden>💰</span>
-                  {label}
-                </>
-              ) : (
-                label
-              )}
-            </RouterLink>
+          {navItems.map((item) => (
+            <HeaderNavLink
+              key={item.href}
+              to={item.href}
+              label={item.label}
+              icon={item.icon}
+              exact={item.exact ?? false}
+            />
           ))}
         </nav>
 

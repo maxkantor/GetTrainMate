@@ -1,6 +1,7 @@
 import React from 'react';
 import { Container, Typography, Box, Grid, Card, CardContent } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
+import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
 
 export const AboutPage: React.FC = () => {
   const { t: _t } = useI18n();
@@ -26,13 +27,13 @@ export const AboutPage: React.FC = () => {
   ];
 
   return (
-    <Box sx={{ py: 8 }}>
-      <Container maxWidth="lg">
-        <Box sx={{ textAlign: 'center', mb: 8 }}>
-          <Typography variant="h2" component="h1" gutterBottom>
+    <SecondaryPageLayout variant="content" showBackLink>
+      <Container maxWidth="lg" disableGutters sx={{ maxWidth: '100%' }}>
+        <Box sx={{ textAlign: 'center', mb: 6 }}>
+          <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: '1.75rem' }}>
             About GetTrainMate
           </Typography>
-          <Typography variant="h5" color="textSecondary" sx={{ maxWidth: '800px', mx: 'auto', mt: 3 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ maxWidth: '640px', mx: 'auto', mt: 2 }}>
             We're on a mission to make fitness more accessible, enjoyable, and effective by connecting people who train together.
           </Typography>
         </Box>
@@ -138,6 +139,6 @@ export const AboutPage: React.FC = () => {
           </Grid>
         </Box>
       </Container>
-    </Box>
+    </SecondaryPageLayout>
   );
 };

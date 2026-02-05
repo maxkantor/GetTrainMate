@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Snackbar } from '@mui/material';
 import { Container } from '@/components/layout/Container';
-import { BackLink } from '@/components/ui/BackLink';
+import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
 import { authService } from '@/services/authService';
 import { billingService, CreditPackDto } from '@/services/billingService';
 import { useAuthContext } from '@/hooks/useAuthContext';
@@ -134,34 +134,32 @@ export const PricingPage: React.FC = () => {
   const credits = me?.credits ?? 0;
 
   return (
-    <main className={styles.page}>
-      <div className={styles.backStrip}>
-        <BackLink label="Back" />
-      </div>
-      <section className={styles.hero}>
-        <Container>
-          {isAuthenticated && (
-            <p className={styles.yourCredits} data-testid="pricing-your-credits">
-              Your credits: <strong>{credits}</strong>
+    <>
+      <SecondaryPageLayout variant="pricing" showBackLink>
+        <section className={styles.hero}>
+          <Container>
+            {isAuthenticated && (
+              <p className={styles.yourCredits} data-testid="pricing-your-credits">
+                Your credits: <strong>{credits}</strong>
+              </p>
+            )}
+            <h1 className={styles.title}>Credits Marketplace</h1>
+            <p className={styles.subtext}>
+              Get credits to unlock chat, boosts, and AI insights. Start free or buy a pack.
             </p>
-          )}
-          <h1 className={styles.title}>Credits Marketplace</h1>
-          <p className={styles.subtext}>
-            Get credits to unlock chat, boosts, and AI insights. Start free or buy a pack.
-          </p>
-          <p className={styles.typicalCosts}>
-            Typical costs: Chat unlock = 1 credit · Boost (24h) = 2 · AI insight = 2 · See likes (7d) = 3
-          </p>
-        </Container>
-      </section>
+            <p className={styles.typicalCosts}>
+              Typical costs: Chat unlock = 1 credit · Boost (24h) = 2 · AI insight = 2 · See likes (7d) = 3
+            </p>
+          </Container>
+        </section>
 
-      {error && (
-        <div className={styles.errorBanner} role="alert">
-          {error}
-        </div>
-      )}
+        {error && (
+          <div className={styles.errorBanner} role="alert">
+            {error}
+          </div>
+        )}
 
-      <section id="pricing-plans" className={styles.section}>
+        <section id="pricing-plans" className={styles.section}>
         <Container size="xl">
           <div className={styles.cards}>
             {sortedPacks.map((pack) => {
@@ -226,6 +224,7 @@ export const PricingPage: React.FC = () => {
           </div>
         </Container>
       </section>
+      </SecondaryPageLayout>
 
       <Snackbar
         open={!!toast}
@@ -234,6 +233,6 @@ export const PricingPage: React.FC = () => {
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
-    </main>
+    </>
   );
 };

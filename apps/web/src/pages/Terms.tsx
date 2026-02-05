@@ -1,16 +1,18 @@
 import React from 'react';
 import { Container, Typography, Box } from '@mui/material';
+import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
 
 export const TermsPage: React.FC = () => {
   return (
-    <Container maxWidth="md" sx={{ py: 8 }}>
-      <Typography variant="h3" component="h1" gutterBottom>
-        Terms of Service
-      </Typography>
-      <Typography variant="body2" color="textSecondary" gutterBottom>
-        Last updated: {new Date().toLocaleDateString('en-US')}
-      </Typography>
-      <Box component="section" sx={{ mt: 4 }}>
+    <SecondaryPageLayout variant="content" showBackLink>
+      <Container maxWidth="md" disableGutters sx={{ maxWidth: '100%', py: 0 }}>
+        <Typography variant="h1" component="h1" gutterBottom sx={{ fontSize: '1.75rem', fontWeight: 700 }}>
+          Terms of Service
+        </Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          Last updated: {new Date().toLocaleDateString('en-US')}
+        </Typography>
+        <Box component="section" sx={{ mt: 3 }}>
         <Typography variant="h6" gutterBottom>
           1. Acceptance of Terms
         </Typography>
@@ -88,14 +90,15 @@ export const TermsPage: React.FC = () => {
           constitutes acceptance of the new terms.
         </Typography>
       </Box>
-      <Box component="section" sx={{ mt: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          9. Contact
-        </Typography>
-        <Typography variant="body1" paragraph>
-          For questions about these terms, contact us at support@gettrainmate.com.
-        </Typography>
-      </Box>
-    </Container>
+        <Box component="section" sx={{ mt: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            9. Contact
+          </Typography>
+          <Typography variant="body1" paragraph>
+            For questions about these terms, contact us at support@gettrainmate.com.
+          </Typography>
+        </Box>
+      </Container>
+    </SecondaryPageLayout>
   );
 };

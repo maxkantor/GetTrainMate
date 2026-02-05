@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Container, Typography, Box, Accordion, AccordionSummary, AccordionDetails, Chip } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useI18n } from '@/hooks/useI18n';
+import { SecondaryPageLayout } from '@/components/layout/SecondaryPageLayout';
 
 export const FAQPage: React.FC = () => {
   const { t: _t } = useI18n();
@@ -134,13 +136,13 @@ export const FAQPage: React.FC = () => {
   ];
 
   return (
-    <Box sx={{ py: 8 }}>
-      <Container maxWidth="md">
-        <Box sx={{ textAlign: 'center', mb: 6 }}>
-          <Typography variant="h2" component="h1" gutterBottom>
+    <SecondaryPageLayout variant="content" showBackLink>
+      <Container maxWidth="md" disableGutters sx={{ maxWidth: '100%' }}>
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: '1.75rem' }}>
             Frequently Asked Questions
           </Typography>
-          <Typography variant="h6" color="textSecondary" sx={{ mt: 2 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
             Everything you need to know about GetTrainMate
           </Typography>
         </Box>
@@ -184,7 +186,7 @@ export const FAQPage: React.FC = () => {
             Can't find the answer you're looking for? Our support team is here to help.
           </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 3 }}>
-            <a href="/contact" style={{ textDecoration: 'none' }}>
+            <Link to="/contact" style={{ textDecoration: 'none' }}>
               <Typography
                 variant="button"
                 sx={{
@@ -195,10 +197,10 @@ export const FAQPage: React.FC = () => {
               >
                 Contact Support →
               </Typography>
-            </a>
+            </Link>
           </Box>
         </Box>
       </Container>
-    </Box>
+    </SecondaryPageLayout>
   );
 };

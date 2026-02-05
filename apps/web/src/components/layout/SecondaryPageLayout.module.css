@@ -1,0 +1,151 @@
+/**
+ * SecondaryPageLayout – one layout for all secondary pages (pricing, login, signup, faq, contact, privacy, terms, about).
+ * Background starts below nav; no excess top whitespace.
+ */
+
+.root {
+  position: relative;
+  min-height: calc(100vh - var(--nav-height, 56px));
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .root {
+    min-height: calc(100vh - var(--nav-height-desktop, 64px));
+  }
+}
+
+/* Full-viewport background: subtle brand gradient + soft glow */
+.bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    165deg,
+    #faf5ff 0%,
+    #f5f3ff 25%,
+    #eef2ff 50%,
+    #f0fdf4 75%,
+    #f8fafc 100%
+  );
+}
+
+.bg::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120%;
+  height: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(124, 58, 237, 0.06) 0%,
+    transparent 65%
+  );
+  pointer-events: none;
+}
+
+/* Inner container: max-width by variant, centered, compact top padding */
+.inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px 20px 48px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+  .inner {
+    padding: 24px 24px 56px;
+  }
+}
+
+/* Back link: directly below nav, left-aligned */
+.backStrip {
+  margin-bottom: 16px;
+}
+
+/* Card wrapper: glass/modern, readable */
+.card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 4px 24px rgba(15, 23, 42, 0.06),
+    0 1px 3px rgba(15, 23, 42, 0.04);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+  .card {
+    padding: 32px 40px;
+    border-radius: 20px;
+    box-shadow:
+      0 8px 32px rgba(15, 23, 42, 0.08),
+      0 2px 8px rgba(15, 23, 42, 0.04);
+  }
+}
+
+/* Optional title block (when title/subtitle passed) */
+.header {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+@media (min-width: 768px) {
+  .title {
+    font-size: 2rem;
+  }
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 1rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* Variant: form (login, signup, contact) – 520–680px */
+.form .inner {
+  max-width: 600px;
+}
+
+/* Variant: content (FAQ, privacy, terms, about) – 900–1100px readable */
+.content .inner {
+  max-width: 1000px;
+}
+
+.content .card {
+  max-width: 100%;
+}
+
+/* Variant: pricing – 1100–1200px, card can be wider for grid */
+.pricing .inner {
+  max-width: 1160px;
+}
+
+.pricing .card {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 24px 20px;
+}
+
+@media (min-width: 768px) {
+  .pricing .card {
+    padding: 32px 36px;
+  }
+}

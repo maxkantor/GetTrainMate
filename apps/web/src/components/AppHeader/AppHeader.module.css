@@ -93,6 +93,48 @@
   outline-offset: 2px;
 }
 
+/* HeaderNavLink – pill/tab style for nav items (Pricing, etc.) */
+.headerNavLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #111827 !important;
+  text-decoration: none;
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+.headerNavLink:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.18);
+  color: #111827 !important;
+}
+
+.headerNavLinkActive {
+  background: rgba(0, 0, 0, 0.14) !important;
+  border-color: rgba(0, 0, 0, 0.22) !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  color: #111827 !important;
+}
+
+.headerNavLink:focus-visible {
+  outline: 2px solid #111827;
+  outline-offset: 2px;
+}
+
+.headerNavLinkIcon {
+  line-height: 1;
+  font-size: 1em;
+}
+
 /* Actions – right column */
 .actions {
   display: flex;
