@@ -32,6 +32,11 @@
   color: var(--color-neutral-900, #111827);
 }
 
+.locationLabel {
+  color: var(--color-neutral-500, #6b7280);
+  font-weight: 500;
+}
+
 /* Header row: "1 of N" left, "X% Match" right – same width as card */
 .headerRow {
   display: flex;
@@ -92,6 +97,12 @@
   cursor: pointer;
 }
 
+.cardLink {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
 .cardStackMatched {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4), 0 20px 40px -10px rgba(99, 102, 241, 0.2);
   transform: scale(1.01);
@@ -123,6 +134,37 @@
   height: 40%;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent);
   pointer-events: none;
+}
+
+.photoDots {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.photoDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.photoDot:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.photoDotActive {
+  background: #fff;
+  transform: scale(1.2);
 }
 
 /* No-photo placeholder: gradient + icon + label */

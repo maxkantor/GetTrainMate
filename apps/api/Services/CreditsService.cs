@@ -8,6 +8,11 @@ using Stripe.Checkout;
 
 namespace GetTrainMate.Api.Services;
 
+/// <summary>
+/// Credits for all users: single source of truth is the user-credits table (Balance per UserId).
+/// Balance = stored value; grants (free signup, purchase) and spends (like, chat unlock) update it.
+/// Purchases are applied either when the user hits the success page (ConfirmCreditsPurchaseAsync) or when the Stripe webhook runs (ProcessCheckoutSessionCompletedAsync); both are idempotent. No webhook timing dependency.
+/// </summary>
 public class CreditsService : ICreditsService
 {
     private const string CreditPackConfigTable = "gettrainmate-credit-pack-config";
@@ -171,6 +176,115 @@ public class CreditsService : ICreditsService
 
         _logger.LogInformation("Credits checkout session created for user {UserId}, pack {PackKey}", userId, packKey);
         return session.Url;
+    }
+
+    /// <summary>Apply credits for a paid checkout session (success-page flow). Idempotent; safe to call from frontend when user lands on /billing/success. Does not depend on webhook timing.</summary>
+    public async Task<CreditsBalanceDto?> ConfirmCreditsPurchaseAsync(string sessionId, string userId)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+            return null;
+
+        Stripe.Checkout.Session session;
+        try
+        {
+            var sessionService = new SessionService();
+            session = await sessionService.GetAsync(sessionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ConfirmCreditsPurchase: could not fetch Stripe session {SessionId}", sessionId);
+            return null;
+        }
+
+        if (session.Mode != "payment" || session.PaymentStatus != "paid")
+            return null;
+
+        if (session.Metadata == null || !session.Metadata.ContainsKey("credits"))
+        {
+            try
+            {
+                var sessionService = new SessionService();
+                session = await sessionService.GetAsync(session.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "ConfirmCreditsPurchase: could not refetch session {SessionId} for metadata", session.Id);
+                return null;
+            }
+        }
+
+        var sessionUserId = session.ClientReferenceId ?? session.Metadata?.GetValueOrDefault("userId");
+        if (string.IsNullOrEmpty(sessionUserId) || !string.Equals(sessionUserId, userId, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning("ConfirmCreditsPurchase: session userId mismatch. SessionUserId={SessionUserId}, RequestUserId={UserId}", sessionUserId, userId);
+            return null;
+        }
+
+        var packKey = session.Metadata?.GetValueOrDefault("packKey");
+        var creditsStr = session.Metadata?.GetValueOrDefault("credits");
+        if (string.IsNullOrEmpty(packKey) || !int.TryParse(creditsStr, out var credits) || credits <= 0)
+        {
+            _logger.LogWarning("ConfirmCreditsPurchase: session missing packKey or credits. SessionId={SessionId}", session.Id);
+            return null;
+        }
+
+        var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
+        var scanFilter = new ScanFilter();
+        scanFilter.AddCondition("StripeCheckoutSessionId", ScanOperator.Equal, session.Id);
+        var search = txTable.Scan(scanFilter);
+        var existingTx = await search.GetNextSetAsync();
+        if (existingTx.Count > 0)
+        {
+            _logger.LogInformation("ConfirmCreditsPurchase: session {SessionId} already credited (idempotent).", session.Id);
+            return await GetCreditsBalanceAsync(userId);
+        }
+
+        try
+        {
+            var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
+            var userDoc = await userTable.GetItemAsync(userId);
+            var balance = 0;
+            var lifetimeEarned = 0;
+            if (userDoc != null)
+            {
+                balance = userDoc.Contains("Balance") ? userDoc["Balance"].AsInt() : 0;
+                lifetimeEarned = userDoc.Contains("LifetimeEarned") ? userDoc["LifetimeEarned"].AsInt() : 0;
+            }
+
+            balance += credits;
+            lifetimeEarned += credits;
+
+            await userTable.PutItemAsync(new Document
+            {
+                ["UserId"] = userId,
+                ["Balance"] = balance,
+                ["LifetimeEarned"] = lifetimeEarned,
+                ["UpdatedAt"] = DateTime.UtcNow.ToString("O"),
+            });
+
+            var txId = Guid.NewGuid().ToString("N");
+            var txDoc = new Document
+            {
+                ["Id"] = txId,
+                ["UserId"] = userId,
+                ["Type"] = CreditTransactionType.Purchase,
+                ["CreditsDelta"] = credits,
+                ["Reason"] = packKey,
+                ["StripeCheckoutSessionId"] = session.Id,
+                ["CreatedAt"] = DateTime.UtcNow.ToString("O"),
+            };
+            if (!string.IsNullOrEmpty(session.PaymentIntentId))
+                txDoc["StripePaymentIntentId"] = session.PaymentIntentId;
+            await txTable.PutItemAsync(txDoc);
+
+            _logger.LogInformation("ConfirmCreditsPurchase: credited user {UserId} with {Credits} credits (session {SessionId}).", userId, credits, session.Id);
+            return await GetCreditsBalanceAsync(userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ConfirmCreditsPurchase: failed to credit user for session {SessionId}", session.Id);
+            return null;
+        }
     }
 
     public async Task<bool> ProcessCheckoutSessionCompletedAsync(string stripeEventId, Stripe.Checkout.Session session)

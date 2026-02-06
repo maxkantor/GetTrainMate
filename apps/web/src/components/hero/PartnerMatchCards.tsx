@@ -1,65 +1,17 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
+import { LANDING_PROFILES } from '@/data/landingProfiles';
 import styles from './PartnerMatchCards.module.css';
-
-interface PartnerProfile {
-  name: string;
-  age: number;
-  location: string;
-  distance: string;
-  tags: string[];
-  schedule: string[];
-  match: number;
-  verified: boolean;
-  avatar: string;
-}
-
-const mockProfiles: PartnerProfile[] = [
-  {
-    name: 'Sofia',
-    age: 29,
-    location: 'Atlanta, GA',
-    distance: '2.4 mi',
-    tags: ['HYROX', 'Strength', '5K'],
-    schedule: ['Mon/Wed', '6-8 PM'],
-    match: 94,
-    verified: true,
-    avatar: '👩‍🦰',
-  },
-  {
-    name: 'Marcus',
-    age: 32,
-    location: 'Denver, CO',
-    distance: '1.8 mi',
-    tags: ['CrossFit', 'Running', 'Rowing'],
-    schedule: ['Tue/Thu', '5-7 AM'],
-    match: 89,
-    verified: true,
-    avatar: '🧔',
-  },
-  {
-    name: 'Aisha',
-    age: 27,
-    location: 'Austin, TX',
-    distance: '3.2 mi',
-    tags: ['Yoga', 'HIIT', 'Cycling'],
-    schedule: ['Daily', '7-9 PM'],
-    match: 91,
-    verified: false,
-    avatar: '👩',
-  },
-];
 
 export const PartnerMatchCards: React.FC = () => {
   const { t } = useI18n();
-  const navigate = useNavigate();
 
   return (
     <div className={styles.cardsWrapper}>
-      {mockProfiles.map((profile, index) => (
+      {LANDING_PROFILES.map((profile, index) => (
         <div
-          key={profile.name}
+          key={profile.userId}
           className={`${styles.card} ${styles[`card${index + 1}`]}`}
         >
           {index === 0 && <div className={styles.shine} />}
@@ -128,16 +80,12 @@ export const PartnerMatchCards: React.FC = () => {
             ))}
           </div>
 
-          {/* CTA */}
+          {/* CTA - links to this profile so View Profile shows the correct person */}
           <div className={styles.cta}>
             <Link
-              to="/app/discover"
+              to={`/app/profile/${profile.userId}`}
               className={styles.ctaText}
-              aria-label={t('landing.view_profile')}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate('/app/discover');
-              }}
+              aria-label={`${t('landing.view_profile')} — ${profile.name}`}
             >
               {t('landing.view_profile')} →
             </Link>

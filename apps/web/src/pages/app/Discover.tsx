@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -10,7 +10,6 @@ import {
 } from '@mui/material';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
-import PersonIcon from '@mui/icons-material/Person';
 import LinkIcon from '@mui/icons-material/Link';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
@@ -20,21 +19,27 @@ import { authService } from '@/services/authService';
 import { isGraphQLEnabled, graphqlDiscoverCandidates, graphqlLikeUser, graphqlSeedDemoData } from '@/services/graphqlService';
 import { handleApiError, getErrorMessage, isNetworkError } from '@/utils/apiErrorHandler';
 import { IMAGE_BUCKET_BASE } from '@/config/media';
+import { getMultiplePhotoUrls, placeholderPhotoUrl, inferGenderFromName } from '@/utils/profilePhotos';
+import { getLocationFromIp, FALLBACK_LOCATION } from '@/services/locationService';
+import { buildNearbyDummyProfiles, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
 import styles from './Discover.module.css';
 
-/** Person portraits for placeholder avatars (randomuser.me: men/women 1–99). */
-function placeholderPersonUrl(userId: string): string {
-  const n = userId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-  const idx = (n % 99) + 1;
-  const gender = n % 2 === 0 ? 'women' : 'men';
-  return `https://randomuser.me/api/portraits/${gender}/${idx}.jpg`;
+/** Backend seed profiles (e.g. Alex) go to end of feed so you see "near you" first; they are still likeable/connectable. */
+const BACKEND_DUMMY_PREFIX = 'dummy-user-';
+function sortFeedBackendDummiesLast<T extends { userId: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const aDummy = a.userId.startsWith(BACKEND_DUMMY_PREFIX) ? 1 : 0;
+    const bDummy = b.userId.startsWith(BACKEND_DUMMY_PREFIX) ? 1 : 0;
+    return aDummy - bDummy;
+  });
 }
 
-/** Backend may return avatarUrl as full URL or S3 key; normalize to full URL for img src. Never return undefined for discover cards - use person placeholder so there is always a photo. */
-function toPhotoUrl(avatarUrl: string | undefined, userId: string): string {
+/** Backend may return avatarUrl as full URL or S3 key; normalize to full URL. Use gender-matched placeholder when missing. */
+function toPhotoUrl(avatarUrl: string | undefined, userId: string, displayName?: string): string {
   if (avatarUrl && (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://'))) return avatarUrl;
   if (avatarUrl) return `${IMAGE_BUCKET_BASE}/${avatarUrl.replace(/^\//, '')}`;
-  return placeholderPersonUrl(userId);
+  const gender = displayName ? inferGenderFromName(displayName) : 'male';
+  return placeholderPhotoUrl(userId, 0, gender);
 }
 
 export const DiscoverPage: React.FC = () => {
@@ -52,15 +57,19 @@ export const DiscoverPage: React.FC = () => {
   const [toast, setToast] = useState<string | null>(null);
   const [likeLoading, setLikeLoading] = useState(false);
   const [photoErrorForIndex, setPhotoErrorForIndex] = useState<number | null>(null);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [userLocationLabel, setUserLocationLabel] = useState<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
+  const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     loadFeed();
   }, []);
 
-  // Reset photo error when changing card (must be at top level with other hooks)
+  // Reset photo error and photo index when changing card
   useEffect(() => {
     setPhotoErrorForIndex(null);
+    setCurrentPhotoIndex(0);
   }, [currentIndex]);
 
   const loadFeed = async (isRetryAfter401 = false) => {
@@ -70,21 +79,26 @@ export const DiscoverPage: React.FC = () => {
       if (isGraphQLEnabled) {
         const result = await graphqlDiscoverCandidates(50);
         const items = (result.items || []) as { userId: string; displayName: string; city?: string; bio?: string; sports?: string[]; avatarUrl?: string; compatibilityScore?: number }[];
-        const feedData: MatchFeedItem[] = items.map((c) => {
-          const url = toPhotoUrl(c.avatarUrl, c.userId);
+        const feedFromApi: MatchFeedItem[] = items.map((c) => {
+          const url = toPhotoUrl(c.avatarUrl, c.userId, c.displayName);
+          const photoUrls = getMultiplePhotoUrls([url], c.userId, 4, c.displayName);
           return {
             userId: c.userId,
             name: c.displayName,
             city: c.city,
             bio: c.bio ?? undefined,
             sportTags: c.sports ?? [],
-            photoUrls: [url],
+            photoUrls,
             compatibilityScore: c.compatibilityScore ?? 50,
             commonSports: c.sports ?? [],
             mode: 'TRAIN',
           };
         });
-        setFeed(feedData);
+        let location = await getLocationFromIp();
+        if (!location) location = FALLBACK_LOCATION;
+        const merged = [...buildNearbyDummyProfiles(location), ...feedFromApi];
+        setFeed(sortFeedBackendDummiesLast(merged));
+        setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
       } else {
@@ -94,8 +108,16 @@ export const DiscoverPage: React.FC = () => {
           setLoading(false);
           return;
         }
-        const feedData = await matchService.getDiscoveryFeed(token, 50);
-        setFeed(feedData);
+        const feedFromApi = await matchService.getDiscoveryFeed(token, 50);
+        const feedWithPhotos: MatchFeedItem[] = feedFromApi.map((c) => ({
+          ...c,
+          photoUrls: getMultiplePhotoUrls(c.photoUrls, c.userId, 4, c.name),
+        }));
+        let location = await getLocationFromIp();
+        if (!location) location = FALLBACK_LOCATION;
+        const merged = [...buildNearbyDummyProfiles(location), ...feedWithPhotos];
+        setFeed(sortFeedBackendDummiesLast(merged));
+        setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
       }
@@ -110,25 +132,38 @@ export const DiscoverPage: React.FC = () => {
             if (isGraphQLEnabled) {
               const result = await graphqlDiscoverCandidates(50);
               const items = (result.items || []) as { userId: string; displayName: string; city?: string; bio?: string; sports?: string[]; avatarUrl?: string; compatibilityScore?: number }[];
-              const feedData: MatchFeedItem[] = items.map((c) => {
-                const url = toPhotoUrl(c.avatarUrl, c.userId);
+              const feedFromApi: MatchFeedItem[] = items.map((c) => {
+                const url = toPhotoUrl(c.avatarUrl, c.userId, c.displayName);
+                const photoUrls = getMultiplePhotoUrls([url], c.userId, 4, c.displayName);
                 return {
                   userId: c.userId,
                   name: c.displayName,
                   city: c.city,
                   bio: c.bio ?? undefined,
                   sportTags: c.sports ?? [],
-                  photoUrls: [url],
+                  photoUrls,
                   compatibilityScore: c.compatibilityScore ?? 50,
                   commonSports: c.sports ?? [],
                   mode: 'TRAIN',
                 };
               });
-              setFeed(feedData);
+              let location = await getLocationFromIp();
+              if (!location) location = FALLBACK_LOCATION;
+              const merged = [...buildNearbyDummyProfiles(location), ...feedFromApi];
+              setFeed(sortFeedBackendDummiesLast(merged));
+              setUserLocationLabel(location.label);
               setCurrentIndex(0);
             } else {
-              const feedData = await matchService.getDiscoveryFeed(freshToken!, 50);
-              setFeed(feedData);
+              const feedFromApi = await matchService.getDiscoveryFeed(freshToken!, 50);
+              const feedWithPhotos = feedFromApi.map((c) => ({
+                ...c,
+                photoUrls: getMultiplePhotoUrls(c.photoUrls, c.userId, 4, c.name),
+              }));
+              let location = await getLocationFromIp();
+              if (!location) location = FALLBACK_LOCATION;
+              const merged = [...buildNearbyDummyProfiles(location), ...feedWithPhotos];
+              setFeed(sortFeedBackendDummiesLast(merged));
+              setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoErrorForIndex(null);
             }
@@ -176,9 +211,15 @@ export const DiscoverPage: React.FC = () => {
   const handleLike = async () => {
     if (currentIndex >= feed.length) return;
 
+    const currentCard = feed[currentIndex];
+    if (isDummyNearbyProfile(currentCard.userId)) {
+      setToast('This is a preview profile — keep swiping to see profiles you can like and connect with.');
+      nextCard();
+      return;
+    }
+
     try {
       setLikeLoading(true);
-      const currentCard = feed[currentIndex];
       if (isGraphQLEnabled) {
         const result = await graphqlLikeUser(currentCard.userId);
         await refreshMe();
@@ -233,7 +274,11 @@ export const DiscoverPage: React.FC = () => {
       setSeeding(true);
       setError('');
       if (isGraphQLEnabled) {
-        await graphqlSeedDemoData();
+        try {
+          await graphqlSeedDemoData();
+        } catch {
+          // Backend may not support seedDemoData; still load feed with "near you" profiles
+        }
         setError('');
         await loadFeed();
       } else {
@@ -242,7 +287,11 @@ export const DiscoverPage: React.FC = () => {
           setError('Not authenticated');
           return;
         }
-        await matchService.seedDemoProfiles(token);
+        try {
+          await matchService.seedDemoProfiles(token);
+        } catch {
+          // Seed endpoint may fail; still load feed with "near you" profiles
+        }
         setError('');
         await loadFeed();
       }
@@ -257,6 +306,12 @@ export const DiscoverPage: React.FC = () => {
   const handlePass = async () => {
     if (currentIndex >= feed.length) return;
 
+    const currentCard = feed[currentIndex];
+    if (isDummyNearbyProfile(currentCard.userId)) {
+      nextCard();
+      return;
+    }
+
     try {
       if (isGraphQLEnabled) {
         nextCard();
@@ -264,8 +319,6 @@ export const DiscoverPage: React.FC = () => {
       }
       const token = await authService.getJWT();
       if (!token) return;
-
-      const currentCard = feed[currentIndex];
       await matchService.passUser(token, currentCard.userId);
       nextCard();
     } catch (err: any) {
@@ -338,23 +391,50 @@ export const DiscoverPage: React.FC = () => {
   const progress = feed.length > 0 ? ((currentIndex + 1) / feed.length) * 100 : 0;
   const credits = me?.credits ?? 0;
   const photoFailed = photoErrorForIndex === currentIndex;
-  const primaryPhotoUrl = (currentCard.photoUrls && currentCard.photoUrls[0]) || placeholderPersonUrl(currentCard?.userId || '');
-  const displayPhotoUrl = photoFailed ? placeholderPersonUrl(currentCard?.userId || '') : primaryPhotoUrl;
+  const allPhotos = getMultiplePhotoUrls(currentCard.photoUrls, currentCard.userId, 4, currentCard.name);
+  const photoIndex = Math.min(currentPhotoIndex, allPhotos.length - 1);
+  const gender = currentCard?.name ? inferGenderFromName(currentCard.name) : 'male';
+  const primaryPhotoUrl = allPhotos[photoIndex] || placeholderPhotoUrl(currentCard?.userId || '', photoIndex, gender);
+  const displayPhotoUrl = photoFailed ? placeholderPhotoUrl(currentCard?.userId || '', photoIndex, gender) : primaryPhotoUrl;
   const levelLabel = currentCard.level ? currentCard.level.charAt(0).toUpperCase() + currentCard.level.slice(1) : null;
+  const isDummy = isDummyNearbyProfile(currentCard.userId);
 
-  const handleViewProfile = () => {
-    const uid = currentUserIdRef.current;
-    if (uid) navigate(`/app/profile/${uid}`);
+  const profilePath = currentCard?.userId ? `/app/profile/${currentCard.userId}` : null;
+
+  const handlePhotoSwipe = (dir: 'prev' | 'next') => {
+    setCurrentPhotoIndex((i) => {
+      if (dir === 'prev') return i <= 0 ? allPhotos.length - 1 : i - 1;
+      return i >= allPhotos.length - 1 ? 0 : i + 1;
+    });
+    setPhotoErrorForIndex(null);
+  };
+
+  const onMediaTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.targetTouches[0]?.clientX ?? null;
+  };
+  const onMediaTouchEnd = (e: React.TouchEvent) => {
+    const start = touchStartX.current;
+    touchStartX.current = null;
+    if (start == null || allPhotos.length <= 1) return;
+    const end = e.changedTouches[0]?.clientX;
+    if (end == null) return;
+    const delta = start - end;
+    const minSwipe = 40;
+    if (delta > minSwipe) handlePhotoSwipe('next');
+    else if (delta < -minSwipe) handlePhotoSwipe('prev');
   };
 
   return (
     <div className={styles.container}>
       <p className={styles.creditsStrip}>
         <strong>Credits: {credits}</strong> · Like costs 1 credit
+        {userLocationLabel && (
+          <> · <span className={styles.locationLabel}>Near {userLocationLabel}</span></>
+        )}
       </p>
 
       <div className={styles.headerRow}>
-        <span className={styles.headerCount}>{currentIndex + 1} of {feed.length}</span>
+        <span className={styles.headerCount}>{currentIndex + 1} of {feed.length}{isDummy ? ' (near you)' : ''}</span>
         <span className={styles.headerMatch}>{currentCard.compatibilityScore}% Match</span>
       </div>
       <div className={styles.progressTrack}>
@@ -362,66 +442,80 @@ export const DiscoverPage: React.FC = () => {
       </div>
 
       <article
-        role="button"
-        tabIndex={0}
         className={`${styles.cardStack} ${styles.cardClickable} ${matched ? styles.cardStackMatched : ''}`}
         aria-label={`Profile card: ${currentCard.name}. Click to view full profile.`}
-        onClick={handleViewProfile}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleViewProfile(); } }}
       >
-        <div className={styles.mediaWrap}>
-          <img
-            src={displayPhotoUrl}
-            alt={currentCard.name}
-            className={styles.mediaImage}
-            onError={() => setPhotoErrorForIndex(currentIndex)}
-            referrerPolicy="no-referrer"
-          />
-          <div className={styles.mediaOverlay} aria-hidden />
-        </div>
-
-        <div className={styles.content}>
-          <h2 className={styles.contentName}>
-            {currentCard.name}{levelLabel ? `, ${levelLabel}` : ''}
-          </h2>
-          <p className={styles.contentLocation}>
-            {currentCard.city || 'Location not set'}
-          </p>
-
-          {currentCard.bio && (
-            <p className={styles.contentBio}>{currentCard.bio}</p>
-          )}
-
-          {currentCard.commonSports && currentCard.commonSports.length > 0 && (
-            <div className={styles.contentSection}>
-              <p className={styles.contentSectionTitle}>Common Sports</p>
-              <div className={styles.chips}>
-                {currentCard.commonSports.map((sport) => (
-                  <span key={sport} className={styles.chipPrimary}>{sport}</span>
+        <Link to={profilePath || '/app/discover'} className={styles.cardLink} aria-label={`View full profile of ${currentCard.name}`}>
+          <div
+            className={styles.mediaWrap}
+            onTouchStart={onMediaTouchStart}
+            onTouchEnd={onMediaTouchEnd}
+            role="img"
+            aria-label={`Swipe to see more photos. Photo ${photoIndex + 1} of ${allPhotos.length}.`}
+          >
+            <img
+              src={displayPhotoUrl}
+              alt={`${currentCard.name} — photo ${photoIndex + 1} of ${allPhotos.length}`}
+              className={styles.mediaImage}
+              onError={() => setPhotoErrorForIndex(currentIndex)}
+              referrerPolicy="no-referrer"
+              draggable={false}
+            />
+            <div className={styles.mediaOverlay} aria-hidden />
+            {allPhotos.length > 1 && (
+              <div className={styles.photoDots} aria-label="Photo gallery">
+                {allPhotos.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`${styles.photoDot} ${i === photoIndex ? styles.photoDotActive : ''}`}
+                    aria-label={`Photo ${i + 1}`}
+                    aria-pressed={i === photoIndex}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrentPhotoIndex(i); setPhotoErrorForIndex(null); }}
+                  />
                 ))}
               </div>
-            </div>
-          )}
-
-          {currentCard.sportTags && currentCard.sportTags.length > 0 && (
-            <div className={styles.contentSection}>
-              <p className={styles.contentSectionTitle}>Sports</p>
-              <div className={styles.chips}>
-                {currentCard.sportTags.map((sport) => (
-                  <span key={sport} className={styles.chipDefault}>{sport}</span>
-                ))}
+            )}
+          </div>
+          <div className={styles.content}>
+            <h2 className={styles.contentName}>
+              {currentCard.name}{levelLabel ? `, ${levelLabel}` : ''}
+            </h2>
+            <p className={styles.contentLocation}>
+              {currentCard.city || 'Location not set'}
+            </p>
+            {currentCard.bio && (
+              <p className={styles.contentBio}>{currentCard.bio}</p>
+            )}
+            {currentCard.commonSports && currentCard.commonSports.length > 0 && (
+              <div className={styles.contentSection}>
+                <p className={styles.contentSectionTitle}>Common Sports</p>
+                <div className={styles.chips}>
+                  {currentCard.commonSports.map((sport) => (
+                    <span key={sport} className={styles.chipPrimary}>{sport}</span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-
-          {currentCard.mode && (
-            <div className={styles.contentSection}>
-              <div className={styles.chips}>
-                <span className={styles.chipDefault}>Mode: {currentCard.mode}</span>
+            )}
+            {currentCard.sportTags && currentCard.sportTags.length > 0 && (
+              <div className={styles.contentSection}>
+                <p className={styles.contentSectionTitle}>Sports</p>
+                <div className={styles.chips}>
+                  {currentCard.sportTags.map((sport) => (
+                    <span key={sport} className={styles.chipDefault}>{sport}</span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+            {currentCard.mode && (
+              <div className={styles.contentSection}>
+                <div className={styles.chips}>
+                  <span className={styles.chipDefault}>Mode: {currentCard.mode}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </Link>
       </article>
 
       <div className={styles.actionBar}>
@@ -444,15 +538,15 @@ export const DiscoverPage: React.FC = () => {
           <ThumbUpIcon aria-hidden sx={{ fontSize: 22 }} />
           Like{credits < 1 ? ' (no credits)' : ''}
         </button>
-        <button
-          type="button"
+        <Link
+          to={profilePath || '/app/discover'}
           className={`${styles.actionBtn} ${styles.actionBtnConnect}`}
-          onClick={handleViewProfile}
           aria-label={`View full profile of ${currentCard.name}`}
+          style={{ textDecoration: 'none', color: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <LinkIcon aria-hidden sx={{ fontSize: 22 }} />
           Connect
-        </button>
+        </Link>
       </div>
 
       {matched && (

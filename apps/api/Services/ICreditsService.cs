@@ -7,6 +7,8 @@ public interface ICreditsService
     Task<(List<CreditPackDto> packs, string source)> GetActiveCreditPacksWithSourceAsync();
     Task<CreditPackDto?> GetPackByKeyAsync(string packKey);
     Task<string> CreateCreditsCheckoutSessionAsync(string userId, string packKey, string baseUrl);
+    /// <summary>Apply purchased credits using Stripe session (idempotent). Used when user lands on success page so credits show immediately without relying on webhook timing. Returns null if session invalid or not paid.</summary>
+    Task<CreditsBalanceDto?> ConfirmCreditsPurchaseAsync(string sessionId, string userId);
     Task RecordWebhookEventReceivedAsync(string eventId, string type);
     Task<bool> ProcessCheckoutSessionCompletedAsync(string stripeEventId, Stripe.Checkout.Session session);
     Task<CreditsBalanceDto> GetCreditsBalanceAsync(string userId);

@@ -141,6 +141,25 @@ export const billingService = {
     return response.data;
   },
 
+  /** Apply purchased credits using session_id (success page). Idempotent; single source of truth for credits. */
+  async confirmCreditsPurchase(token: string, sessionId: string): Promise<CreditsBalanceDto | null> {
+    try {
+      const response = await axios.post<CreditsBalanceDto>(
+        `${API_BASE_URL}/api/billing/confirm-credits-purchase`,
+        { sessionId: sessionId.trim() },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      return response.data ?? null;
+    } catch {
+      return null;
+    }
+  },
+
   async grantFreeSignup(token: string): Promise<void> {
     await axios.post(
       `${API_BASE_URL}/api/billing/grant-free-signup`,

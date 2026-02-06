@@ -55,6 +55,23 @@ public class BillingController : ControllerBase
         return Ok(balance);
     }
 
+    /// <summary>Apply purchased credits when user lands on success page (session_id). Idempotent; does not depend on webhook timing. Credits are calculated from single source: user-credits table.</summary>
+    [HttpPost("confirm-credits-purchase")]
+    [AllowAnonymous]
+    public async Task<ActionResult<CreditsBalanceDto>> ConfirmCreditsPurchase([FromBody] ConfirmCreditsPurchaseRequest request)
+    {
+        var userId = GetUserIdFromToken();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized(new { error = "Valid authentication required." });
+        if (request == null || string.IsNullOrWhiteSpace(request.SessionId))
+            return BadRequest(new { error = "sessionId is required." });
+
+        var balance = await _creditsService.ConfirmCreditsPurchaseAsync(request.SessionId.Trim(), userId);
+        if (balance == null)
+            return BadRequest(new { error = "Could not confirm purchase. Session may be invalid or already applied." });
+        return Ok(balance);
+    }
+
     [HttpPost("grant-free-signup")]
     [AllowAnonymous]
     public async Task<ActionResult> GrantFreeSignup()
@@ -354,6 +371,11 @@ public class BillingController : ControllerBase
 }
 
 public class ConfirmSessionRequest
+{
+    public string SessionId { get; set; } = string.Empty;
+}
+
+public class ConfirmCreditsPurchaseRequest
 {
     public string SessionId { get; set; } = string.Empty;
 }

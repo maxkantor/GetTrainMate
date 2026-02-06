@@ -76,6 +76,13 @@ export const AppHeader: React.FC = () => {
             <LanguageDropdown />
           </div>
 
+          {isLoggedIn && (
+            <RouterLink to="/pricing" className={styles.creditsPill} aria-label="Your credits">
+              <span className={styles.creditsValue}>{me?.credits ?? 0}</span>
+              <span className={styles.creditsLabel}>credits</span>
+            </RouterLink>
+          )}
+
           {isLoggedIn ? (
             <div className={`${styles.userWrap} ${userOpen ? styles.userOpen : ''}`} ref={userRef}>
               <button
@@ -160,6 +167,9 @@ export const AppHeader: React.FC = () => {
               </div>
               {isLoggedIn ? (
                 <>
+                  <RouterLink to="/pricing" className={styles.mobileCredits} onClick={() => setMobileOpen(false)}>
+                    {me?.credits ?? 0} credits
+                  </RouterLink>
                   <RouterLink to="/app/profile" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>{t('header.profile')}</RouterLink>
                   <button type="button" className={styles.mobileLogout} onClick={handleLogout}>{t('common.logout')}</button>
                 </>

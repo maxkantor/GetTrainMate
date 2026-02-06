@@ -40,7 +40,7 @@ import { ScrollToTop } from '@/components/ScrollToTop';
 
 function PublicProfileRoute() {
   const { userId } = useParams<{ userId: string }>();
-  return <PublicProfilePage key={userId} />;
+  return <PublicProfilePage key={userId} userIdFromRoute={userId ?? ''} />;
 }
 
 export const Router: React.FC = () => {
