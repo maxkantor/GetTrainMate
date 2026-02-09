@@ -76,24 +76,33 @@ export const getAuthPoolDebug = (): string | null => {
 export const authService = {
   configure: configureAmplify,
 
-  async signup(email: string, password: string, name: string) {
-    return signUp({
-      username: email,
+  /**
+   * Sign up with Cognito. When the User Pool uses "email alias", username must NOT be email format.
+   * Use standard "name" (not name.formatted). Send updated_at only if pool requires it.
+   */
+  async signup(email: string, password: string, name: string): Promise<{ username: string }> {
+    const username = crypto.randomUUID();
+    const trimmedName = name.trim();
+    const nowEpoch = String(Math.floor(Date.now() / 1000));
+    await signUp({
+      username,
       password,
       options: {
         userAttributes: {
-          email,
-          given_name: name, // Cognito standard attribute for first name
-          name: name, // Also send as 'name' since it's required in Cognito
+          email: email.trim(),
+          given_name: trimmedName,
+          name: trimmedName,
+          'aws:cognito:system.updated_at': nowEpoch,
         },
       },
     });
+    return { username };
   },
 
-  async confirmSignUp(email: string, code: string) {
+  async confirmSignUp(username: string, code: string) {
     return confirmSignUp({
-      username: email,
-      confirmationCode: code,
+      username,
+      confirmationCode: code.trim(),
     });
   },
 

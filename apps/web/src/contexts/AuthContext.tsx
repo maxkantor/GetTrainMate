@@ -16,8 +16,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; requiresNewPassword?: boolean }>;
   confirmSignInWithNewPassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>;
-  confirmSignUp: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
+  signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string; username?: string }>;
+  confirmSignUp: (username: string, code: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 export const AuthContext = createContext<AuthContextType>({
@@ -179,8 +179,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signup = async (email: string, password: string, name: string) => {
     try {
       setIsLoading(true);
-      await authService.signup(email, password, name);
-      return { success: true };
+      const { username } = await authService.signup(email, password, name);
+      return { success: true, username };
     } catch (error: any) {
       const message = error.message || 'Signup failed';
       return { success: false, error: message };
@@ -189,10 +189,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const confirmSignUp = async (email: string, code: string) => {
+  const confirmSignUp = async (username: string, code: string) => {
     try {
       setIsLoading(true);
-      await authService.confirmSignUp(email, code);
+      await authService.confirmSignUp(username, code);
       return { success: true };
     } catch (error: any) {
       const message = error.message || 'Confirmation failed';

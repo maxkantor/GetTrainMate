@@ -17,6 +17,7 @@ import { TermsPage } from '@/pages/Terms';
 import { GearPage } from '@/pages/Gear';
 import { LoginPage } from '@/pages/Login';
 import { SignupPage } from '@/pages/Signup';
+import { VerifyEmailPage } from '@/pages/VerifyEmail';
 import { DashboardPage as AppDashboardPage } from '@/pages/app/Dashboard';
 import { ProfilePage } from '@/pages/app/Profile';
 import { PublicProfilePage } from '@/pages/app/PublicProfile';
@@ -65,6 +66,7 @@ export const Router: React.FC = () => {
             {/* Auth routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
 
             {/* Onboarding route - requires auth but not profile completion */}

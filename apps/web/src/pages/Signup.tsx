@@ -74,8 +74,12 @@ export const SignupPage: React.FC = () => {
     }
 
     try {
-      await signup(email, password, name);
-      navigate('/verify-email', { state: { email } });
+      const result = await signup(email, password, name);
+      if (result.success && result.username) {
+        navigate('/verify-email', { state: { email, username: result.username } });
+      } else if (!result.success) {
+        setError(result.error ?? t('errors.signupFailed'));
+      }
     } catch (err) {
       const errMessage = err instanceof Error ? err.message : t('errors.signupFailed');
       setError(errMessage);

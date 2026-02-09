@@ -65,27 +65,55 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
+      const token = await authService.getJWT();
+      if (!token) {
+        setMe(null);
+        setLoading(false);
+        if (import.meta.env.DEV) console.log('[MeContext] No token, profile not loaded');
+        return;
+      }
+
       if (isGraphQLEnabled) {
-        const data = await graphqlGetMe();
-        setMe(mapGraphQLMeToResponse(data));
-        if (import.meta.env.DEV) {
-          console.log('[MeContext] Profile loaded:', (data as { user?: { id?: string } }).user?.id, 'onboarding required:', !(data as { isProfileComplete?: boolean }).isProfileComplete);
-        }
-        // Fire-and-forget: ensure free credits; do NOT call fetchMe() again (causes infinite loop)
-        graphqlEnsureFreeStartCredits().catch(() => {});
-      } else {
-        const token = await authService.getJWT();
-        if (!token) {
-          setMe(null);
-          setLoading(false);
-          if (import.meta.env.DEV) console.log('[MeContext] No token, profile not loaded');
+        try {
+          const data = await graphqlGetMe();
+          setMe(mapGraphQLMeToResponse(data));
+          if (import.meta.env.DEV) {
+            console.log('[MeContext] Profile loaded (GraphQL):', (data as { user?: { id?: string } }).user?.id, 'onboarding required:', !(data as { isProfileComplete?: boolean }).isProfileComplete);
+          }
+          graphqlEnsureFreeStartCredits().catch(() => {});
           return;
+        } catch (graphqlErr) {
+          const status = graphqlErr instanceof GraphQLApiError ? graphqlErr.status : (graphqlErr as { response?: { status?: number }; statusCode?: number })?.response?.status ?? (graphqlErr as { statusCode?: number })?.statusCode;
+          const message = graphqlErr instanceof Error ? graphqlErr.message : (graphqlErr as { message?: string })?.message ?? '';
+          const graphqlErrors = graphqlErr instanceof GraphQLApiError ? graphqlErr.graphqlErrors : undefined;
+          const isUnauthorized =
+            status === 401 ||
+            message.toLowerCase().includes('unauthorized') ||
+            graphqlErrors?.some(
+              (e) =>
+                (e.message ?? '').toLowerCase().includes('unauthorized') ||
+                (e.extensions as Record<string, unknown>)?.errorType === 'Unauthorized' ||
+                (e.extensions as Record<string, unknown>)?.code === 'UNAUTHENTICATED'
+            );
+          if (isUnauthorized && token) {
+            if (import.meta.env.DEV) console.log('[MeContext] GraphQL Unauthorized, falling back to REST /api/me');
+            try {
+              const data = await meService.getMe(token);
+              setMe(data);
+              if (import.meta.env.DEV) console.log('[MeContext] Profile loaded (REST fallback):', data.user?.id);
+              return;
+            } catch (restErr) {
+              if (import.meta.env.DEV) console.warn('[MeContext] REST fallback also failed:', restErr);
+            }
+          }
+          throw graphqlErr;
         }
-        const data = await meService.getMe(token);
-        setMe(data);
-        if (import.meta.env.DEV) {
-          console.log('[MeContext] Profile loaded:', data.user?.id, 'onboarding required:', !data.isProfileComplete);
-        }
+      }
+
+      const data = await meService.getMe(token);
+      setMe(data);
+      if (import.meta.env.DEV) {
+        console.log('[MeContext] Profile loaded:', data.user?.id, 'onboarding required:', !data.isProfileComplete);
       }
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number }; status?: number }).response?.status ?? (err as { status?: number }).status;
