@@ -236,6 +236,11 @@ public class ProfileController : ControllerBase
             if (profile == null)
                 return NotFound(new { message = "Profile not found" });
 
+            // Use PhotoUrls; if empty but user has photoKey, add public URL so the correct photo is shown (not a placeholder)
+            var photoUrls = profile.PhotoUrls?.ToList() ?? new List<string>();
+            if (photoUrls.Count == 0 && !string.IsNullOrEmpty(profile.PhotoKey))
+                photoUrls.Add(_storageService.GetPublicUrl(profile.PhotoKey));
+
             // Return limited public profile info (exclude sensitive data)
             return Ok(new
             {
@@ -246,7 +251,7 @@ public class ProfileController : ControllerBase
                 profile.SportTags,
                 profile.Level,
                 profile.Mode,
-                profile.PhotoUrls,
+                PhotoUrls = photoUrls,
                 profile.IsComplete
             });
         }

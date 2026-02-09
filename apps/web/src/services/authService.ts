@@ -92,7 +92,7 @@ export const authService = {
           email: email.trim(),
           name: trimmedName,
           given_name: trimmedName,
-          updated_at: new Date().toISOString(),
+          updated_at: String(Math.floor(Date.now() / 1000)),
         },
       },
     });
