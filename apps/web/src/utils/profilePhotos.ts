@@ -77,9 +77,6 @@ export function getMultiplePhotoUrls(
   // Never pad with placeholders when we have real photos — avoids showing wrong person
   if (existing.length > 0) return existing;
   const gender = displayName ? inferGenderFromName(displayName) : 'male';
-  const result: string[] = [];
-  for (let i = 0; i < count; i++) {
-    result.push(placeholderPhotoUrl(userId, i, gender));
-  }
-  return result;
+  // Use only 1 placeholder when no real photos — avoids "another person" bug when swiping
+  return [placeholderPhotoUrl(userId, 0, gender)];
 }
