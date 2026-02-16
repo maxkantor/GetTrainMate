@@ -6,6 +6,8 @@
 const DEFAULT_PHOTO_COUNT = 4;
 
 const UNSPLASH_BASE = 'https://images.unsplash.com';
+/** Fallback when Unsplash is blocked; seed by userId for stable "same person" per profile. */
+const PICSUM_BASE = 'https://picsum.photos/seed';
 
 /** Backend uses randomuser.me when profile has no photo — these are random people, not the user. */
 const BACKEND_PLACEHOLDER_HOST = 'randomuser.me';
@@ -79,21 +81,27 @@ export function placeholderPhotoUrl(userId: string, index: number, gender: Gende
   return `${UNSPLASH_BASE}/${photoId}?w=600&h=800&fit=crop&crop=${crop}&q=85`;
 }
 
+/** Fallback placeholder when Unsplash is blocked (e.g. corporate firewall). Same seed = same image. */
+export function fallbackPlaceholderPhotoUrl(userId: string, index: number): string {
+  const seed = userId.split('').reduce((a, b) => a + b.charCodeAt(0), 0) + index * 31;
+  return `${PICSUM_BASE}/${seed}/600/800`;
+}
+
 /**
  * Returns an array of photo URLs for the carousel.
  * - If profile has real photos: return ONLY those — never pad with placeholders.
  *   (Padding caused "another person" bug when swiping to slots 2–4.)
  * - Backend placeholder URLs (randomuser.me) are filtered out — they show random people, not the user.
- * - If profile has zero real photos: return neutral "No photo yet" placeholder.
+ * - If profile has zero real photos: return Unsplash placeholder (user will see a face; onError can try picsum fallback).
  */
 export function getMultiplePhotoUrls(
   existingUrls: string[] | undefined,
-  _userId: string,
+  userId: string,
   _count: number = DEFAULT_PHOTO_COUNT,
-  _displayName?: string
+  displayName?: string
 ): string[] {
   const raw = (existingUrls ?? []).filter(Boolean);
   const existing = raw.filter((u) => !isBackendPlaceholderPhotoUrl(u));
   if (existing.length > 0) return existing;
-  return [NO_PHOTO_PLACEHOLDER];
+  return [placeholderPhotoUrl(userId, 0, inferGenderFromName(displayName || 'Guest'))];
 }

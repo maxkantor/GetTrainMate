@@ -20,17 +20,17 @@
   }
 }
 
-/* Top bar: credits + filters */
+/* Top bar: credits + filters; tight spacing for density */
 .topBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .creditsStrip {
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   font-size: 0.875rem;
   color: var(--color-neutral-600, #4b5563);
 }
@@ -73,12 +73,12 @@
   .cardWithPanel {
     flex-direction: row;
     align-items: flex-start;
-    gap: var(--space-8);
+    gap: var(--space-5);
   }
   .cardWithPanel .cardStack {
     flex: 1;
     min-width: 0;
-    max-width: 680px;
+    max-width: 640px;
   }
 }
 
@@ -136,7 +136,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   gap: 12px;
 }
 
@@ -159,7 +159,7 @@
   background: var(--color-neutral-200, #e5e7eb);
   border-radius: 999px;
   overflow: hidden;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .progressFill {

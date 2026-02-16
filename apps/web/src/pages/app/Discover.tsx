@@ -23,7 +23,7 @@ import { authService } from '@/services/authService';
 import { isGraphQLEnabled, graphqlDiscoverCandidates, graphqlLikeUser, graphqlSeedDemoData } from '@/services/graphqlService';
 import { handleApiError, getErrorMessage, isNetworkError } from '@/utils/apiErrorHandler';
 import { IMAGE_BUCKET_BASE } from '@/config/media';
-import { getMultiplePhotoUrls, placeholderPhotoUrl, inferGenderFromName, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
+import { getMultiplePhotoUrls, placeholderPhotoUrl, fallbackPlaceholderPhotoUrl, inferGenderFromName, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import { getLocationFromIp, FALLBACK_LOCATION } from '@/services/locationService';
 import { buildNearbyDummyProfiles, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
 import styles from './Discover.module.css';
@@ -74,6 +74,7 @@ export const DiscoverPage: React.FC = () => {
   const currentUserIdRef = useRef<string | null>(null);
   const touchStartX = useRef<number | null>(null);
   const [onboardingModalOpen, setOnboardingModalOpen] = useState(false);
+  const [photoFallbackUrls, setPhotoFallbackUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadFeed();
@@ -120,6 +121,7 @@ export const DiscoverPage: React.FC = () => {
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
+        setPhotoFallbackUrls({});
       } else {
         const token = await authService.getJWT(isRetryAfter401);
         if (!token) {
@@ -139,6 +141,7 @@ export const DiscoverPage: React.FC = () => {
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
+        setPhotoFallbackUrls({});
       }
     } catch (err: any) {
       const status = err.response?.status ?? err.status;
@@ -172,6 +175,7 @@ export const DiscoverPage: React.FC = () => {
               setFeed(sortFeedBackendDummiesLast(merged));
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
+              setPhotoFallbackUrls({});
             } else {
               const feedFromApi = await matchService.getDiscoveryFeed(freshToken!, 50);
               const feedWithPhotos = feedFromApi.map((c) => ({
@@ -185,6 +189,7 @@ export const DiscoverPage: React.FC = () => {
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoErrorForIndex(null);
+              setPhotoFallbackUrls({});
             }
             setLoading(false);
             return;
@@ -411,7 +416,9 @@ export const DiscoverPage: React.FC = () => {
   const allPhotos = getMultiplePhotoUrls(currentCard.photoUrls, currentCard.userId, 4, currentCard.name);
   const photoIndex = Math.min(currentPhotoIndex, allPhotos.length - 1);
   const primaryPhotoUrl = allPhotos[photoIndex] || NO_PHOTO_PLACEHOLDER;
-  const displayPhotoUrl = photoFailed ? NO_PHOTO_PLACEHOLDER : primaryPhotoUrl;
+  const cardPhotoKey = `${currentCard.userId}-${photoIndex}`;
+  const fallbackUrl = photoFallbackUrls[cardPhotoKey];
+  const displayPhotoUrl = photoFailed ? NO_PHOTO_PLACEHOLDER : (fallbackUrl || primaryPhotoUrl);
   const levelLabel = currentCard.level ? currentCard.level.charAt(0).toUpperCase() + currentCard.level.slice(1) : null;
   const isDummy = isDummyNearbyProfile(currentCard.userId);
 
@@ -429,6 +436,17 @@ export const DiscoverPage: React.FC = () => {
       return i >= allPhotos.length - 1 ? 0 : i + 1;
     });
     setPhotoErrorForIndex(null);
+  };
+
+  const handlePhotoError = () => {
+    if (photoFallbackUrls[cardPhotoKey]) {
+      setPhotoErrorForIndex(currentIndex);
+    } else {
+      setPhotoFallbackUrls((prev) => ({
+        ...prev,
+        [cardPhotoKey]: fallbackPlaceholderPhotoUrl(currentCard.userId, photoIndex),
+      }));
+    }
   };
 
   const onMediaTouchStart = (e: React.TouchEvent) => {
@@ -493,7 +511,7 @@ export const DiscoverPage: React.FC = () => {
               src={displayPhotoUrl}
               alt={`${currentCard.name} — photo ${photoIndex + 1} of ${allPhotos.length}`}
               className={styles.mediaImage}
-              onError={() => setPhotoErrorForIndex(currentIndex)}
+              onError={handlePhotoError}
               referrerPolicy="no-referrer"
               draggable={false}
             />
