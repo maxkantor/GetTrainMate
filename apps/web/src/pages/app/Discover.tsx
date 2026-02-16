@@ -23,7 +23,7 @@ import { authService } from '@/services/authService';
 import { isGraphQLEnabled, graphqlDiscoverCandidates, graphqlLikeUser, graphqlSeedDemoData } from '@/services/graphqlService';
 import { handleApiError, getErrorMessage, isNetworkError } from '@/utils/apiErrorHandler';
 import { IMAGE_BUCKET_BASE } from '@/config/media';
-import { getMultiplePhotoUrls, placeholderPhotoUrl, inferGenderFromName } from '@/utils/profilePhotos';
+import { getMultiplePhotoUrls, placeholderPhotoUrl, inferGenderFromName, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import { getLocationFromIp, FALLBACK_LOCATION } from '@/services/locationService';
 import { buildNearbyDummyProfiles, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
 import styles from './Discover.module.css';
@@ -38,8 +38,9 @@ function sortFeedBackendDummiesLast<T extends { userId: string }>(items: T[]): T
   });
 }
 
-/** Backend may return avatarUrl as full URL or S3 key; normalize to full URL. Use gender-matched placeholder when missing. */
+/** Backend may return avatarUrl as full URL or S3 key; normalize to full URL. Filter out randomuser.me (random people). */
 function toPhotoUrl(avatarUrl: string | undefined, userId: string, displayName?: string): string {
+  if (avatarUrl && /randomuser\.me/i.test(avatarUrl)) return '';
   if (avatarUrl && (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://'))) return avatarUrl;
   if (avatarUrl) return `${IMAGE_BUCKET_BASE}/${avatarUrl.replace(/^\//, '')}`;
   const gender = displayName ? inferGenderFromName(displayName) : 'male';
@@ -409,9 +410,8 @@ export const DiscoverPage: React.FC = () => {
   const photoFailed = photoErrorForIndex === currentIndex;
   const allPhotos = getMultiplePhotoUrls(currentCard.photoUrls, currentCard.userId, 4, currentCard.name);
   const photoIndex = Math.min(currentPhotoIndex, allPhotos.length - 1);
-  const gender = currentCard?.name ? inferGenderFromName(currentCard.name) : 'male';
-  const primaryPhotoUrl = allPhotos[photoIndex] || placeholderPhotoUrl(currentCard?.userId || '', photoIndex, gender);
-  const displayPhotoUrl = photoFailed ? placeholderPhotoUrl(currentCard?.userId || '', photoIndex, gender) : primaryPhotoUrl;
+  const primaryPhotoUrl = allPhotos[photoIndex] || NO_PHOTO_PLACEHOLDER;
+  const displayPhotoUrl = photoFailed ? NO_PHOTO_PLACEHOLDER : primaryPhotoUrl;
   const levelLabel = currentCard.level ? currentCard.level.charAt(0).toUpperCase() + currentCard.level.slice(1) : null;
   const isDummy = isDummyNearbyProfile(currentCard.userId);
 

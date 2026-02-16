@@ -7,6 +7,25 @@ const DEFAULT_PHOTO_COUNT = 4;
 
 const UNSPLASH_BASE = 'https://images.unsplash.com';
 
+/** Backend uses randomuser.me when profile has no photo — these are random people, not the user. */
+const BACKEND_PLACEHOLDER_HOST = 'randomuser.me';
+
+/** Returns true if URL is a backend placeholder (random person), not the user's real photo. */
+export function isBackendPlaceholderPhotoUrl(url: string | undefined): boolean {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const host = new URL(url).hostname;
+    return host.includes(BACKEND_PLACEHOLDER_HOST);
+  } catch {
+    return false;
+  }
+}
+
+/** Neutral "no photo" placeholder — gray silhouette, no face. Use when profile has no real photo. */
+export const NO_PHOTO_PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="500" viewBox="0 0 400 500"><rect fill="#e5e7eb" width="400" height="500"/><circle cx="200" cy="180" r="80" fill="#9ca3af"/><ellipse cx="200" cy="420" rx="120" ry="80" fill="#9ca3af"/><text x="200" y="260" font-family="sans-serif" font-size="14" fill="#6b7280" text-anchor="middle">No photo yet</text></svg>'
+);
+
 /** One photo ID per "person" – women. Same person = same ID for all 4 slots; we vary crop. */
 const FEMALE_PERSON_IDS = [
   'photo-1494790108377-be29c4feef6e',
@@ -64,19 +83,17 @@ export function placeholderPhotoUrl(userId: string, index: number, gender: Gende
  * Returns an array of photo URLs for the carousel.
  * - If profile has real photos: return ONLY those — never pad with placeholders.
  *   (Padding caused "another person" bug when swiping to slots 2–4.)
- * - If profile has zero photos: return placeholders (same person, different crops).
- * Pass displayName (or first name) so placeholders match female vs male.
+ * - Backend placeholder URLs (randomuser.me) are filtered out — they show random people, not the user.
+ * - If profile has zero real photos: return neutral "No photo yet" placeholder.
  */
 export function getMultiplePhotoUrls(
   existingUrls: string[] | undefined,
-  userId: string,
-  count: number = DEFAULT_PHOTO_COUNT,
-  displayName?: string
+  _userId: string,
+  _count: number = DEFAULT_PHOTO_COUNT,
+  _displayName?: string
 ): string[] {
-  const existing = (existingUrls ?? []).filter(Boolean);
-  // Never pad with placeholders when we have real photos — avoids showing wrong person
+  const raw = (existingUrls ?? []).filter(Boolean);
+  const existing = raw.filter((u) => !isBackendPlaceholderPhotoUrl(u));
   if (existing.length > 0) return existing;
-  const gender = displayName ? inferGenderFromName(displayName) : 'male';
-  // Use only 1 placeholder when no real photos — avoids "another person" bug when swiping
-  return [placeholderPhotoUrl(userId, 0, gender)];
+  return [NO_PHOTO_PLACEHOLDER];
 }

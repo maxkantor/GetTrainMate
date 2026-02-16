@@ -148,7 +148,10 @@ export async function graphqlGetProfile(userId: string) {
     }
     const p = result.data?.getProfile ?? null;
     if (!p) return null;
-    const avatarUrl = p.avatarUrl;
+    let avatarUrl = p.avatarUrl;
+    if (avatarUrl && (avatarUrl.includes('randomuser.me') || avatarUrl.includes('randomuser.me/'))) {
+      avatarUrl = undefined;
+    }
     const photoUrl = avatarUrl?.startsWith('http') ? avatarUrl : (avatarUrl ? `${IMAGE_BUCKET_BASE}/${avatarUrl.replace(/^\//, '')}` : undefined);
     return {
       userId: p.userId,

@@ -23,7 +23,7 @@ import { profileService } from '@/services/profileService';
 import { matchService } from '@/services/matchService';
 import { isGraphQLEnabled, graphqlGetProfile, graphqlLikeUser } from '@/services/graphqlService';
 import { handleApiError } from '@/utils/apiErrorHandler';
-import { getMultiplePhotoUrls, placeholderPhotoUrl, inferGenderFromName } from '@/utils/profilePhotos';
+import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import { getLocationFromIp, FALLBACK_LOCATION } from '@/services/locationService';
 import { buildNearbyDummyProfiles, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
 import { getLandingProfile, isLandingProfileUserId } from '@/data/landingProfiles';
@@ -219,13 +219,10 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
 
   const name = profile.name || 'Unknown';
   const photoUrls = getMultiplePhotoUrls(profile.photoUrls, profile.userId, 4, profile.name);
-  const safePhotoIndex = Math.min(photoIndex, photoUrls.length - 1);
+  const safePhotoIndex = Math.min(photoIndex, Math.max(0, photoUrls.length - 1));
   const currentPhotoUrl = photoUrls[safePhotoIndex];
   const photoFailed = photoErrorForIndex === safePhotoIndex;
-  const gender = inferGenderFromName(name);
-  const displayPhotoUrl = photoFailed
-    ? placeholderPhotoUrl(profile.userId, safePhotoIndex, gender)
-    : currentPhotoUrl;
+  const displayPhotoUrl = photoFailed ? NO_PHOTO_PLACEHOLDER : currentPhotoUrl;
   const isDemoProfile = isDummyNearbyProfile(profile.userId) || isLandingProfileUserId(profile.userId);
 
   return (
