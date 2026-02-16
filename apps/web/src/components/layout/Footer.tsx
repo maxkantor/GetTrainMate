@@ -4,7 +4,12 @@ import { useI18n } from '@/hooks/useI18n';
 import { Container } from './Container';
 import styles from './Footer.module.css';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  /** When true, show compact footer (for /app/* routes). No giant marketing footer. */
+  compact?: boolean;
+}
+
+export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
   const { t } = useI18n();
 
   const footerSections = {
@@ -20,6 +25,25 @@ export const Footer: React.FC = () => {
       { label: t('footer.terms'), href: '/terms' },
     ],
   };
+
+  if (compact) {
+    return (
+      <footer className={`${styles.footer} ${styles.footerCompact}`}>
+        <div className={styles.footerCompactInner}>
+          <div className={styles.footerCompactLinks}>
+            <RouterLink to="/about" className={styles.footerCompactLink}>{t('header.about')}</RouterLink>
+            <RouterLink to="/faq" className={styles.footerCompactLink}>{t('header.faq')}</RouterLink>
+            <RouterLink to="/contact" className={styles.footerCompactLink}>{t('header.contact')}</RouterLink>
+            <RouterLink to="/privacy" className={styles.footerCompactLink}>{t('footer.privacy')}</RouterLink>
+            <RouterLink to="/terms" className={styles.footerCompactLink}>{t('footer.terms')}</RouterLink>
+          </div>
+          <p className={styles.footerCompactCopyright}>
+            © {new Date().getFullYear()} {t('common.appName')}
+          </p>
+        </div>
+      </footer>
+    );
+  }
 
   return (
     <footer className={styles.footer}>

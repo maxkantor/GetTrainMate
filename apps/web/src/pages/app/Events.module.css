@@ -1,7 +1,11 @@
 .container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: var(--space-6);
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 0 var(--space-6);
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .header {
@@ -152,23 +156,40 @@
 
 .empty {
   text-align: center;
-  padding: var(--space-16);
+  padding: var(--space-12);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+.emptyIconWrap {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: var(--radius-xl);
 }
 
 .emptyIcon {
-  font-size: 4rem;
-  color: var(--color-neutral-400);
-  margin-bottom: var(--space-4);
+  font-size: 4rem !important;
+  color: var(--color-neutral-400) !important;
 }
 
 .emptyTitle {
   font-size: var(--font-xl);
   font-weight: 700;
-  margin: 0 0 var(--space-2);
+  margin: 0;
 }
 
 .emptyDesc {
   font-size: var(--font-base);
   color: var(--color-neutral-600);
-  margin: 0 0 var(--space-6);
+  margin: 0;
+  max-width: 320px;
+  line-height: 1.5;
 }

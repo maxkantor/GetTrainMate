@@ -4,6 +4,46 @@
   padding: var(--space-16) 0 var(--space-8);
 }
 
+/* Compact footer for /app/* – minimal links, no giant marketing section */
+.footerCompact {
+  padding: var(--space-4) 0;
+  margin-top: auto;
+}
+
+.footerCompactInner {
+  max-width: var(--container-app, 1180px);
+  margin: 0 auto;
+  padding: 0 var(--page-inner-padding);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.footerCompactLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.footerCompactLink {
+  font-size: var(--font-sm);
+  color: var(--color-neutral-400);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.footerCompactLink:hover {
+  color: white;
+}
+
+.footerCompactCopyright {
+  font-size: var(--font-xs);
+  color: var(--color-neutral-500);
+  margin: 0;
+}
+
 .footerContent {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;

@@ -92,7 +92,9 @@ export const EventsPage: React.FC = () => {
     return (
       <div className={styles.container}>
         <div className={styles.empty}>
-          <EventIcon className={styles.emptyIcon} />
+          <div className={styles.emptyIconWrap}>
+            <EventIcon className={styles.emptyIcon} />
+          </div>
           <h2 className={styles.emptyTitle}>No events yet</h2>
           <p className={styles.emptyDesc}>
             Events will let you create and join training meetups. We&apos;re building it.

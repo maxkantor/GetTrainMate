@@ -41,16 +41,18 @@ export const AppHeader: React.FC = () => {
 
   const handleLogout = async () => { setUserOpen(false); setMobileOpen(false); await logout(); navigate('/'); };
 
-  const loggedOutNav: { label: string; href: string; icon?: string; exact?: boolean }[] = [
-    { label: t('header.pricing'), href: '/pricing', icon: '💰', exact: true },
-  ];
-  const loggedInNav: { label: string; href: string; icon?: string; exact?: boolean }[] = [
+  // Logged out: full nav + Pricing (no Upgrade). Logged in: app nav only, no Pricing; Upgrade is the single CTA.
+  const appNavItems: { label: string; href: string; icon?: string; exact?: boolean }[] = [
     { label: t('nav.discover'), href: '/app/discover' },
     { label: t('nav.match'), href: '/app/matches' },
     { label: t('nav.chat'), href: '/app/chat' },
     { label: t('nav.events'), href: '/app/events' },
+  ];
+  const loggedOutNav: { label: string; href: string; icon?: string; exact?: boolean }[] = [
+    ...appNavItems,
     { label: t('header.pricing'), href: '/pricing', icon: '💰', exact: true },
   ];
+  const loggedInNav = appNavItems;
   const navItems = isLoggedIn ? loggedInNav : loggedOutNav;
   const logoTo = '/';
 

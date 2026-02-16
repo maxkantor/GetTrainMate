@@ -3,21 +3,20 @@
  * Desktop: card 560–680px; Tablet: ~90%; Mobile: full width + sticky actions.
  */
 
-/* Single container: max-width, centered, consistent padding below nav */
+/* Single container: fills Layout appContainer; reduced top padding for density */
 .container {
   width: 100%;
-  max-width: 90%;
-  margin: 0 auto;
-  padding: 24px 16px 100px;
-  min-height: calc(100vh - var(--nav-height, 56px));
+  max-width: 100%;
+  margin: 0;
+  padding: 0 0 100px;
+  min-height: calc(100vh - var(--nav-height, 56px) - var(--page-top-padding, 16px));
   box-sizing: border-box;
 }
 
 @media (min-width: 768px) {
   .container {
-    max-width: 680px;
-    padding: 24px 24px 32px;
-    min-height: calc(100vh - var(--nav-height-desktop, 64px));
+    padding: 0 0 32px;
+    min-height: calc(100vh - var(--nav-height-desktop, 64px) - var(--page-top-padding, 16px));
   }
 }
 
@@ -63,21 +62,23 @@
   background: var(--color-neutral-200);
 }
 
-/* Card + compatibility panel layout */
+/* Card + compatibility panel layout: 2-col on desktop for better density */
 .cardWithPanel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--page-section-gap, var(--space-6));
 }
 
 @media (min-width: 900px) {
   .cardWithPanel {
     flex-direction: row;
     align-items: flex-start;
+    gap: var(--space-8);
   }
   .cardWithPanel .cardStack {
     flex: 1;
     min-width: 0;
+    max-width: 680px;
   }
 }
 

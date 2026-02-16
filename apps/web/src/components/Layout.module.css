@@ -4,7 +4,25 @@
   flex-direction: column;
 }
 
-/* Header is in flow; main starts directly below it. No padding-top (that caused white band). */
+/* Marketing/public pages: full bleed content */
 .main {
+  flex: 1;
+}
+
+/* App pages (/app/*): reduced top padding, centered container, better density at 50% zoom */
+.mainApp {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--page-top-padding, var(--space-4));
+}
+
+.appContainer {
+  width: 100%;
+  max-width: var(--container-app, 1180px);
+  margin: 0 auto;
+  padding-left: var(--page-inner-padding, var(--space-4));
+  padding-right: var(--page-inner-padding, var(--space-4));
+  box-sizing: border-box;
   flex: 1;
 }
