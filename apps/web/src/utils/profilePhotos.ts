@@ -61,8 +61,10 @@ export function placeholderPhotoUrl(userId: string, index: number, gender: Gende
 }
 
 /**
- * Returns an array of photo URLs (length at least 1, typically DEFAULT_PHOTO_COUNT).
- * First uses existing photoUrls, then fills with gender-matched placeholders.
+ * Returns an array of photo URLs for the carousel.
+ * - If profile has real photos: return ONLY those — never pad with placeholders.
+ *   (Padding caused "another person" bug when swiping to slots 2–4.)
+ * - If profile has zero photos: return placeholders (same person, different crops).
  * Pass displayName (or first name) so placeholders match female vs male.
  */
 export function getMultiplePhotoUrls(
@@ -72,10 +74,11 @@ export function getMultiplePhotoUrls(
   displayName?: string
 ): string[] {
   const existing = (existingUrls ?? []).filter(Boolean);
-  if (existing.length >= count) return existing.slice(0, count);
+  // Never pad with placeholders when we have real photos — avoids showing wrong person
+  if (existing.length > 0) return existing;
   const gender = displayName ? inferGenderFromName(displayName) : 'male';
-  const result = [...existing];
-  for (let i = result.length; i < count; i++) {
+  const result: string[] = [];
+  for (let i = 0; i < count; i++) {
     result.push(placeholderPhotoUrl(userId, i, gender));
   }
   return result;
