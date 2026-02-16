@@ -1,63 +1,73 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styles from './Button.module.css';
 
+type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+type Size = 'sm' | 'md' | 'lg';
+
 interface ButtonProps {
-  children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: Variant;
+  size?: Size;
   fullWidth?: boolean;
-  className?: string;
-  style?: React.CSSProperties;
-  as?: 'button' | 'a';
+  loading?: boolean;
+  as?: 'button' | 'link' | 'a';
+  to?: string;
   href?: string;
   target?: string;
   rel?: string;
-  onClick?: (e: React.MouseEvent) => void;
+  className?: string;
   disabled?: boolean;
-  type?: 'button' | 'submit' | 'reset';
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+  onClick?: () => void;
 }
 
-export const Button: React.FC<ButtonProps> = ({ 
-  children, 
+export const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
-  fullWidth = false,
+  fullWidth,
+  loading,
   as = 'button',
-  className = '',
-  style,
+  to,
   href,
   target,
   rel,
-  onClick,
+  className = '',
+  children,
   disabled,
-  type = 'button',
+  style,
+  onClick,
 }) => {
-  const classNames = `${styles.button} ${styles[variant]} ${styles[size]} ${fullWidth ? styles.fullWidth : ''} ${className}`;
-  
+  const classes = [
+    styles.btn,
+    styles[variant],
+    styles[size],
+    fullWidth && styles.fullWidth,
+    loading && styles.loading,
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  if (as === 'link' && to) {
+    return (
+      <Link to={to} className={classes} style={style}>
+        {loading ? <span className={styles.spinner} /> : children}
+      </Link>
+    );
+  }
+
   if (as === 'a' && href) {
     return (
-      <a 
-        href={href} 
-        target={target} 
-        rel={rel} 
-        className={classNames}
-        style={style}
-        onClick={onClick}
-      >
-        {children}
+      <a href={href} className={classes} target={target} rel={rel} style={style} onClick={onClick}>
+        {loading ? <span className={styles.spinner} /> : children}
       </a>
     );
   }
-  
+
   return (
-    <button 
-      className={classNames} 
-      style={style}
-      onClick={onClick}
-      disabled={disabled}
-      type={type}
-    >
-      {children}
+    <button type="button" className={classes} disabled={disabled || loading} onClick={onClick}>
+      {loading ? <span className={styles.spinner} /> : children}
     </button>
   );
 };

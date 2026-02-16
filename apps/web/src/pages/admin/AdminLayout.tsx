@@ -25,7 +25,6 @@ import SupportIcon from '@mui/icons-material/Support';
 import PaymentIcon from '@mui/icons-material/Payment';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import SettingsIcon from '@mui/icons-material/Settings';
 import ScienceIcon from '@mui/icons-material/Science';
 
 const drawerWidth = 240;
@@ -38,11 +37,10 @@ const menuItems = [
   { path: '/admin/chats', label: 'Chat Moderation', icon: <ChatIcon /> },
   { path: '/admin/events', label: 'Events CRM', icon: <EventIcon /> },
   { path: '/admin/tickets', label: 'Support Tickets', icon: <SupportIcon /> },
-  { path: '/admin/stripe', label: 'Stripe / Subscriptions', icon: <PaymentIcon /> },
+  { path: '/admin/stripe', label: 'Stripe / Payments', icon: <PaymentIcon /> },
   { path: '/admin/credit-packs', label: 'Credit Packs', icon: <PaymentIcon /> },
   { path: '/admin/contacts', label: 'Contacts CRM', icon: <ContactsIcon /> },
   { path: '/admin/audit', label: 'Audit Logs', icon: <AssessmentIcon /> },
-  { path: '/admin/content', label: 'CMS', icon: <SettingsIcon /> },
 ];
 
 export const AdminLayout: React.FC = () => {

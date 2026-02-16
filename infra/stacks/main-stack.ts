@@ -83,7 +83,7 @@ export class GetTrainMateStack extends cdk.Stack {
     // Note: The Lambda code needs to be built and published first:
     // cd apps/api && dotnet publish -c Release
     const apiLambda = new lambda.Function(this, 'ApiFunction', {
-      runtime: lambda.Runtime.DOTNET_8,
+      runtime: new lambda.Runtime('dotnet8', lambda.RuntimeFamily.DOTNET_CORE),
       handler: 'GetTrainMate.Api::GetTrainMate.Api.LambdaEntryPoint::FunctionHandlerAsync',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../apps/api/publish')),
       timeout: cdk.Duration.seconds(30),
@@ -356,10 +356,6 @@ export class GetTrainMateStack extends cdk.Stack {
     // Events table
     const eventsTable = dynamodb.Table.fromTableName(this, 'EventsTable', 'gettrainmate-events');
     tables.push(eventsTable);
-
-    // Content table (CMS)
-    const contentTable = dynamodb.Table.fromTableName(this, 'ContentTable', 'gettrainmate-content');
-    tables.push(contentTable);
 
     // Translations table
     const translationsTable = dynamodb.Table.fromTableName(this, 'TranslationsTable', 'gettrainmate-translations');

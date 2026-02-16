@@ -1,0 +1,29 @@
+.root {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  border: 1px solid var(--color-neutral-200);
+  box-shadow: var(--shadow-sm);
+  min-width: 160px;
+}
+
+.label {
+  display: block;
+  font-size: var(--font-sm);
+  color: var(--color-neutral-500);
+  font-weight: var(--font-medium);
+  margin-bottom: var(--space-1);
+}
+
+.value {
+  font-size: var(--font-2xl);
+  font-weight: var(--font-bold);
+  color: var(--color-neutral-900);
+}
+
+.subtitle {
+  display: block;
+  font-size: var(--font-xs);
+  color: var(--color-neutral-500);
+  margin-top: var(--space-1);
+}

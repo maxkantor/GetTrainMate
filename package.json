@@ -28,7 +28,7 @@
     "infra:deploy-with-pool": "cd infra && npm run deploy:use-existing-pool",
     "cognito:delete-obsolete": "bash scripts/delete-obsolete-cognito-pools.sh",
     "cognito:delete-obsolete:dry": "bash scripts/delete-obsolete-cognito-pools.sh --dry-run",
-    "zip": "bash scripts/build-lambda-zip.sh",
+    "zip": "node -e \"var p=require('child_process'); p.execSync(process.platform==='win32'?'powershell -ExecutionPolicy Bypass -File scripts/build-lambda-zip.ps1':'bash scripts/build-lambda-zip.sh',{stdio:'inherit',cwd:process.cwd()})\"",
     "seed": "cd scripts && node seed.js",
     "env:sync": "node scripts/sync-env-from-aws.js",
     "env:sync-amplify": "node scripts/sync-env-from-amplify.js",

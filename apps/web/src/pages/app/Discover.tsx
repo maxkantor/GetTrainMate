@@ -4,13 +4,17 @@ import {
   Box,
   Button,
   Typography,
-  CircularProgress,
   Alert,
   Snackbar,
 } from '@mui/material';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import LinkIcon from '@mui/icons-material/Link';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import { ProfileCardSkeleton } from '@/components/ui/Skeleton';
+import { FiltersDrawer, DiscoverFilters } from '@/components/discover/FiltersDrawer';
+import { UpgradeBanner } from '@/components/discover/UpgradeBanner';
+import { OnboardingModal, shouldShowOnboardingModal } from '@/components/onboarding/OnboardingModal';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
@@ -59,12 +63,26 @@ export const DiscoverPage: React.FC = () => {
   const [photoErrorForIndex, setPhotoErrorForIndex] = useState<number | null>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [userLocationLabel, setUserLocationLabel] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState<DiscoverFilters>({
+    distance: '30 miles',
+    goals: [],
+    schedule: [],
+    experienceLevel: 'Any',
+  });
   const currentUserIdRef = useRef<string | null>(null);
   const touchStartX = useRef<number | null>(null);
+  const [onboardingModalOpen, setOnboardingModalOpen] = useState(false);
 
   useEffect(() => {
     loadFeed();
   }, []);
+
+  useEffect(() => {
+    if (!loading && shouldShowOnboardingModal(me?.isProfileComplete ?? true)) {
+      setOnboardingModalOpen(true);
+    }
+  }, [loading, me?.isProfileComplete]);
 
   // Reset photo error and photo index when changing card
   useEffect(() => {
@@ -338,9 +356,7 @@ export const DiscoverPage: React.FC = () => {
   if (loading) {
     return (
       <div className={styles.container}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 320 }}>
-          <CircularProgress />
-        </Box>
+        <ProfileCardSkeleton />
       </div>
     );
   }
@@ -400,6 +416,12 @@ export const DiscoverPage: React.FC = () => {
   const isDummy = isDummyNearbyProfile(currentCard.userId);
 
   const profilePath = currentCard?.userId ? `/app/profile/${currentCard.userId}` : null;
+  const showUpgradeBanner = credits < 1;
+  const matchReasons = [
+    ...(currentCard.commonSports?.length ? [`${currentCard.commonSports.length} common sports`] : []),
+    currentCard.level ? `Similar level (${currentCard.level})` : null,
+    currentCard.mode ? `Same mode (${currentCard.mode})` : null,
+  ].filter(Boolean) as string[];
 
   const handlePhotoSwipe = (dir: 'prev' | 'next') => {
     setCurrentPhotoIndex((i) => {
@@ -426,12 +448,25 @@ export const DiscoverPage: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <p className={styles.creditsStrip}>
-        <strong>Credits: {credits}</strong> · Like costs 1 credit
+      <div className={styles.topBar}>
+        <p className={styles.creditsStrip}>
+          <strong>Credits: {credits}</strong> · Like costs 1 credit
         {userLocationLabel && (
           <> · <span className={styles.locationLabel}>Near {userLocationLabel}</span></>
         )}
-      </p>
+        </p>
+        <button
+          type="button"
+          className={styles.filterBtn}
+          onClick={() => setFiltersOpen(true)}
+          aria-label="Open filters"
+        >
+          <FilterListIcon sx={{ fontSize: 20 }} />
+          Filters
+        </button>
+      </div>
+
+      {showUpgradeBanner && <UpgradeBanner />}
 
       <div className={styles.headerRow}>
         <span className={styles.headerCount}>{currentIndex + 1} of {feed.length}{isDummy ? ' (near you)' : ''}</span>
@@ -441,11 +476,12 @@ export const DiscoverPage: React.FC = () => {
         <div className={styles.progressFill} style={{ width: `${progress}%` }} />
       </div>
 
-      <article
-        className={`${styles.cardStack} ${styles.cardClickable} ${matched ? styles.cardStackMatched : ''}`}
-        aria-label={`Profile card: ${currentCard.name}. Click to view full profile.`}
-      >
-        <Link to={profilePath || '/app/discover'} className={styles.cardLink} aria-label={`View full profile of ${currentCard.name}`}>
+      <div className={styles.cardWithPanel}>
+        <article
+          className={`${styles.cardStack} ${styles.cardClickable} ${matched ? styles.cardStackMatched : ''}`}
+          aria-label={`Profile card: ${currentCard.name}. Click to view full profile.`}
+        >
+          <Link to={profilePath || '/app/discover'} className={styles.cardLink} aria-label={`View full profile of ${currentCard.name}`}>
           <div
             className={styles.mediaWrap}
             onTouchStart={onMediaTouchStart}
@@ -518,6 +554,32 @@ export const DiscoverPage: React.FC = () => {
         </Link>
       </article>
 
+        <aside className={styles.compatibilityPanel}>
+          <h3 className={styles.panelTitle}>Compatibility</h3>
+          <div className={styles.matchPercent}>{currentCard.compatibilityScore}%</div>
+          <p className={styles.panelSummary}>
+            {matchReasons.length > 0
+              ? `Strong match: ${matchReasons.slice(0, 2).join(', ')}.`
+              : 'Based on your profile and preferences.'}
+          </p>
+          {matchReasons.length > 0 && (
+            <ul className={styles.reasonsList}>
+              {matchReasons.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+          )}
+        </aside>
+      </div>
+
+      <FiltersDrawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onApply={() => loadFeed()}
+      />
+
       <div className={styles.actionBar}>
         <button
           type="button"
@@ -562,6 +624,8 @@ export const DiscoverPage: React.FC = () => {
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
+
+      <OnboardingModal open={onboardingModalOpen} onClose={() => setOnboardingModalOpen(false)} />
     </div>
   );
 };

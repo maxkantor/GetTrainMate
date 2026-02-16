@@ -17,10 +17,10 @@ export const FinalCTA: React.FC = () => {
             Get started for free today.
           </p>
           <div className={styles.ctaButtons}>
-            <Button as="a" href="/signup" variant="secondary" size="lg">
+            <Button as="link" to="/signup" variant="secondary" size="lg">
               Get started free
             </Button>
-            <Button as="a" href="/contact" variant="ghost" size="lg" style={{ color: 'white', borderColor: 'white' }}>
+            <Button as="link" to="/contact" variant="ghost" size="lg" style={{ color: 'white', borderColor: 'white' }}>
               Contact sales
             </Button>
           </div>

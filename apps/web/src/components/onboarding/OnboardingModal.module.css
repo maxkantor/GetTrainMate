@@ -1,0 +1,38 @@
+.content {
+  padding: 0;
+}
+
+.desc {
+  font-size: var(--font-base);
+  color: var(--color-neutral-600);
+  margin: 0 0 var(--space-6);
+  line-height: 1.6;
+}
+
+.list {
+  margin: 0 0 var(--space-6);
+  padding-left: 1.5rem;
+  font-size: var(--font-base);
+  color: var(--color-neutral-700);
+  line-height: 1.8;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.skipBtn {
+  padding: 8px;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--color-neutral-500);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.skipBtn:hover {
+  color: var(--color-neutral-700);
+}

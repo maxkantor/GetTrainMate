@@ -50,7 +50,6 @@ public class Startup
         services.AddScoped<IAdminAuthorizationService, AdminAuthorizationService>();
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IEmailService, EmailService>();
-        services.AddScoped<ICmsService, CmsService>();
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<ICreditsService, CreditsService>();
         services.AddHttpContextAccessor();

@@ -1,0 +1,30 @@
+.root {
+  text-align: center;
+  padding: var(--space-16);
+}
+
+.icon {
+  font-size: 3rem;
+  margin-bottom: var(--space-4);
+  opacity: 0.5;
+}
+
+.title {
+  font-size: var(--font-xl);
+  font-weight: var(--font-semibold);
+  color: var(--color-neutral-800);
+  margin: 0 0 var(--space-2);
+}
+
+.desc {
+  font-size: var(--font-base);
+  color: var(--color-neutral-600);
+  margin: 0 0 var(--space-6);
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.action {
+  margin-top: var(--space-6);
+}

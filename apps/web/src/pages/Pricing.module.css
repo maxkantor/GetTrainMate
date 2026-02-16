@@ -353,3 +353,58 @@
 .trustLine {
   display: none;
 }
+
+/* FAQ accordion */
+.faq {
+  margin-top: var(--space-12);
+  padding-top: var(--space-8);
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  max-width: 560px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.faqTitle {
+  font-size: var(--font-xl);
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 var(--space-4);
+}
+
+.faqItem {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 12px;
+  margin-bottom: var(--space-2);
+  overflow: hidden;
+}
+
+.faqItem summary {
+  padding: var(--space-4);
+  font-weight: 600;
+  color: #0f172a;
+  cursor: pointer;
+  list-style: none;
+}
+
+.faqItem summary::-webkit-details-marker {
+  display: none;
+}
+
+.faqItem summary::after {
+  content: '+';
+  float: right;
+  font-size: 1.25rem;
+}
+
+.faqItem[open] summary::after {
+  content: '−';
+}
+
+.faqItem p {
+  padding: 0 var(--space-4) var(--space-4);
+  margin: 0;
+  font-size: 0.9375rem;
+  color: #64748b;
+  line-height: 1.6;
+}

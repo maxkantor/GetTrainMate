@@ -1,17 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CardMedia,
-  Container,
-  Typography,
-  CircularProgress,
   Alert,
-  Grid,
-  Chip,
-  Stack,
+  CircularProgress,
+  Button as MuiButton,
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import ChatIcon from '@mui/icons-material/Chat';
@@ -24,7 +15,10 @@ import { chatService } from '@/services/chatService';
 import { authService } from '@/services/authService';
 import { isGraphQLEnabled, graphqlListMyMatches, graphqlUnlockChat } from '@/services/graphqlService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { UpgradeBanner } from '@/components/discover/UpgradeBanner';
+import { ProfileCardSkeleton } from '@/components/ui/Skeleton';
+import styles from './Matches.module.css';
 
 interface Match {
   matchId: string;
@@ -40,6 +34,8 @@ interface Match {
   unlockedByMe?: boolean;
 }
 
+type SortBy = 'closest' | 'best_match' | 'newest';
+
 export const MatchesPage: React.FC = () => {
   const { t } = useI18n();
   const { user } = useAuthContext();
@@ -50,6 +46,8 @@ export const MatchesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [unlockingMatchId, setUnlockingMatchId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortBy>('newest');
 
   useEffect(() => {
     loadMatches();
@@ -132,9 +130,9 @@ export const MatchesPage: React.FC = () => {
     } catch (err: any) {
       console.error('Error loading matches:', err);
       const apiError = handleApiError(err);
-      
+
       if (isNetworkError(err) || apiError.isCorsError) {
-        setError('Unable to connect to the API. The backend may not be deployed or CORS is not configured. Please check your API configuration.');
+        setError('Unable to connect to the API. The backend may not be deployed or CORS is not configured.');
       } else {
         setError(apiError.message || 'Failed to load matches');
       }
@@ -143,11 +141,24 @@ export const MatchesPage: React.FC = () => {
     }
   };
 
-  const handleOpenChat = (m: Match) => {
-    if (m.unlockedByMe) {
-      navigate(`/app/chat?thread=${m.matchId}`);
+  const filteredAndSorted = useMemo(() => {
+    let result = [...matches];
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          m.city?.toLowerCase().includes(q) ||
+          m.sportTags.some((s) => s.toLowerCase().includes(q))
+      );
     }
-  };
+    if (sortBy === 'best_match') {
+      result.sort((a, b) => (b.compatibilityScore ?? 0) - (a.compatibilityScore ?? 0));
+    } else if (sortBy === 'newest') {
+      result.sort((a, b) => new Date(b.matchedAt).getTime() - new Date(a.matchedAt).getTime());
+    }
+    return result;
+  }, [matches, search, sortBy]);
 
   const handleUnlockChat = async (m: Match) => {
     if (unlockingMatchId || (me?.credits ?? 0) < 1) return;
@@ -173,163 +184,140 @@ export const MatchesPage: React.FC = () => {
     }
   };
 
+  const credits = me?.credits ?? 0;
+
   if (loading) {
     return (
-      <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
-        <CircularProgress />
-      </Container>
+      <div className={styles.container}>
+        <ProfileCardSkeleton />
+      </div>
     );
   }
 
   if (error && matches.length === 0) {
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
-        <Alert 
-          severity={error.includes('API is not available') ? 'warning' : 'info'}
-          sx={{ mb: 2 }}
-        >
+      <div className={styles.container}>
+        <Alert severity={error.includes('API') ? 'warning' : 'info'} sx={{ mb: 2 }}>
           {error}
         </Alert>
-        <Button
-          fullWidth
-          variant="contained"
-          color="primary"
-          onClick={loadMatches}
-          sx={{ mt: 2 }}
-        >
+        <MuiButton fullWidth variant="contained" onClick={loadMatches}>
           Retry
-        </Button>
-      </Container>
+        </MuiButton>
+      </div>
     );
   }
 
   if (matches.length === 0) {
     return (
-      <Container maxWidth="md" sx={{ py: 6, textAlign: 'center' }}>
-        <Typography variant="h5" gutterBottom>No matches yet</Typography>
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-          Matches happen when both users like each other. Unlock chat when you match (1 credit).
-        </Typography>
-        <Button variant="contained" onClick={() => navigate('/app/discover')}>
-          Start Discovering
-        </Button>
-      </Container>
+      <div className={styles.container}>
+        <div className={styles.empty}>
+          <h2 className={styles.emptyTitle}>No matches yet</h2>
+          <p className={styles.emptyDesc}>
+            Matches happen when both users like each other. Unlock chat when you match (1 credit).
+          </p>
+          <Link to="/app/discover" className={styles.emptyBtn}>
+            Start Discovering
+          </Link>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 4 }}>
-        Your Matches
-      </Typography>
+    <div className={styles.container}>
+      <h1 className={styles.title}>Your Matches</h1>
 
-      <Grid container spacing={3}>
-        {matches.map((match) => (
-          <Grid item xs={12} sm={6} md={4} key={match.userId}>
-            <Card
-              sx={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: 4,
-                },
-              }}
-            >
-              {match.photoUrls && match.photoUrls.length > 0 ? (
-                <CardMedia
-                  component="img"
-                  height="200"
-                  image={match.photoUrls[0]}
-                  alt={match.name}
-                  sx={{ objectFit: 'cover' }}
-                />
-              ) : (
-                <Box
-                  sx={{
-                    height: 200,
-                    backgroundColor: '#f0f0f0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Typography color="textSecondary">No photo</Typography>
-                </Box>
+      {credits < 1 && <UpgradeBanner message="Get credits to unlock chat with your matches." />}
+
+      <div className={styles.toolbar}>
+        <div className={styles.searchWrap}>
+          <input
+            type="search"
+            placeholder="Search by name, city, sports..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={styles.searchInput}
+            aria-label="Search matches"
+          />
+        </div>
+        <select
+          className={styles.sortSelect}
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortBy)}
+        >
+          <option value="newest">Newest first</option>
+          <option value="best_match">Best match</option>
+          <option value="closest">Closest</option>
+        </select>
+      </div>
+
+      <div className={styles.grid}>
+        {filteredAndSorted.map((match) => (
+          <article key={match.userId} className={styles.card}>
+            {match.photoUrls && match.photoUrls.length > 0 ? (
+              <img
+                src={match.photoUrls[0]}
+                alt={match.name}
+                className={styles.cardImage}
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className={styles.cardImagePlaceholder}>
+                {match.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className={styles.cardContent}>
+              <h2 className={styles.cardName}>
+                {match.name}
+                {match.level && (
+                  <span className={styles.chip} style={{ marginLeft: 8 }}>
+                    {match.level.charAt(0).toUpperCase() + match.level.slice(1)}
+                  </span>
+                )}
+              </h2>
+              <p className={styles.cardMeta}>
+                {match.city && `${match.city} · `}
+                {match.compatibilityScore ? `${match.compatibilityScore}% Match` : 'Matched'}
+              </p>
+              {match.bio && (
+                <p className={styles.cardBio}>
+                  {match.bio.length > 100 ? `${match.bio.substring(0, 100)}...` : match.bio}
+                </p>
+              )}
+              {match.sportTags && match.sportTags.length > 0 && (
+                <div className={styles.chips}>
+                  {match.sportTags.slice(0, 3).map((sport) => (
+                    <span key={sport} className={styles.chip}>{sport}</span>
+                  ))}
+                  {match.sportTags.length > 3 && (
+                    <span className={styles.chip}>+{match.sportTags.length - 3}</span>
+                  )}
+                </div>
               )}
 
-              <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="h6" component="h2" gutterBottom>
-                    {match.name}
-                    {match.level && (
-                      <Chip
-                        label={match.level.charAt(0).toUpperCase() + match.level.slice(1)}
-                        size="small"
-                        sx={{ ml: 1 }}
-                      />
-                    )}
-                  </Typography>
-                  {match.city && (
-                    <Typography variant="body2" color="textSecondary" gutterBottom>
-                      {match.city}
-                    </Typography>
-                  )}
-                  {match.compatibilityScore && (
-                    <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold', mt: 1 }}>
-                      {match.compatibilityScore}% Match
-                    </Typography>
-                  )}
-                </Box>
-
-                {match.bio && (
-                  <Typography variant="body2" color="textSecondary" sx={{ mb: 2, flexGrow: 1 }}>
-                    {match.bio.length > 100 ? `${match.bio.substring(0, 100)}...` : match.bio}
-                  </Typography>
-                )}
-
-                {match.sportTags && match.sportTags.length > 0 && (
-                  <Box sx={{ mb: 2 }}>
-                    <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-                      {match.sportTags.slice(0, 3).map((sport) => (
-                        <Chip key={sport} label={sport} size="small" variant="outlined" />
-                      ))}
-                      {match.sportTags.length > 3 && (
-                        <Chip label={`+${match.sportTags.length - 3}`} size="small" variant="outlined" />
-                      )}
-                    </Stack>
-                  </Box>
-                )}
-
-                {match.unlockedByMe ? (
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    startIcon={<ChatIcon />}
-                    onClick={() => handleOpenChat(match)}
-                    sx={{ mt: 'auto' }}
-                  >
-                    Open chat
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    startIcon={<LockIcon />}
-                    onClick={() => handleUnlockChat(match)}
-                    disabled={unlockingMatchId === match.matchId || (me?.credits ?? 0) < 1}
-                    sx={{ mt: 'auto' }}
-                  >
-                    {unlockingMatchId === match.matchId ? 'Unlocking…' : 'Unlock chat (1 credit)'}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
+              {match.unlockedByMe ? (
+                <Link
+                  to={`/app/chat?thread=${match.matchId}`}
+                  className={styles.chatBtn}
+                >
+                  <ChatIcon sx={{ fontSize: 20 }} />
+                  Open chat
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.unlockBtn}
+                  onClick={() => handleUnlockChat(match)}
+                  disabled={unlockingMatchId === match.matchId || credits < 1}
+                >
+                  <LockIcon sx={{ fontSize: 20 }} />
+                  {unlockingMatchId === match.matchId ? 'Unlocking…' : 'Unlock chat (1 credit)'}
+                </button>
+              )}
+            </div>
+          </article>
         ))}
-      </Grid>
-    </Container>
+      </div>
+    </div>
   );
 };

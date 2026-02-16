@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { analytics } from '@/utils/analytics';
 import { useSearchParams } from 'react-router-dom';
 import { Snackbar } from '@mui/material';
 import { Container } from '@/components/layout/Container';
@@ -49,6 +50,10 @@ export const PricingPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    analytics.pricingOpened();
+  }, []);
 
   useEffect(() => {
     billingService
@@ -221,6 +226,29 @@ export const PricingPage: React.FC = () => {
               </svg>
               Instant delivery
             </span>
+            <span className={styles.trustItem}>
+              <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              One-time purchase, no subscription
+            </span>
+          </div>
+
+          <div className={styles.faq}>
+            <h3 className={styles.faqTitle}>Frequently asked</h3>
+            <details className={styles.faqItem}>
+              <summary>What can I do with credits?</summary>
+              <p>Credits unlock chat with matches (1 per unlock), boosts for visibility (2 credits), AI insights (2 credits), and &quot;see who liked you&quot; (3 credits).</p>
+            </details>
+            <details className={styles.faqItem}>
+              <summary>Do credits expire?</summary>
+              <p>No. Your credits never expire. Use them whenever you want.</p>
+            </details>
+            <details className={styles.faqItem}>
+              <summary>Can I get a refund?</summary>
+              <p>If you haven&apos;t used the credits, contact support within 7 days for a refund. Used credits are non-refundable.</p>
+            </details>
           </div>
         </Container>
       </section>

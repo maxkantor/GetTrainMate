@@ -15,6 +15,13 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
+.glass {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
 .inner {
   display: flex;
   align-items: center;
@@ -174,6 +181,24 @@
   color: #6b7280;
   font-weight: 600;
   font-size: 0.8125rem;
+}
+
+.upgradeBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff !important;
+  text-decoration: none;
+  background: var(--gradient-primary);
+  border-radius: 999px;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.upgradeBtn:hover {
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-1px);
+  color: #fff !important;
 }
 
 .authWrap {
@@ -408,6 +433,21 @@
 .mobileCredits:hover {
   background: #f3f4f6;
   color: #4f46e5;
+}
+
+.mobileUpgrade {
+  padding: 12px 16px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff !important;
+  background: var(--gradient-primary);
+  text-decoration: none;
+  border-radius: 8px;
+  text-align: center;
+}
+.mobileUpgrade:hover {
+  filter: brightness(1.05);
+  color: #fff !important;
 }
 
 .mobileLink {

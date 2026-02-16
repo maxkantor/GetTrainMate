@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
+import { analytics } from '@/utils/analytics';
 import { LanguageDropdown } from '@/components/layout/LanguageDropdown';
 import { HeaderNavLink } from './HeaderNavLink';
 import styles from './AppHeader.module.css';
@@ -12,6 +13,8 @@ export const AppHeader: React.FC = () => {
   const { user, logout } = useAuthContext();
   const { me } = useMe();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAppRoute = location.pathname.startsWith('/app');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
@@ -52,7 +55,7 @@ export const AppHeader: React.FC = () => {
   const logoTo = '/';
 
   return (
-    <header className={styles.root}>
+    <header className={`${styles.root} ${isAppRoute ? styles.glass : ''}`}>
       <div className={styles.inner}>
         <RouterLink to={logoTo} className={styles.logo} aria-label={t('common.appName')} onClick={(e) => e.stopPropagation()}>
           <span className={styles.logoIcon}>⚡</span>
@@ -77,10 +80,19 @@ export const AppHeader: React.FC = () => {
           </div>
 
           {isLoggedIn && (
-            <RouterLink to="/pricing" className={styles.creditsPill} aria-label="Your credits">
-              <span className={styles.creditsValue}>{me?.credits ?? 0}</span>
-              <span className={styles.creditsLabel}>credits</span>
-            </RouterLink>
+            <>
+              <RouterLink to="/pricing" className={styles.creditsPill} aria-label="Your credits">
+                <span className={styles.creditsValue}>{me?.credits ?? 0}</span>
+                <span className={styles.creditsLabel}>credits</span>
+              </RouterLink>
+              <RouterLink
+                to="/pricing"
+                className={styles.upgradeBtn}
+                onClick={() => analytics.pricingOpened('header')}
+              >
+                Upgrade
+              </RouterLink>
+            </>
           )}
 
           {isLoggedIn ? (
@@ -167,8 +179,11 @@ export const AppHeader: React.FC = () => {
               </div>
               {isLoggedIn ? (
                 <>
-                  <RouterLink to="/pricing" className={styles.mobileCredits} onClick={() => setMobileOpen(false)}>
+                  <RouterLink to="/pricing" className={styles.mobileCredits} onClick={() => { setMobileOpen(false); analytics.pricingOpened('mobile'); }}>
                     {me?.credits ?? 0} credits
+                  </RouterLink>
+                  <RouterLink to="/pricing" className={styles.mobileUpgrade} onClick={() => { setMobileOpen(false); analytics.pricingOpened('mobile'); }}>
+                    Upgrade
                   </RouterLink>
                   <RouterLink to="/app/profile" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>{t('header.profile')}</RouterLink>
                   <button type="button" className={styles.mobileLogout} onClick={handleLogout}>{t('common.logout')}</button>

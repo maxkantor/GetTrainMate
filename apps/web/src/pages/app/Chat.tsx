@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -33,6 +33,7 @@ import {
   graphqlListMyMatches,
 } from '@/services/graphqlService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
+import chatStyles from './Chat.module.css';
 
 export const ChatPage: React.FC = () => {
   const { t } = useI18n();
@@ -285,25 +286,32 @@ export const ChatPage: React.FC = () => {
   }
 
   if (threadIdFromUrl && threadLocked === true) {
+    const credits = me?.credits ?? 0;
     return (
-      <Container maxWidth="sm" sx={{ py: 6 }}>
-        <Paper sx={{ p: 3, textAlign: 'center' }}>
-          <LockIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" gutterBottom>Chat locked</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Unlock this chat to send messages (1 credit). Your credits: {me?.credits ?? 0}
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<LockIcon />}
+      <div className={chatStyles.container}>
+        <div className={chatStyles.lockedPanel}>
+          <div className={chatStyles.lockedIcon}>
+            <LockIcon sx={{ fontSize: 48, color: 'inherit' }} />
+          </div>
+          <h2 className={chatStyles.lockedTitle}>Chat locked</h2>
+          <p className={chatStyles.lockedDesc}>
+            Unlock this chat to send messages (1 credit). Your credits: {credits}
+          </p>
+          <button
+            type="button"
+            className={chatStyles.unlockBtn}
             onClick={handleUnlockChat}
-            disabled={unlocking || (me?.credits ?? 0) < 1}
+            disabled={unlocking || credits < 1}
           >
+            <LockIcon sx={{ fontSize: 20 }} />
             {unlocking ? 'Unlocking…' : 'Unlock chat (1 credit)'}
-          </Button>
+          </button>
+          <Link to="/pricing" className={chatStyles.upgradeLink}>
+            Get more credits →
+          </Link>
           {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-        </Paper>
-      </Container>
+        </div>
+      </div>
     );
   }
 

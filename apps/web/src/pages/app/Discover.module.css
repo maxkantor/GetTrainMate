@@ -21,7 +21,15 @@
   }
 }
 
-/* Credits strip: compact, above header row */
+/* Top bar: credits + filters */
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: 12px;
+}
+
 .creditsStrip {
   margin-bottom: 12px;
   font-size: 0.875rem;
@@ -35,6 +43,91 @@
 .locationLabel {
   color: var(--color-neutral-500, #6b7280);
   font-weight: 500;
+}
+
+.filterBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-neutral-700);
+  background: var(--color-neutral-100);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+}
+
+.filterBtn:hover {
+  background: var(--color-neutral-200);
+}
+
+/* Card + compatibility panel layout */
+.cardWithPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+@media (min-width: 900px) {
+  .cardWithPanel {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .cardWithPanel .cardStack {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.compatibilityPanel {
+  background: #fff;
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  border: 1px solid var(--color-neutral-200);
+  box-shadow: var(--shadow-md);
+  min-width: 200px;
+}
+
+@media (min-width: 900px) {
+  .compatibilityPanel {
+    flex: 0 0 240px;
+    position: sticky;
+    top: calc(var(--nav-height-desktop, 64px) + 24px);
+  }
+}
+
+.panelTitle {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-neutral-500);
+  margin: 0 0 var(--space-2);
+}
+
+.matchPercent {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  line-height: 1;
+  margin-bottom: var(--space-3);
+}
+
+.panelSummary {
+  font-size: var(--font-sm);
+  color: var(--color-neutral-600);
+  margin: 0 0 var(--space-3);
+  line-height: 1.5;
+}
+
+.reasonsList {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: var(--font-sm);
+  color: var(--color-neutral-600);
+  line-height: 1.6;
 }
 
 /* Header row: "1 of N" left, "X% Match" right – same width as card */

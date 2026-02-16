@@ -33,7 +33,6 @@ import { UsersPage } from '@/pages/admin/UsersPage';
 import { DevicesPage } from '@/pages/admin/DevicesPage';
 import { ContactsPage } from '@/pages/admin/ContactsPage';
 import { AdminLoginPage } from '@/pages/admin/AdminLoginPage';
-import { CMSPage } from '@/pages/admin/CMS';
 import { AdminLayout } from '@/pages/admin/AdminLayout';
 import { CreditPacksPage as AdminCreditPacksPage } from '@/pages/admin/CreditPacksPage';
 import { TestUsersPage } from '@/pages/admin/TestUsersPage';
@@ -101,10 +100,6 @@ export const Router: React.FC = () => {
                   <Route path="/admin/stripe" element={<AdminDashboard />} />
                   <Route path="/admin/contacts" element={<ContactsPage />} />
                   <Route path="/admin/audit" element={<AdminDashboard />} />
-                  <Route path="/admin/content" element={<CMSPage />} />
-                  <Route path="/admin/translations" element={<AdminDashboard />} />
-                  <Route path="/admin/media" element={<AdminDashboard />} />
-                  <Route path="/admin/leads" element={<AdminDashboard />} />
                   <Route path="/admin/credit-packs" element={<AdminCreditPacksPage />} />
                   <Route path="/admin/test-users" element={<TestUsersPage />} />
                 </Route>

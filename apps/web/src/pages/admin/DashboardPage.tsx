@@ -8,6 +8,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
+import { AdminNoAccessPage } from './AdminNoAccess';
 import PeopleIcon from '@mui/icons-material/People';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import EventIcon from '@mui/icons-material/Event';
@@ -54,7 +55,13 @@ export const DashboardPage: React.FC = () => {
         recentActivity: [],
       });
     } catch (err: any) {
-      setError(err.message || 'Failed to load metrics');
+      const status = err?.response?.status;
+      const msg = err?.message ?? '';
+      if (status === 403 || /forbidden/i.test(msg)) {
+        setError('FORBIDDEN');
+        return;
+      }
+      setError(msg || 'Failed to load metrics');
     } finally {
       setLoading(false);
     }
@@ -68,35 +75,19 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
+  if (error === 'FORBIDDEN') {
+    return <AdminNoAccessPage />;
+  }
   if (error) {
     return <Alert severity="error">{error}</Alert>;
   }
 
   const statCards = [
-    {
-      title: 'Total Users',
-      value: metrics?.totalUsers || 0,
-      icon: <PeopleIcon sx={{ fontSize: 40 }} />,
-      color: '#1976d2',
-    },
-    {
-      title: 'Active Users',
-      value: metrics?.activeUsers || 0,
-      icon: <TrendingUpIcon sx={{ fontSize: 40 }} />,
-      color: '#2e7d32',
-    },
-    {
-      title: 'Total Events',
-      value: metrics?.totalEvents || 0,
-      icon: <EventIcon sx={{ fontSize: 40 }} />,
-      color: '#ed6c02',
-    },
-    {
-      title: 'Premium Subscriptions',
-      value: metrics?.premiumSubscriptions || 0,
-      icon: <PaymentIcon sx={{ fontSize: 40 }} />,
-      color: '#9c27b0',
-    },
+    { title: 'Revenue (MTD)', value: `$${(metrics?.revenue ?? 0).toLocaleString()}`, icon: <PaymentIcon sx={{ fontSize: 40 }} />, color: '#2e7d32' },
+    { title: 'Orders (7d)', value: metrics?.recentActivity?.length ?? 0, icon: <TrendingUpIcon sx={{ fontSize: 40 }} />, color: '#1976d2' },
+    { title: 'New Users', value: metrics?.newUsers ?? 0, icon: <PeopleIcon sx={{ fontSize: 40 }} />, color: '#6366f1' },
+    { title: 'Active Users', value: metrics?.activeUsers ?? 0, icon: <PeopleIcon sx={{ fontSize: 40 }} />, color: '#ed6c02' },
+    { title: 'Total Matches', value: metrics?.totalMatches ?? 0, icon: <EventIcon sx={{ fontSize: 40 }} />, color: '#9c27b0' },
   ];
 
   return (

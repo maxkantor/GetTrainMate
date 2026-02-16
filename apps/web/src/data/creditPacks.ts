@@ -17,7 +17,7 @@ export interface CreditPack {
 export const FALLBACK_CREDIT_PACKS: CreditPack[] = [
   { key: 'FREE_3', title: 'Starter', priceUsd: 0, credits: 3, sortOrder: 1, isBestValue: false, isFree: true },
   { key: 'PACK_10', title: '10 Credits', priceUsd: 3.99, credits: 10, sortOrder: 2, isBestValue: false, isFree: false },
-  { key: 'PACK_25', title: 'Best Value', priceUsd: 7.99, credits: 25, sortOrder: 3, isBestValue: true, isFree: false },
+  { key: 'PACK_25', title: '25 Credits', priceUsd: 7.99, credits: 25, sortOrder: 3, isBestValue: true, isFree: false },
   { key: 'PACK_100', title: 'Power', priceUsd: 19.99, credits: 100, sortOrder: 4, isBestValue: false, isFree: false },
 ];
 
