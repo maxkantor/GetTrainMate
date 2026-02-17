@@ -222,7 +222,8 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
   const safePhotoIndex = Math.min(photoIndex, Math.max(0, photoUrls.length - 1));
   const currentPhotoUrl = photoUrls[safePhotoIndex];
   const photoFailed = photoErrorForIndex === safePhotoIndex;
-  const displayPhotoUrl = photoFailed ? NO_PHOTO_PLACEHOLDER : currentPhotoUrl;
+  const displayPhotoUrl = photoFailed || !currentPhotoUrl ? NO_PHOTO_PLACEHOLDER : currentPhotoUrl;
+  const canNavigatePhotos = photoUrls.length > 1;
   const isDemoProfile = isDummyNearbyProfile(profile.userId) || isLandingProfileUserId(profile.userId);
 
   return (
@@ -249,7 +250,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
               display: 'block',
             }}
           />
-          {photoUrls.length > 1 && (
+          {canNavigatePhotos && (
             <>
               <IconButton
                 aria-label="Previous photo"

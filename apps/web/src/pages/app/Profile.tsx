@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -25,7 +25,9 @@ import {
 } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { useMe } from '@/hooks/useMe';
 import { profileService, UpdateProfileRequest, AvailabilitySlot } from '@/services/profileService';
+import { getUploadLimits } from '@/config/uploadLimits';
 import { authService } from '@/services/authService';
 import { Alert as MUIAlert, Snackbar } from '@mui/material';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
@@ -55,6 +57,7 @@ export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useI18n();
   const { user } = useAuthContext();
+  const { me } = useMe();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -416,6 +419,9 @@ export const ProfilePage: React.FC = () => {
 
         <Box sx={{ mt: 3 }}>
           <FormLabel>Profile Photos</FormLabel>
+          <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 0.5 }}>
+            No nude or adult content. Photos must be appropriate for a fitness partner app.
+          </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', my: 1 }}>
             {myPhotos.map((u) => (
               <Box key={u} component="img" src={u} alt="profile" sx={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 1, border: '1px solid #eee' }} />
@@ -424,8 +430,12 @@ export const ProfilePage: React.FC = () => {
               <Typography variant="body2" color="textSecondary">No photos yet</Typography>
             )}
           </Box>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Button variant="outlined" component="label" disabled={uploading}>
+          {(() => {
+            const limits = getUploadLimits(me?.credits ?? 0);
+            const atLimit = myPhotos.length >= limits.maxPhotos;
+            return (
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Button variant="outlined" component="label" disabled={uploading || atLimit}>
               Choose Photo
               <input 
                 type="file" 
@@ -497,7 +507,14 @@ export const ProfilePage: React.FC = () => {
                 {uploading ? <CircularProgress size={20} /> : 'Upload'}
               </Button>
             )}
+            {atLimit && (
+              <Typography variant="body2" color="primary" component={Link} to="/pricing" sx={{ textDecoration: 'underline' }}>
+                Upgrade to add more photos ({limits.maxPhotos}/{limits.maxPhotos})
+              </Typography>
+            )}
           </Box>
+            );
+          })()}
         </Box>
 
         <Box sx={{ mt: 4, display: 'flex', gap: 2 }}>

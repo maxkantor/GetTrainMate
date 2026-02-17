@@ -420,8 +420,11 @@ export const ProfileOnboardingPage: React.FC = () => {
             <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
               Add Your Profile Photo
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Profiles with photos get more matches
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 3 }}>
+              No nude or adult content. Photos must be appropriate for a fitness partner app.
             </Typography>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
