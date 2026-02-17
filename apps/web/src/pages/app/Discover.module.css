@@ -20,13 +20,38 @@
   }
 }
 
-/* Top bar: credits + filters; tight spacing for density */
+/* Top bar: my avatar + credits + filters */
 .topBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
   margin-bottom: 8px;
+}
+
+.myAvatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.myAvatar:hover {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
+}
+
+.myAvatarLetter {
+  line-height: 1;
 }
 
 .creditsStrip {
@@ -421,6 +446,21 @@
   outline-offset: 2px;
 }
 
+.actionBtnBack {
+  background: #fff;
+  color: var(--color-neutral-600, #4b5563);
+  border: 2px solid var(--color-neutral-300, #d1d5db);
+}
+
+.actionBtnBack:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actionBtnBack:disabled:hover {
+  transform: none;
+}
+
 .actionBtnPass {
   background: #fff;
   color: var(--color-neutral-700, #374151);
@@ -463,4 +503,10 @@
 /* Match toast */
 .matchToast {
   margin-top: 16px;
+}
+
+/* Empty / error states */
+.emptyState {
+  padding: var(--space-6);
+  text-align: center;
 }

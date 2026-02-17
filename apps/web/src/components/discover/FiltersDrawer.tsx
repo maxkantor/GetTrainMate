@@ -21,6 +21,8 @@ interface FiltersDrawerProps {
   filters: DiscoverFilters;
   onFiltersChange: (f: DiscoverFilters) => void;
   onApply: () => void;
+  /** Right on desktop, bottom on mobile for bottom-sheet UX */
+  anchor?: 'left' | 'right' | 'bottom';
 }
 
 export const FiltersDrawer: React.FC<FiltersDrawerProps> = ({
@@ -29,6 +31,7 @@ export const FiltersDrawer: React.FC<FiltersDrawerProps> = ({
   filters,
   onFiltersChange,
   onApply,
+  anchor = 'right',
 }) => {
   const toggleGoal = (g: string) => {
     const next = filters.goals.includes(g)
@@ -45,7 +48,7 @@ export const FiltersDrawer: React.FC<FiltersDrawerProps> = ({
   };
 
   return (
-    <Drawer open={open} onClose={onClose} title="Filters" anchor="right">
+    <Drawer open={open} onClose={onClose} title="Filters" anchor={anchor}>
       <div className={styles.section}>
         <label className={styles.label}>Distance</label>
         <div className={styles.chips}>

@@ -1,32 +1,32 @@
-name: Web Build & Test
+name: Web Build, Test, Deploy & Zip
 
 on:
   push:
     branches: [main, develop]
     paths:
       - 'apps/web/**'
+      - 'apps/api/**'
+      - 'scripts/**'
       - '.github/workflows/web.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'apps/web/**'
+      - 'apps/api/**'
+      - 'scripts/**'
       - '.github/workflows/web.yml'
 
 jobs:
-  build:
+  build-test-zip:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '20.x'
           cache: 'npm'
 
       - name: Install dependencies
@@ -44,9 +44,25 @@ jobs:
       - name: Build
         run: npm run web:build
 
-      - name: Upload build artifacts
-        if: matrix.node-version == '20.x'
+      - name: Test
+        run: cd apps/web && npm run test
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Zip (Lambda API)
+        run: bash scripts/build-lambda-zip.sh
+
+      - name: Upload web build
         uses: actions/upload-artifact@v4
         with:
           name: web-build
           path: apps/web/dist
+
+      - name: Upload Lambda zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-zip
+          path: deploy/gettrainmate-api-lambda.zip

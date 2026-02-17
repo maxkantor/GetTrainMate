@@ -1,0 +1,88 @@
+.layout {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--space-2) 0 var(--space-4);
+  min-height: calc(100vh - var(--nav-height, 56px) - var(--page-top-padding, 16px));
+}
+
+@media (min-width: 768px) {
+  .layout {
+    min-height: calc(100vh - var(--nav-height-desktop, 64px) - var(--page-top-padding, 16px));
+  }
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (min-width: 900px) {
+  .main {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--space-5);
+  }
+}
+
+.cardCol {
+  flex: 1;
+  min-width: 0;
+  max-width: 640px;
+}
+
+@media (min-width: 900px) {
+  .panelCol {
+    flex: 0 0 260px;
+    position: sticky;
+    top: calc(var(--nav-height-desktop, 64px) + var(--space-4));
+  }
+}
+
+.panelCol {
+  min-width: 0;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+  gap: var(--space-3);
+}
+
+.headerCount {
+  font-size: var(--font-sm);
+  color: var(--color-neutral-500);
+  font-weight: 500;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 6px;
+  background: var(--color-neutral-200);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: var(--space-4);
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), #8b5cf6);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.actionBarWrap {
+  margin-top: var(--space-4);
+}

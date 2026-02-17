@@ -1,0 +1,96 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: var(--space-5);
+  max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
+  width: 100%;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 var(--space-2);
+  color: var(--color-neutral-900);
+}
+
+.meta {
+  font-size: var(--font-sm);
+  color: var(--color-neutral-500);
+  margin: 0 0 var(--space-3);
+}
+
+.bio {
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  color: var(--color-neutral-700);
+  margin: 0 0 var(--space-4);
+}
+
+.chip {
+  display: inline-block;
+  font-size: var(--font-xs);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-neutral-100);
+  color: var(--color-neutral-700);
+  margin-right: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.sportsSection {
+  margin-bottom: var(--space-4);
+}
+
+.sectionTitle {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-neutral-500);
+  margin: 0 0 var(--space-2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sportChip {
+  font-size: var(--font-xs);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--color-primary);
+}
+
+.closeBtn {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-neutral-700);
+  background: var(--color-neutral-100);
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+}
+
+.closeBtn:hover {
+  background: var(--color-neutral-200);
+}

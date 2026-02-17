@@ -1,35 +1,42 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import {
-  Box,
-  Button,
-  Typography,
-  Alert,
-  Snackbar,
-} from '@mui/material';
-import ThumbUpIcon from '@mui/icons-material/ThumbUp';
-import ThumbDownIcon from '@mui/icons-material/ThumbDown';
-import LinkIcon from '@mui/icons-material/Link';
-import FilterListIcon from '@mui/icons-material/FilterList';
+import { Box, Button, Typography, Alert, Snackbar, useMediaQuery, useTheme } from '@mui/material';
 import { ProfileCardSkeleton } from '@/components/ui/Skeleton';
 import { FiltersDrawer, DiscoverFilters } from '@/components/discover/FiltersDrawer';
 import { UpgradeBanner } from '@/components/discover/UpgradeBanner';
 import { OnboardingModal, shouldShowOnboardingModal } from '@/components/onboarding/OnboardingModal';
-import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { matchService, MatchFeedItem } from '@/services/matchService';
 import { authService } from '@/services/authService';
-import { isGraphQLEnabled, graphqlDiscoverCandidates, graphqlLikeUser, graphqlSeedDemoData } from '@/services/graphqlService';
+import {
+  isGraphQLEnabled,
+  graphqlDiscoverCandidates,
+  graphqlLikeUser,
+  graphqlSeedDemoData,
+} from '@/services/graphqlService';
 import { handleApiError, getErrorMessage, isNetworkError } from '@/utils/apiErrorHandler';
+import {
+  getMultiplePhotoUrls,
+  placeholderPhotoUrl,
+  fallbackPlaceholderPhotoUrl,
+  inferGenderFromName,
+  NO_PHOTO_PLACEHOLDER,
+} from '@/utils/profilePhotos';
 import { IMAGE_BUCKET_BASE } from '@/config/media';
-import { getMultiplePhotoUrls, placeholderPhotoUrl, fallbackPlaceholderPhotoUrl, inferGenderFromName, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import { getLocationFromIp, FALLBACK_LOCATION } from '@/services/locationService';
 import { buildNearbyDummyProfiles, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
+import { DiscoverLayout } from './discover/DiscoverLayout';
+import { ProfileCard } from './discover/ProfileCard';
+import { MatchPanel } from './discover/MatchPanel';
+import { ActionBar } from './discover/ActionBar';
+import { FiltersButton } from './discover/FiltersButton';
+import { ConfirmConnectModal } from './discover/ConfirmConnectModal';
+import { DISCOVER_STRINGS } from './discover/constants';
 import styles from './Discover.module.css';
 
-/** Backend seed profiles (e.g. Alex) go to end of feed so you see "near you" first; they are still likeable/connectable. */
 const BACKEND_DUMMY_PREFIX = 'dummy-user-';
+
 function sortFeedBackendDummiesLast<T extends { userId: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => {
     const aDummy = a.userId.startsWith(BACKEND_DUMMY_PREFIX) ? 1 : 0;
@@ -38,23 +45,39 @@ function sortFeedBackendDummiesLast<T extends { userId: string }>(items: T[]): T
   });
 }
 
-/** Backend may return avatarUrl as full URL or S3 key; normalize to full URL. Filter out randomuser.me (random people). */
-function toPhotoUrl(avatarUrl: string | undefined, userId: string, displayName?: string): string {
+function toPhotoUrl(
+  avatarUrl: string | undefined,
+  userId: string,
+  displayName?: string
+): string {
   if (avatarUrl && /randomuser\.me/i.test(avatarUrl)) return '';
-  if (avatarUrl && (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://'))) return avatarUrl;
+  if (avatarUrl?.startsWith('http://') || avatarUrl?.startsWith('https://')) return avatarUrl;
   if (avatarUrl) return `${IMAGE_BUCKET_BASE}/${avatarUrl.replace(/^\//, '')}`;
   const gender = displayName ? inferGenderFromName(displayName) : 'male';
   return placeholderPhotoUrl(userId, 0, gender);
 }
 
+function countActiveFilters(f: DiscoverFilters): number {
+  let n = 0;
+  if (f.distance !== '30 miles') n++;
+  n += f.goals.length;
+  n += f.schedule.length;
+  if (f.experienceLevel !== 'Any') n++;
+  return n;
+}
+
 export const DiscoverPage: React.FC = () => {
-  const { t } = useI18n();
   const { user, logout } = useAuthContext();
   const { me, refreshMe } = useMe();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [feed, setFeed] = useState<MatchFeedItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [undoStack, setUndoStack] = useState<number[]>([]);
+  const [showUndo, setShowUndo] = useState(false);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [matched, setMatched] = useState(false);
@@ -65,14 +88,13 @@ export const DiscoverPage: React.FC = () => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [userLocationLabel, setUserLocationLabel] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [filters, setFilters] = useState<DiscoverFilters>({
     distance: '30 miles',
     goals: [],
     schedule: [],
     experienceLevel: 'Any',
   });
-  const currentUserIdRef = useRef<string | null>(null);
-  const touchStartX = useRef<number | null>(null);
   const [onboardingModalOpen, setOnboardingModalOpen] = useState(false);
   const [photoFallbackUrls, setPhotoFallbackUrls] = useState<Record<string, string>>({});
 
@@ -86,11 +108,16 @@ export const DiscoverPage: React.FC = () => {
     }
   }, [loading, me?.isProfileComplete]);
 
-  // Reset photo error and photo index when changing card
   useEffect(() => {
     setPhotoErrorForIndex(null);
     setCurrentPhotoIndex(0);
   }, [currentIndex]);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    };
+  }, []);
 
   const loadFeed = async (isRetryAfter401 = false) => {
     try {
@@ -98,7 +125,16 @@ export const DiscoverPage: React.FC = () => {
       setError('');
       if (isGraphQLEnabled) {
         const result = await graphqlDiscoverCandidates(50);
-        const items = (result.items || []) as { userId: string; displayName: string; city?: string; bio?: string; sports?: string[]; avatarUrl?: string; compatibilityScore?: number }[];
+        const items = (result.items || []) as {
+          userId: string;
+          displayName: string;
+          city?: string;
+          bio?: string;
+          sports?: string[];
+          avatarUrl?: string;
+          compatibilityScore?: number;
+          level?: string;
+        }[];
         const feedFromApi: MatchFeedItem[] = items.map((c) => {
           const url = toPhotoUrl(c.avatarUrl, c.userId, c.displayName);
           const photoUrls = getMultiplePhotoUrls([url], c.userId, 4, c.displayName);
@@ -108,6 +144,7 @@ export const DiscoverPage: React.FC = () => {
             city: c.city,
             bio: c.bio ?? undefined,
             sportTags: c.sports ?? [],
+            level: c.level,
             photoUrls,
             compatibilityScore: c.compatibilityScore ?? 50,
             commonSports: c.sports ?? [],
@@ -120,6 +157,8 @@ export const DiscoverPage: React.FC = () => {
         setFeed(sortFeedBackendDummiesLast(merged));
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
+        setUndoStack([]);
+        setShowUndo(false);
         setPhotoErrorForIndex(null);
         setPhotoFallbackUrls({});
       } else {
@@ -140,11 +179,13 @@ export const DiscoverPage: React.FC = () => {
         setFeed(sortFeedBackendDummiesLast(merged));
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
+        setUndoStack([]);
+        setShowUndo(false);
         setPhotoErrorForIndex(null);
         setPhotoFallbackUrls({});
       }
-    } catch (err: any) {
-      const status = err.response?.status ?? err.status;
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
       const apiError = handleApiError(err);
 
       if (status === 401 && !isRetryAfter401) {
@@ -153,7 +194,15 @@ export const DiscoverPage: React.FC = () => {
           try {
             if (isGraphQLEnabled) {
               const result = await graphqlDiscoverCandidates(50);
-              const items = (result.items || []) as { userId: string; displayName: string; city?: string; bio?: string; sports?: string[]; avatarUrl?: string; compatibilityScore?: number }[];
+              const items = (result.items || []) as {
+                userId: string;
+                displayName: string;
+                city?: string;
+                bio?: string;
+                sports?: string[];
+                avatarUrl?: string;
+                compatibilityScore?: number;
+              }[];
               const feedFromApi: MatchFeedItem[] = items.map((c) => {
                 const url = toPhotoUrl(c.avatarUrl, c.userId, c.displayName);
                 const photoUrls = getMultiplePhotoUrls([url], c.userId, 4, c.displayName);
@@ -193,16 +242,8 @@ export const DiscoverPage: React.FC = () => {
             }
             setLoading(false);
             return;
-          } catch (retryErr: any) {
-            const retryStatus = retryErr.response?.status ?? retryErr.status;
-            if (retryStatus === 401) {
-              setError('Session expired. Please sign in again.');
-              setLoading(false);
-              await logout();
-              navigate('/login', { state: { from: '/app/discover' }, replace: true });
-              return;
-            }
-            throw retryErr;
+          } catch {
+            // fall through to error
           }
         }
         setError('Session expired. Please sign in again.');
@@ -212,16 +253,10 @@ export const DiscoverPage: React.FC = () => {
         return;
       }
 
-      if (import.meta.env.DEV) {
-        const statusLog = err.response?.status ?? err.status ?? 'no status';
-        console.error('[Discover] loadFeed failed:', statusLog, apiError.message, apiError.code ?? '');
-        if (statusLog === 'no status' && err != null && typeof err === 'object') {
-          const keys = Object.keys(err).filter((k) => !k.startsWith('_'));
-          console.error('[Discover] raw error shape (for debugging):', keys, err?.message);
-        }
-      }
-      if (isNetworkError(err) || apiError.isCorsError) {
-        setError('Unable to connect to the API. The backend may not be deployed or CORS is not configured. Please check your API configuration.');
+      if (isNetworkError(err)) {
+        setError(
+          'Unable to connect to the API. The backend may not be deployed or CORS is not configured.'
+        );
       } else if (status === 401) {
         setError('Authentication required. Please sign in again.');
       } else {
@@ -232,13 +267,45 @@ export const DiscoverPage: React.FC = () => {
     }
   };
 
+  const advanceWithUndo = useCallback(() => {
+    const prev = currentIndex;
+    setUndoStack((s) => [...s, prev]);
+    setShowUndo(true);
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    undoTimeoutRef.current = setTimeout(() => {
+      setShowUndo(false);
+      setUndoStack((s) => s.slice(0, -1));
+      undoTimeoutRef.current = null;
+    }, 3000);
+
+    if (currentIndex < feed.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    } else {
+      setFeed([]);
+      setError('No more profiles to discover!');
+    }
+  }, [currentIndex, feed.length]);
+
+  const handleUndo = useCallback(() => {
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+    const stack = [...undoStack];
+    if (stack.length === 0) return;
+    const prevIndex = stack.pop();
+    setUndoStack(stack);
+    setShowUndo(false);
+    if (prevIndex != null) setCurrentIndex(prevIndex);
+  }, [undoStack]);
+
   const handleLike = async () => {
     if (currentIndex >= feed.length) return;
 
     const currentCard = feed[currentIndex];
     if (isDummyNearbyProfile(currentCard.userId)) {
       setToast('This is a preview profile — keep swiping to see profiles you can like and connect with.');
-      nextCard();
+      advanceWithUndo();
       return;
     }
 
@@ -249,14 +316,14 @@ export const DiscoverPage: React.FC = () => {
         await refreshMe();
         if (result.isMatched) {
           setMatched(true);
-          setToast("It's a match! You can chat after you both unlock.");
+          setToast(`${DISCOVER_STRINGS.match} ${currentCard.name}`);
           setTimeout(() => {
-            nextCard();
+            advanceWithUndo();
             setMatched(false);
           }, 1500);
         } else {
-          setToast('Liked');
-          nextCard();
+          setToast(DISCOVER_STRINGS.liked);
+          advanceWithUndo();
         }
       } else {
         const token = await authService.getJWT();
@@ -265,14 +332,14 @@ export const DiscoverPage: React.FC = () => {
         await refreshMe();
         if (result.isMatched) {
           setMatched(true);
-          setToast("It's a match! You can chat after you both unlock.");
+          setToast(`${DISCOVER_STRINGS.match} ${currentCard.name}`);
           setTimeout(() => {
-            nextCard();
+            advanceWithUndo();
             setMatched(false);
           }, 1500);
         } else {
-          setToast('Liked');
-          nextCard();
+          setToast(DISCOVER_STRINGS.liked);
+          advanceWithUndo();
         }
       }
     } catch (err: unknown) {
@@ -281,15 +348,47 @@ export const DiscoverPage: React.FC = () => {
         setToast('Not enough credits. Get more on the Pricing page.');
       } else {
         const apiError = handleApiError(err);
-        if (apiError.code === 'INSUFFICIENT_CREDITS' || (err as { response?: { status?: number } })?.response?.status === 402) {
+        if (
+          apiError.code === 'INSUFFICIENT_CREDITS' ||
+          (err as { response?: { status?: number } })?.response?.status === 402
+        ) {
           setToast(apiError.message || 'Not enough credits. Get more on the Pricing page.');
         } else {
-          console.error('Error liking user:', err);
           setToast(apiError.message || 'Failed to like');
         }
       }
     } finally {
       setLikeLoading(false);
+    }
+  };
+
+  const handlePass = async () => {
+    if (currentIndex >= feed.length) return;
+
+    const currentCard = feed[currentIndex];
+    if (isDummyNearbyProfile(currentCard.userId)) {
+      advanceWithUndo();
+      return;
+    }
+
+    try {
+      if (!isGraphQLEnabled) {
+        const token = await authService.getJWT();
+        if (!token) return;
+        await matchService.passUser(token, currentCard.userId);
+      }
+      setToast(DISCOVER_STRINGS.passed);
+      advanceWithUndo();
+    } catch {
+      advanceWithUndo();
+    }
+  };
+
+  const handleConnectConfirm = () => {
+    const currentCard = feed[currentIndex];
+    if (currentCard?.userId) {
+      setConnectModalOpen(false);
+      navigate(`/app/profile/${currentCard.userId}`);
     }
   };
 
@@ -301,9 +400,8 @@ export const DiscoverPage: React.FC = () => {
         try {
           await graphqlSeedDemoData();
         } catch {
-          // Backend may not support seedDemoData; still load feed with "near you" profiles
+          /* backend may not support */
         }
-        setError('');
         await loadFeed();
       } else {
         const token = await authService.getJWT();
@@ -314,9 +412,8 @@ export const DiscoverPage: React.FC = () => {
         try {
           await matchService.seedDemoProfiles(token);
         } catch {
-          // Seed endpoint may fail; still load feed with "near you" profiles
+          /* seed may fail */
         }
-        setError('');
         await loadFeed();
       }
     } catch (err: unknown) {
@@ -327,37 +424,19 @@ export const DiscoverPage: React.FC = () => {
     }
   };
 
-  const handlePass = async () => {
-    if (currentIndex >= feed.length) return;
-
+  const handlePhotoError = useCallback(() => {
     const currentCard = feed[currentIndex];
-    if (isDummyNearbyProfile(currentCard.userId)) {
-      nextCard();
-      return;
-    }
-
-    try {
-      if (isGraphQLEnabled) {
-        nextCard();
-        return;
-      }
-      const token = await authService.getJWT();
-      if (!token) return;
-      await matchService.passUser(token, currentCard.userId);
-      nextCard();
-    } catch (err: any) {
-      console.error('Error passing user:', err);
-    }
-  };
-
-  const nextCard = () => {
-    if (currentIndex < feed.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+    if (!currentCard) return;
+    const cardPhotoKey = `${currentCard.userId}-${currentPhotoIndex}`;
+    if (photoFallbackUrls[cardPhotoKey]) {
+      setPhotoErrorForIndex(currentIndex);
     } else {
-      setFeed([]);
-      setError('No more profiles to discover!');
+      setPhotoFallbackUrls((prev) => ({
+        ...prev,
+        [cardPhotoKey]: fallbackPlaceholderPhotoUrl(currentCard.userId, currentPhotoIndex),
+      }));
     }
-  };
+  }, [currentIndex, currentPhotoIndex, feed, photoFallbackUrls]);
 
   if (loading) {
     return (
@@ -370,15 +449,14 @@ export const DiscoverPage: React.FC = () => {
   if (error && feed.length === 0) {
     return (
       <div className={styles.container}>
-        <Alert
-          severity={error.includes('API is not available') ? 'warning' : 'info'}
-          sx={{ mb: 2 }}
-        >
-          {error}
-        </Alert>
-        <Button fullWidth variant="contained" color="primary" onClick={() => loadFeed()} sx={{ mt: 2 }}>
-          Retry
-        </Button>
+        <div className={styles.emptyState}>
+          <Alert severity={error.includes('API') ? 'warning' : 'info'} sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+          <Button fullWidth variant="contained" color="primary" onClick={() => loadFeed()}>
+            {DISCOVER_STRINGS.retry}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -386,30 +464,30 @@ export const DiscoverPage: React.FC = () => {
   if (feed.length === 0 && !loading && !error) {
     return (
       <div className={styles.container}>
-        <Box sx={{ py: 6, textAlign: 'center' }}>
-          <Typography variant="h6" gutterBottom>No profiles yet</Typography>
+        <div className={styles.emptyState}>
+          <Typography variant="h6" gutterBottom>
+            {DISCOVER_STRINGS.noMatches}
+          </Typography>
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-            Try expanding filters or check back soon. You can load demo profiles to try the flow.
+            {DISCOVER_STRINGS.noMatchesSub}
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
             <Button variant="contained" onClick={handleSeedDemo} disabled={seeding}>
-              {seeding ? 'Loading…' : 'Load demo profiles'}
+              {seeding ? 'Loading…' : DISCOVER_STRINGS.loadDemo}
             </Button>
             <Button variant="outlined" onClick={() => navigate('/app/profile')}>
-              Edit profile
+              {DISCOVER_STRINGS.editProfile}
             </Button>
             <Button variant="outlined" onClick={() => loadFeed()}>
-              Refresh
+              {DISCOVER_STRINGS.refresh}
             </Button>
           </Box>
-          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-        </Box>
+        </div>
       </div>
     );
   }
 
   const currentCard = feed[currentIndex];
-  currentUserIdRef.current = currentCard?.userId ?? null;
   const progress = feed.length > 0 ? ((currentIndex + 1) / feed.length) * 100 : 0;
   const credits = me?.credits ?? 0;
   const photoFailed = photoErrorForIndex === currentIndex;
@@ -418,177 +496,103 @@ export const DiscoverPage: React.FC = () => {
   const primaryPhotoUrl = allPhotos[photoIndex] || NO_PHOTO_PLACEHOLDER;
   const cardPhotoKey = `${currentCard.userId}-${photoIndex}`;
   const fallbackUrl = photoFallbackUrls[cardPhotoKey];
-  const displayPhotoUrl = photoFailed ? NO_PHOTO_PLACEHOLDER : (fallbackUrl || primaryPhotoUrl);
-  const levelLabel = currentCard.level ? currentCard.level.charAt(0).toUpperCase() + currentCard.level.slice(1) : null;
+  const displayPhotoUrl = photoFailed ? NO_PHOTO_PLACEHOLDER : fallbackUrl || primaryPhotoUrl;
   const isDummy = isDummyNearbyProfile(currentCard.userId);
 
-  const profilePath = currentCard?.userId ? `/app/profile/${currentCard.userId}` : null;
-  const showUpgradeBanner = credits < 1;
   const matchReasons = [
-    ...(currentCard.commonSports?.length ? [`${currentCard.commonSports.length} common sports`] : []),
+    ...(currentCard.commonSports?.length
+      ? [`${currentCard.commonSports.length} common sports`]
+      : []),
     currentCard.level ? `Similar level (${currentCard.level})` : null,
+    currentCard.city ? 'Distance near you' : null,
     currentCard.mode ? `Same mode (${currentCard.mode})` : null,
   ].filter(Boolean) as string[];
 
-  const handlePhotoSwipe = (dir: 'prev' | 'next') => {
-    setCurrentPhotoIndex((i) => {
-      if (dir === 'prev') return i <= 0 ? allPhotos.length - 1 : i - 1;
-      return i >= allPhotos.length - 1 ? 0 : i + 1;
-    });
-    setPhotoErrorForIndex(null);
-  };
-
-  const handlePhotoError = () => {
-    if (photoFallbackUrls[cardPhotoKey]) {
-      setPhotoErrorForIndex(currentIndex);
-    } else {
-      setPhotoFallbackUrls((prev) => ({
-        ...prev,
-        [cardPhotoKey]: fallbackPlaceholderPhotoUrl(currentCard.userId, photoIndex),
-      }));
-    }
-  };
-
-  const onMediaTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.targetTouches[0]?.clientX ?? null;
-  };
-  const onMediaTouchEnd = (e: React.TouchEvent) => {
-    const start = touchStartX.current;
-    touchStartX.current = null;
-    if (start == null || allPhotos.length <= 1) return;
-    const end = e.changedTouches[0]?.clientX;
-    if (end == null) return;
-    const delta = start - end;
-    const minSwipe = 40;
-    if (delta > minSwipe) handlePhotoSwipe('next');
-    else if (delta < -minSwipe) handlePhotoSwipe('prev');
-  };
+  const myAvatarLetter =
+    user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U';
+  const activeFilterCount = countActiveFilters(filters);
 
   return (
     <div className={styles.container}>
-      <div className={styles.topBar}>
-        <p className={styles.creditsStrip}>
-          <strong>Credits: {credits}</strong> · Like costs 1 credit
-        {userLocationLabel && (
-          <> · <span className={styles.locationLabel}>Near {userLocationLabel}</span></>
-        )}
-        </p>
-        <button
-          type="button"
-          className={styles.filterBtn}
-          onClick={() => setFiltersOpen(true)}
-          aria-label="Open filters"
-        >
-          <FilterListIcon sx={{ fontSize: 20 }} />
-          Filters
-        </button>
-      </div>
-
-      {showUpgradeBanner && <UpgradeBanner />}
-
-      <div className={styles.headerRow}>
-        <span className={styles.headerCount}>{currentIndex + 1} of {feed.length}{isDummy ? ' (near you)' : ''}</span>
-        <span className={styles.headerMatch}>{currentCard.compatibilityScore}% Match</span>
-      </div>
-      <div className={styles.progressTrack}>
-        <div className={styles.progressFill} style={{ width: `${progress}%` }} />
-      </div>
-
-      <div className={styles.cardWithPanel}>
-        <article
-          className={`${styles.cardStack} ${styles.cardClickable} ${matched ? styles.cardStackMatched : ''}`}
-          aria-label={`Profile card: ${currentCard.name}. Click to view full profile.`}
-        >
-          <Link to={profilePath || '/app/discover'} className={styles.cardLink} aria-label={`View full profile of ${currentCard.name}`}>
-          <div
-            className={styles.mediaWrap}
-            onTouchStart={onMediaTouchStart}
-            onTouchEnd={onMediaTouchEnd}
-            role="img"
-            aria-label={`Swipe to see more photos. Photo ${photoIndex + 1} of ${allPhotos.length}.`}
-          >
-            <img
-              src={displayPhotoUrl}
-              alt={`${currentCard.name} — photo ${photoIndex + 1} of ${allPhotos.length}`}
-              className={styles.mediaImage}
-              onError={handlePhotoError}
-              referrerPolicy="no-referrer"
-              draggable={false}
-            />
-            <div className={styles.mediaOverlay} aria-hidden />
-            {allPhotos.length > 1 && (
-              <div className={styles.photoDots} aria-label="Photo gallery">
-                {allPhotos.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className={`${styles.photoDot} ${i === photoIndex ? styles.photoDotActive : ''}`}
-                    aria-label={`Photo ${i + 1}`}
-                    aria-pressed={i === photoIndex}
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrentPhotoIndex(i); setPhotoErrorForIndex(null); }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-          <div className={styles.content}>
-            <h2 className={styles.contentName}>
-              {currentCard.name}{levelLabel ? `, ${levelLabel}` : ''}
-            </h2>
-            <p className={styles.contentLocation}>
-              {currentCard.city || 'Location not set'}
+      <DiscoverLayout
+        topBar={
+          <>
+            <Link to="/app/profile" className={styles.myAvatar} aria-label="Your profile">
+              <span className={styles.myAvatarLetter}>{myAvatarLetter}</span>
+            </Link>
+            <p className={styles.creditsStrip}>
+              <strong>Credits: {credits}</strong> · Chat unlock = 1 credit
+              {userLocationLabel && (
+                <>
+                  {' '}
+                  · <span className={styles.locationLabel}>Near {userLocationLabel}</span>
+                </>
+              )}
             </p>
-            {currentCard.bio && (
-              <p className={styles.contentBio}>{currentCard.bio}</p>
-            )}
-            {currentCard.commonSports && currentCard.commonSports.length > 0 && (
-              <div className={styles.contentSection}>
-                <p className={styles.contentSectionTitle}>Common Sports</p>
-                <div className={styles.chips}>
-                  {currentCard.commonSports.map((sport) => (
-                    <span key={sport} className={styles.chipPrimary}>{sport}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {currentCard.sportTags && currentCard.sportTags.length > 0 && (
-              <div className={styles.contentSection}>
-                <p className={styles.contentSectionTitle}>Sports</p>
-                <div className={styles.chips}>
-                  {currentCard.sportTags.map((sport) => (
-                    <span key={sport} className={styles.chipDefault}>{sport}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {currentCard.mode && (
-              <div className={styles.contentSection}>
-                <div className={styles.chips}>
-                  <span className={styles.chipDefault}>Mode: {currentCard.mode}</span>
-                </div>
-              </div>
-            )}
+            <FiltersButton
+              onClick={() => setFiltersOpen(true)}
+              activeCount={activeFilterCount}
+            />
+          </>
+        }
+        headerRow={
+          <div className={styles.headerRow}>
+            <span className={styles.headerCount}>
+              {currentIndex + 1} of {feed.length}
+              {isDummy ? ' (near you)' : ''}
+            </span>
           </div>
-        </Link>
-      </article>
-
-        <aside className={styles.compatibilityPanel}>
-          <h3 className={styles.panelTitle}>Compatibility</h3>
-          <div className={styles.matchPercent}>{currentCard.compatibilityScore}%</div>
-          <p className={styles.panelSummary}>
-            {matchReasons.length > 0
-              ? `Strong match: ${matchReasons.slice(0, 2).join(', ')}.`
-              : 'Based on your profile and preferences.'}
-          </p>
-          {matchReasons.length > 0 && (
-            <ul className={styles.reasonsList}>
-              {matchReasons.map((r, i) => (
-                <li key={i}>{r}</li>
-              ))}
-            </ul>
-          )}
-        </aside>
-      </div>
+        }
+        progressBar={
+          <div className={styles.progressTrack}>
+            <div className={styles.progressFill} style={{ width: `${progress}%` }} />
+          </div>
+        }
+        card={
+          <ProfileCard
+            profile={currentCard}
+            photoUrl={displayPhotoUrl}
+            photoIndex={photoIndex}
+            allPhotoUrls={allPhotos}
+            onPhotoChange={(i) => {
+              setCurrentPhotoIndex(i);
+              setPhotoErrorForIndex(null);
+            }}
+            onPhotoError={handlePhotoError}
+            onSwipeLeft={handlePass}
+            onSwipeRight={handleLike}
+            matched={matched}
+          />
+        }
+        panel={
+          <MatchPanel
+            score={currentCard.compatibilityScore}
+            reasons={matchReasons}
+            compact
+            collapsible={isMobile}
+            defaultCollapsed={isMobile}
+          />
+        }
+        banner={
+          credits < 1 ? (
+            <UpgradeBanner message="Get credits to unlock chat when you match." />
+          ) : undefined
+        }
+        actionBar={
+          <>
+            <ActionBar
+              onPass={handlePass}
+              onLike={handleLike}
+              onConnect={() => setConnectModalOpen(true)}
+              onUndo={handleUndo}
+              likeLoading={likeLoading}
+              credits={credits}
+              canUndo={undoStack.length > 0}
+              showUndo={showUndo}
+            />
+          </>
+        }
+      />
 
       <FiltersDrawer
         open={filtersOpen}
@@ -596,44 +600,17 @@ export const DiscoverPage: React.FC = () => {
         filters={filters}
         onFiltersChange={setFilters}
         onApply={() => loadFeed()}
+        anchor={isMobile ? 'bottom' : 'right'}
       />
 
-      <div className={styles.actionBar}>
-        <button
-          type="button"
-          className={`${styles.actionBtn} ${styles.actionBtnPass}`}
-          onClick={handlePass}
-          aria-label="Pass on this profile"
-        >
-          <ThumbDownIcon aria-hidden sx={{ fontSize: 22 }} />
-          Pass
-        </button>
-        <button
-          type="button"
-          className={`${styles.actionBtn} ${styles.actionBtnLike}`}
-          onClick={handleLike}
-          disabled={likeLoading || credits < 1}
-          aria-label={credits < 1 ? 'Like (no credits)' : 'Like this profile'}
-        >
-          <ThumbUpIcon aria-hidden sx={{ fontSize: 22 }} />
-          Like{credits < 1 ? ' (no credits)' : ''}
-        </button>
-        <Link
-          to={profilePath || '/app/discover'}
-          className={`${styles.actionBtn} ${styles.actionBtnConnect}`}
-          aria-label={`View full profile of ${currentCard.name}`}
-          style={{ textDecoration: 'none', color: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <LinkIcon aria-hidden sx={{ fontSize: 22 }} />
-          Connect
-        </Link>
-      </div>
-
-      {matched && (
-        <Alert severity="success" className={styles.matchToast}>
-          🎉 It&apos;s a match! You can now chat with {currentCard.name}
-        </Alert>
-      )}
+      <ConfirmConnectModal
+        open={connectModalOpen}
+        onClose={() => setConnectModalOpen(false)}
+        onConfirm={handleConnectConfirm}
+        title={DISCOVER_STRINGS.connectModalTitle}
+        body={DISCOVER_STRINGS.connectModalBody}
+        confirmLabel={DISCOVER_STRINGS.connectModalConfirm}
+      />
 
       <Snackbar
         open={!!toast}
