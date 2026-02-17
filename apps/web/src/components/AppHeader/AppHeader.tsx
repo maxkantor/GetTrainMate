@@ -105,11 +105,12 @@ export const AppHeader: React.FC = () => {
                 onClick={() => setUserOpen(!userOpen)}
                 aria-expanded={userOpen}
                 aria-haspopup="true"
+                aria-label={`${me?.profile?.name || user?.email || 'User'} menu`}
               >
-                <span className={styles.avatar}>
-                  {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                <span className={styles.userName}>
+                  {me?.profile?.name?.trim() || user?.email?.split('@')[0] || 'Profile'}
                 </span>
-                {!profileComplete && <span className={styles.badge}>!</span>}
+                {!profileComplete && <span className={styles.badge} aria-label="Profile incomplete">!</span>}
                 <svg className={styles.chevron} width="10" height="10" viewBox="0 0 12 12" aria-hidden>
                   <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" fill="none" />
                 </svg>
@@ -181,6 +182,9 @@ export const AppHeader: React.FC = () => {
               </div>
               {isLoggedIn ? (
                 <>
+                  <div className={styles.mobileUser} aria-hidden>
+                    {me?.profile?.name?.trim() || user?.email?.split('@')[0] || 'Profile'}
+                  </div>
                   <RouterLink to="/pricing" className={styles.mobileCredits} onClick={() => { setMobileOpen(false); analytics.pricingOpened('mobile'); }}>
                     {me?.credits ?? 0} credits
                   </RouterLink>
