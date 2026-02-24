@@ -23,7 +23,7 @@ export const en = {
     faq: 'FAQ',
     contact: 'Contact',
     login: 'Log in',
-    signup: 'Start Matching (Free)',
+    signup: 'Sign Up',
     admin: 'Admin',
     profile: 'Profile',
     settings: 'Settings',
