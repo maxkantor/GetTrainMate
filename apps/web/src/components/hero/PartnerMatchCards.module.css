@@ -43,7 +43,7 @@
   z-index: 1;
 }
 
-/* Card positioning with stagger */
+/* Card positioning – all cards crisp, stacked with offset */
 .card1 {
   top: 0;
   left: 0;
@@ -52,15 +52,15 @@
 }
 
 .card2 {
-  top: 100px;
-  left: 60px;
+  top: 90px;
+  left: 70px;
   z-index: 2;
   animation: floatY 7s ease-in-out infinite 0.5s;
 }
 
 .card3 {
-  top: 200px;
-  left: 120px;
+  top: 190px;
+  left: 130px;
   z-index: 1;
   animation: floatY 5.5s ease-in-out infinite 1s;
 }

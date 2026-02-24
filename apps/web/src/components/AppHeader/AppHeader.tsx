@@ -57,7 +57,7 @@ export const AppHeader: React.FC = () => {
   const logoTo = '/';
 
   return (
-    <header className={`${styles.root} ${isAppRoute ? styles.glass : ''}`}>
+    <header className={styles.root}>
       <div className={styles.inner}>
         <RouterLink to={logoTo} className={styles.logo} aria-label={t('common.appName')} onClick={(e) => e.stopPropagation()}>
           <span className={styles.logoIcon}>⚡</span>

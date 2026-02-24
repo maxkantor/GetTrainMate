@@ -1,0 +1,44 @@
+.carousel {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  cursor: grab;
+  padding-bottom: 8px;
+  margin: var(--space-8) -24px 0;
+}
+
+.carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.carousel.dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+}
+
+.track {
+  display: flex;
+  gap: 24px;
+  padding: 0 24px;
+}
+
+.slide {
+  flex: 0 0 min(340px, 85vw);
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  display: flex;
+}
+
+@media (min-width: 1024px) {
+  .carousel {
+    margin: 0 -32px;
+  }
+  .track {
+    padding: 0 32px;
+  }
+  .slide {
+    flex: 0 0 360px;
+  }
+}

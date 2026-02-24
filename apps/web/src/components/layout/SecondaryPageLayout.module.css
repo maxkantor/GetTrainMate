@@ -5,45 +5,16 @@
 
 .root {
   position: relative;
-  min-height: calc(100vh - var(--nav-height, 56px));
+  min-height: calc(100vh - 72px);
   width: 100%;
 }
 
-@media (min-width: 768px) {
-  .root {
-    min-height: calc(100vh - var(--nav-height-desktop, 64px));
-  }
-}
-
-/* Full-viewport background: subtle brand gradient + soft glow */
+/* Transparent – global body gradient shows through */
 .bg {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: linear-gradient(
-    165deg,
-    #faf5ff 0%,
-    #f5f3ff 25%,
-    #eef2ff 50%,
-    #f0fdf4 75%,
-    #f8fafc 100%
-  );
-}
-
-.bg::after {
-  content: '';
-  position: absolute;
-  top: -20%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 120%;
-  height: 50%;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(124, 58, 237, 0.06) 0%,
-    transparent 65%
-  );
-  pointer-events: none;
+  background: transparent;
 }
 
 /* Inner container: max-width by variant, centered, compact top padding */
@@ -52,13 +23,13 @@
   z-index: 1;
   width: 100%;
   margin: 0 auto;
-  padding: 20px 20px 48px;
+  padding: 16px 20px 32px;
   box-sizing: border-box;
 }
 
 @media (min-width: 768px) {
   .inner {
-    padding: 24px 24px 56px;
+    padding: 20px 24px 40px;
   }
 }
 
@@ -67,27 +38,22 @@
   margin-bottom: 16px;
 }
 
-/* Card wrapper: glass/modern, readable */
+/* Card wrapper: dark glass */
 .card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(15, 18, 30, 0.6);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow:
-    0 4px 24px rgba(15, 23, 42, 0.06),
-    0 1px 3px rgba(15, 23, 42, 0.04);
-  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  padding: 20px;
   box-sizing: border-box;
 }
 
 @media (min-width: 768px) {
   .card {
-    padding: 32px 40px;
+    padding: 28px 36px;
     border-radius: 20px;
-    box-shadow:
-      0 8px 32px rgba(15, 23, 42, 0.08),
-      0 2px 8px rgba(15, 23, 42, 0.04);
   }
 }
 
@@ -95,14 +61,14 @@
 .header {
   margin-bottom: 24px;
   padding-bottom: 20px;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .title {
   margin: 0 0 8px;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #111827;
+  color: rgba(255, 255, 255, 0.95);
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
@@ -116,7 +82,7 @@
 .subtitle {
   margin: 0;
   font-size: 1rem;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.75);
   line-height: 1.5;
 }
 
@@ -140,7 +106,7 @@
 }
 
 .pricing .card {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(15, 18, 30, 0.6);
   padding: 24px 20px;
 }
 

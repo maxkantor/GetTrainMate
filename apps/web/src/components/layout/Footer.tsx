@@ -56,7 +56,7 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
               <span className={styles.logoText}>{t('common.appName')}</span>
             </div>
             <p className={styles.tagline}>
-              Find your perfect training partner and achieve your fitness goals together.
+              Find your perfect training partner. Match, connect, train.
             </p>
             <div className={styles.social}>
               <a href="#" className={styles.socialLink} aria-label="Twitter">
@@ -125,7 +125,7 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
         {/* Bottom Bar */}
         <div className={styles.bottomBar}>
           <p className={styles.copyright}>
-            © {new Date().getFullYear()} {t('common.appName')}. All rights reserved.
+            © {new Date().getFullYear()} {t('common.appName')}
           </p>
         </div>
       </Container>

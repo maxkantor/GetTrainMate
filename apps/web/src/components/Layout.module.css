@@ -2,11 +2,13 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: transparent;
 }
 
 /* Marketing/public pages: full bleed content */
 .main {
   flex: 1;
+  min-height: calc(100vh - 60px);
 }
 
 /* App pages (/app/*): reduced top padding, centered container, better density at 50% zoom */

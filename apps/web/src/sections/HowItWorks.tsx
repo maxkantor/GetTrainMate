@@ -26,7 +26,7 @@ export const HowItWorks: React.FC = () => {
           <span className={styles.sectionLabel}>How It Works</span>
           <h2 className={styles.sectionTitle}>Get started in 3 simple steps</h2>
           <p className={styles.sectionSubtitle}>
-            Join thousands of athletes who have found their perfect training partners.
+            Match, connect, and train—all in minutes.
           </p>
         </div>
 

@@ -1,53 +1,39 @@
 .section {
   width: 100%;
   position: relative;
+  background: transparent;
 }
 
-/* Background variants */
-.white {
-  background-color: white;
-}
-
+/* Background variants - all transparent for global dark backdrop */
+.white,
 .subtle {
-  background-color: var(--color-neutral-50);
+  background-color: transparent;
 }
 
 .dark {
-  background-color: var(--color-neutral-900);
-  color: white;
+  background-color: rgba(15, 18, 30, 0.6);
+  color: rgba(255, 255, 255, 0.95);
 }
 
-/* Padding variants */
+/* Padding variants - compact 64px desktop, 48px mobile */
 .sm {
-  padding: var(--space-12) 0;
+  padding: 64px 0;
 }
 
 .md {
-  padding: var(--space-16) 0;
+  padding: 64px 0;
 }
 
 .lg {
-  padding: 72px 0;
+  padding: 64px 0;
 }
 
 .xl {
-  padding: var(--space-32) 0;
+  padding: 64px 0;
 }
 
 @media (max-width: 768px) {
-  .sm {
-    padding: var(--space-8) 0;
-  }
-  
-  .md {
-    padding: var(--space-12) 0;
-  }
-  
-  .lg {
+  .sm, .md, .lg, .xl {
     padding: 48px 0;
-  }
-  
-  .xl {
-    padding: var(--space-20) 0;
   }
 }

@@ -63,24 +63,24 @@ export const ContactPage: React.FC = () => {
   return (
     <PageShell variant="content" showBackLink>
       <Container maxWidth="md" disableGutters sx={{ maxWidth: '100%' }}>
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: '1.75rem' }}>
+        <Box sx={{ textAlign: 'center', mb: 2.5 }}>
+          <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: '1.75rem', color: 'rgba(255,255,255,0.95)' }}>
             Get in Touch
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography variant="body1" sx={{ mt: 0.5, color: 'rgba(255,255,255,0.75)' }}>
             Have a question or feedback? Send us a message and we'll respond as soon as possible.
           </Typography>
         </Box>
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 720, mx: 'auto' }}>
+        <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 520, mx: 'auto' }}>
           {submitted && (
-            <Alert severity="success" sx={{ mb: 3 }}>
+            <Alert severity="success" sx={{ mb: 2 }}>
               Thank you for your message! We'll get back to you soon.
             </Alert>
           )}
 
           {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
+            <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
@@ -92,7 +92,7 @@ export const ContactPage: React.FC = () => {
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             disabled={submitted}
-            sx={{ mb: 2.5 }}
+            sx={{ mb: 2 }}
           />
           <TextField
             fullWidth
@@ -102,7 +102,7 @@ export const ContactPage: React.FC = () => {
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             disabled={submitted}
-            sx={{ mb: 2.5 }}
+            sx={{ mb: 2 }}
           />
           <TextField
             fullWidth
@@ -111,7 +111,7 @@ export const ContactPage: React.FC = () => {
             value={formData.subject}
             onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
             disabled={submitted}
-            sx={{ mb: 2.5 }}
+            sx={{ mb: 2 }}
           >
             {subjects.map((option) => (
               <MenuItem key={option.value} value={option.value}>
@@ -124,12 +124,12 @@ export const ContactPage: React.FC = () => {
             required
             label="Message"
             multiline
-            rows={6}
+            rows={4}
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
             placeholder="Tell us how we can help you..."
             disabled={submitted}
-            sx={{ mb: 3 }}
+            sx={{ mb: 2 }}
           />
           <Button
             type="submit"
@@ -137,20 +137,20 @@ export const ContactPage: React.FC = () => {
             size="large"
             fullWidth
             disabled={submitted}
-            sx={{ py: 1.5 }}
+            sx={{ py: 1.25 }}
           >
             {submitted ? 'Message Sent!' : 'Send Message'}
           </Button>
         </Box>
 
-        <Box sx={{ mt: 6, textAlign: 'center' }}>
-          <Typography variant="h5" gutterBottom>
+        <Box sx={{ mt: 3, textAlign: 'center' }}>
+          <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.9)', mb: 0.5 }}>
             Looking for quick answers?
           </Typography>
-          <Typography variant="body1" color="textSecondary" paragraph>
+          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.65)', mb: 1.5 }}>
             Check out our FAQ page for immediate answers to common questions.
           </Typography>
-          <Button variant="outlined" size="large" component={Link} to="/faq" sx={{ mt: 2 }}>
+          <Button variant="outlined" size="medium" component={Link} to="/faq" sx={{ borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>
             Visit FAQ
           </Button>
         </Box>

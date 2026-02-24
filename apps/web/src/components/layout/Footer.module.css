@@ -1,13 +1,16 @@
 .footer {
-  background: var(--color-neutral-900);
-  color: var(--color-neutral-300);
-  padding: var(--space-16) 0 var(--space-8);
+  background: #070b1a;
+  color: rgba(255, 255, 255, 0.8);
+  padding: var(--space-12) 0 var(--space-6);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Compact footer for /app/* – minimal links, no giant marketing section */
 .footerCompact {
   padding: var(--space-4) 0;
   margin-top: auto;
+  background: #070b1a;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .footerCompactInner {
@@ -47,16 +50,16 @@
 .footerContent {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: var(--space-12);
-  padding-bottom: var(--space-12);
-  border-bottom: 1px solid var(--color-neutral-800);
+  gap: var(--space-8);
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 /* Brand Column */
 .brandColumn {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .logo {
@@ -80,34 +83,34 @@
 }
 
 .tagline {
-  font-size: var(--font-sm);
-  line-height: var(--leading-relaxed);
-  color: var(--color-neutral-400);
-  max-width: 320px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 260px;
 }
 
 .social {
   display: flex;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
+  gap: var(--space-2);
+  margin-top: var(--space-1);
 }
 
 .socialLink {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  color: var(--color-neutral-400);
-  background: var(--color-neutral-800);
-  border-radius: var(--radius-lg);
-  transition: all var(--transition-fast);
+  width: 32px;
+  height: 32px;
+  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .socialLink:hover {
-  color: white;
-  background: var(--color-neutral-700);
-  transform: translateY(-2px);
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 /* Links Columns */
@@ -118,40 +121,43 @@
 }
 
 .columnTitle {
-  font-size: var(--font-sm);
-  font-weight: var(--font-semibold);
-  color: white;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-1);
 }
 
 .linksList {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
 }
 
 .link {
-  font-size: var(--font-sm);
-  color: var(--color-neutral-400);
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.55);
   text-decoration: none;
-  transition: color var(--transition-fast);
+  transition: color 0.15s ease;
 }
 
 .link:hover {
-  color: white;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Bottom Bar */
 .bottomBar {
-  padding-top: var(--space-8);
+  padding-top: var(--space-6);
   text-align: center;
 }
 
 .copyright {
-  font-size: var(--font-sm);
-  color: var(--color-neutral-500);
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* Responsive */

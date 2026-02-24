@@ -11,18 +11,71 @@ authService.configure();
 
 const theme = createTheme({
   palette: {
+    mode: 'dark',
     primary: {
-      main: '#1976d2',
+      main: '#6366f1',
     },
     secondary: {
-      main: '#dc004e',
+      main: '#a78bfa',
     },
     background: {
-      default: '#fafafa',
+      default: '#070b1a',
+      paper: 'rgba(15, 18, 30, 0.9)',
+    },
+    text: {
+      primary: 'rgba(255, 255, 255, 0.95)',
+      secondary: 'rgba(255, 255, 255, 0.75)',
     },
   },
   typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+  },
+  components: {
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiInputLabel-root': {
+            color: 'rgba(255, 255, 255, 0.7)',
+          },
+          '& .MuiInputLabel-root.Mui-focused': {
+            color: 'rgba(255, 255, 255, 0.9)',
+          },
+          '& .MuiOutlinedInput-root': {
+            color: 'rgba(255, 255, 255, 0.95)',
+            '& fieldset': {
+              borderColor: 'rgba(255, 255, 255, 0.2)',
+            },
+            '&:hover fieldset': {
+              borderColor: 'rgba(255, 255, 255, 0.35)',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: 'rgba(99, 102, 241, 0.8)',
+            },
+            '& .MuiSelect-select': {
+              color: 'rgba(255, 255, 255, 0.95)',
+            },
+          },
+          '& .MuiInputBase-input::placeholder': {
+            color: 'rgba(255, 255, 255, 0.5)',
+            opacity: 1,
+          },
+        },
+      },
+    },
+    MuiInputBase: {
+      styleOverrides: {
+        input: {
+          color: 'rgba(255, 255, 255, 0.95)',
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          color: 'rgba(255, 255, 255, 0.9)',
+        },
+      },
+    },
   },
 });
 

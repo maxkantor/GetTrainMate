@@ -13,6 +13,7 @@ function isAppRoute(pathname: string): boolean {
   return pathname.startsWith('/app');
 }
 
+/** True when on landing page (hero full-bleed, immersive nav). */
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { pathname } = useLocation();
   const isApp = isAppRoute(pathname);

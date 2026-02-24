@@ -17,9 +17,9 @@ export const Section: React.FC<SectionProps> = ({
   paddingSize = 'lg'
 }) => {
   return (
-    <section 
+    <section
       id={id}
-      className={`${styles.section} ${styles[background]} ${styles[paddingSize]} ${className}`}
+      className={`${styles.section} ${styles[background]} ${styles[paddingSize]} ${className || ''}`.trim()}
     >
       {children}
     </section>

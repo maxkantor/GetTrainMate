@@ -26,7 +26,7 @@ export const Features: React.FC = () => {
   ];
 
   return (
-    <Section id="features" background="white" paddingSize="xl">
+    <Section id="features" background="subtle" paddingSize="xl" className={styles.features}>
       <Container>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>{t('landing.features_title')}</h2>

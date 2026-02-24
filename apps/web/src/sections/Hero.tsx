@@ -21,7 +21,7 @@ export const Hero: React.FC = () => {
       ? '/onboarding/profile'
       : '/app/discover';
   const ctaPrimaryLabel = !isAuthenticated
-    ? (t('landing.cta_create_profile') || t('landing.cta_primary'))
+    ? (t('landing.cta_start_matching_free') || t('landing.cta_create_profile'))
     : !profileComplete
       ? t('landing.cta_finish_profile')
       : t('landing.cta_start_discovering');
@@ -52,28 +52,6 @@ export const Hero: React.FC = () => {
               {t('landing.hero_subtitle')}
             </p>
 
-            {/* Value Props */}
-            <div className={styles.valueProps}>
-              <div className={styles.valueProp}>
-                <svg className={styles.valuePropIcon} width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M5 13l4 4L19 7" />
-                </svg>
-                <span>{t('landing.value_1')}</span>
-              </div>
-              <div className={styles.valueProp}>
-                <svg className={styles.valuePropIcon} width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M5 13l4 4L19 7" />
-                </svg>
-                <span>{t('landing.value_2')}</span>
-              </div>
-              <div className={styles.valueProp}>
-                <svg className={styles.valuePropIcon} width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M5 13l4 4L19 7" />
-                </svg>
-                <span>{t('landing.value_3')}</span>
-              </div>
-            </div>
-
             {/* CTA Buttons */}
             <div className={styles.heroButtons}>
               <Link to={ctaPrimaryHref} style={{ textDecoration: 'none' }}>
@@ -84,6 +62,31 @@ export const Hero: React.FC = () => {
               <Button as="a" href="#how-it-works" variant="secondary" size="lg">
                 {t('landing.cta_secondary')}
               </Button>
+            </div>
+
+            {/* Trust Row */}
+            <div className={styles.trustRow}>
+              <span className={styles.trustRowItem}>
+                <svg className={styles.trustRowIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {t('landing.trust_verified')}
+              </span>
+              <span className={styles.trustRowDot}>•</span>
+              <span className={styles.trustRowItem}>
+                <svg className={styles.trustRowIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                {t('landing.trust_safe')}
+              </span>
+              <span className={styles.trustRowDot}>•</span>
+              <span className={styles.trustRowItem}>
+                <svg className={styles.trustRowIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v6l4 2" />
+                </svg>
+                {t('landing.trust_fast')}
+              </span>
             </div>
           </div>
 
