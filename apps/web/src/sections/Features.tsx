@@ -29,10 +29,10 @@ export const Features: React.FC = () => {
     <Section id="features" background="subtle" paddingSize="xl" className={styles.features}>
       <Container>
         <div className={styles.sectionHeader}>
-          <span className={styles.sectionLabel}>Features</span>
+          <span className={styles.sectionLabel}>{t('landing.features_label')}</span>
           <h2 className={styles.sectionTitle}>{t('landing.features_title')}</h2>
           <p className={styles.sectionSubtitle}>
-            Everything you need to find the perfect training partner and reach your fitness goals faster.
+            {t('landing.features_subtitle')}
           </p>
         </div>
 

@@ -21,7 +21,7 @@ export const Hero: React.FC = () => {
       ? '/onboarding/profile'
       : '/app/discover';
   const ctaPrimaryLabel = !isAuthenticated
-    ? (t('landing.cta_start_matching_free') || t('landing.cta_create_profile'))
+    ? t('landing.cta_start_matching_free')
     : !profileComplete
       ? t('landing.cta_finish_profile')
       : t('landing.cta_start_discovering');
@@ -59,9 +59,6 @@ export const Hero: React.FC = () => {
                   {ctaPrimaryLabel}
                 </Button>
               </Link>
-              <Button as="a" href="#how-it-works" variant="secondary" size="lg">
-                {t('landing.cta_secondary')}
-              </Button>
             </div>
 
             {/* Trust Row */}

@@ -1,21 +1,24 @@
 import React from 'react';
+import { useI18n } from '@/hooks/useI18n';
 import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
 import styles from './sections.module.css';
 
 export const HowItWorks: React.FC = () => {
+  const { t } = useI18n();
+
   const steps = [
     {
-      title: 'Create Your Profile',
-      description: 'Set up your profile with your fitness goals, preferred sports, and availability. Add photos and let others know what makes you unique.',
+      titleKey: 'landing.how_it_works_step_1_title',
+      descKey: 'landing.how_it_works_step_1_desc',
     },
     {
-      title: 'Get Matched',
-      description: 'Our AI-powered algorithm finds training partners who match your goals, skill level, and schedule. Browse profiles and connect with people near you.',
+      titleKey: 'landing.how_it_works_step_2_title',
+      descKey: 'landing.how_it_works_step_2_desc',
     },
     {
-      title: 'Start Training Together',
-      description: 'Chat, plan sessions, and meet up with your new training partners. Track your progress and achieve your fitness goals together.',
+      titleKey: 'landing.how_it_works_step_3_title',
+      descKey: 'landing.how_it_works_step_3_desc',
     },
   ];
 
@@ -23,10 +26,10 @@ export const HowItWorks: React.FC = () => {
     <Section id="how-it-works" background="subtle" paddingSize="xl">
       <Container>
         <div className={styles.sectionHeader}>
-          <span className={styles.sectionLabel}>How It Works</span>
-          <h2 className={styles.sectionTitle}>Get started in 3 simple steps</h2>
+          <span className={styles.sectionLabel}>{t('landing.how_it_works_label')}</span>
+          <h2 className={styles.sectionTitle}>{t('landing.how_it_works_title')}</h2>
           <p className={styles.sectionSubtitle}>
-            Match, connect, and train—all in minutes.
+            {t('landing.how_it_works_subtitle')}
           </p>
         </div>
 
@@ -35,8 +38,8 @@ export const HowItWorks: React.FC = () => {
             <div key={index} className={styles.step}>
               <div className={styles.stepNumber}>{index + 1}</div>
               <div className={styles.stepContent}>
-                <h3 className={styles.stepTitle}>{step.title}</h3>
-                <p className={styles.stepDescription}>{step.description}</p>
+                <h3 className={styles.stepTitle}>{t(step.titleKey)}</h3>
+                <p className={styles.stepDescription}>{t(step.descKey)}</p>
               </div>
             </div>
           ))}

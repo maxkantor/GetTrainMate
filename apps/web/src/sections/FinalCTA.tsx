@@ -12,14 +12,14 @@ export const FinalCTA: React.FC = () => {
       <Container size="wide">
         <div className={styles.ctaContent}>
           <h2 className={styles.ctaTitle}>
-            Ready to find your perfect training partner?
+            {t('landing.final_cta_title')}
           </h2>
           <p className={styles.ctaSubtitle}>
-            Join thousands of athletes. Get started for free today.
+            {t('landing.final_cta_subtitle')}
           </p>
           <div className={styles.ctaButtons}>
             <Button as="link" to="/signup" variant="primary" size="lg">
-              {t('landing.cta_start_matching_free') || t('landing.cta_create_profile')}
+              {t('landing.cta_start_matching_free')}
             </Button>
           </div>
         </div>

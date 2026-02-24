@@ -1,4 +1,5 @@
 import React from 'react';
+import { useI18n } from '@/hooks/useI18n';
 import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
 import { TestimonialCarousel, type TestimonialItem } from '@/components/ui/TestimonialCarousel';
@@ -32,14 +33,16 @@ const testimonials: TestimonialItem[] = [
 ];
 
 export const Testimonials: React.FC = () => {
+  const { t } = useI18n();
+
   return (
     <Section id="testimonials" background="subtle" paddingSize="xl" className={styles.testimonials}>
       <Container>
         <div className={styles.sectionHeader}>
-          <span className={styles.sectionLabel}>Testimonials</span>
-          <h2 className={styles.sectionTitle}>Loved by athletes worldwide</h2>
+          <span className={styles.sectionLabel}>{t('landing.testimonials_label')}</span>
+          <h2 className={styles.sectionTitle}>{t('landing.testimonials_title')}</h2>
           <p className={styles.sectionSubtitle}>
-            Don't just take our word for it. Here's what our community has to say.
+            {t('landing.testimonials_subtitle')}
           </p>
         </div>
 

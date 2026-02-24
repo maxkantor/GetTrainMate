@@ -56,7 +56,7 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
               <span className={styles.logoText}>{t('common.appName')}</span>
             </div>
             <p className={styles.tagline}>
-              Find your perfect training partner. Match, connect, train.
+              {t('footer.tagline')}
             </p>
             <div className={styles.social}>
               <a href="#" className={styles.socialLink} aria-label="Twitter">
@@ -81,7 +81,7 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
 
           {/* Product */}
           <div className={styles.linksColumn}>
-            <h3 className={styles.columnTitle}>Product</h3>
+            <h3 className={styles.columnTitle}>{t('footer.product')}</h3>
             <ul className={styles.linksList}>
               {footerSections.product.map((link) => (
                 <li key={link.href}>
@@ -109,7 +109,7 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
 
           {/* Legal */}
           <div className={styles.linksColumn}>
-            <h3 className={styles.columnTitle}>Legal</h3>
+            <h3 className={styles.columnTitle}>{t('footer.legal')}</h3>
             <ul className={styles.linksList}>
               {footerSections.legal.map((link) => (
                 <li key={link.href}>
