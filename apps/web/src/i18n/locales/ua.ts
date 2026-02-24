@@ -147,6 +147,7 @@ export const ua = {
     product: 'Продукт',
     company: 'Компанія',
     legal: 'Правова інформація',
+    platform: 'Платформа',
     privacy: 'Конфіденційність',
     terms: 'Умови',
   },

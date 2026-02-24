@@ -123,6 +123,7 @@ export const zh = {
     product: '产品',
     company: '公司',
     legal: '法律',
+    platform: '平台',
     privacy: '隐私',
     terms: '条款',
   },

@@ -123,6 +123,7 @@ export const ru = {
     product: 'Продукт',
     company: 'Компания',
     legal: 'Правовая информация',
+    platform: 'Платформа',
     privacy: 'Конфиденциальность',
     terms: 'Условия',
   },

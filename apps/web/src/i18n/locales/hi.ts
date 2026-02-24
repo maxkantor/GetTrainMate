@@ -123,6 +123,7 @@ export const hi = {
     product: 'उत्पाद',
     company: 'कंपनी',
     legal: 'कानूनी',
+    platform: 'प्लेटफ़ॉर्म',
     privacy: 'गोपनीयता',
     terms: 'नियम और शर्तें',
   },

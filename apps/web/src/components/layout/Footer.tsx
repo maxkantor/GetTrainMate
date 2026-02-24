@@ -14,10 +14,11 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
 
   const footerSections = {
     product: [
-      { label: t('header.about'), href: '/about' },
       { label: t('header.faq'), href: '/faq' },
     ],
     company: [
+      { label: t('header.about'), href: '/about' },
+      { label: t('footer.platform'), href: '/platform' },
       { label: t('header.contact'), href: '/contact' },
     ],
     legal: [
@@ -33,6 +34,7 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
           <div className={styles.footerCompactLinks}>
             <RouterLink to="/about" className={styles.footerCompactLink}>{t('header.about')}</RouterLink>
             <RouterLink to="/faq" className={styles.footerCompactLink}>{t('header.faq')}</RouterLink>
+            <RouterLink to="/platform" className={styles.footerCompactLink}>{t('footer.platform')}</RouterLink>
             <RouterLink to="/contact" className={styles.footerCompactLink}>{t('header.contact')}</RouterLink>
             <RouterLink to="/privacy" className={styles.footerCompactLink}>{t('footer.privacy')}</RouterLink>
             <RouterLink to="/terms" className={styles.footerCompactLink}>{t('footer.terms')}</RouterLink>
@@ -95,7 +97,7 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
 
           {/* Company */}
           <div className={styles.linksColumn}>
-            <h3 className={styles.columnTitle}>Company</h3>
+            <h3 className={styles.columnTitle}>{t('footer.company')}</h3>
             <ul className={styles.linksList}>
               {footerSections.company.map((link) => (
                 <li key={link.href}>

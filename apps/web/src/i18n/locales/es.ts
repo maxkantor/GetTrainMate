@@ -123,6 +123,7 @@ export const es = {
     product: 'Producto',
     company: 'Empresa',
     legal: 'Legal',
+    platform: 'Plataforma',
     privacy: 'Privacidad',
     terms: 'Términos',
   },

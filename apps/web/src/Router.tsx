@@ -15,6 +15,7 @@ import { ContactPage } from '@/pages/Contact';
 import { PrivacyPage } from '@/pages/Privacy';
 import { TermsPage } from '@/pages/Terms';
 import { GearPage } from '@/pages/Gear';
+import { PlatformPage } from '@/pages/Platform';
 import { LoginPage } from '@/pages/Login';
 import { SignupPage } from '@/pages/Signup';
 import { VerifyEmailPage } from '@/pages/VerifyEmail';
@@ -59,6 +60,7 @@ export const Router: React.FC = () => {
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/gear" element={<GearPage />} />
+            <Route path="/platform" element={<PlatformPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/terms" element={<TermsPage />} />
 

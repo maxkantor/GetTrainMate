@@ -1,0 +1,124 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--header-height, 64px));
+  background: #070b1a;
+}
+
+.header {
+  flex-shrink: 0;
+  padding: var(--space-4) var(--page-inner-padding, var(--space-4)) var(--space-5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.headerInner {
+  max-width: var(--container-app, 1180px);
+  margin: 0 auto;
+}
+
+.backRow {
+  margin-bottom: var(--space-3);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0 0 var(--space-1);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.subtitle {
+  font-size: 0.9375rem;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.iframeContainer {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  padding: 0 var(--page-inner-padding, var(--space-4)) var(--space-4);
+}
+
+.iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.iframeVisible {
+  opacity: 1;
+}
+
+.loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  padding: var(--space-6);
+  text-align: center;
+}
+
+.fallbackMessage {
+  font-size: 0.9375rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 var(--space-3);
+}
+
+.fallbackLink {
+  font-size: 0.9375rem;
+  color: rgba(99, 102, 241, 0.9);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.fallbackLink:hover {
+  color: rgba(99, 102, 241, 1);
+}
+
+@media (max-width: 768px) {
+  .page {
+    min-height: calc(100vh - var(--header-height, 56px));
+  }
+
+  .header {
+    padding: var(--space-3) var(--page-inner-padding, var(--space-3)) var(--space-4);
+  }
+
+  .backRow {
+    margin-bottom: var(--space-2);
+  }
+
+  .title {
+    font-size: 1.25rem;
+  }
+
+  .subtitle {
+    font-size: 0.875rem;
+  }
+
+  .iframeContainer {
+    padding: 0 var(--page-inner-padding, var(--space-3)) var(--space-3);
+  }
+}

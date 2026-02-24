@@ -147,6 +147,7 @@ export const en = {
     product: 'Product',
     company: 'Company',
     legal: 'Legal',
+    platform: 'Platform',
     privacy: 'Privacy',
     terms: 'Terms',
   },
