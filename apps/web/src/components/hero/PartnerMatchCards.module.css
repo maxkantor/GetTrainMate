@@ -4,6 +4,8 @@
   width: 100%;
   max-width: 620px;
   margin: 0 auto;
+  padding-top: 16px;
+  z-index: 0;
 }
 
 .card {
@@ -250,6 +252,7 @@
 @media (max-width: 768px) {
   .cardsWrapper {
     height: 360px;
+    padding-top: 12px;
     max-width: 100%;
     display: flex;
     justify-content: center;

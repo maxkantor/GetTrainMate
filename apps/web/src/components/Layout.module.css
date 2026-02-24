@@ -5,10 +5,10 @@
   background: transparent;
 }
 
-/* Marketing/public pages: full bleed content */
+/* Marketing/public pages: content-driven height */
 .main {
   flex: 1;
-  min-height: calc(100vh - 60px);
+  min-height: 0;
 }
 
 /* App pages (/app/*): reduced top padding, centered container, better density at 50% zoom */

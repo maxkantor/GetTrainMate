@@ -23,6 +23,11 @@
   --nav-height: 56px;
   --nav-height-desktop: 64px;
 
+  /* Section padding – shared spacing tokens */
+  --section-py-desktop: 40px;
+  --section-py-tablet: 32px;
+  --section-py-mobile: 24px;
+
   /* Colors - Semantic */
   --color-success: #10b981;
   --color-warning: #f59e0b;

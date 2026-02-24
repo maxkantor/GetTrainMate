@@ -15,25 +15,19 @@
   color: rgba(255, 255, 255, 0.95);
 }
 
-/* Padding variants - compact 64px desktop, 48px mobile */
-.sm {
-  padding: 64px 0;
+/* Section padding: desktop 40px, tablet 32px, mobile 24px */
+.sm, .md, .lg, .xl {
+  padding: var(--section-py-desktop, 40px) 0;
 }
 
-.md {
-  padding: 64px 0;
-}
-
-.lg {
-  padding: 64px 0;
-}
-
-.xl {
-  padding: 64px 0;
+@media (max-width: 1024px) {
+  .sm, .md, .lg, .xl {
+    padding: var(--section-py-tablet, 32px) 0;
+  }
 }
 
 @media (max-width: 768px) {
   .sm, .md, .lg, .xl {
-    padding: 48px 0;
+    padding: var(--section-py-mobile, 24px) 0;
   }
 }
