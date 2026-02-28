@@ -210,7 +210,7 @@ export class GetTrainMateStack extends cdk.Stack {
     });
 
     const resolverLambda = new nodejs.NodejsFunction(this, 'AppSyncResolver', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'handler',
       entry: path.join(__dirname, '../lambdas/appsync-resolver/index.js'),
       timeout: cdk.Duration.seconds(25),
