@@ -10,6 +10,9 @@ using GetTrainMate.Api.Services.Bedrock;
 using GetTrainMate.Api.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using System.Linq;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 using Serilog;
@@ -124,6 +127,24 @@ public class Startup
         {
             var region = Environment.GetEnvironmentVariable("AWS_REGION") ?? "us-east-1";
             var issuer = $"https://cognito-idp.{region}.amazonaws.com/{userPoolId}";
+            var jwksUri = $"{issuer}/.well-known/jwks.json";
+
+            // Fetch and cache JWKS at startup. IssuerSigningKeyResolver needs keys synchronously;
+            // when token has no kid, we return all keys so validator can try each one (fixes IDX10503).
+            JsonWebKeySet? jwks = null;
+            try
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+                var json = http.GetStringAsync(jwksUri).GetAwaiter().GetResult();
+                jwks = new JsonWebKeySet(json);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not fetch Cognito JWKS from {Uri}, JWT validation may fail", jwksUri);
+            }
+
+            var keysList = jwks?.GetSigningKeys() ?? (IList<SecurityKey>)Array.Empty<SecurityKey>();
+            var keys = keysList.ToArray();
 
             services.AddAuthentication(options =>
             {
@@ -132,24 +153,29 @@ public class Startup
             })
             .AddJwtBearer(options =>
             {
-                options.Authority = issuer;
-                options.MetadataAddress = $"{issuer}/.well-known/openid-configuration";
+                // Use our own key resolver (handles tokens without kid). Do not use Authority/MetadataAddress
+                // for key loading - that requires kid and causes IDX10503.
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    ValidateIssuer = false, // Disable issuer validation - accept tokens from any Cognito pool
+                    ValidateIssuer = false,
                     ValidateAudience = false,
                     ValidateLifetime = true,
-                    ValidateIssuerSigningKey = false, // Disable signing key validation for now
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = issuer,
                     NameClaimType = ClaimTypes.NameIdentifier,
                     RoleClaimType = ClaimTypes.Role,
-                    RequireSignedTokens = false
+                    IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
+                    {
+                        if (keys.Length == 0) return keys;
+                        if (string.IsNullOrEmpty(kid)) return keys;
+                        var match = keys.OfType<Microsoft.IdentityModel.Tokens.JsonWebKey>()
+                            .Where(k => string.Equals(k.Kid, kid, StringComparison.Ordinal)).ToArray();
+                        return match.Length > 0 ? match : keys;
+                    }
                 };
 
-                // Don't require HTTPS metadata endpoint in Lambda
                 options.RequireHttpsMetadata = false;
-                // Increase timeout for metadata retrieval
                 options.BackchannelTimeout = TimeSpan.FromSeconds(60);
-                // Don't throw on configuration errors
                 options.IncludeErrorDetails = true;
                 
                 // Handle authentication failures gracefully
