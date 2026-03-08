@@ -1,6 +1,6 @@
 import axios from 'axios';
+import { API_BASE_URL } from '@/config/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
 const PLANS_CACHE_KEY = 'billing_plans_cache';
 const CREDIT_PACKS_CACHE_KEY = 'credit_packs_cache';
 const PLANS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min

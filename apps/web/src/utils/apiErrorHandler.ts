@@ -2,6 +2,16 @@
  * Centralized API error handling utility
  */
 
+/** In dev, log actionable hints when 401/403 occur (env/config mismatch is common). */
+function logAuthDebug(status: number, requestUrl?: string): void {
+  if (!import.meta.env.DEV || (status !== 401 && status !== 403)) return;
+  const hint =
+    status === 401
+      ? 'Token may be expired or from a different User Pool. See docs/COGNITO_SETUP.md — ensure VITE_COGNITO_* and VITE_API_URL match Amplify.'
+      : '403 Forbidden: check API CORS and backend allowlist for this origin.';
+  console.warn(`[API ${status}] ${hint}`, requestUrl ? `Request: ${requestUrl}` : '');
+}
+
 export interface ApiError {
   message: string;
   code?: string;
@@ -41,6 +51,7 @@ export function handleApiError(error: any): ApiError {
     if (err.response.status === 401 || err.response.status === 403) {
       apiError.isAuthError = true;
       apiError.message = 'Authentication required. Please sign in again.';
+      logAuthDebug(err.response.status, err.config?.url);
     }
     if (err.response.status === 402 && err.response.data?.code === 'INSUFFICIENT_CREDITS') {
       apiError.message = ensureMessageString(err.response.data?.message) || 'Not enough credits. Get more on the Pricing page.';
@@ -72,6 +83,7 @@ export function handleApiError(error: any): ApiError {
     if (status === 401 || status === 403) {
       apiError.isAuthError = true;
       apiError.message = 'Authentication required. Please sign in again.';
+      logAuthDebug(status);
     }
   } else {
     apiError.message = ensureMessageString(err?.message);

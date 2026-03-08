@@ -17,8 +17,7 @@ import type {
   AiCreditCosts,
   AiErrorShape,
 } from '@/types/ai';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
+import { API_BASE_URL as API_BASE } from '@/config/api';
 
 function getHeaders(token: string) {
   return {

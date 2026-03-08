@@ -588,15 +588,32 @@ export const DiscoverPage: React.FC = () => {
   }
 
   if (error && feed.length === 0) {
+    const isAuthError = error.includes('sign in') || error.includes('Session expired') || error.includes('Authentication');
     return (
       <div className={styles.container}>
         <div className={styles.emptyState}>
           <Alert severity={error.includes('API') ? 'warning' : 'info'} sx={{ mb: 2 }}>
             {error}
           </Alert>
-          <Button fullWidth variant="contained" color="primary" onClick={() => loadFeed()}>
-            {DISCOVER_STRINGS.retry}
-          </Button>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {isAuthError ? (
+              <Button
+                fullWidth
+                variant="contained"
+                color="primary"
+                onClick={() => {
+                  logout();
+                  navigate('/login', { state: { from: '/app/discover' }, replace: true });
+                }}
+              >
+                Sign in again
+              </Button>
+            ) : (
+              <Button fullWidth variant="contained" color="primary" onClick={() => loadFeed()}>
+                {DISCOVER_STRINGS.retry}
+              </Button>
+            )}
+          </Box>
         </div>
       </div>
     );
@@ -760,10 +777,25 @@ export const DiscoverPage: React.FC = () => {
 
       <Snackbar
         open={!!toast}
-        autoHideDuration={5000}
+        autoHideDuration={toast?.includes('sign in') || toast?.includes('Session expired') ? 10000 : 5000}
         onClose={() => setToast(null)}
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        action={
+          toast && (toast.includes('sign in') || toast.includes('Session expired')) ? (
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                setToast(null);
+                logout();
+                navigate('/login', { state: { from: '/app/discover' }, replace: true });
+              }}
+            >
+              Sign in
+            </Button>
+          ) : undefined
+        }
       />
 
       <OnboardingModal open={onboardingModalOpen} onClose={() => setOnboardingModalOpen(false)} />

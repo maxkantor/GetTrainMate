@@ -84,6 +84,18 @@ If login works but you then see **"We couldn't load your profile"** or **401** i
 
 Restart the dev server. Then localhost uses the same Cognito pool **and** the same API/AppSync as Amplify, so the backend will accept your token.
 
+### 403 Forbidden
+
+- **API calls**: Check the backend CORS configuration allows your origin (e.g. `localhost:5173`, `*.amplifyapp.com`). API Gateway and Lambda must allow `Access-Control-Allow-Origin` for the requesting domain.
+- **Profile images / S3**: 403 on image URLs often means presigned URLs expired (typically 15–60 min) or the bucket policy denies access. Refresh the page to get new URLs.
+
+### Console errors (ip-xxx, gos..., execute-api)
+
+If you see `Failed to load resource: 403/401` in the browser console for URLs containing `ip-`, `gos`, or `execute-api`:
+
+- **ip-xxx**: AWS internal hostnames; may be health checks or internal calls. Usually benign.
+- **gos... / execute-api**: Your API Gateway domain. 401 = token invalid/expired or wrong User Pool (see "401 after login" above). 403 = CORS or backend authorization. Ensure `VITE_API_URL` matches the deployed API and env vars align with Amplify.
+
 ## Current Implementation
 
 The current code:

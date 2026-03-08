@@ -1,6 +1,6 @@
 import { fetchAuthSession } from 'aws-amplify/auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
+import { API_BASE_URL } from '@/config/api';
 
 const ADMIN_TOKEN_KEY = 'adminToken';
 

@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { handleApiError } from '@/utils/apiErrorHandler';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
+import { API_BASE_URL } from '@/config/api';
 
 export interface MatchFeedItem {
   userId: string;

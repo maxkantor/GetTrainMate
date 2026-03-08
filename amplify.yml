@@ -8,7 +8,7 @@ frontend:
         - npm ci --ignore-scripts
     build:
       commands:
-        - npm run web:build
+        - VITE_API_URL="${VITE_API_URL//us-cast-1/us-east-1}" npm run web:build
   artifacts:
     baseDirectory: apps/web/dist
     files:
