@@ -353,20 +353,51 @@ export const DiscoverPage: React.FC = () => {
           advanceWithUndo();
         }
       } else {
-        const token = await authService.getJWT();
-        if (!token) return;
-        const result = await matchService.likeUser(token, currentCard.userId);
-        await refreshMe();
-        if (result.isMatched) {
-          setMatched(true);
-          setToast(`${DISCOVER_STRINGS.match} ${currentCard.name}`);
-          setTimeout(() => {
+        let token = await authService.getJWT(true);
+        if (!token) {
+          setToast('Please sign in again.');
+          return;
+        }
+        try {
+          const result = await matchService.likeUser(token, currentCard.userId);
+          await refreshMe();
+          if (result.isMatched) {
+            setMatched(true);
+            setToast(`${DISCOVER_STRINGS.match} ${currentCard.name}`);
+            setTimeout(() => {
+              advanceWithUndo();
+              setMatched(false);
+            }, 1500);
+          } else {
+            setToast(DISCOVER_STRINGS.liked);
             advanceWithUndo();
-            setMatched(false);
-          }, 1500);
-        } else {
-          setToast(DISCOVER_STRINGS.liked);
-          advanceWithUndo();
+          }
+        } catch (likeErr: unknown) {
+          const status = (likeErr as { response?: { status?: number } })?.response?.status;
+          if (status === 401) {
+            token = await authService.getJWT(true) ?? '';
+            if (token) {
+              try {
+                const result = await matchService.likeUser(token, currentCard.userId);
+                await refreshMe();
+                if (result.isMatched) {
+                  setMatched(true);
+                  setToast(`${DISCOVER_STRINGS.match} ${currentCard.name}`);
+                  setTimeout(() => { advanceWithUndo(); setMatched(false); }, 1500);
+                } else {
+                  setToast(DISCOVER_STRINGS.liked);
+                  advanceWithUndo();
+                }
+                return;
+              } catch {
+                /* fall through */
+              }
+            }
+            setToast('Session expired. Please sign in again.');
+            setLikeLoading(false);
+            return;
+          }
+          throw likeErr;
         }
       }
     } catch (err: unknown) {
@@ -380,6 +411,8 @@ export const DiscoverPage: React.FC = () => {
           (err as { response?: { status?: number } })?.response?.status === 402
         ) {
           setToast(apiError.message || 'Not enough credits. Get more on the Pricing page.');
+        } else if (apiError.status === 401 || apiError.isAuthError) {
+          setToast('Session expired. Please sign in again.');
         } else {
           setToast(apiError.message || 'Failed to like');
         }
@@ -400,9 +433,24 @@ export const DiscoverPage: React.FC = () => {
 
     try {
       if (!isGraphQLEnabled) {
-        const token = await authService.getJWT();
-        if (!token) return;
-        await matchService.passUser(token, currentCard.userId);
+        let token = await authService.getJWT(true);
+        if (!token) {
+          setToast('Please sign in again.');
+          advanceWithUndo();
+          return;
+        }
+        try {
+          await matchService.passUser(token, currentCard.userId);
+        } catch (passErr: unknown) {
+          const status = (passErr as { response?: { status?: number } })?.response?.status;
+          if (status === 401 && (token = await authService.getJWT(true) ?? '')) {
+            try {
+              await matchService.passUser(token, currentCard.userId);
+            } catch {
+              setToast('Session expired. Please sign in again.');
+            }
+          }
+        }
       }
       setToast(DISCOVER_STRINGS.passed);
       advanceWithUndo();
@@ -455,7 +503,8 @@ export const DiscoverPage: React.FC = () => {
     const card = feed[currentIndex];
     if (!card || !me?.user?.id) return;
     if (isDummyNearbyProfile(card.userId)) return;
-    const token = await authService.getJWT();
+    // Use refreshed token to avoid 401 from expired token
+    const token = await authService.getJWT(true);
     if (!token) {
       setToast('Please sign in again.');
       return;
@@ -465,29 +514,47 @@ export const DiscoverPage: React.FC = () => {
       return;
     }
     setLoadingInsightFor(card.userId);
-    try {
-      const myProfile = me?.profile;
-      const request = {
-        userId: me.user.id,
-        targetUserId: card.userId,
-        myName: myProfile?.name,
-        myBio: myProfile?.bio,
-        mySports: myProfile?.sportTags ?? [],
-        myLevel: myProfile?.level,
-        myGoals: myProfile?.goals ?? [],
-        myScheduleSummary: scheduleSummary(myProfile?.availabilitySchedule),
-        otherName: card.name,
-        otherBio: card.bio,
-        otherSports: card.sportTags ?? [],
-        otherLevel: card.level,
-        otherGoals: [],
-        otherScheduleSummary: undefined,
-        compatibilityScore: card.compatibilityScore ?? 50,
-      };
-      const result = await getMatchInsight(token, request);
+    const myProfile = me?.profile;
+    const request = {
+      userId: me.user.id,
+      targetUserId: card.userId,
+      myName: myProfile?.name,
+      myBio: myProfile?.bio,
+      mySports: myProfile?.sportTags ?? [],
+      myLevel: myProfile?.level,
+      myGoals: myProfile?.goals ?? [],
+      myScheduleSummary: scheduleSummary(myProfile?.availabilitySchedule),
+      otherName: card.name,
+      otherBio: card.bio,
+      otherSports: card.sportTags ?? [],
+      otherLevel: card.level,
+      otherGoals: [],
+      otherScheduleSummary: undefined,
+      compatibilityScore: card.compatibilityScore ?? 50,
+    };
+    const tryRequest = async (authToken: string) => {
+      const result = await getMatchInsight(authToken, request);
       setInsightMap((prev) => ({ ...prev, [card.userId]: result }));
       await refreshMe();
+    };
+    try {
+      await tryRequest(token);
     } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        const freshToken = await authService.getJWT(true);
+        if (freshToken) {
+          try {
+            await tryRequest(freshToken);
+            return;
+          } catch {
+            /* fall through to auth message */
+          }
+        }
+        setToast('Session expired. Please sign in again.');
+        setLoadingInsightFor(null);
+        return;
+      }
       if (isInsufficientCreditsError(err)) {
         setToast('Not enough credits. Get more on the Pricing page.');
       } else {
