@@ -467,6 +467,13 @@ export const DiscoverPage: React.FC = () => {
     }
   };
 
+  const handleConnect = () => {
+    const currentCard = feed[currentIndex];
+    if (currentCard?.userId) {
+      navigate(`/app/profile/${currentCard.userId}`);
+    }
+  };
+
   const handleSeedDemo = async () => {
     try {
       setSeeding(true);
@@ -746,7 +753,7 @@ export const DiscoverPage: React.FC = () => {
             <ActionBar
               onPass={handlePass}
               onLike={handleLike}
-              onConnect={() => setConnectModalOpen(true)}
+              onConnect={handleConnect}
               onUndo={handleUndo}
               likeLoading={likeLoading}
               credits={credits}
