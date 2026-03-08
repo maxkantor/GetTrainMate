@@ -39,6 +39,27 @@ public class MatchController : ControllerBase
         }
     }
 
+    [HttpGet("compatibility/{targetUserId}")]
+    public async Task<ActionResult<CompatibilityInfo>> GetCompatibility(string targetUserId)
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "Invalid token" });
+
+            var info = await _matchService.GetCompatibilityAsync(userId, targetUserId);
+            if (info == null)
+                return NotFound(new { message = "Profile not found" });
+            return Ok(info);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting compatibility");
+            return StatusCode(500, new { message = "Error retrieving compatibility" });
+        }
+    }
+
     [HttpGet("discover")]
     public async Task<ActionResult<List<MatchFeedItem>>> GetDiscoveryFeed([FromQuery] int limit = 20)
     {

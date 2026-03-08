@@ -5,6 +5,7 @@ namespace GetTrainMate.Api.Services;
 public interface IMatchService
 {
     Task<int> SeedDemoProfilesAsync();
+    Task<CompatibilityInfo?> GetCompatibilityAsync(string userId, string targetUserId);
     Task<List<MatchFeedItem>> GetDiscoveryFeedAsync(string userId, int limit = 20);
     Task<MatchResponse> LikeUserAsync(string userId, string targetUserId);
     Task<MatchResponse> PassUserAsync(string userId, string targetUserId);

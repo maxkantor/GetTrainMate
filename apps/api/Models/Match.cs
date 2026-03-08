@@ -46,3 +46,12 @@ public class MatchResponse
     public int CompatibilityScore { get; set; }
     public bool IsMatched { get; set; }
 }
+
+public class CompatibilityInfo
+{
+    public int CompatibilityScore { get; set; }
+    public List<string> CommonSports { get; set; } = new();
+    public string? Level { get; set; }
+    public string? City { get; set; }
+    public string? Mode { get; set; }
+}

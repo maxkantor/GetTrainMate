@@ -92,6 +92,24 @@ public class MatchService : IMatchService
         return created;
     }
 
+    public async Task<CompatibilityInfo?> GetCompatibilityAsync(string userId, string targetUserId)
+    {
+        if (string.IsNullOrEmpty(targetUserId)) return null;
+        var userProfile = await _profileService.GetProfileAsync(userId);
+        var targetProfile = await _profileService.GetProfileAsync(targetUserId);
+        if (userProfile == null || targetProfile == null) return null;
+        var score = CalculateCompatibilityScore(userProfile, targetProfile);
+        var commonSports = GetCommonSports(userProfile.SportTags, targetProfile.SportTags);
+        return new CompatibilityInfo
+        {
+            CompatibilityScore = score,
+            CommonSports = commonSports,
+            Level = targetProfile.Level,
+            City = targetProfile.City,
+            Mode = targetProfile.Mode
+        };
+    }
+
     public async Task<List<MatchFeedItem>> GetDiscoveryFeedAsync(string userId, int limit = 20)
     {
         try

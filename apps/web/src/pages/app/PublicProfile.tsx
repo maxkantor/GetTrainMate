@@ -12,16 +12,20 @@ import {
   Alert,
   Stack,
   IconButton,
+  Snackbar,
 } from '@mui/material';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useI18n } from '@/hooks/useI18n';
+import { useMe } from '@/hooks/useMe';
 import { authService } from '@/services/authService';
 import { profileService } from '@/services/profileService';
 import { matchService } from '@/services/matchService';
+import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import { isGraphQLEnabled, graphqlGetProfile, graphqlLikeUser } from '@/services/graphqlService';
+import { MatchPanel } from './discover/MatchPanel';
 import { handleApiError } from '@/utils/apiErrorHandler';
 import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import { getDiscoverDemoCard, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
@@ -31,6 +35,11 @@ interface PublicProfilePageProps {
   userIdFromRoute?: string;
 }
 
+function scheduleSummary(schedule: { days?: string[]; timeStart?: string; timeEnd?: string }[] | undefined): string {
+  if (!schedule?.length) return '';
+  return schedule.map((s) => `${(s.days ?? []).join('/')} ${s.timeStart ?? ''}-${s.timeEnd ?? ''}`).join('; ');
+}
+
 export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFromRoute: userIdProp }) => {
   const location = useLocation();
   const paramsUserId = useParams<{ userId: string }>().userId;
@@ -38,6 +47,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
   const userId = userIdProp ?? userIdFromUrl;
   const navigate = useNavigate();
   const { t } = useI18n();
+  const { me, refreshMe } = useMe();
   const lastFetchedUserId = useRef<string>('');
 
   const [profile, setProfile] = useState<{
@@ -56,6 +66,17 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
   const [matched, setMatched] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [photoErrorForIndex, setPhotoErrorForIndex] = useState<number | null>(null);
+  const [compatibility, setCompatibility] = useState<{
+    compatibilityScore: number;
+    commonSports: string[];
+    level?: string;
+    city?: string;
+    mode?: string;
+  } | null>(null);
+  const [insightMap, setInsightMap] = useState<Record<string, { summary: string; reasons: string[]; caution?: string }>>({});
+  const [loadingInsightFor, setLoadingInsightFor] = useState<string | null>(null);
+  const [aiInsightCost, setAiInsightCost] = useState(2);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) {
@@ -74,6 +95,89 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
   useEffect(() => {
     setPhotoErrorForIndex(null);
   }, [photoIndex]);
+
+  useEffect(() => {
+    if (!profile || isDummyNearbyProfile(profile.userId) || isLandingProfileUserId(profile.userId)) {
+      setCompatibility(null);
+      return;
+    }
+    const load = async () => {
+      const token = await authService.getJWT();
+      if (!token) return;
+      try {
+        const info = await matchService.getCompatibility(token, profile.userId);
+        setCompatibility(info ?? null);
+      } catch {
+        setCompatibility(null);
+      }
+    };
+    load();
+  }, [profile?.userId]);
+
+  useEffect(() => {
+    const load = async () => {
+      const token = await authService.getJWT();
+      if (!token) return;
+      try {
+        const costs = await getAiCreditCosts(token);
+        setAiInsightCost(costs.matchInsight ?? 2);
+      } catch {
+        /* keep default 2 */
+      }
+    };
+    load();
+  }, []);
+
+  const handleUnlockAiInsight = async () => {
+    if (!profile || !me?.user?.id) return;
+    if (isDummyNearbyProfile(profile.userId) || isLandingProfileUserId(profile.userId)) return;
+    const token = await authService.getJWT(true);
+    if (!token) {
+      setToast('Please sign in again.');
+      return;
+    }
+    if ((me?.credits ?? 0) < aiInsightCost) {
+      setToast('Not enough credits to unlock AI match insight. Get more on the Pricing page.');
+      return;
+    }
+    setLoadingInsightFor(profile.userId);
+    const myProfile = me.profile;
+    const request = {
+      userId: me.user.id,
+      targetUserId: profile.userId,
+      myName: myProfile?.name,
+      myBio: myProfile?.bio,
+      mySports: myProfile?.sportTags ?? [],
+      myLevel: myProfile?.level,
+      myGoals: myProfile?.goals ?? [],
+      myScheduleSummary: scheduleSummary(myProfile?.availabilitySchedule),
+      otherName: profile.name,
+      otherBio: profile.bio,
+      otherSports: profile.sportTags ?? [],
+      otherLevel: profile.level,
+      otherGoals: [],
+      otherScheduleSummary: undefined,
+      compatibilityScore: compatibility?.compatibilityScore ?? 50,
+    };
+    try {
+      const result = await getMatchInsight(token, request);
+      setInsightMap((prev) => ({ ...prev, [profile.userId]: result }));
+      await refreshMe();
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        setToast('Session expired. Please sign in again.');
+        return;
+      }
+      if (isInsufficientCreditsError(err)) {
+        setToast('Not enough credits. Get more on the Pricing page.');
+      } else {
+        setToast(getAiErrorMessage(err));
+      }
+    } finally {
+      setLoadingInsightFor(null);
+    }
+  };
 
   const loadProfile = async () => {
     if (!userId) return;
@@ -340,6 +444,24 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
         </CardContent>
       </Card>
 
+      {!isDemoProfile && (
+        <MatchPanel
+          score={compatibility?.compatibilityScore ?? 50}
+          reasons={[
+            ...(compatibility?.commonSports?.length
+              ? [`${compatibility.commonSports.length} common sports`]
+              : []),
+            compatibility?.level ? `Similar level (${compatibility.level})` : null,
+            compatibility?.city ? 'Distance near you' : null,
+          ].filter(Boolean) as string[]}
+          aiMatchInsightFull={insightMap[profile.userId]}
+          aiInsightCreditCost={aiInsightCost}
+          onUnlockAiInsight={handleUnlockAiInsight}
+          aiInsightLoading={loadingInsightFor === profile.userId}
+          compact
+        />
+      )}
+
       {isDemoProfile && (
         <Alert severity="info" sx={{ mt: 2 }}>
           This is a preview profile. You can&apos;t match or message here. Go to Discover and keep swiping to find real profiles you can like and connect with.
@@ -374,6 +496,14 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
           </Button>
         </Alert>
       )}
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={5000}
+        onClose={() => setToast(null)}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Container>
   );
 };

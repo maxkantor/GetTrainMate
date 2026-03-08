@@ -42,6 +42,26 @@ class MatchService {
     return response.data;
   }
 
+  async getCompatibility(token: string, targetUserId: string): Promise<{
+    compatibilityScore: number;
+    commonSports: string[];
+    level?: string;
+    city?: string;
+    mode?: string;
+  } | null> {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/match/compatibility/${encodeURIComponent(targetUserId)}`,
+        this.getHeaders(token)
+      );
+      return response.data;
+    } catch (error) {
+      if ((error as { response?: { status?: number } })?.response?.status === 404) return null;
+      const apiError = handleApiError(error);
+      throw new Error(apiError.message);
+    }
+  }
+
   async getDiscoveryFeed(token: string, limit: number = 20): Promise<MatchFeedItem[]> {
     try {
       const response = await axios.get<MatchFeedItem[]>(
