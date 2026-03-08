@@ -46,17 +46,12 @@ public class MatchService : IMatchService
     /// </summary>
     public async Task<int> SeedDemoProfilesAsync()
     {
-        // Curated Unsplash photos: fit, attractive people for a polished discover experience
+        // Only 3 seed profiles with real photos so real user-created profiles (Max, Alex, Sasha, etc.) dominate the feed
         var dummyUsers = new[]
         {
             new { UserId = "dummy-user-1", Name = "Sarah Runner", City = "San Francisco", Bio = "Marathon runner looking for training partners. Love long runs on weekends!", SportTags = new[] { "Running", "Yoga", "Hiking" }, Level = "intermediate", Goals = new[] { "Complete a sub-4 hour marathon" }, AvailabilitySchedule = new[] { new AvailabilitySlot { Days = new List<string> { "Mon", "Wed", "Fri" }, TimeStart = "18:00", TimeEnd = "20:00" } }, Mode = "TRAIN", PhotoUrl = "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=600&q=80" },
             new { UserId = "dummy-user-2", Name = "Mike Cyclist", City = "San Francisco", Bio = "Cycling enthusiast. Looking for weekend ride buddies.", SportTags = new[] { "Cycling", "Gym", "CrossFit" }, Level = "advanced", Goals = new[] { "Complete a century ride" }, AvailabilitySchedule = new[] { new AvailabilitySlot { Days = new List<string> { "Sat", "Sun" }, TimeStart = "08:00", TimeEnd = "12:00" } }, Mode = "VIBE", PhotoUrl = "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=600&q=80" },
             new { UserId = "dummy-user-3", Name = "Emma Yoga", City = "San Francisco", Bio = "Yoga instructor and fitness enthusiast. Love morning yoga sessions!", SportTags = new[] { "Yoga", "Pilates", "Meditation" }, Level = "pro", Goals = new[] { "Build a yoga community" }, AvailabilitySchedule = new[] { new AvailabilitySlot { Days = new List<string> { "Mon", "Wed", "Fri" }, TimeStart = "06:00", TimeEnd = "08:00" } }, Mode = "VIBE", PhotoUrl = "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&q=80" },
-            new { UserId = "dummy-user-4", Name = "Alex Hyrox", City = "San Francisco", Bio = "Hyrox competitor training for next race. Need training partners!", SportTags = new[] { "Hyrox", "CrossFit", "Running", "Gym" }, Level = "advanced", Goals = new[] { "Qualify for Hyrox World Championships" }, AvailabilitySchedule = new[] { new AvailabilitySlot { Days = new List<string> { "Tue", "Thu", "Sat" }, TimeStart = "17:00", TimeEnd = "20:00" } }, Mode = "TRAIN", PhotoUrl = "https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=600&q=80" },
-            new { UserId = "dummy-user-5", Name = "Jordan Pickleball", City = "San Francisco", Bio = "Pickleball player looking for doubles partners. Play 3x a week!", SportTags = new[] { "Pickleball", "Tennis", "Volleyball" }, Level = "intermediate", Goals = new[] { "Improve tournament ranking" }, AvailabilitySchedule = new[] { new AvailabilitySlot { Days = new List<string> { "Mon", "Wed", "Fri" }, TimeStart = "19:00", TimeEnd = "21:00" } }, Mode = "VIBE", PhotoUrl = "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600&q=80" },
-            new { UserId = "dummy-user-6", Name = "Chris Fisher", City = "San Francisco", Bio = "Fishing enthusiast. Love early morning fishing trips!", SportTags = new[] { "Fishing", "Hiking", "Kayaking" }, Level = "beginner", Goals = new[] { "Learn new fishing techniques" }, AvailabilitySchedule = new[] { new AvailabilitySlot { Days = new List<string> { "Sat", "Sun" }, TimeStart = "06:00", TimeEnd = "10:00" } }, Mode = "VIBE", PhotoUrl = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&q=80" },
-            new { UserId = "dummy-user-7", Name = "Maria Soccer", City = "San Francisco", Bio = "Soccer player looking for pickup games and training partners.", SportTags = new[] { "Soccer", "Running", "Gym" }, Level = "intermediate", Goals = new[] { "Join a competitive league" }, AvailabilitySchedule = new[] { new AvailabilitySlot { Days = new List<string> { "Tue", "Thu" }, TimeStart = "18:00", TimeEnd = "20:00" } }, Mode = "TRAIN", PhotoUrl = "https://images.unsplash.com/photo-1594381898411-846e7d193883?w=600&q=80" },
-            new { UserId = "dummy-user-8", Name = "David Swimmer", City = "San Francisco", Bio = "Competitive swimmer. Training for triathlons.", SportTags = new[] { "Swimming", "Cycling", "Running", "Triathlon" }, Level = "advanced", Goals = new[] { "Complete an Ironman" }, AvailabilitySchedule = new[] { new AvailabilitySlot { Days = new List<string> { "Mon", "Wed", "Fri", "Sun" }, TimeStart = "05:00", TimeEnd = "07:00" } }, Mode = "TRAIN", PhotoUrl = "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&q=80" },
         };
 
         var created = 0;
@@ -130,13 +125,8 @@ public class MatchService : IMatchService
                 if (string.IsNullOrEmpty(profileUserId))
                     continue;
                 
-                // Skip self
+                // Skip only self so Discover shows all other profiles (Max sees Alex, Sasha, etc.)
                 if (profileUserId == userId)
-                    continue;
-
-                // Skip already seen (in production, check interaction history table)
-                var existingMatch = await GetMatchAsync(userId, profileUserId);
-                if (existingMatch != null)
                     continue;
 
                 UserProfile targetProfile;

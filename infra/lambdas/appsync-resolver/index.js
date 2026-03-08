@@ -134,9 +134,11 @@ async function getCreditsBalance(userId) {
     TableName: tables.userCredits,
     Key: marshall({ UserId: userId }),
   }));
-  if (!r.Item) return 0;
+  if (!r.Item) return { balance: 0, lifetimeEarned: 0 };
   const item = unmarshall(r.Item);
-  return item.Balance ?? 0;
+  const balance = item.Balance ?? 0;
+  const lifetimeEarned = item.LifetimeEarned ?? balance;
+  return { balance, lifetimeEarned };
 }
 
 async function getMe(identity) {
@@ -160,7 +162,8 @@ async function getMe(identity) {
       updatedAt: null,
     },
     profile: profileOut,
-    credits,
+    credits: credits.balance,
+    lifetimeEarned: credits.lifetimeEarned,
     isProfileComplete,
   };
 }
@@ -177,7 +180,6 @@ function isProfileCompleteCheck(p) {
 
 async function discoverCandidates(identity, args) {
   const userId = getUserId(identity);
-  const limit = Math.min(Math.max(args?.limit || 20, 1), 50);
 
   // Paginate profiles scan so we don't miss users when table has many items
   const all = [];
@@ -193,25 +195,11 @@ async function discoverCandidates(identity, args) {
     lastKey = scan.LastEvaluatedKey || null;
   } while (lastKey);
 
-  // Don't require current user to have a profile to show others (handles new users / eventual consistency)
-  const myProfile = await getProfile(userId);
-
-  const matchesScan = await dynamo.send(new ScanCommand({
-    TableName: tables.matches,
-    FilterExpression: 'userId1 = :u OR userId2 = :u',
-    ExpressionAttributeValues: marshall({ ':u': userId }),
-  }));
-  const seenUserIds = new Set();
-  (matchesScan.Items || []).forEach((i) => {
-    const m = unmarshall(i);
-    if (m.userId1 === userId) seenUserIds.add(m.userId2);
-    else seenUserIds.add(m.userId1);
-  });
-
+  // Show all profiles except self so Discover lists everyone (e.g. Max sees Alex, Sasha, seed demos)
   const candidates = [];
   for (const doc of all) {
     const profileUserId = doc.userId;
-    if (!profileUserId || profileUserId === userId || seenUserIds.has(profileUserId)) continue;
+    if (!profileUserId || profileUserId === userId) continue;
     const p = profileFromDoc(doc);
     if (!p) continue;
     // Show profile even if name is empty: use fallback so real users always appear in discover
@@ -228,7 +216,6 @@ async function discoverCandidates(identity, args) {
       avatarUrl: p.avatarUrl || (() => { const n = String(p.userId).split('').reduce((a, b) => a + b.charCodeAt(0), 0); const idx = (n % 99) + 1; const g = n % 2 === 0 ? 'women' : 'men'; return `https://randomuser.me/api/portraits/${g}/${idx}.jpg`; })(),
       compatibilityScore,
     });
-    if (candidates.length >= limit) break;
   }
   return { items: candidates, nextToken: null };
 }

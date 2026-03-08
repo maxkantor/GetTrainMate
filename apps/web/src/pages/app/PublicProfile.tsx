@@ -24,8 +24,7 @@ import { matchService } from '@/services/matchService';
 import { isGraphQLEnabled, graphqlGetProfile, graphqlLikeUser } from '@/services/graphqlService';
 import { handleApiError } from '@/utils/apiErrorHandler';
 import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
-import { getLocationFromIp, FALLBACK_LOCATION } from '@/services/locationService';
-import { buildNearbyDummyProfiles, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
+import { getDiscoverDemoCard, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
 import { getLandingProfile, isLandingProfileUserId } from '@/data/landingProfiles';
 
 interface PublicProfilePageProps {
@@ -102,10 +101,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
     }
 
     if (isDummyNearbyProfile(requestedUserId)) {
-      let location = await getLocationFromIp();
-      if (!location) location = FALLBACK_LOCATION;
-      const dummies = buildNearbyDummyProfiles(location);
-      const dummy = dummies.find((d) => d.userId === requestedUserId);
+      const dummy = getDiscoverDemoCard(requestedUserId);
       if (!dummy) {
         setError('Profile not found');
         setProfile(null);

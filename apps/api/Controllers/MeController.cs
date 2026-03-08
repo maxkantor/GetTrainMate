@@ -50,6 +50,7 @@ public class MeController : ControllerBase
                 User = new MeUserDto { Id = userId, Email = email },
                 Profile = profile,
                 Credits = credits.Balance,
+                LifetimeEarned = credits.LifetimeEarned,
                 IsProfileComplete = profile?.IsComplete ?? false,
                 IsAdmin = isAdmin,
             });
@@ -135,6 +136,8 @@ public class MeResponse
     public MeUserDto User { get; set; } = new();
     public UserProfile? Profile { get; set; }
     public int Credits { get; set; }
+    /// <summary>Total credits ever earned (for X/Y display: current / total).</summary>
+    public int LifetimeEarned { get; set; }
     public bool IsProfileComplete { get; set; }
     public bool IsAdmin { get; set; }
 }

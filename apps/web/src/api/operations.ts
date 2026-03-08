@@ -11,6 +11,7 @@ export const GET_ME = /* GraphQL */ `
         userId displayName age city bio sports goals schedule avatarUrl isComplete updatedAt
       }
       credits
+      lifetimeEarned
       isProfileComplete
     }
   }

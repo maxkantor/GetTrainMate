@@ -13,6 +13,8 @@ export interface MeResponse {
   user: MeUser;
   profile: UserProfile | null;
   credits: number;
+  /** Total credits ever earned (for X/Y display: current / total). */
+  lifetimeEarned?: number;
   isProfileComplete: boolean;
   isAdmin: boolean;
 }

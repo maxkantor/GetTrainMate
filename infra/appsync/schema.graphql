@@ -45,6 +45,7 @@ type Me {
   user: User!
   profile: Profile
   credits: Int!
+  lifetimeEarned: Int
   isProfileComplete: Boolean!
 }
 

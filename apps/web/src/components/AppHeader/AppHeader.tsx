@@ -84,7 +84,9 @@ export const AppHeader: React.FC = () => {
           {isLoggedIn && (
             <>
               <RouterLink to="/pricing" className={styles.creditsPill} aria-label="Your credits">
-                <span className={styles.creditsValue}>{me?.credits ?? 0}</span>
+                <span className={styles.creditsValue}>
+                  {me?.credits ?? 0}/{me?.lifetimeEarned ?? me?.credits ?? 0}
+                </span>
                 <span className={styles.creditsLabel}>credits</span>
               </RouterLink>
               <RouterLink
@@ -186,7 +188,7 @@ export const AppHeader: React.FC = () => {
                     {me?.profile?.name?.trim() || user?.email?.split('@')[0] || 'Profile'}
                   </div>
                   <RouterLink to="/pricing" className={styles.mobileCredits} onClick={() => { setMobileOpen(false); analytics.pricingOpened('mobile'); }}>
-                    {me?.credits ?? 0} credits
+                    {me?.credits ?? 0}/{me?.lifetimeEarned ?? me?.credits ?? 0} credits
                   </RouterLink>
                   <RouterLink to="/pricing" className={styles.mobileUpgrade} onClick={() => { setMobileOpen(false); analytics.pricingOpened('mobile'); }}>
                     Get Credits

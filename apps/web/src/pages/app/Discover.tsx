@@ -25,7 +25,7 @@ import {
 } from '@/utils/profilePhotos';
 import { IMAGE_BUCKET_BASE } from '@/config/media';
 import { getLocationFromIp, FALLBACK_LOCATION } from '@/services/locationService';
-import { buildNearbyDummyProfiles, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
+import { buildDiscoverDemoCards, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
 import { DiscoverLayout } from './discover/DiscoverLayout';
 import { ProfileCard } from './discover/ProfileCard';
 import { MatchPanel } from './discover/MatchPanel';
@@ -43,12 +43,14 @@ function scheduleSummary(schedule: { days?: string[]; timeStart?: string; timeEn
 }
 
 const BACKEND_DUMMY_PREFIX = 'dummy-user-';
+const LOCAL_DEMO_PREFIX = 'local-near-';
 
-function sortFeedBackendDummiesLast<T extends { userId: string }>(items: T[]): T[] {
+/** Real users first, then backend seed dummies, then local demo cards. */
+function sortDiscoverFeed<T extends { userId: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => {
-    const aDummy = a.userId.startsWith(BACKEND_DUMMY_PREFIX) ? 1 : 0;
-    const bDummy = b.userId.startsWith(BACKEND_DUMMY_PREFIX) ? 1 : 0;
-    return aDummy - bDummy;
+    const order = (id: string) =>
+      id.startsWith(LOCAL_DEMO_PREFIX) ? 2 : id.startsWith(BACKEND_DUMMY_PREFIX) ? 1 : 0;
+    return order(a.userId) - order(b.userId);
   });
 }
 
@@ -178,8 +180,8 @@ export const DiscoverPage: React.FC = () => {
         });
         let location = await getLocationFromIp();
         if (!location) location = FALLBACK_LOCATION;
-        const merged = [...buildNearbyDummyProfiles(location), ...feedFromApi];
-        setFeed(sortFeedBackendDummiesLast(merged));
+        const merged = [...feedFromApi, ...buildDiscoverDemoCards(location)];
+        setFeed(sortDiscoverFeed(merged));
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setUndoStack([]);
@@ -200,8 +202,8 @@ export const DiscoverPage: React.FC = () => {
         }));
         let location = await getLocationFromIp();
         if (!location) location = FALLBACK_LOCATION;
-        const merged = [...buildNearbyDummyProfiles(location), ...feedWithPhotos];
-        setFeed(sortFeedBackendDummiesLast(merged));
+        const merged = [...feedWithPhotos, ...buildDiscoverDemoCards(location)];
+        setFeed(sortDiscoverFeed(merged));
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setUndoStack([]);
@@ -245,8 +247,8 @@ export const DiscoverPage: React.FC = () => {
               });
               let location = await getLocationFromIp();
               if (!location) location = FALLBACK_LOCATION;
-              const merged = [...buildNearbyDummyProfiles(location), ...feedFromApi];
-              setFeed(sortFeedBackendDummiesLast(merged));
+              const merged = [...feedFromApi, ...buildDiscoverDemoCards(location)];
+              setFeed(sortDiscoverFeed(merged));
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoFallbackUrls({});
@@ -258,8 +260,8 @@ export const DiscoverPage: React.FC = () => {
               }));
               let location = await getLocationFromIp();
               if (!location) location = FALLBACK_LOCATION;
-              const merged = [...buildNearbyDummyProfiles(location), ...feedWithPhotos];
-              setFeed(sortFeedBackendDummiesLast(merged));
+              const merged = [...feedWithPhotos, ...buildDiscoverDemoCards(location)];
+              setFeed(sortDiscoverFeed(merged));
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoErrorForIndex(null);
@@ -593,7 +595,7 @@ export const DiscoverPage: React.FC = () => {
               <span className={styles.myAvatarLetter}>{myAvatarLetter}</span>
             </Link>
             <p className={styles.creditsStrip}>
-              <strong>Credits: {credits}</strong> · Chat unlock = 1 credit
+              <strong>Credits: {credits}/{me?.lifetimeEarned ?? credits}</strong> · Chat unlock = 1 credit
               {userLocationLabel && (
                 <>
                   {' '}

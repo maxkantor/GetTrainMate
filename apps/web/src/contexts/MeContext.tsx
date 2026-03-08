@@ -45,6 +45,7 @@ function mapGraphQLMeToResponse(g: Awaited<ReturnType<typeof graphqlGetMe>>): Me
     user: { id: g.user.id, email: g.user.email ?? '' },
     profile,
     credits: g.credits,
+    lifetimeEarned: (g as { lifetimeEarned?: number }).lifetimeEarned ?? g.credits,
     isProfileComplete: g.isProfileComplete,
     isAdmin: g.user.isAdmin ?? false,
   };
