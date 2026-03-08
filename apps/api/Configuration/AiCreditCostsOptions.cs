@@ -1,0 +1,15 @@
+namespace GetTrainMate.Api.Configuration;
+
+/// <summary>
+/// Credit cost per AI feature. Configure in appsettings or env (e.g. AiCreditCosts:MatchInsight = 2).
+/// </summary>
+public class AiCreditCostsOptions
+{
+    public const string SectionName = "AiCreditCosts";
+
+    public int MatchInsight { get; set; } = 2;
+    public int Icebreakers { get; set; } = 1;
+    public int WorkoutPlan { get; set; } = 3;
+    public int CoachPremiumAction { get; set; } = 0; // 0 = free
+    public int ProfileOptimize { get; set; } = 0;    // 0 = free
+}

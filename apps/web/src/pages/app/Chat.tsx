@@ -33,6 +33,8 @@ import {
   graphqlListMyMatches,
 } from '@/services/graphqlService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
+import { getIcebreakers, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
+import { profileService } from '@/services/profileService';
 import chatStyles from './Chat.module.css';
 
 export const ChatPage: React.FC = () => {
@@ -52,6 +54,9 @@ export const ChatPage: React.FC = () => {
   const [threadLocked, setThreadLocked] = useState<boolean | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [otherName, setOtherName] = useState<string>('');
+  const [icebreakerSuggestions, setIcebreakerSuggestions] = useState<string[]>([]);
+  const [icebreakerLoading, setIcebreakerLoading] = useState(false);
+  const [icebreakerError, setIcebreakerError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -412,16 +417,87 @@ export const ChatPage: React.FC = () => {
                 <Button
                   size="small"
                   variant="outlined"
-                  onClick={() => {}}
+                  onClick={async () => {
+                    const thread = threads.find((t) => t.threadId === selectedThreadId);
+                    const token = await authService.getJWT();
+                    if (!token || !thread) return;
+                    const cost = 1;
+                    if ((me?.credits ?? 0) < cost) {
+                      setIcebreakerError('Not enough credits. Get more on the Pricing page.');
+                      return;
+                    }
+                    setIcebreakerError('');
+                    setIcebreakerLoading(true);
+                    setIcebreakerSuggestions([]);
+                    try {
+                      const myProfile = me?.profile;
+                      let otherBio: string | undefined;
+                      let otherSports: string[] = [];
+                      let otherLevel: string | undefined;
+                      let otherGoals: string[] = [];
+                      if (thread.otherUserId) {
+                        try {
+                          const other = await profileService.getProfile(token, thread.otherUserId);
+                          otherBio = other.bio;
+                          otherSports = other.sportTags ?? [];
+                          otherLevel = other.level;
+                          otherGoals = other.goals ?? [];
+                        } catch {
+                          /* use name only */
+                        }
+                      }
+                      const res = await getIcebreakers(token, {
+                        myName: myProfile?.name ?? 'Me',
+                        myBio: myProfile?.bio,
+                        mySports: myProfile?.sportTags ?? [],
+                        myLevel: myProfile?.level,
+                        myGoals: myProfile?.goals ?? [],
+                        otherName: thread.otherUserName,
+                        otherBio,
+                        otherSports,
+                        otherLevel,
+                        otherGoals,
+                      });
+                      setIcebreakerSuggestions(res.suggestions ?? []);
+                      if (res.suggestions?.length) await refreshMe();
+                    } catch (err) {
+                      if (isInsufficientCreditsError(err)) setIcebreakerError(getAiErrorMessage(err));
+                      else setIcebreakerError(getAiErrorMessage(err));
+                    } finally {
+                      setIcebreakerLoading(false);
+                    }
+                  }}
+                  disabled={icebreakerLoading}
                   sx={{ fontSize: '0.75rem' }}
-                  title="Get a smart first-message suggestion (1 credit)"
+                  title="Get smart first-message suggestions (1 credit)"
                 >
-                  AI Icebreaker (1 credit)
+                  {icebreakerLoading ? 'Generating…' : 'AI Icebreaker (1 credit)'}
                 </Button>
                 <Link to="/app/ai-coach" style={{ fontSize: '0.8125rem', color: '#6366f1', fontWeight: 600 }}>
                   Ask AI
                 </Link>
               </Box>
+              {icebreakerError && (
+                <Alert severity="error" onClose={() => setIcebreakerError('')} sx={{ mb: 1 }}>
+                  {icebreakerError}
+                </Alert>
+              )}
+              {icebreakerSuggestions.length > 0 && (
+                <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {icebreakerSuggestions.map((s, i) => (
+                    <Chip
+                      key={i}
+                      label={s.length > 50 ? s.slice(0, 47) + '…' : s}
+                      size="small"
+                      onClick={() => {
+                        setMessageContent(s);
+                        setIcebreakerSuggestions([]);
+                      }}
+                      sx={{ cursor: 'pointer', maxWidth: 280 }}
+                    />
+                  ))}
+                </Box>
+              )}
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <TextField
                   fullWidth

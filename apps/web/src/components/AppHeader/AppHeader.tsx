@@ -41,7 +41,7 @@ export const AppHeader: React.FC = () => {
 
   const handleLogout = async () => { setUserOpen(false); setMobileOpen(false); await logout(); navigate('/'); };
 
-  // Logged out: full nav + Pricing (no Upgrade). Logged in: app nav only, no Pricing; Upgrade is the single CTA.
+  // Logged out: full nav + Pricing. Logged in: app nav only; Get Credits is the single CTA.
   const appNavItems: { label: string; href: string; icon?: string; exact?: boolean }[] = [
     { label: t('nav.discover'), href: '/app/discover' },
     { label: t('nav.match'), href: '/app/matches' },
@@ -92,7 +92,7 @@ export const AppHeader: React.FC = () => {
                 className={styles.upgradeBtn}
                 onClick={() => analytics.pricingOpened('header')}
               >
-                Upgrade
+                Get Credits
               </RouterLink>
             </>
           )}
@@ -189,7 +189,7 @@ export const AppHeader: React.FC = () => {
                     {me?.credits ?? 0} credits
                   </RouterLink>
                   <RouterLink to="/pricing" className={styles.mobileUpgrade} onClick={() => { setMobileOpen(false); analytics.pricingOpened('mobile'); }}>
-                    Upgrade
+                    Get Credits
                   </RouterLink>
                   <RouterLink to="/app/profile" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>{t('header.profile')}</RouterLink>
                   <button type="button" className={styles.mobileLogout} onClick={handleLogout}>{t('common.logout')}</button>

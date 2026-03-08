@@ -33,7 +33,14 @@ import { ActionBar } from './discover/ActionBar';
 import { FiltersButton } from './discover/FiltersButton';
 import { ConfirmConnectModal } from './discover/ConfirmConnectModal';
 import { DISCOVER_STRINGS } from './discover/constants';
+import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
+import type { MatchInsightResponse } from '@/types/ai';
 import styles from './Discover.module.css';
+
+function scheduleSummary(schedule: { days?: string[]; timeStart?: string; timeEnd?: string }[] | undefined): string {
+  if (!schedule?.length) return '';
+  return schedule.map((s) => `${(s.days ?? []).join('/')} ${s.timeStart ?? ''}-${s.timeEnd ?? ''}`).join('; ');
+}
 
 const BACKEND_DUMMY_PREFIX = 'dummy-user-';
 
@@ -97,6 +104,9 @@ export const DiscoverPage: React.FC = () => {
   });
   const [onboardingModalOpen, setOnboardingModalOpen] = useState(false);
   const [photoFallbackUrls, setPhotoFallbackUrls] = useState<Record<string, string>>({});
+  const [insightMap, setInsightMap] = useState<Record<string, MatchInsightResponse>>({});
+  const [loadingInsightFor, setLoadingInsightFor] = useState<string | null>(null);
+  const [aiInsightCost, setAiInsightCost] = useState(2);
 
   useEffect(() => {
     loadFeed();
@@ -117,6 +127,21 @@ export const DiscoverPage: React.FC = () => {
     return () => {
       if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
     };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const token = await authService.getJWT();
+      if (!token) return;
+      try {
+        const costs = await getAiCreditCosts(token);
+        if (!cancelled) setAiInsightCost(costs.matchInsight);
+      } catch {
+        /* use default 2 */
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const loadFeed = async (isRetryAfter401 = false) => {
@@ -424,6 +449,53 @@ export const DiscoverPage: React.FC = () => {
     }
   };
 
+  const handleUnlockAiInsight = useCallback(async () => {
+    const card = feed[currentIndex];
+    if (!card || !me?.user?.id) return;
+    if (isDummyNearbyProfile(card.userId)) return;
+    const token = await authService.getJWT();
+    if (!token) {
+      setToast('Please sign in again.');
+      return;
+    }
+    if ((me?.credits ?? 0) < aiInsightCost) {
+      setToast('Not enough credits to unlock AI match insight. Get more on the Pricing page.');
+      return;
+    }
+    setLoadingInsightFor(card.userId);
+    try {
+      const myProfile = me?.profile;
+      const request = {
+        userId: me.user.id,
+        targetUserId: card.userId,
+        myName: myProfile?.name,
+        myBio: myProfile?.bio,
+        mySports: myProfile?.sportTags ?? [],
+        myLevel: myProfile?.level,
+        myGoals: myProfile?.goals ?? [],
+        myScheduleSummary: scheduleSummary(myProfile?.availabilitySchedule),
+        otherName: card.name,
+        otherBio: card.bio,
+        otherSports: card.sportTags ?? [],
+        otherLevel: card.level,
+        otherGoals: [],
+        otherScheduleSummary: undefined,
+        compatibilityScore: card.compatibilityScore ?? 50,
+      };
+      const result = await getMatchInsight(token, request);
+      setInsightMap((prev) => ({ ...prev, [card.userId]: result }));
+      await refreshMe();
+    } catch (err) {
+      if (isInsufficientCreditsError(err)) {
+        setToast('Not enough credits. Get more on the Pricing page.');
+      } else {
+        setToast(getAiErrorMessage(err));
+      }
+    } finally {
+      setLoadingInsightFor(null);
+    }
+  }, [currentIndex, feed, me, aiInsightCost, refreshMe]);
+
   const handlePhotoError = useCallback(() => {
     const currentCard = feed[currentIndex];
     if (!currentCard) return;
@@ -569,6 +641,10 @@ export const DiscoverPage: React.FC = () => {
             score={currentCard.compatibilityScore}
             reasons={matchReasons}
             aiMatchInsight={currentCard.aiMatchInsight}
+            aiMatchInsightFull={insightMap[currentCard.userId]}
+            aiInsightCreditCost={aiInsightCost}
+            onUnlockAiInsight={isDummy ? undefined : handleUnlockAiInsight}
+            aiInsightLoading={loadingInsightFor === currentCard.userId}
             compact
             collapsible={isMobile}
             defaultCollapsed={isMobile}

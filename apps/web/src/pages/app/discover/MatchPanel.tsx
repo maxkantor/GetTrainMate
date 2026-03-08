@@ -1,12 +1,26 @@
 import React from 'react';
 import styles from './MatchPanel.module.css';
 
+export interface MatchInsightDisplay {
+  summary: string;
+  reasons: string[];
+  caution?: string;
+}
+
 interface MatchPanelProps {
   score: number;
   reasons: string[];
   summary?: string;
   /** AI-generated match insight (when unlocked); when absent, show unlock teaser. */
   aiMatchInsight?: string;
+  /** Full AI insight (summary + reasons + caution) when unlocked via API. */
+  aiMatchInsightFull?: MatchInsightDisplay;
+  /** Credit cost to show in teaser (e.g. 2). */
+  aiInsightCreditCost?: number;
+  /** Callback when user clicks Unlock AI match insight. */
+  onUnlockAiInsight?: () => void;
+  /** True while insight is loading. */
+  aiInsightLoading?: boolean;
   collapsible?: boolean;
   defaultCollapsed?: boolean;
   compact?: boolean;
@@ -23,6 +37,10 @@ export const MatchPanel: React.FC<MatchPanelProps> = ({
   reasons,
   summary,
   aiMatchInsight,
+  aiMatchInsightFull,
+  aiInsightCreditCost = 2,
+  onUnlockAiInsight,
+  aiInsightLoading = false,
   collapsible = false,
   defaultCollapsed = false,
   compact = false,
@@ -79,13 +97,40 @@ export const MatchPanel: React.FC<MatchPanelProps> = ({
           )}
         </>
       )}
-      {aiMatchInsight ? (
+      {(aiMatchInsight || aiMatchInsightFull) ? (
         <div className={styles.aiInsightBlock}>
           <span className={styles.aiInsightLabel}>AI Insight</span>
-          <p className={styles.aiInsightText}>{aiMatchInsight}</p>
+          <p className={styles.aiInsightText}>
+            {aiMatchInsightFull ? aiMatchInsightFull.summary : aiMatchInsight}
+          </p>
+          {aiMatchInsightFull?.reasons && aiMatchInsightFull.reasons.length > 0 && (
+            <ul className={styles.aiInsightReasons}>
+              {aiMatchInsightFull.reasons.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+          )}
+          {aiMatchInsightFull?.caution && (
+            <p className={styles.aiInsightCaution}>{aiMatchInsightFull.caution}</p>
+          )}
         </div>
       ) : (
-        <p className={styles.aiInsightTeaser}>Unlock AI match insight (2 credits)</p>
+        <div className={styles.aiInsightTeaserWrap}>
+          {onUnlockAiInsight ? (
+            <button
+              type="button"
+              className={styles.aiInsightUnlockBtn}
+              onClick={onUnlockAiInsight}
+              disabled={aiInsightLoading}
+            >
+              {aiInsightLoading ? 'Generating…' : `Unlock AI match insight (${aiInsightCreditCost} credit${aiInsightCreditCost !== 1 ? 's' : ''})`}
+            </button>
+          ) : (
+            <p className={styles.aiInsightTeaser}>
+              Unlock AI match insight ({aiInsightCreditCost} credit{aiInsightCreditCost !== 1 ? 's' : ''})
+            </p>
+          )}
+        </div>
       )}
     </aside>
   );

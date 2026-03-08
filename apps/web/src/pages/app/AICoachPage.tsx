@@ -1,27 +1,208 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Container, Typography, Button, Box } from '@mui/material';
+import {
+  Container,
+  Typography,
+  Button,
+  Box,
+  TextField,
+  Paper,
+  CircularProgress,
+  Alert,
+} from '@mui/material';
+import SendIcon from '@mui/icons-material/Send';
 import { PageShell } from '@/components/layout/PageShell';
+import { useAuthContext } from '@/hooks/useAuthContext';
+import { authService } from '@/services/authService';
+import {
+  streamAiChat,
+  getWorkoutPlan,
+  getAiErrorMessage,
+  isInsufficientCreditsError,
+} from '@/services/aiService';
+import type { AiChatMessage } from '@/types/ai';
+import styles from './AICoachPage.module.css';
 
 export const AICoachPage: React.FC = () => {
+  const { user } = useAuthContext();
+  const [history, setHistory] = useState<AiChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [streamingContent, setStreamingContent] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [workoutResult, setWorkoutResult] = useState<{ title: string; summary: string; sessions: string[] } | null>(null);
+  const [workoutLoading, setWorkoutLoading] = useState(false);
+  const [workoutError, setWorkoutError] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  useEffect(() => {
+    scrollToBottom();
+  }, [history, streamingContent]);
+
+  const handleSend = async () => {
+    const msg = input.trim();
+    if (!msg || loading) return;
+    const token = await authService.getJWT();
+    if (!token) {
+      setError('Please sign in again.');
+      return;
+    }
+    setError('');
+    setInput('');
+    setHistory((prev) => [...prev, { role: 'user', content: msg }]);
+    setLoading(true);
+    setStreamingContent('');
+    let fullReply = '';
+    try {
+      for await (const chunk of streamAiChat(token, msg, history)) {
+        if (chunk.error) {
+          setError(chunk.error);
+          if (isInsufficientCreditsError({ response: { status: 402, data: { message: chunk.error } } })) {
+            setHistory((prev) => prev.slice(0, -1));
+          }
+          break;
+        }
+        if (chunk.text) {
+          fullReply += chunk.text;
+          setStreamingContent(fullReply);
+        }
+      }
+      if (fullReply && !error) {
+        setHistory((prev) => [...prev, { role: 'assistant', content: fullReply }]);
+        setStreamingContent('');
+      }
+    } catch (err) {
+      setError(getAiErrorMessage(err));
+      setHistory((prev) => prev.slice(0, -1));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGetWorkoutPlan = async () => {
+    const token = await authService.getJWT();
+    if (!token) return;
+    setWorkoutError('');
+    setWorkoutResult(null);
+    setWorkoutLoading(true);
+    try {
+      const res = await getWorkoutPlan(token, {
+        sport: 'Running',
+        level: 'intermediate',
+        availableDays: ['Mon', 'Wed', 'Fri'],
+        durationMinutes: 45,
+      });
+      setWorkoutResult(res);
+    } catch (err) {
+      setWorkoutError(getAiErrorMessage(err));
+    } finally {
+      setWorkoutLoading(false);
+    }
+  };
+
   return (
     <PageShell variant="content" showBackLink>
-      <Container maxWidth="sm" sx={{ py: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
+      <Container maxWidth="sm" sx={{ py: 2, height: '80vh', display: 'flex', flexDirection: 'column' }}>
+        <Typography variant="h5" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
           AI Coach
         </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
-          Get help improving your profile, understanding match quality, generating workout ideas, and suggesting first messages. Streaming responses powered by AI.
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Get help with your profile, match quality, first messages, and workout ideas. Answers are powered by AI.
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          This assistant will be available here soon. For now, use the chat screen to message your matches.
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="contained" component={Link} to="/app/chat">
+
+        <Paper className={styles.chatPanel} elevation={0}>
+          <div className={styles.messages}>
+            {history.length === 0 && !streamingContent && (
+              <div className={styles.placeholder}>
+                <p>Ask anything about:</p>
+                <ul>
+                  <li>Improving your profile or bio</li>
+                  <li>Why you match with someone</li>
+                  <li>First message ideas</li>
+                  <li>Simple workout or session ideas</li>
+                  <li>How credits and the app work</li>
+                </ul>
+              </div>
+            )}
+            {history.map((m, i) => (
+              <div
+                key={i}
+                className={m.role === 'user' ? styles.messageUser : styles.messageAssistant}
+              >
+                {m.content}
+              </div>
+            ))}
+            {streamingContent && (
+              <div className={styles.messageAssistant}>
+                {streamingContent}
+                <span className={styles.cursor} />
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {error && (
+            <Alert severity="error" onClose={() => setError('')} sx={{ mx: 1, mt: 1 }}>
+              {error}
+            </Alert>
+          )}
+
+          <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Ask the AI Coach..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                disabled={loading}
+                multiline
+                maxRows={3}
+              />
+              <Button
+                variant="contained"
+                onClick={handleSend}
+                disabled={loading || !input.trim()}
+                endIcon={loading ? <CircularProgress size={18} color="inherit" /> : <SendIcon />}
+              >
+                {loading ? '…' : 'Send'}
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
+
+        {workoutError && (
+          <Alert severity="error" onClose={() => setWorkoutError('')} sx={{ mt: 2 }}>
+            {workoutError}
+          </Alert>
+        )}
+        {workoutResult && (
+          <Paper sx={{ mt: 2, p: 2, bgcolor: 'action.hover' }}>
+            <Typography variant="subtitle1" fontWeight={600}>{workoutResult.title}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{workoutResult.summary}</Typography>
+            <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+              {workoutResult.sessions.map((s, i) => (
+                <li key={i} style={{ marginBottom: 4 }}>{s}</li>
+              ))}
+            </ul>
+          </Paper>
+        )}
+        <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Button variant="outlined" size="small" onClick={handleGetWorkoutPlan} disabled={workoutLoading}>
+            {workoutLoading ? 'Generating…' : 'Generate workout idea'}
+          </Button>
+          <Button variant="outlined" size="small" component={Link} to="/app/chat">
             Back to Chat
           </Button>
-          <Button variant="outlined" component={Link} to="/pricing">
-            Credits
+          <Button variant="outlined" size="small" component={Link} to="/pricing">
+            Get Credits
           </Button>
         </Box>
       </Container>

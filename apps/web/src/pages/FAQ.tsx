@@ -1,16 +1,45 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Container, Typography, Box, Accordion, AccordionSummary, AccordionDetails, Chip } from '@mui/material';
+import { Container, Typography, Box, Accordion, AccordionSummary, AccordionDetails, Chip, TextField, Button, CircularProgress, Alert } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useI18n } from '@/hooks/useI18n';
+import { useAuthContext } from '@/hooks/useAuthContext';
+import { authService } from '@/services/authService';
+import { askHelp } from '@/services/aiService';
 import { PageShell } from '@/components/layout/PageShell';
 
 export const FAQPage: React.FC = () => {
   const { t: _t } = useI18n();
+  const { isAuthenticated } = useAuthContext();
   const [expanded, setExpanded] = useState<string | false>('panel1');
+  const [helpQuestion, setHelpQuestion] = useState('');
+  const [helpAnswer, setHelpAnswer] = useState('');
+  const [helpLoading, setHelpLoading] = useState(false);
+  const [helpError, setHelpError] = useState('');
 
   const handleChange = (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
     setExpanded(isExpanded ? panel : false);
+  };
+
+  const handleAskHelp = async () => {
+    const q = helpQuestion.trim();
+    if (!q) return;
+    const token = await authService.getJWT();
+    if (!token) {
+      setHelpError('Please sign in to use the help assistant.');
+      return;
+    }
+    setHelpError('');
+    setHelpAnswer('');
+    setHelpLoading(true);
+    try {
+      const res = await askHelp(token, q);
+      setHelpAnswer(res.answer);
+    } catch (err) {
+      setHelpError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setHelpLoading(false);
+    }
   };
 
   const faqs = [
@@ -164,6 +193,31 @@ export const FAQPage: React.FC = () => {
             })}
           </Box>
         ))}
+
+        {isAuthenticated && (
+          <Box sx={{ mt: 6, p: 3, bgcolor: 'action.hover', borderRadius: 2 }}>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              Ask AI about credits, safety, or how the app works
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mt: 2 }}>
+              <TextField
+                size="small"
+                fullWidth
+                placeholder="e.g. How do credits work?"
+                value={helpQuestion}
+                onChange={(e) => setHelpQuestion(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAskHelp())}
+              />
+              <Button variant="contained" onClick={handleAskHelp} disabled={helpLoading || !helpQuestion.trim()}>
+                {helpLoading ? <CircularProgress size={24} /> : 'Ask'}
+              </Button>
+            </Box>
+            {helpError && <Alert severity="error" onClose={() => setHelpError('')} sx={{ mt: 2 }}>{helpError}</Alert>}
+            {helpAnswer && (
+              <Typography variant="body2" sx={{ mt: 2, whiteSpace: 'pre-wrap' }}>{helpAnswer}</Typography>
+            )}
+          </Box>
+        )}
 
         <Box sx={{ mt: 8, p: 4, bgcolor: 'background.paper', borderRadius: 2, textAlign: 'center' }}>
           <Typography variant="h6" gutterBottom>

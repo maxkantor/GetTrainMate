@@ -31,6 +31,8 @@ import { getUploadLimits } from '@/config/uploadLimits';
 import { authService } from '@/services/authService';
 import { Alert as MUIAlert, Snackbar } from '@mui/material';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
+import { getProfileOptimize, getAiErrorMessage } from '@/services/aiService';
+import type { ProfileOptimizeResponse } from '@/types/ai';
 
 const SPORTS = [
   'Running', 'Cycling', 'Swimming', 'Tennis', 'Basketball', 'Soccer',
@@ -81,6 +83,9 @@ export const ProfilePage: React.FC = () => {
     availabilitySchedule: [],
     mode: 'TRAIN',
   });
+  const [aiSuggestions, setAiSuggestions] = useState<ProfileOptimizeResponse | null>(null);
+  const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
+  const [aiSuggestionsError, setAiSuggestionsError] = useState('');
 
   useEffect(() => {
     loadProfile();
@@ -187,10 +192,34 @@ export const ProfilePage: React.FC = () => {
           variant="outlined"
           color="primary"
           size="small"
-          onClick={() => {}}
+          onClick={async () => {
+            const token = await authService.getJWT();
+            if (!token) return;
+            setAiSuggestionsError('');
+            setAiSuggestions(null);
+            setAiSuggestionsLoading(true);
+            try {
+              const scheduleSummary = formData.availabilitySchedule?.length
+                ? formData.availabilitySchedule.map((s) => `${(s.days ?? []).join('/')} ${s.timeStart ?? ''}-${s.timeEnd ?? ''}`).join('; ')
+                : undefined;
+              const res = await getProfileOptimize(token, {
+                bio: formData.bio ?? undefined,
+                goals: formData.goals ?? [],
+                sportTags: formData.sportTags ?? [],
+                level: formData.level ?? undefined,
+                scheduleSummary,
+              });
+              setAiSuggestions(res);
+            } catch (err) {
+              setAiSuggestionsError(getAiErrorMessage(err));
+            } finally {
+              setAiSuggestionsLoading(false);
+            }
+          }}
+          disabled={aiSuggestionsLoading}
           title="Get AI suggestions to improve your bio, goals, and preferences"
         >
-          Improve with AI
+          {aiSuggestionsLoading ? 'Generating…' : 'Improve with AI'}
         </Button>
       </Box>
 
@@ -204,6 +233,46 @@ export const ProfilePage: React.FC = () => {
         <Alert severity="success" sx={{ mb: 2 }}>
           {success}
         </Alert>
+      )}
+
+      {aiSuggestionsError && (
+        <Alert severity="error" onClose={() => setAiSuggestionsError('')} sx={{ mb: 2 }}>
+          {aiSuggestionsError}
+        </Alert>
+      )}
+
+      {aiSuggestions && (
+        <Card sx={{ mb: 3, p: 2, bgcolor: 'action.hover' }}>
+          <Typography variant="subtitle2" color="primary" gutterBottom>
+            AI suggestions — apply what you like
+          </Typography>
+          {aiSuggestions.suggestedBio && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" color="text.secondary">Bio</Typography>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mb: 1 }}>{aiSuggestions.suggestedBio}</Typography>
+              <Button size="small" onClick={() => { setFormData((f) => ({ ...f, bio: aiSuggestions.suggestedBio ?? f.bio })); setAiSuggestions((a) => a ? { ...a, suggestedBio: undefined } : null); }}>Use this</Button>
+            </Box>
+          )}
+          {aiSuggestions.suggestedGoals?.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" color="text.secondary">Goals</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                {aiSuggestions.suggestedGoals.map((g, i) => (
+                  <Chip key={i} label={g} size="small" onDelete={() => {}} onClick={() => setFormData((f) => ({ ...f, goals: [...(f.goals ?? []), g] }))} />
+                ))}
+              </Box>
+              <Button size="small" sx={{ mt: 1 }} onClick={() => setFormData((f) => ({ ...f, goals: aiSuggestions.suggestedGoals ?? f.goals ?? [] }))}>Use all</Button>
+            </Box>
+          )}
+          {aiSuggestions.suggestedScheduleSummary && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">Schedule summary</Typography>
+              <Typography variant="body2" sx={{ mb: 1 }}>{aiSuggestions.suggestedScheduleSummary}</Typography>
+              <Button size="small" onClick={() => setAiSuggestions((a) => a ? { ...a, suggestedScheduleSummary: undefined } : null)}>Dismiss</Button>
+            </Box>
+          )}
+          <Button size="small" sx={{ mt: 1 }} onClick={() => setAiSuggestions(null)}>Close</Button>
+        </Card>
       )}
 
       <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>

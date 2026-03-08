@@ -18,6 +18,9 @@ public static class CreditLedgerReason
     public const string ChatUnlock = "CHAT_UNLOCK";
     public const string Boost = "BOOST";
     public const string AiInsight = "AI_INSIGHT";
+    public const string AiIcebreaker = "AI_ICEBREAKER";
+    public const string AiWorkoutPlan = "AI_WORKOUT_PLAN";
+    public const string AiProfileOptimize = "AI_PROFILE_OPTIMIZE";
     public const string AdminAdjust = "ADMIN_ADJUST";
 }
 

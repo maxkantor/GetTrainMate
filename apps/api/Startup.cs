@@ -3,7 +3,10 @@ using Amazon.DynamoDBv2.DataModel;
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
 using Amazon.S3;
+using GetTrainMate.Api.Configuration;
 using GetTrainMate.Api.Services;
+using GetTrainMate.Api.Services.Ai;
+using GetTrainMate.Api.Services.Bedrock;
 using GetTrainMate.Api.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -52,9 +55,20 @@ public class Startup
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<ICreditsService, CreditsService>();
-        services.AddScoped<IBedrockChatService, BedrockChatServiceStub>();
+
+        // Bedrock & AI: config-driven (stub when Bedrock:ModelId not set)
+        services.Configure<BedrockOptions>(Configuration.GetSection(BedrockOptions.SectionName));
+        services.Configure<AiCreditCostsOptions>(Configuration.GetSection(AiCreditCostsOptions.SectionName));
+        services.AddSingleton<IBedrockClientWrapper, BedrockClientWrapper>();
+        services.AddScoped<IBedrockChatService, BedrockChatService>();
         services.AddScoped<IBedrockGuardrails, BedrockGuardrailsStub>();
         services.AddScoped<IBedrockKnowledgeBase, BedrockKnowledgeBaseStub>();
+        services.AddScoped<IAiMatchInsightService, AiMatchInsightService>();
+        services.AddScoped<IAiIcebreakerService, AiIcebreakerService>();
+        services.AddScoped<IAiProfileOptimizerService, AiProfileOptimizerService>();
+        services.AddScoped<IAiWorkoutPlannerService, AiWorkoutPlannerService>();
+        services.AddScoped<IAiHelpAssistantService, AiHelpAssistantService>();
+
         services.AddHttpContextAccessor();
         services.AddSingleton<IStorageService, S3StorageService>();
 

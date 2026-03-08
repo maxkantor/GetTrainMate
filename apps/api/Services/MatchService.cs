@@ -102,8 +102,7 @@ public class MatchService : IMatchService
         try
         {
             var userProfile = await _profileService.GetProfileAsync(userId);
-            if (userProfile == null)
-                return new List<MatchFeedItem>();
+            // Return other profiles even when current user has no profile (e.g. new account, eventual consistency)
 
             var table = Table.LoadTable(_dynamoDb, _profilesTable);
             var scanFilter = new ScanFilter();
@@ -122,7 +121,14 @@ public class MatchService : IMatchService
 
             foreach (var doc in allProfiles)
             {
+                if (!doc.ContainsKey("userId"))
+                {
+                    _logger.LogDebug("Discovery feed: skipping profile document without userId");
+                    continue;
+                }
                 var profileUserId = doc["userId"].AsString();
+                if (string.IsNullOrEmpty(profileUserId))
+                    continue;
                 
                 // Skip self
                 if (profileUserId == userId)
@@ -133,8 +139,20 @@ public class MatchService : IMatchService
                 if (existingMatch != null)
                     continue;
 
-                var targetProfile = DocumentToProfile(doc);
-                var compatibilityScore = CalculateCompatibilityScore(userProfile, targetProfile);
+                UserProfile targetProfile;
+                try
+                {
+                    targetProfile = DocumentToProfile(doc);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Discovery feed: skipping profile document for userId {UserId}", profileUserId);
+                    continue;
+                }
+
+                var compatibilityScore = userProfile != null
+                    ? CalculateCompatibilityScore(userProfile, targetProfile)
+                    : 50;
 
                 var photoUrls = targetProfile.PhotoUrls ?? new List<string>();
                 if (photoUrls.Count == 0 && !string.IsNullOrEmpty(targetProfile.PhotoKey))
@@ -153,14 +171,14 @@ public class MatchService : IMatchService
                 feedItems.Add(new MatchFeedItem
                 {
                     UserId = targetProfile.UserId,
-                    Name = targetProfile.Name,
+                    Name = targetProfile.Name ?? "User",
                     City = targetProfile.City,
                     Bio = targetProfile.Bio,
                     SportTags = targetProfile.SportTags,
                     Level = targetProfile.Level,
                     PhotoUrls = photoUrls,
                     CompatibilityScore = compatibilityScore,
-                    CommonSports = GetCommonSports(userProfile.SportTags, targetProfile.SportTags),
+                    CommonSports = userProfile != null ? GetCommonSports(userProfile.SportTags, targetProfile.SportTags) : new List<string>(),
                     Mode = targetProfile.Mode
                 });
             }

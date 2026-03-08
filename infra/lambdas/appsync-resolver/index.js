@@ -178,13 +178,23 @@ function isProfileCompleteCheck(p) {
 async function discoverCandidates(identity, args) {
   const userId = getUserId(identity);
   const limit = Math.min(Math.max(args?.limit || 20, 1), 50);
-  const scan = await dynamo.send(new ScanCommand({
-    TableName: tables.profiles,
-    Limit: 500,
-  }));
-  const all = (scan.Items || []).map((i) => unmarshall(i));
+
+  // Paginate profiles scan so we don't miss users when table has many items
+  const all = [];
+  let lastKey = null;
+  do {
+    const scanParams = {
+      TableName: tables.profiles,
+      Limit: 500,
+      ...(lastKey && { ExclusiveStartKey: lastKey }),
+    };
+    const scan = await dynamo.send(new ScanCommand(scanParams));
+    (scan.Items || []).forEach((i) => all.push(unmarshall(i)));
+    lastKey = scan.LastEvaluatedKey || null;
+  } while (lastKey);
+
+  // Don't require current user to have a profile to show others (handles new users / eventual consistency)
   const myProfile = await getProfile(userId);
-  if (!myProfile) return { items: [], nextToken: null };
 
   const matchesScan = await dynamo.send(new ScanCommand({
     TableName: tables.matches,
@@ -201,13 +211,15 @@ async function discoverCandidates(identity, args) {
   const candidates = [];
   for (const doc of all) {
     const profileUserId = doc.userId;
-    if (profileUserId === userId || seenUserIds.has(profileUserId)) continue;
+    if (!profileUserId || profileUserId === userId || seenUserIds.has(profileUserId)) continue;
     const p = profileFromDoc(doc);
-    if (!p || !p.displayName) continue;
+    if (!p) continue;
+    // Show profile even if name is empty: use fallback so real users always appear in discover
+    const displayName = (p.displayName && String(p.displayName).trim()) || 'User';
     const compatibilityScore = 50;
     candidates.push({
       userId: p.userId,
-      displayName: p.displayName,
+      displayName,
       age: p.age,
       city: p.city,
       bio: p.bio ? p.bio.slice(0, 120) : null,
