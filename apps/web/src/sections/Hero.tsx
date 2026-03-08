@@ -61,29 +61,18 @@ export const Hero: React.FC = () => {
               </Link>
             </div>
 
-            {/* Trust Row */}
-            <div className={styles.trustRow}>
-              <span className={styles.trustRowItem}>
-                <svg className={styles.trustRowIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {t('landing.trust_verified')}
-              </span>
-              <span className={styles.trustRowDot}>•</span>
-              <span className={styles.trustRowItem}>
-                <svg className={styles.trustRowIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-                {t('landing.trust_safe')}
-              </span>
-              <span className={styles.trustRowDot}>•</span>
-              <span className={styles.trustRowItem}>
-                <svg className={styles.trustRowIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M12 6v6l4 2" />
-                </svg>
-                {t('landing.trust_fast')}
-              </span>
+            {/* Support bullets – AI value props */}
+            <ul className={styles.heroSupportBullets} aria-label="AI features">
+              <li>{t('landing.hero_support_ai_insights')}</li>
+              <li>{t('landing.hero_support_ai_icebreakers')}</li>
+              <li>{t('landing.hero_support_ai_workout')}</li>
+              <li>{t('landing.hero_support_safer')}</li>
+            </ul>
+
+            {/* Powered by AI – minimal, premium */}
+            <div className={styles.poweredByAi}>
+              <span className={styles.poweredByAiLabel}>{t('landing.powered_by_ai_title')}</span>
+              <p className={styles.poweredByAiDesc}>{t('landing.powered_by_ai_desc')}</p>
             </div>
           </div>
 

@@ -52,6 +52,9 @@ public class Startup
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<ICreditsService, CreditsService>();
+        services.AddScoped<IBedrockChatService, BedrockChatServiceStub>();
+        services.AddScoped<IBedrockGuardrails, BedrockGuardrailsStub>();
+        services.AddScoped<IBedrockKnowledgeBase, BedrockKnowledgeBaseStub>();
         services.AddHttpContextAccessor();
         services.AddSingleton<IStorageService, S3StorageService>();
 

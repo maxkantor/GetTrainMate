@@ -408,6 +408,20 @@ export const ChatPage: React.FC = () => {
                 <div ref={messagesEndRef} />
               </Paper>
 
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {}}
+                  sx={{ fontSize: '0.75rem' }}
+                  title="Get a smart first-message suggestion (1 credit)"
+                >
+                  AI Icebreaker (1 credit)
+                </Button>
+                <Link to="/app/ai-coach" style={{ fontSize: '0.8125rem', color: '#6366f1', fontWeight: 600 }}>
+                  Ask AI
+                </Link>
+              </Box>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <TextField
                   fullWidth

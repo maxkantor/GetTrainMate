@@ -164,9 +164,11 @@ export const PricingPage: React.FC = () => {
             </p>
             <div className={styles.explanationRow}>
               <span><strong>1 credit</strong> → unlock chat</span>
+              <span><strong>1 credit</strong> → AI icebreaker</span>
               <span><strong>2 credits</strong> → profile boost (24h)</span>
-              <span><strong>2 credits</strong> → AI compatibility insight</span>
+              <span><strong>2 credits</strong> → AI match insight</span>
               <span><strong>3 credits</strong> → reveal likes</span>
+              <span><strong>3 credits</strong> → AI workout plan</span>
             </div>
           </Container>
         </section>
@@ -258,6 +260,12 @@ export const PricingPage: React.FC = () => {
                 <span className={styles.featureTileBadge}>Cost: 1 credit</span>
               </div>
               <div className={styles.featureTile}>
+                <div className={styles.featureTileIcon} aria-hidden>💡</div>
+                <h3 className={styles.featureTileTitle}>AI Icebreaker</h3>
+                <p className={styles.featureTileDesc}>Get smart first-message suggestions based on both profiles.</p>
+                <span className={styles.featureTileBadge}>Cost: 1 credit</span>
+              </div>
+              <div className={styles.featureTile}>
                 <div className={styles.featureTileIcon} aria-hidden>📈</div>
                 <h3 className={styles.featureTileTitle}>Boost Profile</h3>
                 <p className={styles.featureTileDesc}>Get more profile views for 24 hours.</p>
@@ -273,6 +281,12 @@ export const PricingPage: React.FC = () => {
                 <div className={styles.featureTileIcon} aria-hidden>❤️</div>
                 <h3 className={styles.featureTileTitle}>Reveal Likes</h3>
                 <p className={styles.featureTileDesc}>See who already liked your profile.</p>
+                <span className={styles.featureTileBadge}>Cost: 3 credits</span>
+              </div>
+              <div className={styles.featureTile}>
+                <div className={styles.featureTileIcon} aria-hidden>📋</div>
+                <h3 className={styles.featureTileTitle}>AI Workout Plan</h3>
+                <p className={styles.featureTileDesc}>Generate a workout or meetup plan from sport, level, goals, and schedule.</p>
                 <span className={styles.featureTileBadge}>Cost: 3 credits</span>
               </div>
             </div>
@@ -292,7 +306,7 @@ export const PricingPage: React.FC = () => {
             <h3 className={styles.faqTitle}>Frequently asked</h3>
             <details className={styles.faqItem}>
               <summary>What can I do with credits?</summary>
-              <p>Credits unlock chat with matches (1 per unlock), boosts for visibility (2 credits), AI insights (2 credits), and &quot;see who liked you&quot; (3 credits).</p>
+              <p>Credits unlock chat (1), AI icebreakers (1), profile boost (2), AI match insight (2), reveal likes (3), and AI workout plan (3). No subscription — use only what you need.</p>
             </details>
             <details className={styles.faqItem}>
               <summary>Do credits expire?</summary>

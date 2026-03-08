@@ -568,6 +568,7 @@ export const DiscoverPage: React.FC = () => {
           <MatchPanel
             score={currentCard.compatibilityScore}
             reasons={matchReasons}
+            aiMatchInsight={currentCard.aiMatchInsight}
             compact
             collapsible={isMobile}
             defaultCollapsed={isMobile}

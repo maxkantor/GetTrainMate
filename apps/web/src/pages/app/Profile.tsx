@@ -179,9 +179,20 @@ export const ProfilePage: React.FC = () => {
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        {t('profile.edit_profile')}
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 0 }}>
+          {t('profile.edit_profile')}
+        </Typography>
+        <Button
+          variant="outlined"
+          color="primary"
+          size="small"
+          onClick={() => {}}
+          title="Get AI suggestions to improve your bio, goals, and preferences"
+        >
+          Improve with AI
+        </Button>
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

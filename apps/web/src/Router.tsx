@@ -25,6 +25,7 @@ import { PublicProfilePage } from '@/pages/app/PublicProfile';
 import { DiscoverPage } from '@/pages/app/Discover';
 import { MatchesPage } from '@/pages/app/Matches';
 import { ChatPage } from '@/pages/app/Chat';
+import { AICoachPage } from '@/pages/app/AICoachPage';
 import { EventsPage } from '@/pages/app/Events';
 import { SubscriptionPage } from '@/pages/app/Subscription';
 import { ProfileOnboardingPage } from '@/pages/onboarding/ProfileOnboarding';
@@ -82,6 +83,7 @@ export const Router: React.FC = () => {
               <Route path="discover" element={<DiscoverPage />} />
               <Route path="matches" element={<MatchesPage />} />
               <Route path="chat" element={<ChatPage />} />
+              <Route path="ai-coach" element={<AICoachPage />} />
               <Route path="events" element={<EventsPage />} />
               <Route path="subscription" element={<SubscriptionPage />} />
               <Route path="profile/:userId" element={<PublicProfileRoute />} />

@@ -229,12 +229,14 @@
   font-size: 1em;
 }
 
-/* Actions – right column */
+/* Actions – right column; never shrink so profile name stays visible */
 .actions {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  min-width: min-content;
+  overflow: visible;
   grid-column: 3;
   justify-self: end;
 }
@@ -354,6 +356,8 @@
 .userWrap {
   position: relative;
   flex-shrink: 0;
+  min-width: min-content;
+  overflow: visible;
 }
 
 .userBtn {
@@ -365,12 +369,23 @@
   width: auto;
   flex-shrink: 0;
   white-space: nowrap;
+  overflow: visible;
   color: #1f2937 !important;
   background: transparent;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   outline: none;
+}
+
+/* Profile name visible on dark header */
+.root .userBtn {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.root .userBtn:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .userBtn:focus-visible {
@@ -383,6 +398,24 @@
   font-weight: 600;
   color: var(--color-neutral-800, #1f2937);
   white-space: nowrap;
+  overflow: visible;
+  max-width: none;
+}
+
+.root .userName {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.root .userBtn:hover .userName {
+  color: #fff !important;
+}
+
+.root .userBtn .chevron {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.root .userBtn:hover .chevron {
+  color: #fff;
 }
 
 .badge {

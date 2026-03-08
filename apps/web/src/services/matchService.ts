@@ -14,6 +14,8 @@ export interface MatchFeedItem {
   compatibilityScore: number;
   commonSports: string[];
   mode?: string;
+  /** Short AI-generated compatibility explanation (when available; 2 credits to unlock if not). */
+  aiMatchInsight?: string;
 }
 
 export interface MatchResponse {

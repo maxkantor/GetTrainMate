@@ -19,11 +19,15 @@ export const FAQPage: React.FC = () => {
       questions: [
         {
           q: 'How does GetTrainMate work?',
-          a: 'Users create a profile with sports, level, goals, and schedule. The system recommends compatible training partners nearby. Users browse profiles and unlock chats using credits.',
+          a: 'You create a profile with sports, level, goals, and schedule. AI helps recommend compatible training partners nearby. Browse profiles, use AI match insights and icebreakers, and unlock chats with credits.',
         },
         {
           q: 'Is GetTrainMate free to use?',
-          a: 'Users can explore the platform and browse matches for free. Certain features like unlocking chats or boosts require credits. Credits are purchased as one-time packs.',
+          a: 'You can explore and browse matches for free. Unlocking chats, AI insights, icebreakers, and boosts use credits. Credits are one-time packs — no subscription.',
+        },
+        {
+          q: 'What AI features does GetTrainMate offer?',
+          a: 'AI powers compatibility insights for each match, smart first-message suggestions (icebreakers), an AI coach chat for profile and training help, and optional workout or meetup plans. AI is used to make matching and messaging more helpful, not replace human connection.',
         },
         {
           q: 'What sports and activities are supported?',
@@ -53,7 +57,7 @@ export const FAQPage: React.FC = () => {
       questions: [
         {
           q: 'How does the matching algorithm work?',
-          a: 'The system compares sports, skill level, training goals, schedule, and distance to suggest compatible partners.',
+          a: 'AI compares sport, skill level, goals, schedule, and distance to suggest compatible partners. You can view an AI match insight per profile to see why you’re a good fit.',
         },
         {
           q: 'What are the different modes (TRAIN, VIBE, DATE)?',
@@ -70,7 +74,7 @@ export const FAQPage: React.FC = () => {
       questions: [
         {
           q: 'How does the chat system work?',
-          a: 'Chats are unlocked using credits. Once unlocked, users can message freely.',
+          a: 'Chats are unlocked with credits. Once unlocked, you message freely. AI icebreakers can suggest first messages; an in-chat Ask AI helper can assist with conversation and plans.',
         },
         {
           q: 'Can I share my contact information?',

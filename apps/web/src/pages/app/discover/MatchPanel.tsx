@@ -5,6 +5,8 @@ interface MatchPanelProps {
   score: number;
   reasons: string[];
   summary?: string;
+  /** AI-generated match insight (when unlocked); when absent, show unlock teaser. */
+  aiMatchInsight?: string;
   collapsible?: boolean;
   defaultCollapsed?: boolean;
   compact?: boolean;
@@ -20,6 +22,7 @@ export const MatchPanel: React.FC<MatchPanelProps> = ({
   score,
   reasons,
   summary,
+  aiMatchInsight,
   collapsible = false,
   defaultCollapsed = false,
   compact = false,
@@ -40,7 +43,7 @@ export const MatchPanel: React.FC<MatchPanelProps> = ({
     >
       <div className={styles.header}>
         <h3 className={styles.title}>
-          🔥 <span className={styles.score}>{score}%</span> Match
+          <span className={styles.score}>{score}%</span> Match
         </h3>
         <span className={`${styles.badge} ${badgeClass}`} aria-hidden>
           {score >= 80 ? 'Great' : score >= 60 ? 'Good' : 'Fair'}
@@ -75,6 +78,14 @@ export const MatchPanel: React.FC<MatchPanelProps> = ({
             </ul>
           )}
         </>
+      )}
+      {aiMatchInsight ? (
+        <div className={styles.aiInsightBlock}>
+          <span className={styles.aiInsightLabel}>AI Insight</span>
+          <p className={styles.aiInsightText}>{aiMatchInsight}</p>
+        </div>
+      ) : (
+        <p className={styles.aiInsightTeaser}>Unlock AI match insight (2 credits)</p>
       )}
     </aside>
   );
