@@ -38,6 +38,12 @@ public class MeController : ControllerBase
             var credits = await _creditsService.GetCreditsBalanceAsync(userId);
             var email = profile?.Email ?? GetEmailFromToken() ?? "";
             var isAdmin = IsAdminEmail(email);
+            if (profile != null && string.IsNullOrWhiteSpace(profile.Name))
+            {
+                var nameFromToken = GetNameFromToken();
+                if (!string.IsNullOrWhiteSpace(nameFromToken))
+                    profile.Name = nameFromToken;
+            }
 
             return Ok(new MeResponse
             {
@@ -95,6 +101,23 @@ public class MeController : ControllerBase
             }
         }
         return email;
+    }
+
+    private string? GetNameFromToken()
+    {
+        var name = User.FindFirst(ClaimTypes.Name)?.Value ?? User.FindFirst("name")?.Value ?? User.FindFirst("given_name")?.Value;
+        if (!string.IsNullOrWhiteSpace(name)) return name.Trim();
+        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ")) return null;
+        try
+        {
+            var token = authHeader["Bearer ".Length..].Trim();
+            var handler = new JwtSecurityTokenHandler();
+            var jsonToken = handler.ReadJwtToken(token);
+            name = jsonToken.Claims.FirstOrDefault(c => c.Type == "name" || c.Type == "given_name" || c.Type == ClaimTypes.Name)?.Value;
+            return string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+        }
+        catch { return null; }
     }
 
     private bool IsAdminEmail(string email)

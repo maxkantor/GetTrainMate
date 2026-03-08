@@ -16,8 +16,8 @@ export interface CreditPack {
 
 export const FALLBACK_CREDIT_PACKS: CreditPack[] = [
   { key: 'FREE_3', title: 'Starter', priceUsd: 0, credits: 3, sortOrder: 1, isBestValue: false, isFree: true },
-  { key: 'PACK_10', title: '10 Credits', priceUsd: 3.99, credits: 10, sortOrder: 2, isBestValue: false, isFree: false },
-  { key: 'PACK_25', title: '25 Credits', priceUsd: 7.99, credits: 25, sortOrder: 3, isBestValue: true, isFree: false },
+  { key: 'PACK_10', title: 'Go', priceUsd: 3.99, credits: 10, sortOrder: 2, isBestValue: false, isFree: false },
+  { key: 'PACK_25', title: 'Best Value', priceUsd: 7.99, credits: 25, sortOrder: 3, isBestValue: true, isFree: false },
   { key: 'PACK_100', title: 'Power', priceUsd: 19.99, credits: 100, sortOrder: 4, isBestValue: false, isFree: false },
 ];
 
@@ -27,28 +27,29 @@ export const FALLBACK_CREDIT_PACKS: CreditPack[] = [
  */
 export const CREDIT_PACK_FEATURES: Record<CreditPackKey, string[]> = {
   FREE_3: [
-    'Browse matches + view profiles',
-    '3 credits to try the flow',
-    'Try 1 chat unlock or 1 AI insight',
-    'Basic filters',
+    'Browse local training partners',
+    'View profiles and explore matches',
+    'Try the experience with starter credits',
+    'Use basic discovery filters',
   ],
   PACK_10: [
-    'Unlock chat with up to 5 matches',
-    '1 Boost (24h) to increase visibility',
-    '1 AI insight (workout + compatibility)',
-    'Location radius filters',
+    'Unlock chats with more matches',
+    'Increase profile visibility',
+    'Use AI compatibility insights',
+    'Filter partners by distance and activity',
   ],
   PACK_25: [
-    'Unlock chat with up to 15 matches',
-    '3 Boosts (24h each) for visibility spikes',
-    '3 AI insights (workout + compatibility)',
-    'See who liked you (7 days)',
+    'Best balance of visibility and connections',
+    'Unlock more chats faster',
+    'Includes boosts and AI insights',
+    'Reveal recent likes',
+    'Ideal for active users',
   ],
   PACK_100: [
-    'Unlock chat with up to 60 matches',
-    '10 Boosts (24h each)',
-    'Priority placement (48h)',
-    'See who liked you (30 days)',
-    'Advanced filters (pace, goals, schedule)',
+    'Maximum profile visibility',
+    'More boosts and unlocked chats',
+    'Advanced filters for better matches',
+    'Priority placement in discovery',
+    'Perfect for power users',
   ],
 };

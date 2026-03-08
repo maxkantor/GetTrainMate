@@ -14,6 +14,13 @@ import {
   CREDIT_PACK_FEATURES,
   CreditPackKey,
 } from '@/data/creditPacks';
+
+const PACK_DISPLAY_TITLES: Record<CreditPackKey, string> = {
+  FREE_3: 'Starter',
+  PACK_10: 'Go',
+  PACK_25: 'Best Value',
+  PACK_100: 'Power',
+};
 import styles from '@/pages/Pricing.module.css';
 
 const KNOWN_KEYS: CreditPackKey[] = ['FREE_3', 'PACK_10', 'PACK_25', 'PACK_100'];
@@ -148,13 +155,19 @@ export const PricingPage: React.FC = () => {
                 Your credits: <strong>{credits}</strong>
               </p>
             )}
-            <h1 className={styles.title}>Credits Marketplace</h1>
+            <h1 className={styles.title}>Get Credits. Make More Matches.</h1>
             <p className={styles.subtext}>
-              Get credits to unlock chat, boosts, and AI insights. Start free or buy a pack.
+              Use credits to unlock chats, boost your profile, reveal likes, and get AI-powered compatibility insights — only when you need them.
             </p>
-            <p className={styles.typicalCosts}>
-              Typical costs: Chat unlock = 1 credit · Boost (24h) = 2 · AI insight = 2 · See likes (7d) = 3
+            <p className={styles.supportLine}>
+              No subscription. No commitment. Just one-time credit packs.
             </p>
+            <div className={styles.explanationRow}>
+              <span><strong>1 credit</strong> → unlock chat</span>
+              <span><strong>2 credits</strong> → profile boost (24h)</span>
+              <span><strong>2 credits</strong> → AI compatibility insight</span>
+              <span><strong>3 credits</strong> → reveal likes</span>
+            </div>
           </Container>
         </section>
 
@@ -172,7 +185,7 @@ export const PricingPage: React.FC = () => {
               const isBestValue = pack.isBestValue;
               const isLoading = loadingPack === pack.key;
               const features = CREDIT_PACK_FEATURES[pack.key] ?? [];
-              const ctaLabel = isFree ? 'Start Free' : 'Buy Credits';
+              const ctaLabel = isFree ? 'Get Started Free' : pack.key === 'PACK_25' ? 'Get Best Value' : pack.key === 'PACK_100' ? 'Power Up' : 'Buy Credits';
 
               return (
                 <div
@@ -180,7 +193,7 @@ export const PricingPage: React.FC = () => {
                   className={`${styles.card} ${isBestValue ? styles.cardBestValue : ''}`}
                 >
                   {isBestValue && <span className={styles.badge}>Best Value</span>}
-                  <h3 className={styles.planName}>{pack.title}</h3>
+                  <h3 className={styles.planName}>{PACK_DISPLAY_TITLES[pack.key] ?? pack.title}</h3>
                   <div className={styles.price}>
                     <span className={styles.currency}>$</span>
                     <span className={styles.amount}>{pack.priceUsd.toFixed(2)}</span>
@@ -234,6 +247,46 @@ export const PricingPage: React.FC = () => {
               One-time purchase, no subscription
             </span>
           </div>
+
+          <section className={styles.featureSection}>
+            <h2 className={styles.featureSectionTitle}>What You Can Do With Credits</h2>
+            <div className={styles.featureTiles}>
+              <div className={styles.featureTile}>
+                <div className={styles.featureTileIcon} aria-hidden>💬</div>
+                <h3 className={styles.featureTileTitle}>Unlock Chat</h3>
+                <p className={styles.featureTileDesc}>Start a conversation with a training partner.</p>
+                <span className={styles.featureTileBadge}>Cost: 1 credit</span>
+              </div>
+              <div className={styles.featureTile}>
+                <div className={styles.featureTileIcon} aria-hidden>📈</div>
+                <h3 className={styles.featureTileTitle}>Boost Profile</h3>
+                <p className={styles.featureTileDesc}>Get more profile views for 24 hours.</p>
+                <span className={styles.featureTileBadge}>Cost: 2 credits</span>
+              </div>
+              <div className={styles.featureTile}>
+                <div className={styles.featureTileIcon} aria-hidden>✨</div>
+                <h3 className={styles.featureTileTitle}>AI Match Insight</h3>
+                <p className={styles.featureTileDesc}>See compatibility based on sport, schedule, goals, and experience.</p>
+                <span className={styles.featureTileBadge}>Cost: 2 credits</span>
+              </div>
+              <div className={styles.featureTile}>
+                <div className={styles.featureTileIcon} aria-hidden>❤️</div>
+                <h3 className={styles.featureTileTitle}>Reveal Likes</h3>
+                <p className={styles.featureTileDesc}>See who already liked your profile.</p>
+                <span className={styles.featureTileBadge}>Cost: 3 credits</span>
+              </div>
+            </div>
+          </section>
+
+          <section className={styles.whyCreditsSection}>
+            <h2 className={styles.whyCreditsTitle}>Why credits work better</h2>
+            <ul className={styles.whyCreditsList}>
+              <li>Pay only when you use features</li>
+              <li>No recurring payments</li>
+              <li>Flexible for casual or active users</li>
+              <li>Built for real-world training partners</li>
+            </ul>
+          </section>
 
           <div className={styles.faq}>
             <h3 className={styles.faqTitle}>Frequently asked</h3>

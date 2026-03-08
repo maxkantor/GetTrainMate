@@ -70,17 +70,18 @@ function getUserId(identity) {
 }
 
 async function getCognitoUser(userId) {
-  if (!USER_POOL_ID) return { id: userId, email: null, isAdmin: false };
+  if (!USER_POOL_ID) return { id: userId, email: null, name: null, isAdmin: false };
   try {
     const out = await cognito.send(new AdminGetUserCommand({
       UserPoolId: USER_POOL_ID,
       Username: userId,
     }));
     const email = out.UserAttributes?.find((a) => a.Name === 'email')?.Value || null;
+    const name = out.UserAttributes?.find((a) => a.Name === 'name')?.Value?.trim() || null;
     const isAdmin = email ? ADMIN_EMAILS.includes(email) : false;
-    return { id: userId, email, isAdmin };
+    return { id: userId, email, name, isAdmin };
   } catch (e) {
-    return { id: userId, email: null, isAdmin: false };
+    return { id: userId, email: null, name: null, isAdmin: false };
   }
 }
 
@@ -146,6 +147,10 @@ async function getMe(identity) {
     getCreditsBalance(userId),
   ]);
   const isProfileComplete = profile ? isProfileCompleteCheck(profile) : false;
+  const displayName = (profile?.displayName?.trim() || user.name || '').trim() || null;
+  const profileOut = profile
+    ? { ...profile, displayName: displayName || profile.displayName || '', updatedAt: profile.updatedAt || null }
+    : (displayName ? { userId, displayName, age: null, city: null, bio: null, sports: [], goals: [], schedule: [], avatarUrl: toAvatarUrl(null, null, userId), level: null, isComplete: false, updatedAt: null } : null);
   return {
     user: {
       id: user.id,
@@ -154,7 +159,7 @@ async function getMe(identity) {
       createdAt: null,
       updatedAt: null,
     },
-    profile: profile ? { ...profile, updatedAt: profile.updatedAt || null } : null,
+    profile: profileOut,
     credits,
     isProfileComplete,
   };
