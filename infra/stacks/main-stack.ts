@@ -111,10 +111,11 @@ export class GetTrainMateStack extends cdk.Stack {
     }));
     mediaBucket.grantReadWrite(apiLambda);
 
-    // Grant Lambda access to Cognito
+    // Grant Lambda access to Cognito (GetUser for token validation, Admin* for admin features)
     apiLambda.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
+        'cognito-idp:GetUser',
         'cognito-idp:AdminGetUser',
         'cognito-idp:AdminListGroupsForUser',
       ],
