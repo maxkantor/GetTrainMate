@@ -371,13 +371,45 @@ public class ChatService : IChatService
 
     private ChatThread DocumentToThread(Document doc)
     {
+        var lastMessage = string.Empty;
+        if (doc.ContainsKey("lastMessage"))
+        {
+            try { lastMessage = doc["lastMessage"].AsString() ?? string.Empty; } catch { }
+        }
+        var lastMessageAt = DateTime.UtcNow;
+        if (doc.ContainsKey("lastMessageAt"))
+        {
+            try
+            {
+                var s = doc["lastMessageAt"].AsString();
+                if (!string.IsNullOrEmpty(s) && DateTime.TryParse(s, out var parsed))
+                    lastMessageAt = parsed;
+            }
+            catch { }
+        }
+        var createdAt = DateTime.UtcNow;
+        if (doc.ContainsKey("createdAt"))
+        {
+            try
+            {
+                var s = doc["createdAt"].AsString();
+                if (!string.IsNullOrEmpty(s) && DateTime.TryParse(s, out var parsed))
+                    createdAt = parsed;
+            }
+            catch { }
+        }
+        var participantIds = new List<string>();
+        if (doc.ContainsKey("participantIds"))
+        {
+            try { participantIds = doc["participantIds"].AsListOfString(); } catch { }
+        }
         var thread = new ChatThread
         {
             ThreadId = doc["threadId"],
-            ParticipantIds = doc["participantIds"].AsListOfString(),
-            LastMessage = doc["lastMessage"],
-            LastMessageAt = DateTime.Parse(doc["lastMessageAt"]),
-            CreatedAt = DateTime.Parse(doc["createdAt"])
+            ParticipantIds = participantIds,
+            LastMessage = lastMessage,
+            LastMessageAt = lastMessageAt,
+            CreatedAt = createdAt
         };
         if (doc.ContainsKey("matchId"))
             thread.MatchId = doc["matchId"];
