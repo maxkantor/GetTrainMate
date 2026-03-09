@@ -227,14 +227,13 @@ public class MatchService : IMatchService
                 CommonSchedule = GetCommonScheduleSlots(userProfile.AvailabilitySchedule, targetProfile.AvailabilitySchedule)
             };
 
-            match.User1Liked = true;
+            // Set the liker's side (who is liking: userId)
+            if (match.UserId1 == userId)
+                match.User1Liked = true;
+            else
+                match.User2Liked = true;
             match.UpdatedAt = DateTime.UtcNow;
-
-            // Check if mutual like (match!)
-            if (match.User2Liked)
-            {
-                match.IsMatched = true;
-            }
+            match.IsMatched = match.User1Liked && match.User2Liked;
 
             await SaveMatchAsync(match);
 

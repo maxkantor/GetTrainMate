@@ -11,13 +11,16 @@ namespace GetTrainMate.Api.Controllers;
 public class MatchController : ControllerBase
 {
     private readonly IMatchService _matchService;
+    private readonly IChatService _chatService;
     private readonly ILogger<MatchController> _logger;
 
     public MatchController(
         IMatchService matchService,
+        IChatService chatService,
         ILogger<MatchController> logger)
     {
         _matchService = matchService;
+        _chatService = chatService;
         _logger = logger;
     }
 
@@ -92,6 +95,12 @@ public class MatchController : ControllerBase
                 return BadRequest(new { code = "VALIDATION_ERROR", message = "TargetUserId is required" });
 
             var result = await _matchService.LikeUserAsync(userId, request.TargetUserId);
+            if (result.IsMatched && !string.IsNullOrEmpty(result.MatchId))
+            {
+                var match = await _matchService.GetMatchByIdAsync(result.MatchId);
+                if (match != null)
+                    await _chatService.GetOrCreateThreadForMatchAsync(result.MatchId, match.UserId1, match.UserId2);
+            }
             return Ok(result);
         }
         catch (InsufficientCreditsException ex)
