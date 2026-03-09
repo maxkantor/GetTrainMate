@@ -273,12 +273,7 @@
   background: rgba(99, 102, 241, 0.12);
   border: 1px solid rgba(99, 102, 241, 0.3);
   border-radius: 999px;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-.creditsPill:hover {
-  background: rgba(99, 102, 241, 0.18);
-  border-color: rgba(99, 102, 241, 0.45);
-  color: #111827 !important;
+  cursor: default;
 }
 .creditsValue {
   color: var(--color-primary, #6366f1);
@@ -566,12 +561,8 @@
   font-size: 1rem;
   font-weight: 600;
   color: #a78bfa;
-  text-decoration: none;
   display: block;
-}
-.mobileCredits:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #c4b5fd;
+  cursor: default;
 }
 
 .mobileUpgrade {

@@ -83,12 +83,16 @@ export const AppHeader: React.FC = () => {
 
           {isLoggedIn && (
             <>
-              <RouterLink to="/pricing" className={styles.creditsPill} aria-label="Your credits">
+              <span
+                className={styles.creditsPill}
+                title={`${me?.credits ?? 0} of ${me?.lifetimeEarned ?? me?.credits ?? 0} credits used`}
+                aria-label={`${me?.credits ?? 0} of ${me?.lifetimeEarned ?? me?.credits ?? 0} credits used`}
+              >
                 <span className={styles.creditsValue}>
                   {me?.credits ?? 0}/{me?.lifetimeEarned ?? me?.credits ?? 0}
                 </span>
                 <span className={styles.creditsLabel}>credits</span>
-              </RouterLink>
+              </span>
               <RouterLink
                 to="/pricing"
                 className={styles.upgradeBtn}
@@ -187,9 +191,13 @@ export const AppHeader: React.FC = () => {
                   <div className={styles.mobileUser} aria-hidden>
                     {me?.profile?.name?.trim() || user?.email?.split('@')[0] || 'Profile'}
                   </div>
-                  <RouterLink to="/pricing" className={styles.mobileCredits} onClick={() => { setMobileOpen(false); analytics.pricingOpened('mobile'); }}>
+                  <span
+                    className={styles.mobileCredits}
+                    title={`${me?.credits ?? 0} of ${me?.lifetimeEarned ?? me?.credits ?? 0} credits used`}
+                    aria-label={`${me?.credits ?? 0} of ${me?.lifetimeEarned ?? me?.credits ?? 0} credits used`}
+                  >
                     {me?.credits ?? 0}/{me?.lifetimeEarned ?? me?.credits ?? 0} credits
-                  </RouterLink>
+                  </span>
                   <RouterLink to="/pricing" className={styles.mobileUpgrade} onClick={() => { setMobileOpen(false); analytics.pricingOpened('mobile'); }}>
                     Get Credits
                   </RouterLink>
