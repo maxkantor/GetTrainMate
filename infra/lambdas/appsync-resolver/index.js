@@ -16,6 +16,8 @@ const {
 } = require('@aws-sdk/client-dynamodb');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const { CognitoIdentityProviderClient, AdminGetUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const PREFIX = process.env.DYNAMODB_TABLE_PREFIX || 'gettrainmate-';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || '';
@@ -35,9 +37,13 @@ const DEMO_PERSON_PHOTOS = [
   `${RANDOMUSER}/women/12.jpg`, // Riley
 ];
 
-function toAvatarUrl(photoUrls, photoKey, userIdForPlaceholder) {
+async function toAvatarUrl(photoUrls, photoKey, userIdForPlaceholder) {
   if (photoUrls && photoUrls[0] && (photoUrls[0].startsWith('http://') || photoUrls[0].startsWith('https://'))) return photoUrls[0];
-  if (photoKey) return `https://${MEDIA_BUCKET}.s3.${AWS_REGION}.amazonaws.com/${photoKey.replace(/^\//, '')}`;
+  if (photoKey) {
+    const s3 = new S3Client({ region: AWS_REGION });
+    const key = photoKey.replace(/^\//, '');
+    return getSignedUrl(s3, new GetObjectCommand({ Bucket: MEDIA_BUCKET, Key: key }), { expiresIn: 3600 });
+  }
   if (userIdForPlaceholder) {
     const n = String(userIdForPlaceholder).split('').reduce((a, b) => a + b.charCodeAt(0), 0);
     const idx = (n % 99) + 1;
@@ -92,10 +98,10 @@ async function getProfile(userId) {
   }));
   if (!r.Item) return null;
   const p = unmarshall(r.Item);
-  return profileFromDoc(p);
+  return await profileFromDoc(p);
 }
 
-function profileFromDoc(d) {
+async function profileFromDoc(d) {
   if (!d) return null;
   const schedule = d.availabilitySchedule;
   let scheduleParsed = [];
@@ -113,7 +119,7 @@ function profileFromDoc(d) {
     sports: d.sportTags || [],
     goals: d.goals || [],
     schedule: scheduleParsed,
-    avatarUrl: toAvatarUrl(d.photoUrls, d.photoKey, d.userId),
+    avatarUrl: await toAvatarUrl(d.photoUrls, d.photoKey, d.userId),
     level: d.level || null,
     isComplete: !!d.isComplete,
     updatedAt: d.updatedAt || null,
@@ -152,7 +158,7 @@ async function getMe(identity) {
   const displayName = (profile?.displayName?.trim() || user.name || '').trim() || null;
   const profileOut = profile
     ? { ...profile, displayName: displayName || profile.displayName || '', updatedAt: profile.updatedAt || null }
-    : (displayName ? { userId, displayName, age: null, city: null, bio: null, sports: [], goals: [], schedule: [], avatarUrl: toAvatarUrl(null, null, userId), level: null, isComplete: false, updatedAt: null } : null);
+    : (displayName ? { userId, displayName, age: null, city: null, bio: null, sports: [], goals: [], schedule: [], avatarUrl: await toAvatarUrl(null, null, userId), level: null, isComplete: false, updatedAt: null } : null);
   return {
     user: {
       id: user.id,
@@ -200,7 +206,7 @@ async function discoverCandidates(identity, args) {
   for (const doc of all) {
     const profileUserId = doc.userId;
     if (!profileUserId || profileUserId === userId) continue;
-    const p = profileFromDoc(doc);
+    const p = await profileFromDoc(doc);
     if (!p) continue;
     // Show profile even if name is empty: use fallback so real users always appear in discover
     const displayName = (p.displayName && String(p.displayName).trim()) || 'User';
@@ -620,12 +626,13 @@ async function upsertProfile(identity, args) {
   if (input.avatarUrl != null) doc.photoUrls = [input.avatarUrl];
   if (input.schedule != null && input.schedule.length > 0) doc.availabilitySchedule = JSON.stringify(input.schedule);
   doc.updatedAt = now;
-  doc.isComplete = isProfileCompleteCheck(profileFromDoc(doc));
+  const profileForCheck = await profileFromDoc(doc);
+  doc.isComplete = isProfileCompleteCheck(profileForCheck);
   await dynamo.send(new PutItemCommand({
     TableName: tables.profiles,
     Item: marshall(doc),
   }));
-  return profileFromDoc(doc);
+  return profileForCheck;
 }
 
 async function seedDemoData(identity) {

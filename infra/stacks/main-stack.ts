@@ -249,6 +249,7 @@ export class GetTrainMateStack extends cdk.Stack {
       },
     });
     allTables.forEach((table) => table.grantReadWriteData(resolverLambda));
+    mediaBucket.grantRead(resolverLambda); // For presigned avatar URLs in getProfile
     resolverLambda.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
