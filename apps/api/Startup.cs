@@ -56,6 +56,15 @@ public class Startup
 
         // Bedrock & AI: config-driven (stub when Bedrock:ModelId not set)
         services.Configure<BedrockOptions>(Configuration.GetSection(BedrockOptions.SectionName));
+        services.PostConfigure<BedrockOptions>(options =>
+        {
+            if (string.IsNullOrWhiteSpace(options.ModelId))
+            {
+                var envModelId = Environment.GetEnvironmentVariable("BEDROCK_MODEL_ID");
+                if (!string.IsNullOrWhiteSpace(envModelId))
+                    options.ModelId = envModelId;
+            }
+        });
         services.Configure<AiCreditCostsOptions>(Configuration.GetSection(AiCreditCostsOptions.SectionName));
         services.AddSingleton<IBedrockClientWrapper, BedrockClientWrapper>();
         services.AddScoped<IBedrockChatService, BedrockChatService>();

@@ -79,6 +79,9 @@ export class GetTrainMateStack extends cdk.Stack {
     // S3 Bucket for media storage (existing bucket; set CORS once in Console → Permissions → CORS)
     const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', 'getrainmate-media-bucket');
 
+    // Bedrock model for AI features (match insight, chat, icebreakers). Override: --context bedrockModelId=...
+    const bedrockModelId = this.node.tryGetContext('bedrockModelId') || 'anthropic.claude-3-5-haiku-20241022-v1:0';
+
     // Lambda function for API
     // Note: The Lambda code needs to be built and published first:
     // cd apps/api && dotnet publish -c Release
@@ -96,6 +99,10 @@ export class GetTrainMateStack extends cdk.Stack {
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
         // Required for Stripe checkout redirect URLs. Set: npx cdk deploy --context frontendUrl=https://yourdomain.com
         FRONTEND_URL: this.node.tryGetContext('frontendUrl') || process.env.FRONTEND_URL || '',
+        // Bedrock: ASP.NET maps Bedrock__ModelId -> Bedrock:ModelId; BEDROCK_MODEL_ID fallback
+        Bedrock__ModelId: bedrockModelId,
+        BEDROCK_MODEL_ID: bedrockModelId,
+        Bedrock__Region: this.region,
       },
     });
 
@@ -140,6 +147,18 @@ export class GetTrainMateStack extends cdk.Stack {
         'ses:SendRawEmail',
       ],
       resources: ['*'], // SES doesn't support resource-level permissions for SendEmail
+    }));
+
+    // Grant Lambda access to Bedrock (AI match insight, chat, icebreakers, etc.)
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'bedrock:InvokeModel',
+        'bedrock:InvokeModelWithResponseStream',
+      ],
+      resources: [
+        `arn:aws:bedrock:${this.region}::foundation-model/${bedrockModelId}`,
+      ],
     }));
 
     // Grant Lambda access to SSM Parameter Store (admin portal password at /gettrainmate/admin/password)
