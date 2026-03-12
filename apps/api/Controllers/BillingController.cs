@@ -182,6 +182,12 @@ public class BillingController : ControllerBase
             var isConfigError = ex.Message.Contains("invalid price") || ex.Message.Contains("Admin CRM");
             return StatusCode(isConfigError ? 503 : 400, new { error = isConfigError ? "Credit packs are being configured. Set price in Admin CRM → Credit Packs." : ex.Message });
         }
+        catch (StripeException ex) when (ex.Message?.Contains("Expired", StringComparison.OrdinalIgnoreCase) == true
+            || ex.Message?.Contains("Invalid API Key", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            _logger.LogError(ex, "Stripe API key invalid or expired");
+            return StatusCode(503, new { error = "Payment configuration error. Update Stripe key in SSM: /gettrainmate/stripe/secret-key. See docs/STRIPE_SSM_SETUP.md" });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Checkout failed");

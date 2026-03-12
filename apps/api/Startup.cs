@@ -85,6 +85,9 @@ public class Startup
         var stripeWebhookSecret = Configuration["Stripe:WebhookSecret"]
             ?? Environment.GetEnvironmentVariable("STRIPE_WEBHOOK_SECRET");
 
+        var ssmSecretKey = "/gettrainmate/stripe/secret-key";
+        var ssmWebhookSecret = "/gettrainmate/stripe/webhook-secret";
+
         if (string.IsNullOrEmpty(stripeKey) || string.IsNullOrEmpty(stripeWebhookSecret))
         {
             try
@@ -94,24 +97,30 @@ public class Startup
                 {
                     var keyResponse = ssm.GetParameterAsync(new GetParameterRequest
                     {
-                        Name = "/gettrainmate/stripe/secret-key",
+                        Name = ssmSecretKey,
                         WithDecryption = true
                     }).GetAwaiter().GetResult();
                     stripeKey = keyResponse.Parameter.Value?.Trim() ?? "";
+                    Log.Information("Stripe secret key loaded from SSM {Param}", ssmSecretKey);
                 }
                 if (string.IsNullOrEmpty(stripeWebhookSecret))
                 {
                     var whResponse = ssm.GetParameterAsync(new GetParameterRequest
                     {
-                        Name = "/gettrainmate/stripe/webhook-secret",
+                        Name = ssmWebhookSecret,
                         WithDecryption = true
                     }).GetAwaiter().GetResult();
                     stripeWebhookSecret = whResponse.Parameter.Value?.Trim() ?? "";
+                    Log.Information("Stripe webhook secret loaded from SSM {Param}", ssmWebhookSecret);
                 }
+            }
+            catch (ParameterNotFoundException)
+            {
+                Log.Warning("Stripe SSM parameters not found. Create with: aws ssm put-parameter --name {Key} --value sk_live_XXX --type SecureString", ssmSecretKey);
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "Could not load Stripe keys from SSM /gettrainmate/stripe/*");
+                Log.Warning(ex, "Could not load Stripe keys from SSM. Ensure Lambda has ssm:GetParameter on /gettrainmate/*");
             }
         }
         if (!string.IsNullOrEmpty(stripeKey))
