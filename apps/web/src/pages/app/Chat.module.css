@@ -94,6 +94,11 @@
   letter-spacing: -0.02em;
 }
 
+.threadAvatar:is(img) {
+  object-fit: cover;
+  background: none;
+}
+
 .threadMeta {
   flex: 1;
   min-width: 0;
@@ -158,6 +163,11 @@
   font-size: var(--font-base);
   font-weight: 700;
   color: #fff;
+}
+
+.messagesHeaderAvatar:is(img) {
+  object-fit: cover;
+  background: none;
 }
 
 .messagesScroll {

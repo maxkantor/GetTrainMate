@@ -20,7 +20,14 @@ import {
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 import { getIcebreakers, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import { profileService } from '@/services/profileService';
+import { IMAGE_BUCKET_BASE } from '@/config/media';
 import chatStyles from './Chat.module.css';
+
+function toAvatarUrl(avatarUrl: string | undefined): string | undefined {
+  if (!avatarUrl || /randomuser\.me/i.test(avatarUrl)) return undefined;
+  if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) return avatarUrl;
+  return `${IMAGE_BUCKET_BASE}/${avatarUrl.replace(/^\//, '')}`;
+}
 
 export const ChatPage: React.FC = () => {
   const { t } = useI18n();
@@ -39,6 +46,7 @@ export const ChatPage: React.FC = () => {
   const [threadLocked, setThreadLocked] = useState<boolean | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [otherName, setOtherName] = useState<string>('');
+  const [otherAvatarUrl, setOtherAvatarUrl] = useState<string | undefined>(undefined);
   const [icebreakerSuggestions, setIcebreakerSuggestions] = useState<string[]>([]);
   const [icebreakerLoading, setIcebreakerLoading] = useState(false);
   const [icebreakerError, setIcebreakerError] = useState('');
@@ -53,10 +61,11 @@ export const ChatPage: React.FC = () => {
       const checkLock = async () => {
         if (isGraphQLEnabled) {
           try {
-            const data = await graphqlGetThreadByMatch(threadIdFromUrl) as { unlockedByCurrentUser?: boolean; otherUserProfile?: { displayName?: string } } | null;
+            const data = await graphqlGetThreadByMatch(threadIdFromUrl) as { unlockedByCurrentUser?: boolean; otherUserProfile?: { displayName?: string; avatarUrl?: string } } | null;
             if (data) {
               setThreadLocked(!data.unlockedByCurrentUser);
               if (data.otherUserProfile?.displayName) setOtherName(data.otherUserProfile.displayName);
+              setOtherAvatarUrl(toAvatarUrl(data.otherUserProfile?.avatarUrl));
             } else setThreadLocked(true);
             setSelectedThreadId(threadIdFromUrl);
           } catch {
@@ -81,6 +90,7 @@ export const ChatPage: React.FC = () => {
       checkLock();
     } else {
       setThreadLocked(null);
+      setOtherAvatarUrl(undefined);
     }
   }, [threadIdFromUrl, threads.length]);
 
@@ -104,11 +114,12 @@ export const ChatPage: React.FC = () => {
       setLoading(true);
       setError('');
       if (isGraphQLEnabled) {
-        const items = await graphqlListMyMatches() as { matchId: string; threadId: string; otherUserProfile?: { displayName?: string } }[];
+        const items = await graphqlListMyMatches() as { matchId: string; threadId: string; otherUserProfile?: { userId?: string; displayName?: string; avatarUrl?: string } }[];
         const data: ThreadPreviewResponse[] = items.map((m) => ({
           threadId: m.threadId ?? m.matchId,
-          otherUserId: '',
+          otherUserId: m.otherUserProfile?.userId ?? '',
           otherUserName: m.otherUserProfile?.displayName ?? 'Unknown',
+          otherUserAvatarUrl: toAvatarUrl(m.otherUserProfile?.avatarUrl),
           lastMessage: '',
           lastMessageAt: '',
           unreadCount: 0,
@@ -128,7 +139,20 @@ export const ChatPage: React.FC = () => {
           return;
         }
         const data = await chatService.getThreads(token);
-        setThreads(data);
+        // Fetch profile photos for avatar images
+        const withAvatars = await Promise.all(
+          data.map(async (t) => {
+            if (!t.otherUserId) return t;
+            try {
+              const profile = await profileService.getProfile(token, t.otherUserId) as { photoUrls?: string[]; PhotoUrls?: string[] } | undefined;
+              const urls = profile?.photoUrls ?? profile?.PhotoUrls ?? [];
+              return { ...t, otherUserAvatarUrl: urls[0] };
+            } catch {
+              return t;
+            }
+          })
+        );
+        setThreads(withAvatars);
         if (data.length > 0 && !selectedThreadId && !threadIdFromUrl) {
           setSelectedThreadId(data[0].threadId);
         }
@@ -175,26 +199,37 @@ export const ChatPage: React.FC = () => {
     }
   };
 
+  const dedupeMessages = (msgs: ChatMessage[]): ChatMessage[] => {
+    const seen = new Set<string>();
+    return msgs.filter((m) => {
+      if (seen.has(m.messageId)) return false;
+      seen.add(m.messageId);
+      return true;
+    });
+  };
+
   const loadMessages = async (threadId: string) => {
     try {
       if (isGraphQLEnabled) {
         const result = await graphqlListMessages(threadId, 100);
         const items = (result.items || []) as { id: string; threadId: string; createdAt: string; fromUserId: string; body: string; senderName?: string }[];
-        const data: ChatMessage[] = items.map((m) => ({
-          messageId: m.id,
-          threadId: m.threadId,
-          senderId: m.fromUserId,
-          senderName: m.senderName ?? '',
-          content: m.body,
-          isRead: false,
-          createdAt: m.createdAt,
-        }));
+        const data: ChatMessage[] = dedupeMessages(
+          items.map((m) => ({
+            messageId: m.id,
+            threadId: m.threadId,
+            senderId: m.fromUserId,
+            senderName: m.senderName ?? '',
+            content: m.body,
+            isRead: false,
+            createdAt: m.createdAt,
+          }))
+        );
         setMessages(data);
       } else {
         const token = await authService.getJWT();
         if (!token) return;
         const data = await chatService.getMessages(token, threadId, 100);
-        setMessages(data);
+        setMessages(dedupeMessages(data));
       }
     } catch (err: any) {
       console.error('Error loading messages:', err);
@@ -227,23 +262,26 @@ export const ChatPage: React.FC = () => {
           matchId: selectedThreadId,
           body: messageContent.trim(),
         });
-        setMessages((prev) => [
-          ...prev,
-          {
-            messageId: newMessage.id,
-            threadId: newMessage.threadId,
-            senderId: newMessage.fromUserId,
-            senderName: newMessage.senderName ?? '',
-            content: newMessage.body,
-            isRead: false,
-            createdAt: newMessage.createdAt,
-          },
-        ]);
+        setMessages((prev) => {
+          if (prev.some((m) => m.messageId === newMessage.id)) return prev;
+          return [
+            ...prev,
+            {
+              messageId: newMessage.id,
+              threadId: newMessage.threadId,
+              senderId: newMessage.fromUserId,
+              senderName: newMessage.senderName ?? '',
+              content: newMessage.body,
+              isRead: false,
+              createdAt: newMessage.createdAt,
+            },
+          ];
+        });
       } else {
         const token = await authService.getJWT();
         if (!token) return;
         const newMessage = await chatService.sendMessage(token, selectedThreadId, messageContent);
-        setMessages([...messages, newMessage]);
+        setMessages((prev) => (prev.some((m) => m.messageId === newMessage.messageId) ? prev : [...prev, newMessage]));
       }
       setMessageContent('');
     } catch (err: any) {
@@ -323,7 +361,15 @@ export const ChatPage: React.FC = () => {
 
   const selectedThread = threads.find(t => t.threadId === selectedThreadId);
   const displayName = selectedThread?.otherUserName || otherName || 'Chat';
+  const headerAvatarUrl = selectedThread?.otherUserAvatarUrl ?? otherAvatarUrl;
   const avatarLetter = (name: string) => (name || '?').charAt(0).toUpperCase();
+
+  const Avatar = ({ url, letter, className }: { url?: string; letter: string; className: string }) =>
+    url ? (
+      <img src={url} alt="" className={className} />
+    ) : (
+      <span className={className}>{letter}</span>
+    );
 
   return (
     <div className={chatStyles.root}>
@@ -339,7 +385,7 @@ export const ChatPage: React.FC = () => {
                 className={`${chatStyles.threadItem} ${selectedThreadId === thread.threadId ? chatStyles.threadItemActive : ''}`}
                 onClick={() => setSelectedThreadId(thread.threadId)}
               >
-                <span className={chatStyles.threadAvatar}>{avatarLetter(thread.otherUserName)}</span>
+                <Avatar url={thread.otherUserAvatarUrl} letter={avatarLetter(thread.otherUserName)} className={chatStyles.threadAvatar} />
                 <div className={chatStyles.threadMeta}>
                   <div className={chatStyles.threadName}>{thread.otherUserName}</div>
                   {thread.lastMessage && (
@@ -357,7 +403,7 @@ export const ChatPage: React.FC = () => {
           {selectedThreadId && (
             <>
               <div className={chatStyles.messagesHeader}>
-                <span className={chatStyles.messagesHeaderAvatar}>{avatarLetter(displayName)}</span>
+                <Avatar url={headerAvatarUrl} letter={avatarLetter(displayName)} className={chatStyles.messagesHeaderAvatar} />
                 {displayName}
               </div>
 

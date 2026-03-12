@@ -23,6 +23,7 @@ export interface ThreadPreviewResponse {
   threadId: string;
   otherUserId: string;
   otherUserName: string;
+  otherUserAvatarUrl?: string;
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;
