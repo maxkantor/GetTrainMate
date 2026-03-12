@@ -1,6 +1,6 @@
 /**
- * IP-based geolocation. Tries ip-api.com first, falls back to ipwho.is on 403/rate limit.
- * No API keys; both have free non-commercial tiers.
+ * IP-based geolocation. Tries multiple providers (ip-api, ipwho, reallyfreegeoip, geoiplookup).
+ * No API keys; all have free tiers. Falls through on 403/rate limit.
  */
 
 export interface IpLocation {
@@ -13,8 +13,27 @@ export interface IpLocation {
   label: string;
 }
 
-const IP_API_URL = 'https://ip-api.com/json/?fields=status,city,regionName,country,lat,lon';
-const IPWHO_URL = 'https://ipwho.is/';
+const PROVIDERS: Array<{
+  url: string;
+  parse: (data: Record<string, unknown>) => IpLocation | null;
+}> = [
+  {
+    url: 'https://ip-api.com/json/?fields=status,city,regionName,country,lat,lon',
+    parse: (d) => (d.status === 'success' && d.city != null ? toLocation({ city: String(d.city ?? ''), regionName: d.regionName as string | undefined, country: d.country as string | undefined, lat: d.lat as number | undefined, lon: d.lon as number | undefined }) : null),
+  },
+  {
+    url: 'https://ipwho.is/',
+    parse: (d) => (d.success !== false && (d.city ?? d.country) ? toLocation({ city: d.city as string | undefined, region: d.region as string | undefined, country: d.country as string | undefined, latitude: d.latitude as number | undefined, longitude: d.longitude as number | undefined }) : null),
+  },
+  {
+    url: 'https://reallyfreegeoip.org/json/',
+    parse: (d) => (d.country_name ? toLocation({ city: d.city as string | undefined, regionName: d.region_name as string | undefined, country: String(d.country_name ?? ''), lat: d.latitude as number | undefined, lon: d.longitude as number | undefined }) : null),
+  },
+  {
+    url: 'https://json.geoiplookup.io/',
+    parse: (d) => (d.success !== false && d.country_name ? toLocation({ city: d.city as string | undefined, region: d.region as string | undefined, country: String(d.country_name ?? ''), latitude: d.latitude as number | undefined, longitude: d.longitude as number | undefined }) : null),
+  },
+];
 
 let cached: IpLocation | null = null;
 
@@ -46,41 +65,20 @@ function toLocation(data: {
 
 export async function getLocationFromIp(): Promise<IpLocation | null> {
   if (cached) return cached;
-  try {
-    const res = await fetch(IP_API_URL, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.status === 'success') {
-        const loc = toLocation(data);
+  for (const { url, parse } of PROVIDERS) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (res.ok) {
+        const data = (await res.json()) as Record<string, unknown>;
+        const loc = parse(data);
         if (loc) {
           cached = loc;
           return loc;
         }
       }
+    } catch {
+      /* try next provider */
     }
-  } catch {
-    /* fall through to backup */
-  }
-  try {
-    const res = await fetch(IPWHO_URL, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success !== false && (data.city ?? data.country)) {
-        const loc = toLocation({
-          city: data.city,
-          region: data.region,
-          country: data.country,
-          latitude: data.latitude,
-          longitude: data.longitude,
-        });
-        if (loc) {
-          cached = loc;
-          return loc;
-        }
-      }
-    }
-  } catch {
-    /* both failed */
   }
   return null;
 }

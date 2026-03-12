@@ -1,21 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import {
-  Box,
-  Button,
-  Container,
-  Divider,
-  List,
-  ListItemButton,
-  ListItemText,
-  Paper,
-  TextField,
-  Typography,
-  CircularProgress,
-  Alert,
-  Chip,
-  Grid,
-} from '@mui/material';
+import { Button, CircularProgress, Alert } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import LockIcon from '@mui/icons-material/Lock';
 import { useI18n } from '@/hooks/useI18n';
@@ -271,22 +256,38 @@ export const ChatPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Container sx={{ py: 8, textAlign: 'center' }}>
-        <CircularProgress />
-      </Container>
+      <div className={chatStyles.root}>
+        <div className={chatStyles.loading}>
+          <CircularProgress sx={{ color: 'rgba(99, 102, 241, 0.8)' }} />
+        </div>
+      </div>
     );
   }
 
   if (!threadIdFromUrl && threads.length === 0) {
     return (
-      <Container sx={{ py: 6 }}>
-        <Alert severity="info" sx={{ mb: 2 }}>
-          No chats yet. Like someone on Discover — when you both like each other, you match. Unlock chat (1 credit) to message.
-        </Alert>
-        <Button variant="outlined" size="small" href="/app/discover" sx={{ mt: 2 }}>
-          Go to Discover
-        </Button>
-      </Container>
+      <div className={chatStyles.root}>
+        <div className={chatStyles.emptyState}>
+          <p style={{ fontSize: 'var(--font-lg)', color: 'var(--color-neutral-300)', marginBottom: 'var(--space-4)' }}>
+            No chats yet. Like someone on Discover — when you both like each other, you match.
+          </p>
+          <Button
+            variant="contained"
+            href="/app/discover"
+            sx={{
+              mt: 2,
+              borderRadius: '24px',
+              px: 3,
+              py: 1.5,
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Go to Discover
+          </Button>
+        </div>
+      </div>
     );
   }
 
@@ -322,101 +323,69 @@ export const ChatPage: React.FC = () => {
 
   const selectedThread = threads.find(t => t.threadId === selectedThreadId);
   const displayName = selectedThread?.otherUserName || otherName || 'Chat';
+  const avatarLetter = (name: string) => (name || '?').charAt(0).toUpperCase();
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2, height: '85vh', display: 'flex', flexDirection: 'column' }}>
-      <Grid container spacing={2} sx={{ height: '100%', overflow: 'hidden' }}>
-        {/* Thread List - hide on small when opening from match */}
-        <Grid item xs={12} sm={4} sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <Typography variant="h6" sx={{ pb: 1 }}>
-            {t('nav.chat')}
-          </Typography>
-          <Paper sx={{ flex: 1, overflow: 'auto' }}>
-            <List sx={{ p: 0 }}>
-              {threads.map((thread) => (
-                <Box key={thread.threadId}>
-                  <ListItemButton
-                    selected={selectedThreadId === thread.threadId}
-                    onClick={() => setSelectedThreadId(thread.threadId)}
-                  >
-                    <ListItemText
-                      primary={thread.otherUserName}
-                      secondary={thread.lastMessage}
-                      secondaryTypographyProps={{ noWrap: true }}
-                    />
-                    {thread.unreadCount > 0 && (
-                      <Chip
-                        label={thread.unreadCount}
-                        size="small"
-                        color="primary"
-                        variant="filled"
-                      />
-                    )}
-                  </ListItemButton>
-                  <Divider />
-                </Box>
-              ))}
-            </List>
-          </Paper>
-        </Grid>
+    <div className={chatStyles.root}>
+      <div className={chatStyles.layout}>
+        {/* Thread List */}
+        <aside className={chatStyles.threadList}>
+          <h2 className={chatStyles.threadListTitle}>{t('nav.chat')}</h2>
+          <div className={chatStyles.threadItems}>
+            {threads.map((thread) => (
+              <button
+                key={thread.threadId}
+                type="button"
+                className={`${chatStyles.threadItem} ${selectedThreadId === thread.threadId ? chatStyles.threadItemActive : ''}`}
+                onClick={() => setSelectedThreadId(thread.threadId)}
+              >
+                <span className={chatStyles.threadAvatar}>{avatarLetter(thread.otherUserName)}</span>
+                <div className={chatStyles.threadMeta}>
+                  <div className={chatStyles.threadName}>{thread.otherUserName}</div>
+                  {thread.lastMessage && (
+                    <div className={chatStyles.threadPreview}>{thread.lastMessage}</div>
+                  )}
+                </div>
+                {thread.unreadCount > 0 && <span className={chatStyles.threadUnread} aria-label={`${thread.unreadCount} unread`} />}
+              </button>
+            ))}
+          </div>
+        </aside>
 
         {/* Messages */}
-        <Grid item xs={12} sm={8} sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className={chatStyles.messagesArea}>
           {selectedThreadId && (
             <>
-              <Box sx={{ pb: 1, borderBottom: '1px solid #eee' }}>
-                <Typography variant="h6">{displayName}</Typography>
-              </Box>
+              <div className={chatStyles.messagesHeader}>
+                <span className={chatStyles.messagesHeaderAvatar}>{avatarLetter(displayName)}</span>
+                {displayName}
+              </div>
 
               {error && (
-                <Alert severity="error" sx={{ mb: 1 }}>
+                <Alert severity="error" sx={{ mx: 2, mt: 2 }}>
                   {error}
                 </Alert>
               )}
 
-              <Paper
-                sx={{
-                  flex: 1,
-                  overflow: 'auto',
-                  p: 2,
-                  mb: 2,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1,
-                }}
-              >
+              <div className={chatStyles.messagesScroll}>
                 {messages.map((msg) => (
-                  <Box
+                  <div
                     key={msg.messageId}
-                    sx={{
-                      display: 'flex',
-                      justifyContent: msg.senderId === user?.sub ? 'flex-end' : 'flex-start',
-                      mb: 1,
-                    }}
+                    className={`${chatStyles.bubble} ${msg.senderId === user?.sub ? chatStyles.bubbleSent : chatStyles.bubbleReceived}`}
                   >
-                    <Paper
-                      sx={{
-                        p: 1.5,
-                        maxWidth: '70%',
-                        backgroundColor:
-                          msg.senderId === user?.sub ? '#1976d2' : '#e0e0e0',
-                        color: msg.senderId === user?.sub ? 'white' : 'black',
-                      }}
-                    >
-                      <Typography variant="body2">{msg.content}</Typography>
-                      <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                        {new Date(msg.createdAt).toLocaleTimeString()}
-                      </Typography>
-                    </Paper>
-                  </Box>
+                    <span>{msg.content}</span>
+                    <div className={chatStyles.bubbleTime}>
+                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    </div>
+                  </div>
                 ))}
                 <div ref={messagesEndRef} />
-              </Paper>
+              </div>
 
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                <Button
-                  size="small"
-                  variant="outlined"
+              <div className={chatStyles.aiToolsRow}>
+                <button
+                  type="button"
+                  className={chatStyles.aiIcebreakerBtn}
                   onClick={async () => {
                     const thread = threads.find((t) => t.threadId === selectedThreadId);
                     const token = await authService.getJWT();
@@ -468,67 +437,65 @@ export const ChatPage: React.FC = () => {
                     }
                   }}
                   disabled={icebreakerLoading}
-                  sx={{ fontSize: '0.75rem' }}
                   title="Get smart first-message suggestions (1 credit)"
                 >
                   {icebreakerLoading ? 'Generating…' : 'AI Icebreaker (1 credit)'}
-                </Button>
-                <Link to="/app/ai-coach" style={{ fontSize: '0.8125rem', color: '#6366f1', fontWeight: 600 }}>
+                </button>
+                <Link to="/app/ai-coach" className={chatStyles.askAiLink}>
                   Ask AI
                 </Link>
-              </Box>
+              </div>
               {icebreakerError && (
-                <Alert severity="error" onClose={() => setIcebreakerError('')} sx={{ mb: 1 }}>
+                <Alert severity="error" onClose={() => setIcebreakerError('')} sx={{ mx: 2, mb: 1 }}>
                   {icebreakerError}
                 </Alert>
               )}
               {icebreakerSuggestions.length > 0 && (
-                <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                <div className={chatStyles.icebreakerChips}>
                   {icebreakerSuggestions.map((s, i) => (
-                    <Chip
+                    <button
                       key={i}
-                      label={s.length > 50 ? s.slice(0, 47) + '…' : s}
-                      size="small"
+                      type="button"
+                      className={chatStyles.icebreakerChip}
                       onClick={() => {
                         setMessageContent(s);
                         setIcebreakerSuggestions([]);
                       }}
-                      sx={{ cursor: 'pointer', maxWidth: 280 }}
-                    />
+                    >
+                      {s.length > 50 ? s.slice(0, 47) + '…' : s}
+                    </button>
                   ))}
-                </Box>
+                </div>
               )}
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <TextField
-                  fullWidth
-                  size="small"
+              <div className={chatStyles.inputRow}>
+                <textarea
+                  className={chatStyles.input}
                   placeholder="Type a message..."
                   value={messageContent}
                   onChange={(e) => setMessageContent(e.target.value)}
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       handleSendMessage();
                     }
                   }}
                   disabled={sending}
-                  multiline
-                  maxRows={3}
+                  rows={1}
                 />
-                <Button
-                  variant="contained"
-                  color="primary"
-                  endIcon={<SendIcon />}
+                <button
+                  type="button"
+                  className={chatStyles.sendBtn}
                   onClick={handleSendMessage}
                   disabled={sending || !messageContent.trim()}
                 >
+                  <SendIcon sx={{ fontSize: 20 }} />
                   Send
-                </Button>
-              </Box>
+                </button>
+              </div>
             </>
           )}
-        </Grid>
-      </Grid>
-    </Container>
+        </div>
+      </div>
+    </div>
   );
 };
