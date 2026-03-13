@@ -150,8 +150,7 @@ export class GetTrainMateStack extends cdk.Stack {
       resources: ['*'], // SES doesn't support resource-level permissions for SendEmail
     }));
 
-    // Grant Lambda access to Bedrock (AI match insight, chat, icebreakers, etc.)
-    // Bedrock may check IAM against inference-profile or foundation-model; use wildcards to cover both
+    // Grant Lambda access to Bedrock – all regions, all models (cross-region inference profiles route to us-east-2 etc.)
     apiLambda.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
@@ -159,8 +158,8 @@ export class GetTrainMateStack extends cdk.Stack {
         'bedrock:InvokeModelWithResponseStream',
       ],
       resources: [
-        `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/*`,
-        `arn:aws:bedrock:${this.region}::foundation-model/*`,
+        'arn:aws:bedrock:*::foundation-model/*',
+        'arn:aws:bedrock:*:*:inference-profile/*',
       ],
     }));
 
