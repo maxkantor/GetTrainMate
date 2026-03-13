@@ -80,7 +80,8 @@ export class GetTrainMateStack extends cdk.Stack {
     const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', 'getrainmate-media-bucket');
 
     // Bedrock model for AI features (match insight, chat, icebreakers). Override: --context bedrockModelId=...
-    const bedrockModelId = this.node.tryGetContext('bedrockModelId') || 'anthropic.claude-3-5-haiku-20241022-v1:0';
+    // Use inference profile ID (us. prefix) - direct model ID on-demand is no longer supported by Bedrock
+    const bedrockModelId = this.node.tryGetContext('bedrockModelId') || 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
 
     // Lambda function for API
     // Note: The Lambda code needs to be built and published first:
@@ -150,6 +151,7 @@ export class GetTrainMateStack extends cdk.Stack {
     }));
 
     // Grant Lambda access to Bedrock (AI match insight, chat, icebreakers, etc.)
+    // Bedrock may check IAM against inference-profile or foundation-model; use wildcards to cover both
     apiLambda.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
@@ -157,7 +159,8 @@ export class GetTrainMateStack extends cdk.Stack {
         'bedrock:InvokeModelWithResponseStream',
       ],
       resources: [
-        `arn:aws:bedrock:${this.region}::foundation-model/${bedrockModelId}`,
+        `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/*`,
+        `arn:aws:bedrock:${this.region}::foundation-model/*`,
       ],
     }));
 
@@ -230,7 +233,7 @@ export class GetTrainMateStack extends cdk.Stack {
     });
 
     const resolverLambda = new nodejs.NodejsFunction(this, 'AppSyncResolver', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: new lambda.Runtime('nodejs22.x', lambda.RuntimeFamily.NODEJS),
       handler: 'handler',
       entry: path.join(__dirname, '../lambdas/appsync-resolver/index.js'),
       timeout: cdk.Duration.seconds(25),

@@ -55,15 +55,27 @@ public class Startup
         services.AddScoped<ICreditsService, CreditsService>();
 
         // Bedrock & AI: config-driven (stub when Bedrock:ModelId not set)
+        // Priority: SSM /gettrainmate/bedrock/model-id > env BEDROCK_MODEL_ID > appsettings
         services.Configure<BedrockOptions>(Configuration.GetSection(BedrockOptions.SectionName));
         services.PostConfigure<BedrockOptions>(options =>
         {
-            if (string.IsNullOrWhiteSpace(options.ModelId))
+            var envModelId = Environment.GetEnvironmentVariable("BEDROCK_MODEL_ID");
+            var fromEnv = !string.IsNullOrWhiteSpace(envModelId) ? envModelId : null;
+            var fromSsm = (string?)null;
+            try
             {
-                var envModelId = Environment.GetEnvironmentVariable("BEDROCK_MODEL_ID");
-                if (!string.IsNullOrWhiteSpace(envModelId))
-                    options.ModelId = envModelId;
+                using var ssm = new AmazonSimpleSystemsManagementClient();
+                var resp = ssm.GetParameterAsync(new GetParameterRequest { Name = "/gettrainmate/bedrock/model-id" }).GetAwaiter().GetResult();
+                fromSsm = resp.Parameter?.Value?.Trim();
+                if (!string.IsNullOrWhiteSpace(fromSsm))
+                    Log.Information("Bedrock model ID loaded from SSM: {ModelId}", fromSsm);
             }
+            catch (ParameterNotFoundException) { /* SSM param optional */ }
+            catch (Exception ex) { Log.Warning(ex, "Could not load Bedrock model ID from SSM"); }
+
+            var resolved = fromSsm ?? fromEnv ?? options.ModelId;
+            if (!string.IsNullOrWhiteSpace(resolved))
+                options.ModelId = resolved;
         });
         services.Configure<AiCreditCostsOptions>(Configuration.GetSection(AiCreditCostsOptions.SectionName));
         services.AddSingleton<IBedrockClientWrapper, BedrockClientWrapper>();
