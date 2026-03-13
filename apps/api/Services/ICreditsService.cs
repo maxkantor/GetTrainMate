@@ -13,6 +13,8 @@ public interface ICreditsService
     Task<bool> ProcessCheckoutSessionCompletedAsync(string stripeEventId, Stripe.Checkout.Session session);
     Task<CreditsBalanceDto> GetCreditsBalanceAsync(string userId);
     Task<bool> GrantFreeSignupCreditsAsync(string userId);
+    /// <summary>Admin: grant credits to a user (e.g. refund for failed AI).</summary>
+    Task GrantCreditsAsync(string userId, int amount, string reason);
     /// <summary>Spend credits. Throws <see cref="Models.InsufficientCreditsException"/> if balance &lt; amount.</summary>
     Task SpendCreditsAsync(string userId, int amount, string reason, string? refId = null);
     Task<List<CreditPackConfig>> GetAllCreditPacksForAdminAsync();

@@ -57,14 +57,14 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchMe = useCallback(async () => {
+  const fetchMe = useCallback(async (silent = false) => {
     if (!isAuthenticated) {
       setMe(null);
       setLoading(false);
       return;
     }
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
       const token = await authService.getJWT();
       if (!token) {
@@ -140,7 +140,7 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
   }, [fetchMe]);
 
   const refreshMe = useCallback(async () => {
-    await fetchMe();
+    await fetchMe(true);
   }, [fetchMe]);
 
   const value: MeContextType = {

@@ -93,7 +93,7 @@ public class AIController : ControllerBase
         return Ok(new AiChatResponseDto { Content = response.Content });
     }
 
-    /// <summary>Generate AI match insight. Charges credits (configurable).</summary>
+    /// <summary>Generate AI match insight. Charges credits only on success.</summary>
     [HttpPost("match-insight")]
     public async Task<ActionResult<MatchInsightResponse>> MatchInsight([FromBody] MatchInsightRequest request, CancellationToken cancellationToken)
     {
@@ -106,23 +106,22 @@ public class AIController : ControllerBase
             var balance = await _credits.GetCreditsBalanceAsync(userId);
             if (balance.Balance < cost)
                 return StatusCode(402, new { code = "INSUFFICIENT_CREDITS", message = "Not enough credits to unlock AI match insight.", balance = balance.Balance, required = cost });
-            await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiInsight, request.TargetUserId);
         }
         try
         {
             var result = await _matchInsight.GenerateAsync(request, cancellationToken);
+            if (cost > 0)
+                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiInsight, request.TargetUserId);
             return Ok(result);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "[AI] Match insight failed");
-            if (cost > 0)
-                return StatusCode(500, new { message = "Failed to generate insight. Please try again." });
-            throw;
+            return StatusCode(500, new { message = "Failed to generate insight. Please try again." });
         }
     }
 
-    /// <summary>Generate AI icebreakers. Charges credits (configurable).</summary>
+    /// <summary>Generate AI icebreakers. Charges credits only on success.</summary>
     [HttpPost("icebreakers")]
     public async Task<ActionResult<IcebreakerResponse>> Icebreakers([FromBody] IcebreakerRequest request, CancellationToken cancellationToken)
     {
@@ -135,11 +134,12 @@ public class AIController : ControllerBase
             var balance = await _credits.GetCreditsBalanceAsync(userId);
             if (balance.Balance < cost)
                 return StatusCode(402, new { code = "INSUFFICIENT_CREDITS", message = "Not enough credits for AI icebreakers.", balance = balance.Balance, required = cost });
-            await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiIcebreaker, null);
         }
         try
         {
             var result = await _icebreaker.GenerateAsync(request, cancellationToken);
+            if (cost > 0)
+                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiIcebreaker, null);
             return Ok(result);
         }
         catch (Exception ex)
@@ -149,7 +149,7 @@ public class AIController : ControllerBase
         }
     }
 
-    /// <summary>Suggest profile improvements. Free or configurable cost.</summary>
+    /// <summary>Suggest profile improvements. Charges credits only on success.</summary>
     [HttpPost("profile-optimize")]
     public async Task<ActionResult<ProfileOptimizeResponse>> ProfileOptimize([FromBody] ProfileOptimizeRequest request, CancellationToken cancellationToken)
     {
@@ -162,11 +162,12 @@ public class AIController : ControllerBase
             var balance = await _credits.GetCreditsBalanceAsync(userId);
             if (balance.Balance < cost)
                 return StatusCode(402, new { code = "INSUFFICIENT_CREDITS", message = "Not enough credits.", balance = balance.Balance, required = cost });
-            await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiProfileOptimize, null);
         }
         try
         {
             var result = await _profileOptimizer.SuggestAsync(request, cancellationToken);
+            if (cost > 0)
+                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiProfileOptimize, null);
             return Ok(result);
         }
         catch (Exception ex)
@@ -176,7 +177,7 @@ public class AIController : ControllerBase
         }
     }
 
-    /// <summary>Generate a simple workout plan. Charges credits (configurable).</summary>
+    /// <summary>Generate a simple workout plan. Charges credits only on success.</summary>
     [HttpPost("workout-plan")]
     public async Task<ActionResult<WorkoutPlanResponse>> WorkoutPlan([FromBody] WorkoutPlanRequest request, CancellationToken cancellationToken)
     {
@@ -189,11 +190,12 @@ public class AIController : ControllerBase
             var balance = await _credits.GetCreditsBalanceAsync(userId);
             if (balance.Balance < cost)
                 return StatusCode(402, new { code = "INSUFFICIENT_CREDITS", message = "Not enough credits for AI workout plan.", balance = balance.Balance, required = cost });
-            await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiWorkoutPlan, null);
         }
         try
         {
             var result = await _workoutPlanner.GenerateAsync(request, cancellationToken);
+            if (cost > 0)
+                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiWorkoutPlan, null);
             return Ok(result);
         }
         catch (Exception ex)

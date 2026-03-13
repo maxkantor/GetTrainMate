@@ -475,6 +475,47 @@ public class CreditsService : ICreditsService
         }
     }
 
+    public async Task GrantCreditsAsync(string userId, int amount, string reason)
+    {
+        if (amount <= 0)
+            throw new ArgumentException("Amount must be positive.", nameof(amount));
+
+        var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
+        var userDoc = await userTable.GetItemAsync(userId);
+        var balance = 0;
+        var lifetimeEarned = 0;
+        if (userDoc != null)
+        {
+            balance = userDoc.Contains("Balance") ? userDoc["Balance"].AsInt() : 0;
+            lifetimeEarned = userDoc.Contains("LifetimeEarned") ? userDoc["LifetimeEarned"].AsInt() : 0;
+        }
+
+        balance += amount;
+        lifetimeEarned += amount;
+
+        await userTable.PutItemAsync(new Document
+        {
+            ["UserId"] = userId,
+            ["Balance"] = balance,
+            ["LifetimeEarned"] = lifetimeEarned,
+            ["UpdatedAt"] = DateTime.UtcNow.ToString("O"),
+        });
+
+        var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
+        var txId = Guid.NewGuid().ToString("N");
+        await txTable.PutItemAsync(new Document
+        {
+            ["Id"] = txId,
+            ["UserId"] = userId,
+            ["Type"] = CreditTransactionType.Grant,
+            ["CreditsDelta"] = amount,
+            ["Reason"] = reason,
+            ["CreatedAt"] = DateTime.UtcNow.ToString("O"),
+        });
+
+        _logger.LogInformation("Granted {Amount} credits to user {UserId}, reason={Reason}, newBalance={NewBalance}", amount, userId, reason, balance);
+    }
+
     public async Task SpendCreditsAsync(string userId, int amount, string reason, string? refId = null)
     {
         if (amount <= 0)

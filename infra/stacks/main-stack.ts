@@ -150,7 +150,8 @@ export class GetTrainMateStack extends cdk.Stack {
       resources: ['*'], // SES doesn't support resource-level permissions for SendEmail
     }));
 
-    // Grant Lambda access to Bedrock – all regions, all models (cross-region inference profiles route to us-east-2 etc.)
+    // Bedrock: use AWS managed policy (includes InvokeModel + Marketplace ViewSubscriptions/Subscribe)
+    // Inline policies kept failing; managed policy is the authoritative fix.
     apiLambda.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
@@ -162,6 +163,18 @@ export class GetTrainMateStack extends cdk.Stack {
         'arn:aws:bedrock:*:*:inference-profile/*',
       ],
     }));
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'aws-marketplace:ViewSubscriptions',
+        'aws-marketplace:Subscribe',
+        'aws-marketplace:Unsubscribe',
+      ],
+      resources: ['*'],
+    }));
+    // Attach AWS managed policies: Bedrock Marketplace + general Marketplace (ViewSubscriptions, Subscribe)
+    apiLambda.role?.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockMarketplaceAccess'));
+    apiLambda.role?.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AWSMarketplaceManageSubscriptions'));
 
     // Grant Lambda access to SSM Parameter Store (admin portal password at /gettrainmate/admin/password)
     apiLambda.addToRolePolicy(new iam.PolicyStatement({
