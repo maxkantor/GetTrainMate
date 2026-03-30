@@ -1,16 +1,42 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
+import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
 import { HeroFloatingStack } from '@/components/premium/HeroFloatingStack';
+import { LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
 import styles from './sections.module.css';
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
+function HeroFomoLine() {
+  const [n, setN] = useState(27);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setN((v) => {
+        const delta = Math.floor(Math.random() * 3) - 1;
+        return Math.min(34, Math.max(21, v + delta));
+      });
+    }, 4200);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <motion.p
+      className={styles.heroFomoLine}
+      initial={{ opacity: 0.85 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
+      🔥 {n} athletes matching near you right now
+    </motion.p>
+  );
+}
+
 export const Hero: React.FC = () => {
   const { isAuthenticated } = useAuthContext();
+  const { openEntryFlow } = useLandingConversion();
   const { me } = useMe();
 
   const profileComplete = me?.isProfileComplete ?? true;
@@ -25,6 +51,7 @@ export const Hero: React.FC = () => {
       ? 'Finish profile'
       : 'Start Matching Free';
   const showCtaSubtext = profileComplete;
+  const primaryOpensFlow = !isAuthenticated && ctaPrimaryLabel === 'Start Matching Free';
 
   return (
     <section className={styles.heroPremium}>
@@ -58,14 +85,23 @@ export const Hero: React.FC = () => {
               transition={{ duration: 0.5, ease, delay: 0.12 }}
             >
               <div className={styles.heroPrimaryStack}>
-                <Link to={ctaPrimaryHref} className={styles.heroBtnPrimary}>
-                  {ctaPrimaryLabel}
-                </Link>
+                {primaryOpensFlow ? (
+                  <button type="button" className={styles.heroBtnPrimary} onClick={openEntryFlow}>
+                    {ctaPrimaryLabel}
+                  </button>
+                ) : (
+                  <Link to={ctaPrimaryHref} className={styles.heroBtnPrimary}>
+                    {ctaPrimaryLabel}
+                  </Link>
+                )}
                 {showCtaSubtext && (
-                  <span className={styles.heroCtaSub}>No commitment • Upgrade anytime</span>
+                  <>
+                    <span className={styles.heroCtaSub}>{LANDING_CTA_SUB}</span>
+                    <span className={styles.heroScarcityLine}>{LANDING_SCARCITY}</span>
+                  </>
                 )}
               </div>
-              <a href="#swipe-demo-heading" className={`${styles.heroBtnGhost} ${styles.landingLinkUnderline}`}>
+              <a href="#how-it-works" className={`${styles.heroBtnGhost} ${styles.landingLinkUnderline}`}>
                 See How It Works
               </a>
             </motion.div>
@@ -97,6 +133,7 @@ export const Hero: React.FC = () => {
               <li>⭐ 4.9 average rating</li>
               <li>💬 Active in 40+ cities</li>
             </motion.ul>
+            <HeroFomoLine />
           </div>
 
           <motion.div

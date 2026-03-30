@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
+import { useAuthContext } from '@/hooks/useAuthContext';
+import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
+import { LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
 import styles from './SwipeDemoSection.module.css';
 
 type Phase = 'idle' | 'swipe' | 'match';
@@ -81,21 +84,26 @@ function DemoMatchRing({ percent }: { percent: number }) {
 
 export const SwipeDemoSection: React.FC = () => {
   const reduceMotion = useReducedMotion();
+  const { isAuthenticated } = useAuthContext();
+  const { openEntryFlow } = useLandingConversion();
   const [phase, setPhase] = useState<Phase>('idle');
   const [profileIdx, setProfileIdx] = useState(0);
   const timersRef = useRef<number[]>([]);
 
   const p = PROFILES[profileIdx % PROFILES.length];
 
-  const onTiltMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (reduceMotion) return;
-    const el = e.currentTarget;
-    const r = el.getBoundingClientRect();
-    const nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
-    const ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
-    el.style.setProperty('--rx', `${ny * -8}deg`);
-    el.style.setProperty('--ry', `${nx * 8}deg`);
-  }, [reduceMotion]);
+  const onTiltMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (reduceMotion) return;
+      const el = e.currentTarget;
+      const r = el.getBoundingClientRect();
+      const nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
+      const ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
+      el.style.setProperty('--rx', `${ny * -8}deg`);
+      el.style.setProperty('--ry', `${nx * 8}deg`);
+    },
+    [reduceMotion]
+  );
 
   const onTiltLeave = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.currentTarget.style.setProperty('--rx', '0deg');
@@ -150,7 +158,11 @@ export const SwipeDemoSection: React.FC = () => {
   const showMatch = phase === 'match';
 
   return (
-    <section className={styles.section} aria-labelledby="swipe-demo-heading">
+    <section
+      className={styles.section}
+      id="how-it-works"
+      aria-labelledby="swipe-demo-heading"
+    >
       <div className={styles.bgGlow} aria-hidden />
       <Container size="wide">
         <h2 id="swipe-demo-heading" className={styles.title}>
@@ -158,11 +170,7 @@ export const SwipeDemoSection: React.FC = () => {
         </h2>
 
         <div className={styles.stage}>
-          <div
-            className={styles.tiltWrap}
-            onMouseMove={onTiltMove}
-            onMouseLeave={onTiltLeave}
-          >
+          <div className={styles.tiltWrap} onMouseMove={onTiltMove} onMouseLeave={onTiltLeave}>
             <motion.div
               className={`${styles.card} ${showMatch ? styles.cardMatch : ''}`}
               animate={
@@ -219,11 +227,17 @@ export const SwipeDemoSection: React.FC = () => {
         </div>
 
         <div className={styles.ctaColumn}>
-          <Link to="/signup" className={styles.cta}>
-            Start Matching Free
-          </Link>
-          <p className={styles.ctaSub}>No commitment • Upgrade anytime</p>
-          <p className={styles.freeMatches}>You get 3 free matches to start</p>
+          {!isAuthenticated ? (
+            <button type="button" className={styles.cta} onClick={openEntryFlow}>
+              Start Matching Free
+            </button>
+          ) : (
+            <Link to="/app/discover" className={styles.cta}>
+              Start Matching Free
+            </Link>
+          )}
+          <p className={styles.ctaSub}>{LANDING_CTA_SUB}</p>
+          <p className={styles.scarcityLine}>{LANDING_SCARCITY}</p>
         </div>
       </Container>
     </section>

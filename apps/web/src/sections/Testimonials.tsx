@@ -14,21 +14,21 @@ type T = {
 
 const items: T[] = [
   {
-    quote: 'Found my HYROX partner in 2 days. Game changer.',
+    quote: 'Found my partner in 2 days. Same goals, same grind.',
     name: 'Mike',
     place: 'Atlanta',
     sport: '🏃‍♂️',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=96&h=96&fit=crop&crop=faces',
   },
   {
-    quote: '5AM runs finally stuck — matched with someone who never flakes.',
+    quote: 'Hit PRs this month — we hold each other accountable.',
     name: 'Sofia',
     place: 'Austin',
     sport: '🏃‍♀️',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=96&h=96&fit=crop&crop=faces',
   },
   {
-    quote: 'Lifting partner same level as me. We both hit PRs this month.',
+    quote: 'Found my HYROX partner fast. Training finally feels serious.',
     name: 'James',
     place: 'Denver',
     sport: '🏋️',
@@ -47,9 +47,9 @@ export const Testimonials: React.FC = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.4 }}
         >
-          <span className={styles.sectionLabel}>Real athletes</span>
-          <h2 className={styles.sectionTitle}>Sounds like real life — because it is</h2>
-          <p className={styles.sectionSubtitle}>Short stories from people who actually train together.</p>
+          <span className={styles.sectionLabel}>Real outcomes</span>
+          <h2 className={styles.sectionTitle}>Results, not hype</h2>
+          <p className={styles.sectionSubtitle}>Specific wins from athletes who actually matched.</p>
         </motion.div>
 
         <div className={styles.testimonialsGrid}>

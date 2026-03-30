@@ -164,7 +164,22 @@
 }
 
 .matchOverlayPulse {
-  animation: matchGlowPulse 1.1s ease-in-out infinite;
+  animation:
+    matchGlowPulse 1.1s ease-in-out infinite,
+    matchVibrate 0.28s ease-in-out 3;
+}
+
+@keyframes matchVibrate {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
 }
 
 @keyframes matchGlowPulse {
@@ -217,8 +232,11 @@
   padding: 0 40px;
   font-size: 1.05rem;
   font-weight: 700;
+  font-family: inherit;
   color: #fff;
   text-decoration: none;
+  border: none;
+  cursor: pointer;
   border-radius: 999px;
   background: linear-gradient(135deg, #6366f1, #8b5cf6 50%, #2563eb);
   box-shadow:
@@ -254,12 +272,12 @@
   letter-spacing: 0.02em;
 }
 
-.freeMatches {
+.scarcityLine {
   margin: 4px 0 0;
   font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.92);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(255, 210, 150, 0.92);
   text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
 }
 

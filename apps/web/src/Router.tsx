@@ -39,6 +39,7 @@ import { AdminLayout } from '@/pages/admin/AdminLayout';
 import { CreditPacksPage as AdminCreditPacksPage } from '@/pages/admin/CreditPacksPage';
 import { TestUsersPage } from '@/pages/admin/TestUsersPage';
 import { ScrollToTop } from '@/components/ScrollToTop';
+import { LandingConversionProvider } from '@/contexts/LandingConversionContext';
 
 function PublicProfileRoute() {
   const { userId } = useParams<{ userId: string }>();
@@ -50,6 +51,7 @@ export const Router: React.FC = () => {
     <ErrorBoundary>
       <BrowserRouter>
         <ScrollToTop />
+        <LandingConversionProvider>
         <Layout>
           <Routes>
             {/* Public routes */}
@@ -125,6 +127,7 @@ export const Router: React.FC = () => {
             } />
           </Routes>
         </Layout>
+        </LandingConversionProvider>
       </BrowserRouter>
     </ErrorBoundary>
   );

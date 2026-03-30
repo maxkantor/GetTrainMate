@@ -93,6 +93,23 @@
   line-height: 1.35;
 }
 
+.heroScarcityLine {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 200, 120, 0.88);
+  line-height: 1.35;
+}
+
+.heroFomoLine {
+  margin: 14px 0 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: rgba(253, 186, 116, 0.95);
+  text-shadow: 0 0 24px rgba(251, 146, 60, 0.25);
+}
+
 .heroEmotionalHook {
   margin: 0 0 20px;
   max-width: 42ch;
@@ -110,8 +127,11 @@
   padding: 0 28px;
   font-size: 1rem;
   font-weight: 700;
+  font-family: inherit;
   color: #fff;
   text-decoration: none;
+  border: none;
+  cursor: pointer;
   border-radius: 999px;
   background: linear-gradient(135deg, #6366f1, #8b5cf6 55%, #2563eb);
   box-shadow: 0 8px 32px rgba(99, 102, 241, 0.4);

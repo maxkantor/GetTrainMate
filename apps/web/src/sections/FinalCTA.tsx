@@ -1,11 +1,16 @@
 import React, { useCallback, useRef } from 'react';
-import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useAuthContext } from '@/hooks/useAuthContext';
+import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
+import { LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
 import styles from './FinalCTA.module.css';
 
 export const FinalCTA: React.FC = () => {
   const cardRef = useRef<HTMLDivElement>(null);
+  const { isAuthenticated } = useAuthContext();
+  const { openEntryFlow } = useLandingConversion();
 
   const onMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const el = cardRef.current;
@@ -41,10 +46,17 @@ export const FinalCTA: React.FC = () => {
           <div className={styles.cardGlow} aria-hidden />
           <h2 className={styles.title}>Your Next Training Partner Is One Click Away</h2>
           <p className={styles.sub}>Join thousands of athletes matching on schedule, level, and mindset.</p>
-          <Link to="/signup" className={styles.btn}>
-            Start Matching Free
-          </Link>
-          <p className={styles.btnSub}>No commitment • Upgrade anytime</p>
+          {!isAuthenticated ? (
+            <button type="button" className={styles.btn} onClick={openEntryFlow}>
+              Start Matching Free
+            </button>
+          ) : (
+            <Link to="/app/discover" className={styles.btn}>
+              Start Matching Free
+            </Link>
+          )}
+          <p className={styles.btnSub}>{LANDING_CTA_SUB}</p>
+          <p className={styles.scarcityLine}>{LANDING_SCARCITY}</p>
         </motion.div>
       </Container>
     </section>

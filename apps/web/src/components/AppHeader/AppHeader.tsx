@@ -7,15 +7,16 @@ import { analytics } from '@/utils/analytics';
 import { LanguageDropdown } from '@/components/layout/LanguageDropdown';
 import { CreditsPill } from '@/components/premium/CreditsPill';
 import { HeaderNavLink } from './HeaderNavLink';
+import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import styles from './AppHeader.module.css';
 
 export const AppHeader: React.FC = () => {
   const { t } = useI18n();
   const { user, logout } = useAuthContext();
   const { me } = useMe();
+  const { openEntryFlow } = useLandingConversion();
   const navigate = useNavigate();
   const location = useLocation();
-  const isAppRoute = location.pathname.startsWith('/app');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const userRef = useRef<HTMLDivElement>(null);
@@ -42,19 +43,14 @@ export const AppHeader: React.FC = () => {
 
   const handleLogout = async () => { setUserOpen(false); setMobileOpen(false); await logout(); navigate('/'); };
 
-  // Logged out: full nav + Pricing. Logged in: app nav only; Get Credits is the single CTA.
   const appNavItems: { label: string; href: string; icon?: string; exact?: boolean }[] = [
     { label: t('nav.discover'), href: '/app/discover' },
     { label: t('nav.match'), href: '/app/matches' },
     { label: t('nav.chat'), href: '/app/chat' },
     { label: t('nav.events'), href: '/app/events' },
   ];
-  const loggedOutNav: { label: string; href: string; icon?: string; exact?: boolean }[] = [
-    ...appNavItems,
-    { label: t('header.pricing'), href: '/pricing', icon: '💰', exact: true },
-  ];
   const loggedInNav = appNavItems;
-  const navItems = isLoggedIn ? loggedInNav : loggedOutNav;
+  const navItems = isLoggedIn ? loggedInNav : [];
   const logoTo = '/';
 
   return (
@@ -66,15 +62,34 @@ export const AppHeader: React.FC = () => {
         </RouterLink>
 
         <nav className={styles.nav} aria-label="Main navigation">
-          {navItems.map((item) => (
-            <HeaderNavLink
-              key={item.href}
-              to={item.href}
-              label={item.label}
-              icon={item.icon}
-              exact={item.exact ?? false}
-            />
-          ))}
+          {isLoggedIn ? (
+            navItems.map((item) => (
+              <HeaderNavLink
+                key={item.href}
+                to={item.href}
+                label={item.label}
+                icon={item.icon}
+                exact={item.exact ?? false}
+              />
+            ))
+          ) : (
+            <>
+              <a
+                href={location.pathname === '/' ? '#how-it-works' : '/#how-it-works'}
+                className={styles.headerNavLink}
+                onClick={(e) => {
+                  if (location.pathname === '/') {
+                    e.preventDefault();
+                    document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
+                  }
+                  setMobileOpen(false);
+                }}
+              >
+                Product
+              </a>
+              <HeaderNavLink to="/pricing" label={t('header.pricing')} icon="💰" exact />
+            </>
+          )}
         </nav>
 
         <div className={styles.actions}>
@@ -143,7 +158,14 @@ export const AppHeader: React.FC = () => {
               <RouterLink to="/login" className={styles.loginBtn}>
                 {t('header.login')}
               </RouterLink>
-              <RouterLink to="/signup" className={styles.signupBtn}>
+              <RouterLink
+                to="/signup"
+                className={styles.signupBtn}
+                onClick={(e) => {
+                  e.preventDefault();
+                  openEntryFlow();
+                }}
+              >
                 {t('header.signup')}
               </RouterLink>
             </div>
@@ -168,11 +190,32 @@ export const AppHeader: React.FC = () => {
           <div className={styles.overlay} onClick={() => setMobileOpen(false)} aria-hidden />
           <div className={styles.mobileMenu}>
             <nav className={styles.mobileNav}>
-              {navItems.map(({ label, href }) => (
-                <RouterLink key={href} to={href} className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
-                  {href === '/pricing' ? <>💰 {label}</> : label}
-                </RouterLink>
-              ))}
+              {isLoggedIn ? (
+                navItems.map(({ label, href }) => (
+                  <RouterLink key={href} to={href} className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
+                    {label}
+                  </RouterLink>
+                ))
+              ) : (
+                <>
+                  <a
+                    href={location.pathname === '/' ? '#how-it-works' : '/#how-it-works'}
+                    className={styles.mobileLink}
+                    onClick={(e) => {
+                      if (location.pathname === '/') {
+                        e.preventDefault();
+                        document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
+                      }
+                      setMobileOpen(false);
+                    }}
+                  >
+                    Product
+                  </a>
+                  <RouterLink to="/pricing" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
+                    💰 {t('header.pricing')}
+                  </RouterLink>
+                </>
+              )}
             </nav>
             <div className={styles.mobileActions}>
               <div className={styles.mobileLangWrap}>
@@ -199,7 +242,17 @@ export const AppHeader: React.FC = () => {
               ) : (
                 <>
                   <RouterLink to="/login" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>{t('header.login')}</RouterLink>
-                  <RouterLink to="/signup" className={styles.mobileSignup} onClick={() => setMobileOpen(false)}>{t('header.signup')}</RouterLink>
+                  <RouterLink
+                    to="/signup"
+                    className={styles.mobileSignup}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setMobileOpen(false);
+                      openEntryFlow();
+                    }}
+                  >
+                    {t('header.signup')}
+                  </RouterLink>
                 </>
               )}
             </div>
