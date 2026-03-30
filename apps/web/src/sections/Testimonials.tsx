@@ -1,74 +1,91 @@
 import React from 'react';
-import { useI18n } from '@/hooks/useI18n';
+import { motion } from 'framer-motion';
 import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
-import { TestimonialCarousel, type TestimonialItem } from '@/components/ui/TestimonialCarousel';
 import styles from './sections.module.css';
 
-const testimonials: TestimonialItem[] = [
+type T = {
+  quote: string;
+  name: string;
+  place: string;
+  sport: string;
+  avatar: string;
+};
+
+const items: T[] = [
   {
-    name: 'Sarah Johnson',
-    role: 'Marathon Runner',
-    location: 'Austin, TX',
-    avatar: 'S',
-    text: 'Found an amazing running partner who matches my pace perfectly. We\'ve completed 3 marathons together already!',
-    rating: 5,
+    quote: 'Found my HYROX partner in 2 days. Game changer.',
+    name: 'Mike',
+    place: 'Atlanta',
+    sport: '🏃‍♂️',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=96&h=96&fit=crop&crop=faces',
   },
   {
-    name: 'Mike Chen',
-    role: 'CrossFit Athlete',
-    location: 'San Francisco, CA',
-    avatar: 'M',
-    text: 'GetTrainMate helped me find a gym buddy with similar goals. Training together has pushed both of us to new PRs!',
-    rating: 5,
+    quote: '5AM runs finally stuck — matched with someone who never flakes.',
+    name: 'Sofia',
+    place: 'Austin',
+    sport: '🏃‍♀️',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=96&h=96&fit=crop&crop=faces',
   },
   {
-    name: 'Emma Davis',
-    role: 'Yoga Enthusiast',
-    location: 'Seattle, WA',
-    avatar: 'E',
-    text: 'I love the community vibe. Found several people for morning yoga sessions and made great friends in the process.',
-    rating: 5,
+    quote: 'Lifting partner same level as me. We both hit PRs this month.',
+    name: 'James',
+    place: 'Denver',
+    sport: '🏋️',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=96&h=96&fit=crop&crop=faces',
   },
 ];
 
 export const Testimonials: React.FC = () => {
-  const { t } = useI18n();
-
   return (
     <Section id="testimonials" background="subtle" paddingSize="xl" className={styles.testimonials}>
       <Container>
-        <div className={styles.sectionHeader}>
-          <span className={styles.sectionLabel}>{t('landing.testimonials_label')}</span>
-          <h2 className={styles.sectionTitle}>{t('landing.testimonials_title')}</h2>
-          <p className={styles.sectionSubtitle}>
-            {t('landing.testimonials_subtitle')}
-          </p>
-        </div>
+        <motion.div
+          className={styles.sectionHeader}
+          initial={{ opacity: 0, y: 14 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4 }}
+        >
+          <span className={styles.sectionLabel}>Real athletes</span>
+          <h2 className={styles.sectionTitle}>Sounds like real life — because it is</h2>
+          <p className={styles.sectionSubtitle}>Short stories from people who actually train together.</p>
+        </motion.div>
 
-        <TestimonialCarousel
-          items={testimonials}
-          renderCard={(testimonial) => (
-            <div className={styles.testimonialCard}>
-              <div className={styles.testimonialStars}>
-                {[...Array(testimonial.rating)].map((_, i) => (
-                  <span key={i}>★</span>
-                ))}
-              </div>
-              <p className={styles.testimonialText}>"{testimonial.text}"</p>
+        <div className={styles.testimonialsGrid}>
+          {items.map((t, i) => (
+            <motion.article
+              key={t.name}
+              className={styles.testimonialCard}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.06, duration: 0.4 }}
+              whileHover={{ scale: 1.02 }}
+            >
+              <p className={styles.testimonialText}>&ldquo;{t.quote}&rdquo;</p>
               <div className={styles.testimonialAuthor}>
-                <div className={styles.testimonialAvatar}>{testimonial.avatar}</div>
+                <img
+                  src={t.avatar}
+                  alt=""
+                  className={styles.testimonialPhoto}
+                  width={48}
+                  height={48}
+                  loading="lazy"
+                  decoding="async"
+                />
                 <div className={styles.testimonialAuthorInfo}>
-                  <div className={styles.testimonialName}>{testimonial.name}</div>
-                  <div className={styles.testimonialMeta}>
-                    {testimonial.role}
-                    {testimonial.location && ` • ${testimonial.location}`}
+                  <div className={styles.testimonialName}>
+                    {t.name} <span className={styles.testimonialPlace}>· {t.place}</span>
+                  </div>
+                  <div className={styles.testimonialBadges}>
+                    <span className={styles.sportBadge}>{t.sport}</span>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        />
+            </motion.article>
+          ))}
+        </div>
       </Container>
     </Section>
   );

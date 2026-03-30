@@ -13,6 +13,7 @@ import {
   isGraphQLEnabled,
   graphqlDiscoverCandidates,
   graphqlLikeUser,
+  graphqlPassUser,
   graphqlSeedDemoData,
 } from '@/services/graphqlService';
 import { handleApiError, getErrorMessage, isNetworkError } from '@/utils/apiErrorHandler';
@@ -32,6 +33,7 @@ import { MatchPanel } from './discover/MatchPanel';
 import { ActionBar } from './discover/ActionBar';
 import { FiltersButton } from './discover/FiltersButton';
 import { ConfirmConnectModal } from './discover/ConfirmConnectModal';
+import { CreditsPill } from '@/components/premium/CreditsPill';
 import { DISCOVER_STRINGS } from './discover/constants';
 import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import type { MatchInsightResponse } from '@/types/ai';
@@ -432,11 +434,12 @@ export const DiscoverPage: React.FC = () => {
     }
 
     try {
-      if (!isGraphQLEnabled) {
+      if (isGraphQLEnabled) {
+        await graphqlPassUser(currentCard.userId);
+      } else {
         let token = await authService.getJWT(true);
         if (!token) {
           setToast('Please sign in again.');
-          advanceWithUndo();
           return;
         }
         try {
@@ -444,18 +447,16 @@ export const DiscoverPage: React.FC = () => {
         } catch (passErr: unknown) {
           const status = (passErr as { response?: { status?: number } })?.response?.status;
           if (status === 401 && (token = await authService.getJWT(true) ?? '')) {
-            try {
-              await matchService.passUser(token, currentCard.userId);
-            } catch {
-              setToast('Session expired. Please sign in again.');
-            }
+            await matchService.passUser(token, currentCard.userId);
+          } else {
+            throw passErr;
           }
         }
       }
       setToast(DISCOVER_STRINGS.passed);
       advanceWithUndo();
     } catch {
-      advanceWithUndo();
+      setToast('Could not save pass. Try again.');
     }
   };
 
@@ -473,6 +474,36 @@ export const DiscoverPage: React.FC = () => {
       navigate(`/app/profile/${currentCard.userId}`);
     }
   };
+
+  const discoverActionsRef = useRef({
+    pass: async () => {},
+    like: async () => {},
+    connect: () => {},
+  });
+  discoverActionsRef.current = {
+    pass: handlePass,
+    like: handleLike,
+    connect: handleConnect,
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        void discoverActionsRef.current.pass();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        void discoverActionsRef.current.like();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        discoverActionsRef.current.connect();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const handleSeedDemo = async () => {
     try {
@@ -685,15 +716,12 @@ export const DiscoverPage: React.FC = () => {
             <Link to="/app/profile" className={styles.myAvatar} aria-label="Your profile">
               <span className={styles.myAvatarLetter}>{myAvatarLetter}</span>
             </Link>
-            <p className={styles.creditsStrip}>
-              <strong>Credits: {credits}/{me?.lifetimeEarned ?? credits}</strong> · Chat unlock = 1 credit
+            <div className={styles.discoverTopCenter}>
+              <CreditsPill credits={credits} lifetimeEarned={me?.lifetimeEarned ?? credits} />
               {userLocationLabel && (
-                <>
-                  {' '}
-                  · <span className={styles.locationLabel}>Near {userLocationLabel}</span>
-                </>
+                <span className={styles.locationLabel}>Near {userLocationLabel}</span>
               )}
-            </p>
+            </div>
             <FiltersButton
               onClick={() => setFiltersOpen(true)}
               activeCount={activeFilterCount}

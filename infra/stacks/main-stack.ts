@@ -311,6 +311,7 @@ export class GetTrainMateStack extends cdk.Stack {
       'upsertProfile',
       'ensureFreeStartCredits',
       'likeUser',
+      'passUser',
       'unlockChat',
       'createMessage',
       'seedDemoData',
@@ -408,6 +409,16 @@ export class GetTrainMateStack extends cdk.Stack {
     // Audit log table
     const auditLogTable = dynamodb.Table.fromTableName(this, 'AuditLogTable', 'gettrainmate-audit-log');
     tables.push(auditLogTable);
+
+    // Discover: record Pass so those profiles are excluded from future discoverCandidates (REST + GraphQL)
+    const discoverPassesTable = new dynamodb.Table(this, 'DiscoverPassesTable', {
+      tableName: 'gettrainmate-discover-passes',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'targetUserId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(discoverPassesTable);
 
     return tables;
   }

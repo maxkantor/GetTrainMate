@@ -1,4 +1,5 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useState } from 'react';
+import { motion, useReducedMotion, type PanInfo } from 'framer-motion';
 import styles from './ProfileCard.module.css';
 import { ProfileDetailsModal } from './ProfileDetailsModal';
 import type { MatchFeedItem } from '@/services/matchService';
@@ -19,6 +20,39 @@ interface ProfileCardProps {
 const MAX_BIO_LINES = 2;
 const MAX_SPORT_CHIPS = 4;
 
+function MatchRing({ percent }: { percent: number }) {
+  const r = 20;
+  const c = 2 * Math.PI * r;
+  const p = Math.max(0, Math.min(100, percent));
+  const offset = c - (p / 100) * c;
+  return (
+    <svg className={styles.matchRing} viewBox="0 0 48 48" aria-hidden>
+      <defs>
+        <linearGradient id="matchRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#38bdf8" />
+        </linearGradient>
+      </defs>
+      <circle cx="24" cy="24" r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="3.5" />
+      <circle
+        cx="24"
+        cy="24"
+        r={r}
+        fill="none"
+        stroke="url(#matchRingGrad)"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={offset}
+        transform="rotate(-90 24 24)"
+      />
+      <text x="24" y="27" textAnchor="middle" className={styles.matchRingText}>
+        {Math.round(p)}
+      </text>
+    </svg>
+  );
+}
+
 export const ProfileCard: React.FC<ProfileCardProps> = ({
   profile,
   photoUrl,
@@ -32,100 +66,62 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
 }) => {
   const [bioExpanded, setBioExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const dragOffset = useRef(0);
-  const [dragX, setDragX] = useState(0);
-  const prefersReducedMotion = useRef(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  if (typeof window !== 'undefined' && window.matchMedia) {
-    prefersReducedMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  }
+  const reduceMotion = useReducedMotion();
 
   const levelLabel = profile.level ? profile.level.charAt(0).toUpperCase() + profile.level.slice(1) : null;
-  const distanceLabel = profile.city ? profile.city : null; // API doesn't have distance; use city for now
+  const distanceLabel = profile.city ? profile.city : null;
   const commonSports = profile.commonSports ?? profile.sportTags ?? [];
   const displaySports = commonSports.slice(0, MAX_SPORT_CHIPS);
   const extraCount = commonSports.length - MAX_SPORT_CHIPS;
+  const tagPills = displaySports.map((s) => `[${String(s).toUpperCase()}]`);
 
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      touchStart.current = { x: e.targetTouches[0].clientX, y: e.targetTouches[0].clientY };
-      dragOffset.current = 0;
-    },
-    []
-  );
-
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (!touchStart.current || !onSwipeLeft || !onSwipeRight) return;
-      const x = e.targetTouches[0].clientX;
-      const delta = x - touchStart.current.x;
-      dragOffset.current = delta;
-      if (!prefersReducedMotion.current) {
-        setDragX(Math.max(-120, Math.min(120, delta * 0.5)));
-      }
-    },
-    [onSwipeLeft, onSwipeRight]
-  );
-
-  const handleTouchEnd = useCallback(() => {
-    if (!touchStart.current) return;
-    const delta = dragOffset.current;
-    touchStart.current = null;
-    setDragX(0);
-    const threshold = 60;
-    if (delta < -threshold && onSwipeLeft) onSwipeLeft();
-    else if (delta > threshold && onSwipeRight) onSwipeRight();
-  }, [onSwipeLeft, onSwipeRight]);
-
-  const handlePhotoClick = () => {
-    setDetailsOpen(true);
+  const handleDragEnd = (_: unknown, info: PanInfo) => {
+    const x = info.offset.x;
+    const threshold = 72;
+    if (x < -threshold && onSwipeLeft) onSwipeLeft();
+    else if (x > threshold && onSwipeRight) onSwipeRight();
   };
 
   return (
     <>
-      <article
-        ref={cardRef}
+      <motion.article
         className={`${styles.card} ${matched ? styles.matched : ''}`}
-        style={
-          !prefersReducedMotion.current && dragX !== 0
-            ? { transform: `translateX(${dragX}px) rotate(${dragX * 0.03}deg)` }
-            : undefined
-        }
-        aria-label={`Profile card: ${profile.name}. Swipe left to pass, right to like.`}
+        drag={reduceMotion ? false : 'x'}
+        dragConstraints={{ left: -220, right: 220 }}
+        dragElastic={0.85}
+        dragSnapToOrigin
+        onDragEnd={handleDragEnd}
+        whileDrag={{ scale: 1.01 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+        aria-label={`Profile card: ${profile.name}. Swipe or use keyboard.`}
       >
-        <div
-          className={styles.mediaWrap}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onClick={handlePhotoClick}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handlePhotoClick();
-            }
-          }}
-          aria-label={`${profile.name}. Tap to view full profile.`}
-        >
+        <div className={styles.avatarGlow} aria-hidden />
+        <div className={styles.mediaWrap} onClick={() => setDetailsOpen(true)} role="button" tabIndex={0} onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setDetailsOpen(true);
+          }
+        }} aria-label={`${profile.name}. Tap for details.`}>
           <img
-            src={photoUrl}
+            src={photoUrl || NO_PHOTO_PLACEHOLDER}
             alt={`${profile.name} — photo ${photoIndex + 1} of ${allPhotoUrls.length}`}
             className={styles.mediaImage}
             onError={onPhotoError}
             referrerPolicy="no-referrer"
             draggable={false}
+            loading="lazy"
           />
           <div className={styles.overlay} aria-hidden />
+          <div className={styles.matchRingWrap}>
+            <MatchRing percent={profile.compatibilityScore ?? 50} />
+          </div>
           <div className={styles.overlayContent}>
             <h2 className={styles.name}>{profile.name}</h2>
-            <div className={styles.chipsRow}>
+            <div className={styles.metaRow}>
               {levelLabel && <span className={styles.chipOverlay}>{levelLabel}</span>}
               {distanceLabel && <span className={styles.chipOverlay}>{distanceLabel}</span>}
             </div>
+            <p className={styles.scheduleHint}>Swipe · arrows · buttons</p>
           </div>
           {allPhotoUrls.length > 1 && (
             <div className={styles.photoDots} aria-label="Photo gallery">
@@ -146,18 +142,18 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
           )}
         </div>
         <div className={styles.content}>
+          <div className={styles.tagStrip}>
+            {tagPills.slice(0, 3).map((t) => (
+              <span key={t} className={styles.tagPill}>
+                {t}
+              </span>
+            ))}
+          </div>
           {profile.bio && (
             <p className={bioExpanded ? styles.bioExpanded : styles.bio}>
               {profile.bio}
               {profile.bio.length > 80 && (
-                <button
-                  type="button"
-                  className={styles.moreBtn}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setBioExpanded(!bioExpanded);
-                  }}
-                >
+                <button type="button" className={styles.moreBtn} onClick={(e) => { e.stopPropagation(); setBioExpanded(!bioExpanded); }}>
                   {bioExpanded ? ' less' : ' more'}
                 </button>
               )}
@@ -171,11 +167,9 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
               {extraCount > 0 && <span className={styles.sportChip}>+{extraCount}</span>}
             </div>
           )}
-          {profile.mode && (
-            <span className={styles.modeChip}>Mode: {profile.mode}</span>
-          )}
+          {profile.mode && <span className={styles.modeChip}>Mode: {profile.mode}</span>}
         </div>
-      </article>
+      </motion.article>
 
       <ProfileDetailsModal
         open={detailsOpen}

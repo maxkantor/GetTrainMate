@@ -8,6 +8,7 @@ const {
   DynamoDBClient,
   GetItemCommand,
   PutItemCommand,
+  DeleteItemCommand,
   UpdateItemCommand,
   QueryCommand,
   ScanCommand,
@@ -59,6 +60,7 @@ const cognito = new CognitoIdentityProviderClient({});
 const tables = {
   profiles: `${PREFIX}profiles`,
   matches: `${PREFIX}matches`,
+  discoverPasses: `${PREFIX}discover-passes`,
   chatThreads: `${PREFIX}chat-threads`,
   messages: `${PREFIX}messages`,
   userCredits: `${PREFIX}user-credits`,
@@ -184,8 +186,29 @@ function isProfileCompleteCheck(p) {
   );
 }
 
+async function getPassedTargetIds(userId) {
+  const passed = new Set();
+  let lastKey = null;
+  do {
+    const r = await dynamo.send(new QueryCommand({
+      TableName: tables.discoverPasses,
+      KeyConditionExpression: 'userId = :u',
+      ExpressionAttributeValues: marshall({ ':u': userId }),
+      ProjectionExpression: 'targetUserId',
+      ...(lastKey && { ExclusiveStartKey: lastKey }),
+    }));
+    for (const item of r.Items || []) {
+      const row = unmarshall(item);
+      if (row.targetUserId) passed.add(row.targetUserId);
+    }
+    lastKey = r.LastEvaluatedKey || null;
+  } while (lastKey);
+  return passed;
+}
+
 async function discoverCandidates(identity, args) {
   const userId = getUserId(identity);
+  const passed = await getPassedTargetIds(userId);
 
   // Paginate profiles scan so we don't miss users when table has many items
   const all = [];
@@ -201,11 +224,12 @@ async function discoverCandidates(identity, args) {
     lastKey = scan.LastEvaluatedKey || null;
   } while (lastKey);
 
-  // Show all profiles except self so Discover lists everyone (e.g. Max sees Alex, Sasha, seed demos)
+  // Show all profiles except self and users this account has passed (so they don't reappear)
   const candidates = [];
   for (const doc of all) {
     const profileUserId = doc.userId;
     if (!profileUserId || profileUserId === userId) continue;
+    if (passed.has(profileUserId)) continue;
     const p = await profileFromDoc(doc);
     if (!p) continue;
     // Show profile even if name is empty: use fallback so real users always appear in discover
@@ -505,6 +529,31 @@ async function likeUser(identity, args) {
   };
 }
 
+async function passUserMutation(identity, args) {
+  const userId = getUserId(identity);
+  const targetUserId = args.targetUserId;
+  if (!targetUserId) throw new Error('targetUserId required');
+  const now = new Date().toISOString();
+  await dynamo.send(new PutItemCommand({
+    TableName: tables.discoverPasses,
+    Item: marshall({ userId, targetUserId, createdAt: now }),
+  }));
+  const matchRes = await dynamo.send(new ScanCommand({
+    TableName: tables.matches,
+    FilterExpression: '(userId1 = :a AND userId2 = :b) OR (userId1 = :b AND userId2 = :a)',
+    ExpressionAttributeValues: marshall({ ':a': userId, ':b': targetUserId }),
+    Limit: 1,
+  }));
+  if (matchRes.Items?.length) {
+    const m = unmarshall(matchRes.Items[0]);
+    await dynamo.send(new DeleteItemCommand({
+      TableName: tables.matches,
+      Key: marshall({ matchId: m.matchId }),
+    }));
+  }
+  return true;
+}
+
 async function unlockChat(identity, args) {
   const userId = getUserId(identity);
   const matchId = args.matchId;
@@ -714,6 +763,7 @@ const queryHandlers = {
 const mutationHandlers = {
   ensureFreeStartCredits: (identity) => ensureFreeStartCredits(identity),
   likeUser: (identity, args) => likeUser(identity, args),
+  passUser: (identity, args) => passUserMutation(identity, args),
   unlockChat: (identity, args) => unlockChat(identity, args),
   createMessage: (identity, args) => createMessage(identity, args),
   upsertProfile: (identity, args) => upsertProfile(identity, args),

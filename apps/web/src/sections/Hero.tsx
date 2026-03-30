@@ -1,18 +1,17 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { useI18n } from '@/hooks/useI18n';
+import { motion } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { Container } from '@/components/layout/Container';
-import { Button } from '@/components/ui/Button';
-import { PartnerMatchCards } from '@/components/hero/PartnerMatchCards';
+import { LiveMatchFeed } from '@/components/premium/LiveMatchFeed';
 import styles from './sections.module.css';
 
+const ease = [0.16, 1, 0.3, 1] as const;
+
 export const Hero: React.FC = () => {
-  const { t } = useI18n();
   const { isAuthenticated } = useAuthContext();
   const { me } = useMe();
-  const [isVisible] = useState(true);
 
   const profileComplete = me?.isProfileComplete ?? true;
   const ctaPrimaryHref = !isAuthenticated
@@ -21,65 +20,69 @@ export const Hero: React.FC = () => {
       ? '/onboarding/profile'
       : '/app/discover';
   const ctaPrimaryLabel = !isAuthenticated
-    ? t('landing.cta_start_matching_free')
+    ? 'Find My Match'
     : !profileComplete
-      ? t('landing.cta_finish_profile')
-      : t('landing.cta_start_discovering');
+      ? 'Finish profile'
+      : 'Find My Match';
 
   return (
-    <section className={styles.hero}>
-      {/* Background Effects */}
-      <div className={styles.heroBackground}>
-        <div className={styles.heroGradient} />
-        <div className={styles.heroNoise} />
-        <div className={styles.heroBlob} />
-      </div>
+    <section className={styles.heroPremium}>
+      <div className={styles.heroPremiumBg} aria-hidden />
+      <div className={styles.heroGrain} aria-hidden />
 
       <Container size="wide">
-        <div className={styles.heroContent}>
-          {/* Left Content */}
-          <div className={`${styles.heroText} ${isVisible ? styles.heroTextVisible : ''}`}>
-            <div className={styles.heroBadge}>
-              <span className={styles.badgeIcon}>✨</span>
-              <span>{t('landing.hero_badge')}</span>
-            </div>
-
-            <h1 className={styles.heroTitle}>
-              {t('landing.hero_title')}
-            </h1>
-
-            <p className={styles.heroSubtitle}>
-              {t('landing.hero_subtitle')}
-            </p>
-
-            {/* CTA Buttons */}
-            <div className={styles.heroButtons}>
-              <Link to={ctaPrimaryHref} style={{ textDecoration: 'none' }}>
-                <Button variant="primary" size="lg" as="button">
-                  {ctaPrimaryLabel}
-                </Button>
+        <div className={styles.heroPremiumGrid}>
+          <div className={styles.heroPremiumLeft}>
+            <motion.h1
+              className={styles.heroPremiumTitle}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease }}
+            >
+              Train With People Who Actually Push You
+            </motion.h1>
+            <motion.p
+              className={styles.heroPremiumSub}
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease, delay: 0.06 }}
+            >
+              AI finds your perfect training partner based on your level, schedule, and mindset — in seconds.
+            </motion.p>
+            <motion.div
+              className={styles.heroPremiumCtas}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease, delay: 0.12 }}
+            >
+              <Link to={ctaPrimaryHref} className={styles.heroBtnPrimary}>
+                {ctaPrimaryLabel}
               </Link>
-            </div>
-
-            {/* Support bullets – AI value props */}
-            <ul className={styles.heroSupportBullets} aria-label="AI features">
-              <li>{t('landing.hero_support_ai_insights')}</li>
-              <li>{t('landing.hero_support_ai_icebreakers')}</li>
-              <li>{t('landing.hero_support_ai_workout')}</li>
-              <li>{t('landing.hero_support_safer')}</li>
-            </ul>
-
-            {/* Powered by AI – minimal, premium */}
-            <div className={styles.poweredByAi}>
-              <span className={styles.poweredByAiLabel}>{t('landing.powered_by_ai_title')}</span>
-              <p className={styles.poweredByAiDesc}>{t('landing.powered_by_ai_desc')}</p>
-            </div>
+              <a href="#features" className={styles.heroBtnGhost}>
+                See How It Works
+              </a>
+            </motion.div>
+            <motion.ul
+              className={styles.socialProof}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease, delay: 0.18 }}
+              aria-label="Social proof"
+            >
+              <li>🔥 2,184 matches made this week</li>
+              <li>⭐ 4.9 average rating</li>
+              <li>💬 12,000+ active athletes</li>
+            </motion.ul>
           </div>
 
-          {/* Right Visual - Partner Match Cards */}
-          <div className={`${styles.heroVisual} ${isVisible ? styles.heroVisualVisible : ''}`}>
-            <PartnerMatchCards />
-          </div>
+          <motion.div
+            className={styles.heroPremiumRight}
+            initial={{ opacity: 0, scale: 0.96, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.65, ease, delay: 0.1 }}
+          >
+            <LiveMatchFeed />
+          </motion.div>
         </div>
       </Container>
     </section>

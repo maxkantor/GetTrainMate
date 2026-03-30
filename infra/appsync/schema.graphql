@@ -141,6 +141,8 @@ type Mutation {
   upsertProfile(input: UpsertProfileInput!): Profile
   ensureFreeStartCredits: Boolean
   likeUser(toUserId: ID!): LikeResult
+  """Record a Pass: target is hidden from Discover until you clear passes (future). Deletes pending one-sided match if any."""
+  passUser(targetUserId: ID!): Boolean!
   unlockChat(matchId: ID!): UnlockChatResult
   createMessage(matchId: ID, threadId: ID, body: String!): Message
   seedDemoData: SeedDemoResult

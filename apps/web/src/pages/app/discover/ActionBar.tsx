@@ -1,7 +1,7 @@
 import React from 'react';
-import ThumbUpIcon from '@mui/icons-material/ThumbUp';
-import ThumbDownIcon from '@mui/icons-material/ThumbDown';
-import StarIcon from '@mui/icons-material/Star';
+import CloseIcon from '@mui/icons-material/Close';
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
+import WhatshotIcon from '@mui/icons-material/Whatshot';
 import styles from './ActionBar.module.css';
 
 interface ActionBarProps {
@@ -33,41 +33,34 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           className={`${styles.btn} ${styles.btnPass}`}
           onClick={onPass}
           disabled={likeLoading}
-          aria-label="Pass on this profile"
+          aria-label="Skip this profile"
         >
-          <ThumbDownIcon className={styles.icon} aria-hidden />
-          Pass
+          <CloseIcon className={styles.icon} aria-hidden />
+          Skip
         </button>
         <button
           type="button"
           className={`${styles.btn} ${styles.btnLike}`}
           onClick={onLike}
           disabled={likeLoading}
-          aria-label="Like this profile"
+          aria-label="Train — like this profile"
         >
-          <ThumbUpIcon className={styles.icon} aria-hidden />
-          Like
+          <FitnessCenterIcon className={styles.icon} aria-hidden />
+          Train
         </button>
         <button
           type="button"
           className={`${styles.btn} ${styles.btnConnect}`}
           onClick={onConnect}
-          aria-label="Priority Connect - view full profile"
+          aria-label="Strong match — open profile"
         >
-          <StarIcon className={styles.icon} aria-hidden />
-          <span className={styles.connectLabel}>Priority Connect</span>
-          {credits >= 1 && (
-            <span className={styles.creditHint}>1 credit</span>
-          )}
+          <WhatshotIcon className={styles.icon} aria-hidden />
+          <span className={styles.connectLabel}>Strong Match</span>
+          {credits >= 1 && <span className={styles.creditHint}>1 credit</span>}
         </button>
       </div>
       {showUndo && canUndo && onUndo && (
-        <button
-          type="button"
-          className={styles.undoBtn}
-          onClick={onUndo}
-          aria-label="Undo last action"
-        >
+        <button type="button" className={styles.undoBtn} onClick={onUndo} aria-label="Undo last action">
           Undo
         </button>
       )}

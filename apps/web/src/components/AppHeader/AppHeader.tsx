@@ -5,6 +5,7 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { analytics } from '@/utils/analytics';
 import { LanguageDropdown } from '@/components/layout/LanguageDropdown';
+import { CreditsPill } from '@/components/premium/CreditsPill';
 import { HeaderNavLink } from './HeaderNavLink';
 import styles from './AppHeader.module.css';
 
@@ -83,16 +84,7 @@ export const AppHeader: React.FC = () => {
 
           {isLoggedIn && (
             <>
-              <span
-                className={styles.creditsPill}
-                title={`${me?.credits ?? 0} of ${me?.lifetimeEarned ?? me?.credits ?? 0} credits used`}
-                aria-label={`${me?.credits ?? 0} of ${me?.lifetimeEarned ?? me?.credits ?? 0} credits used`}
-              >
-                <span className={styles.creditsValue}>
-                  {me?.credits ?? 0}/{me?.lifetimeEarned ?? me?.credits ?? 0}
-                </span>
-                <span className={styles.creditsLabel}>credits</span>
-              </span>
+              <CreditsPill credits={me?.credits ?? 0} lifetimeEarned={me?.lifetimeEarned ?? me?.credits ?? 0} />
               <RouterLink
                 to="/pricing"
                 className={styles.upgradeBtn}

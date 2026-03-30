@@ -54,19 +54,21 @@
   line-height: 1;
 }
 
-.creditsStrip {
-  margin-bottom: 6px;
-  font-size: 0.875rem;
-  color: var(--color-neutral-600, #4b5563);
-}
-
-.creditsStrip strong {
-  color: var(--color-neutral-900, #111827);
+.discoverTopCenter {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .locationLabel {
-  color: var(--color-neutral-500, #6b7280);
-  font-weight: 500;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.02em;
 }
 
 .filterBtn {

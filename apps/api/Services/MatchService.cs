@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
+using Amazon.DynamoDBv2.Model;
 using GetTrainMate.Api.Models;
 using System.Globalization;
 
@@ -13,6 +14,7 @@ public class MatchService : IMatchService
     private readonly ICreditsService _creditsService;
     private readonly string _matchesTable;
     private readonly string _profilesTable;
+    private readonly string _discoverPassesTable;
     private readonly ILogger<MatchService> _logger;
 
     // Scoring weights for compatibility
@@ -37,6 +39,7 @@ public class MatchService : IMatchService
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _matchesTable = configuration["DYNAMODB_TABLE_MATCHES"] ?? $"{prefix}matches";
         _profilesTable = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
+        _discoverPassesTable = configuration["DYNAMODB_TABLE_DISCOVER_PASSES"] ?? $"{prefix}discover-passes";
         _logger = logger;
     }
 
@@ -131,6 +134,7 @@ public class MatchService : IMatchService
             } while (!search.IsDone);
 
             var feedItems = new List<MatchFeedItem>();
+            var passedTargetIds = await GetPassedTargetUserIdsAsync(userId);
 
             foreach (var doc in allProfiles)
             {
@@ -145,6 +149,9 @@ public class MatchService : IMatchService
                 
                 // Skip only self so Discover shows all other profiles (Max sees Alex, Sasha, etc.)
                 if (profileUserId == userId)
+                    continue;
+
+                if (passedTargetIds.Contains(profileUserId))
                     continue;
 
                 UserProfile targetProfile;
@@ -255,6 +262,9 @@ public class MatchService : IMatchService
     {
         try
         {
+            if (!string.IsNullOrEmpty(targetUserId))
+                await RecordDiscoverPassAsync(userId, targetUserId);
+
             var existingMatch = await GetMatchAsync(userId, targetUserId);
             
             if (existingMatch != null)
@@ -275,6 +285,55 @@ public class MatchService : IMatchService
             _logger.LogError(ex, "Error passing user {TargetUserId}", targetUserId);
             throw;
         }
+    }
+
+    private async Task RecordDiscoverPassAsync(string userId, string targetUserId)
+    {
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, _discoverPassesTable);
+            var doc = new Document
+            {
+                ["userId"] = userId,
+                ["targetUserId"] = targetUserId,
+                ["createdAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)
+            };
+            await table.PutItemAsync(doc);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to record discover pass for {TargetUserId}", targetUserId);
+            throw;
+        }
+    }
+
+    private async Task<HashSet<string>> GetPassedTargetUserIdsAsync(string userId)
+    {
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
+        {
+            var query = new QueryRequest
+            {
+                TableName = _discoverPassesTable,
+                KeyConditionExpression = "userId = :u",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    { ":u", new AttributeValue { S = userId } }
+                },
+                ProjectionExpression = "targetUserId",
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (item.TryGetValue("targetUserId", out var tid) && tid.S != null)
+                    result.Add(tid.S);
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+
+        return result;
     }
 
     public async Task<List<Match>> GetUserMatchesAsync(string userId)

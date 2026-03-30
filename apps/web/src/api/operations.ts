@@ -85,6 +85,12 @@ export const LIKE_USER = /* GraphQL */ `
   }
 `;
 
+export const PASS_USER = /* GraphQL */ `
+  mutation PassUser($targetUserId: ID!) {
+    passUser(targetUserId: $targetUserId)
+  }
+`;
+
 export const UNLOCK_CHAT = /* GraphQL */ `
   mutation UnlockChat($matchId: ID!) {
     unlockChat(matchId: $matchId) {

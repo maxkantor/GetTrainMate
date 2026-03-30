@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ActionBar } from './ActionBar';
 
 describe('ActionBar', () => {
-  it('renders Pass, Like, Priority Connect buttons', () => {
+  it('renders Skip, Train, Strong Match buttons', () => {
     render(
       <ActionBar
         onPass={vi.fn()}
@@ -16,12 +16,12 @@ describe('ActionBar', () => {
         showUndo={false}
       />
     );
-    expect(screen.getByRole('button', { name: /pass/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /like/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /priority connect/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /train/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /strong match/i })).toBeInTheDocument();
   });
 
-  it('calls onPass when Pass is clicked', () => {
+  it('calls onPass when Skip is clicked', () => {
     const onPass = vi.fn();
     render(
       <ActionBar
@@ -34,11 +34,11 @@ describe('ActionBar', () => {
         showUndo={false}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: /pass/i }));
+    fireEvent.click(screen.getByRole('button', { name: /skip/i }));
     expect(onPass).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onLike when Like is clicked', () => {
+  it('calls onLike when Train is clicked', () => {
     const onLike = vi.fn();
     render(
       <ActionBar
@@ -51,11 +51,11 @@ describe('ActionBar', () => {
         showUndo={false}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: /like/i }));
+    fireEvent.click(screen.getByRole('button', { name: /train/i }));
     expect(onLike).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onConnect when Priority Connect is clicked', () => {
+  it('calls onConnect when Strong Match is clicked', () => {
     const onConnect = vi.fn();
     render(
       <ActionBar
@@ -68,7 +68,7 @@ describe('ActionBar', () => {
         showUndo={false}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: /priority connect/i }));
+    fireEvent.click(screen.getByRole('button', { name: /strong match/i }));
     expect(onConnect).toHaveBeenCalledTimes(1);
   });
 

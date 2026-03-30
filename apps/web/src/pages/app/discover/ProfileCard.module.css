@@ -1,26 +1,30 @@
 .card {
+  position: relative;
   width: 100%;
-  border-radius: 20px;
+  border-radius: 24px;
   overflow: hidden;
+  background: linear-gradient(180deg, rgba(18, 16, 32, 0.98), rgba(10, 12, 24, 0.99));
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.08),
-    0 10px 20px -5px rgba(0, 0, 0, 0.08);
-  background: #fff;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .card {
-    transition: none;
-  }
-}
-
-.card:focus-within {
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12);
+    0 24px 48px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(167, 139, 250, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  touch-action: pan-y;
 }
 
 .card.matched {
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4);
+  box-shadow:
+    0 0 0 2px rgba(167, 139, 250, 0.55),
+    0 24px 48px rgba(99, 102, 241, 0.2);
+}
+
+.avatarGlow {
+  position: absolute;
+  inset: -40% -20% auto;
+  height: 70%;
+  background: radial-gradient(ellipse at 50% 0%, rgba(139, 92, 246, 0.25), transparent 65%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .mediaWrap {
@@ -30,9 +34,10 @@
   max-height: 72vh;
   min-height: 280px;
   overflow: hidden;
-  background: var(--color-neutral-100);
+  background: #0f0f18;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  z-index: 1;
 }
 
 .mediaImage {
@@ -47,9 +52,28 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 45%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+  height: 52%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
   pointer-events: none;
+}
+
+.matchRingWrap {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 3;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.4));
+}
+
+.matchRing {
+  width: 52px;
+  height: 52px;
+}
+
+.matchRingText {
+  fill: rgba(255, 255, 255, 0.95);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .overlayContent {
@@ -59,17 +83,18 @@
   bottom: 0;
   padding: var(--space-6) var(--space-4) var(--space-4);
   pointer-events: none;
+  z-index: 2;
 }
 
 .name {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 800;
   color: #fff;
   margin: 0 0 var(--space-2);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
 }
 
-.chipsRow {
+.metaRow {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
@@ -77,11 +102,21 @@
 
 .chipOverlay {
   font-size: var(--font-xs);
-  padding: 4px 10px;
+  padding: 5px 11px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.18);
   color: #fff;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.scheduleHint {
+  margin: 10px 0 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .photoDots {
@@ -91,7 +126,7 @@
   transform: translateX(-50%);
   display: flex;
   gap: 8px;
-  z-index: 2;
+  z-index: 4;
   pointer-events: auto;
 }
 
@@ -101,13 +136,13 @@
   border-radius: 50%;
   border: none;
   padding: 0;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.45);
   cursor: pointer;
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .photoDot:hover {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .photoDotActive {
@@ -117,12 +152,32 @@
 
 .content {
   padding: var(--space-4);
+  position: relative;
+  z-index: 1;
+}
+
+.tagStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tagPill {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: rgba(196, 181, 253, 0.95);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(167, 139, 250, 0.25);
 }
 
 .bio {
   font-size: var(--font-sm);
   line-height: 1.5;
-  color: var(--color-neutral-700);
+  color: rgba(255, 255, 255, 0.78);
   margin: 0 0 var(--space-3);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -133,13 +188,13 @@
 .bioExpanded {
   font-size: var(--font-sm);
   line-height: 1.5;
-  color: var(--color-neutral-700);
+  color: rgba(255, 255, 255, 0.78);
   margin: 0 0 var(--space-3);
 }
 
 .moreBtn {
   font-size: inherit;
-  color: var(--color-primary);
+  color: #a78bfa;
   background: none;
   border: none;
   cursor: pointer;
@@ -158,14 +213,21 @@
   font-size: var(--font-xs);
   padding: 4px 10px;
   border-radius: var(--radius-full);
-  background: rgba(99, 102, 241, 0.12);
-  color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.2);
+  color: #c4b5fd;
+  border: 1px solid rgba(167, 139, 250, 0.2);
 }
 
 .modeChip {
   font-size: var(--font-xs);
   padding: 4px 10px;
   border-radius: var(--radius-full);
-  background: var(--color-neutral-100);
-  color: var(--color-neutral-600);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.65);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    touch-action: auto;
+  }
 }
