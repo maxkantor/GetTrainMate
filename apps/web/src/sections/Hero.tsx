@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { Container } from '@/components/layout/Container';
-import { LiveMatchFeed } from '@/components/premium/LiveMatchFeed';
+import { HeroFloatingStack } from '@/components/premium/HeroFloatingStack';
 import styles from './sections.module.css';
 
 const ease = [0.16, 1, 0.3, 1] as const;
@@ -29,6 +29,7 @@ export const Hero: React.FC = () => {
     <section className={styles.heroPremium}>
       <div className={styles.heroPremiumBg} aria-hidden />
       <div className={styles.heroGrain} aria-hidden />
+      <div className={styles.heroRadialAccent} aria-hidden />
 
       <Container size="wide">
         <div className={styles.heroPremiumGrid}>
@@ -58,9 +59,18 @@ export const Hero: React.FC = () => {
               <Link to={ctaPrimaryHref} className={styles.heroBtnPrimary}>
                 {ctaPrimaryLabel}
               </Link>
-              <a href="#features" className={styles.heroBtnGhost}>
+              <a href="#swipe-demo-heading" className={`${styles.heroBtnGhost} ${styles.landingLinkUnderline}`}>
                 See How It Works
               </a>
+            </motion.div>
+            <motion.div
+              className={styles.heroExclusivity}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease, delay: 0.14 }}
+            >
+              <span className={styles.heroExclusivityBadge}>🔥 Serious athletes only</span>
+              <p className={styles.heroExclusivityLine}>Join 12,000+ committed athletes</p>
             </motion.div>
             <motion.ul
               className={styles.socialProof}
@@ -71,7 +81,7 @@ export const Hero: React.FC = () => {
             >
               <li>🔥 2,184 matches made this week</li>
               <li>⭐ 4.9 average rating</li>
-              <li>💬 12,000+ active athletes</li>
+              <li>💬 Active in 40+ cities</li>
             </motion.ul>
           </div>
 
@@ -81,7 +91,7 @@ export const Hero: React.FC = () => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.65, ease, delay: 0.1 }}
           >
-            <LiveMatchFeed />
+            <HeroFloatingStack />
           </motion.div>
         </div>
       </Container>

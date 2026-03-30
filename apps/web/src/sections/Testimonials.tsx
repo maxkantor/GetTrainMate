@@ -57,11 +57,23 @@ export const Testimonials: React.FC = () => {
             <motion.article
               key={t.name}
               className={styles.testimonialCard}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.06, duration: 0.4 }}
-              whileHover={{ scale: 1.02 }}
+              onMouseMove={(e) => {
+                const el = e.currentTarget;
+                const r = el.getBoundingClientRect();
+                const nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
+                const ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
+                el.style.setProperty('--rx', `${ny * -6}deg`);
+                el.style.setProperty('--ry', `${nx * 6}deg`);
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget;
+                el.style.setProperty('--rx', '0deg');
+                el.style.setProperty('--ry', '0deg');
+              }}
             >
               <p className={styles.testimonialText}>&ldquo;{t.quote}&rdquo;</p>
               <div className={styles.testimonialAuthor}>

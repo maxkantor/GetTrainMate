@@ -44,8 +44,8 @@ const container = {
 };
 
 const item = {
-  hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } },
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } },
 };
 
 export const Features: React.FC = () => {
@@ -76,16 +76,22 @@ export const Features: React.FC = () => {
               key={card.key}
               variants={item}
               className={`${styles.card} ${styles[`size_${card.size}`]}`}
-              whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}
               onMouseMove={(e) => {
                 const el = e.currentTarget;
                 const r = el.getBoundingClientRect();
                 el.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`);
                 el.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`);
+                const nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
+                const ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
+                el.style.setProperty('--rx', `${ny * -5}deg`);
+                el.style.setProperty('--ry', `${nx * 5}deg`);
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.setProperty('--mx', '50%');
-                e.currentTarget.style.setProperty('--my', '50%');
+                const el = e.currentTarget;
+                el.style.setProperty('--mx', '50%');
+                el.style.setProperty('--my', '50%');
+                el.style.setProperty('--rx', '0deg');
+                el.style.setProperty('--ry', '0deg');
               }}
             >
               <div className={styles.cardGlow} aria-hidden />
