@@ -73,8 +73,33 @@
 .heroPremiumCtas {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 14px;
-  margin-bottom: 28px;
+  margin-bottom: 14px;
+}
+
+.heroPrimaryStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.heroCtaSub {
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.35;
+}
+
+.heroEmotionalHook {
+  margin: 0 0 20px;
+  max-width: 42ch;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .heroBtnPrimary {
@@ -94,8 +119,21 @@
 }
 
 .heroBtnPrimary:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 14px 44px rgba(99, 102, 241, 0.52);
+  transform: translateY(-3px) scale(1.05);
+  animation: heroBtnGlowPulse 1.5s ease-in-out infinite;
+  box-shadow:
+    0 14px 44px rgba(99, 102, 241, 0.52),
+    0 0 32px rgba(167, 139, 250, 0.35);
+}
+
+@keyframes heroBtnGlowPulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.07);
+  }
 }
 
 .heroBtnPrimary:focus-visible {
@@ -126,7 +164,11 @@
 .heroBtnGhost:hover {
   border-color: rgba(167, 139, 250, 0.45);
   background: rgba(255, 255, 255, 0.07);
-  transform: scale(1.05);
+  transform: scale(1.05) translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgba(167, 139, 250, 0.15),
+    0 8px 28px rgba(99, 102, 241, 0.2);
+  animation: heroBtnGlowPulse 1.5s ease-in-out infinite;
 }
 
 .heroBtnGhost:focus-visible {
@@ -206,6 +248,7 @@
   .heroBtnPrimary:hover,
   .heroBtnGhost:hover {
     transform: none;
+    animation: none;
   }
 }
 

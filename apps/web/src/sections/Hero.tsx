@@ -20,10 +20,11 @@ export const Hero: React.FC = () => {
       ? '/onboarding/profile'
       : '/app/discover';
   const ctaPrimaryLabel = !isAuthenticated
-    ? 'Find My Match'
+    ? 'Start Matching Free'
     : !profileComplete
       ? 'Finish profile'
-      : 'Find My Match';
+      : 'Start Matching Free';
+  const showCtaSubtext = profileComplete;
 
   return (
     <section className={styles.heroPremium}>
@@ -56,13 +57,26 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease, delay: 0.12 }}
             >
-              <Link to={ctaPrimaryHref} className={styles.heroBtnPrimary}>
-                {ctaPrimaryLabel}
-              </Link>
+              <div className={styles.heroPrimaryStack}>
+                <Link to={ctaPrimaryHref} className={styles.heroBtnPrimary}>
+                  {ctaPrimaryLabel}
+                </Link>
+                {showCtaSubtext && (
+                  <span className={styles.heroCtaSub}>No commitment • Upgrade anytime</span>
+                )}
+              </div>
               <a href="#swipe-demo-heading" className={`${styles.heroBtnGhost} ${styles.landingLinkUnderline}`}>
                 See How It Works
               </a>
             </motion.div>
+            <motion.p
+              className={styles.heroEmotionalHook}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease, delay: 0.14 }}
+            >
+              Stop training alone. Find your level.
+            </motion.p>
             <motion.div
               className={styles.heroExclusivity}
               initial={{ opacity: 0, y: 10 }}

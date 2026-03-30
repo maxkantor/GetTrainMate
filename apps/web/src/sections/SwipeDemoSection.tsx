@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Container } from '@/components/layout/Container';
@@ -33,7 +33,7 @@ const PROFILES = [
   },
 ] as const;
 
-const IDLE_MS = 3400;
+const IDLE_MS = 3000;
 const SWIPE_MS = 520;
 const MATCH_MS = 2000;
 
@@ -86,6 +86,21 @@ export const SwipeDemoSection: React.FC = () => {
   const timersRef = useRef<number[]>([]);
 
   const p = PROFILES[profileIdx % PROFILES.length];
+
+  const onTiltMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (reduceMotion) return;
+    const el = e.currentTarget;
+    const r = el.getBoundingClientRect();
+    const nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
+    const ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
+    el.style.setProperty('--rx', `${ny * -8}deg`);
+    el.style.setProperty('--ry', `${nx * 8}deg`);
+  }, [reduceMotion]);
+
+  const onTiltLeave = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    e.currentTarget.style.setProperty('--rx', '0deg');
+    e.currentTarget.style.setProperty('--ry', '0deg');
+  }, []);
 
   useEffect(() => {
     const clearAll = () => {
@@ -143,64 +158,72 @@ export const SwipeDemoSection: React.FC = () => {
         </h2>
 
         <div className={styles.stage}>
-          <motion.div
-            className={`${styles.card} ${showMatch ? styles.cardMatch : ''}`}
-            animate={
-              reduceMotion
-                ? { x: 0, rotate: 0, scale: 1 }
-                : phase === 'swipe'
-                  ? { x: 280, rotate: 10, scale: 1 }
-                  : showMatch
-                    ? { x: 0, rotate: 0, scale: [1, 1.06, 0.97, 1.04, 1] }
-                    : { x: 0, rotate: 0, scale: 1 }
-            }
-            transition={
-              phase === 'swipe'
-                ? { type: 'tween', duration: 0.48, ease: [0.32, 0.72, 0, 1] }
-                : showMatch
-                  ? { duration: 0.55, times: [0, 0.2, 0.4, 0.65, 1] }
-                  : { type: 'spring', stiffness: 420, damping: 32 }
-            }
+          <div
+            className={styles.tiltWrap}
+            onMouseMove={onTiltMove}
+            onMouseLeave={onTiltLeave}
           >
-            {showProfile && (
-              <>
-                <div className={styles.avatarWrap}>
-                  <img src={p.avatar} alt="" className={styles.avatar} width={120} height={120} loading="lazy" />
-                </div>
-                <div className={styles.row}>
-                  <span className={styles.name}>
-                    {p.name}, {p.age}
-                  </span>
-                  <span className={styles.matchRing} aria-hidden>
-                    <DemoMatchRing percent={p.matchPct} />
-                  </span>
-                </div>
-                <div className={styles.tags}>
-                  {p.tags.map((t) => (
-                    <span key={t} className={styles.tag}>
-                      [{t}]
+            <motion.div
+              className={`${styles.card} ${showMatch ? styles.cardMatch : ''}`}
+              animate={
+                reduceMotion
+                  ? { x: 0, rotate: 0, scale: 1 }
+                  : phase === 'swipe'
+                    ? { x: 280, rotate: 10, scale: 1 }
+                    : showMatch
+                      ? { x: 0, rotate: 0, scale: [1, 1.08, 0.94, 1.06, 1] }
+                      : { x: 0, rotate: 0, scale: 1 }
+              }
+              transition={
+                phase === 'swipe'
+                  ? { type: 'tween', duration: 0.48, ease: [0.32, 0.72, 0, 1] }
+                  : showMatch
+                    ? { duration: 0.62, times: [0, 0.15, 0.35, 0.55, 1] }
+                    : { type: 'spring', stiffness: 420, damping: 32 }
+              }
+            >
+              {showProfile && (
+                <>
+                  <div className={styles.avatarWrap}>
+                    <img src={p.avatar} alt="" className={styles.avatar} width={120} height={120} loading="lazy" />
+                  </div>
+                  <div className={styles.row}>
+                    <span className={styles.name}>
+                      {p.name}, {p.age}
                     </span>
-                  ))}
-                </div>
-                <p className={styles.distance}>{p.distance} away</p>
-              </>
-            )}
+                    <span className={styles.matchRing} aria-hidden>
+                      <DemoMatchRing percent={p.matchPct} />
+                    </span>
+                  </div>
+                  <div className={styles.tags}>
+                    {p.tags.map((t) => (
+                      <span key={t} className={styles.tag}>
+                        [{t}]
+                      </span>
+                    ))}
+                  </div>
+                  <p className={styles.distance}>{p.distance} away</p>
+                </>
+              )}
 
-            {showMatch && (
-              <div className={styles.matchOverlay} role="status" aria-live="polite">
-                <span className={styles.matchEmoji} aria-hidden>
-                  🔥
-                </span>
-                <span className={styles.matchText}>It&apos;s a Match</span>
-              </div>
-            )}
-          </motion.div>
+              {showMatch && (
+                <div className={`${styles.matchOverlay} ${styles.matchOverlayPulse}`} role="status" aria-live="polite">
+                  <span className={styles.matchEmoji} aria-hidden>
+                    🔥
+                  </span>
+                  <span className={styles.matchText}>It&apos;s a Match</span>
+                </div>
+              )}
+            </motion.div>
+          </div>
         </div>
 
-        <div className={styles.ctaRow}>
+        <div className={styles.ctaColumn}>
           <Link to="/signup" className={styles.cta}>
-            Start Matching
+            Start Matching Free
           </Link>
+          <p className={styles.ctaSub}>No commitment • Upgrade anytime</p>
+          <p className={styles.freeMatches}>You get 3 free matches to start</p>
         </div>
       </Container>
     </section>

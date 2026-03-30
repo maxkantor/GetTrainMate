@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import styles from './HeroFloatingStack.module.css';
 
 const STACK = [
@@ -16,21 +16,37 @@ const STACK = [
   },
 ] as const;
 
+const ROTATE_MS = 4000;
+
 export const HeroFloatingStack: React.FC = () => {
+  const [focusIdx, setFocusIdx] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setFocusIdx((i) => (i + 1) % STACK.length);
+    }, ROTATE_MS);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className={styles.wrap} aria-hidden>
       {STACK.map((item, i) => (
-        <div key={item.text} className={`${styles.card} ${styles[`layer${i}`]}`}>
-          <img
-            src={item.avatar}
-            alt=""
-            className={styles.avatar}
-            width={44}
-            height={44}
-            loading="eager"
-            decoding="async"
-          />
-          <p className={styles.text}>{item.text}</p>
+        <div
+          key={item.text}
+          className={`${styles.cardOuter} ${styles[`layer${i}`]} ${focusIdx === i ? styles.cardOuterFocus : ''}`}
+        >
+          <div className={`${styles.cardInner} ${focusIdx === i ? styles.cardInnerFocus : ''}`}>
+            <img
+              src={item.avatar}
+              alt=""
+              className={styles.avatar}
+              width={50}
+              height={50}
+              loading="eager"
+              decoding="async"
+            />
+            <p className={styles.text}>{item.text}</p>
+          </div>
         </div>
       ))}
     </div>

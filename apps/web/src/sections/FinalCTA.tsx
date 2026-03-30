@@ -44,6 +44,7 @@ export const FinalCTA: React.FC = () => {
           <Link to="/signup" className={styles.btn}>
             Start Matching Free
           </Link>
+          <p className={styles.btnSub}>No commitment • Upgrade anytime</p>
         </motion.div>
       </Container>
     </section>
