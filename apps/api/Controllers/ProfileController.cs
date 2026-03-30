@@ -94,7 +94,7 @@ public class ProfileController : ControllerBase
             var contentType = string.IsNullOrWhiteSpace(request.ContentType) ? "application/octet-stream" : request.ContentType!;
             var extension = contentType switch
             {
-                "image/jpeg" => ".jpg",
+                "image/jpeg" or "image/jpg" => ".jpg",
                 "image/png" => ".png",
                 "image/webp" => ".webp",
                 _ => ""

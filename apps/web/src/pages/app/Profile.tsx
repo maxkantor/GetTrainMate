@@ -515,8 +515,13 @@ export const ProfilePage: React.FC = () => {
             const atLimit = myPhotos.length >= limits.maxPhotos;
             return (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Button variant="outlined" component="label" disabled={uploading || atLimit}>
-              Choose Photo
+            <Button
+              variant="outlined"
+              component="label"
+              disabled={uploading}
+              title={atLimit ? 'Replace your profile photo' : 'Add a profile photo'}
+            >
+              {atLimit ? 'Replace photo' : 'Choose Photo'}
               <input 
                 type="file" 
                 hidden 
@@ -572,9 +577,11 @@ export const ProfilePage: React.FC = () => {
                     }
                     
                     // Update profile with photoKey
-                    const updated = await profileService.updateMyProfile(token, { photoKey: info.key });
+                    await profileService.updateMyProfile(token, { photoKey: info.key });
                     setPhotoKey(info.key);
-                    setMyPhotos([info.publicUrl]);
+                    // Private bucket: public URL 403s in browser — use signed GET URL for display
+                    const displayUrl = await profileService.getPhotoUrl(token, info.key);
+                    setMyPhotos([displayUrl]);
                     setSnack({ open: true, message: 'Photo uploaded successfully', severity: 'success' });
                     setFile(null);
                   } catch (e: any) {
@@ -587,9 +594,9 @@ export const ProfilePage: React.FC = () => {
                 {uploading ? <CircularProgress size={20} /> : 'Upload'}
               </Button>
             )}
-            {atLimit && (
+            {atLimit && limits.maxPhotos < 10 && (
               <Typography variant="body2" color="primary" component={Link} to="/pricing" sx={{ textDecoration: 'underline' }}>
-                Upgrade to add more photos ({limits.maxPhotos}/{limits.maxPhotos})
+                Get credits to unlock more photo slots (currently {limits.maxPhotos})
               </Typography>
             )}
           </Box>
