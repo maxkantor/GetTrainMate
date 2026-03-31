@@ -11,6 +11,7 @@ import {
   getCurrentUser,
   updateUserAttributes,
   updatePassword,
+  signInWithRedirect,
 } from 'aws-amplify/auth';
 import { isGraphQLEnabled, APPSYNC_GRAPHQL_URL } from '@/config/appsync';
 
@@ -130,6 +131,24 @@ export const authService = {
     } catch (error: any) {
       console.error('SignIn error:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Cognito Hosted UI (Google IdP). Requires OAuth domain + redirect URLs in the user pool.
+   * Returns false if redirect was not started (misconfiguration or unsupported).
+   */
+  async signInWithGoogle(): Promise<{ started: boolean; error?: string }> {
+    if (!isConfigured) {
+      return { started: false, error: 'Auth not configured' };
+    }
+    try {
+      await signInWithRedirect({ provider: 'Google' });
+      return { started: true };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Google sign-in failed';
+      console.warn('[Auth] signInWithRedirect Google:', msg);
+      return { started: false, error: msg };
     }
   },
 

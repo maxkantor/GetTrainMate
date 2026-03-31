@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { LoggedInActionHero } from '@/components/app/LoggedInActionHero';
@@ -13,6 +14,18 @@ import styles from '@/sections/sections.module.css';
 export const LandingPage: React.FC = () => {
   const { isAuthenticated } = useAuthContext();
   const { me, loading } = useMe();
+  const location = useLocation();
+
+  /** When navigating from another route (e.g. Pricing) to /#how-it-works, scroll after marketing sections mount. */
+  useEffect(() => {
+    if (isAuthenticated && me) return;
+    if (location.pathname !== '/') return;
+    if (location.hash !== '#how-it-works') return;
+    const t = window.setTimeout(() => {
+      document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+    return () => clearTimeout(t);
+  }, [isAuthenticated, me, location.pathname, location.hash]);
 
   if (isAuthenticated && loading) {
     return (

@@ -132,11 +132,13 @@ export const MatchPanel: React.FC<MatchPanelProps> = ({
               onClick={onUnlockAiInsight}
               disabled={aiInsightLoading}
             >
-              {aiInsightLoading ? 'Generating…' : `Unlock AI match insight (${aiInsightCreditCost} credit${aiInsightCreditCost !== 1 ? 's' : ''})`}
+              {aiInsightLoading
+                ? 'Generating…'
+                : `Unlock why you match (${aiInsightCreditCost} credit${aiInsightCreditCost !== 1 ? 's' : ''})`}
             </button>
           ) : (
             <p className={styles.aiInsightTeaser}>
-              Unlock AI match insight ({aiInsightCreditCost} credit{aiInsightCreditCost !== 1 ? 's' : ''})
+              Unlock why you match ({aiInsightCreditCost} credit{aiInsightCreditCost !== 1 ? 's' : ''})
             </p>
           )}
         </div>

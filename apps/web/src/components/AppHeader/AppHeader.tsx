@@ -30,11 +30,15 @@ export const AppHeader: React.FC = () => {
   const credits = me?.credits ?? 0;
   const creditCap = Math.max(me?.lifetimeEarned ?? 0, 6);
   const lowCredits = credits <= 1;
+  const likesToday = matchStatus.likesToday;
+  const outOfDailyMatches = likesToday >= DAILY_LIKE_LIMIT;
+  const pressureCredits = lowCredits || outOfDailyMatches;
 
-  const statusLine =
-    !matchStatus.loading && matchStatus.waitingForAction > 0
+  const statusLine = outOfDailyMatches
+    ? 'Out of matches. Get more on Pricing.'
+    : !matchStatus.loading && matchStatus.waitingForAction > 0
       ? `${matchStatus.waitingForAction} match${matchStatus.waitingForAction === 1 ? '' : 'es'} waiting`
-      : `${matchStatus.likesToday}/${DAILY_LIKE_LIMIT} matches used today`;
+      : `${likesToday}/${DAILY_LIKE_LIMIT} matches used today`;
 
   const avatarLetter =
     me?.profile?.name?.trim()?.charAt(0)?.toUpperCase() ||
@@ -79,27 +83,49 @@ export const AppHeader: React.FC = () => {
   const navItems = isLoggedIn ? loggedInNav : [];
   const logoTo = '/';
 
+  /** Product → landing “See How Matching Works” (#how-it-works on SwipeDemoSection). */
+  const handleProductNav = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMobileOpen(false);
+    if (location.pathname === '/') {
+      document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
+      window.history.replaceState(null, '', '#how-it-works');
+    } else {
+      navigate({ pathname: '/', hash: 'how-it-works' });
+    }
+  };
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    setMobileOpen(false);
+    if (location.pathname === '/') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (location.hash) {
+        window.history.replaceState(null, '', '/');
+      }
+    }
+  };
+
   return (
     <header className={styles.root}>
       <div className={styles.inner}>
         {!isLoggedIn ? (
           <>
-            <RouterLink to={logoTo} className={styles.logo} aria-label={t('common.appName')} onClick={(e) => e.stopPropagation()}>
+            <RouterLink
+              to={logoTo}
+              className={styles.logo}
+              aria-label={t('common.appName')}
+              onClick={handleLogoClick}
+            >
               <span className={styles.logoIcon}>⚡</span>
               <span className={styles.logoText}>{t('common.appName')}</span>
             </RouterLink>
 
             <nav className={styles.nav} aria-label="Main navigation">
               <a
-                href={location.pathname === '/' ? '#how-it-works' : '/#how-it-works'}
+                href="/#how-it-works"
                 className={styles.headerNavLink}
-                onClick={(e) => {
-                  if (location.pathname === '/') {
-                    e.preventDefault();
-                    document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
-                  }
-                  setMobileOpen(false);
-                }}
+                onClick={handleProductNav}
               >
                 Product
               </a>
@@ -174,7 +200,7 @@ export const AppHeader: React.FC = () => {
               </span>
               <RouterLink
                 to="/pricing"
-                className={`${styles.upgradeBtn} ${lowCredits ? styles.upgradeBtnUrgent : ''}`}
+                className={`${styles.upgradeBtn} ${pressureCredits ? styles.upgradeBtnUrgent : ''}`}
                 onClick={() => analytics.pricingOpened('header')}
               >
                 Get Credits
@@ -240,17 +266,7 @@ export const AppHeader: React.FC = () => {
             <nav className={styles.mobileNav}>
               {!isLoggedIn ? (
                 <>
-                  <a
-                    href={location.pathname === '/' ? '#how-it-works' : '/#how-it-works'}
-                    className={styles.mobileLink}
-                    onClick={(e) => {
-                      if (location.pathname === '/') {
-                        e.preventDefault();
-                        document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
-                      }
-                      setMobileOpen(false);
-                    }}
-                  >
+                  <a href="/#how-it-works" className={styles.mobileLink} onClick={handleProductNav}>
                     Product
                   </a>
                   <RouterLink to="/pricing" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
@@ -288,7 +304,7 @@ export const AppHeader: React.FC = () => {
                   </span>
                   <RouterLink
                     to="/pricing"
-                    className={`${styles.mobileUpgrade} ${lowCredits ? styles.mobileUpgradeUrgent : ''}`}
+                    className={`${styles.mobileUpgrade} ${pressureCredits ? styles.mobileUpgradeUrgent : ''}`}
                     onClick={() => {
                       setMobileOpen(false);
                       analytics.pricingOpened('mobile');

@@ -72,6 +72,47 @@
   letter-spacing: 0.02em;
 }
 
+.newAthletesLine {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: rgba(251, 191, 36, 0.95);
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 20px rgba(245, 158, 11, 0.35);
+}
+
+.retentionBanner {
+  position: relative;
+  margin: 0 16px 8px;
+  padding: 10px 36px 10px 14px;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: center;
+}
+
+.retentionDismiss {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.retentionDismiss:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
 .filterBtn {
   display: inline-flex;
   align-items: center;

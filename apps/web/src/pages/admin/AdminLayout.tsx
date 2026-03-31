@@ -26,12 +26,14 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ScienceIcon from '@mui/icons-material/Science';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 
 const drawerWidth = 240;
 
 const menuItems = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
   { path: '/admin/users', label: 'Users CRM', icon: <PeopleIcon /> },
+  { path: '/admin/matches', label: 'Matches', icon: <FavoriteIcon /> },
   { path: '/admin/test-users', label: 'Test Users', icon: <ScienceIcon /> },
   { path: '/admin/devices', label: 'Devices & Tokens', icon: <DevicesIcon /> },
   { path: '/admin/chats', label: 'Chat Moderation', icon: <ChatIcon /> },

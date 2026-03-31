@@ -42,6 +42,7 @@ import { PageShell } from '@/components/layout/PageShell';
 import { profileService, UpdateProfileRequest, AvailabilitySlot } from '@/services/profileService';
 import { authService } from '@/services/authService';
 import { handleApiError } from '@/utils/apiErrorHandler';
+import { readLandingPrefs, trainingToSportTag, landingLevelToProfileLevel } from '@/utils/landingPrefs';
 
 const SPORTS = [
   'Running', 'Cycling', 'Swimming', 'Tennis', 'Basketball', 'Soccer',
@@ -148,6 +149,25 @@ export const ProfileOnboardingPage: React.FC = () => {
             const publicUrl = `https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/${profile.photoKey}`;
             setPhotoPreview(publicUrl);
           }
+        }
+        const prefs = readLandingPrefs();
+        if (prefs && (!sportTags.length || !profile.level)) {
+          const tag = trainingToSportTag(prefs.training);
+          setFormData((prev) => ({
+            ...prev,
+            sportTags: (prev.sportTags?.length ? prev.sportTags : [tag]),
+            level: prev.level || landingLevelToProfileLevel(prefs.level),
+          }));
+        }
+      } else {
+        const prefs = readLandingPrefs();
+        if (prefs) {
+          const tag = trainingToSportTag(prefs.training);
+          setFormData((prev) => ({
+            ...prev,
+            sportTags: [tag],
+            level: landingLevelToProfileLevel(prefs.level),
+          }));
         }
       }
     } catch (err) {

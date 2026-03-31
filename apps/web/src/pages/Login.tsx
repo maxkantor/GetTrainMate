@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -18,6 +18,8 @@ import { PageShell } from '@/components/layout/PageShell';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const oauthHint = (location.state as { hint?: string } | null)?.hint;
   const [searchParams] = useSearchParams();
   const { t } = useI18n();
 
@@ -221,6 +223,13 @@ export const LoginPage: React.FC = () => {
         {error && (
           <Alert severity="error" sx={{ marginBottom: 2 }}>
             {error}
+          </Alert>
+        )}
+
+        {oauthHint && (
+          <Alert severity="info" sx={{ marginBottom: 2 }}>
+            Google sign-in did not start ({oauthHint}). Continue with email, or configure Cognito Hosted UI with Google
+            for your user pool.
           </Alert>
         )}
 

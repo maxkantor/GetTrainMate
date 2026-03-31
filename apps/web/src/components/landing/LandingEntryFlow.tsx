@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { authService } from '@/services/authService';
+import { saveLandingPrefs } from '@/utils/landingPrefs';
 import styles from './LandingEntryFlow.module.css';
 
 const TRAINING = ['HYROX', 'Strength & conditioning', 'Running / cardio', 'CrossFit / functional'] as const;
@@ -40,10 +42,21 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
 
   const step1Valid = training && level && timePref;
 
-  const goSignup = useCallback(() => {
+  const persistPrefsAndGoSignup = useCallback(() => {
+    saveLandingPrefs({ training, level, timePref });
     handleClose();
     navigate('/signup');
-  }, [handleClose, navigate]);
+  }, [training, level, timePref, handleClose, navigate]);
+
+  const handleGoogle = useCallback(async () => {
+    saveLandingPrefs({ training, level, timePref });
+    const { started, error } = await authService.signInWithGoogle();
+    if (!started) {
+      console.warn('Google sign-in:', error);
+      handleClose();
+      navigate('/login', { state: { fromLanding: true, hint: error } });
+    }
+  }, [training, level, timePref, handleClose, navigate]);
 
   useEffect(() => {
     if (open) {
@@ -85,9 +98,9 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
             {step === 1 && (
               <div className={styles.step}>
                 <h2 id="entry-flow-title" className={styles.title}>
-                  Quick fit — 3 questions
+                  Quick setup
                 </h2>
-                <p className={styles.lead}>We use this to preview matches near you.</p>
+                <p className={styles.lead}>No account yet — we use this to preview partners near you.</p>
 
                 <label className={styles.field}>
                   <span className={styles.label}>Training type</span>
@@ -142,20 +155,29 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
 
             {step === 2 && (
               <div className={styles.step}>
-                <h2 className={styles.title}>3 matches found near you</h2>
-                <p className={styles.lead}>Here&apos;s a preview — the middle profile is unlocked.</p>
-                <div className={styles.matchRow}>
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className={`${styles.matchCard} ${i !== 1 ? styles.matchCardBlur : styles.matchCardClear}`}
-                    >
-                      <img src={PREVIEW_AVATARS[i]} alt="" className={styles.matchAvatar} width={72} height={72} />
-                      <span className={styles.matchName}>{i === 1 ? 'Alex, 29' : '••• ••'}</span>
-                    </div>
-                  ))}
+                <h2 className={styles.title}>🔥 3 training partners found near you</h2>
+                <p className={styles.lead}>Here&apos;s who fits your schedule — one profile unlocked.</p>
+                <div className={styles.deck}>
+                  <div className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft}`} aria-hidden>
+                    <img src={PREVIEW_AVATARS[0]} alt="" className={styles.deckAvatar} width={88} height={88} />
+                  </div>
+                  <div className={`${styles.deckCard} ${styles.deckBack} ${styles.deckRight}`} aria-hidden>
+                    <img src={PREVIEW_AVATARS[2]} alt="" className={styles.deckAvatar} width={88} height={88} />
+                  </div>
+                  <div className={`${styles.deckCard} ${styles.deckFront}`}>
+                    <img src={PREVIEW_AVATARS[1]} alt="" className={styles.deckAvatar} width={96} height={96} />
+                    <span className={styles.deckName}>Jordan, 27</span>
+                    <span className={styles.deckMeta}>Near you · {training || 'Your sport'}</span>
+                  </div>
                 </div>
-                <button type="button" className={styles.primaryBtn} onClick={() => setStep(3)}>
+                <button
+                  type="button"
+                  className={styles.primaryBtn}
+                  onClick={() => {
+                    saveLandingPrefs({ training, level, timePref });
+                    setStep(3);
+                  }}
+                >
                   Continue
                 </button>
               </div>
@@ -163,26 +185,37 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
 
             {step === 3 && (
               <div className={styles.step}>
-                <h2 className={styles.title}>Unlock the rest</h2>
-                <p className={styles.lead}>Free account — see everyone we matched for you.</p>
-                <div className={styles.matchRow}>
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className={`${styles.matchCard} ${i !== 1 ? styles.matchCardBlur : styles.matchCardClear}`}
-                    >
-                      {i !== 1 && (
-                        <div className={styles.lockBadge}>
-                          <span aria-hidden>🔒</span> Locked
-                        </div>
-                      )}
-                      <img src={PREVIEW_AVATARS[i]} alt="" className={styles.matchAvatar} width={72} height={72} />
-                      <span className={styles.matchName}>{i === 1 ? 'Alex, 29' : 'Sign up to view'}</span>
+                <h2 className={styles.title}>Create your account to see your matches</h2>
+                <p className={styles.lead}>
+                  Your preview is ready — sign up to unlock every profile and start connecting.
+                </p>
+                <div className={styles.deck}>
+                  <div className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft}`} aria-hidden>
+                    <div className={styles.lockBadge}>
+                      <span aria-hidden>🔒</span> Locked
                     </div>
-                  ))}
+                    <img src={PREVIEW_AVATARS[0]} alt="" className={styles.deckAvatar} width={88} height={88} />
+                  </div>
+                  <div className={`${styles.deckCard} ${styles.deckBack} ${styles.deckRight}`} aria-hidden>
+                    <div className={styles.lockBadge}>
+                      <span aria-hidden>🔒</span> Locked
+                    </div>
+                    <img src={PREVIEW_AVATARS[2]} alt="" className={styles.deckAvatar} width={88} height={88} />
+                  </div>
+                  <div className={`${styles.deckCard} ${styles.deckFront} ${styles.deckDim}`}>
+                    <div className={styles.lockOverlay} aria-hidden>
+                      <span className={styles.lockIcon}>🔒</span>
+                    </div>
+                    <img src={PREVIEW_AVATARS[1]} alt="" className={styles.deckAvatar} width={96} height={96} />
+                    <span className={styles.deckName}>Sign up to view</span>
+                  </div>
                 </div>
-                <button type="button" className={styles.primaryBtn} onClick={goSignup}>
-                  Create free account
+                <button type="button" className={styles.googleBtn} onClick={handleGoogle}>
+                  <span className={styles.googleMark} aria-hidden />
+                  Continue with Google
+                </button>
+                <button type="button" className={styles.primaryBtn} onClick={persistPrefsAndGoSignup}>
+                  Continue with email
                 </button>
                 <button type="button" className={styles.textBtn} onClick={handleClose}>
                   Maybe later

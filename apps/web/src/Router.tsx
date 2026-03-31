@@ -29,7 +29,6 @@ import { AICoachPage } from '@/pages/app/AICoachPage';
 import { EventsPage } from '@/pages/app/Events';
 import { SubscriptionPage } from '@/pages/app/Subscription';
 import { ProfileOnboardingPage } from '@/pages/onboarding/ProfileOnboarding';
-import { AdminDashboard } from '@/pages/admin/Dashboard';
 import { DashboardPage as AdminDashboardPage } from '@/pages/admin/DashboardPage';
 import { UsersPage } from '@/pages/admin/UsersPage';
 import { DevicesPage } from '@/pages/admin/DevicesPage';
@@ -38,6 +37,12 @@ import { AdminLoginPage } from '@/pages/admin/AdminLoginPage';
 import { AdminLayout } from '@/pages/admin/AdminLayout';
 import { CreditPacksPage as AdminCreditPacksPage } from '@/pages/admin/CreditPacksPage';
 import { TestUsersPage } from '@/pages/admin/TestUsersPage';
+import { AdminChatsPage } from '@/pages/admin/AdminChatsPage';
+import { AdminStripePage } from '@/pages/admin/AdminStripePage';
+import { AdminEventsPage } from '@/pages/admin/AdminEventsPage';
+import { AdminTicketsPage } from '@/pages/admin/AdminTicketsPage';
+import { AdminAuditPage } from '@/pages/admin/AdminAuditPage';
+import { AdminMatchesPage } from '@/pages/admin/AdminMatchesPage';
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { LandingConversionProvider } from '@/contexts/LandingConversionContext';
 
@@ -100,12 +105,13 @@ export const Router: React.FC = () => {
                   <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                   <Route path="/admin/users" element={<UsersPage />} />
                   <Route path="/admin/devices" element={<DevicesPage />} />
-                  <Route path="/admin/chats" element={<AdminDashboard />} />
-                  <Route path="/admin/events" element={<AdminDashboard />} />
-                  <Route path="/admin/tickets" element={<AdminDashboard />} />
-                  <Route path="/admin/stripe" element={<AdminDashboard />} />
+                  <Route path="/admin/chats" element={<AdminChatsPage />} />
+                  <Route path="/admin/events" element={<AdminEventsPage />} />
+                  <Route path="/admin/tickets" element={<AdminTicketsPage />} />
+                  <Route path="/admin/stripe" element={<AdminStripePage />} />
+                  <Route path="/admin/matches" element={<AdminMatchesPage />} />
                   <Route path="/admin/contacts" element={<ContactsPage />} />
-                  <Route path="/admin/audit" element={<AdminDashboard />} />
+                  <Route path="/admin/audit" element={<AdminAuditPage />} />
                   <Route path="/admin/credit-packs" element={<AdminCreditPacksPage />} />
                   <Route path="/admin/test-users" element={<TestUsersPage />} />
                 </Route>

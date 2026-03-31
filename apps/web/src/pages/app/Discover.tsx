@@ -33,7 +33,9 @@ import { ActionBar } from './discover/ActionBar';
 import { FiltersButton } from './discover/FiltersButton';
 import { ConfirmConnectModal } from './discover/ConfirmConnectModal';
 import { DISCOVER_STRINGS } from './discover/constants';
-import { incrementDailyLike } from '@/utils/dailySwipeTracker';
+import { incrementDailyLike, getDailyLikeCount } from '@/utils/dailySwipeTracker';
+import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
+import { MatchCelebrationOverlay, MatchCelebrationState } from '@/components/discover/MatchCelebrationOverlay';
 import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import type { MatchInsightResponse } from '@/types/ai';
 import styles from './Discover.module.css';
@@ -67,6 +69,15 @@ function toPhotoUrl(
   return placeholderPhotoUrl(userId, 0, gender);
 }
 
+function newAthletesTodayCount(seed: string): number {
+  const d = new Date().toISOString().slice(0, 10);
+  let h = 0;
+  for (let i = 0; i < d.length; i++) {
+    h = (h * 31 + d.charCodeAt(i) + (seed.charCodeAt(i % Math.max(seed.length, 1)) | 0)) % 1000;
+  }
+  return 7 + (h % 18);
+}
+
 function countActiveFilters(f: DiscoverFilters): number {
   let n = 0;
   if (f.distance !== '30 miles') n++;
@@ -90,7 +101,8 @@ export const DiscoverPage: React.FC = () => {
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [matched, setMatched] = useState(false);
+  const [matchCelebration, setMatchCelebration] = useState<MatchCelebrationState | null>(null);
+  const [retentionMessage, setRetentionMessage] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -111,9 +123,30 @@ export const DiscoverPage: React.FC = () => {
   const [loadingInsightFor, setLoadingInsightFor] = useState<string | null>(null);
   const [aiInsightCost, setAiInsightCost] = useState(2);
 
+  const autoSeedRef = useRef(false);
+  const matchOverlayOpenRef = useRef(false);
+
   useEffect(() => {
     loadFeed();
   }, []);
+
+  useEffect(() => {
+    const uid = me?.user?.id ?? user?.sub ?? '';
+    const last = localStorage.getItem('gtm_discover_last_visit');
+    const now = Date.now();
+    const dayKey = new Date().toISOString().slice(0, 10);
+    const shownKey = `gtm_retention_shown_${dayKey}`;
+    if (
+      uid &&
+      last &&
+      now - parseInt(last, 10) > 60 * 60 * 1000 &&
+      !sessionStorage.getItem(shownKey)
+    ) {
+      setRetentionMessage('🔥 3 new athletes matched your profile');
+      sessionStorage.setItem(shownKey, '1');
+    }
+    localStorage.setItem('gtm_discover_last_visit', String(now));
+  }, [me?.user?.id, user?.sub]);
 
   useEffect(() => {
     if (!loading && shouldShowOnboardingModal(me?.isProfileComplete ?? true)) {
@@ -337,6 +370,12 @@ export const DiscoverPage: React.FC = () => {
       return;
     }
 
+    const celebrationPhoto = (() => {
+      const urls = getMultiplePhotoUrls(currentCard.photoUrls, currentCard.userId, 4, currentCard.name);
+      const g = inferGenderFromName(currentCard.name);
+      return urls[0] || placeholderPhotoUrl(currentCard.userId, 0, g);
+    })();
+
     try {
       setLikeLoading(true);
       if (isGraphQLEnabled) {
@@ -344,16 +383,19 @@ export const DiscoverPage: React.FC = () => {
         incrementDailyLike();
         await refreshMe();
         if (result.isMatched) {
-          setMatched(true);
-          setToast(`${DISCOVER_STRINGS.match} ${currentCard.name}`);
-          setTimeout(() => {
-            advanceWithUndo();
-            setMatched(false);
-          }, 1500);
+          setMatchCelebration({
+            name: currentCard.name,
+            photoUrl: celebrationPhoto,
+            matchId: result.matchId,
+          });
+          return;
+        }
+        if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
+          setToast('Out of matches for today. Get more on Pricing.');
         } else {
           setToast(DISCOVER_STRINGS.liked);
-          advanceWithUndo();
         }
+        advanceWithUndo();
       } else {
         let token = await authService.getJWT(true);
         if (!token) {
@@ -365,16 +407,19 @@ export const DiscoverPage: React.FC = () => {
           incrementDailyLike();
           await refreshMe();
           if (result.isMatched) {
-            setMatched(true);
-            setToast(`${DISCOVER_STRINGS.match} ${currentCard.name}`);
-            setTimeout(() => {
-              advanceWithUndo();
-              setMatched(false);
-            }, 1500);
+            setMatchCelebration({
+              name: currentCard.name,
+              photoUrl: celebrationPhoto,
+              matchId: result.matchId,
+            });
+            return;
+          }
+          if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
+            setToast('Out of matches for today. Get more on Pricing.');
           } else {
             setToast(DISCOVER_STRINGS.liked);
-            advanceWithUndo();
           }
+          advanceWithUndo();
         } catch (likeErr: unknown) {
           const status = (likeErr as { response?: { status?: number } })?.response?.status;
           if (status === 401) {
@@ -385,13 +430,19 @@ export const DiscoverPage: React.FC = () => {
                 incrementDailyLike();
                 await refreshMe();
                 if (result.isMatched) {
-                  setMatched(true);
-                  setToast(`${DISCOVER_STRINGS.match} ${currentCard.name}`);
-                  setTimeout(() => { advanceWithUndo(); setMatched(false); }, 1500);
+                  setMatchCelebration({
+                    name: currentCard.name,
+                    photoUrl: celebrationPhoto,
+                    matchId: result.matchId,
+                  });
+                  return;
+                }
+                if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
+                  setToast('Out of matches for today. Get more on Pricing.');
                 } else {
                   setToast(DISCOVER_STRINGS.liked);
-                  advanceWithUndo();
                 }
+                advanceWithUndo();
                 return;
               } catch {
                 /* fall through */
@@ -489,7 +540,12 @@ export const DiscoverPage: React.FC = () => {
   };
 
   useEffect(() => {
+    matchOverlayOpenRef.current = !!matchCelebration;
+  }, [matchCelebration]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (matchOverlayOpenRef.current) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
       if (e.key === 'ArrowLeft') {
@@ -538,6 +594,21 @@ export const DiscoverPage: React.FC = () => {
       setSeeding(false);
     }
   };
+
+  useEffect(() => {
+    if (!loading && feed.length === 0 && !error && !autoSeedRef.current) {
+      autoSeedRef.current = true;
+      void handleSeedDemo();
+    }
+  }, [loading, feed.length, error]);
+
+  const closeMatchCelebration = useCallback(
+    (advance: boolean) => {
+      setMatchCelebration(null);
+      if (advance) advanceWithUndo();
+    },
+    [advanceWithUndo]
+  );
 
   const handleUnlockAiInsight = useCallback(async () => {
     const card = feed[currentIndex];
@@ -709,6 +780,7 @@ export const DiscoverPage: React.FC = () => {
   const myAvatarLetter =
     user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U';
   const activeFilterCount = countActiveFilters(filters);
+  const newAthletesToday = newAthletesTodayCount(user?.sub ?? me?.user?.id ?? 'guest');
 
   return (
     <div className={styles.container}>
@@ -722,12 +794,30 @@ export const DiscoverPage: React.FC = () => {
               {userLocationLabel && (
                 <span className={styles.locationLabel}>Near {userLocationLabel}</span>
               )}
+              <span className={styles.newAthletesLine}>
+                🔥 {newAthletesToday} new athletes today
+              </span>
             </div>
             <FiltersButton
               onClick={() => setFiltersOpen(true)}
               activeCount={activeFilterCount}
             />
           </>
+        }
+        banner={
+          retentionMessage ? (
+            <div className={styles.retentionBanner} role="status">
+              {retentionMessage}
+              <button
+                type="button"
+                className={styles.retentionDismiss}
+                aria-label="Dismiss"
+                onClick={() => setRetentionMessage(null)}
+              >
+                ×
+              </button>
+            </div>
+          ) : null
         }
         headerRow={null}
         progressBar={
@@ -756,7 +846,7 @@ export const DiscoverPage: React.FC = () => {
             onPhotoError={handlePhotoError}
             onSwipeLeft={handlePass}
             onSwipeRight={handleLike}
-            matched={matched}
+            matched={false}
           />
         }
         panel={
@@ -806,6 +896,18 @@ export const DiscoverPage: React.FC = () => {
         title={DISCOVER_STRINGS.connectModalTitle}
         body={DISCOVER_STRINGS.connectModalBody}
         confirmLabel={DISCOVER_STRINGS.connectModalConfirm}
+      />
+
+      <MatchCelebrationOverlay
+        open={!!matchCelebration}
+        celebration={matchCelebration}
+        onSendMessage={() => {
+          if (!matchCelebration) return;
+          const id = matchCelebration.matchId;
+          closeMatchCelebration(true);
+          navigate(`/app/chat?thread=${encodeURIComponent(id)}`);
+        }}
+        onKeepSwiping={() => closeMatchCelebration(true)}
       />
 
       <Snackbar

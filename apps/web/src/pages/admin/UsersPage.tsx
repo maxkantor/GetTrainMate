@@ -31,6 +31,8 @@ export const UsersPage: React.FC = () => {
   const [detailUser, setDetailUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [grantAmount, setGrantAmount] = useState('10');
+  const [grantLoading, setGrantLoading] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -105,6 +107,28 @@ export const UsersPage: React.FC = () => {
       setError((err as Error)?.message || 'Failed to unban user');
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleGrantCredits = async (userId: string) => {
+    const n = parseInt(grantAmount, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      setError('Enter a positive credit amount');
+      return;
+    }
+    setGrantLoading(true);
+    setError(null);
+    try {
+      await adminApiService.post('/api/admin/credits/grant', {
+        userId,
+        amount: n,
+        reason: 'ADMIN_UI',
+      });
+      await loadUsers();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to grant credits');
+    } finally {
+      setGrantLoading(false);
     }
   };
 
@@ -240,6 +264,27 @@ export const UsersPage: React.FC = () => {
               <dd>{new Date(detailUser.createdAt).toLocaleString()}</dd>
             </dl>
             <div className={styles.detailActions}>
+              <div className={styles.grantRow}>
+                <label className={styles.grantLabel} htmlFor="grant-credits">
+                  Grant credits
+                </label>
+                <input
+                  id="grant-credits"
+                  type="number"
+                  min={1}
+                  className={styles.grantInput}
+                  value={grantAmount}
+                  onChange={(e) => setGrantAmount(e.target.value)}
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => handleGrantCredits(detailUser.userId)}
+                  disabled={grantLoading}
+                >
+                  {grantLoading ? 'Granting…' : 'Apply'}
+                </Button>
+              </div>
               {detailUser.status === 'banned' ? (
                 <Button
                   variant="primary"
@@ -256,7 +301,7 @@ export const UsersPage: React.FC = () => {
                   onClick={() => handleBan(detailUser.userId)}
                   disabled={actionLoading === detailUser.userId}
                 >
-                  Ban user
+                  Deactivate (ban)
                 </Button>
               )}
             </div>
