@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { authService } from '@/services/authService';
 import { saveLandingPrefs } from '@/utils/landingPrefs';
+import { useI18n } from '@/hooks/useI18n';
+import { FooterLegalLinksRow } from '@/components/layout/FooterLegalLinksRow';
 import styles from './LandingEntryFlow.module.css';
 
 const TRAINING = ['HYROX', 'Strength & conditioning', 'Running / cardio', 'CrossFit / functional'] as const;
@@ -22,6 +24,7 @@ type Props = {
 };
 
 export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [training, setTraining] = useState<string>('');
@@ -221,6 +224,13 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                 </button>
               </div>
             )}
+
+            <footer className={styles.modalFooter} aria-label={t('footer.legal')}>
+              <FooterLegalLinksRow variant="modal" onLinkClick={handleClose} />
+              <p className={styles.modalFooterCopyright}>
+                © {new Date().getFullYear()} {t('common.appName')}
+              </p>
+            </footer>
           </motion.div>
         </motion.div>
       )}

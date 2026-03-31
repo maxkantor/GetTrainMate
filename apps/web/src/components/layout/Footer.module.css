@@ -41,6 +41,16 @@
   color: white;
 }
 
+/* Used inside modals (e.g. landing entry flow) — same links, tighter typography */
+.footerModalLinks {
+  justify-content: center;
+  gap: 10px 14px;
+}
+
+.footerModalLink {
+  font-size: 0.75rem;
+}
+
 .footerCompactCopyright {
   font-size: var(--font-xs);
   color: var(--color-neutral-500);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useLocation, matchPath } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
@@ -73,12 +73,34 @@ export const AppHeader: React.FC = () => {
     navigate('/');
   };
 
-  const appNavItems: { label: string; href: string; icon?: string; exact?: boolean }[] = [
-    { label: t('nav.discover'), href: '/app/discover' },
+  const appNavItems: {
+    label: string;
+    href: string;
+    icon?: string;
+    exact?: boolean;
+    alsoActiveOnPaths?: string[];
+  }[] = [
+    {
+      label: t('nav.discover'),
+      href: '/app/discover',
+      exact: true,
+      alsoActiveOnPaths: ['/app', '/app/dashboard'],
+    },
     { label: t('nav.match'), href: '/app/matches' },
     { label: t('nav.chat'), href: '/app/chat' },
     { label: t('nav.events'), href: '/app/events' },
   ];
+
+  const isAppNavItemActive = (
+    pathname: string,
+    to: string,
+    opts?: { exact?: boolean; alsoActiveOnPaths?: string[] }
+  ) => {
+    const exact = opts?.exact ?? false;
+    if (matchPath({ path: to, end: exact }, pathname)) return true;
+    return opts?.alsoActiveOnPaths?.some((p) => matchPath({ path: p, end: true }, pathname)) ?? false;
+  };
+
   const loggedInNav = appNavItems;
   const navItems = isLoggedIn ? loggedInNav : [];
   const logoTo = '/';
@@ -168,7 +190,11 @@ export const AppHeader: React.FC = () => {
         ) : (
           <>
             <div className={styles.signedLeft}>
-              <RouterLink className={styles.logoCompact} to="/app/discover" aria-label={t('common.appName')}>
+              <RouterLink
+                className={styles.logoCompact}
+                to="/app"
+                aria-label={`${t('common.appName')} — ${t('header.home')}`}
+              >
                 <span className={styles.logoIcon}>⚡</span>
                 <span className={styles.logoText}>{t('common.appName')}</span>
               </RouterLink>
@@ -180,6 +206,7 @@ export const AppHeader: React.FC = () => {
                     label={item.label}
                     icon={item.icon}
                     exact={item.exact ?? false}
+                    alsoActiveOnPaths={item.alsoActiveOnPaths}
                   />
                 ))}
               </nav>
@@ -278,11 +305,19 @@ export const AppHeader: React.FC = () => {
                   <div className={styles.mobileStatus}>
                     {statusLine}
                   </div>
-                  {navItems.map(({ label, href }) => (
-                    <RouterLink key={href} to={href} className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
-                      {label}
-                    </RouterLink>
-                  ))}
+                  {navItems.map(({ label, href, exact, alsoActiveOnPaths }) => {
+                    const navActive = isAppNavItemActive(location.pathname, href, { exact, alsoActiveOnPaths });
+                    return (
+                      <RouterLink
+                        key={href}
+                        to={href}
+                        className={`${styles.mobileLink} ${navActive ? styles.mobileLinkActive : ''}`}
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        {label}
+                      </RouterLink>
+                    );
+                  })}
                 </>
               )}
             </nav>

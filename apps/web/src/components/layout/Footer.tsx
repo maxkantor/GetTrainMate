@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
+import { FOOTER_SECTIONS } from '@/config/footerLinks';
+import { FooterLegalLinksRow } from './FooterLegalLinksRow';
 import { Container } from './Container';
 import styles from './Footer.module.css';
 
@@ -13,32 +15,16 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
   const { t } = useI18n();
 
   const footerSections = {
-    product: [
-      { label: t('header.faq'), href: '/faq' },
-    ],
-    company: [
-      { label: t('header.about'), href: '/about' },
-      { label: t('footer.platform'), href: '/platform' },
-      { label: t('header.contact'), href: '/contact' },
-    ],
-    legal: [
-      { label: t('footer.privacy'), href: '/privacy' },
-      { label: t('footer.terms'), href: '/terms' },
-    ],
+    product: FOOTER_SECTIONS.product.map((link) => ({ label: t(link.labelKey), href: link.to })),
+    company: FOOTER_SECTIONS.company.map((link) => ({ label: t(link.labelKey), href: link.to })),
+    legal: FOOTER_SECTIONS.legal.map((link) => ({ label: t(link.labelKey), href: link.to })),
   };
 
   if (compact) {
     return (
       <footer className={`${styles.footer} ${styles.footerCompact}`}>
         <div className={styles.footerCompactInner}>
-          <div className={styles.footerCompactLinks}>
-            <RouterLink to="/about" className={styles.footerCompactLink}>{t('header.about')}</RouterLink>
-            <RouterLink to="/faq" className={styles.footerCompactLink}>{t('header.faq')}</RouterLink>
-            <RouterLink to="/platform" className={styles.footerCompactLink}>{t('footer.platform')}</RouterLink>
-            <RouterLink to="/contact" className={styles.footerCompactLink}>{t('header.contact')}</RouterLink>
-            <RouterLink to="/privacy" className={styles.footerCompactLink}>{t('footer.privacy')}</RouterLink>
-            <RouterLink to="/terms" className={styles.footerCompactLink}>{t('footer.terms')}</RouterLink>
-          </div>
+          <FooterLegalLinksRow variant="compact" />
           <p className={styles.footerCompactCopyright}>
             © {new Date().getFullYear()} {t('common.appName')}
           </p>
