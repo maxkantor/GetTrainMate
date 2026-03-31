@@ -28,6 +28,7 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { profileService, UpdateProfileRequest, AvailabilitySlot } from '@/services/profileService';
 import { getUploadLimits } from '@/config/uploadLimits';
+import { PhotoCropModal } from '@/components/profile/PhotoCropModal';
 import { authService } from '@/services/authService';
 import { Alert as MUIAlert, Snackbar } from '@mui/material';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
@@ -68,8 +69,9 @@ export const ProfilePage: React.FC = () => {
   const [myPhotos, setMyPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [snack, setSnack] = useState<{open: boolean; message: string; severity: 'success'|'error'|'info'}>({open: false, message: '', severity: 'success'});
-  const [file, setFile] = useState<File | null>(null);
   const [photoKey, setPhotoKey] = useState<string | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState<UpdateProfileRequest>({
     name: '',
@@ -543,57 +545,55 @@ export const ProfilePage: React.FC = () => {
                     return;
                   }
                   
-                  setFile(selectedFile);
+                  setPendingCropFile(selectedFile);
+                  setCropOpen(true);
+                  e.target.value = '';
                 }} 
               />
             </Button>
-            <Typography variant="body2">{file?.name || 'No file selected'}</Typography>
-            {file && (
-              <Button 
-                variant="contained" 
-                disabled={uploading} 
-                onClick={async () => {
-                  try {
-                    setUploading(true);
-                    const token = await authService.getJWT();
-                    if (!token) { 
-                      setSnack({open: true, message: 'Not authenticated', severity: 'error'}); 
-                      return; 
-                    }
-                    if (!file) return;
-                    
-                    // Get upload URL
-                    const info = await profileService.getPhotoUploadUrl(token, file.type || 'image/jpeg');
-                    
-                    // Upload to S3
-                    const uploadResponse = await fetch(info.uploadUrl, { 
-                      method: 'PUT', 
-                      headers: { 'Content-Type': file.type || 'image/jpeg' }, 
-                      body: file 
-                    });
-                    
-                    if (!uploadResponse.ok) {
-                      throw new Error('Failed to upload photo');
-                    }
-                    
-                    // Update profile with photoKey
-                    await profileService.updateMyProfile(token, { photoKey: info.key });
-                    setPhotoKey(info.key);
-                    // Private bucket: public URL 403s in browser — use signed GET URL for display
-                    const displayUrl = await profileService.getPhotoUrl(token, info.key);
-                    setMyPhotos([displayUrl]);
-                    setSnack({ open: true, message: 'Photo uploaded successfully', severity: 'success' });
-                    setFile(null);
-                  } catch (e: any) {
-                    setSnack({ open: true, message: e?.message || 'Upload failed', severity: 'error' });
-                  } finally {
-                    setUploading(false);
+            <PhotoCropModal
+              open={cropOpen}
+              imageFile={pendingCropFile}
+              onClose={() => {
+                if (!uploading) {
+                  setCropOpen(false);
+                  setPendingCropFile(null);
+                }
+              }}
+              saving={uploading}
+              onSave={async (blob) => {
+                try {
+                  setUploading(true);
+                  const token = await authService.getJWT();
+                  if (!token) {
+                    setSnack({ open: true, message: 'Not authenticated', severity: 'error' });
+                    return;
                   }
-                }}
-              >
-                {uploading ? <CircularProgress size={20} /> : 'Upload'}
-              </Button>
-            )}
+                  const file = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
+                  const info = await profileService.getPhotoUploadUrl(token, 'image/jpeg');
+                  const uploadResponse = await fetch(info.uploadUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'image/jpeg' },
+                    body: file,
+                  });
+                  if (!uploadResponse.ok) {
+                    throw new Error('Failed to upload photo');
+                  }
+                  await profileService.updateMyProfile(token, { photoKey: info.key });
+                  setPhotoKey(info.key);
+                  const displayUrl = await profileService.getPhotoUrl(token, info.key);
+                  setMyPhotos([displayUrl]);
+                  setSnack({ open: true, message: 'Photo saved', severity: 'success' });
+                  setCropOpen(false);
+                  setPendingCropFile(null);
+                } catch (e: unknown) {
+                  const msg = e instanceof Error ? e.message : 'Upload failed';
+                  setSnack({ open: true, message: msg, severity: 'error' });
+                } finally {
+                  setUploading(false);
+                }
+              }}
+            />
             {atLimit && limits.maxPhotos < 10 && (
               <Typography variant="body2" color="primary" component={Link} to="/pricing" sx={{ textDecoration: 'underline' }}>
                 Get credits to unlock more photo slots (currently {limits.maxPhotos})

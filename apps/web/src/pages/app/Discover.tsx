@@ -33,6 +33,7 @@ import { ActionBar } from './discover/ActionBar';
 import { FiltersButton } from './discover/FiltersButton';
 import { ConfirmConnectModal } from './discover/ConfirmConnectModal';
 import { DISCOVER_STRINGS } from './discover/constants';
+import { incrementDailyLike } from '@/utils/dailySwipeTracker';
 import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import type { MatchInsightResponse } from '@/types/ai';
 import styles from './Discover.module.css';
@@ -340,6 +341,7 @@ export const DiscoverPage: React.FC = () => {
       setLikeLoading(true);
       if (isGraphQLEnabled) {
         const result = await graphqlLikeUser(currentCard.userId);
+        incrementDailyLike();
         await refreshMe();
         if (result.isMatched) {
           setMatched(true);
@@ -360,6 +362,7 @@ export const DiscoverPage: React.FC = () => {
         }
         try {
           const result = await matchService.likeUser(token, currentCard.userId);
+          incrementDailyLike();
           await refreshMe();
           if (result.isMatched) {
             setMatched(true);
@@ -379,6 +382,7 @@ export const DiscoverPage: React.FC = () => {
             if (token) {
               try {
                 const result = await matchService.likeUser(token, currentCard.userId);
+                incrementDailyLike();
                 await refreshMe();
                 if (result.isMatched) {
                   setMatched(true);

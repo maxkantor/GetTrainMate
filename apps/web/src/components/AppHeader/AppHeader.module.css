@@ -109,11 +109,243 @@
   display: flex;
   align-items: center;
   height: 60px;
+  width: 100%;
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 24px;
   gap: 1rem;
   overflow: visible;
+}
+
+/* ——— Logged-in: control panel row ——— */
+.signedLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.logoCompact {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.96) !important;
+  text-decoration: none;
+  padding: 0;
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+}
+
+.logoCompact .logoIcon {
+  font-size: 1.35rem;
+}
+
+.logoCompact .logoText {
+  display: none;
+}
+
+@media (min-width: 480px) {
+  .logoCompact .logoText {
+    display: inline;
+  }
+}
+
+.navApp {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .navApp {
+    display: flex;
+  }
+}
+
+.navApp .headerNavLink {
+  background: transparent !important;
+  border: none !important;
+  padding: 6px 10px !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+}
+
+.navApp .headerNavLink:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+
+.navApp .headerNavLinkActive {
+  background: rgba(255, 255, 255, 0.11) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+}
+
+.statusCenter {
+  flex: 1;
+  min-width: 0;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  padding: 0 6px;
+}
+
+@media (min-width: 768px) {
+  .statusCenter {
+    display: flex;
+  }
+}
+
+.statusText {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.signedRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.langMuted {
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.langMuted:hover {
+  opacity: 0.85;
+}
+
+.root .langMuted button {
+  font-size: 0.75rem !important;
+  padding: 4px 8px !important;
+  min-width: 44px !important;
+}
+
+.headerCredits {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.95);
+  font-variant-numeric: tabular-nums;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.14);
+  border: 1px solid rgba(167, 139, 250, 0.35);
+}
+
+.headerCreditsVal {
+  color: #c4b5fd;
+}
+
+.headerCreditsSep {
+  opacity: 0.45;
+  font-weight: 600;
+}
+
+.headerCreditsMax {
+  opacity: 0.75;
+}
+
+.upgradeBtnUrgent {
+  box-shadow:
+    0 0 0 2px rgba(251, 191, 36, 0.45),
+    0 6px 22px rgba(245, 158, 11, 0.35) !important;
+  animation: headerCtaPulse 2s ease-in-out infinite;
+}
+
+@keyframes headerCtaPulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.08);
+  }
+}
+
+.avatarBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.avatarBtn:focus-visible {
+  outline: 2px solid rgba(167, 139, 250, 0.8);
+  outline-offset: 2px;
+}
+
+.avatarCircle {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+}
+
+.avatarBtn .badge {
+  top: -1px;
+  right: -1px;
+}
+
+.mobileStatus {
+  padding: 12px 16px 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(196, 181, 253, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mobileUpgradeUrgent {
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.4) !important;
+}
+
+@media (max-width: 767px) {
+  .statusCenter {
+    display: none !important;
+  }
+
+  .navApp {
+    display: none !important;
+  }
+
+  .langMuted {
+    display: none !important;
+  }
+
+  .signedRight .upgradeBtn {
+    display: none !important;
+  }
+
+  .signedRight .userWrap {
+    display: none !important;
+  }
 }
 
 /* Logo */

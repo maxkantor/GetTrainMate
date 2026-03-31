@@ -1,0 +1,50 @@
+.wrap {
+  padding: clamp(2rem, 5vw, 3.5rem) 1.25rem 2.5rem;
+  background: linear-gradient(180deg, rgba(15, 18, 35, 0.95) 0%, rgba(7, 10, 22, 0.98) 100%);
+  border-bottom: 1px solid rgba(167, 139, 250, 0.12);
+}
+
+.inner {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.kicker {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(167, 139, 250, 0.85);
+}
+
+.title {
+  margin: 0 0 1.5rem;
+  font-size: clamp(1.25rem, 3.5vw, 1.75rem);
+  font-weight: 700;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.96);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.em {
+  color: #fff;
+}
+
+.sub {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cta {
+  border-radius: 999px !important;
+  padding-left: 2rem !important;
+  padding-right: 2rem !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  box-shadow: 0 8px 28px rgba(99, 102, 241, 0.45) !important;
+}
