@@ -345,8 +345,11 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
             onError={() => setPhotoErrorForIndex(safePhotoIndex)}
             sx={{
               width: '100%',
-              height: 400,
+              height: { xs: 360, sm: 420 },
+              maxHeight: 520,
               objectFit: 'cover',
+              /* Default center crop cuts foreheads on portrait uploads; anchor to top. */
+              objectPosition: 'center top',
               display: 'block',
             }}
           />

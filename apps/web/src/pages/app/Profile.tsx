@@ -506,7 +506,7 @@ export const ProfilePage: React.FC = () => {
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', my: 1 }}>
             {myPhotos.map((u) => (
-              <Box key={u} component="img" src={u} alt="profile" sx={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 1, border: '1px solid #eee' }} />
+              <Box key={u} component="img" src={u} alt="profile" sx={{ width: 96, height: 96, objectFit: 'cover', objectPosition: 'center top', borderRadius: 1, border: '1px solid #eee' }} />
             ))}
             {myPhotos.length === 0 && (
               <Typography variant="body2" color="textSecondary">No photos yet</Typography>

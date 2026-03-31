@@ -96,6 +96,7 @@
 
 .threadAvatar:is(img) {
   object-fit: cover;
+  object-position: center top;
   background: none;
 }
 
@@ -167,6 +168,7 @@
 
 .messagesHeaderAvatar:is(img) {
   object-fit: cover;
+  object-position: center top;
   background: none;
 }
 
