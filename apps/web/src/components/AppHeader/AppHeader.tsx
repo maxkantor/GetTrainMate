@@ -192,7 +192,7 @@ export const AppHeader: React.FC = () => {
             <div className={styles.signedLeft}>
               <RouterLink
                 className={styles.logoCompact}
-                to="/app"
+                to="/"
                 aria-label={`${t('common.appName')} — ${t('header.home')}`}
               >
                 <span className={styles.logoIcon}>⚡</span>

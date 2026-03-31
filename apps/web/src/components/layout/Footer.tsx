@@ -37,12 +37,12 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
     <footer className={styles.footer}>
       <Container>
         <div className={styles.footerContent}>
-          {/* Brand Column */}
+          {/* Brand Column — logo links to marketing home */}
           <div className={styles.brandColumn}>
-            <div className={styles.logo}>
+            <RouterLink to="/" className={`${styles.logo} ${styles.brandLogoLink}`}>
               <span className={styles.logoIcon}>⚡</span>
               <span className={styles.logoText}>{t('common.appName')}</span>
-            </div>
+            </RouterLink>
             <p className={styles.tagline}>
               {t('footer.tagline')}
             </p>

@@ -81,6 +81,16 @@
   color: white;
 }
 
+.brandLogoLink {
+  text-decoration: none;
+  color: inherit;
+  width: fit-content;
+}
+
+.brandLogoLink:hover .logoText {
+  filter: brightness(1.08);
+}
+
 .logoIcon {
   font-size: var(--font-3xl);
 }

@@ -4,7 +4,7 @@ import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
-import { LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
+import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
 import styles from './SwipeDemoSection.module.css';
 
 type Phase = 'idle' | 'swipe' | 'match';
@@ -345,11 +345,11 @@ export const SwipeDemoSection: React.FC = () => {
         <div className={styles.ctaColumn}>
           {!isAuthenticated ? (
             <button type="button" className={styles.cta} onClick={openEntryFlow}>
-              Start Matching Free
+              {LANDING_PRIMARY_CTA}
             </button>
           ) : (
             <Link to="/app/discover" className={styles.cta}>
-              Start Matching Free
+              {LANDING_PRIMARY_CTA}
             </Link>
           )}
           <p className={styles.ctaSub}>{LANDING_CTA_SUB}</p>

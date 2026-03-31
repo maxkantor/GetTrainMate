@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Button } from '@mui/material';
+import { useI18n } from '@/hooks/useI18n';
 import { useMe } from '@/hooks/useMe';
 import { useMatchStatusForHeader } from '@/hooks/useMatchStatusForHeader';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
@@ -11,12 +12,13 @@ import styles from './LoggedInActionHero.module.css';
  * Pre-login landing is unchanged.
  */
 export const LoggedInActionHero: React.FC = () => {
+  const { t } = useI18n();
   const { me } = useMe();
   const { waitingForAction, likesToday, loading } = useMatchStatusForHeader(true);
   const complete = me?.isProfileComplete ?? false;
 
   const primaryHref = complete ? '/app/discover' : '/onboarding/profile';
-  const primaryLabel = complete ? 'Start Matching' : 'Finish profile';
+  const primaryLabel = complete ? t('landing.cta_start_discovering') : t('landing.cta_finish_profile');
 
   const statusPrimary =
     !loading && waitingForAction > 0

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
-import { LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
+import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
 import styles from './FinalCTA.module.css';
 
 export const FinalCTA: React.FC = () => {
@@ -48,11 +48,11 @@ export const FinalCTA: React.FC = () => {
           <p className={styles.sub}>Join thousands of athletes matching on schedule, level, and mindset.</p>
           {!isAuthenticated ? (
             <button type="button" className={styles.btn} onClick={openEntryFlow}>
-              Start Matching Free
+              {LANDING_PRIMARY_CTA}
             </button>
           ) : (
             <Link to="/app/discover" className={styles.btn}>
-              Start Matching Free
+              {LANDING_PRIMARY_CTA}
             </Link>
           )}
           <p className={styles.btnSub}>{LANDING_CTA_SUB}</p>

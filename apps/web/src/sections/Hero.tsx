@@ -6,7 +6,7 @@ import { useMe } from '@/hooks/useMe';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
 import { HeroFloatingStack } from '@/components/premium/HeroFloatingStack';
-import { LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
+import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
 import styles from './sections.module.css';
 
 const ease = [0.16, 1, 0.3, 1] as const;
@@ -46,12 +46,12 @@ export const Hero: React.FC = () => {
       ? '/onboarding/profile'
       : '/app/discover';
   const ctaPrimaryLabel = !isAuthenticated
-    ? 'Start Matching Free'
+    ? LANDING_PRIMARY_CTA
     : !profileComplete
       ? 'Finish profile'
-      : 'Start Matching Free';
+      : LANDING_PRIMARY_CTA;
   const showCtaSubtext = profileComplete;
-  const primaryOpensFlow = !isAuthenticated && ctaPrimaryLabel === 'Start Matching Free';
+  const primaryOpensFlow = !isAuthenticated && ctaPrimaryLabel === LANDING_PRIMARY_CTA;
 
   return (
     <section className={styles.heroPremium}>

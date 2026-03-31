@@ -24,7 +24,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <main className={isApp ? styles.mainApp : styles.main}>
         {isApp ? <div className={styles.appContainer}>{children}</div> : children}
       </main>
-      <Footer compact={isApp} />
+      {/* Full marketing footer on every route (including /app/*); brand links home */}
+      <Footer />
     </div>
   );
 };
