@@ -81,7 +81,7 @@ export class GetTrainMateStack extends cdk.Stack {
 
     // Bedrock model for AI features (match insight, chat, icebreakers). Override: --context bedrockModelId=...
     // Use inference profile ID (us. prefix) - direct model ID on-demand is no longer supported by Bedrock
-    const bedrockModelId = this.node.tryGetContext('bedrockModelId') || 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
+    const bedrockModelId = this.node.tryGetContext('bedrockModelId') || 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
     // Lambda function for API
     // Note: The Lambda code needs to be built and published first:

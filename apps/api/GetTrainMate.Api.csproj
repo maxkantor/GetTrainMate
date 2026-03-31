@@ -24,7 +24,7 @@
     <PackageReference Include="AWSSDK.SimpleEmail" Version="3.7.100" />
     <PackageReference Include="AWSSDK.SimpleSystemsManagement" Version="3.7.100" />
     <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.7" />
-    <PackageReference Include="AWSSDK.BedrockRuntime" Version="3.7.412.17" />
+    <PackageReference Include="AWSSDK.BedrockRuntime" Version="3.7.509.1" />
     <PackageReference Include="Stripe.net" Version="43.13.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />

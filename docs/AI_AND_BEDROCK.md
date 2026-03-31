@@ -47,7 +47,7 @@ The **Discover** feed itself is not “AI-sorted” by default; compatibility sc
     Buttons and flows call the corresponding REST endpoints; responses are shown in the existing UI (e.g. insight in the match panel, icebreakers as chips in chat).
 
 - **Config**  
-  - Set `Bedrock:ModelId` (e.g. `anthropic.claude-3-haiku-20240307-v1:0`) and optionally `Bedrock:Region` so the app uses real Bedrock.  
+  - Set `Bedrock:ModelId` (e.g. US inference profile `us.anthropic.claude-haiku-4-5-20251001-v1:0`) and optionally `Bedrock:Region` so the app uses real Bedrock.  
   - If `ModelId` is empty, all AI responses use in-app fallbacks and no Bedrock calls are made.
 
 So: “Bedrock chatting” is implemented as a shared .NET Bedrock layer (Converse + ConverseStream), used by both the streaming AI Coach and the one-shot AI features (match insight, icebreakers, workout plan, help).
