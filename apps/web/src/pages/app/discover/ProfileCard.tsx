@@ -17,41 +17,7 @@ interface ProfileCardProps {
   matched?: boolean;
 }
 
-const MAX_BIO_LINES = 2;
 const MAX_SPORT_CHIPS = 4;
-
-function MatchRing({ percent }: { percent: number }) {
-  const r = 20;
-  const c = 2 * Math.PI * r;
-  const p = Math.max(0, Math.min(100, percent));
-  const offset = c - (p / 100) * c;
-  return (
-    <svg className={styles.matchRing} viewBox="0 0 48 48" aria-hidden>
-      <defs>
-        <linearGradient id="matchRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#a78bfa" />
-          <stop offset="100%" stopColor="#38bdf8" />
-        </linearGradient>
-      </defs>
-      <circle cx="24" cy="24" r={r} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="3.5" />
-      <circle
-        cx="24"
-        cy="24"
-        r={r}
-        fill="none"
-        stroke="url(#matchRingGrad)"
-        strokeWidth="3.5"
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        transform="rotate(-90 24 24)"
-      />
-      <text x="24" y="27" textAnchor="middle" className={styles.matchRingText}>
-        {Math.round(p)}
-      </text>
-    </svg>
-  );
-}
 
 export const ProfileCard: React.FC<ProfileCardProps> = ({
   profile,
@@ -112,9 +78,6 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
             loading="lazy"
           />
           <div className={styles.overlay} aria-hidden />
-          <div className={styles.matchRingWrap}>
-            <MatchRing percent={profile.compatibilityScore ?? 50} />
-          </div>
           <div className={styles.overlayContent}>
             <h2 className={styles.name}>{profile.name}</h2>
             <div className={styles.metaRow}>

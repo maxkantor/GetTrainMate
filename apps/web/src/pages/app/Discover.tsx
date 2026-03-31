@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Box, Button, Typography, Alert, Snackbar, useMediaQuery, useTheme } from '@mui/material';
 import { ProfileCardSkeleton } from '@/components/ui/Skeleton';
 import { FiltersDrawer, DiscoverFilters } from '@/components/discover/FiltersDrawer';
-import { UpgradeBanner } from '@/components/discover/UpgradeBanner';
 import { OnboardingModal, shouldShowOnboardingModal } from '@/components/onboarding/OnboardingModal';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
@@ -33,7 +32,6 @@ import { MatchPanel } from './discover/MatchPanel';
 import { ActionBar } from './discover/ActionBar';
 import { FiltersButton } from './discover/FiltersButton';
 import { ConfirmConnectModal } from './discover/ConfirmConnectModal';
-import { CreditsPill } from '@/components/premium/CreditsPill';
 import { DISCOVER_STRINGS } from './discover/constants';
 import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import type { MatchInsightResponse } from '@/types/ai';
@@ -717,7 +715,6 @@ export const DiscoverPage: React.FC = () => {
               <span className={styles.myAvatarLetter}>{myAvatarLetter}</span>
             </Link>
             <div className={styles.discoverTopCenter}>
-              <CreditsPill credits={credits} lifetimeEarned={me?.lifetimeEarned ?? credits} />
               {userLocationLabel && (
                 <span className={styles.locationLabel}>Near {userLocationLabel}</span>
               )}
@@ -728,17 +725,18 @@ export const DiscoverPage: React.FC = () => {
             />
           </>
         }
-        headerRow={
-          <div className={styles.headerRow}>
-            <span className={styles.headerCount}>
-              {currentIndex + 1} of {feed.length}
-              {isDummy ? ' (near you)' : ''}
-            </span>
-          </div>
-        }
+        headerRow={null}
         progressBar={
-          <div className={styles.progressTrack}>
-            <div className={styles.progressFill} style={{ width: `${progress}%` }} />
+          <div className={styles.progressSection}>
+            <div className={styles.progressMetaRow}>
+              <span className={styles.headerCount}>
+                {currentIndex + 1} of {feed.length}
+                {isDummy ? ' (near you)' : ''}
+              </span>
+            </div>
+            <div className={styles.progressTrack}>
+              <div className={styles.progressFill} style={{ width: `${progress}%` }} />
+            </div>
           </div>
         }
         card={
@@ -771,11 +769,6 @@ export const DiscoverPage: React.FC = () => {
             defaultCollapsed={isMobile}
           />
         }
-        banner={
-          credits < 1 ? (
-            <UpgradeBanner message="Get credits to unlock chat when you match." />
-          ) : undefined
-        }
         actionBar={
           <>
             <ActionBar
@@ -785,6 +778,7 @@ export const DiscoverPage: React.FC = () => {
               onUndo={handleUndo}
               likeLoading={likeLoading}
               credits={credits}
+              compatibilityScore={currentCard.compatibilityScore}
               canUndo={undoStack.length > 0}
               showUndo={showUndo}
             />

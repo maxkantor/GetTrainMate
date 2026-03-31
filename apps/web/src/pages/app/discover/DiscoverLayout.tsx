@@ -3,7 +3,7 @@ import styles from './DiscoverLayout.module.css';
 
 interface DiscoverLayoutProps {
   topBar: React.ReactNode;
-  headerRow: React.ReactNode;
+  headerRow?: React.ReactNode;
   progressBar: React.ReactNode;
   card: React.ReactNode;
   panel: React.ReactNode;
@@ -13,7 +13,7 @@ interface DiscoverLayoutProps {
 
 export const DiscoverLayout: React.FC<DiscoverLayoutProps> = ({
   topBar,
-  headerRow,
+  headerRow = null,
   progressBar,
   card,
   panel,

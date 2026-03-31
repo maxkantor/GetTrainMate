@@ -32,6 +32,14 @@ function getBadgeClass(score: number): string {
   return styles.badgeNeutral;
 }
 
+/** Aligns short copy with the same tiers as the badge (Fair / Good / Great). */
+function matchStrengthPhrase(score: number): string {
+  if (score >= 80) return 'Strong match';
+  if (score >= 60) return 'Good match';
+  if (score >= 40) return 'Fair match';
+  return 'Early match';
+}
+
 export const MatchPanel: React.FC<MatchPanelProps> = ({
   score,
   reasons,
@@ -48,10 +56,11 @@ export const MatchPanel: React.FC<MatchPanelProps> = ({
   const [collapsed, setCollapsed] = React.useState(defaultCollapsed);
 
   const badgeClass = getBadgeClass(score);
+  const strength = matchStrengthPhrase(score);
   const displaySummary =
     summary ||
     (reasons.length > 0
-      ? `Strong match: ${reasons.slice(0, 2).join(', ')}.`
+      ? `${strength}: ${reasons.slice(0, 2).join(', ')}.`
       : 'Based on your profile and preferences.');
 
   return (
@@ -64,7 +73,7 @@ export const MatchPanel: React.FC<MatchPanelProps> = ({
           <span className={styles.score}>{score}%</span> Match
         </h3>
         <span className={`${styles.badge} ${badgeClass}`} aria-hidden>
-          {score >= 80 ? 'Great' : score >= 60 ? 'Good' : 'Fair'}
+          {score >= 80 ? 'Strong' : score >= 60 ? 'Good' : score >= 40 ? 'Fair' : 'Early'}
         </span>
       </div>
       <p className={styles.subtitle}>{displaySummary}</p>
