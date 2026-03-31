@@ -8,7 +8,7 @@ import styles from './LandingEntryFlow.module.css';
 
 const TRAINING = ['HYROX', 'Strength & conditioning', 'Running / cardio', 'CrossFit / functional'] as const;
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'] as const;
-const TIMES = ['Early (5–7am)', 'Mid-day', 'Evening'] as const;
+const TIMES = ['Morning (5–9am)', 'Mid-day', 'Evening'] as const;
 
 const PREVIEW_AVATARS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces',
@@ -91,9 +91,11 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
           >
-            <button type="button" className={styles.closeX} onClick={handleClose} aria-label="Close dialog">
-              ×
-            </button>
+            {step !== 3 && (
+              <button type="button" className={styles.closeX} onClick={handleClose} aria-label="Close dialog">
+                ×
+              </button>
+            )}
 
             {step === 1 && (
               <div className={styles.step}>
@@ -155,7 +157,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
 
             {step === 2 && (
               <div className={styles.step}>
-                <h2 className={styles.title}>🔥 3 training partners found near you</h2>
+                <h2 className={styles.title}>🔥 3 athletes found near you</h2>
                 <p className={styles.lead}>Here&apos;s who fits your schedule — one profile unlocked.</p>
                 <div className={styles.deck}>
                   <div className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft}`} aria-hidden>
@@ -185,9 +187,9 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
 
             {step === 3 && (
               <div className={styles.step}>
-                <h2 className={styles.title}>Create your account to see your matches</h2>
+                <h2 className={styles.title}>Create your account to view your matches</h2>
                 <p className={styles.lead}>
-                  Your preview is ready — sign up to unlock every profile and start connecting.
+                  Continue with Google or email to unlock — your preview is waiting.
                 </p>
                 <div className={styles.deck}>
                   <div className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft}`} aria-hidden>
@@ -216,9 +218,6 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                 </button>
                 <button type="button" className={styles.primaryBtn} onClick={persistPrefsAndGoSignup}>
                   Continue with email
-                </button>
-                <button type="button" className={styles.textBtn} onClick={handleClose}>
-                  Maybe later
                 </button>
               </div>
             )}

@@ -370,6 +370,11 @@ export const DiscoverPage: React.FC = () => {
       return;
     }
 
+    if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
+      setToast('Out of matches. Get more now — see Pricing.');
+      return;
+    }
+
     const celebrationPhoto = (() => {
       const urls = getMultiplePhotoUrls(currentCard.photoUrls, currentCard.userId, 4, currentCard.name);
       const g = inferGenderFromName(currentCard.name);

@@ -1,3 +1,5 @@
+import type { AvailabilitySlot } from '@/services/profileService';
+
 /** Session-only prefs from landing quick setup → signup / onboarding prefill */
 export const LANDING_PREFS_KEY = 'gtm_landing_prefs';
 
@@ -50,4 +52,23 @@ export function landingLevelToProfileLevel(level: string): string {
     Advanced: 'advanced',
   };
   return map[level] ?? 'intermediate';
+}
+
+/** Server requires ≥1 availability slot — derive from landing schedule preference */
+export function timePrefToAvailabilitySlot(timePref: string): AvailabilitySlot {
+  const map: Record<string, AvailabilitySlot> = {
+    'Early (5–7am)': { days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], timeStart: '05:00', timeEnd: '07:00' },
+    'Morning (5–9am)': { days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], timeStart: '05:00', timeEnd: '09:00' },
+    'Mid-day': { days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], timeStart: '12:00', timeEnd: '14:00' },
+    Evening: { days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], timeStart: '17:00', timeEnd: '21:00' },
+  };
+  return map[timePref] ?? map['Evening'];
+}
+
+/** Bio length must satisfy server 20–500 chars */
+export function buildDefaultBio(tags: string[], level: string): string {
+  const clean = tags.filter((t) => t && t !== 'Other').slice(0, 3);
+  const tagStr = clean.length ? clean.join(', ') : 'fitness';
+  const lvl = (level || 'intermediate').toLowerCase();
+  return `Looking for a training partner for ${tagStr}. I'm at ${lvl} level—consistent sessions, accountability, and good energy. Message me to schedule a workout together.`;
 }

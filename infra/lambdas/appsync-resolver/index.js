@@ -603,6 +603,17 @@ async function unlockChat(identity, args) {
   return { threadId: matchId, unlocked: true };
 }
 
+async function countMessagesFromSender(threadId, senderId) {
+  const q = await dynamo.send(new QueryCommand({
+    TableName: tables.messages,
+    KeyConditionExpression: 'threadId = :tid',
+    ExpressionAttributeValues: marshall({ ':tid': threadId }),
+    Limit: 500,
+  }));
+  const items = (q.Items || []).map((i) => unmarshall(i));
+  return items.filter((m) => m.senderId === senderId).length;
+}
+
 async function createMessage(identity, args) {
   const userId = getUserId(identity);
   const body = (args.body || '').trim();
@@ -621,8 +632,12 @@ async function createMessage(identity, args) {
   const participantIds = thread.participantIds || [];
   if (!participantIds.includes(userId)) throw new Error('FORBIDDEN');
   const isUserA = participantIds[0] === userId;
-  if (isUserA && !thread.unlockedByUserA) throw new Error('CHAT_LOCKED');
-  if (!isUserA && !thread.unlockedByUserB) throw new Error('CHAT_LOCKED');
+  const unlockedFlag = isUserA ? !!thread.unlockedByUserA : !!thread.unlockedByUserB;
+  if (!unlockedFlag) {
+    const sent = await countMessagesFromSender(threadId, userId);
+    if (sent > 0) throw new Error('CHAT_LOCKED');
+    // First outbound message is free (no unlock credit). Further messages require unlock.
+  }
   const profile = await getProfile(userId);
   const senderName = profile?.displayName || 'User';
   const messageId = require('crypto').randomUUID();

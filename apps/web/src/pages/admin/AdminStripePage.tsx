@@ -93,8 +93,9 @@ export const AdminStripePage: React.FC = () => {
         </div>
       </div>
       <p className={styles.lead}>
-        Subscription rows synced to DynamoDB. Credits purchases are reflected in user balances (see Users CRM). Use
-        Sync to pull the latest from Stripe.
+        Subscription rows synced to DynamoDB. Credit pack purchases update balances via webhooks — cross-check Users CRM
+        (grant credits) and credit transactions in your backend. Use Sync to pull the latest subscription rows from
+        Stripe.
       </p>
       {syncMsg && <div className={styles.alert}>{syncMsg}</div>}
       {error && error !== 'FORBIDDEN' && (

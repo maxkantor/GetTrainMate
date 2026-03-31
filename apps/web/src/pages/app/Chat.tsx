@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Button, CircularProgress, Alert } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
@@ -95,8 +95,9 @@ export const ChatPage: React.FC = () => {
   }, [threadIdFromUrl, threads.length]);
 
   useEffect(() => {
-    if (selectedThreadId && threadLocked !== true) {
-      loadMessages(selectedThreadId);
+    if (!selectedThreadId) return;
+    loadMessages(selectedThreadId);
+    if (threadLocked !== true) {
       markThreadAsRead(selectedThreadId);
     }
   }, [selectedThreadId, threadLocked]);
@@ -286,11 +287,21 @@ export const ChatPage: React.FC = () => {
       setMessageContent('');
     } catch (err: any) {
       console.error('Error sending message:', err);
-      setError('Failed to send message');
+      const msg = err?.message || err?.errors?.[0]?.message || '';
+      if (String(msg).includes('CHAT_LOCKED') || String(msg).includes('locked')) {
+        setError('Unlock chat to send more messages (1 credit). Your first message was free.');
+      } else {
+        setError('Failed to send message');
+      }
     } finally {
       setSending(false);
     }
   };
+
+  const myOutgoingCount = useMemo(
+    () => messages.filter((m) => m.senderId === user?.sub).length,
+    [messages, user?.sub]
+  );
 
   if (loading) {
     return (
@@ -329,7 +340,7 @@ export const ChatPage: React.FC = () => {
     );
   }
 
-  if (threadIdFromUrl && threadLocked === true) {
+  if (threadIdFromUrl && threadLocked === true && myOutgoingCount > 0) {
     const credits = me?.credits ?? 0;
     return (
       <div className={chatStyles.container}>
@@ -337,9 +348,9 @@ export const ChatPage: React.FC = () => {
           <div className={chatStyles.lockedIcon}>
             <LockIcon sx={{ fontSize: 48, color: 'inherit' }} />
           </div>
-          <h2 className={chatStyles.lockedTitle}>Chat locked</h2>
+          <h2 className={chatStyles.lockedTitle}>Unlock chat</h2>
           <p className={chatStyles.lockedDesc}>
-            Unlock this chat to send messages (1 credit). Your credits: {credits}
+            You used your free first message. Unlock to keep messaging (1 credit). Your credits: {credits}
           </p>
           <button
             type="button"
@@ -410,6 +421,12 @@ export const ChatPage: React.FC = () => {
               {error && (
                 <Alert severity="error" sx={{ mx: 2, mt: 2 }}>
                   {error}
+                </Alert>
+              )}
+
+              {threadIdFromUrl && threadLocked === true && myOutgoingCount === 0 && (
+                <Alert severity="info" sx={{ mx: 2, mt: 2 }}>
+                  First message is free. After that, unlock chat (1 credit) to keep the conversation going.
                 </Alert>
               )}
 
