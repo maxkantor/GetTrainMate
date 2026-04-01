@@ -28,7 +28,6 @@ export const AppHeader: React.FC = () => {
   const matchStatus = useMatchStatusForHeader(isLoggedIn);
 
   const credits = me?.credits ?? 0;
-  const creditCap = Math.max(me?.lifetimeEarned ?? 0, 6);
   const lowCredits = credits <= 1;
   const likesToday = matchStatus.likesToday;
   const outOfDailyMatches = likesToday >= DAILY_LIKE_LIMIT;
@@ -220,10 +219,14 @@ export const AppHeader: React.FC = () => {
               <div className={styles.langMuted} title="Language">
                 <LanguageDropdown />
               </div>
-              <span className={styles.headerCredits} title="Credits">
+              <span
+                className={styles.headerCredits}
+                title="Use credits to unlock more matches instantly"
+                aria-label={`Credits: ${credits}. Use credits to unlock more matches instantly.`}
+              >
+                <span className={styles.headerCreditsGem} aria-hidden>💎</span>
+                <span className={styles.headerCreditsLabel}>Credits:</span>
                 <span className={styles.headerCreditsVal}>{credits}</span>
-                <span className={styles.headerCreditsSep}>/</span>
-                <span className={styles.headerCreditsMax}>{creditCap}</span>
               </span>
               <RouterLink
                 to="/pricing"
@@ -332,10 +335,10 @@ export const AppHeader: React.FC = () => {
                   </div>
                   <span
                     className={styles.mobileCredits}
-                    title={`${credits} of ${creditCap} credits`}
-                    aria-label={`${credits} of ${creditCap} credits`}
+                    title="Use credits to unlock more matches instantly"
+                    aria-label={`Credits: ${credits}. Use credits to unlock more matches instantly.`}
                   >
-                    {credits}/{creditCap} credits
+                    💎 Credits: {credits}
                   </span>
                   <RouterLink
                     to="/pricing"

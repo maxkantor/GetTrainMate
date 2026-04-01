@@ -36,6 +36,7 @@ import { DISCOVER_STRINGS } from './discover/constants';
 import { incrementDailyLike, getDailyLikeCount } from '@/utils/dailySwipeTracker';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 import { MatchCelebrationOverlay, MatchCelebrationState } from '@/components/discover/MatchCelebrationOverlay';
+import { Modal } from '@/components/ui/Modal';
 import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import type { MatchInsightResponse } from '@/types/ai';
 import styles from './Discover.module.css';
@@ -105,6 +106,7 @@ export const DiscoverPage: React.FC = () => {
   const [retentionMessage, setRetentionMessage] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [dailyLimitModalOpen, setDailyLimitModalOpen] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [photoErrorForIndex, setPhotoErrorForIndex] = useState<number | null>(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -125,6 +127,9 @@ export const DiscoverPage: React.FC = () => {
 
   const autoSeedRef = useRef(false);
   const matchOverlayOpenRef = useRef(false);
+  const openDailyLimitModal = useCallback(() => {
+    setDailyLimitModalOpen(true);
+  }, []);
 
   useEffect(() => {
     loadFeed();
@@ -360,7 +365,7 @@ export const DiscoverPage: React.FC = () => {
     if (prevIndex != null) setCurrentIndex(prevIndex);
   }, [undoStack]);
 
-  const handleLike = async () => {
+  const handleLike = useCallback(async () => {
     if (currentIndex >= feed.length) return;
 
     const currentCard = feed[currentIndex];
@@ -371,7 +376,8 @@ export const DiscoverPage: React.FC = () => {
     }
 
     if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
-      setToast('Out of matches. Get more now — see Pricing.');
+      setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
+      openDailyLimitModal();
       return;
     }
 
@@ -396,7 +402,8 @@ export const DiscoverPage: React.FC = () => {
           return;
         }
         if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
-          setToast('Out of matches for today. Get more on Pricing.');
+          setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
+          openDailyLimitModal();
         } else {
           setToast(DISCOVER_STRINGS.liked);
         }
@@ -420,7 +427,8 @@ export const DiscoverPage: React.FC = () => {
             return;
           }
           if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
-            setToast('Out of matches for today. Get more on Pricing.');
+            setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
+            openDailyLimitModal();
           } else {
             setToast(DISCOVER_STRINGS.liked);
           }
@@ -443,7 +451,8 @@ export const DiscoverPage: React.FC = () => {
                   return;
                 }
                 if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
-                  setToast('Out of matches for today. Get more on Pricing.');
+                  setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
+                  openDailyLimitModal();
                 } else {
                   setToast(DISCOVER_STRINGS.liked);
                 }
@@ -480,7 +489,7 @@ export const DiscoverPage: React.FC = () => {
     } finally {
       setLikeLoading(false);
     }
-  };
+  }, [advanceWithUndo, currentIndex, feed, openDailyLimitModal, refreshMe]);
 
   const handlePass = async () => {
     if (currentIndex >= feed.length) return;
@@ -939,6 +948,42 @@ export const DiscoverPage: React.FC = () => {
       />
 
       <OnboardingModal open={onboardingModalOpen} onClose={() => setOnboardingModalOpen(false)} />
+
+      <Modal
+        open={dailyLimitModalOpen}
+        onClose={() => setDailyLimitModalOpen(false)}
+        title="You're out of matches for today."
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <Typography variant="body2" color="text.secondary">
+            You're at today's limit. Wait for reset, or use 1 credit to continue now.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button variant="outlined" onClick={() => setDailyLimitModalOpen(false)}>
+              Wait for reset
+            </Button>
+            {credits > 0 ? (
+              <Button
+                component={Link}
+                to="/app/discover"
+                variant="contained"
+                onClick={() => setDailyLimitModalOpen(false)}
+              >
+                Use 1 credit now
+              </Button>
+            ) : (
+              <Button
+                component={Link}
+                to="/pricing"
+                variant="contained"
+                onClick={() => setDailyLimitModalOpen(false)}
+              >
+                Get Credits
+              </Button>
+            )}
+          </Box>
+        </Box>
+      </Modal>
     </div>
   );
 };
