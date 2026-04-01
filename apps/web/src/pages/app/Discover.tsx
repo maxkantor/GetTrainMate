@@ -287,7 +287,9 @@ export const DiscoverPage: React.FC = () => {
         }));
         let location = await getLocationFromIp();
         if (!location) location = FALLBACK_LOCATION;
-        const merged = [...feedWithPhotos, ...buildDiscoverDemoCards(location)];
+        const merged = [...feedWithPhotos, ...buildDiscoverDemoCards(location)].filter(
+          (card) => !skippedDiscoverIds.has(card.userId)
+        );
         setFeed(sortDiscoverFeed(merged));
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
@@ -347,7 +349,9 @@ export const DiscoverPage: React.FC = () => {
               }));
               let location = await getLocationFromIp();
               if (!location) location = FALLBACK_LOCATION;
-              const merged = [...feedWithPhotos, ...buildDiscoverDemoCards(location)];
+              const merged = [...feedWithPhotos, ...buildDiscoverDemoCards(location)].filter(
+                (card) => !skippedDiscoverIds.has(card.userId)
+              );
               setFeed(sortDiscoverFeed(merged));
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
@@ -566,10 +570,12 @@ export const DiscoverPage: React.FC = () => {
         }
         try {
           await matchService.passUser(token, currentCard.userId);
+          markSkippedProfile(currentCard.userId);
         } catch (passErr: unknown) {
           const status = (passErr as { response?: { status?: number } })?.response?.status;
           if (status === 401 && (token = await authService.getJWT(true) ?? '')) {
             await matchService.passUser(token, currentCard.userId);
+            markSkippedProfile(currentCard.userId);
           } else {
             throw passErr;
           }
