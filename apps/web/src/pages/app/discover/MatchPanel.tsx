@@ -69,9 +69,10 @@ export const MatchPanel: React.FC<MatchPanelProps> = ({
       aria-label={`${score}% match compatibility`}
     >
       <div className={styles.header}>
-        <h3 className={styles.title}>
-          <span className={styles.score}>{score}%</span> Match
-        </h3>
+        <div className={styles.scoreWrap}>
+          <span className={styles.score}>{score}%</span>
+          <h3 className={styles.title}>Match</h3>
+        </div>
         <span className={`${styles.badge} ${badgeClass}`} aria-hidden>
           {score >= 80 ? 'Strong' : score >= 60 ? 'Good' : score >= 40 ? 'Fair' : 'Early'}
         </span>
@@ -125,6 +126,7 @@ export const MatchPanel: React.FC<MatchPanelProps> = ({
         </div>
       ) : (
         <div className={styles.aiInsightTeaserWrap}>
+          <p className={styles.aiInsightUpsell}>Get a deeper compatibility read before you decide.</p>
           {onUnlockAiInsight ? (
             <button
               type="button"

@@ -112,8 +112,8 @@
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 24px;
-  gap: 1rem;
+  padding: 0 22px;
+  gap: 0.8rem;
   overflow: visible;
 }
 
@@ -169,7 +169,7 @@
 .navApp .headerNavLink {
   background: transparent !important;
   border: none !important;
-  padding: 6px 10px !important;
+  padding: 6px 11px !important;
   font-size: 0.875rem !important;
   font-weight: 600 !important;
 }
@@ -179,8 +179,9 @@
 }
 
 .navApp .headerNavLinkActive {
-  background: rgba(255, 255, 255, 0.11) !important;
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.14)) !important;
+  border: 1px solid rgba(196, 181, 253, 0.35) !important;
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.2) inset;
 }
 
 .statusCenter {
@@ -189,7 +190,7 @@
   display: none;
   justify-content: center;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 10px;
 }
 
 @media (min-width: 768px) {
@@ -200,8 +201,8 @@
 
 .statusText {
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.72);
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.78);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -211,7 +212,7 @@
 .signedRight {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   flex-shrink: 0;
   margin-left: auto;
 }

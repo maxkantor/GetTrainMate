@@ -23,6 +23,14 @@ export interface MatchResponse {
   isMatched: boolean;
 }
 
+export interface DiscoverSkipRecord {
+  targetUserId: string;
+  skippedAt: string;
+  skippedByUserId: string;
+  isSkipped: boolean;
+  restored: boolean;
+}
+
 class MatchService {
   private getHeaders(token: string) {
     return {
@@ -91,6 +99,27 @@ class MatchService {
       this.getHeaders(token)
     );
     return response.data;
+  }
+
+  async undoPass(token: string, targetUserId: string): Promise<{ restored: boolean }> {
+    const response = await axios.post<{ restored: boolean }>(
+      `${API_BASE_URL}/api/match/undo-pass`,
+      { targetUserId },
+      this.getHeaders(token)
+    );
+    return response.data;
+  }
+
+  async getLastSkipped(token: string): Promise<DiscoverSkipRecord | null> {
+    try {
+      const response = await axios.get<DiscoverSkipRecord | null>(
+        `${API_BASE_URL}/api/match/last-skipped`,
+        this.getHeaders(token)
+      );
+      return response.data;
+    } catch {
+      return null;
+    }
   }
 
   async getMyMatches(token: string) {

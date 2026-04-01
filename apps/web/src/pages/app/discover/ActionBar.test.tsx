@@ -87,4 +87,17 @@ describe('ActionBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /undo/i }));
     expect(onUndo).toHaveBeenCalledTimes(1);
   });
+
+  it('shows and triggers rewind when available', () => {
+    const onRewind = vi.fn();
+    render(
+      <ActionBar
+        {...defaultBar}
+        onRewind={onRewind}
+        canRewind={true}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /restore last skipped profile/i }));
+    expect(onRewind).toHaveBeenCalledTimes(1);
+  });
 });

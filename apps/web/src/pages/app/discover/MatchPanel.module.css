@@ -1,13 +1,23 @@
 .panel {
-  background: #fff;
-  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, rgba(251, 251, 255, 0.98), rgba(245, 247, 255, 0.98));
+  border-radius: 18px;
   padding: var(--space-4);
-  border: 1px solid var(--color-neutral-200);
-  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  box-shadow:
+    0 16px 34px rgba(15, 23, 42, 0.16),
+    0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.panel:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 20px 38px rgba(15, 23, 42, 0.2),
+    0 1px 0 rgba(255, 255, 255, 0.92) inset;
 }
 
 .compact {
-  padding: var(--space-3);
+  padding: 14px;
 }
 
 .header {
@@ -15,25 +25,37 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  margin-bottom: 8px;
+}
+
+.scoreWrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .title {
-  font-size: var(--font-base);
+  font-size: 0.95rem;
   font-weight: 700;
   margin: 0;
-  color: var(--color-neutral-900);
+  color: #1f2937;
+  letter-spacing: -0.01em;
 }
 
 .score {
-  color: var(--color-primary);
+  color: #4f46e5;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
 }
 
 .badge {
-  font-size: var(--font-xs);
-  font-weight: 600;
-  padding: 2px 8px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 3px 9px;
   border-radius: var(--radius-full);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .badgeGreen {
@@ -52,8 +74,8 @@
 }
 
 .subtitle {
-  font-size: var(--font-sm);
-  color: var(--color-neutral-600);
+  font-size: 0.8rem;
+  color: #4b5563;
   margin: 0 0 var(--space-3);
   line-height: 1.45;
 }
@@ -61,9 +83,9 @@
 .reasons {
   margin: 0;
   padding-left: 1.25rem;
-  font-size: var(--font-sm);
-  color: var(--color-neutral-600);
-  line-height: 1.6;
+  font-size: 0.82rem;
+  color: #334155;
+  line-height: 1.55;
 }
 
 .toggleBtn {
@@ -121,11 +143,18 @@
 
 .aiInsightTeaserWrap {
   margin-top: var(--space-3);
-  padding: var(--space-3);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.08));
-  border: 1px solid rgba(167, 139, 250, 0.35);
-  box-shadow: 0 0 24px rgba(99, 102, 241, 0.12);
+  padding: 10px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.06));
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.aiInsightUpsell {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(71, 85, 105, 0.92);
+  text-align: center;
 }
 
 .aiInsightTeaser {
@@ -138,15 +167,16 @@
 
 .aiInsightUnlockBtn {
   width: 100%;
-  font-size: var(--font-sm);
+  font-size: 0.82rem;
   font-weight: 800;
   color: #fff;
   background: linear-gradient(135deg, #6366f1, #8b5cf6 55%, #2563eb);
   border: none;
-  border-radius: 999px;
-  padding: var(--space-3) var(--space-4);
+  border-radius: 12px;
+  padding: 10px 12px;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.28);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
 }
 
 .aiInsightUnlockBtn:hover:not(:disabled) {

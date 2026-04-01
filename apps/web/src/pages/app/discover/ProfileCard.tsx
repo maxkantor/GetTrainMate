@@ -40,6 +40,8 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
   const displaySports = commonSports.slice(0, MAX_SPORT_CHIPS);
   const extraCount = commonSports.length - MAX_SPORT_CHIPS;
   const tagPills = displaySports.map((s) => `[${String(s).toUpperCase()}]`);
+  const shortBio = profile.bio ? profile.bio.slice(0, 88).trim() : '';
+  const overlayBio = shortBio.length === 88 ? `${shortBio}…` : shortBio;
 
   const handleDragEnd = (_: unknown, info: PanInfo) => {
     const x = info.offset.x;
@@ -83,7 +85,9 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
             <div className={styles.metaRow}>
               {levelLabel && <span className={styles.chipOverlay}>{levelLabel}</span>}
               {distanceLabel && <span className={styles.chipOverlay}>{distanceLabel}</span>}
+              {profile.mode && <span className={styles.chipOverlayMuted}>Mode: {profile.mode}</span>}
             </div>
+            {overlayBio && <p className={styles.overlayBio}>{overlayBio}</p>}
             <p className={styles.scheduleHint}>Swipe · arrows · buttons</p>
           </div>
           {allPhotoUrls.length > 1 && (
@@ -130,7 +134,6 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
               {extraCount > 0 && <span className={styles.sportChip}>+{extraCount}</span>}
             </div>
           )}
-          {profile.mode && <span className={styles.modeChip}>Mode: {profile.mode}</span>}
         </div>
       </motion.article>
 

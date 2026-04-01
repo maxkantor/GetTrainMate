@@ -3,6 +3,7 @@ using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Linq;
 
 namespace GetTrainMate.Api.Controllers;
 
@@ -72,13 +73,61 @@ public class MatchController : ControllerBase
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized(new { message = "Invalid token" });
 
-            var feed = await _matchService.GetDiscoveryFeedAsync(userId, limit);
+            var controls = await _matchService.GetAdminDiscoverControlsAsync();
+            var isAdmin = User.Claims.Any(c =>
+                c.Type == "cognito:groups" &&
+                c.Value.Contains("Admin", StringComparison.OrdinalIgnoreCase));
+            var feed = await _matchService.GetDiscoveryFeedAsync(
+                userId,
+                limit,
+                isAdmin && controls.IgnoreSkippedProfilesInDiscoverForAdmin
+            );
             return Ok(feed);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting discovery feed");
             return StatusCode(500, new { message = "Error retrieving discovery feed" });
+        }
+    }
+
+    [HttpPost("undo-pass")]
+    public async Task<ActionResult<object>> UndoPass([FromBody] PassRequest request)
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "Invalid token" });
+
+            if (string.IsNullOrEmpty(request.TargetUserId))
+                return BadRequest(new { message = "TargetUserId is required" });
+
+            var restored = await _matchService.UndoPassAsync(userId, request.TargetUserId);
+            return Ok(new { restored });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error undoing pass");
+            return StatusCode(500, new { message = "Error undoing pass" });
+        }
+    }
+
+    [HttpGet("last-skipped")]
+    public async Task<ActionResult<DiscoverSkipRecord?>> GetLastSkipped()
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "Invalid token" });
+            var record = await _matchService.GetLastSkippedProfileAsync(userId);
+            return Ok(record);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting last skipped profile");
+            return StatusCode(500, new { message = "Error retrieving last skipped profile" });
         }
     }
 

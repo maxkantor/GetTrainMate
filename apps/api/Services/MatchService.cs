@@ -23,6 +23,9 @@ public class MatchService : IMatchService
     private const int LevelMatchWeight = 20;
     private const int DistanceWeight = 15;
     private const int ModeMatchWeight = 10;
+    private const string AdminControlsPartitionKey = "__discover_controls__";
+    private const string AdminControlsSortKey = "admin";
+    private const string AdminProfileStatusPartitionKey = "__discover_profile_status__";
 
     public MatchService(
         IAmazonDynamoDB dynamoDb,
@@ -113,7 +116,7 @@ public class MatchService : IMatchService
         };
     }
 
-    public async Task<List<MatchFeedItem>> GetDiscoveryFeedAsync(string userId, int limit = 20)
+    public async Task<List<MatchFeedItem>> GetDiscoveryFeedAsync(string userId, int limit = 20, bool ignoreSkippedForAdmin = false)
     {
         try
         {
@@ -135,6 +138,7 @@ public class MatchService : IMatchService
 
             var feedItems = new List<MatchFeedItem>();
             var passedTargetIds = await GetPassedTargetUserIdsAsync(userId);
+            var adminProfileStatusMap = await GetAdminProfileStatusMapAsync();
 
             foreach (var doc in allProfiles)
             {
@@ -151,8 +155,16 @@ public class MatchService : IMatchService
                 if (profileUserId == userId)
                     continue;
 
-                if (passedTargetIds.Contains(profileUserId))
+                if (!ignoreSkippedForAdmin && passedTargetIds.Contains(profileUserId))
                     continue;
+
+                if (adminProfileStatusMap.TryGetValue(profileUserId, out var profileStatus))
+                {
+                    if (string.Equals(profileStatus, "hidden", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!ignoreSkippedForAdmin && string.Equals(profileStatus, "skipped", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                }
 
                 UserProfile targetProfile;
                 try
@@ -296,7 +308,13 @@ public class MatchService : IMatchService
             {
                 ["userId"] = userId,
                 ["targetUserId"] = targetUserId,
-                ["createdAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)
+                ["createdAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                ["updatedAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                ["isSkipped"] = true,
+                ["skippedAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                ["skippedByUserId"] = userId,
+                ["restored"] = false,
+                ["status"] = "skipped"
             };
             await table.PutItemAsync(doc);
         }
@@ -327,13 +345,306 @@ public class MatchService : IMatchService
             var response = await _dynamoDb.QueryAsync(query);
             foreach (var item in response.Items)
             {
-                if (item.TryGetValue("targetUserId", out var tid) && tid.S != null)
+                if (!item.TryGetValue("targetUserId", out var tid) || tid.S == null)
+                    continue;
+                var isSkipped = !item.TryGetValue("isSkipped", out var skippedVal) || skippedVal.BOOL;
+                var restored = item.TryGetValue("restored", out var restoredVal) && restoredVal.BOOL;
+                var status = item.TryGetValue("status", out var statusVal) ? statusVal.S : "skipped";
+                if (isSkipped && !restored && !string.Equals(status, "active", StringComparison.OrdinalIgnoreCase))
                     result.Add(tid.S);
             }
             startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
         } while (startKey != null);
 
         return result;
+    }
+
+    public async Task<bool> UndoPassAsync(string userId, string targetUserId)
+    {
+        var table = Table.LoadTable(_dynamoDb, _discoverPassesTable);
+        var document = await table.GetItemAsync(userId, targetUserId);
+        if (document == null) return false;
+
+        document["restored"] = true;
+        document["isSkipped"] = false;
+        document["status"] = "active";
+        document["restoredAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+        document["updatedAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+        await table.PutItemAsync(document);
+        return true;
+    }
+
+    public async Task<DiscoverSkipRecord?> GetLastSkippedProfileAsync(string userId)
+    {
+        Dictionary<string, AttributeValue>? startKey = null;
+        DiscoverSkipRecord? latestRecord = null;
+        do
+        {
+            var query = new QueryRequest
+            {
+                TableName = _discoverPassesTable,
+                KeyConditionExpression = "userId = :u",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":u"] = new AttributeValue { S = userId }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("targetUserId", out var tid) || string.IsNullOrWhiteSpace(tid.S))
+                    continue;
+                var isSkipped = !item.TryGetValue("isSkipped", out var skippedVal) || skippedVal.BOOL;
+                var restored = item.TryGetValue("restored", out var restoredVal) && restoredVal.BOOL;
+                var status = item.TryGetValue("status", out var statusVal) ? statusVal.S : "skipped";
+                if (!isSkipped || restored || string.Equals(status, "active", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var skippedAt = DateTime.UtcNow;
+                if (item.TryGetValue("skippedAt", out var skippedAtVal) && DateTime.TryParse(skippedAtVal.S, out var parsedSkippedAt))
+                    skippedAt = parsedSkippedAt;
+                else if (item.TryGetValue("createdAt", out var createdAtVal) && DateTime.TryParse(createdAtVal.S, out var parsedCreatedAt))
+                    skippedAt = parsedCreatedAt;
+
+                if (latestRecord == null || skippedAt > latestRecord.SkippedAt)
+                {
+                    latestRecord = new DiscoverSkipRecord
+                    {
+                        TargetUserId = tid.S!,
+                        SkippedAt = skippedAt,
+                        SkippedByUserId = item.TryGetValue("skippedByUserId", out var skippedByVal) && !string.IsNullOrWhiteSpace(skippedByVal.S)
+                            ? skippedByVal.S!
+                            : userId,
+                        IsSkipped = isSkipped,
+                        Restored = restored
+                    };
+                }
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+
+        return latestRecord;
+    }
+
+    private async Task<Dictionary<string, string>> GetAdminProfileStatusMapAsync()
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
+        {
+            var query = new QueryRequest
+            {
+                TableName = _discoverPassesTable,
+                KeyConditionExpression = "userId = :u",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":u"] = new AttributeValue { S = AdminProfileStatusPartitionKey }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("targetUserId", out var tid) || string.IsNullOrWhiteSpace(tid.S))
+                    continue;
+                var value = item.TryGetValue("status", out var statusVal) && !string.IsNullOrWhiteSpace(statusVal.S)
+                    ? statusVal.S!
+                    : "active";
+                map[tid.S!] = value;
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+        return map;
+    }
+
+    public async Task<AdminDiscoverControls> GetAdminDiscoverControlsAsync()
+    {
+        var table = Table.LoadTable(_dynamoDb, _discoverPassesTable);
+        var doc = await table.GetItemAsync(AdminControlsPartitionKey, AdminControlsSortKey);
+        return new AdminDiscoverControls
+        {
+            IgnoreSkippedProfilesInDiscoverForAdmin =
+                doc != null &&
+                doc.ContainsKey("ignoreSkippedProfilesInDiscoverForAdmin") &&
+                doc["ignoreSkippedProfilesInDiscoverForAdmin"].AsBoolean()
+        };
+    }
+
+    public async Task<AdminDiscoverControls> SetAdminDiscoverControlsAsync(bool ignoreSkippedProfilesInDiscoverForAdmin)
+    {
+        var table = Table.LoadTable(_dynamoDb, _discoverPassesTable);
+        var doc = new Document
+        {
+            ["userId"] = AdminControlsPartitionKey,
+            ["targetUserId"] = AdminControlsSortKey,
+            ["ignoreSkippedProfilesInDiscoverForAdmin"] = ignoreSkippedProfilesInDiscoverForAdmin,
+            ["updatedAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+            ["status"] = "controls"
+        };
+        await table.PutItemAsync(doc);
+        return new AdminDiscoverControls
+        {
+            IgnoreSkippedProfilesInDiscoverForAdmin = ignoreSkippedProfilesInDiscoverForAdmin
+        };
+    }
+
+    public async Task<List<AdminDiscoverProfileRow>> ListAdminDiscoverProfilesAsync(string filter = "all", int limit = 200)
+    {
+        var table = Table.LoadTable(_dynamoDb, _profilesTable);
+        var search = table.Scan(new ScanFilter());
+        var docs = new List<Document>();
+        do
+        {
+            docs.AddRange(await search.GetNextSetAsync());
+        } while (!search.IsDone);
+
+        var matchedProfileIds = await GetMatchedProfileIdsAsync();
+        var statusMap = await GetAdminProfileStatusMetadataMapAsync();
+
+        var rows = docs
+            .Where(d => d.ContainsKey("userId"))
+            .Select(d =>
+            {
+                var userId = d["userId"].AsString();
+                var explicitStatus = statusMap.TryGetValue(userId, out var m) ? m.Status : null;
+                var status = explicitStatus
+                    ?? (matchedProfileIds.Contains(userId) ? "matched" : "active");
+                return new AdminDiscoverProfileRow
+                {
+                    UserId = userId,
+                    Name = d.ContainsKey("name") ? d["name"].AsString() : userId,
+                    Status = status,
+                    LastSkippedAt = statusMap.TryGetValue(userId, out var sm) ? sm.LastSkippedAt : null,
+                    LastSkippedByUserId = statusMap.TryGetValue(userId, out var sm2) ? sm2.LastSkippedByUserId : null
+                };
+            })
+            .ToList();
+
+        if (!string.Equals(filter, "all", StringComparison.OrdinalIgnoreCase))
+            rows = rows.Where(r => string.Equals(r.Status, filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        return rows
+            .OrderByDescending(r => r.LastSkippedAt ?? DateTime.MinValue)
+            .ThenBy(r => r.Name)
+            .Take(Math.Clamp(limit, 1, 500))
+            .ToList();
+    }
+
+    public async Task<bool> AdminSetProfileDiscoverStatusAsync(string profileUserId, string status, string adminUserId)
+    {
+        var normalized = status.Trim().ToLowerInvariant();
+        if (normalized is not ("active" or "skipped" or "hidden" or "matched"))
+            return false;
+
+        var table = Table.LoadTable(_dynamoDb, _discoverPassesTable);
+        var doc = new Document
+        {
+            ["userId"] = AdminProfileStatusPartitionKey,
+            ["targetUserId"] = profileUserId,
+            ["status"] = normalized,
+            ["updatedAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+            ["updatedByUserId"] = adminUserId
+        };
+        if (normalized == "skipped")
+        {
+            doc["skippedAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+            doc["skippedByUserId"] = adminUserId;
+            doc["isSkipped"] = true;
+        }
+        if (normalized == "active")
+        {
+            doc["isSkipped"] = false;
+            doc["restored"] = true;
+        }
+        await table.PutItemAsync(doc);
+        return true;
+    }
+
+    public async Task<bool> AdminResetProfileInteractionStateAsync(string profileUserId)
+    {
+        var scan = await _dynamoDb.ScanAsync(new ScanRequest
+        {
+            TableName = _discoverPassesTable,
+            FilterExpression = "targetUserId = :t and userId <> :controls and userId <> :statusPk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":t"] = new AttributeValue { S = profileUserId },
+                [":controls"] = new AttributeValue { S = AdminControlsPartitionKey },
+                [":statusPk"] = new AttributeValue { S = AdminProfileStatusPartitionKey }
+            }
+        });
+
+        foreach (var item in scan.Items)
+        {
+            if (!item.TryGetValue("userId", out var uid) || uid.S == null) continue;
+            if (!item.TryGetValue("targetUserId", out var tid) || tid.S == null) continue;
+            await _dynamoDb.DeleteItemAsync(new DeleteItemRequest
+            {
+                TableName = _discoverPassesTable,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    ["userId"] = new AttributeValue { S = uid.S },
+                    ["targetUserId"] = new AttributeValue { S = tid.S }
+                }
+            });
+        }
+
+        return true;
+    }
+
+    private async Task<HashSet<string>> GetMatchedProfileIdsAsync()
+    {
+        var table = Table.LoadTable(_dynamoDb, _matchesTable);
+        var scan = table.Scan(new ScanFilter());
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        do
+        {
+            var batch = await scan.GetNextSetAsync();
+            foreach (var doc in batch)
+            {
+                if (!doc.ContainsKey("isMatched") || !doc["isMatched"].AsBoolean()) continue;
+                if (doc.ContainsKey("userId1")) ids.Add(doc["userId1"].AsString());
+                if (doc.ContainsKey("userId2")) ids.Add(doc["userId2"].AsString());
+            }
+        } while (!scan.IsDone);
+        return ids;
+    }
+
+    private async Task<Dictionary<string, (string Status, DateTime? LastSkippedAt, string? LastSkippedByUserId)>> GetAdminProfileStatusMetadataMapAsync()
+    {
+        var map = new Dictionary<string, (string, DateTime?, string?)>(StringComparer.Ordinal);
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
+        {
+            var query = new QueryRequest
+            {
+                TableName = _discoverPassesTable,
+                KeyConditionExpression = "userId = :u",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":u"] = new AttributeValue { S = AdminProfileStatusPartitionKey }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("targetUserId", out var tid) || string.IsNullOrWhiteSpace(tid.S))
+                    continue;
+                var key = tid.S!;
+                var status = item.TryGetValue("status", out var statusVal) && !string.IsNullOrWhiteSpace(statusVal.S)
+                    ? statusVal.S!
+                    : "active";
+                DateTime? skippedAt = null;
+                if (item.TryGetValue("skippedAt", out var skippedVal) && DateTime.TryParse(skippedVal.S, out var dt))
+                    skippedAt = dt;
+                var skippedBy = item.TryGetValue("skippedByUserId", out var skippedByVal) ? skippedByVal.S : null;
+                map[key] = (status, skippedAt, skippedBy);
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+        return map;
     }
 
     public async Task<List<Match>> GetUserMatchesAsync(string userId)

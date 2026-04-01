@@ -1,27 +1,31 @@
 import React from 'react';
 import CloseIcon from '@mui/icons-material/Close';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
-import WhatshotIcon from '@mui/icons-material/Whatshot';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import styles from './ActionBar.module.css';
 
 interface ActionBarProps {
   onPass: () => void;
   onLike: () => void;
   onConnect: () => void;
+  onRewind?: () => void;
   onUndo?: () => void;
   likeLoading: boolean;
   canUndo: boolean;
   showUndo: boolean;
+  canRewind?: boolean;
 }
 
 export const ActionBar: React.FC<ActionBarProps> = ({
   onPass,
   onLike,
   onConnect,
+  onRewind,
   onUndo,
   likeLoading,
   canUndo,
   showUndo,
+  canRewind = false,
 }) => {
   return (
     <div className={styles.wrapper}>
@@ -52,13 +56,18 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           onClick={onConnect}
           aria-label="View profile details"
         >
-          <WhatshotIcon className={styles.icon} aria-hidden />
+          <InfoOutlinedIcon className={styles.icon} aria-hidden />
           <span className={styles.connectLabel}>View Profile</span>
         </button>
       </div>
       {showUndo && canUndo && onUndo && (
         <button type="button" className={styles.undoBtn} onClick={onUndo} aria-label="Undo last action">
           Undo
+        </button>
+      )}
+      {!showUndo && canRewind && onRewind && (
+        <button type="button" className={styles.rewindBtn} onClick={onRewind} aria-label="Restore last skipped profile">
+          Rewind last skip
         </button>
       )}
     </div>

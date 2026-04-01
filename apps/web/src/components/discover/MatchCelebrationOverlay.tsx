@@ -49,7 +49,7 @@ export const MatchCelebrationOverlay: React.FC<Props> = ({
               🔥
             </div>
             <h2 id="match-celebration-title" className={styles.title}>
-              IT&apos;S A MATCH
+              It&apos;s a match
             </h2>
             <p className={styles.sub}>You and {celebration.name} both want to train together.</p>
             <div className={styles.avatarWrap}>

@@ -47,6 +47,29 @@ public class MatchResponse
     public bool IsMatched { get; set; }
 }
 
+public class DiscoverSkipRecord
+{
+    public string TargetUserId { get; set; } = string.Empty;
+    public DateTime SkippedAt { get; set; }
+    public string SkippedByUserId { get; set; } = string.Empty;
+    public bool IsSkipped { get; set; } = true;
+    public bool Restored { get; set; }
+}
+
+public class AdminDiscoverControls
+{
+    public bool IgnoreSkippedProfilesInDiscoverForAdmin { get; set; }
+}
+
+public class AdminDiscoverProfileRow
+{
+    public string UserId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Status { get; set; } = "active"; // active | skipped | matched | hidden
+    public DateTime? LastSkippedAt { get; set; }
+    public string? LastSkippedByUserId { get; set; }
+}
+
 public class CompatibilityInfo
 {
     public int CompatibilityScore { get; set; }
