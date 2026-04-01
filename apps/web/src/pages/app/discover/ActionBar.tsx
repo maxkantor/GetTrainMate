@@ -10,18 +10,8 @@ interface ActionBarProps {
   onConnect: () => void;
   onUndo?: () => void;
   likeLoading: boolean;
-  credits: number;
-  /** Match % for the current card; drives Connect button label (no default “strong” for low scores). */
-  compatibilityScore?: number;
   canUndo: boolean;
   showUndo: boolean;
-}
-
-function connectLabel(score: number | undefined): string {
-  if (score === undefined) return 'Connect';
-  if (score >= 80) return 'Strong Match';
-  if (score >= 60) return 'Good Match';
-  return 'Connect';
 }
 
 export const ActionBar: React.FC<ActionBarProps> = ({
@@ -30,21 +20,9 @@ export const ActionBar: React.FC<ActionBarProps> = ({
   onConnect,
   onUndo,
   likeLoading,
-  credits,
-  compatibilityScore,
   canUndo,
   showUndo,
 }) => {
-  const connect = connectLabel(compatibilityScore);
-  const connectAria =
-    compatibilityScore === undefined
-      ? 'Connect — open profile'
-      : compatibilityScore >= 80
-        ? 'Strong match — open profile'
-        : compatibilityScore >= 60
-          ? 'Good match — open profile'
-          : 'Connect — open profile';
-
   return (
     <div className={styles.wrapper}>
       <div className={styles.bar}>
@@ -72,11 +50,10 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           type="button"
           className={`${styles.btn} ${styles.btnConnect}`}
           onClick={onConnect}
-          aria-label={connectAria}
+          aria-label="View profile details"
         >
           <WhatshotIcon className={styles.icon} aria-hidden />
-          <span className={styles.connectLabel}>{connect}</span>
-          {credits >= 1 && <span className={styles.creditHint}>1 credit</span>}
+          <span className={styles.connectLabel}>View Profile</span>
         </button>
       </div>
       {showUndo && canUndo && onUndo && (

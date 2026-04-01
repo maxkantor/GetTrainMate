@@ -885,8 +885,6 @@ export const DiscoverPage: React.FC = () => {
               onConnect={handleConnect}
               onUndo={handleUndo}
               likeLoading={likeLoading}
-              credits={credits}
-              compatibilityScore={currentCard.compatibilityScore}
               canUndo={undoStack.length > 0}
               showUndo={showUndo}
             />

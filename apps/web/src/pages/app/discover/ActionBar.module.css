@@ -101,14 +101,8 @@
 }
 
 .connectLabel {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   opacity: 0.95;
-}
-
-.creditHint {
-  font-size: 0.625rem;
-  font-weight: 600;
-  opacity: 0.8;
 }
 
 .undoBtn {

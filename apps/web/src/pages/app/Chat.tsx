@@ -543,7 +543,7 @@ export const ChatPage: React.FC = () => {
                     }
                   }}
                   disabled={sending}
-                  rows={1}
+                  rows={2}
                 />
                 <button
                   type="button"
