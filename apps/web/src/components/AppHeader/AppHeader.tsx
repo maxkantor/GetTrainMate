@@ -28,6 +28,7 @@ export const AppHeader: React.FC = () => {
   const matchStatus = useMatchStatusForHeader(isLoggedIn);
 
   const credits = me?.credits ?? 0;
+  const creditCap = Math.max(me?.lifetimeEarned ?? 0, credits);
   const lowCredits = credits <= 1;
   const likesToday = matchStatus.likesToday;
   const outOfDailyMatches = likesToday >= DAILY_LIKE_LIMIT;
@@ -221,12 +222,12 @@ export const AppHeader: React.FC = () => {
               </div>
               <span
                 className={styles.headerCredits}
-                title="Use credits to unlock more matches instantly"
-                aria-label={`Credits: ${credits}. Use credits to unlock more matches instantly.`}
+                title={`You have ${credits} out of ${creditCap} credits available`}
+                aria-label={`You have ${credits} out of ${creditCap} credits available`}
               >
-                <span className={styles.headerCreditsGem} aria-hidden>💎</span>
-                <span className={styles.headerCreditsLabel}>Credits:</span>
                 <span className={styles.headerCreditsVal}>{credits}</span>
+                <span className={styles.headerCreditsSep}>/</span>
+                <span className={styles.headerCreditsMax}>{creditCap}</span>
               </span>
               <RouterLink
                 to="/pricing"
@@ -335,10 +336,10 @@ export const AppHeader: React.FC = () => {
                   </div>
                   <span
                     className={styles.mobileCredits}
-                    title="Use credits to unlock more matches instantly"
-                    aria-label={`Credits: ${credits}. Use credits to unlock more matches instantly.`}
+                    title={`You have ${credits} out of ${creditCap} credits available`}
+                    aria-label={`You have ${credits} out of ${creditCap} credits available`}
                   >
-                    💎 Credits: {credits}
+                    {credits}/{creditCap}
                   </span>
                   <RouterLink
                     to="/pricing"

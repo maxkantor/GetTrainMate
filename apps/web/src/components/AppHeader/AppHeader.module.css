@@ -234,9 +234,9 @@
 .headerCredits {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   font-size: 0.8125rem;
-  font-weight: 700;
+  font-weight: 800;
   color: rgba(255, 255, 255, 0.95);
   font-variant-numeric: tabular-nums;
   padding: 5px 11px;
@@ -245,17 +245,17 @@
   border: 1px solid rgba(217, 119, 6, 0.4);
 }
 
-.headerCreditsGem {
-  font-size: 0.85rem;
-  line-height: 1;
-}
-
-.headerCreditsLabel {
-  opacity: 0.9;
-}
-
 .headerCreditsVal {
   color: #fef3c7;
+}
+
+.headerCreditsSep {
+  opacity: 0.55;
+  font-weight: 700;
+}
+
+.headerCreditsMax {
+  color: rgba(254, 243, 199, 0.8);
   font-weight: 800;
 }
 
