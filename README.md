@@ -209,6 +209,8 @@ Workflows:
 - [Architecture](docs/ARCHITECTURE.md)
 - [Setup Guide](docs/SETUP.md)
 - [API Docs](docs/API.md)
+- [Admin portal](docs/ADMIN_PORTAL_IMPLEMENTATION.md)
+- [Quick start](QUICK_START.md) · [User guide](USER_GUIDE.md)
 
 ## License
 
