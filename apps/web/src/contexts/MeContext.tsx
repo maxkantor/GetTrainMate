@@ -3,7 +3,7 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { authService } from '@/services/authService';
 import { meService, type MeResponse } from '@/services/meService';
 import { isGraphQLEnabled, graphqlGetMe, graphqlEnsureFreeStartCredits, GraphQLApiError } from '@/services/graphqlService';
-import { handleApiError, getErrorMessage } from '@/utils/apiErrorHandler';
+import { getErrorMessage } from '@/utils/apiErrorHandler';
 
 interface MeContextType {
   me: MeResponse | null;
