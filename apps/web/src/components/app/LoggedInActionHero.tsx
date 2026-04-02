@@ -55,7 +55,10 @@ export const LoggedInActionHero: React.FC = () => {
         <p className={styles.kicker}>You’re in</p>
         <h1 className={styles.title}>Today's Matches</h1>
         {hasCredits ? (
-          <p className={styles.usage}>Unlimited discovery — your balance is active ({credits} credits)</p>
+          <p className={styles.usage}>
+            {credits} credits — 1 credit per send-interest
+            {me?.unlimitedDiscovery ? ' · unlimited discovery (browse)' : ''}
+          </p>
         ) : (
           <>
             <p className={styles.usage}>
@@ -74,8 +77,8 @@ export const LoggedInActionHero: React.FC = () => {
         )}
         <p className={styles.sub}>
           {hasCredits
-            ? 'Credits remove the daily match cap so you can keep connecting without limits.'
-            : `You get ${DAILY_LIKE_LIMIT} free matches per day (UTC). Add credits for unlimited discovery.`}
+            ? 'Browse Discover for free; each send-interest uses 1 credit while your balance is above zero.'
+            : `At 0 balance you get ${DAILY_LIKE_LIMIT} free send-interests per day (UTC). Add credits to send more.`}
           <br />
           {!hasCredits ? <>Daily free matches reset in {resetCountdownLabel}.</> : null}
         </p>

@@ -14,6 +14,8 @@ export interface MeResponse {
   credits: number;
   /** Total credits ever earned (for X/Y display: current / total). */
   lifetimeEarned?: number;
+  /** Browse/deck entitlement; does not waive per-interest credit when balance &gt; 0. */
+  unlimitedDiscovery?: boolean;
   isProfileComplete: boolean;
   isAdmin: boolean;
 }

@@ -109,6 +109,20 @@ public class ChatController : ControllerBase
 
             return Ok(message);
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("CHAT_LOCKED", StringComparison.Ordinal))
+        {
+            return StatusCode(403, new
+            {
+                code = "CHAT_LOCKED",
+                message = ex.Message.StartsWith("CHAT_LOCKED: ", StringComparison.Ordinal)
+                    ? ex.Message["CHAT_LOCKED: ".Length..].TrimStart()
+                    : ex.Message
+            });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending message");
@@ -159,7 +173,7 @@ public class ChatController : ControllerBase
         }
     }
 
-    /// <summary>Unlock chat for a match (costs 1 credit).</summary>
+    /// <summary>Unlock chat for a match (1 credit per user when not yet a mutual match; mutual matches unlock free).</summary>
     [HttpPost("unlock")]
     public async Task<ActionResult<object>> UnlockChat([FromBody] UnlockChatRequest request)
     {

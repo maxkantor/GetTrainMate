@@ -95,12 +95,13 @@ export const EventsPage: React.FC = () => {
           <div className={styles.emptyIconWrap}>
             <EventIcon className={styles.emptyIcon} />
           </div>
-          <h2 className={styles.emptyTitle}>No events yet</h2>
+          <h2 className={styles.emptyTitle}>No events in your area yet</h2>
           <p className={styles.emptyDesc}>
-            Events will let you create and join training meetups. We&apos;re building it.
+            IRL meetups and RSVP will appear here when organizers publish them. Create/join flows and any credit
+            pricing will be announced before charges apply — nothing is billed from this screen today.
           </p>
-          <MuiButton variant="outlined" disabled>
-            Create event
+          <MuiButton variant="outlined" disabled title="Coming soon">
+            Create event (soon)
           </MuiButton>
         </div>
       </div>

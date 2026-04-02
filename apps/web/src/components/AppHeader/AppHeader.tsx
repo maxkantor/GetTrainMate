@@ -37,14 +37,28 @@ export const AppHeader: React.FC = () => {
   const blockedOnDiscover = outOfFreeSwipes && credits < 1;
   const pressureCredits = lowCredits || blockedOnDiscover;
 
-  const statusLine =
-    !matchStatus.loading && matchStatus.waitingForAction > 0
-      ? `${matchStatus.waitingForAction} match${matchStatus.waitingForAction === 1 ? '' : 'es'} waiting`
-      : blockedOnDiscover
-        ? 'No free matches or credits left today — add credits on Pricing.'
-        : credits > 0
-          ? `Unlimited discovery · ${credits} credits`
-          : `${Math.min(likesToday, DAILY_LIKE_LIMIT)}/${DAILY_LIKE_LIMIT} free matches today`;
+  /** Server: each send-interest costs 1 credit when balance &gt; 0; at 0 balance, up to 5 free UTC likes/day. Unlimited discovery = browse entitlement only. */
+  const statusLine = useMemo(() => {
+    if (!matchStatus.loading && matchStatus.waitingForAction > 0) {
+      return `${matchStatus.waitingForAction} match${matchStatus.waitingForAction === 1 ? '' : 'es'} waiting`;
+    }
+    if (blockedOnDiscover) {
+      return 'No free likes or credits left today — add credits or try after midnight UTC.';
+    }
+    const used = Math.min(likesToday, DAILY_LIKE_LIMIT);
+    const browse = me?.unlimitedDiscovery ? ' · Unlimited discovery (browse)' : '';
+    if (credits > 0) {
+      return `${credits} credits · 1 credit per send-interest · ${used}/${DAILY_LIKE_LIMIT} free likes/day at 0 balance${browse}`;
+    }
+    return `${used}/${DAILY_LIKE_LIMIT} free likes today (0 balance) · credits add more send-interests & unlocks${browse}`;
+  }, [
+    matchStatus.loading,
+    matchStatus.waitingForAction,
+    blockedOnDiscover,
+    likesToday,
+    credits,
+    me?.unlimitedDiscovery,
+  ]);
 
   const avatarLetter =
     me?.profile?.name?.trim()?.charAt(0)?.toUpperCase() ||
@@ -86,9 +100,6 @@ export const AppHeader: React.FC = () => {
     exact?: boolean;
     alsoActiveOnPaths?: string[];
   }[] = useMemo(() => {
-    const sentSkippedPaths: string[] = [];
-    if (me?.profile?.discoverCanReviewLikedProfiles !== false) sentSkippedPaths.push('/app/sent-requests');
-    if (me?.profile?.discoverCanReviewSkippedProfiles !== false) sentSkippedPaths.push('/app/skipped');
     const items: {
       label: string;
       href: string;
@@ -96,22 +107,8 @@ export const AppHeader: React.FC = () => {
       exact?: boolean;
       alsoActiveOnPaths?: string[];
     }[] = [
-      {
-        label: t('header.home'),
-        href: '/app',
-        exact: true,
-        alsoActiveOnPaths: ['/app/dashboard'],
-      },
-      {
-        label: t('nav.discover'),
-        href: '/app/discover',
-        exact: true,
-      },
-      {
-        label: t('nav.match'),
-        href: '/app/matches',
-        alsoActiveOnPaths: sentSkippedPaths.length ? sentSkippedPaths : undefined,
-      },
+      { label: t('nav.discover'), href: '/app/discover', exact: true },
+      { label: t('nav.match'), href: '/app/matches' },
     ];
     if (me?.profile?.discoverCanReviewLikedProfiles !== false) {
       items.push({ label: 'Sent', href: '/app/sent-requests' });
@@ -119,8 +116,12 @@ export const AppHeader: React.FC = () => {
     if (me?.profile?.discoverCanReviewSkippedProfiles !== false) {
       items.push({ label: 'Skipped', href: '/app/skipped' });
     }
-    items.push({ label: t('nav.chat'), href: '/app/chat' });
-    items.push({ label: t('nav.events'), href: '/app/events' });
+    items.push(
+      { label: t('nav.chat'), href: '/app/chat' },
+      { label: t('nav.events'), href: '/app/events' },
+      { label: t('nav.profile'), href: '/app/profile' },
+      { label: 'AI Coach', href: '/app/ai-coach' }
+    );
     return items;
   }, [me?.profile, t]);
 
@@ -226,7 +227,7 @@ export const AppHeader: React.FC = () => {
               <RouterLink
                 className={styles.logoCompact}
                 to="/app"
-                aria-label={`${t('common.appName')} — ${t('header.home')}`}
+                aria-label={`${t('common.appName')} — dashboard`}
               >
                 <span className={styles.logoIcon}>⚡</span>
                 <span className={styles.logoText}>{t('common.appName')}</span>

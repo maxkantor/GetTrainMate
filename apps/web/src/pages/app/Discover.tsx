@@ -35,7 +35,7 @@ import { DISCOVER_STRINGS } from './discover/constants';
 import { DiscoverProfileDrawer } from './discover/DiscoverProfileDrawer';
 import { incrementDailyLike, getDailyLikeCount, canSendLikeWithDailyCap } from '@/utils/dailySwipeTracker';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
-import { getCtaModeForCard, MODE_META } from '@/config/modes';
+import { getDiscoverPrimaryCta } from '@/config/modes';
 import { MatchCelebrationOverlay, MatchCelebrationState } from '@/components/discover/MatchCelebrationOverlay';
 import { Modal } from '@/components/ui/Modal';
 import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
@@ -124,6 +124,9 @@ export const DiscoverPage: React.FC = () => {
   const [aiInsightCost, setAiInsightCost] = useState(2);
   const [skipUndoOpen, setSkipUndoOpen] = useState(false);
   const [lastSkippedProfile, setLastSkippedProfile] = useState<MatchFeedItem | null>(null);
+
+  /** Demo seed must not appear for normal production users (isolates fake profiles from real flows). */
+  const allowDemoProfileSeed = import.meta.env.DEV || Boolean(me?.isAdmin);
 
   const matchOverlayOpenRef = useRef(false);
   const openDailyLimitModal = useCallback(() => {
@@ -606,6 +609,10 @@ export const DiscoverPage: React.FC = () => {
   }, []);
 
   const handleSeedDemo = async () => {
+    if (!allowDemoProfileSeed) {
+      setToast('Demo profiles are only available in development or for admins.');
+      return;
+    }
     try {
       setSeeding(true);
       setError('');
@@ -793,11 +800,13 @@ export const DiscoverPage: React.FC = () => {
                 {DISCOVER_STRINGS.retry}
               </Button>
             </Box>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center', mt: 2 }}>
-              <Button variant="text" size="small" onClick={handleSeedDemo} disabled={seeding}>
-                {seeding ? 'Loading…' : DISCOVER_STRINGS.loadDemo}
-              </Button>
-            </Box>
+            {allowDemoProfileSeed ? (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center', mt: 2 }}>
+                <Button variant="text" size="small" onClick={handleSeedDemo} disabled={seeding}>
+                  {seeding ? 'Loading…' : DISCOVER_STRINGS.loadDemo}
+                </Button>
+              </Box>
+            ) : null}
           </div>
         </div>
         <FiltersDrawer
@@ -830,9 +839,7 @@ export const DiscoverPage: React.FC = () => {
       : me?.profile?.mode
         ? [me.profile.mode]
         : undefined;
-  const ctaMode = getCtaModeForCard(viewerModeList, currentCard.modes);
-  const primaryCta = MODE_META[ctaMode].cta;
-  const primaryCtaIcon = MODE_META[ctaMode].icon;
+  const { label: primaryCta, icon: primaryCtaIcon } = getDiscoverPrimaryCta(viewerModeList, currentCard.modes);
 
   const matchReasons = (
     currentCard.matchPreviewReasons?.length

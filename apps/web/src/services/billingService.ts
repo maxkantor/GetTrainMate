@@ -37,6 +37,7 @@ export interface CreditPackDto {
 export interface CreditsBalanceDto {
   balance: number;
   lifetimeEarned: number;
+  unlimitedDiscovery?: boolean;
 }
 
 export const billingService = {

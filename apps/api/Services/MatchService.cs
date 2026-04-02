@@ -262,6 +262,10 @@ public class MatchService : IMatchService
         }
     }
 
+    /// <summary>
+    /// Records a one-sided like on the match row. <see cref="Match.IsMatched"/> is true only when both
+    /// <see cref="Match.User1Liked"/> and <see cref="Match.User2Liked"/> are true (mutual interest).
+    /// </summary>
     public async Task<MatchResponse> LikeUserAsync(string userId, string targetUserId)
     {
         await _creditsService.ChargeLikeForDiscoverAsync(userId, targetUserId);
@@ -688,27 +692,28 @@ public class MatchService : IMatchService
         return map;
     }
 
+    /// <summary>
+    /// Mutual matches only: both sides liked (<see cref="Match.IsMatched"/>).
+    /// Scans the full table then filters in memory so we never depend on incorrect ScanFilter attribute casing
+    /// (Dynamo stores <c>isMatched</c>, not <c>IsMatched</c> — a bad filter previously returned zero rows).
+    /// </summary>
     public async Task<List<Match>> GetUserMatchesAsync(string userId)
     {
         try
         {
             var table = Table.LoadTable(_dynamoDb, _matchesTable);
-            var scanFilter = new ScanFilter();
-            scanFilter.AddCondition("IsMatched", ScanOperator.Equal, true);
-            
-            var search = table.Scan(scanFilter);
+            var search = table.Scan(new ScanFilter());
             var matches = new List<Match>();
-            
+
             do
             {
                 var batch = await search.GetNextSetAsync();
                 foreach (var doc in batch)
                 {
                     var match = DocumentToMatch(doc);
+                    if (!match.IsMatched) continue;
                     if (match.UserId1 == userId || match.UserId2 == userId)
-                    {
                         matches.Add(match);
-                    }
                 }
             } while (!search.IsDone);
 

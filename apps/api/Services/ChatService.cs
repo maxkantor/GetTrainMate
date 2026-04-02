@@ -110,13 +110,13 @@ public class ChatService : IChatService
         var thread = await GetThreadByMatchIdAsync(matchId);
         if (thread == null)
         {
-            var match = await _matchService.GetMatchByIdAsync(matchId);
-            if (match == null)
+            var seedMatch = await _matchService.GetMatchByIdAsync(matchId);
+            if (seedMatch == null)
             {
                 _logger.LogWarning("Match {MatchId} not found for unlock", matchId);
                 return false;
             }
-            thread = await GetOrCreateThreadForMatchAsync(matchId, match.UserId1, match.UserId2);
+            thread = await GetOrCreateThreadForMatchAsync(matchId, seedMatch.UserId1, seedMatch.UserId2);
         }
 
         var userId1 = thread.ParticipantIds.ElementAtOrDefault(0);
@@ -135,13 +135,30 @@ public class ChatService : IChatService
             return false;
         }
 
+        var match = await _matchService.GetMatchByIdAsync(thread.MatchId ?? matchId);
+        if (match != null && match.IsMatched)
+        {
+            // Mutual match: chat is included — no credit unlock per side.
+            thread.UnlockedByUserA = true;
+            thread.UnlockedByUserB = true;
+            var tMutual = Table.LoadTable(_dynamoDb, _threadsTable);
+            await tMutual.PutItemAsync(ThreadToDocument(thread));
+            _logger.LogInformation("Mutual match {MatchId}: chat unlocked for both users (no charge)", matchId);
+            return true;
+        }
+
         if (isUserA && thread.UnlockedByUserA || isUserB && thread.UnlockedByUserB)
         {
             _logger.LogInformation("User {UserId} already unlocked thread {MatchId}", userId, matchId);
             return true;
         }
 
-        await _creditsService.SpendCreditsAsync(userId, 1, CreditLedgerReason.ChatUnlock, matchId);
+        await _creditsService.SpendCreditsAsync(
+            userId,
+            CreditRules.ChatUnlock,
+            CreditLedgerReason.ChatUnlock,
+            $"unlock:{userId}:{matchId}",
+            idempotent: true);
 
         if (isUserA)
             thread.UnlockedByUserA = true;
@@ -164,7 +181,9 @@ public class ChatService : IChatService
         var isUserA = userId == userId1;
         var isUserB = userId == userId2;
         if (!isUserA && !isUserB) return null;
-        var unlockedByCurrentUser = isUserA ? thread.UnlockedByUserA : thread.UnlockedByUserB;
+        var match = await _matchService.GetMatchByIdAsync(matchId);
+        var mutual = match != null && match.IsMatched;
+        var unlockedByCurrentUser = mutual || (isUserA ? thread.UnlockedByUserA : thread.UnlockedByUserB);
         return new ThreadByMatchResponse
         {
             ThreadId = thread.ThreadId,
@@ -266,6 +285,8 @@ public class ChatService : IChatService
     {
         try
         {
+            await EnsureUserMayPostInThreadAsync(threadId, senderId);
+
             var message = new ChatMessage
             {
                 MessageId = Guid.NewGuid().ToString(),
@@ -445,6 +466,32 @@ public class ChatService : IChatService
         if (doc.ContainsKey("unlockedByUserB"))
             thread.UnlockedByUserB = doc["unlockedByUserB"].AsBoolean();
         return thread;
+    }
+
+    /// <summary>
+    /// Mutual matches may message without a per-user credit unlock; otherwise the sender must have unlocked this thread.
+    /// </summary>
+    private async Task EnsureUserMayPostInThreadAsync(string threadId, string userId)
+    {
+        var thread = await GetThreadAsync(threadId);
+        if (thread == null)
+            throw new InvalidOperationException("CHAT_LOCKED: Thread not found.");
+
+        if (!thread.ParticipantIds.Contains(userId))
+            throw new UnauthorizedAccessException();
+
+        var matchId = !string.IsNullOrEmpty(thread.MatchId) ? thread.MatchId : threadId;
+        var match = await _matchService.GetMatchByIdAsync(matchId);
+        if (match != null && match.IsMatched)
+            return;
+
+        var userId1 = thread.ParticipantIds.ElementAtOrDefault(0);
+        var userId2 = thread.ParticipantIds.ElementAtOrDefault(1);
+        var isUserA = userId == userId1;
+        var unlocked = isUserA ? thread.UnlockedByUserA : thread.UnlockedByUserB;
+        if (!unlocked)
+            throw new InvalidOperationException(
+                "CHAT_LOCKED: Unlock this chat from your match (or wait until it's a mutual match).");
     }
 
     private static ChatNotificationHints BuildChatNotificationHints(

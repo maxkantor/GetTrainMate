@@ -16,6 +16,7 @@ import { authService } from '@/services/authService';
 import { isGraphQLEnabled, graphqlListMyMatches, graphqlUnlockChat } from '@/services/graphqlService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 import { useNavigate, Link } from 'react-router-dom';
+import { formatLookingForLine } from '@/config/modes';
 import { UpgradeBanner } from '@/components/discover/UpgradeBanner';
 import { ProfileCardSkeleton } from '@/components/ui/Skeleton';
 import styles from './Matches.module.css';
@@ -29,6 +30,8 @@ interface Match {
   city?: string;
   level?: string;
   sportTags: string[];
+  /** Intent modes from profile (array-based). */
+  modes?: string[];
   matchedAt: string;
   compatibilityScore?: number;
   unlockedByMe?: boolean;
@@ -59,17 +62,44 @@ export const MatchesPage: React.FC = () => {
       setError('');
       if (isGraphQLEnabled) {
         const items = await graphqlListMyMatches();
-        const transformedMatches: Match[] = (items as { matchId: string; threadId: string; unlockedByMe: boolean; createdAt?: string; otherUserProfile?: { userId: string; displayName: string; city?: string; bio?: string; sports?: string[]; avatarUrl?: string } }[]).map((m) => ({
-          matchId: m.matchId,
-          userId: m.otherUserProfile?.userId ?? '',
-          name: m.otherUserProfile?.displayName ?? 'Unknown User',
-          photoUrls: m.otherUserProfile?.avatarUrl ? [m.otherUserProfile.avatarUrl] : [],
-          bio: m.otherUserProfile?.bio ?? '',
-          city: m.otherUserProfile?.city ?? '',
-          sportTags: m.otherUserProfile?.sports ?? [],
-          matchedAt: m.createdAt ?? new Date().toISOString(),
-          unlockedByMe: m.unlockedByMe,
-        }));
+        const transformedMatches: Match[] = (
+          items as {
+            matchId: string;
+            threadId: string;
+            unlockedByMe: boolean;
+            createdAt?: string;
+            otherUserProfile?: {
+              userId: string;
+              displayName: string;
+              city?: string;
+              bio?: string;
+              sports?: string[];
+              avatarUrl?: string;
+              modes?: string[];
+              mode?: string;
+            };
+          }[]
+        ).map((m) => {
+          const op = m.otherUserProfile;
+          const modes =
+            op?.modes && op.modes.length > 0
+              ? op.modes.map(String)
+              : op?.mode
+                ? [String(op.mode)]
+                : [];
+          return {
+            matchId: m.matchId,
+            userId: op?.userId ?? '',
+            name: op?.displayName ?? 'Unknown User',
+            photoUrls: op?.avatarUrl ? [op.avatarUrl] : [],
+            bio: op?.bio ?? '',
+            city: op?.city ?? '',
+            sportTags: op?.sports ?? [],
+            modes,
+            matchedAt: m.createdAt ?? new Date().toISOString(),
+            unlockedByMe: m.unlockedByMe,
+          };
+        });
         setMatches(transformedMatches);
       } else {
         const token = await authService.getJWT();
@@ -93,6 +123,12 @@ export const MatchesPage: React.FC = () => {
             }
             try {
               const profile = await profileService.getProfile(token, otherUserId);
+              const modes =
+                profile.modes && profile.modes.length > 0
+                  ? profile.modes.map(String)
+                  : profile.mode
+                    ? [String(profile.mode)]
+                    : [];
               return {
                 matchId: match.matchId,
                 userId: otherUserId,
@@ -102,6 +138,7 @@ export const MatchesPage: React.FC = () => {
                 city: profile.city || '',
                 level: profile.level || '',
                 sportTags: profile.sportTags || [],
+                modes,
                 matchedAt: match.createdAt || new Date().toISOString(),
                 compatibilityScore: match.compatibilityScore || 0,
                 unlockedByMe,
@@ -117,6 +154,7 @@ export const MatchesPage: React.FC = () => {
                 city: '',
                 level: '',
                 sportTags: [],
+                modes: [],
                 matchedAt: match.createdAt || new Date().toISOString(),
                 compatibilityScore: match.compatibilityScore || 0,
                 unlockedByMe,
@@ -286,8 +324,11 @@ export const MatchesPage: React.FC = () => {
               </h2>
               <p className={styles.cardMeta}>
                 {match.city && `${match.city} · `}
-                {match.compatibilityScore ? `${match.compatibilityScore}% Match` : 'Matched'}
+                {match.compatibilityScore ? `${match.compatibilityScore}% match` : 'Mutual match'}
               </p>
+              {match.modes && match.modes.length > 0 ? (
+                <p className={styles.cardModes}>{formatLookingForLine(match.modes)}</p>
+              ) : null}
               {match.bio && (
                 <p className={styles.cardBio}>
                   {match.bio.length > 100 ? `${match.bio.substring(0, 100)}...` : match.bio}

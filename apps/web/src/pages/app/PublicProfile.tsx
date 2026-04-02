@@ -32,6 +32,7 @@ import { getLandingProfile, isLandingProfileUserId } from '@/data/landingProfile
 import { DISCOVER_STRINGS } from '@/pages/app/discover/constants';
 import { incrementDailyLike, canSendLikeWithDailyCap } from '@/utils/dailySwipeTracker';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
+import { formatLookingForLine, getDiscoverPrimaryCta } from '@/config/modes';
 
 interface PublicProfilePageProps {
   userIdFromRoute?: string;
@@ -60,6 +61,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
     sportTags?: string[];
     level?: string;
     mode?: string;
+    modes?: string[];
     photoUrls?: string[];
     goals?: string[];
     availabilitySchedule?: { days?: string[]; timeStart?: string; timeEnd?: string }[];
@@ -222,6 +224,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
           sportTags: dummy.sportTags,
           level: dummy.level,
           mode: dummy.mode,
+          modes: dummy.modes,
           photoUrls: dummy.photoUrls,
         });
       }
@@ -372,6 +375,20 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
   const canNavigatePhotos = photoUrls.length > 1;
   const isDemoProfile = isDummyNearbyProfile(profile.userId) || isLandingProfileUserId(profile.userId);
 
+  const viewerModeList =
+    me?.profile?.modes && me.profile.modes.length > 0
+      ? me.profile.modes.map(String)
+      : me?.profile?.mode
+        ? [me.profile.mode]
+        : undefined;
+  const cardModesForCta =
+    profile.modes && profile.modes.length > 0
+      ? profile.modes.map(String)
+      : profile.mode
+        ? [profile.mode]
+        : undefined;
+  const primaryInterestLabel = getDiscoverPrimaryCta(viewerModeList, cardModesForCta).label;
+
   return (
     <Container maxWidth="sm" sx={{ py: 4, pb: 10 }}>
       <Card sx={{ boxShadow: 3 }}>
@@ -479,9 +496,13 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
               ))}
             </Stack>
           )}
-          {profile.mode && (
-            <Chip label={`Mode: ${profile.mode}`} color="secondary" size="small" sx={{ mt: 1 }} />
-          )}
+          {(profile.modes && profile.modes.length > 0) || profile.mode ? (
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+              {profile.modes && profile.modes.length > 0
+                ? formatLookingForLine(profile.modes)
+                : `Looking for: ${profile.mode}`}
+            </Typography>
+          ) : null}
           {profile.goals && profile.goals.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
@@ -562,7 +583,11 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
               onClick={handleWantToTrain}
               disabled={liking || isDemoProfile}
             >
-              {isDemoProfile ? 'Preview' : liking ? <CircularProgress size={22} color="inherit" /> : DISCOVER_STRINGS.wantToTrain}
+              {isDemoProfile
+                ? 'Preview'
+                : liking
+                  ? <CircularProgress size={22} color="inherit" />
+                  : primaryInterestLabel}
             </Button>
           </Stack>
         </Stack>

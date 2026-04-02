@@ -74,7 +74,12 @@ export const SentRequestsPage: React.FC = () => {
           {items.map((row) => {
             const photo =
               getMultiplePhotoUrls(row.photoUrls, row.userId, 1, row.name)[0] || NO_PHOTO_PLACEHOLDER;
-            const statusColor = row.status === 'Matched' ? 'success' : 'primary';
+            const statusColor =
+              row.status === 'Matched'
+                ? 'success'
+                : row.status === 'Pending'
+                  ? 'primary'
+                  : 'warning';
             return (
               <li key={row.matchId} className={styles.row}>
                 <img src={photo} alt="" className={styles.avatar} />
@@ -88,6 +93,14 @@ export const SentRequestsPage: React.FC = () => {
                     </Typography>
                   ) : null}
                   <Chip size="small" label={row.status} color={statusColor} sx={{ mt: 0.5 }} variant="outlined" />
+                  {row.status === 'Matched' ? (
+                    <Link
+                      to={`/app/chat?thread=${encodeURIComponent(row.matchId)}`}
+                      className={styles.inlineLink}
+                    >
+                      Open chat
+                    </Link>
+                  ) : null}
                 </div>
               </li>
             );

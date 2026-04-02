@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
@@ -31,6 +33,38 @@ public class CreditsService : ICreditsService
     {
         _dynamoDb = dynamoDb;
         _logger = logger;
+    }
+
+    /// <summary>Preserves entitlement and daily-free-like counters when rewriting the user-credits item (full PutItem).</summary>
+    private static void CopyPreservedUserCreditFields(Document? src, Document dest)
+    {
+        if (src == null) return;
+        foreach (var key in new[] { "UnlimitedDiscovery", "DailyFreeLikesUtcDate", "DailyFreeLikesUsed" })
+        {
+            if (src.Contains(key))
+                dest[key] = src[key]!;
+        }
+    }
+
+    private static Document BuildUserCreditsPutDocument(string userId, int balance, int lifetimeEarned, Document? previous)
+    {
+        var d = new Document
+        {
+            ["UserId"] = userId,
+            ["Balance"] = balance,
+            ["LifetimeEarned"] = lifetimeEarned,
+            ["UpdatedAt"] = DateTime.UtcNow.ToString("O"),
+        };
+        CopyPreservedUserCreditFields(previous, d);
+        return d;
+    }
+
+    /// <summary>Deterministic id so duplicate spend requests with the same refId do not double-charge (best-effort; see race note in SpendCreditsAsync).</summary>
+    private static string DeterministicSpendTransactionId(string userId, string reason, string refId)
+    {
+        var raw = $"{userId}\n{reason}\n{refId}";
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(raw));
+        return "sp_" + Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     public async Task<(List<CreditPackDto> packs, string source)> GetActiveCreditPacksWithSourceAsync()
@@ -256,13 +290,7 @@ public class CreditsService : ICreditsService
             balance += credits;
             lifetimeEarned += credits;
 
-            await userTable.PutItemAsync(new Document
-            {
-                ["UserId"] = userId,
-                ["Balance"] = balance,
-                ["LifetimeEarned"] = lifetimeEarned,
-                ["UpdatedAt"] = DateTime.UtcNow.ToString("O"),
-            });
+            await userTable.PutItemAsync(BuildUserCreditsPutDocument(userId, balance, lifetimeEarned, userDoc));
 
             var txId = Guid.NewGuid().ToString("N");
             var txDoc = new Document
@@ -365,13 +393,7 @@ public class CreditsService : ICreditsService
             balance += credits;
             lifetimeEarned += credits;
 
-            await userTable.PutItemAsync(new Document
-            {
-                ["UserId"] = userId,
-                ["Balance"] = balance,
-                ["LifetimeEarned"] = lifetimeEarned,
-                ["UpdatedAt"] = DateTime.UtcNow.ToString("O"),
-            });
+            await userTable.PutItemAsync(BuildUserCreditsPutDocument(userId, balance, lifetimeEarned, userDoc));
 
             var txId = Guid.NewGuid().ToString("N");
             var txDoc = new Document
@@ -411,12 +433,13 @@ public class CreditsService : ICreditsService
                 {
                     Balance = doc.Contains("Balance") ? doc["Balance"].AsInt() : 0,
                     LifetimeEarned = doc.Contains("LifetimeEarned") ? doc["LifetimeEarned"].AsInt() : 0,
+                    UnlimitedDiscovery = doc.Contains("UnlimitedDiscovery") && doc["UnlimitedDiscovery"].AsBoolean(),
                 };
         }
         catch (ResourceNotFoundException) { }
         catch (Exception ex) { _logger.LogWarning(ex, "GetCreditsBalance {UserId}", userId); }
 
-        return new CreditsBalanceDto { Balance = 0, LifetimeEarned = 0 };
+        return new CreditsBalanceDto { Balance = 0, LifetimeEarned = 0, UnlimitedDiscovery = false };
     }
 
     public async Task<bool> GrantFreeSignupCreditsAsync(string userId)
@@ -448,13 +471,7 @@ public class CreditsService : ICreditsService
             balance += FreeSignupCredits;
             lifetimeEarned += FreeSignupCredits;
 
-            await userTable.PutItemAsync(new Document
-            {
-                ["UserId"] = userId,
-                ["Balance"] = balance,
-                ["LifetimeEarned"] = lifetimeEarned,
-                ["UpdatedAt"] = DateTime.UtcNow.ToString("O"),
-            });
+            await userTable.PutItemAsync(BuildUserCreditsPutDocument(userId, balance, lifetimeEarned, userDoc));
 
             var txId = Guid.NewGuid().ToString("N");
             await txTable.PutItemAsync(new Document
@@ -495,13 +512,7 @@ public class CreditsService : ICreditsService
         balance += amount;
         lifetimeEarned += amount;
 
-        await userTable.PutItemAsync(new Document
-        {
-            ["UserId"] = userId,
-            ["Balance"] = balance,
-            ["LifetimeEarned"] = lifetimeEarned,
-            ["UpdatedAt"] = DateTime.UtcNow.ToString("O"),
-        });
+        await userTable.PutItemAsync(BuildUserCreditsPutDocument(userId, balance, lifetimeEarned, userDoc));
 
         var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
         var txId = Guid.NewGuid().ToString("N");
@@ -518,10 +529,29 @@ public class CreditsService : ICreditsService
         _logger.LogInformation("Granted {Amount} credits to user {UserId}, reason={Reason}, newBalance={NewBalance}", amount, userId, reason, balance);
     }
 
-    public async Task SpendCreditsAsync(string userId, int amount, string reason, string? refId = null)
+    public async Task SpendCreditsAsync(string userId, int amount, string reason, string? refId = null, bool idempotent = false)
     {
         if (amount <= 0)
             throw new ArgumentException("Amount must be positive.", nameof(amount));
+
+        var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
+        string txId;
+        if (idempotent && !string.IsNullOrEmpty(refId))
+        {
+            txId = DeterministicSpendTransactionId(userId, reason, refId);
+            var prior = await txTable.GetItemAsync(txId);
+            if (prior != null
+                && prior.Contains("UserId")
+                && string.Equals(prior["UserId"].AsString(), userId, StringComparison.Ordinal)
+                && prior.Contains("Type")
+                && prior["Type"].AsString() == CreditTransactionType.Spend)
+            {
+                _logger.LogInformation("Spend idempotent skip: user {UserId} reason {Reason} ref {RefId}", userId, reason, refId);
+                return;
+            }
+        }
+        else
+            txId = Guid.NewGuid().ToString("N");
 
         var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
         var userDoc = await userTable.GetItemAsync(userId);
@@ -540,16 +570,8 @@ public class CreditsService : ICreditsService
         }
 
         var newBalance = balance - amount;
-        await userTable.PutItemAsync(new Document
-        {
-            ["UserId"] = userId,
-            ["Balance"] = newBalance,
-            ["LifetimeEarned"] = lifetimeEarned,
-            ["UpdatedAt"] = DateTime.UtcNow.ToString("O"),
-        });
+        await userTable.PutItemAsync(BuildUserCreditsPutDocument(userId, newBalance, lifetimeEarned, userDoc));
 
-        var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
-        var txId = Guid.NewGuid().ToString("N");
         var txDoc = new Document
         {
             ["Id"] = txId,
@@ -558,6 +580,8 @@ public class CreditsService : ICreditsService
             ["CreditsDelta"] = -amount,
             ["Reason"] = reason,
             ["CreatedAt"] = DateTime.UtcNow.ToString("O"),
+            ["BalanceBefore"] = balance,
+            ["BalanceAfter"] = newBalance,
         };
         if (!string.IsNullOrEmpty(refId))
             txDoc["RefId"] = refId;
@@ -568,10 +592,32 @@ public class CreditsService : ICreditsService
 
     public async Task ChargeLikeForDiscoverAsync(string userId, string targetUserId)
     {
-        var balanceDto = await GetCreditsBalanceAsync(userId);
-        if (balanceDto.Balance > 0)
+        if (string.IsNullOrEmpty(targetUserId))
+            throw new ArgumentException("Target user required.", nameof(targetUserId));
+
+        var likeRefId = $"like:{userId}:{targetUserId}";
+        var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
+        var dedupeId = DeterministicSpendTransactionId(userId, CreditLedgerReason.Like, likeRefId);
+        var existingLike = await txTable.GetItemAsync(dedupeId);
+        if (existingLike != null)
         {
-            _logger.LogDebug("Discover like: user {UserId} has credits ({Balance}); no per-like charge", userId, balanceDto.Balance);
+            _logger.LogInformation("Discover like idempotent skip: {UserId} -> {Target}", userId, targetUserId);
+            return;
+        }
+
+        var freeDailyId = $"freedailylike:{userId}:{targetUserId}:{DateTime.UtcNow:yyyy-MM-dd}";
+        var freeDedupe = DeterministicSpendTransactionId(userId, CreditLedgerReason.FreeDailyDiscoverLike, freeDailyId);
+        var existingFree = await txTable.GetItemAsync(freeDedupe);
+        if (existingFree != null)
+        {
+            _logger.LogInformation("Discover free-daily like idempotent skip: {UserId} -> {Target}", userId, targetUserId);
+            return;
+        }
+
+        var balanceDto = await GetCreditsBalanceAsync(userId);
+        if (balanceDto.Balance >= CreditRules.DiscoverSendLike)
+        {
+            await SpendCreditsAsync(userId, CreditRules.DiscoverSendLike, CreditLedgerReason.Like, likeRefId, idempotent: true);
             return;
         }
 
@@ -591,24 +637,44 @@ public class CreditsService : ICreditsService
         {
             _logger.LogWarning("Discover like: user {UserId} exhausted free daily likes ({Limit})", userId, DailyFreeDiscoverLikes);
             throw new InsufficientCreditsException(
-                $"You've used today's {DailyFreeDiscoverLikes} free matches. Add credits for unlimited discovery, or try again after midnight UTC.");
+                $"You've used today's {DailyFreeDiscoverLikes} free matches. Add credits to send more, or try again after midnight UTC.");
         }
 
         used++;
         var balance = userDoc.Contains("Balance") ? userDoc["Balance"].AsInt() : 0;
         var lifetimeEarned = userDoc.Contains("LifetimeEarned") ? userDoc["LifetimeEarned"].AsInt() : 0;
 
-        await userTable.PutItemAsync(new Document
+        var nextUser = BuildUserCreditsPutDocument(userId, balance, lifetimeEarned, userDoc);
+        nextUser["DailyFreeLikesUtcDate"] = dateStr!;
+        nextUser["DailyFreeLikesUsed"] = used;
+        await userTable.PutItemAsync(nextUser);
+
+        await txTable.PutItemAsync(new Document
         {
+            ["Id"] = freeDedupe,
             ["UserId"] = userId,
-            ["Balance"] = balance,
-            ["LifetimeEarned"] = lifetimeEarned,
-            ["DailyFreeLikesUtcDate"] = dateStr!,
-            ["DailyFreeLikesUsed"] = used,
-            ["UpdatedAt"] = DateTime.UtcNow.ToString("O"),
+            ["Type"] = CreditTransactionType.Spend,
+            ["CreditsDelta"] = 0,
+            ["Reason"] = CreditLedgerReason.FreeDailyDiscoverLike,
+            ["RefId"] = likeRefId,
+            ["CreatedAt"] = DateTime.UtcNow.ToString("O"),
+            ["BalanceBefore"] = balance,
+            ["BalanceAfter"] = balance,
         });
 
         _logger.LogInformation("Discover like: user {UserId} used free daily like {Used}/{Limit} (target {Target})", userId, used, DailyFreeDiscoverLikes, targetUserId);
+    }
+
+    public async Task SetUnlimitedDiscoveryAsync(string userId, bool enabled)
+    {
+        var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
+        var userDoc = await userTable.GetItemAsync(userId);
+        var balance = userDoc != null && userDoc.Contains("Balance") ? userDoc["Balance"].AsInt() : 0;
+        var lifetimeEarned = userDoc != null && userDoc.Contains("LifetimeEarned") ? userDoc["LifetimeEarned"].AsInt() : 0;
+        var next = BuildUserCreditsPutDocument(userId, balance, lifetimeEarned, userDoc);
+        next["UnlimitedDiscovery"] = enabled;
+        await userTable.PutItemAsync(next);
+        _logger.LogInformation("Set UnlimitedDiscovery={Enabled} for user {UserId}", enabled, userId);
     }
 
     public async Task RecordWebhookEventReceivedAsync(string eventId, string type)

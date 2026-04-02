@@ -42,3 +42,16 @@
 .nameLink:hover {
   text-decoration: underline;
 }
+
+.inlineLink {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary-500, #818cf8);
+  text-decoration: none;
+}
+
+.inlineLink:hover {
+  text-decoration: underline;
+}

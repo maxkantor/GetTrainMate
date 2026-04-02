@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Services;
 using System.Linq;
+using System.Text.Json.Serialization;
 
 namespace GetTrainMate.Api.Controllers;
 
@@ -68,6 +69,41 @@ public class AdminCreditsController : ControllerBase
             return StatusCode(500, new { error = ex.Message });
         }
     }
+
+    /// <summary>Admin: toggle unlimited discovery browsing (stored on user-credits row).</summary>
+    [HttpPut("users/{userId}/unlimited-discovery")]
+    public async Task<ActionResult<object>> SetUnlimitedDiscovery(string userId, [FromBody] SetUnlimitedDiscoveryRequest? body)
+    {
+        try
+        {
+            await ValidateAdminAsync();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+
+        if (string.IsNullOrWhiteSpace(userId))
+            return BadRequest(new { error = "userId required" });
+
+        try
+        {
+            await _creditsService.SetUnlimitedDiscoveryAsync(userId.Trim(), body?.Enabled ?? false);
+            var balance = await _creditsService.GetCreditsBalanceAsync(userId.Trim());
+            return Ok(new { unlimitedDiscovery = balance.UnlimitedDiscovery, balance = balance.Balance });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting unlimited discovery for {UserId}", userId);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+}
+
+public class SetUnlimitedDiscoveryRequest
+{
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
 }
 
 public class GrantCreditsRequest

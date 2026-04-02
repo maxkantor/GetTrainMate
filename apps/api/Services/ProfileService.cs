@@ -59,6 +59,7 @@ public class ProfileService : IProfileService
     {
         try
         {
+            EnsureModesArraySynced(profile);
             var table = Table.LoadTable(_dynamoDb, _tableName);
             var document = ProfileToDocument(profile);
 
@@ -156,6 +157,7 @@ public class ProfileService : IProfileService
 
             existingProfile.UpdatedAt = DateTime.UtcNow;
             existingProfile.IsComplete = IsProfileComplete(existingProfile);
+            EnsureModesArraySynced(existingProfile);
 
             var table = Table.LoadTable(_dynamoDb, _tableName);
             var document = ProfileToDocument(existingProfile);
@@ -168,6 +170,31 @@ public class ProfileService : IProfileService
             _logger.LogError(ex, "Error updating profile for user {UserId}", userId);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Keeps <see cref="UserProfile.Mode"/> (legacy) and <see cref="UserProfile.Modes"/> in sync.
+    /// Old Dynamo rows may only have <c>mode</c>; clients always receive a non-empty modes array.
+    /// </summary>
+    private static void EnsureModesArraySynced(UserProfile p)
+    {
+        if (p.Modes.Count > 0)
+        {
+            p.Modes = p.Modes.Select(ProfileModes.Normalize).Distinct().ToList();
+            p.Mode = p.Modes[0];
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(p.Mode))
+        {
+            var one = ProfileModes.Normalize(p.Mode);
+            p.Mode = one;
+            p.Modes = new List<string> { one };
+            return;
+        }
+
+        p.Mode = "TRAIN";
+        p.Modes = new List<string> { "TRAIN" };
     }
 
     public async Task<UserProfile?> PatchDiscoverLifecycleAsync(string userId, DiscoverLifecycleFlagsPatch patch)
@@ -185,6 +212,7 @@ public class ProfileService : IProfileService
         if (patch.CanRecycleSkippedProfiles.HasValue)
             existing.DiscoverCanRecycleSkippedProfiles = patch.CanRecycleSkippedProfiles.Value;
         existing.UpdatedAt = DateTime.UtcNow;
+        EnsureModesArraySynced(existing);
         var table = Table.LoadTable(_dynamoDb, _tableName);
         await table.PutItemAsync(ProfileToDocument(existing));
         return existing;
@@ -223,6 +251,7 @@ public class ProfileService : IProfileService
             }
 
             profile.UpdatedAt = DateTime.UtcNow;
+            EnsureModesArraySynced(profile);
             var table = Table.LoadTable(_dynamoDb, _tableName);
             var document = ProfileToDocument(profile);
             await table.PutItemAsync(document);
@@ -341,6 +370,9 @@ public class ProfileService : IProfileService
             DiscoverCanRewindLastSkip = !document.ContainsKey("discoverCanRewindLastSkip") || document["discoverCanRewindLastSkip"].AsBoolean(),
             DiscoverCanRecycleSkippedProfiles = document.ContainsKey("discoverCanRecycleSkippedProfiles") && document["discoverCanRecycleSkippedProfiles"].AsBoolean(),
         };
+
+        // Legacy single `mode` → always surface as `modes` array for API/clients (never silently drop multi-intent).
+        EnsureModesArraySynced(profile);
 
         // Handle AvailabilitySchedule - support both old (List<string>) and new (List<AvailabilitySlot>) formats
         if (document.ContainsKey("availabilitySchedule"))

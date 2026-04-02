@@ -54,6 +54,7 @@ public class MeController : ControllerBase
                 Profile = profile,
                 Credits = credits.Balance,
                 LifetimeEarned = credits.LifetimeEarned,
+                UnlimitedDiscovery = credits.UnlimitedDiscovery,
                 IsProfileComplete = profile?.IsComplete ?? false,
                 IsAdmin = isAdmin,
             });
@@ -156,6 +157,8 @@ public class MeResponse
     public int Credits { get; set; }
     /// <summary>Total credits ever earned (for X/Y display: current / total).</summary>
     public int LifetimeEarned { get; set; }
+    /// <summary>Browse/deck entitlement from user-credits; does not waive per-like costs when balance &gt; 0.</summary>
+    public bool UnlimitedDiscovery { get; set; }
     public bool IsProfileComplete { get; set; }
     public bool IsAdmin { get; set; }
 }
