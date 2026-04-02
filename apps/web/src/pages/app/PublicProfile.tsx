@@ -298,14 +298,15 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
       return;
     }
     if (!canSendLikeWithDailyCap(me?.credits ?? 0)) {
-      setToast(`You've used today's ${DAILY_LIKE_LIMIT} free swipes and have no credits left.`);
+      setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
       return;
     }
+    const creditBefore = me?.credits ?? 0;
     try {
       setLiking(true);
       if (isGraphQLEnabled) {
         const result = await graphqlLikeUser(userId);
-        incrementDailyLike();
+        if (creditBefore === 0) incrementDailyLike();
         await refreshMe();
         if (result.isMatched) {
           setMatched(true);
@@ -319,7 +320,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
           return;
         }
         const result = await matchService.likeUser(token, userId);
-        incrementDailyLike();
+        if (creditBefore === 0) incrementDailyLike();
         await refreshMe();
         if (result.isMatched) {
           setMatched(true);

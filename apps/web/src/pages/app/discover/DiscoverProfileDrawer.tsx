@@ -20,6 +20,7 @@ import { MatchFeedItem } from '@/services/matchService';
 import type { MatchInsightResponse } from '@/types/ai';
 import { MatchPanel } from './MatchPanel';
 import { DISCOVER_STRINGS } from './constants';
+import { formatLookingForLine } from '@/config/modes';
 import styles from './DiscoverProfileDrawer.module.css';
 
 function scheduleSummary(schedule: { days?: string[]; timeStart?: string; timeEnd?: string }[] | undefined): string {
@@ -42,6 +43,8 @@ interface DiscoverProfileDrawerProps {
   onWantToTrain: () => void;
   interestLoading: boolean;
   canAct: boolean;
+  primaryCtaLabel: string;
+  primaryCtaIcon?: string;
 }
 
 export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
@@ -59,6 +62,8 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
   onWantToTrain,
   interestLoading,
   canAct,
+  primaryCtaLabel,
+  primaryCtaIcon,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -204,8 +209,19 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
                 ))}
               </Stack>
             )}
-            {mode && (
-              <Chip label={`Mode: ${mode}`} size="small" color="secondary" sx={{ mb: 2 }} />
+            {(detail?.workoutStyle || detail?.personalityTag) && (
+              <Box sx={{ mb: 2 }}>
+                {detail?.workoutStyle && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    <strong>Workout style:</strong> {detail.workoutStyle}
+                  </Typography>
+                )}
+                {detail?.personalityTag && (
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>Personality:</strong> {detail.personalityTag}
+                  </Typography>
+                )}
+              </Box>
             )}
             {availability.length > 0 && (
               <Box sx={{ mb: 2 }}>
@@ -221,6 +237,7 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
             <MatchPanel
               score={compatibilityScore}
               reasons={matchReasons}
+              lockedInsightReasons={previewCard?.lockedInsightReasons}
               aiMatchInsight={previewCard?.aiMatchInsight}
               aiMatchInsightFull={aiMatchInsightFull}
               aiInsightCreditCost={aiInsightCreditCost}
@@ -255,11 +272,19 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
           fullWidth
           onClick={onWantToTrain}
           disabled={!canAct || interestLoading}
+          sx={{ py: 1.25, fontWeight: 800 }}
         >
           {interestLoading ? (
             <CircularProgress size={22} color="inherit" />
           ) : (
-            DISCOVER_STRINGS.wantToTrain
+            <>
+              {primaryCtaIcon ? (
+                <Box component="span" sx={{ mr: 1 }} aria-hidden>
+                  {primaryCtaIcon}
+                </Box>
+              ) : null}
+              {primaryCtaLabel}
+            </>
           )}
         </Button>
       </Box>

@@ -36,6 +36,7 @@ function mapGraphQLMeToResponse(g: Awaited<ReturnType<typeof graphqlGetMe>>): Me
         goals: ((g.profile as { goals?: string[] }).goals as string[]) ?? [],
         availabilitySchedule: ((g.profile as { schedule?: unknown[] }).schedule as { days: string[]; timeStart: string; timeEnd: string }[]) ?? [],
         mode: 'TRAIN' as const,
+        modes: (((g.profile as { modes?: string[] }).modes ?? ['TRAIN']) as ('TRAIN' | 'VIBE' | 'DATE')[]),
         photoUrls: (g.profile as { avatarUrl?: string }).avatarUrl ? [(g.profile as { avatarUrl: string }).avatarUrl] : [],
         isComplete: g.isProfileComplete,
         updatedAt: (g.profile as { updatedAt?: string }).updatedAt,

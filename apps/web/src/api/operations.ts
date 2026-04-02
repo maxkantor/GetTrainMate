@@ -8,7 +8,7 @@ export const GET_ME = /* GraphQL */ `
     getMe {
       user { id email isAdmin createdAt updatedAt }
       profile {
-        userId displayName age city bio sports goals schedule avatarUrl isComplete updatedAt
+        userId displayName age city bio sports goals schedule avatarUrl level modes workoutStyle personalityTag isComplete updatedAt
       }
       credits
       lifetimeEarned
@@ -20,7 +20,7 @@ export const GET_ME = /* GraphQL */ `
 export const GET_PROFILE = /* GraphQL */ `
   query GetProfile($userId: ID!) {
     getProfile(userId: $userId) {
-      userId displayName age city bio sports goals schedule avatarUrl isComplete updatedAt
+      userId displayName age city bio sports goals schedule avatarUrl level modes workoutStyle personalityTag isComplete updatedAt
     }
   }
 `;
@@ -29,7 +29,8 @@ export const DISCOVER_CANDIDATES = /* GraphQL */ `
   query DiscoverCandidates($limit: Int, $nextToken: String) {
     discoverCandidates(limit: $limit, nextToken: $nextToken) {
       items {
-        userId displayName age city bio sports goals avatarUrl compatibilityScore
+        userId displayName age city bio sports goals avatarUrl level compatibilityScore
+        modes intentMatchTier matchPreviewReasons lockedInsightReasons
       }
       nextToken
     }

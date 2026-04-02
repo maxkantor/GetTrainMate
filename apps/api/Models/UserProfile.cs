@@ -15,7 +15,12 @@ public class UserProfile
     public string? Level { get; set; } // "beginner", "intermediate", "advanced", "pro" (required)
     public List<string> Goals { get; set; } = new(); // Training goals (optional)
     public List<AvailabilitySlot> AvailabilitySchedule { get; set; } = new(); // Required, at least 1 slot
+    /// <summary>Legacy single mode; kept in sync with first entry in <see cref="Modes"/> when saving.</summary>
     public string Mode { get; set; } = "TRAIN"; // "TRAIN", "VIBE", "DATE"
+    /// <summary>One or more intent modes (TRAIN, VIBE, DATE). When empty, <see cref="Mode"/> is used.</summary>
+    public List<string> Modes { get; set; } = new();
+    public string? WorkoutStyle { get; set; }
+    public string? PersonalityTag { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public string? PhotoKey { get; set; } // S3 key for primary / cover photo (optional; mirrors first PhotoKeys entry)
@@ -54,6 +59,9 @@ public class UpdateProfileRequest
     public List<string>? Goals { get; set; }
     public List<AvailabilitySlot>? AvailabilitySchedule { get; set; } // Required, at least 1 slot
     public string? Mode { get; set; }
+    public List<string>? Modes { get; set; }
+    public string? WorkoutStyle { get; set; }
+    public string? PersonalityTag { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public string? PhotoKey { get; set; } // S3 key for profile photo

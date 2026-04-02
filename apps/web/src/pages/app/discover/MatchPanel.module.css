@@ -88,6 +88,31 @@
   line-height: 1.55;
 }
 
+.lockedBlock {
+  margin-top: var(--space-3);
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.04), rgba(99, 102, 241, 0.06));
+  border: 1px dashed rgba(99, 102, 241, 0.35);
+}
+
+.lockedTitle {
+  margin: 0 0 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.lockedList {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
 .toggleBtn {
   font-size: var(--font-xs);
   font-weight: 600;

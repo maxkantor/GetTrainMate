@@ -28,6 +28,11 @@ public class MatchFeedItem
     public int CompatibilityScore { get; set; }
     public List<string> CommonSports { get; set; } = new();
     public string? Mode { get; set; }
+    public List<string> Modes { get; set; } = new();
+    /// <summary>exact | overlap | unknown</summary>
+    public string IntentMatchTier { get; set; } = "unknown";
+    public List<string> MatchPreviewReasons { get; set; } = new();
+    public List<string> LockedInsightReasons { get; set; } = new();
 }
 
 public class LikeRequest
@@ -77,4 +82,5 @@ public class CompatibilityInfo
     public string? Level { get; set; }
     public string? City { get; set; }
     public string? Mode { get; set; }
+    public List<string> Modes { get; set; } = new();
 }

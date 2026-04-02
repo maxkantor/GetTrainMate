@@ -112,7 +112,23 @@ public class ProfileService : IProfileService
                     })
                     .ToList();
             }
-            if (!string.IsNullOrWhiteSpace(request.Mode)) existingProfile.Mode = request.Mode.Trim();
+            if (request.Modes != null && request.Modes.Count > 0)
+            {
+                existingProfile.Modes = request.Modes
+                    .Select(m => ProfileModes.Normalize(m))
+                    .Distinct()
+                    .ToList();
+                if (existingProfile.Modes.Count == 0)
+                    existingProfile.Modes = new List<string> { "TRAIN" };
+                existingProfile.Mode = existingProfile.Modes[0];
+            }
+            else if (!string.IsNullOrWhiteSpace(request.Mode))
+            {
+                existingProfile.Mode = request.Mode.Trim();
+                existingProfile.Modes = new List<string> { ProfileModes.Normalize(existingProfile.Mode) };
+            }
+            if (request.WorkoutStyle != null) existingProfile.WorkoutStyle = string.IsNullOrWhiteSpace(request.WorkoutStyle) ? null : request.WorkoutStyle.Trim();
+            if (request.PersonalityTag != null) existingProfile.PersonalityTag = string.IsNullOrWhiteSpace(request.PersonalityTag) ? null : request.PersonalityTag.Trim();
             if (request.Latitude != null) existingProfile.Latitude = request.Latitude;
             if (request.Longitude != null) existingProfile.Longitude = request.Longitude;
             if (request.PhotoKeys != null)
@@ -211,6 +227,10 @@ public class ProfileService : IProfileService
             ["createdAt"] = profile.CreatedAt.ToString("O"),
             ["updatedAt"] = profile.UpdatedAt.ToString("O")
         };
+        if (profile.Modes.Count > 0)
+            doc["modes"] = new DynamoDBList(profile.Modes.Select(m => new Primitive(ProfileModes.Normalize(m))));
+        if (!string.IsNullOrEmpty(profile.WorkoutStyle)) doc["workoutStyle"] = profile.WorkoutStyle;
+        if (!string.IsNullOrEmpty(profile.PersonalityTag)) doc["personalityTag"] = profile.PersonalityTag;
 
         if (!string.IsNullOrEmpty(profile.City)) doc["city"] = profile.City;
         if (!string.IsNullOrEmpty(profile.State)) doc["state"] = profile.State;
@@ -269,6 +289,11 @@ public class ProfileService : IProfileService
                  document["goals"].AsString() is string goalsStr && !string.IsNullOrEmpty(goalsStr) ? new List<string> { goalsStr } :
                  new List<string>()) : new List<string>(),
             Mode = mode,
+            Modes = document.ContainsKey("modes") && document["modes"] is DynamoDBList modesList
+                ? modesList.AsListOfString().Select(ProfileModes.Normalize).Distinct().ToList()
+                : new List<string>(),
+            WorkoutStyle = document.ContainsKey("workoutStyle") ? document["workoutStyle"].AsString() : null,
+            PersonalityTag = document.ContainsKey("personalityTag") ? document["personalityTag"].AsString() : null,
             Latitude = document.ContainsKey("latitude") ? (double?)document["latitude"].AsDouble() : null,
             Longitude = document.ContainsKey("longitude") ? (double?)document["longitude"].AsDouble() : null,
             PhotoKey = document.ContainsKey("photoKey") ? document["photoKey"].AsString() : null,
@@ -329,6 +354,11 @@ public class ProfileService : IProfileService
 
         if (!profile.PhotoKeys.Any() && !string.IsNullOrEmpty(profile.PhotoKey))
             profile.PhotoKeys = new List<string> { profile.PhotoKey };
+
+        if (profile.Modes.Count == 0)
+            profile.Modes = new List<string> { ProfileModes.Normalize(profile.Mode) };
+        else
+            profile.Mode = profile.Modes[0];
 
         return profile;
     }

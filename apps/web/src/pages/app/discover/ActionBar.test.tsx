@@ -8,13 +8,14 @@ const defaultBar = {
   onInterest: vi.fn(),
   onViewProfile: vi.fn(),
   interestLoading: false,
+  primaryCtaLabel: 'Train Together',
 };
 
 describe('ActionBar', () => {
-  it('renders Skip, Want to Train, and View Profile actions', () => {
+  it('renders Skip, primary CTA, and View Profile actions', () => {
     render(<ActionBar {...defaultBar} />);
     expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /want to train/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /train together/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /view profile/i })).toBeInTheDocument();
   });
 
@@ -25,10 +26,10 @@ describe('ActionBar', () => {
     expect(onPass).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onInterest when Want to Train is clicked', () => {
+  it('calls onInterest when primary CTA is clicked', () => {
     const onInterest = vi.fn();
     render(<ActionBar {...defaultBar} onInterest={onInterest} />);
-    fireEvent.click(screen.getByRole('button', { name: /want to train/i }));
+    fireEvent.click(screen.getByRole('button', { name: /train together/i }));
     expect(onInterest).toHaveBeenCalledTimes(1);
   });
 

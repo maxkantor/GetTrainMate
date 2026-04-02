@@ -3,6 +3,8 @@ using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
 using GetTrainMate.Api.Models;
 using System.Globalization;
+using System.Linq;
+using System.Text.Json;
 
 namespace GetTrainMate.Api.Services;
 
@@ -80,6 +82,7 @@ public class MatchService : IMatchService
                     Goals = user.Goals.ToList(),
                     AvailabilitySchedule = user.AvailabilitySchedule.ToList(),
                     Mode = user.Mode,
+                    Modes = new List<string> { user.Mode },
                     PhotoUrls = !string.IsNullOrEmpty(user.PhotoUrl) ? new List<string> { user.PhotoUrl } : new List<string>(),
                     IsComplete = true,
                     CreatedAt = DateTime.UtcNow,
@@ -112,7 +115,8 @@ public class MatchService : IMatchService
             CommonSports = commonSports,
             Level = targetProfile.Level,
             City = targetProfile.City,
-            Mode = targetProfile.Mode
+            Mode = targetProfile.Mode,
+            Modes = ProfileModes.GetNormalizedModes(targetProfile)
         };
     }
 
@@ -177,9 +181,22 @@ public class MatchService : IMatchService
                     continue;
                 }
 
+                if (userProfile != null && !ProfileModes.HasIntentOverlap(userProfile, targetProfile))
+                    continue;
+
                 var compatibilityScore = userProfile != null
                     ? CalculateCompatibilityScore(userProfile, targetProfile)
                     : 50;
+
+                var distanceKm = userProfile != null
+                    ? CalculateDistance(userProfile.Latitude, userProfile.Longitude, targetProfile.Latitude, targetProfile.Longitude)
+                    : double.MaxValue;
+                var intentTier = userProfile != null && ProfileModes.IsExactIntentAlignment(userProfile, targetProfile)
+                    ? "exact"
+                    : "overlap";
+                var (previewReasons, lockedReasons) = userProfile != null
+                    ? BuildMatchInsightReasons(userProfile, targetProfile, distanceKm)
+                    : (new List<string>(), new List<string> { "🔒 Strength compatibility", "🔒 Training rhythm", "🔒 Personality fit" });
 
                 var photoUrls = targetProfile.PhotoUrls ?? new List<string>();
                 if (photoUrls.Count == 0)
@@ -212,13 +229,17 @@ public class MatchService : IMatchService
                     PhotoUrls = photoUrls,
                     CompatibilityScore = compatibilityScore,
                     CommonSports = userProfile != null ? GetCommonSports(userProfile.SportTags, targetProfile.SportTags) : new List<string>(),
-                    Mode = targetProfile.Mode
+                    Mode = targetProfile.Mode,
+                    Modes = ProfileModes.GetNormalizedModes(targetProfile),
+                    IntentMatchTier = intentTier,
+                    MatchPreviewReasons = previewReasons,
+                    LockedInsightReasons = lockedReasons
                 });
             }
 
-            // Sort by compatibility score descending
             return feedItems
-                .OrderByDescending(x => x.CompatibilityScore)
+                .OrderByDescending(x => x.IntentMatchTier == "exact" ? 1 : 0)
+                .ThenByDescending(x => x.CompatibilityScore)
                 .Take(limit)
                 .ToList();
         }
@@ -231,8 +252,7 @@ public class MatchService : IMatchService
 
     public async Task<MatchResponse> LikeUserAsync(string userId, string targetUserId)
     {
-        // Like costs 1 credit; fail fast if insufficient
-        await _creditsService.SpendCreditsAsync(userId, 1, CreditLedgerReason.Like, targetUserId);
+        await _creditsService.ChargeLikeForDiscoverAsync(userId, targetUserId);
 
         try
         {
@@ -761,11 +781,60 @@ public class MatchService : IMatchService
         else if (distance < 15) score += DistanceWeight - 5;
         else if (distance < 30) score += DistanceWeight - 10;
 
-        // Mode match (10 points max)
-        if (user1.Mode == user2.Mode)
-            score += ModeMatchWeight;
+        score += GetIntentModePoints(user1, user2);
 
         return Math.Min(score, 100);
+    }
+
+    private int GetIntentModePoints(UserProfile user1, UserProfile user2)
+    {
+        if (!ProfileModes.HasIntentOverlap(user1, user2))
+            return 0;
+        if (ProfileModes.IsExactIntentAlignment(user1, user2))
+            return ModeMatchWeight;
+        return Math.Max(0, ModeMatchWeight - 4);
+    }
+
+    private (List<string> Preview, List<string> Locked) BuildMatchInsightReasons(
+        UserProfile viewer, UserProfile target, double distanceKm)
+    {
+        var preview = new List<string>();
+        if (ProfileModes.HasIntentOverlap(viewer, target))
+        {
+            if (ProfileModes.IsExactIntentAlignment(viewer, target))
+                preview.Add("✔ Same intent");
+            else
+                preview.Add("✔ Shared intent");
+        }
+
+        if (!string.IsNullOrEmpty(viewer.Level) && !string.IsNullOrEmpty(target.Level))
+        {
+            if (string.Equals(viewer.Level, target.Level, StringComparison.OrdinalIgnoreCase))
+                preview.Add("✔ Same intensity");
+            else if (LevelsCompatible(viewer.Level, target.Level))
+                preview.Add("✔ Similar level");
+        }
+
+        if (distanceKm < 400)
+        {
+            if (distanceKm < 15)
+                preview.Add("✔ Close by");
+            else
+                preview.Add("✔ Location match");
+        }
+
+        var commonGoals = viewer.Goals.Intersect(target.Goals, StringComparer.OrdinalIgnoreCase).ToList();
+        if (commonGoals.Count > 0)
+            preview.Add("✔ Similar goals");
+
+        var locked = new List<string>
+        {
+            "🔒 Strength compatibility",
+            "🔒 Training rhythm",
+            "🔒 Personality fit"
+        };
+
+        return (preview.Take(3).ToList(), locked);
     }
 
     private List<string> GetCommonSports(List<string> sports1, List<string> sports2)
@@ -823,7 +892,7 @@ public class MatchService : IMatchService
         }
     }
 
-    private bool LevelsCompatible(string? level1, string? level2)
+    private static bool LevelsCompatible(string? level1, string? level2)
     {
         if (string.IsNullOrEmpty(level1) || string.IsNullOrEmpty(level2))
             return true;
@@ -917,7 +986,11 @@ public class MatchService : IMatchService
         if (photoKeys.Count == 0 && !string.IsNullOrEmpty(photoKey))
             photoKeys = new List<string> { photoKey };
 
-        return new UserProfile
+        var modes = document.ContainsKey("modes") && document["modes"] is DynamoDBList modesList
+            ? modesList.AsListOfString().Select(ProfileModes.Normalize).Distinct().ToList()
+            : new List<string>();
+
+        var profile = new UserProfile
         {
             UserId = userId,
             Email = email,
@@ -934,6 +1007,9 @@ public class MatchService : IMatchService
                  new List<string>()) : new List<string>(),
             AvailabilitySchedule = new List<AvailabilitySlot>(),
             Mode = mode,
+            Modes = modes,
+            WorkoutStyle = document.ContainsKey("workoutStyle") ? document["workoutStyle"].AsString() : null,
+            PersonalityTag = document.ContainsKey("personalityTag") ? document["personalityTag"].AsString() : null,
             Latitude = document.ContainsKey("latitude") ? (double?)document["latitude"].AsDouble() : null,
             Longitude = document.ContainsKey("longitude") ? (double?)document["longitude"].AsDouble() : null,
             PhotoUrls = document.ContainsKey("photoUrls") ? document["photoUrls"].AsListOfString() : new List<string>(),
@@ -941,5 +1017,30 @@ public class MatchService : IMatchService
             CreatedAt = createdAt,
             UpdatedAt = updatedAt
         };
+
+        if (document.ContainsKey("availabilitySchedule"))
+        {
+            try
+            {
+                var availabilityEntry = document["availabilitySchedule"];
+                if (availabilityEntry is Primitive primitive && primitive.Type == DynamoDBEntryType.String)
+                {
+                    var availabilityStr = primitive.AsString();
+                    if (!string.IsNullOrEmpty(availabilityStr) && availabilityStr.StartsWith("["))
+                        profile.AvailabilitySchedule = JsonSerializer.Deserialize<List<AvailabilitySlot>>(availabilityStr) ?? new List<AvailabilitySlot>();
+                }
+            }
+            catch
+            {
+                profile.AvailabilitySchedule = new List<AvailabilitySlot>();
+            }
+        }
+
+        if (profile.Modes.Count == 0)
+            profile.Modes = new List<string> { ProfileModes.Normalize(profile.Mode) };
+        else
+            profile.Mode = profile.Modes[0];
+
+        return profile;
     }
 }

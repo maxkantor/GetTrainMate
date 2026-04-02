@@ -1,7 +1,4 @@
 import React from 'react';
-import CloseIcon from '@mui/icons-material/Close';
-import FavoriteBorderOutlinedIcon from '@mui/icons-material/FavoriteBorderOutlined';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { CircularProgress } from '@mui/material';
 import { DISCOVER_STRINGS } from './constants';
 import styles from './ActionBar.module.css';
@@ -13,6 +10,9 @@ interface ActionBarProps {
   onRewind?: () => void;
   interestLoading: boolean;
   canRewind?: boolean;
+  /** Mode-driven primary CTA, e.g. Train Together / Hang Out / Go on a Date */
+  primaryCtaLabel: string;
+  primaryCtaIcon?: string;
 }
 
 export const ActionBar: React.FC<ActionBarProps> = ({
@@ -22,6 +22,8 @@ export const ActionBar: React.FC<ActionBarProps> = ({
   onRewind,
   interestLoading,
   canRewind = false,
+  primaryCtaLabel,
+  primaryCtaIcon,
 }) => {
   return (
     <div className={styles.wrapper}>
@@ -33,7 +35,9 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           disabled={interestLoading}
           aria-label={`${DISCOVER_STRINGS.skip} this profile`}
         >
-          <CloseIcon className={styles.icon} aria-hidden />
+          <span className={styles.emoji} aria-hidden>
+            ❌
+          </span>
           {DISCOVER_STRINGS.skip}
         </button>
         <button
@@ -43,7 +47,9 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           disabled={interestLoading}
           aria-label={DISCOVER_STRINGS.viewProfile}
         >
-          <InfoOutlinedIcon className={styles.icon} aria-hidden />
+          <span className={styles.emoji} aria-hidden>
+            👁
+          </span>
           <span className={styles.viewLabel}>{DISCOVER_STRINGS.viewProfile}</span>
         </button>
         <button
@@ -51,14 +57,16 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           className={`${styles.btn} ${styles.btnPrimary}`}
           onClick={onInterest}
           disabled={interestLoading}
-          aria-label={DISCOVER_STRINGS.wantToTrain}
+          aria-label={primaryCtaLabel}
         >
           {interestLoading ? (
             <CircularProgress size={22} color="inherit" aria-hidden />
           ) : (
-            <FavoriteBorderOutlinedIcon className={styles.icon} aria-hidden />
+            <span className={styles.primaryEmoji} aria-hidden>
+              {primaryCtaIcon ?? '✨'}
+            </span>
           )}
-          <span className={styles.primaryLabel}>{DISCOVER_STRINGS.wantToTrain}</span>
+          <span className={styles.primaryLabel}>{primaryCtaLabel}</span>
         </button>
       </div>
       {canRewind && onRewind && (

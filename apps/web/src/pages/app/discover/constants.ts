@@ -1,6 +1,6 @@
-/** Discover screen strings — single decision model: Skip · View Profile · Want to Train */
+/** Discover screen strings — single decision model: Skip · View Profile · mode-based primary CTA */
 export const DISCOVER_STRINGS = {
-  /** Primary interest action (same label app-wide) */
+  /** Legacy default; prefer mode-driven label from @/config/modes */
   wantToTrain: 'Want to Train',
   skip: 'Skip',
   viewProfile: 'View Profile',

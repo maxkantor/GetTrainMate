@@ -35,6 +35,7 @@ import { DISCOVER_STRINGS } from './discover/constants';
 import { DiscoverProfileDrawer } from './discover/DiscoverProfileDrawer';
 import { incrementDailyLike, getDailyLikeCount, canSendLikeWithDailyCap } from '@/utils/dailySwipeTracker';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
+import { getPrimaryCtaLabel, normalizeMode, MODE_META } from '@/config/modes';
 import { MatchCelebrationOverlay, MatchCelebrationState } from '@/components/discover/MatchCelebrationOverlay';
 import { Modal } from '@/components/ui/Modal';
 import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
@@ -231,10 +232,15 @@ export const DiscoverPage: React.FC = () => {
           avatarUrl?: string;
           compatibilityScore?: number;
           level?: string;
+          modes?: string[];
+          intentMatchTier?: string;
+          matchPreviewReasons?: string[];
+          lockedInsightReasons?: string[];
         }[];
         const feedFromApi: MatchFeedItem[] = items.map((c) => {
           const url = toPhotoUrl(c.avatarUrl, c.userId, c.displayName);
           const photoUrls = getMultiplePhotoUrls([url], c.userId, 4, c.displayName);
+          const modes = c.modes?.length ? c.modes : ['TRAIN'];
           return {
             userId: c.userId,
             name: c.displayName,
@@ -245,7 +251,11 @@ export const DiscoverPage: React.FC = () => {
             photoUrls,
             compatibilityScore: c.compatibilityScore ?? 50,
             commonSports: c.sports ?? [],
-            mode: 'TRAIN',
+            mode: modes[0],
+            modes,
+            intentMatchTier: c.intentMatchTier,
+            matchPreviewReasons: c.matchPreviewReasons,
+            lockedInsightReasons: c.lockedInsightReasons,
           };
         });
         const location = locationRaw ?? FALLBACK_LOCATION;
@@ -303,20 +313,31 @@ export const DiscoverPage: React.FC = () => {
                 sports?: string[];
                 avatarUrl?: string;
                 compatibilityScore?: number;
+                level?: string;
+                modes?: string[];
+                intentMatchTier?: string;
+                matchPreviewReasons?: string[];
+                lockedInsightReasons?: string[];
               }[];
               const feedFromApi: MatchFeedItem[] = items.map((c) => {
                 const url = toPhotoUrl(c.avatarUrl, c.userId, c.displayName);
                 const photoUrls = getMultiplePhotoUrls([url], c.userId, 4, c.displayName);
+                const modes = c.modes?.length ? c.modes : ['TRAIN'];
                 return {
                   userId: c.userId,
                   name: c.displayName,
                   city: c.city,
                   bio: c.bio ?? undefined,
                   sportTags: c.sports ?? [],
+                  level: c.level,
                   photoUrls,
                   compatibilityScore: c.compatibilityScore ?? 50,
                   commonSports: c.sports ?? [],
-                  mode: 'TRAIN',
+                  mode: modes[0],
+                  modes,
+                  intentMatchTier: c.intentMatchTier,
+                  matchPreviewReasons: c.matchPreviewReasons,
+                  lockedInsightReasons: c.lockedInsightReasons,
                 };
               });
               const location = locationRaw ?? FALLBACK_LOCATION;
@@ -398,7 +419,7 @@ export const DiscoverPage: React.FC = () => {
 
     const creditBefore = me?.credits ?? 0;
     if (!canSendLikeWithDailyCap(creditBefore)) {
-      setToast(`You've used today's ${DAILY_LIKE_LIMIT} free swipes and have no credits left.`);
+      setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery, or try again after midnight UTC.`);
       openDailyLimitModal();
       return;
     }
@@ -423,7 +444,7 @@ export const DiscoverPage: React.FC = () => {
       setLikeLoading(true);
       if (isGraphQLEnabled) {
         const result = await graphqlLikeUser(currentCard.userId);
-        incrementDailyLike();
+        if (creditBefore === 0) incrementDailyLike();
         await refreshMe();
         if (result.isMatched) {
           setMatchCelebration({
@@ -433,8 +454,8 @@ export const DiscoverPage: React.FC = () => {
           });
           return;
         }
-        if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, creditBefore - 1))) {
-          setToast(`You've used today's ${DAILY_LIKE_LIMIT} free swipes and have no credits left.`);
+        if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0))) {
+          setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
           openDailyLimitModal();
         } else {
           finishInterestSent();
@@ -447,7 +468,7 @@ export const DiscoverPage: React.FC = () => {
         }
         try {
           const result = await matchService.likeUser(token, currentCard.userId);
-          incrementDailyLike();
+          if (creditBefore === 0) incrementDailyLike();
           await refreshMe();
           if (result.isMatched) {
             setMatchCelebration({
@@ -457,8 +478,8 @@ export const DiscoverPage: React.FC = () => {
             });
             return;
           }
-          if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, creditBefore - 1))) {
-            setToast(`You've used today's ${DAILY_LIKE_LIMIT} free swipes and have no credits left.`);
+          if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0))) {
+            setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
             openDailyLimitModal();
           } else {
             finishInterestSent();
@@ -470,7 +491,7 @@ export const DiscoverPage: React.FC = () => {
             if (token) {
               try {
                 const result = await matchService.likeUser(token, currentCard.userId);
-                incrementDailyLike();
+                if (creditBefore === 0) incrementDailyLike();
                 await refreshMe();
                 if (result.isMatched) {
                   setMatchCelebration({
@@ -480,8 +501,8 @@ export const DiscoverPage: React.FC = () => {
                   });
                   return;
                 }
-                if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, creditBefore - 1))) {
-                  setToast(`You've used today's ${DAILY_LIKE_LIMIT} free swipes and have no credits left.`);
+                if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0))) {
+                  setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
                   openDailyLimitModal();
                 } else {
                   finishInterestSent();
@@ -518,7 +539,7 @@ export const DiscoverPage: React.FC = () => {
     } finally {
       setLikeLoading(false);
     }
-  }, [advanceToNextCard, currentIndex, feed, me?.credits, openDailyLimitModal, refreshMe]);
+  }, [advanceToNextCard, currentIndex, feed, me?.credits, openDailyLimitModal, refreshMe, me]);
 
   const handlePass = async () => {
     if (currentIndex >= feed.length) return;
@@ -845,14 +866,27 @@ export const DiscoverPage: React.FC = () => {
   const displayPhotoUrl = photoFailed ? NO_PHOTO_PLACEHOLDER : fallbackUrl || primaryPhotoUrl;
   const isDummy = isDummyNearbyProfile(currentCard.userId);
 
-  const matchReasons = [
-    ...(currentCard.commonSports?.length
-      ? [`${currentCard.commonSports.length} common sports`]
-      : []),
-    currentCard.level ? `Similar level (${currentCard.level})` : null,
-    currentCard.city ? 'Distance near you' : null,
-    currentCard.mode ? `Same mode (${currentCard.mode})` : null,
-  ].filter(Boolean) as string[];
+  const viewerModeList =
+    me?.profile?.modes && me.profile.modes.length > 0
+      ? me.profile.modes.map(String)
+      : me?.profile?.mode
+        ? [me.profile.mode]
+        : undefined;
+  const primaryCta = getPrimaryCtaLabel(viewerModeList, currentCard.modes);
+  const primaryModeKey = normalizeMode(viewerModeList?.[0] ?? currentCard.modes?.[0]);
+  const primaryCtaIcon = MODE_META[primaryModeKey].icon;
+
+  const matchReasons = (
+    currentCard.matchPreviewReasons?.length
+      ? currentCard.matchPreviewReasons
+      : [
+          ...(currentCard.commonSports?.length
+            ? [`${currentCard.commonSports.length} shared activities`]
+            : []),
+          currentCard.level ? `Similar level (${currentCard.level})` : null,
+          currentCard.city ? 'Location in range' : null,
+        ].filter(Boolean)
+  ) as string[];
 
   const activeFilterCount = countActiveFilters(filters);
   const newAthletesToday = newAthletesTodayCount(user?.sub ?? me?.user?.id ?? 'guest');
@@ -911,6 +945,7 @@ export const DiscoverPage: React.FC = () => {
           <MatchPanel
             score={currentCard.compatibilityScore}
             reasons={matchReasons}
+            lockedInsightReasons={currentCard.lockedInsightReasons}
             aiMatchInsight={currentCard.aiMatchInsight}
             aiMatchInsightFull={insightMap[currentCard.userId]}
             aiInsightCreditCost={aiInsightCost}
@@ -930,6 +965,8 @@ export const DiscoverPage: React.FC = () => {
               onRewind={handleRewindLastSkip}
               interestLoading={likeLoading}
               canRewind={!!lastSkippedProfile && !skipUndoOpen}
+              primaryCtaLabel={primaryCta}
+              primaryCtaIcon={primaryCtaIcon}
             />
           </>
         }
@@ -955,6 +992,8 @@ export const DiscoverPage: React.FC = () => {
         aiMatchInsightFull={insightMap[currentCard.userId]}
         onUnlockAiInsight={isDummy ? undefined : handleUnlockAiInsight}
         aiInsightLoading={loadingInsightFor === currentCard.userId}
+        primaryCtaLabel={primaryCta}
+        primaryCtaIcon={primaryCtaIcon}
         onSkip={() => {
           setProfileDrawerOpen(false);
           void handlePass();
@@ -1029,12 +1068,12 @@ export const DiscoverPage: React.FC = () => {
       <Modal
         open={dailyLimitModalOpen}
         onClose={() => setDailyLimitModalOpen(false)}
-        title="Daily swipe limit reached"
+        title="Daily match limit reached"
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <Typography variant="body2" color="text.secondary">
-            You&apos;ve used your {DAILY_LIKE_LIMIT} free swipes for today and don&apos;t have credits left.
-            Each Like uses 1 credit — get credits to keep discovering, or come back after midnight.
+            You&apos;ve used your {DAILY_LIKE_LIMIT} free matches for today (UTC). Add credits to unlock unlimited
+            discovery — paying members keep swiping without a daily cap.
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button variant="outlined" onClick={() => setDailyLimitModalOpen(false)}>

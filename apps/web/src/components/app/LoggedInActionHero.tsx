@@ -25,7 +25,7 @@ export const LoggedInActionHero: React.FC = () => {
   const usedToday = Math.min(likesToday, DAILY_LIKE_LIMIT);
   const atOrPastFreeCap = likesToday >= DAILY_LIKE_LIMIT;
   const hardLimitReached = atOrPastFreeCap && credits < 1;
-  const canStillLikeWithCredits = atOrPastFreeCap && credits >= 1;
+  const hasCredits = credits > 0;
   const progressPercent = (usedToday / DAILY_LIKE_LIMIT) * 100;
 
   const resetCountdownLabel = useMemo(() => {
@@ -54,27 +54,35 @@ export const LoggedInActionHero: React.FC = () => {
       <div className={styles.inner}>
         <p className={styles.kicker}>You’re in</p>
         <h1 className={styles.title}>Today's Matches</h1>
-        <p className={styles.usage}>
-          {Math.min(likesToday, DAILY_LIKE_LIMIT)} / {DAILY_LIKE_LIMIT} free swipes used
-          {likesToday > DAILY_LIKE_LIMIT ? ` (${likesToday} swipes today)` : ''}
-        </p>
-        <div className={styles.progressWrap} aria-hidden>
-          <div className={styles.progressTrack}>
-            <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
-          </div>
-          <span className={styles.progressText}>
-            {usedToday}/{DAILY_LIKE_LIMIT}
-          </span>
-        </div>
+        {hasCredits ? (
+          <p className={styles.usage}>Unlimited discovery — your balance is active ({credits} credits)</p>
+        ) : (
+          <>
+            <p className={styles.usage}>
+              {Math.min(likesToday, DAILY_LIKE_LIMIT)} / {DAILY_LIKE_LIMIT} free matches used
+              {likesToday > DAILY_LIKE_LIMIT ? ` (${likesToday} today)` : ''}
+            </p>
+            <div className={styles.progressWrap} aria-hidden>
+              <div className={styles.progressTrack}>
+                <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
+              </div>
+              <span className={styles.progressText}>
+                {usedToday}/{DAILY_LIKE_LIMIT}
+              </span>
+            </div>
+          </>
+        )}
         <p className={styles.sub}>
-          You get {DAILY_LIKE_LIMIT} free swipes per day; each Like after that uses 1 credit from your balance.
+          {hasCredits
+            ? 'Credits remove the daily match cap so you can keep connecting without limits.'
+            : `You get ${DAILY_LIKE_LIMIT} free matches per day (UTC). Add credits for unlimited discovery.`}
           <br />
-          Daily free swipes reset in {resetCountdownLabel}.
+          {!hasCredits ? <>Daily free matches reset in {resetCountdownLabel}.</> : null}
         </p>
 
         {!complete && <p className={styles.completeHint}>Complete your profile to get better matches.</p>}
 
-        {!atOrPastFreeCap && (
+        {(!atOrPastFreeCap || hasCredits) && (
           <>
             <Button
               component={RouterLink}
@@ -99,25 +107,9 @@ export const LoggedInActionHero: React.FC = () => {
           </>
         )}
 
-        {canStillLikeWithCredits && (
-          <>
-            <p className={styles.limitMessage}>Free swipes used for today — you can keep going with credits</p>
-            <Button
-              component={RouterLink}
-              to="/app/discover"
-              variant="contained"
-              size="large"
-              className={styles.cta}
-            >
-              Continue to Discover
-            </Button>
-            <p className={styles.hint}>Each additional Like uses 1 credit</p>
-          </>
-        )}
-
         {hardLimitReached && (
           <div className={styles.limitState}>
-            <p className={styles.limitMessage}>No free swipes or credits left today</p>
+            <p className={styles.limitMessage}>No free matches or credits left today</p>
             <Button
               component={RouterLink}
               to="/pricing"
@@ -134,12 +126,12 @@ export const LoggedInActionHero: React.FC = () => {
       <Modal
         open={limitModalOpen}
         onClose={() => setLimitModalOpen(false)}
-        title="Daily swipe limit reached"
+        title="Daily match limit reached"
       >
         <div className={styles.limitModalContent}>
           <p className={styles.limitModalText}>
-            You&apos;ve used your {DAILY_LIKE_LIMIT} free swipes for today and don&apos;t have credits left.
-            Get credits to keep discovering, or come back after midnight.
+            You&apos;ve used your {DAILY_LIKE_LIMIT} free matches for today (UTC) and don&apos;t have credits left.
+            Add credits for unlimited discovery, or come back after midnight UTC.
           </p>
           <div className={styles.limitModalActions}>
             <Button type="button" variant="outlined" onClick={() => setLimitModalOpen(false)}>

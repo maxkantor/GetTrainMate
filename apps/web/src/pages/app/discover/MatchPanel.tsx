@@ -10,6 +10,8 @@ export interface MatchInsightDisplay {
 interface MatchPanelProps {
   score: number;
   reasons: string[];
+  /** Teaser lines; deeper lines stay locked until AI insight (credits). */
+  lockedInsightReasons?: string[];
   summary?: string;
   /** AI-generated match insight (when unlocked); when absent, show unlock teaser. */
   aiMatchInsight?: string;
@@ -43,6 +45,7 @@ function matchStrengthPhrase(score: number): string {
 export const MatchPanel: React.FC<MatchPanelProps> = ({
   score,
   reasons,
+  lockedInsightReasons,
   summary,
   aiMatchInsight,
   aiMatchInsightFull,
@@ -106,6 +109,16 @@ export const MatchPanel: React.FC<MatchPanelProps> = ({
             </ul>
           )}
         </>
+      )}
+      {lockedInsightReasons && lockedInsightReasons.length > 0 && (
+        <div className={styles.lockedBlock}>
+          <p className={styles.lockedTitle}>Deeper compatibility</p>
+          <ul className={styles.lockedList}>
+            {lockedInsightReasons.map((r, i) => (
+              <li key={i}>{r}</li>
+            ))}
+          </ul>
+        </div>
       )}
       {(aiMatchInsight || aiMatchInsightFull) ? (
         <div className={styles.aiInsightBlock}>

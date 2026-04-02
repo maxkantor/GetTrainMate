@@ -4,7 +4,7 @@ import styles from './ProfileCard.module.css';
 import { ProfileDetailsModal } from './ProfileDetailsModal';
 import type { MatchFeedItem } from '@/services/matchService';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
-import { DISCOVER_STRINGS } from './constants';
+import { formatLookingForLine } from '@/config/modes';
 
 interface ProfileCardProps {
   profile: MatchFeedItem;
@@ -86,11 +86,11 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
             <div className={styles.metaRow}>
               {levelLabel && <span className={styles.chipOverlay}>{levelLabel}</span>}
               {distanceLabel && <span className={styles.chipOverlay}>{distanceLabel}</span>}
-              {profile.mode && <span className={styles.chipOverlayMuted}>Mode: {profile.mode}</span>}
             </div>
+            <p className={styles.lookingFor}>{formatLookingForLine(profile.modes)}</p>
             {overlayBio && <p className={styles.overlayBio}>{overlayBio}</p>}
             <p className={styles.scheduleHint}>
-              Swipe: {DISCOVER_STRINGS.skip} ← · → {DISCOVER_STRINGS.wantToTrain}
+              Swipe: skip ← · → connect
             </p>
           </div>
           {allPhotoUrls.length > 1 && (

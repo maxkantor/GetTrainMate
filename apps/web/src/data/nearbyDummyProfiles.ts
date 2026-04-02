@@ -24,6 +24,9 @@ const DEMO_CARDS: MatchFeedItem[] = [
     compatibilityScore: 78,
     commonSports: ['Running'],
     mode: 'TRAIN',
+    modes: ['TRAIN'],
+    matchPreviewReasons: ['✔ Shared intent', '✔ Similar level', '✔ Location match'],
+    lockedInsightReasons: ['🔒 Strength compatibility', '🔒 Training rhythm', '🔒 Personality fit'],
   },
   {
     userId: `${NEARBY_DUMMY_USER_PREFIX}1`,
@@ -36,6 +39,9 @@ const DEMO_CARDS: MatchFeedItem[] = [
     compatibilityScore: 72,
     commonSports: ['Gym'],
     mode: 'TRAIN',
+    modes: ['TRAIN'],
+    matchPreviewReasons: ['✔ Shared intent', '✔ Similar level', '✔ Location match'],
+    lockedInsightReasons: ['🔒 Strength compatibility', '🔒 Training rhythm', '🔒 Personality fit'],
   },
 ];
 

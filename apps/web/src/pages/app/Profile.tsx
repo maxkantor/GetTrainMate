@@ -15,9 +15,7 @@ import {
   Chip,
   OutlinedInput,
   FormLabel,
-  RadioGroup,
   FormControlLabel,
-  Radio,
   Switch,
   Card,
   Snackbar,
@@ -26,6 +24,8 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useI18n } from '@/hooks/useI18n';
@@ -66,6 +66,7 @@ function cloneForm(f: UpdateProfileRequest): UpdateProfileRequest {
     ...f,
     sportTags: [...(f.sportTags || [])],
     goals: [...(f.goals || [])],
+    modes: f.modes ? [...f.modes] : undefined,
     availabilitySchedule: (f.availabilitySchedule || []).map((s) => ({
       days: [...(s.days || [])],
       timeStart: s.timeStart,
@@ -115,6 +116,7 @@ export const ProfilePage: React.FC = () => {
     goals: [],
     availabilitySchedule: [],
     mode: 'TRAIN',
+    modes: ['TRAIN'],
     chatNotificationsEnabled: true,
     chatNotificationFrequency: 'smart',
   });
@@ -159,6 +161,14 @@ export const ProfilePage: React.FC = () => {
         goals: profile.goals || [],
         availabilitySchedule: profile.availabilitySchedule || [],
         mode: profile.mode || 'TRAIN',
+        modes:
+          profile.modes && profile.modes.length > 0
+            ? profile.modes
+            : profile.mode
+              ? [profile.mode]
+              : ['TRAIN'],
+        workoutStyle: profile.workoutStyle,
+        personalityTag: profile.personalityTag,
         chatNotificationsEnabled: profile.chatNotificationsEnabled !== false,
         chatNotificationFrequency: (profile.chatNotificationFrequency as 'realtime' | 'smart' | 'daily') || 'smart',
       };
@@ -264,17 +274,17 @@ export const ProfilePage: React.FC = () => {
   const autoSaveKey = useMemo(
     () =>
       JSON.stringify({
-        mode: formData.mode,
+        modes: formData.modes,
         availabilitySchedule: formData.availabilitySchedule,
       }),
-    [formData.mode, formData.availabilitySchedule]
+    [formData.modes, formData.availabilitySchedule]
   );
 
   const baselineAutoKey = useMemo(
     () =>
       baseline
         ? JSON.stringify({
-            mode: baseline.form.mode,
+            modes: baseline.form.modes,
             availabilitySchedule: baseline.form.availabilitySchedule,
           })
         : '',
@@ -670,21 +680,52 @@ export const ProfilePage: React.FC = () => {
 
         <FormControl fullWidth margin="normal">
           <FormLabel>{t('profile.mode')}</FormLabel>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+            Pick one or more — we only show people you share intent with in Discover.
+          </Typography>
           {sectionHint.mode && (
             <Typography variant="caption" color="success.main" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
               Saved ✓
             </Typography>
           )}
-          <RadioGroup
-            row
-            value={formData.mode}
-            onChange={(e) => setFormData({ ...formData, mode: e.target.value as any })}
+          <ToggleButtonGroup
+            value={formData.modes ?? ['TRAIN']}
+            onChange={(_, v) => {
+              if (!v.length) return;
+              const next = v as ('TRAIN' | 'VIBE' | 'DATE')[];
+              setFormData({ ...formData, modes: next, mode: next[0] });
+            }}
+            aria-label="Intent modes"
+            sx={{ flexWrap: 'wrap', gap: 1 }}
           >
-            <FormControlLabel value="TRAIN" control={<Radio />} label="TRAIN (Fitness Partners)" />
-            <FormControlLabel value="VIBE" control={<Radio />} label="VIBE (Buddies)" />
-            <FormControlLabel value="DATE" control={<Radio />} label="DATE (Interested)" />
-          </RadioGroup>
+            <ToggleButton value="TRAIN" sx={{ textTransform: 'none', fontWeight: 700 }}>
+              🏋️ Train
+            </ToggleButton>
+            <ToggleButton value="VIBE" sx={{ textTransform: 'none', fontWeight: 700 }}>
+              🧑‍🤝‍🧑 Vibe
+            </ToggleButton>
+            <ToggleButton value="DATE" sx={{ textTransform: 'none', fontWeight: 700 }}>
+              ❤️ Date
+            </ToggleButton>
+          </ToggleButtonGroup>
         </FormControl>
+
+        <TextField
+          fullWidth
+          margin="normal"
+          label="Workout style (optional)"
+          placeholder="e.g. HIIT, powerlifting, HYROX"
+          value={formData.workoutStyle ?? ''}
+          onChange={(e) => setFormData({ ...formData, workoutStyle: e.target.value || undefined })}
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          label="Personality tag (optional)"
+          placeholder="e.g. Early bird, coach energy, chill"
+          value={formData.personalityTag ?? ''}
+          onChange={(e) => setFormData({ ...formData, personalityTag: e.target.value || undefined })}
+        />
 
         <FormControl fullWidth margin="normal">
           <FormLabel>Chat notifications</FormLabel>

@@ -17,6 +17,11 @@ public interface ICreditsService
     Task GrantCreditsAsync(string userId, int amount, string reason);
     /// <summary>Spend credits. Throws <see cref="Models.InsufficientCreditsException"/> if balance &lt; amount.</summary>
     Task SpendCreditsAsync(string userId, int amount, string reason, string? refId = null);
+    /// <summary>
+    /// Discover like: if balance &gt; 0, unlimited likes (no charge). If balance is 0, consume one of 5 free daily likes (UTC).
+    /// Throws <see cref="InsufficientCreditsException"/> when free quota is exhausted.
+    /// </summary>
+    Task ChargeLikeForDiscoverAsync(string userId, string targetUserId);
     Task<List<CreditPackConfig>> GetAllCreditPacksForAdminAsync();
     Task SaveCreditPackAsync(CreditPackConfig pack);
     Task SeedDefaultCreditPacksIfEmptyAsync();

@@ -37,13 +37,14 @@ export const AppHeader: React.FC = () => {
   const blockedOnDiscover = outOfFreeSwipes && credits < 1;
   const pressureCredits = lowCredits || blockedOnDiscover;
 
-  const statusLine = blockedOnDiscover
-    ? 'No free swipes or credits — get credits on Pricing.'
-    : outOfFreeSwipes && credits >= 1
-      ? `${likesToday}/${DAILY_LIKE_LIMIT} free swipes — extra Likes use credits`
-      : !matchStatus.loading && matchStatus.waitingForAction > 0
-        ? `${matchStatus.waitingForAction} match${matchStatus.waitingForAction === 1 ? '' : 'es'} waiting`
-        : `${Math.min(likesToday, DAILY_LIKE_LIMIT)}/${DAILY_LIKE_LIMIT} free swipes today`;
+  const statusLine =
+    !matchStatus.loading && matchStatus.waitingForAction > 0
+      ? `${matchStatus.waitingForAction} match${matchStatus.waitingForAction === 1 ? '' : 'es'} waiting`
+      : blockedOnDiscover
+        ? 'No free matches or credits left today — add credits on Pricing.'
+        : credits > 0
+          ? `Unlimited discovery · ${credits} credits`
+          : `${Math.min(likesToday, DAILY_LIKE_LIMIT)}/${DAILY_LIKE_LIMIT} free matches today`;
 
   const avatarLetter =
     me?.profile?.name?.trim()?.charAt(0)?.toUpperCase() ||

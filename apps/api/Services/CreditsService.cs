@@ -1,3 +1,4 @@
+using System.Globalization;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
@@ -21,6 +22,7 @@ public class CreditsService : ICreditsService
     private const string StripeWebhookEventsTable = "gettrainmate-stripe-webhook-events";
     private const int FreeSignupCredits = 3;
     private const string FreeSignupReason = "FREE_SIGNUP";
+    private const int DailyFreeDiscoverLikes = 5;
 
     private readonly IAmazonDynamoDB _dynamoDb;
     private readonly ILogger<CreditsService> _logger;
@@ -562,6 +564,51 @@ public class CreditsService : ICreditsService
         await txTable.PutItemAsync(txDoc);
 
         _logger.LogInformation("Spent {Amount} credits for user {UserId}, reason={Reason}, newBalance={NewBalance}", amount, userId, reason, newBalance);
+    }
+
+    public async Task ChargeLikeForDiscoverAsync(string userId, string targetUserId)
+    {
+        var balanceDto = await GetCreditsBalanceAsync(userId);
+        if (balanceDto.Balance > 0)
+        {
+            _logger.LogDebug("Discover like: user {UserId} has credits ({Balance}); no per-like charge", userId, balanceDto.Balance);
+            return;
+        }
+
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
+        var userDoc = await userTable.GetItemAsync(userId) ?? new Document { ["UserId"] = userId };
+
+        var dateStr = userDoc.Contains("DailyFreeLikesUtcDate") ? userDoc["DailyFreeLikesUtcDate"].AsString() : null;
+        var used = userDoc.Contains("DailyFreeLikesUsed") ? userDoc["DailyFreeLikesUsed"].AsInt() : 0;
+        if (dateStr != today)
+        {
+            used = 0;
+            dateStr = today;
+        }
+
+        if (used >= DailyFreeDiscoverLikes)
+        {
+            _logger.LogWarning("Discover like: user {UserId} exhausted free daily likes ({Limit})", userId, DailyFreeDiscoverLikes);
+            throw new InsufficientCreditsException(
+                $"You've used today's {DailyFreeDiscoverLikes} free matches. Add credits for unlimited discovery, or try again after midnight UTC.");
+        }
+
+        used++;
+        var balance = userDoc.Contains("Balance") ? userDoc["Balance"].AsInt() : 0;
+        var lifetimeEarned = userDoc.Contains("LifetimeEarned") ? userDoc["LifetimeEarned"].AsInt() : 0;
+
+        await userTable.PutItemAsync(new Document
+        {
+            ["UserId"] = userId,
+            ["Balance"] = balance,
+            ["LifetimeEarned"] = lifetimeEarned,
+            ["DailyFreeLikesUtcDate"] = dateStr!,
+            ["DailyFreeLikesUsed"] = used,
+            ["UpdatedAt"] = DateTime.UtcNow.ToString("O"),
+        });
+
+        _logger.LogInformation("Discover like: user {UserId} used free daily like {Used}/{Limit} (target {Target})", userId, used, DailyFreeDiscoverLikes, targetUserId);
     }
 
     public async Task RecordWebhookEventReceivedAsync(string eventId, string type)

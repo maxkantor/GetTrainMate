@@ -80,6 +80,48 @@ function getUserId(identity) {
   return identity.sub;
 }
 
+function normalizedModesFromDoc(doc) {
+  if (!doc) return ['TRAIN'];
+  const raw = Array.isArray(doc.modes) && doc.modes.length ? doc.modes : (doc.mode ? [doc.mode] : ['TRAIN']);
+  const valid = new Set(['TRAIN', 'VIBE', 'DATE']);
+  const out = [...new Set(raw.map((m) => String(m).toUpperCase()).filter((m) => valid.has(m)))];
+  return out.length ? out : ['TRAIN'];
+}
+
+function modesOverlap(a, b) {
+  return a.some((m) => b.includes(m));
+}
+
+async function chargeLikeForDiscover(userId, targetUserId) {
+  const bal = await getCreditsBalance(userId);
+  if (bal.balance > 0) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const userRes = await dynamo.send(new GetItemCommand({
+    TableName: tables.userCredits,
+    Key: marshall({ UserId: userId }),
+  }));
+  const u = userRes.Item ? unmarshall(userRes.Item) : {};
+  let used = u.DailyFreeLikesUsed ?? 0;
+  let dateStr = u.DailyFreeLikesUtcDate || '';
+  if (dateStr !== today) {
+    used = 0;
+    dateStr = today;
+  }
+  if (used >= 5) throw new Error('INSUFFICIENT_CREDITS');
+  used += 1;
+  await dynamo.send(new PutItemCommand({
+    TableName: tables.userCredits,
+    Item: marshall({
+      UserId: userId,
+      Balance: u.Balance ?? 0,
+      LifetimeEarned: u.LifetimeEarned ?? 0,
+      DailyFreeLikesUtcDate: dateStr,
+      DailyFreeLikesUsed: used,
+      UpdatedAt: new Date().toISOString(),
+    }),
+  }));
+}
+
 async function getCognitoUser(userId) {
   if (!USER_POOL_ID) return { id: userId, email: null, name: null, isAdmin: false };
   try {
@@ -126,6 +168,9 @@ async function profileFromDoc(d) {
     schedule: scheduleParsed,
     avatarUrl: await toAvatarUrl(d.photoUrls, d.photoKey, d.userId),
     level: d.level || null,
+    modes: normalizedModesFromDoc(d),
+    workoutStyle: d.workoutStyle || null,
+    personalityTag: d.personalityTag || null,
     isComplete: !!d.isComplete,
     updatedAt: d.updatedAt || null,
   };
@@ -163,7 +208,7 @@ async function getMe(identity) {
   const displayName = (profile?.displayName?.trim() || user.name || '').trim() || null;
   const profileOut = profile
     ? { ...profile, displayName: displayName || profile.displayName || '', updatedAt: profile.updatedAt || null }
-    : (displayName ? { userId, displayName, age: null, city: null, bio: null, sports: [], goals: [], schedule: [], avatarUrl: await toAvatarUrl(null, null, userId), level: null, isComplete: false, updatedAt: null } : null);
+    : (displayName ? { userId, displayName, age: null, city: null, bio: null, sports: [], goals: [], schedule: [], modes: ['TRAIN'], avatarUrl: await toAvatarUrl(null, null, userId), level: null, isComplete: false, updatedAt: null } : null);
   return {
     user: {
       id: user.id,
@@ -212,6 +257,12 @@ async function getPassedTargetIds(userId) {
 async function discoverCandidates(identity, args) {
   const userId = getUserId(identity);
   const passed = await getPassedTargetIds(userId);
+  const meRes = await dynamo.send(new GetItemCommand({
+    TableName: tables.profiles,
+    Key: marshall({ userId }),
+  }));
+  const meDoc = meRes.Item ? unmarshall(meRes.Item) : null;
+  const meModes = meDoc ? normalizedModesFromDoc(meDoc) : null;
 
   // Paginate profiles scan so we don't miss users when table has many items
   const all = [];
@@ -233,6 +284,10 @@ async function discoverCandidates(identity, args) {
     const profileUserId = doc.userId;
     if (!profileUserId || profileUserId === userId) continue;
     if (passed.has(profileUserId)) continue;
+    if (meModes && meModes.length) {
+      const tm = normalizedModesFromDoc(doc);
+      if (!modesOverlap(meModes, tm)) continue;
+    }
     const p = await profileFromDoc(doc);
     if (!p) continue;
     // Show profile even if name is empty: use fallback so real users always appear in discover
@@ -247,7 +302,12 @@ async function discoverCandidates(identity, args) {
       sports: p.sports || [],
       goals: p.goals || [],
       avatarUrl: p.avatarUrl || (() => { const n = String(p.userId).split('').reduce((a, b) => a + b.charCodeAt(0), 0); const idx = (n % 99) + 1; const g = n % 2 === 0 ? 'women' : 'men'; return `https://randomuser.me/api/portraits/${g}/${idx}.jpg`; })(),
+      level: p.level || null,
       compatibilityScore,
+      modes: p.modes || normalizedModesFromDoc(doc),
+      intentMatchTier: 'overlap',
+      matchPreviewReasons: [],
+      lockedInsightReasons: ['🔒 Strength compatibility', '🔒 Training rhythm', '🔒 Personality fit'],
     });
   }
   return { items: candidates, nextToken: null };
@@ -463,7 +523,7 @@ async function likeUser(identity, args) {
   const userId = getUserId(identity);
   const toUserId = args.toUserId;
   if (!toUserId) throw new Error('toUserId required');
-  await spendCredits(userId, 1, CREDIT_REASON_LIKE, toUserId);
+  await chargeLikeForDiscover(userId, toUserId);
   const matchRes = await dynamo.send(new ScanCommand({
     TableName: tables.matches,
     FilterExpression: '(userId1 = :a AND userId2 = :b) OR (userId1 = :b AND userId2 = :a)',

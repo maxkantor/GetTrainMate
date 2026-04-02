@@ -30,6 +30,10 @@ type Profile {
   goals: [String!]
   schedule: [String!]
   avatarUrl: String
+  level: String
+  modes: [String!]
+  workoutStyle: String
+  personalityTag: String
   isComplete: Boolean
   updatedAt: AWSDateTime
 }
@@ -59,7 +63,12 @@ type DiscoverCandidate {
   sports: [String!]!
   goals: [String!]
   avatarUrl: String
+  level: String
   compatibilityScore: Int
+  modes: [String!]
+  intentMatchTier: String
+  matchPreviewReasons: [String!]
+  lockedInsightReasons: [String!]
 }
 
 type DiscoverCandidatesResult {

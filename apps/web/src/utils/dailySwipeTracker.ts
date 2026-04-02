@@ -34,10 +34,10 @@ export function incrementDailyLike(): void {
 }
 
 /**
- * Client daily cap ({@link DAILY_LIKE_LIMIT}) is a soft limit: once reached, user can still Like if they
- * have credits (each Like costs 1 credit on the server). Block only when at cap and no credits left.
+ * Free users: {@link DAILY_LIKE_LIMIT} likes per UTC day (tracked locally for UX; server enforces too).
+ * Users with credits &gt; 0: unlimited likes (no per-like charge on the API).
  */
 export function canSendLikeWithDailyCap(credits: number): boolean {
-  if (getDailyLikeCount() < DAILY_LIKE_LIMIT) return true;
-  return credits >= 1;
+  if (credits > 0) return true;
+  return getDailyLikeCount() < DAILY_LIKE_LIMIT;
 }

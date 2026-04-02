@@ -23,6 +23,9 @@ export interface UserProfile {
   goals: string[]; // Training goals (optional)
   availabilitySchedule: AvailabilitySlot[]; // Required, at least 1 slot
   mode: 'TRAIN' | 'VIBE' | 'DATE';
+  modes?: ('TRAIN' | 'VIBE' | 'DATE')[];
+  workoutStyle?: string;
+  personalityTag?: string;
   latitude?: number;
   longitude?: number;
   photoKey?: string; // S3 key for primary / cover photo
@@ -51,6 +54,9 @@ export interface UpdateProfileRequest {
   goals?: string[];
   availabilitySchedule?: AvailabilitySlot[]; // Required, at least 1 slot
   mode?: 'TRAIN' | 'VIBE' | 'DATE';
+  modes?: ('TRAIN' | 'VIBE' | 'DATE')[];
+  workoutStyle?: string;
+  personalityTag?: string;
   latitude?: number;
   longitude?: number;
   photoKey?: string; // S3 key for profile photo

@@ -13,6 +13,10 @@ export interface MatchFeedItem {
   compatibilityScore: number;
   commonSports: string[];
   mode?: string;
+  modes?: string[];
+  intentMatchTier?: string;
+  matchPreviewReasons?: string[];
+  lockedInsightReasons?: string[];
   /** Short AI-generated compatibility explanation (when available; 2 credits to unlock if not). */
   aiMatchInsight?: string;
 }

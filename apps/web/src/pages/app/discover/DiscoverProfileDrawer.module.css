@@ -1,8 +1,11 @@
 .paper {
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #0f1219 0%, #0a0c12 100%);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(15, 18, 25, 0.92) 0%, rgba(8, 10, 16, 0.94) 100%);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
 }
 
 .header {
