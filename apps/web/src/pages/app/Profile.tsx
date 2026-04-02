@@ -244,10 +244,17 @@ export const ProfilePage: React.FC = () => {
           ...fd,
           photoKeys: photoKeysRef.current,
         });
+        const prevBaseline = baselineRef.current;
         setBaseline({ form: cloneForm(fd), photoKeys: [...photoKeysRef.current] });
         await refreshMe();
         if (kind === 'manual') {
           setSnack({ open: true, message: 'Profile updated successfully', severity: 'success' });
+          if (
+            prevBaseline &&
+            JSON.stringify(fd.modes ?? []) !== JSON.stringify(prevBaseline.form.modes ?? [])
+          ) {
+            showSectionHint('mode');
+          }
         }
         return true;
       } catch (err: unknown) {
@@ -268,26 +275,17 @@ export const ProfilePage: React.FC = () => {
         persistInFlightRef.current = false;
       }
     },
-    [refreshMe]
+    [refreshMe, showSectionHint]
   );
 
+  /** Only availability auto-saves. Intent modes are saved explicitly so Save stays enabled until the user confirms. */
   const autoSaveKey = useMemo(
-    () =>
-      JSON.stringify({
-        modes: formData.modes,
-        availabilitySchedule: formData.availabilitySchedule,
-      }),
-    [formData.modes, formData.availabilitySchedule]
+    () => JSON.stringify(formData.availabilitySchedule),
+    [formData.availabilitySchedule]
   );
 
   const baselineAutoKey = useMemo(
-    () =>
-      baseline
-        ? JSON.stringify({
-            modes: baseline.form.modes,
-            availabilitySchedule: baseline.form.availabilitySchedule,
-          })
-        : '',
+    () => (baseline ? JSON.stringify(baseline.form.availabilitySchedule) : ''),
     [baseline]
   );
 
@@ -299,14 +297,10 @@ export const ProfilePage: React.FC = () => {
       const b = baselineRef.current;
       const fd = formDataRef.current;
       if (!b || !fd) return;
-      const modeChanged = fd.mode !== b.form.mode;
       const avChanged =
         JSON.stringify(fd.availabilitySchedule) !== JSON.stringify(b.form.availabilitySchedule);
       const ok = await persistProfile('auto');
-      if (ok) {
-        if (modeChanged) showSectionHint('mode');
-        if (avChanged) showSectionHint('availability');
-      }
+      if (ok && avChanged) showSectionHint('availability');
     }, 650);
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -681,7 +675,8 @@ export const ProfilePage: React.FC = () => {
         <FormControl fullWidth margin="normal">
           <FormLabel>{t('profile.mode')}</FormLabel>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-            Pick one or more — we only show people you share intent with in Discover.
+            Pick one or more — we only show people you share intent with in Discover. Use{' '}
+            <strong>Save Profile</strong> to apply (availability below still auto-saves).
           </Typography>
           {sectionHint.mode && (
             <Typography variant="caption" color="success.main" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>

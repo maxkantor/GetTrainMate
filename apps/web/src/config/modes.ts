@@ -37,10 +37,28 @@ export const MODE_META: Record<
   },
 };
 
-/** Primary CTA from viewer's intent (first selected mode) or card's primary mode. */
+/**
+ * Which mode the primary Discover CTA should express: **shared intent** between you and this card,
+ * not just your first toggle order. Priority when multiple overlap: DATE → VIBE → TRAIN so a Date
+ * card with shared DATE shows "Go on a Date" even if Vibe is listed first on your profile.
+ */
+export function getCtaModeForCard(viewerModes: string[] | undefined, cardModes?: string[] | undefined): AppMode {
+  const v = normalizeModes(viewerModes);
+  const c = normalizeModes(cardModes);
+  const intersection = v.filter((m) => c.includes(m));
+  if (intersection.length > 0) {
+    const priority: AppMode[] = ['DATE', 'VIBE', 'TRAIN'];
+    for (const p of priority) {
+      if (intersection.includes(p)) return p;
+    }
+    return intersection[0]!;
+  }
+  return normalizeMode(v[0] ?? c[0]);
+}
+
+/** @deprecated Prefer getCtaModeForCard + MODE_META for label/icon together */
 export function getPrimaryCtaLabel(viewerModes: string[] | undefined, cardModes?: string[]): string {
-  const primary = normalizeMode(viewerModes?.[0] ?? cardModes?.[0]);
-  return MODE_META[primary].cta;
+  return MODE_META[getCtaModeForCard(viewerModes, cardModes)].cta;
 }
 
 export function formatLookingForLine(modes: string[] | undefined): string {

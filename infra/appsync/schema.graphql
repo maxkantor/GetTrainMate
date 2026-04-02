@@ -69,6 +69,7 @@ type DiscoverCandidate {
   intentMatchTier: String
   matchPreviewReasons: [String!]
   lockedInsightReasons: [String!]
+  seenBefore: Boolean
 }
 
 type DiscoverCandidatesResult {

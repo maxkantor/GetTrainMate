@@ -19,6 +19,26 @@ export interface MatchFeedItem {
   lockedInsightReasons?: string[];
   /** Short AI-generated compatibility explanation (when available; 2 credits to unlock if not). */
   aiMatchInsight?: string;
+  seenBefore?: boolean;
+}
+
+export interface SentRequestItem {
+  userId: string;
+  name: string;
+  city?: string;
+  photoUrls: string[];
+  status: string;
+  matchId: string;
+  compatibilityScore: number;
+  updatedAt: string;
+}
+
+export interface SkippedProfileItem {
+  userId: string;
+  name: string;
+  city?: string;
+  photoUrls: string[];
+  skippedAt: string;
 }
 
 export interface MatchResponse {
@@ -129,6 +149,22 @@ class MatchService {
   async getMyMatches(token: string) {
     const response = await axios.get(
       `${API_BASE_URL}/api/match/my-matches`,
+      this.getHeaders(token)
+    );
+    return response.data;
+  }
+
+  async getSentRequests(token: string): Promise<SentRequestItem[]> {
+    const response = await axios.get<SentRequestItem[]>(
+      `${API_BASE_URL}/api/match/sent-requests`,
+      this.getHeaders(token)
+    );
+    return response.data;
+  }
+
+  async getSkippedProfiles(token: string): Promise<SkippedProfileItem[]> {
+    const response = await axios.get<SkippedProfileItem[]>(
+      `${API_BASE_URL}/api/match/skipped-profiles`,
       this.getHeaders(token)
     );
     return response.data;

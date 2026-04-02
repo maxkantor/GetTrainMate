@@ -234,7 +234,7 @@ function isProfileCompleteCheck(p) {
   );
 }
 
-async function getPassedTargetIds(userId) {
+async function getActiveSkippedTargetIds(userId) {
   const passed = new Set();
   let lastKey = null;
   do {
@@ -242,27 +242,59 @@ async function getPassedTargetIds(userId) {
       TableName: tables.discoverPasses,
       KeyConditionExpression: 'userId = :u',
       ExpressionAttributeValues: marshall({ ':u': userId }),
-      ProjectionExpression: 'targetUserId',
       ...(lastKey && { ExclusiveStartKey: lastKey }),
     }));
     for (const item of r.Items || []) {
       const row = unmarshall(item);
-      if (row.targetUserId) passed.add(row.targetUserId);
+      if (!row.targetUserId) continue;
+      const isSkipped = row.isSkipped !== false;
+      const restored = !!row.restored;
+      const status = row.status || 'skipped';
+      if (isSkipped && !restored && status !== 'active') passed.add(row.targetUserId);
     }
     lastKey = r.LastEvaluatedKey || null;
   } while (lastKey);
   return passed;
 }
 
+async function getExcludedFromMatchesForDiscover(userId) {
+  const excluded = new Set();
+  let lastKey = null;
+  do {
+    const r = await dynamo.send(new ScanCommand({
+      TableName: tables.matches,
+      Limit: 500,
+      ...(lastKey && { ExclusiveStartKey: lastKey }),
+    }));
+    for (const item of r.Items || []) {
+      const m = unmarshall(item);
+      if (m.userId1 !== userId && m.userId2 !== userId) continue;
+      const other = m.userId1 === userId ? m.userId2 : m.userId1;
+      if (m.isMatched) {
+        excluded.add(other);
+        continue;
+      }
+      const iLiked = m.userId1 === userId ? !!m.user1Liked : !!m.user2Liked;
+      if (iLiked) excluded.add(other);
+    }
+    lastKey = r.LastEvaluatedKey || null;
+  } while (lastKey);
+  return excluded;
+}
+
 async function discoverCandidates(identity, args) {
   const userId = getUserId(identity);
-  const passed = await getPassedTargetIds(userId);
+  const skippedIds = await getActiveSkippedTargetIds(userId);
+  const excludedMatch = await getExcludedFromMatchesForDiscover(userId);
   const meRes = await dynamo.send(new GetItemCommand({
     TableName: tables.profiles,
     Key: marshall({ userId }),
   }));
   const meDoc = meRes.Item ? unmarshall(meRes.Item) : null;
   const meModes = meDoc ? normalizedModesFromDoc(meDoc) : null;
+  const recycleSkipped = !!meDoc?.discoverCanRecycleSkippedProfiles;
+  const replayQueue = !!meDoc?.discoverCanReplayDiscoverQueue;
+  const showSkippedAgain = recycleSkipped || replayQueue;
 
   // Paginate profiles scan so we don't miss users when table has many items
   const all = [];
@@ -278,12 +310,14 @@ async function discoverCandidates(identity, args) {
     lastKey = scan.LastEvaluatedKey || null;
   } while (lastKey);
 
-  // Show all profiles except self and users this account has passed (so they don't reappear)
   const candidates = [];
   for (const doc of all) {
     const profileUserId = doc.userId;
     if (!profileUserId || profileUserId === userId) continue;
-    if (passed.has(profileUserId)) continue;
+    if (excludedMatch.has(profileUserId)) continue;
+    const wasPassed = skippedIds.has(profileUserId);
+    if (wasPassed && !showSkippedAgain) continue;
+    const seenBefore = !!(wasPassed && showSkippedAgain);
     if (meModes && meModes.length) {
       const tm = normalizedModesFromDoc(doc);
       if (!modesOverlap(meModes, tm)) continue;
@@ -308,6 +342,7 @@ async function discoverCandidates(identity, args) {
       intentMatchTier: 'overlap',
       matchPreviewReasons: [],
       lockedInsightReasons: ['🔒 Strength compatibility', '🔒 Training rhythm', '🔒 Personality fit'],
+      seenBefore,
     });
   }
   return { items: candidates, nextToken: null };

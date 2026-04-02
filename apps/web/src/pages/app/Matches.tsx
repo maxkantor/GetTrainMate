@@ -226,6 +226,15 @@ export const MatchesPage: React.FC = () => {
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>Your Matches</h1>
+      <div className={styles.subNav}>
+        {me?.profile?.discoverCanReviewLikedProfiles !== false ? (
+          <Link to="/app/sent-requests">Sent requests</Link>
+        ) : null}
+        {me?.profile?.discoverCanReviewSkippedProfiles !== false ? (
+          <Link to="/app/skipped">Skipped</Link>
+        ) : null}
+        <Link to="/app/discover">Discover</Link>
+      </div>
 
       {credits < 1 && <UpgradeBanner message="Get credits to unlock chat with your matches." />}
 

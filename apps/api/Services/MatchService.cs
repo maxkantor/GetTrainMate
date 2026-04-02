@@ -142,7 +142,12 @@ public class MatchService : IMatchService
 
             var feedItems = new List<MatchFeedItem>();
             var passedTargetIds = await GetPassedTargetUserIdsAsync(userId);
+            var excludedLikedOrMatched = await GetUserIdsExcludedFromDiscoverByMatchesAsync(userId);
             var adminProfileStatusMap = await GetAdminProfileStatusMapAsync();
+
+            var recycleSkipped = userProfile?.DiscoverCanRecycleSkippedProfiles == true;
+            var replayQueue = userProfile?.DiscoverCanReplayDiscoverQueue == true;
+            var showSkippedAgain = ignoreSkippedForAdmin || recycleSkipped || replayQueue;
 
             foreach (var doc in allProfiles)
             {
@@ -159,8 +164,14 @@ public class MatchService : IMatchService
                 if (profileUserId == userId)
                     continue;
 
-                if (!ignoreSkippedForAdmin && passedTargetIds.Contains(profileUserId))
+                if (excludedLikedOrMatched.Contains(profileUserId))
                     continue;
+
+                var wasPassed = passedTargetIds.Contains(profileUserId);
+                if (wasPassed && !showSkippedAgain)
+                    continue;
+
+                var seenBefore = wasPassed && showSkippedAgain;
 
                 if (adminProfileStatusMap.TryGetValue(profileUserId, out var profileStatus))
                 {
@@ -233,7 +244,8 @@ public class MatchService : IMatchService
                     Modes = ProfileModes.GetNormalizedModes(targetProfile),
                     IntentMatchTier = intentTier,
                     MatchPreviewReasons = previewReasons,
-                    LockedInsightReasons = lockedReasons
+                    LockedInsightReasons = lockedReasons,
+                    SeenBefore = seenBefore
                 });
             }
 
@@ -365,7 +377,6 @@ public class MatchService : IMatchService
                 {
                     { ":u", new AttributeValue { S = userId } }
                 },
-                ProjectionExpression = "targetUserId",
                 ExclusiveStartKey = startKey
             };
             var response = await _dynamoDb.QueryAsync(query);
@@ -387,6 +398,10 @@ public class MatchService : IMatchService
 
     public async Task<bool> UndoPassAsync(string userId, string targetUserId)
     {
+        var viewer = await _profileService.GetProfileAsync(userId);
+        if (viewer != null && !viewer.DiscoverCanRewindLastSkip)
+            return false;
+
         var table = Table.LoadTable(_dynamoDb, _discoverPassesTable);
         var document = await table.GetItemAsync(userId, targetUserId);
         if (document == null) return false;
@@ -753,6 +768,141 @@ public class MatchService : IMatchService
         {
             _logger.LogWarning(ex, "Error getting match by id {MatchId}", matchId);
             return null;
+        }
+    }
+
+    public async Task<List<SentRequestItem>> ListSentRequestsAsync(string userId)
+    {
+        var table = Table.LoadTable(_dynamoDb, _matchesTable);
+        var search = table.Scan(new ScanFilter());
+        var list = new List<SentRequestItem>();
+        do
+        {
+            foreach (var doc in await search.GetNextSetAsync())
+            {
+                var m = DocumentToMatch(doc);
+                if (m.UserId1 != userId && m.UserId2 != userId) continue;
+                var iAm1 = m.UserId1 == userId;
+                var iLiked = iAm1 ? m.User1Liked : m.User2Liked;
+                if (!iLiked) continue;
+                var otherId = iAm1 ? m.UserId2 : m.UserId1;
+                var tp = await _profileService.GetProfileAsync(otherId);
+                var name = tp?.Name ?? "User";
+                var photos = ResolvePhotoUrlsForProfile(tp);
+                list.Add(new SentRequestItem
+                {
+                    UserId = otherId,
+                    Name = name,
+                    City = tp?.City,
+                    PhotoUrls = photos,
+                    Status = m.IsMatched ? "Matched" : "Pending",
+                    MatchId = m.MatchId,
+                    CompatibilityScore = m.CompatibilityScore,
+                    UpdatedAt = m.UpdatedAt
+                });
+            }
+        } while (!search.IsDone);
+
+        return list.OrderByDescending(x => x.UpdatedAt).ToList();
+    }
+
+    public async Task<List<SkippedProfileItem>> ListSkippedProfilesAsync(string userId)
+    {
+        var rows = new List<(string TargetId, DateTime SkippedAt)>();
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
+        {
+            var query = new QueryRequest
+            {
+                TableName = _discoverPassesTable,
+                KeyConditionExpression = "userId = :u",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":u"] = new AttributeValue { S = userId }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("targetUserId", out var tid) || string.IsNullOrWhiteSpace(tid.S))
+                    continue;
+                var isSkipped = !item.TryGetValue("isSkipped", out var skippedVal) || skippedVal.BOOL;
+                var restored = item.TryGetValue("restored", out var restoredVal) && restoredVal.BOOL;
+                var status = item.TryGetValue("status", out var statusVal) ? statusVal.S : "skipped";
+                if (!isSkipped || restored || string.Equals(status, "active", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var skippedAt = DateTime.UtcNow;
+                if (item.TryGetValue("skippedAt", out var skippedAtVal) && DateTime.TryParse(skippedAtVal.S, out var parsedSkippedAt))
+                    skippedAt = parsedSkippedAt;
+                else if (item.TryGetValue("createdAt", out var createdAtVal) && DateTime.TryParse(createdAtVal.S, out var parsedCreatedAt))
+                    skippedAt = parsedCreatedAt;
+
+                rows.Add((tid.S!, skippedAt));
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+
+        var list = new List<SkippedProfileItem>();
+        foreach (var (targetId, skippedAt) in rows.OrderByDescending(x => x.SkippedAt))
+        {
+            var tp = await _profileService.GetProfileAsync(targetId);
+            if (tp == null) continue;
+            list.Add(new SkippedProfileItem
+            {
+                UserId = targetId,
+                Name = tp.Name ?? "User",
+                City = tp.City,
+                PhotoUrls = ResolvePhotoUrlsForProfile(tp),
+                SkippedAt = skippedAt
+            });
+        }
+        return list;
+    }
+
+    private async Task<HashSet<string>> GetUserIdsExcludedFromDiscoverByMatchesAsync(string userId)
+    {
+        var excluded = new HashSet<string>(StringComparer.Ordinal);
+        var table = Table.LoadTable(_dynamoDb, _matchesTable);
+        var search = table.Scan(new ScanFilter());
+        do
+        {
+            foreach (var doc in await search.GetNextSetAsync())
+            {
+                var m = DocumentToMatch(doc);
+                if (m.UserId1 != userId && m.UserId2 != userId) continue;
+                var other = m.UserId1 == userId ? m.UserId2 : m.UserId1;
+                if (m.IsMatched)
+                {
+                    excluded.Add(other);
+                    continue;
+                }
+                var iLiked = m.UserId1 == userId ? m.User1Liked : m.User2Liked;
+                if (iLiked) excluded.Add(other);
+            }
+        } while (!search.IsDone);
+        return excluded;
+    }
+
+    private List<string> ResolvePhotoUrlsForProfile(UserProfile? targetProfile)
+    {
+        if (targetProfile == null) return new List<string>();
+        var photoUrls = targetProfile.PhotoUrls ?? new List<string>();
+        if (photoUrls.Count > 0) return photoUrls;
+        var keyForCover = targetProfile.PhotoKeys != null && targetProfile.PhotoKeys.Count > 0
+            ? targetProfile.PhotoKeys[0]
+            : targetProfile.PhotoKey;
+        if (string.IsNullOrEmpty(keyForCover)) return photoUrls;
+        try
+        {
+            var signedUrl = _storageService.GetPresignedDownloadUrl(keyForCover, TimeSpan.FromHours(1));
+            return new List<string> { signedUrl };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not presign photo for user {UserId}", targetProfile.UserId);
+            return photoUrls;
         }
     }
 

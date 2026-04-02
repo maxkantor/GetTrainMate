@@ -13,15 +13,18 @@ public class MatchController : ControllerBase
 {
     private readonly IMatchService _matchService;
     private readonly IChatService _chatService;
+    private readonly IProfileService _profileService;
     private readonly ILogger<MatchController> _logger;
 
     public MatchController(
         IMatchService matchService,
         IChatService chatService,
+        IProfileService profileService,
         ILogger<MatchController> logger)
     {
         _matchService = matchService;
         _chatService = chatService;
+        _profileService = profileService;
         _logger = logger;
     }
 
@@ -61,6 +64,52 @@ public class MatchController : ControllerBase
         {
             _logger.LogError(ex, "Error getting compatibility");
             return StatusCode(500, new { message = "Error retrieving compatibility" });
+        }
+    }
+
+    [HttpGet("sent-requests")]
+    public async Task<ActionResult<List<SentRequestItem>>> GetSentRequests()
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "Invalid token" });
+
+            var profile = await _profileService.GetProfileAsync(userId);
+            if (profile != null && !profile.DiscoverCanReviewLikedProfiles)
+                return StatusCode(403, new { code = "FEATURE_DISABLED", message = "Sent requests are not enabled for this account." });
+
+            var list = await _matchService.ListSentRequestsAsync(userId);
+            return Ok(list);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing sent requests");
+            return StatusCode(500, new { message = "Error listing sent requests" });
+        }
+    }
+
+    [HttpGet("skipped-profiles")]
+    public async Task<ActionResult<List<SkippedProfileItem>>> GetSkippedProfiles()
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "Invalid token" });
+
+            var profile = await _profileService.GetProfileAsync(userId);
+            if (profile != null && !profile.DiscoverCanReviewSkippedProfiles)
+                return StatusCode(403, new { code = "FEATURE_DISABLED", message = "Skipped profiles review is not enabled for this account." });
+
+            var list = await _matchService.ListSkippedProfilesAsync(userId);
+            return Ok(list);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing skipped profiles");
+            return StatusCode(500, new { message = "Error listing skipped profiles" });
         }
     }
 

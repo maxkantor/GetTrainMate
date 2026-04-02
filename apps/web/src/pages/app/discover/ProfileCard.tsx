@@ -71,6 +71,9 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
             setDetailsOpen(true);
           }
         }} aria-label={`${profile.name}. Tap for details.`}>
+          {profile.seenBefore ? (
+            <span className={styles.seenBeforeBadge}>Seen before</span>
+          ) : null}
           <img
             src={photoUrl || NO_PHOTO_PLACEHOLDER}
             alt={`${profile.name} — photo ${photoIndex + 1} of ${allPhotoUrls.length}`}

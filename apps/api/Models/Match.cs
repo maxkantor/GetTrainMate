@@ -33,6 +33,8 @@ public class MatchFeedItem
     public string IntentMatchTier { get; set; } = "unknown";
     public List<string> MatchPreviewReasons { get; set; } = new();
     public List<string> LockedInsightReasons { get; set; } = new();
+    /// <summary>True when this row was previously skipped (or recycled) and is not a first-time discover.</summary>
+    public bool SeenBefore { get; set; }
 }
 
 public class LikeRequest

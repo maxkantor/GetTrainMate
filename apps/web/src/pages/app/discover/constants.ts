@@ -12,6 +12,9 @@ export const DISCOVER_STRINGS = {
   filters: 'Filters',
   noMatches: 'No matches nearby. Adjust filters.',
   noMatchesSub: 'Try expanding your distance or goals.',
+  caughtUpTitle: "You're all caught up. No new profiles match your preferences.",
+  caughtUpSub:
+    'Expand distance, change mode, adjust filters, or check Sent requests and come back later.',
   retry: 'Retry',
   loadDemo: 'Load demo profiles',
   editProfile: 'Edit profile',

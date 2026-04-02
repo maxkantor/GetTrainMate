@@ -39,6 +39,11 @@ export interface UserProfile {
   chatNotificationsEnabled?: boolean;
   /** realtime | smart | daily */
   chatNotificationFrequency?: string;
+  discoverCanReviewSkippedProfiles?: boolean;
+  discoverCanReviewLikedProfiles?: boolean;
+  discoverCanReplayDiscoverQueue?: boolean;
+  discoverCanRewindLastSkip?: boolean;
+  discoverCanRecycleSkippedProfiles?: boolean;
 }
 
 export interface UpdateProfileRequest {

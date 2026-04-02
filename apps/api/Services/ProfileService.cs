@@ -170,6 +170,26 @@ public class ProfileService : IProfileService
         }
     }
 
+    public async Task<UserProfile?> PatchDiscoverLifecycleAsync(string userId, DiscoverLifecycleFlagsPatch patch)
+    {
+        var existing = await GetProfileAsync(userId);
+        if (existing == null) return null;
+        if (patch.CanReviewSkippedProfiles.HasValue)
+            existing.DiscoverCanReviewSkippedProfiles = patch.CanReviewSkippedProfiles.Value;
+        if (patch.CanReviewLikedProfiles.HasValue)
+            existing.DiscoverCanReviewLikedProfiles = patch.CanReviewLikedProfiles.Value;
+        if (patch.CanReplayDiscoverQueue.HasValue)
+            existing.DiscoverCanReplayDiscoverQueue = patch.CanReplayDiscoverQueue.Value;
+        if (patch.CanRewindLastSkip.HasValue)
+            existing.DiscoverCanRewindLastSkip = patch.CanRewindLastSkip.Value;
+        if (patch.CanRecycleSkippedProfiles.HasValue)
+            existing.DiscoverCanRecycleSkippedProfiles = patch.CanRecycleSkippedProfiles.Value;
+        existing.UpdatedAt = DateTime.UtcNow;
+        var table = Table.LoadTable(_dynamoDb, _tableName);
+        await table.PutItemAsync(ProfileToDocument(existing));
+        return existing;
+    }
+
     public async Task<bool> DeleteProfileAsync(string userId)
     {
         try
@@ -257,6 +277,12 @@ public class ProfileService : IProfileService
         if (!string.IsNullOrEmpty(profile.ChatNotificationFrequency))
             doc["chatNotificationFrequency"] = profile.ChatNotificationFrequency;
 
+        doc["discoverCanReviewSkippedProfiles"] = profile.DiscoverCanReviewSkippedProfiles;
+        doc["discoverCanReviewLikedProfiles"] = profile.DiscoverCanReviewLikedProfiles;
+        doc["discoverCanReplayDiscoverQueue"] = profile.DiscoverCanReplayDiscoverQueue;
+        doc["discoverCanRewindLastSkip"] = profile.DiscoverCanRewindLastSkip;
+        doc["discoverCanRecycleSkippedProfiles"] = profile.DiscoverCanRecycleSkippedProfiles;
+
         return doc;
     }
 
@@ -309,6 +335,11 @@ public class ProfileService : IProfileService
             ChatNotificationFrequency = document.ContainsKey("chatNotificationFrequency")
                 ? (document["chatNotificationFrequency"].AsString() ?? "smart")
                 : "smart",
+            DiscoverCanReviewSkippedProfiles = !document.ContainsKey("discoverCanReviewSkippedProfiles") || document["discoverCanReviewSkippedProfiles"].AsBoolean(),
+            DiscoverCanReviewLikedProfiles = !document.ContainsKey("discoverCanReviewLikedProfiles") || document["discoverCanReviewLikedProfiles"].AsBoolean(),
+            DiscoverCanReplayDiscoverQueue = document.ContainsKey("discoverCanReplayDiscoverQueue") && document["discoverCanReplayDiscoverQueue"].AsBoolean(),
+            DiscoverCanRewindLastSkip = !document.ContainsKey("discoverCanRewindLastSkip") || document["discoverCanRewindLastSkip"].AsBoolean(),
+            DiscoverCanRecycleSkippedProfiles = document.ContainsKey("discoverCanRecycleSkippedProfiles") && document["discoverCanRecycleSkippedProfiles"].AsBoolean(),
         };
 
         // Handle AvailabilitySchedule - support both old (List<string>) and new (List<AvailabilitySlot>) formats

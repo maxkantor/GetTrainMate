@@ -7,6 +7,8 @@ public interface IMatchService
     Task<int> SeedDemoProfilesAsync();
     Task<CompatibilityInfo?> GetCompatibilityAsync(string userId, string targetUserId);
     Task<List<MatchFeedItem>> GetDiscoveryFeedAsync(string userId, int limit = 20, bool ignoreSkippedForAdmin = false);
+    Task<List<SentRequestItem>> ListSentRequestsAsync(string userId);
+    Task<List<SkippedProfileItem>> ListSkippedProfilesAsync(string userId);
     Task<MatchResponse> LikeUserAsync(string userId, string targetUserId);
     Task<MatchResponse> PassUserAsync(string userId, string targetUserId);
     Task<bool> UndoPassAsync(string userId, string targetUserId);

@@ -25,7 +25,7 @@ import {
 } from '@/utils/profilePhotos';
 import { IMAGE_BUCKET_BASE } from '@/config/media';
 import { getLocationFromIp, FALLBACK_LOCATION } from '@/services/locationService';
-import { buildDiscoverDemoCards, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
+import { isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
 import { DiscoverLayout } from './discover/DiscoverLayout';
 import { ProfileCard } from './discover/ProfileCard';
 import { MatchPanel } from './discover/MatchPanel';
@@ -35,33 +35,12 @@ import { DISCOVER_STRINGS } from './discover/constants';
 import { DiscoverProfileDrawer } from './discover/DiscoverProfileDrawer';
 import { incrementDailyLike, getDailyLikeCount, canSendLikeWithDailyCap } from '@/utils/dailySwipeTracker';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
-import { getPrimaryCtaLabel, normalizeMode, MODE_META } from '@/config/modes';
+import { getCtaModeForCard, MODE_META } from '@/config/modes';
 import { MatchCelebrationOverlay, MatchCelebrationState } from '@/components/discover/MatchCelebrationOverlay';
 import { Modal } from '@/components/ui/Modal';
 import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import type { MatchInsightResponse } from '@/types/ai';
 import styles from './Discover.module.css';
-
-const SKIPPED_DISCOVER_IDS_KEY = 'gtm_discover_skipped_ids';
-
-function loadSkippedDiscoverIds(): string[] {
-  try {
-    const raw = sessionStorage.getItem(SKIPPED_DISCOVER_IDS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveSkippedDiscoverIds(ids: Set<string>): void {
-  try {
-    sessionStorage.setItem(SKIPPED_DISCOVER_IDS_KEY, JSON.stringify([...ids]));
-  } catch {
-    /* ignore */
-  }
-}
 
 function scheduleSummary(schedule: { days?: string[]; timeStart?: string; timeEnd?: string }[] | undefined): string {
   if (!schedule?.length) return '';
@@ -143,36 +122,13 @@ export const DiscoverPage: React.FC = () => {
   const [insightMap, setInsightMap] = useState<Record<string, MatchInsightResponse>>({});
   const [loadingInsightFor, setLoadingInsightFor] = useState<string | null>(null);
   const [aiInsightCost, setAiInsightCost] = useState(2);
-  const [skippedDiscoverIds, setSkippedDiscoverIds] = useState<Set<string>>(
-    () => new Set(loadSkippedDiscoverIds())
-  );
   const [skipUndoOpen, setSkipUndoOpen] = useState(false);
   const [lastSkippedProfile, setLastSkippedProfile] = useState<MatchFeedItem | null>(null);
 
-  const autoSeedRef = useRef(false);
   const matchOverlayOpenRef = useRef(false);
   const openDailyLimitModal = useCallback(() => {
     setDailyLimitModalOpen(true);
   }, []);
-  const markSkippedProfile = useCallback((userId: string) => {
-    setSkippedDiscoverIds((prev) => {
-      if (prev.has(userId)) return prev;
-      const next = new Set(prev);
-      next.add(userId);
-      saveSkippedDiscoverIds(next);
-      return next;
-    });
-  }, []);
-  const clearSkippedProfileMark = useCallback((userId: string) => {
-    setSkippedDiscoverIds((prev) => {
-      if (!prev.has(userId)) return prev;
-      const next = new Set(prev);
-      next.delete(userId);
-      saveSkippedDiscoverIds(next);
-      return next;
-    });
-  }, []);
-
   useEffect(() => {
     loadFeed();
   }, []);
@@ -236,6 +192,7 @@ export const DiscoverPage: React.FC = () => {
           intentMatchTier?: string;
           matchPreviewReasons?: string[];
           lockedInsightReasons?: string[];
+          seenBefore?: boolean;
         }[];
         const feedFromApi: MatchFeedItem[] = items.map((c) => {
           const url = toPhotoUrl(c.avatarUrl, c.userId, c.displayName);
@@ -256,13 +213,11 @@ export const DiscoverPage: React.FC = () => {
             intentMatchTier: c.intentMatchTier,
             matchPreviewReasons: c.matchPreviewReasons,
             lockedInsightReasons: c.lockedInsightReasons,
+            seenBefore: !!c.seenBefore,
           };
         });
         const location = locationRaw ?? FALLBACK_LOCATION;
-        const merged = [...feedFromApi, ...buildDiscoverDemoCards(location)].filter(
-          (card) => !skippedDiscoverIds.has(card.userId)
-        );
-        setFeed(sortDiscoverFeed(merged));
+        setFeed(sortDiscoverFeed(feedFromApi));
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
@@ -283,10 +238,7 @@ export const DiscoverPage: React.FC = () => {
           photoUrls: getMultiplePhotoUrls(c.photoUrls, c.userId, 4, c.name),
         }));
         const location = locationRaw ?? FALLBACK_LOCATION;
-        const merged = [...feedWithPhotos, ...buildDiscoverDemoCards(location)].filter(
-          (card) => !skippedDiscoverIds.has(card.userId)
-        );
-        setFeed(sortDiscoverFeed(merged));
+        setFeed(sortDiscoverFeed(feedWithPhotos));
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
@@ -318,6 +270,7 @@ export const DiscoverPage: React.FC = () => {
                 intentMatchTier?: string;
                 matchPreviewReasons?: string[];
                 lockedInsightReasons?: string[];
+                seenBefore?: boolean;
               }[];
               const feedFromApi: MatchFeedItem[] = items.map((c) => {
                 const url = toPhotoUrl(c.avatarUrl, c.userId, c.displayName);
@@ -338,13 +291,11 @@ export const DiscoverPage: React.FC = () => {
                   intentMatchTier: c.intentMatchTier,
                   matchPreviewReasons: c.matchPreviewReasons,
                   lockedInsightReasons: c.lockedInsightReasons,
+                  seenBefore: !!c.seenBefore,
                 };
               });
               const location = locationRaw ?? FALLBACK_LOCATION;
-              const merged = [...feedFromApi, ...buildDiscoverDemoCards(location)].filter(
-                (card) => !skippedDiscoverIds.has(card.userId)
-              );
-              setFeed(sortDiscoverFeed(merged));
+              setFeed(sortDiscoverFeed(feedFromApi));
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoFallbackUrls({});
@@ -358,10 +309,7 @@ export const DiscoverPage: React.FC = () => {
                 photoUrls: getMultiplePhotoUrls(c.photoUrls, c.userId, 4, c.name),
               }));
               const location = locationRaw ?? FALLBACK_LOCATION;
-              const merged = [...feedWithPhotos, ...buildDiscoverDemoCards(location)].filter(
-                (card) => !skippedDiscoverIds.has(card.userId)
-              );
-              setFeed(sortDiscoverFeed(merged));
+              setFeed(sortDiscoverFeed(feedWithPhotos));
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoErrorForIndex(null);
@@ -399,7 +347,7 @@ export const DiscoverPage: React.FC = () => {
       setCurrentIndex((i) => i + 1);
     } else {
       setFeed([]);
-      setError('No more profiles to discover!');
+      setError('');
     }
   }, [currentIndex, feed.length]);
 
@@ -546,20 +494,18 @@ export const DiscoverPage: React.FC = () => {
 
     const currentCard = feed[currentIndex];
     if (isDummyNearbyProfile(currentCard.userId)) {
-      markSkippedProfile(currentCard.userId);
       setLastSkippedProfile(currentCard);
       setSkipUndoOpen(true);
       const nextFeed = feed.filter((_, idx) => idx !== currentIndex);
       setFeed(nextFeed);
       setCurrentIndex((prev) => Math.max(0, Math.min(prev, nextFeed.length - 1)));
-      if (nextFeed.length === 0) setError('No more profiles to discover!');
+      if (nextFeed.length === 0) setError('');
       return;
     }
 
     try {
       if (isGraphQLEnabled) {
         await graphqlPassUser(currentCard.userId);
-        markSkippedProfile(currentCard.userId);
       } else {
         let token = await authService.getJWT(true);
         if (!token) {
@@ -568,12 +514,10 @@ export const DiscoverPage: React.FC = () => {
         }
         try {
           await matchService.passUser(token, currentCard.userId);
-          markSkippedProfile(currentCard.userId);
         } catch (passErr: unknown) {
           const status = (passErr as { response?: { status?: number } })?.response?.status;
           if (status === 401 && (token = await authService.getJWT(true) ?? '')) {
             await matchService.passUser(token, currentCard.userId);
-            markSkippedProfile(currentCard.userId);
           } else {
             throw passErr;
           }
@@ -584,7 +528,7 @@ export const DiscoverPage: React.FC = () => {
       const nextFeed = feed.filter((_, idx) => idx !== currentIndex);
       setFeed(nextFeed);
       setCurrentIndex((prev) => Math.max(0, Math.min(prev, nextFeed.length - 1)));
-      if (nextFeed.length === 0) setError('No more profiles to discover!');
+      if (nextFeed.length === 0) setError('');
     } catch {
       setToast('Could not save pass. Try again.');
     }
@@ -610,10 +554,9 @@ export const DiscoverPage: React.FC = () => {
         return;
       }
     }
-    clearSkippedProfileMark(lastSkippedProfile.userId);
     restoreSkippedProfile(lastSkippedProfile);
     setSkipUndoOpen(false);
-  }, [clearSkippedProfileMark, lastSkippedProfile, restoreSkippedProfile]);
+  }, [lastSkippedProfile, restoreSkippedProfile]);
 
   const handleRewindLastSkip = useCallback(async () => {
     if (!lastSkippedProfile || skipUndoOpen) return;
@@ -693,13 +636,6 @@ export const DiscoverPage: React.FC = () => {
       setSeeding(false);
     }
   };
-
-  useEffect(() => {
-    if (!loading && feed.length === 0 && !error && !autoSeedRef.current) {
-      autoSeedRef.current = true;
-      void handleSeedDemo();
-    }
-  }, [loading, feed.length, error]);
 
   const closeMatchCelebration = useCallback(
     (advance: boolean) => {
@@ -831,27 +767,49 @@ export const DiscoverPage: React.FC = () => {
 
   if (feed.length === 0 && !loading && !error) {
     return (
-      <div className={styles.container}>
-        <div className={styles.emptyState}>
-          <Typography variant="h6" gutterBottom>
-            {DISCOVER_STRINGS.noMatches}
-          </Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-            {DISCOVER_STRINGS.noMatchesSub}
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
-            <Button variant="contained" onClick={handleSeedDemo} disabled={seeding}>
-              {seeding ? 'Loading…' : DISCOVER_STRINGS.loadDemo}
-            </Button>
-            <Button variant="outlined" onClick={() => navigate('/app/profile')}>
-              {DISCOVER_STRINGS.editProfile}
-            </Button>
-            <Button variant="outlined" onClick={() => loadFeed()}>
-              {DISCOVER_STRINGS.refresh}
-            </Button>
-          </Box>
+      <>
+        <div className={styles.container}>
+          <div className={styles.emptyState}>
+            <Typography variant="h6" gutterBottom>
+              {DISCOVER_STRINGS.caughtUpTitle}
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+              {DISCOVER_STRINGS.caughtUpSub}
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
+              <Button variant="outlined" onClick={() => navigate('/app/profile')}>
+                Expand distance / change mode
+              </Button>
+              <Button variant="outlined" onClick={() => setFiltersOpen(true)}>
+                Adjust filters
+              </Button>
+              <Button variant="outlined" onClick={() => navigate('/app/sent-requests')}>
+                Sent requests
+              </Button>
+              <Button variant="outlined" onClick={() => navigate('/app/matches')}>
+                Matches
+              </Button>
+              <Button variant="contained" onClick={() => loadFeed()}>
+                {DISCOVER_STRINGS.retry}
+              </Button>
+            </Box>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center', mt: 2 }}>
+              <Button variant="text" size="small" onClick={handleSeedDemo} disabled={seeding}>
+                {seeding ? 'Loading…' : DISCOVER_STRINGS.loadDemo}
+              </Button>
+            </Box>
+          </div>
         </div>
-      </div>
+        <FiltersDrawer
+          open={filtersOpen}
+          onClose={() => setFiltersOpen(false)}
+          filters={filters}
+          onFiltersChange={setFilters}
+          onApply={() => loadFeed()}
+          anchor={isMobile ? 'bottom' : 'right'}
+        />
+        <OnboardingModal open={onboardingModalOpen} onClose={() => setOnboardingModalOpen(false)} />
+      </>
     );
   }
 
@@ -872,9 +830,9 @@ export const DiscoverPage: React.FC = () => {
       : me?.profile?.mode
         ? [me.profile.mode]
         : undefined;
-  const primaryCta = getPrimaryCtaLabel(viewerModeList, currentCard.modes);
-  const primaryModeKey = normalizeMode(viewerModeList?.[0] ?? currentCard.modes?.[0]);
-  const primaryCtaIcon = MODE_META[primaryModeKey].icon;
+  const ctaMode = getCtaModeForCard(viewerModeList, currentCard.modes);
+  const primaryCta = MODE_META[ctaMode].cta;
+  const primaryCtaIcon = MODE_META[ctaMode].icon;
 
   const matchReasons = (
     currentCard.matchPreviewReasons?.length
@@ -964,7 +922,11 @@ export const DiscoverPage: React.FC = () => {
               onViewProfile={handleViewProfile}
               onRewind={handleRewindLastSkip}
               interestLoading={likeLoading}
-              canRewind={!!lastSkippedProfile && !skipUndoOpen}
+              canRewind={
+                me?.profile?.discoverCanRewindLastSkip !== false &&
+                !!lastSkippedProfile &&
+                !skipUndoOpen
+              }
               primaryCtaLabel={primaryCta}
               primaryCtaIcon={primaryCtaIcon}
             />
@@ -1051,15 +1013,17 @@ export const DiscoverPage: React.FC = () => {
         message={DISCOVER_STRINGS.skippedToast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         action={
-          <Button
-            color="inherit"
-            size="small"
-            onClick={() => {
-              void handleUndoSkip();
-            }}
-          >
-            Undo
-          </Button>
+          me?.profile?.discoverCanRewindLastSkip !== false ? (
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                void handleUndoSkip();
+              }}
+            >
+              Undo
+            </Button>
+          ) : undefined
         }
       />
 

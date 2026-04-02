@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link as RouterLink, useNavigate, useLocation, matchPath } from 'react-router-dom';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
@@ -85,22 +85,44 @@ export const AppHeader: React.FC = () => {
     icon?: string;
     exact?: boolean;
     alsoActiveOnPaths?: string[];
-  }[] = [
-    {
-      label: t('header.home'),
-      href: '/app',
-      exact: true,
-      alsoActiveOnPaths: ['/app/dashboard'],
-    },
-    {
-      label: t('nav.discover'),
-      href: '/app/discover',
-      exact: true,
-    },
-    { label: t('nav.match'), href: '/app/matches' },
-    { label: t('nav.chat'), href: '/app/chat' },
-    { label: t('nav.events'), href: '/app/events' },
-  ];
+  }[] = useMemo(() => {
+    const sentSkippedPaths: string[] = [];
+    if (me?.profile?.discoverCanReviewLikedProfiles !== false) sentSkippedPaths.push('/app/sent-requests');
+    if (me?.profile?.discoverCanReviewSkippedProfiles !== false) sentSkippedPaths.push('/app/skipped');
+    const items: {
+      label: string;
+      href: string;
+      icon?: string;
+      exact?: boolean;
+      alsoActiveOnPaths?: string[];
+    }[] = [
+      {
+        label: t('header.home'),
+        href: '/app',
+        exact: true,
+        alsoActiveOnPaths: ['/app/dashboard'],
+      },
+      {
+        label: t('nav.discover'),
+        href: '/app/discover',
+        exact: true,
+      },
+      {
+        label: t('nav.match'),
+        href: '/app/matches',
+        alsoActiveOnPaths: sentSkippedPaths.length ? sentSkippedPaths : undefined,
+      },
+    ];
+    if (me?.profile?.discoverCanReviewLikedProfiles !== false) {
+      items.push({ label: 'Sent', href: '/app/sent-requests' });
+    }
+    if (me?.profile?.discoverCanReviewSkippedProfiles !== false) {
+      items.push({ label: 'Skipped', href: '/app/skipped' });
+    }
+    items.push({ label: t('nav.chat'), href: '/app/chat' });
+    items.push({ label: t('nav.events'), href: '/app/events' });
+    return items;
+  }, [me?.profile, t]);
 
   const isAppNavItemActive = (
     pathname: string,

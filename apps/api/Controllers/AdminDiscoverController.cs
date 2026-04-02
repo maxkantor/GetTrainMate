@@ -12,15 +12,18 @@ namespace GetTrainMate.Api.Controllers;
 public class AdminDiscoverController : ControllerBase
 {
     private readonly IMatchService _matchService;
+    private readonly IProfileService _profileService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<AdminDiscoverController> _logger;
 
     public AdminDiscoverController(
         IMatchService matchService,
+        IProfileService profileService,
         IAuditLogService auditLogService,
         ILogger<AdminDiscoverController> logger)
     {
         _matchService = matchService;
+        _profileService = profileService;
         _auditLogService = auditLogService;
         _logger = logger;
     }
@@ -40,6 +43,31 @@ public class AdminDiscoverController : ControllerBase
             CognitoUsername = User.FindFirst("cognito:username")?.Value,
             Email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value
         };
+    }
+
+    [HttpGet("users/{userId}/discover-lifecycle")]
+    public async Task<ActionResult<DiscoverLifecycleDto>> GetUserDiscoverLifecycle(string userId)
+    {
+        var profile = await _profileService.GetProfileAsync(userId);
+        return Ok(DiscoverLifecycleDto.FromProfile(profile));
+    }
+
+    [HttpPut("users/{userId}/discover-lifecycle")]
+    public async Task<ActionResult<DiscoverLifecycleDto>> PutUserDiscoverLifecycle(
+        string userId,
+        [FromBody] DiscoverLifecycleFlagsPatch body)
+    {
+        var admin = GetAdminIdentity();
+        var updated = await _profileService.PatchDiscoverLifecycleAsync(userId, body);
+        if (updated == null)
+            return NotFound(new { message = "Profile not found for user" });
+        await _auditLogService.LogActionAsync(
+            admin,
+            "discover.user.lifecycle.update",
+            "user",
+            userId,
+            after: DiscoverLifecycleDto.FromProfile(updated));
+        return Ok(DiscoverLifecycleDto.FromProfile(updated));
     }
 
     [HttpGet("controls")]

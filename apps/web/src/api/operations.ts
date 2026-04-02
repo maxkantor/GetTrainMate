@@ -30,7 +30,7 @@ export const DISCOVER_CANDIDATES = /* GraphQL */ `
     discoverCandidates(limit: $limit, nextToken: $nextToken) {
       items {
         userId displayName age city bio sports goals avatarUrl level compatibilityScore
-        modes intentMatchTier matchPreviewReasons lockedInsightReasons
+        modes intentMatchTier matchPreviewReasons lockedInsightReasons seenBefore
       }
       nextToken
     }

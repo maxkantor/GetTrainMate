@@ -25,6 +25,8 @@ import { ProfilePage } from '@/pages/app/Profile';
 import { PublicProfilePage } from '@/pages/app/PublicProfile';
 import { DiscoverPage } from '@/pages/app/Discover';
 import { MatchesPage } from '@/pages/app/Matches';
+import { SentRequestsPage } from '@/pages/app/SentRequestsPage';
+import { SkippedProfilesPage } from '@/pages/app/SkippedProfilesPage';
 import { ChatPage } from '@/pages/app/Chat';
 import { AICoachPage } from '@/pages/app/AICoachPage';
 import { EventsPage } from '@/pages/app/Events';
@@ -90,6 +92,8 @@ export const Router: React.FC = () => {
               <Route path="dashboard" element={<AppHomePage />} />
               <Route path="discover" element={<DiscoverPage />} />
               <Route path="matches" element={<MatchesPage />} />
+              <Route path="sent-requests" element={<SentRequestsPage />} />
+              <Route path="skipped" element={<SkippedProfilesPage />} />
               <Route path="chat" element={<ChatPage />} />
               <Route path="ai-coach" element={<AICoachPage />} />
               <Route path="events" element={<EventsPage />} />

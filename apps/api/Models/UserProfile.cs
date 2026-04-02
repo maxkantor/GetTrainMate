@@ -36,6 +36,13 @@ public class UserProfile
 
     /// <summary>realtime | smart | daily</summary>
     public string ChatNotificationFrequency { get; set; } = "smart";
+
+    // Discover lifecycle (admin-tunable; defaults preserve current product behavior)
+    public bool DiscoverCanReviewSkippedProfiles { get; set; } = true;
+    public bool DiscoverCanReviewLikedProfiles { get; set; } = true;
+    public bool DiscoverCanReplayDiscoverQueue { get; set; }
+    public bool DiscoverCanRewindLastSkip { get; set; } = true;
+    public bool DiscoverCanRecycleSkippedProfiles { get; set; }
 }
 
 public class AvailabilitySlot

@@ -17,6 +17,15 @@ interface User {
   credits?: number;
 }
 
+/** Mirrors API DiscoverLifecycleDto (camelCase JSON). */
+interface DiscoverLifecycleFlags {
+  canReviewSkippedProfiles: boolean;
+  canReviewLikedProfiles: boolean;
+  canReplayDiscoverQueue: boolean;
+  canRewindLastSkip: boolean;
+  canRecycleSkippedProfiles: boolean;
+}
+
 export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,6 +42,8 @@ export const UsersPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [grantAmount, setGrantAmount] = useState('10');
   const [grantLoading, setGrantLoading] = useState(false);
+  const [discoverLifecycle, setDiscoverLifecycle] = useState<DiscoverLifecycleFlags | null>(null);
+  const [discoverLifecycleLoading, setDiscoverLifecycleLoading] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -70,6 +81,7 @@ export const UsersPage: React.FC = () => {
     setSelectedUser(row);
     setDetailOpen(true);
     setDetailLoading(true);
+    setDiscoverLifecycle(null);
     try {
       const user = await adminApiService.get(`/api/admin/users/${row.userId}`);
       setDetailUser(user);
@@ -77,6 +89,34 @@ export const UsersPage: React.FC = () => {
       setDetailUser(row);
     } finally {
       setDetailLoading(false);
+    }
+    setDiscoverLifecycleLoading(true);
+    try {
+      const lc = await adminApiService.get(
+        `/api/admin/discover/users/${encodeURIComponent(row.userId)}/discover-lifecycle`
+      );
+      setDiscoverLifecycle(lc as DiscoverLifecycleFlags);
+    } catch {
+      setDiscoverLifecycle(null);
+    } finally {
+      setDiscoverLifecycleLoading(false);
+    }
+  };
+
+  const patchDiscoverLifecycle = async (patch: Partial<DiscoverLifecycleFlags>) => {
+    if (!detailUser) return;
+    setDiscoverLifecycleLoading(true);
+    setError(null);
+    try {
+      const updated = await adminApiService.put(
+        `/api/admin/discover/users/${encodeURIComponent(detailUser.userId)}/discover-lifecycle`,
+        patch
+      );
+      setDiscoverLifecycle(updated as DiscoverLifecycleFlags);
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to update discover lifecycle');
+    } finally {
+      setDiscoverLifecycleLoading(false);
     }
   };
 
@@ -263,6 +303,42 @@ export const UsersPage: React.FC = () => {
               <dt>Created</dt>
               <dd>{new Date(detailUser.createdAt).toLocaleString()}</dd>
             </dl>
+            <div className={styles.lifecycleSection}>
+              <h3 className={styles.lifecycleTitle}>Discover lifecycle</h3>
+              <p className={styles.lifecycleHint}>
+                Per-user overrides. Liked and matched profiles never appear as new in Discover; recycled skips show
+                &quot;Seen before&quot; when enabled.
+              </p>
+              {discoverLifecycleLoading && !discoverLifecycle ? (
+                <p className={styles.detailLoading}>Loading flags…</p>
+              ) : discoverLifecycle ? (
+                <ul className={styles.lifecycleList}>
+                  {(
+                    [
+                      ['canReviewSkippedProfiles', 'Skipped tab / list API'] as const,
+                      ['canReviewLikedProfiles', 'Sent requests tab / list API'] as const,
+                      ['canReplayDiscoverQueue', 'Replay discover queue (show skips again, labeled Seen before)'] as const,
+                      ['canRewindLastSkip', 'Allow rewind last skip'] as const,
+                      ['canRecycleSkippedProfiles', 'Recycle skipped profiles in Discover (Seen before)'] as const,
+                    ] as const
+                  ).map(([key, label]) => (
+                    <li key={key} className={styles.lifecycleRow}>
+                      <label className={styles.lifecycleLabel}>
+                        <input
+                          type="checkbox"
+                          checked={discoverLifecycle[key]}
+                          disabled={discoverLifecycleLoading}
+                          onChange={(e) => void patchDiscoverLifecycle({ [key]: e.target.checked })}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.lifecycleHint}>Could not load lifecycle flags (check admin auth).</p>
+              )}
+            </div>
             <div className={styles.detailActions}>
               <div className={styles.grantRow}>
                 <label className={styles.grantLabel} htmlFor="grant-credits">

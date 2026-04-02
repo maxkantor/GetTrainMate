@@ -9,4 +9,5 @@ public interface IProfileService
     Task<UserProfile> UpdateProfileAsync(string userId, UpdateProfileRequest request);
     Task<bool> DeleteProfileAsync(string userId);
     Task<UserProfile> AddPhotoUrlAsync(string userId, string url);
+    Task<UserProfile?> PatchDiscoverLifecycleAsync(string userId, DiscoverLifecycleFlagsPatch patch);
 }

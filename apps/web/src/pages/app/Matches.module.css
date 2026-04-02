@@ -12,7 +12,25 @@
   font-size: var(--font-2xl);
   font-weight: 700;
   color: var(--color-neutral-900);
-  margin: 0 0 var(--space-6);
+  margin: 0 0 var(--space-3);
+}
+
+.subNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  font-size: var(--font-sm);
+}
+
+.subNav a {
+  color: var(--color-primary-600, #6366f1);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.subNav a:hover {
+  text-decoration: underline;
 }
 
 .toolbar {
