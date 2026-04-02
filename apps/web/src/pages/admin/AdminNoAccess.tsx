@@ -12,11 +12,8 @@ export const AdminNoAccessPage: React.FC = () => (
         You don&apos;t have permission to view the admin portal.
       </p>
       <div className={styles.actions}>
-        <Button as="link" to="/" variant="primary">
-          Go to Home
-        </Button>
-        <Button as="link" to="/app" variant="outline">
-          Open App
+        <Button as="link" to="/app" variant="primary">
+          Go to dashboard
         </Button>
       </div>
     </div>

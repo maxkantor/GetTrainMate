@@ -36,7 +36,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           {isApp ? <div className={styles.appContainer}>{children}</div> : children}
         </main>
       </ChatPresenceProvider>
-      {/* Full marketing footer on every route (including /app/*); brand links home */}
+      {/* Footer on all routes; brand logo → / when logged out, /app when logged in */}
       <Footer />
     </div>
   );

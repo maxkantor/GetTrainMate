@@ -972,7 +972,7 @@ export const ProfilePage: React.FC = () => {
             </Button>
           </Box>
           <Button component={Link} to="/app" variant="text" color="primary" sx={{ alignSelf: 'center' }}>
-            Back Home
+            Back to dashboard
           </Button>
         </Box>
       </Box>

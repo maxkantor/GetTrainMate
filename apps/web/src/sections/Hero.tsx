@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
+import { useI18n } from '@/hooks/useI18n';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
 import { HeroFloatingStack } from '@/components/premium/HeroFloatingStack';
@@ -38,6 +39,7 @@ export const Hero: React.FC = () => {
   const { isAuthenticated } = useAuthContext();
   const { openEntryFlow } = useLandingConversion();
   const { me } = useMe();
+  const { t } = useI18n();
 
   const profileComplete = me?.isProfileComplete ?? true;
   const ctaPrimaryHref = !isAuthenticated
@@ -49,7 +51,7 @@ export const Hero: React.FC = () => {
     ? LANDING_PRIMARY_CTA
     : !profileComplete
       ? 'Finish profile'
-      : 'Home';
+      : t('nav.dashboard');
   const showCtaSubtext = profileComplete;
   const primaryOpensFlow = !isAuthenticated && ctaPrimaryLabel === LANDING_PRIMARY_CTA;
 

@@ -1,10 +1,11 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link as RouterLink, useParams } from 'react-router-dom';
-import { Container, Typography, Button } from '@mui/material';
+import { BrowserRouter, Routes, Route, Link as RouterLink, useParams, Navigate } from 'react-router-dom';
+import { Box, Container, Typography, Button, CircularProgress } from '@mui/material';
 import { Layout } from '@/components/Layout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AdminRoute } from '@/components/AdminRoute';
+import { useAuthContext } from '@/hooks/useAuthContext';
 import { LandingPage } from '@/pages/Landing';
 import { PricingPage } from '@/pages/Pricing';
 import { BillingSuccessPage } from '@/pages/BillingSuccess';
@@ -54,6 +55,41 @@ function PublicProfileRoute() {
   return <PublicProfilePage key={userId} userIdFromRoute={userId ?? ''} />;
 }
 
+/** Marketing landing at `/`; signed-in users go straight to the app dashboard. */
+function PublicLandingRoute() {
+  const { isAuthenticated, isLoading } = useAuthContext();
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  if (isAuthenticated) {
+    return <Navigate to="/app" replace />;
+  }
+  return <LandingPage />;
+}
+
+function NotFoundPage() {
+  const { isAuthenticated } = useAuthContext();
+  const homeTo = isAuthenticated ? '/app' : '/';
+  const homeLabel = isAuthenticated ? 'Go to dashboard' : 'Go home';
+  return (
+    <Container maxWidth="lg" sx={{ py: 8, textAlign: 'center' }}>
+      <Typography variant="h3" component="h1" gutterBottom>
+        Page not found
+      </Typography>
+      <Typography variant="body1" color="textSecondary" sx={{ mb: 4 }}>
+        The page you&apos;re looking for doesn&apos;t exist.
+      </Typography>
+      <Button variant="contained" component={RouterLink} to={homeTo}>
+        {homeLabel}
+      </Button>
+    </Container>
+  );
+}
+
 export const Router: React.FC = () => {
   return (
     <ErrorBoundary>
@@ -63,7 +99,7 @@ export const Router: React.FC = () => {
         <Layout>
           <Routes>
             {/* Public routes */}
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<PublicLandingRoute />} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/billing/success" element={<BillingSuccessPage />} />
             <Route path="/billing/cancel" element={<BillingCancelPage />} />
@@ -123,19 +159,7 @@ export const Router: React.FC = () => {
             </Route>
 
             {/* Catch-all - show 404 page */}
-            <Route path="*" element={
-              <Container maxWidth="lg" sx={{ py: 8, textAlign: 'center' }}>
-                <Typography variant="h3" component="h1" gutterBottom>
-                  Page not found
-                </Typography>
-                <Typography variant="body1" color="textSecondary" sx={{ mb: 4 }}>
-                  The page you're looking for doesn't exist.
-                </Typography>
-                <Button variant="contained" component={RouterLink} to="/">
-                  Go Home
-                </Button>
-              </Container>
-            } />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Layout>
         </LandingConversionProvider>

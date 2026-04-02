@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { useAuthContext } from '@/hooks/useAuthContext';
 import { useI18n } from '@/hooks/useI18n';
 import { FOOTER_SECTIONS } from '@/config/footerLinks';
 import { FooterLegalLinksRow } from './FooterLegalLinksRow';
@@ -13,6 +14,8 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
   const { t } = useI18n();
+  const { isAuthenticated } = useAuthContext();
+  const brandHref = isAuthenticated ? '/app' : '/';
 
   const footerSections = {
     product: FOOTER_SECTIONS.product.map((link) => ({ label: t(link.labelKey), href: link.to })),
@@ -37,9 +40,9 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
     <footer className={styles.footer}>
       <Container>
         <div className={styles.footerContent}>
-          {/* Brand Column — logo links to marketing home */}
+          {/* Brand: marketing home when logged out; app dashboard when logged in */}
           <div className={styles.brandColumn}>
-            <RouterLink to="/" className={`${styles.logo} ${styles.brandLogoLink}`}>
+            <RouterLink to={brandHref} className={`${styles.logo} ${styles.brandLogoLink}`}>
               <span className={styles.logoIcon}>⚡</span>
               <span className={styles.logoText}>{t('common.appName')}</span>
             </RouterLink>

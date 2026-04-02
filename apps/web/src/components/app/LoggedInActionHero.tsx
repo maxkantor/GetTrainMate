@@ -21,7 +21,7 @@ export const LoggedInActionHero: React.FC = () => {
   const [limitModalOpen, setLimitModalOpen] = useState(false);
 
   const primaryHref = complete ? '/app' : '/onboarding/profile';
-  const primaryLabel = complete ? t('header.home') : t('landing.cta_finish_profile');
+  const primaryLabel = complete ? t('nav.dashboard') : t('landing.cta_finish_profile');
   const usedToday = Math.min(likesToday, DAILY_LIKE_LIMIT);
   const atOrPastFreeCap = likesToday >= DAILY_LIKE_LIMIT;
   const hardLimitReached = atOrPastFreeCap && credits < 1;
