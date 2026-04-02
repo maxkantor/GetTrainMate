@@ -4,6 +4,19 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('@mui')) return 'mui';
+          if (id.includes('aws-amplify') || id.includes('@aws-amplify')) return 'amplify';
+          if (id.includes('framer-motion')) return 'motion';
+          if (id.includes('react-dom') || id.includes('react-router')) return 'react-vendor';
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

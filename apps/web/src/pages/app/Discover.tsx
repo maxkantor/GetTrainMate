@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Box, Button, Typography, Alert, Snackbar, useMediaQuery, useTheme } from '@mui/material';
 import { ProfileCardSkeleton } from '@/components/ui/Skeleton';
 import { FiltersDrawer, DiscoverFilters } from '@/components/discover/FiltersDrawer';
@@ -33,7 +33,7 @@ import { ActionBar } from './discover/ActionBar';
 import { FiltersButton } from './discover/FiltersButton';
 import { DISCOVER_STRINGS } from './discover/constants';
 import { DiscoverProfileDrawer } from './discover/DiscoverProfileDrawer';
-import { incrementDailyLike, getDailyLikeCount } from '@/utils/dailySwipeTracker';
+import { incrementDailyLike, getDailyLikeCount, canSendLikeWithDailyCap } from '@/utils/dailySwipeTracker';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 import { MatchCelebrationOverlay, MatchCelebrationState } from '@/components/discover/MatchCelebrationOverlay';
 import { Modal } from '@/components/ui/Modal';
@@ -218,7 +218,10 @@ export const DiscoverPage: React.FC = () => {
       setLoading(true);
       setError('');
       if (isGraphQLEnabled) {
-        const result = await graphqlDiscoverCandidates(50);
+        const [result, locationRaw] = await Promise.all([
+          graphqlDiscoverCandidates(50),
+          getLocationFromIp().catch(() => null),
+        ]);
         const items = (result.items || []) as {
           userId: string;
           displayName: string;
@@ -245,8 +248,7 @@ export const DiscoverPage: React.FC = () => {
             mode: 'TRAIN',
           };
         });
-        let location = await getLocationFromIp();
-        if (!location) location = FALLBACK_LOCATION;
+        const location = locationRaw ?? FALLBACK_LOCATION;
         const merged = [...feedFromApi, ...buildDiscoverDemoCards(location)].filter(
           (card) => !skippedDiscoverIds.has(card.userId)
         );
@@ -262,13 +264,15 @@ export const DiscoverPage: React.FC = () => {
           setLoading(false);
           return;
         }
-        const feedFromApi = await matchService.getDiscoveryFeed(token, 50);
+        const [feedFromApi, locationRaw] = await Promise.all([
+          matchService.getDiscoveryFeed(token, 50),
+          getLocationFromIp().catch(() => null),
+        ]);
         const feedWithPhotos: MatchFeedItem[] = feedFromApi.map((c) => ({
           ...c,
           photoUrls: getMultiplePhotoUrls(c.photoUrls, c.userId, 4, c.name),
         }));
-        let location = await getLocationFromIp();
-        if (!location) location = FALLBACK_LOCATION;
+        const location = locationRaw ?? FALLBACK_LOCATION;
         const merged = [...feedWithPhotos, ...buildDiscoverDemoCards(location)].filter(
           (card) => !skippedDiscoverIds.has(card.userId)
         );
@@ -287,7 +291,10 @@ export const DiscoverPage: React.FC = () => {
         if (freshToken || isGraphQLEnabled) {
           try {
             if (isGraphQLEnabled) {
-              const result = await graphqlDiscoverCandidates(50);
+              const [result, locationRaw] = await Promise.all([
+                graphqlDiscoverCandidates(50),
+                getLocationFromIp().catch(() => null),
+              ]);
               const items = (result.items || []) as {
                 userId: string;
                 displayName: string;
@@ -312,8 +319,7 @@ export const DiscoverPage: React.FC = () => {
                   mode: 'TRAIN',
                 };
               });
-              let location = await getLocationFromIp();
-              if (!location) location = FALLBACK_LOCATION;
+              const location = locationRaw ?? FALLBACK_LOCATION;
               const merged = [...feedFromApi, ...buildDiscoverDemoCards(location)].filter(
                 (card) => !skippedDiscoverIds.has(card.userId)
               );
@@ -322,13 +328,15 @@ export const DiscoverPage: React.FC = () => {
               setCurrentIndex(0);
               setPhotoFallbackUrls({});
             } else {
-              const feedFromApi = await matchService.getDiscoveryFeed(freshToken!, 50);
+              const [feedFromApi, locationRaw] = await Promise.all([
+                matchService.getDiscoveryFeed(freshToken!, 50),
+                getLocationFromIp().catch(() => null),
+              ]);
               const feedWithPhotos = feedFromApi.map((c) => ({
                 ...c,
                 photoUrls: getMultiplePhotoUrls(c.photoUrls, c.userId, 4, c.name),
               }));
-              let location = await getLocationFromIp();
-              if (!location) location = FALLBACK_LOCATION;
+              const location = locationRaw ?? FALLBACK_LOCATION;
               const merged = [...feedWithPhotos, ...buildDiscoverDemoCards(location)].filter(
                 (card) => !skippedDiscoverIds.has(card.userId)
               );
@@ -388,8 +396,9 @@ export const DiscoverPage: React.FC = () => {
       return;
     }
 
-    if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
-      setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
+    const creditBefore = me?.credits ?? 0;
+    if (!canSendLikeWithDailyCap(creditBefore)) {
+      setToast(`You've used today's ${DAILY_LIKE_LIMIT} free swipes and have no credits left.`);
       openDailyLimitModal();
       return;
     }
@@ -424,8 +433,8 @@ export const DiscoverPage: React.FC = () => {
           });
           return;
         }
-        if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
-          setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
+        if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, creditBefore - 1))) {
+          setToast(`You've used today's ${DAILY_LIKE_LIMIT} free swipes and have no credits left.`);
           openDailyLimitModal();
         } else {
           finishInterestSent();
@@ -448,8 +457,8 @@ export const DiscoverPage: React.FC = () => {
             });
             return;
           }
-          if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
-            setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
+          if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, creditBefore - 1))) {
+            setToast(`You've used today's ${DAILY_LIKE_LIMIT} free swipes and have no credits left.`);
             openDailyLimitModal();
           } else {
             finishInterestSent();
@@ -471,8 +480,8 @@ export const DiscoverPage: React.FC = () => {
                   });
                   return;
                 }
-                if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
-                  setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
+                if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, creditBefore - 1))) {
+                  setToast(`You've used today's ${DAILY_LIKE_LIMIT} free swipes and have no credits left.`);
                   openDailyLimitModal();
                 } else {
                   finishInterestSent();
@@ -509,7 +518,7 @@ export const DiscoverPage: React.FC = () => {
     } finally {
       setLikeLoading(false);
     }
-  }, [advanceToNextCard, currentIndex, feed, openDailyLimitModal, refreshMe]);
+  }, [advanceToNextCard, currentIndex, feed, me?.credits, openDailyLimitModal, refreshMe]);
 
   const handlePass = async () => {
     if (currentIndex >= feed.length) return;
@@ -827,7 +836,6 @@ export const DiscoverPage: React.FC = () => {
 
   const currentCard = feed[currentIndex];
   const progress = feed.length > 0 ? ((currentIndex + 1) / feed.length) * 100 : 0;
-  const credits = me?.credits ?? 0;
   const photoFailed = photoErrorForIndex === currentIndex;
   const allPhotos = getMultiplePhotoUrls(currentCard.photoUrls, currentCard.userId, 4, currentCard.name);
   const photoIndex = Math.min(currentPhotoIndex, allPhotos.length - 1);
@@ -1021,35 +1029,20 @@ export const DiscoverPage: React.FC = () => {
       <Modal
         open={dailyLimitModalOpen}
         onClose={() => setDailyLimitModalOpen(false)}
-        title="You're out of matches for today."
+        title="Daily swipe limit reached"
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <Typography variant="body2" color="text.secondary">
-            You're at today's limit. Wait for reset, or use 1 credit to continue now.
+            You&apos;ve used your {DAILY_LIKE_LIMIT} free swipes for today and don&apos;t have credits left.
+            Each Like uses 1 credit — get credits to keep discovering, or come back after midnight.
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button variant="outlined" onClick={() => setDailyLimitModalOpen(false)}>
-              Wait for reset
+              Close
             </Button>
-            {credits > 0 ? (
-              <Button
-                component={Link}
-                to="/app/discover"
-                variant="contained"
-                onClick={() => setDailyLimitModalOpen(false)}
-              >
-                Use 1 credit now
-              </Button>
-            ) : (
-              <Button
-                component={Link}
-                to="/pricing"
-                variant="contained"
-                onClick={() => setDailyLimitModalOpen(false)}
-              >
-                Get Credits
-              </Button>
-            )}
+            <Button variant="contained" onClick={() => { setDailyLimitModalOpen(false); navigate('/pricing'); }}>
+              Get credits
+            </Button>
           </Box>
         </Box>
       </Modal>

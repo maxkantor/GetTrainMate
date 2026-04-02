@@ -23,7 +23,9 @@ export const LoggedInActionHero: React.FC = () => {
   const primaryHref = complete ? '/app' : '/onboarding/profile';
   const primaryLabel = complete ? t('header.home') : t('landing.cta_finish_profile');
   const usedToday = Math.min(likesToday, DAILY_LIKE_LIMIT);
-  const limitReached = usedToday >= DAILY_LIKE_LIMIT;
+  const atOrPastFreeCap = likesToday >= DAILY_LIKE_LIMIT;
+  const hardLimitReached = atOrPastFreeCap && credits < 1;
+  const canStillLikeWithCredits = atOrPastFreeCap && credits >= 1;
   const progressPercent = (usedToday / DAILY_LIKE_LIMIT) * 100;
 
   const resetCountdownLabel = useMemo(() => {
@@ -39,20 +41,23 @@ export const LoggedInActionHero: React.FC = () => {
   }, [likesToday]);
 
   useEffect(() => {
-    if (!limitReached) return;
+    if (!hardLimitReached) return;
     const dayKey = new Date().toISOString().slice(0, 10);
     const shownKey = `gtm_daily_limit_modal_${dayKey}`;
     if (sessionStorage.getItem(shownKey)) return;
     sessionStorage.setItem(shownKey, '1');
     setLimitModalOpen(true);
-  }, [limitReached]);
+  }, [hardLimitReached]);
 
   return (
     <section className={styles.wrap} aria-label="Your activity">
       <div className={styles.inner}>
         <p className={styles.kicker}>You’re in</p>
         <h1 className={styles.title}>Today's Matches</h1>
-        <p className={styles.usage}>{usedToday} / {DAILY_LIKE_LIMIT} used</p>
+        <p className={styles.usage}>
+          {Math.min(likesToday, DAILY_LIKE_LIMIT)} / {DAILY_LIKE_LIMIT} free swipes used
+          {likesToday > DAILY_LIKE_LIMIT ? ` (${likesToday} swipes today)` : ''}
+        </p>
         <div className={styles.progressWrap} aria-hidden>
           <div className={styles.progressTrack}>
             <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
@@ -62,14 +67,14 @@ export const LoggedInActionHero: React.FC = () => {
           </span>
         </div>
         <p className={styles.sub}>
-          You can connect with up to {DAILY_LIKE_LIMIT} people per day.
+          You get {DAILY_LIKE_LIMIT} free swipes per day; each Like after that uses 1 credit from your balance.
           <br />
-          Daily limit resets in {resetCountdownLabel}.
+          Daily free swipes reset in {resetCountdownLabel}.
         </p>
 
         {!complete && <p className={styles.completeHint}>Complete your profile to get better matches.</p>}
 
-        {!limitReached && (
+        {!atOrPastFreeCap && (
           <>
             <Button
               component={RouterLink}
@@ -80,7 +85,7 @@ export const LoggedInActionHero: React.FC = () => {
             >
               {primaryLabel}
             </Button>
-            {complete && credits <= 0 && (
+            {complete ? (
               <Button
                 component={RouterLink}
                 to="/app/discover"
@@ -90,51 +95,38 @@ export const LoggedInActionHero: React.FC = () => {
               >
                 {t('nav.discover')}
               </Button>
-            )}
-            {complete && credits > 0 && (
-              <>
-                <Button
-                  component={RouterLink}
-                  to="/app/discover"
-                  variant="outlined"
-                  size="large"
-                  className={styles.secondaryCta}
-                >
-                  Use 1 Credit to Match Now
-                </Button>
-                <p className={styles.hint}>⚡ Most members use credits to skip the wait</p>
-              </>
-            )}
+            ) : null}
           </>
         )}
 
-        {limitReached && (
+        {canStillLikeWithCredits && (
+          <>
+            <p className={styles.limitMessage}>Free swipes used for today — you can keep going with credits</p>
+            <Button
+              component={RouterLink}
+              to="/app/discover"
+              variant="contained"
+              size="large"
+              className={styles.cta}
+            >
+              Continue to Discover
+            </Button>
+            <p className={styles.hint}>Each additional Like uses 1 credit</p>
+          </>
+        )}
+
+        {hardLimitReached && (
           <div className={styles.limitState}>
-            <p className={styles.limitMessage}>You've reached today's limit</p>
-            {credits > 0 ? (
-              <>
-                <Button
-                  type="button"
-                  variant="contained"
-                  size="large"
-                  className={styles.cta}
-                  onClick={() => setLimitModalOpen(true)}
-                >
-                  Use 1 Credit to Continue
-                </Button>
-                <p className={styles.hint}>⚡ Most members use credits to keep momentum</p>
-              </>
-            ) : (
-              <Button
-                component={RouterLink}
-                to="/pricing"
-                variant="contained"
-                size="large"
-                className={styles.cta}
-              >
-                Get Credits
-              </Button>
-            )}
+            <p className={styles.limitMessage}>No free swipes or credits left today</p>
+            <Button
+              component={RouterLink}
+              to="/pricing"
+              variant="contained"
+              size="large"
+              className={styles.cta}
+            >
+              Get Credits
+            </Button>
           </div>
         )}
       </div>
@@ -142,41 +134,21 @@ export const LoggedInActionHero: React.FC = () => {
       <Modal
         open={limitModalOpen}
         onClose={() => setLimitModalOpen(false)}
-        title="You're out of matches for today."
+        title="Daily swipe limit reached"
       >
         <div className={styles.limitModalContent}>
           <p className={styles.limitModalText}>
-            You've reached your daily match cap. Wait for reset, or spend 1 credit to continue now.
+            You&apos;ve used your {DAILY_LIKE_LIMIT} free swipes for today and don&apos;t have credits left.
+            Get credits to keep discovering, or come back after midnight.
           </p>
           <div className={styles.limitModalActions}>
-            <Button
-              type="button"
-              variant="outlined"
-              onClick={() => setLimitModalOpen(false)}
-            >
-              Wait for reset
+            <Button type="button" variant="outlined" onClick={() => setLimitModalOpen(false)}>
+              Close
             </Button>
-            {credits > 0 ? (
-              <Button
-                component={RouterLink}
-                to="/app/discover"
-                variant="contained"
-                onClick={() => setLimitModalOpen(false)}
-              >
-                Use 1 credit now
-              </Button>
-            ) : (
-              <Button
-                component={RouterLink}
-                to="/pricing"
-                variant="contained"
-                onClick={() => setLimitModalOpen(false)}
-              >
-                Get Credits
-              </Button>
-            )}
+            <Button component={RouterLink} to="/pricing" variant="contained" onClick={() => setLimitModalOpen(false)}>
+              Get credits
+            </Button>
           </div>
-          {credits <= 0 && <p className={styles.limitModalText}>No credits available right now.</p>}
         </div>
       </Modal>
     </section>

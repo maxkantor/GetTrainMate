@@ -30,7 +30,7 @@ import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhoto
 import { getDiscoverDemoCard, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
 import { getLandingProfile, isLandingProfileUserId } from '@/data/landingProfiles';
 import { DISCOVER_STRINGS } from '@/pages/app/discover/constants';
-import { incrementDailyLike, getDailyLikeCount } from '@/utils/dailySwipeTracker';
+import { incrementDailyLike, canSendLikeWithDailyCap } from '@/utils/dailySwipeTracker';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 
 interface PublicProfilePageProps {
@@ -297,8 +297,8 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
       setMatched(false);
       return;
     }
-    if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
-      setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
+    if (!canSendLikeWithDailyCap(me?.credits ?? 0)) {
+      setToast(`You've used today's ${DAILY_LIKE_LIMIT} free swipes and have no credits left.`);
       return;
     }
     try {

@@ -33,14 +33,17 @@ export const AppHeader: React.FC = () => {
   const creditCap = Math.max(me?.lifetimeEarned ?? 0, credits);
   const lowCredits = credits <= 1;
   const likesToday = matchStatus.likesToday;
-  const outOfDailyMatches = likesToday >= DAILY_LIKE_LIMIT;
-  const pressureCredits = lowCredits || outOfDailyMatches;
+  const outOfFreeSwipes = likesToday >= DAILY_LIKE_LIMIT;
+  const blockedOnDiscover = outOfFreeSwipes && credits < 1;
+  const pressureCredits = lowCredits || blockedOnDiscover;
 
-  const statusLine = outOfDailyMatches
-    ? 'Out of matches. Get more on Pricing.'
-    : !matchStatus.loading && matchStatus.waitingForAction > 0
-      ? `${matchStatus.waitingForAction} match${matchStatus.waitingForAction === 1 ? '' : 'es'} waiting`
-      : `${likesToday}/${DAILY_LIKE_LIMIT} matches used today`;
+  const statusLine = blockedOnDiscover
+    ? 'No free swipes or credits — get credits on Pricing.'
+    : outOfFreeSwipes && credits >= 1
+      ? `${likesToday}/${DAILY_LIKE_LIMIT} free swipes — extra Likes use credits`
+      : !matchStatus.loading && matchStatus.waitingForAction > 0
+        ? `${matchStatus.waitingForAction} match${matchStatus.waitingForAction === 1 ? '' : 'es'} waiting`
+        : `${Math.min(likesToday, DAILY_LIKE_LIMIT)}/${DAILY_LIKE_LIMIT} free swipes today`;
 
   const avatarLetter =
     me?.profile?.name?.trim()?.charAt(0)?.toUpperCase() ||
