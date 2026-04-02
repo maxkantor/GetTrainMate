@@ -84,24 +84,15 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
           graphqlEnsureFreeStartCredits().catch(() => {});
           return;
         } catch (graphqlErr) {
-          const status = graphqlErr instanceof GraphQLApiError ? graphqlErr.status : (graphqlErr as { response?: { status?: number }; statusCode?: number })?.response?.status ?? (graphqlErr as { statusCode?: number })?.statusCode;
-          const message = graphqlErr instanceof Error ? graphqlErr.message : (graphqlErr as { message?: string })?.message ?? '';
-          const graphqlErrors = graphqlErr instanceof GraphQLApiError ? graphqlErr.graphqlErrors : undefined;
-          const isUnauthorized =
-            status === 401 ||
-            message.toLowerCase().includes('unauthorized') ||
-            graphqlErrors?.some(
-              (e) =>
-                (e.message ?? '').toLowerCase().includes('unauthorized') ||
-                (e.extensions as Record<string, unknown>)?.errorType === 'Unauthorized' ||
-                (e.extensions as Record<string, unknown>)?.code === 'UNAUTHENTICATED'
-            );
-          if (isUnauthorized && token) {
-            if (import.meta.env.DEV) console.log('[MeContext] GraphQL Unauthorized, falling back to REST /api/me');
+          // AppSync can fail for auth quirks, schema, or resolver errors while REST /api/me still works.
+          // Always try REST when GraphQL getMe fails (do not only fall back on 401).
+          if (token) {
+            if (import.meta.env.DEV) console.warn('[MeContext] GraphQL getMe failed, trying REST /api/me:', graphqlErr);
             try {
               const data = await meService.getMe(token);
               setMe(data);
               if (import.meta.env.DEV) console.log('[MeContext] Profile loaded (REST fallback):', data.user?.id);
+              graphqlEnsureFreeStartCredits().catch(() => {});
               return;
             } catch (restErr) {
               if (import.meta.env.DEV) console.warn('[MeContext] REST fallback also failed:', restErr);

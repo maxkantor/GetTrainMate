@@ -24,6 +24,7 @@
     "web:lint": "cd apps/web && npm run lint",
     "infra:synth": "cd infra && npm run synth",
     "infra:build": "cd infra && npm run build",
+    "api:publish": "dotnet publish apps/api/GetTrainMate.Api.csproj -c Release -o apps/api/publish",
     "infra:deploy": "cd infra && npm run deploy",
     "infra:deploy-with-pool": "cd infra && npm run deploy:use-existing-pool",
     "cognito:delete-obsolete": "bash scripts/delete-obsolete-cognito-pools.sh",

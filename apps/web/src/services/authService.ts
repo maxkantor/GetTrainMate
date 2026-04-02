@@ -186,7 +186,15 @@ export const authService = {
   async getJWT(forceRefresh = false): Promise<string | null> {
     try {
       const session = await fetchAuthSession({ forceRefresh });
-      const token = session.tokens?.accessToken?.toString() || null;
+      const raw = session.tokens?.accessToken;
+      const token =
+        raw == null
+          ? null
+          : typeof raw === 'string'
+            ? raw
+            : typeof (raw as { toString?: () => string }).toString === 'function'
+              ? String((raw as { toString: () => string }).toString())
+              : null;
       if (import.meta.env.DEV && token) {
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
