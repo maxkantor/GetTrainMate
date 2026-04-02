@@ -16,7 +16,36 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { isAuthConfigured, getAuthPoolDebug } from '@/services/authService';
 import { PageShell } from '@/components/layout/PageShell';
 
-const REMEMBER_EMAIL_KEY = 'rememberEmail';
+/** Last email used for a successful sign-in (pre-filled on return visits). */
+const LAST_LOGIN_EMAIL_KEY = 'gtm_last_login_email';
+/** Legacy key — read once for migration */
+const LEGACY_REMEMBER_EMAIL_KEY = 'rememberEmail';
+
+function readSavedLoginEmail(): string {
+  try {
+    return (
+      localStorage.getItem(LAST_LOGIN_EMAIL_KEY) ||
+      localStorage.getItem(LEGACY_REMEMBER_EMAIL_KEY) ||
+      ''
+    ).trim();
+  } catch {
+    return '';
+  }
+}
+
+function persistLoginEmail(emailTrimmed: string, remember: boolean) {
+  try {
+    if (remember && emailTrimmed) {
+      localStorage.setItem(LAST_LOGIN_EMAIL_KEY, emailTrimmed);
+      localStorage.removeItem(LEGACY_REMEMBER_EMAIL_KEY);
+    } else {
+      localStorage.removeItem(LAST_LOGIN_EMAIL_KEY);
+      localStorage.removeItem(LEGACY_REMEMBER_EMAIL_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -33,11 +62,12 @@ export const LoginPage: React.FC = () => {
   }, [searchParams]);
   const { login, confirmSignInWithNewPassword, isLoading } = useAuthContext();
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => readSavedLoginEmail());
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  /** Default on so email is saved after sign-in; uncheck on shared devices to skip saving. */
+  const [rememberMe, setRememberMe] = useState(true);
   const [requiresNewPassword, setRequiresNewPassword] = useState(false);
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string; newPassword?: string; confirmNewPassword?: string }>({});
@@ -83,15 +113,7 @@ export const LoginPage: React.FC = () => {
     try {
       const result = await login(email, password);
       if (result.success) {
-        try {
-          if (rememberMe) {
-            localStorage.setItem(REMEMBER_EMAIL_KEY, email.trim());
-          } else {
-            localStorage.removeItem(REMEMBER_EMAIL_KEY);
-          }
-        } catch {
-          /* ignore */
-        }
+        persistLoginEmail(email.trim(), rememberMe);
         const plan = localStorage.getItem('selectedPlanKey');
         if (plan === 'pro' || plan === 'elite') {
           localStorage.removeItem('selectedPlanKey');
@@ -122,15 +144,7 @@ export const LoginPage: React.FC = () => {
     try {
       const result = await confirmSignInWithNewPassword(newPassword);
       if (result.success) {
-        try {
-          if (rememberMe) {
-            localStorage.setItem(REMEMBER_EMAIL_KEY, email.trim());
-          } else {
-            localStorage.removeItem(REMEMBER_EMAIL_KEY);
-          }
-        } catch {
-          /* ignore */
-        }
+        persistLoginEmail(email.trim(), rememberMe);
         const plan = localStorage.getItem('selectedPlanKey');
         if (plan === 'pro' || plan === 'elite') {
           localStorage.removeItem('selectedPlanKey');
@@ -258,7 +272,7 @@ export const LoginPage: React.FC = () => {
             helperText={validationErrors.email}
             disabled={isLoading}
             margin="normal"
-            autoComplete="email"
+            autoComplete="username email"
           />
 
           <TextField

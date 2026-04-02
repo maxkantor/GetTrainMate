@@ -236,8 +236,10 @@ public class ChatService : IChatService
                 }
             } while (!search.IsDone);
 
-            // Sort by most recent first
+            // One row per conversation partner (duplicate thread docs for same pair are merged).
             return threadPreviews
+                .GroupBy(t => t.OtherUserId)
+                .Select(g => g.OrderByDescending(x => x.LastMessageAt).First())
                 .OrderByDescending(x => x.LastMessageAt)
                 .ToList();
         }

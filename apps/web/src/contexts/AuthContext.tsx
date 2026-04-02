@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { authService } from '@/services/authService';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import { clearAuthScopeTracking } from '@/utils/authScopeReset';
 
 interface AuthUser {
   email: string;
@@ -170,6 +171,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       await authService.logout();
+      clearAuthScopeTracking();
       setUser(null);
     } catch (error) {
       console.error('Logout failed:', error);

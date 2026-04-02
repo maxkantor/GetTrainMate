@@ -133,12 +133,9 @@ export const DiscoverPage: React.FC = () => {
     setDailyLimitModalOpen(true);
   }, []);
   useEffect(() => {
-    loadFeed();
-  }, []);
-
-  useEffect(() => {
+    if (!user?.sub) return;
     const now = Date.now();
-    localStorage.setItem('gtm_discover_last_visit', String(now));
+    localStorage.setItem(`gtm_discover_last_visit_${user.sub}`, String(now));
   }, [me?.user?.id, user?.sub]);
 
   useEffect(() => {
@@ -345,6 +342,18 @@ export const DiscoverPage: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (!user?.sub) {
+      setFeed([]);
+      setCurrentIndex(0);
+      setLoading(false);
+      setError('');
+      return;
+    }
+    void loadFeed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload discover when the signed-in user changes
+  }, [user?.sub]);
+
   const advanceToNextCard = useCallback(() => {
     if (currentIndex < feed.length - 1) {
       setCurrentIndex((i) => i + 1);
@@ -369,7 +378,7 @@ export const DiscoverPage: React.FC = () => {
     }
 
     const creditBefore = me?.credits ?? 0;
-    if (!canSendLikeWithDailyCap(creditBefore)) {
+    if (!canSendLikeWithDailyCap(creditBefore, user?.sub)) {
       setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery, or try again after midnight UTC.`);
       openDailyLimitModal();
       return;
@@ -395,7 +404,7 @@ export const DiscoverPage: React.FC = () => {
       setLikeLoading(true);
       if (isGraphQLEnabled) {
         const result = await graphqlLikeUser(currentCard.userId);
-        if (creditBefore === 0) incrementDailyLike();
+        if (creditBefore === 0) incrementDailyLike(user?.sub);
         await refreshMe();
         if (result.isMatched) {
           setMatchCelebration({
@@ -405,7 +414,7 @@ export const DiscoverPage: React.FC = () => {
           });
           return;
         }
-        if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0))) {
+        if (getDailyLikeCount(user?.sub) >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0), user?.sub)) {
           setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
           openDailyLimitModal();
         } else {
@@ -419,7 +428,7 @@ export const DiscoverPage: React.FC = () => {
         }
         try {
           const result = await matchService.likeUser(token, currentCard.userId);
-          if (creditBefore === 0) incrementDailyLike();
+          if (creditBefore === 0) incrementDailyLike(user?.sub);
           await refreshMe();
           if (result.isMatched) {
             setMatchCelebration({
@@ -429,7 +438,7 @@ export const DiscoverPage: React.FC = () => {
             });
             return;
           }
-          if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0))) {
+          if (getDailyLikeCount(user?.sub) >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0), user?.sub)) {
             setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
             openDailyLimitModal();
           } else {
@@ -442,7 +451,7 @@ export const DiscoverPage: React.FC = () => {
             if (token) {
               try {
                 const result = await matchService.likeUser(token, currentCard.userId);
-                if (creditBefore === 0) incrementDailyLike();
+                if (creditBefore === 0) incrementDailyLike(user?.sub);
                 await refreshMe();
                 if (result.isMatched) {
                   setMatchCelebration({
@@ -452,7 +461,7 @@ export const DiscoverPage: React.FC = () => {
                   });
                   return;
                 }
-                if (getDailyLikeCount() >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0))) {
+                if (getDailyLikeCount(user?.sub) >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0), user?.sub)) {
                   setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
                   openDailyLimitModal();
                 } else {
@@ -490,7 +499,7 @@ export const DiscoverPage: React.FC = () => {
     } finally {
       setLikeLoading(false);
     }
-  }, [advanceToNextCard, currentIndex, feed, me?.credits, openDailyLimitModal, refreshMe, me]);
+  }, [advanceToNextCard, currentIndex, feed, me?.credits, openDailyLimitModal, refreshMe, me, user?.sub]);
 
   const handlePass = async () => {
     if (currentIndex >= feed.length) return;

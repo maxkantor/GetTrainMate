@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuthContext } from '@/hooks/useAuthContext';
 import { authService } from '@/services/authService';
 import { matchService } from '@/services/matchService';
 import { isGraphQLEnabled, graphqlListMyMatches } from '@/services/graphqlService';
@@ -15,14 +16,20 @@ export interface MatchStatusForHeader {
 }
 
 export function useMatchStatusForHeader(enabled: boolean): MatchStatusForHeader {
+  const { user } = useAuthContext();
+  const userSub = user?.sub;
   const [waitingForAction, setWaitingForAction] = useState(0);
   const [totalMatches, setTotalMatches] = useState(0);
-  const [likesToday, setLikesToday] = useState(() => getDailyLikeCount());
+  const [likesToday, setLikesToday] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    setLikesToday(getDailyLikeCount(userSub));
+  }, [userSub]);
+
   const refreshLikes = useCallback(() => {
-    setLikesToday(getDailyLikeCount());
-  }, []);
+    setLikesToday(getDailyLikeCount(userSub));
+  }, [userSub]);
 
   const loadMatches = useCallback(async () => {
     if (!enabled) return;

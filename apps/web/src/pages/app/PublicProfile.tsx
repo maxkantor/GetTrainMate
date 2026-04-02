@@ -18,6 +18,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useI18n } from '@/hooks/useI18n';
+import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { authService } from '@/services/authService';
 import { profileService } from '@/services/profileService';
@@ -44,6 +45,8 @@ function scheduleSummary(schedule: { days?: string[]; timeStart?: string; timeEn
 }
 
 export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFromRoute: userIdProp }) => {
+  const { user } = useAuthContext();
+  const dailyLikeUserId = user?.sub ?? undefined;
   const location = useLocation();
   const paramsUserId = useParams<{ userId: string }>().userId;
   const userIdFromUrl = paramsUserId ?? (location.pathname.match(/\/profile\/([^/]+)/)?.[1] ?? '');
@@ -300,7 +303,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
       setMatched(false);
       return;
     }
-    if (!canSendLikeWithDailyCap(me?.credits ?? 0)) {
+    if (!canSendLikeWithDailyCap(me?.credits ?? 0, dailyLikeUserId)) {
       setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
       return;
     }
@@ -309,7 +312,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
       setLiking(true);
       if (isGraphQLEnabled) {
         const result = await graphqlLikeUser(userId);
-        if (creditBefore === 0) incrementDailyLike();
+        if (creditBefore === 0) incrementDailyLike(dailyLikeUserId);
         await refreshMe();
         if (result.isMatched) {
           setMatched(true);
@@ -323,7 +326,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
           return;
         }
         const result = await matchService.likeUser(token, userId);
-        if (creditBefore === 0) incrementDailyLike();
+        if (creditBefore === 0) incrementDailyLike(dailyLikeUserId);
         await refreshMe();
         if (result.isMatched) {
           setMatched(true);

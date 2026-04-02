@@ -4,6 +4,7 @@ import { authService } from '@/services/authService';
 import { meService, type MeResponse } from '@/services/meService';
 import { isGraphQLEnabled, graphqlGetMe, graphqlEnsureFreeStartCredits, GraphQLApiError } from '@/services/graphqlService';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
+import { syncAuthScopeToCurrentUser } from '@/utils/authScopeReset';
 
 interface MeContextType {
   me: MeResponse | null;
@@ -25,7 +26,11 @@ interface MeProviderProps {
 
 function mapGraphQLMeToResponse(g: Awaited<ReturnType<typeof graphqlGetMe>>): MeResponse {
   const profile = g.profile
-    ? {
+    ? (() => {
+        const modesRaw = ((g.profile as { modes?: string[] }).modes ?? []).filter(Boolean);
+        const modes = (modesRaw.length ? modesRaw : ['TRAIN']) as ('TRAIN' | 'VIBE' | 'DATE')[];
+        const modeSingle = (modes[0] ?? 'TRAIN') as 'TRAIN' | 'VIBE' | 'DATE';
+        return {
         userId: (g.profile as { userId?: string }).userId ?? '',
         email: '',
         name: (g.profile as { displayName?: string }).displayName ?? '',
@@ -35,12 +40,13 @@ function mapGraphQLMeToResponse(g: Awaited<ReturnType<typeof graphqlGetMe>>): Me
         level: (g.profile as { level?: string }).level,
         goals: ((g.profile as { goals?: string[] }).goals as string[]) ?? [],
         availabilitySchedule: ((g.profile as { schedule?: unknown[] }).schedule as { days: string[]; timeStart: string; timeEnd: string }[]) ?? [],
-        mode: 'TRAIN' as const,
-        modes: (((g.profile as { modes?: string[] }).modes ?? ['TRAIN']) as ('TRAIN' | 'VIBE' | 'DATE')[]),
+        mode: modeSingle,
+        modes,
         photoUrls: (g.profile as { avatarUrl?: string }).avatarUrl ? [(g.profile as { avatarUrl: string }).avatarUrl] : [],
         isComplete: g.isProfileComplete,
         updatedAt: (g.profile as { updatedAt?: string }).updatedAt,
-      }
+      };
+      })()
     : null;
   return {
     user: { id: g.user.id, email: g.user.email ?? '' },
@@ -54,15 +60,29 @@ function mapGraphQLMeToResponse(g: Awaited<ReturnType<typeof graphqlGetMe>>): Me
 }
 
 export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
-  const { isAuthenticated } = useAuthContext();
+  const { isAuthenticated, user } = useAuthContext();
+  const userSub = user?.sub;
   const [me, setMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAuthenticated && userSub) {
+      syncAuthScopeToCurrentUser(userSub);
+    } else if (!isAuthenticated) {
+      syncAuthScopeToCurrentUser(undefined);
+    }
+  }, [isAuthenticated, userSub]);
 
   const fetchMe = useCallback(async (silent = false) => {
     if (!isAuthenticated) {
       setMe(null);
       setLoading(false);
+      return;
+    }
+    if (!userSub) {
+      setMe(null);
+      setLoading(true);
       return;
     }
     try {
@@ -126,7 +146,7 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, userSub]);
 
   useEffect(() => {
     fetchMe();

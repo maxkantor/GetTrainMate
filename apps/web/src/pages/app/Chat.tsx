@@ -25,6 +25,27 @@ import { setChatUnreadTotal } from '@/utils/chatUnreadStore';
 import { useChatPresence } from '@/contexts/ChatPresenceContext';
 import chatStyles from './Chat.module.css';
 
+/** Keep a single row per peer when the API returns duplicate thread docs for the same pair. */
+function dedupeThreadsByPeer(threads: ThreadPreviewResponse[]): ThreadPreviewResponse[] {
+  const byPeer = new Map<string, ThreadPreviewResponse>();
+  for (const t of threads) {
+    const key = t.otherUserId || t.threadId;
+    const prev = byPeer.get(key);
+    if (!prev) {
+      byPeer.set(key, t);
+      continue;
+    }
+    const prevMs = Date.parse(prev.lastMessageAt || '') || 0;
+    const curMs = Date.parse(t.lastMessageAt || '') || 0;
+    byPeer.set(key, curMs >= prevMs ? t : prev);
+  }
+  return Array.from(byPeer.values()).sort((a, b) => {
+    const am = Date.parse(a.lastMessageAt || '') || 0;
+    const bm = Date.parse(b.lastMessageAt || '') || 0;
+    return bm - am;
+  });
+}
+
 function toAvatarUrl(avatarUrl: string | undefined): string | undefined {
   if (!avatarUrl || /randomuser\.me/i.test(avatarUrl)) return undefined;
   if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) return avatarUrl;
@@ -66,10 +87,6 @@ export const ChatPage: React.FC = () => {
     setActiveChatThreadId(selectedThreadId);
     return () => setActiveChatThreadId(null);
   }, [selectedThreadId, setActiveChatThreadId]);
-
-  useEffect(() => {
-    loadThreads();
-  }, []);
 
   const threadIdsKey = useMemo(() => threads.map((t) => t.threadId).sort().join(','), [threads]);
 
@@ -193,15 +210,17 @@ export const ChatPage: React.FC = () => {
       setError('');
       if (isGraphQLEnabled) {
         const items = await graphqlListMyMatches() as { matchId: string; threadId: string; otherUserProfile?: { userId?: string; displayName?: string; avatarUrl?: string } }[];
-        const data: ThreadPreviewResponse[] = items.map((m) => ({
-          threadId: m.threadId ?? m.matchId,
-          otherUserId: m.otherUserProfile?.userId ?? '',
-          otherUserName: m.otherUserProfile?.displayName ?? 'Unknown',
-          otherUserAvatarUrl: toAvatarUrl(m.otherUserProfile?.avatarUrl),
-          lastMessage: '',
-          lastMessageAt: '',
-          unreadCount: 0,
-        }));
+        const data: ThreadPreviewResponse[] = dedupeThreadsByPeer(
+          items.map((m) => ({
+            threadId: m.threadId ?? m.matchId,
+            otherUserId: m.otherUserProfile?.userId ?? '',
+            otherUserName: m.otherUserProfile?.displayName ?? 'Unknown',
+            otherUserAvatarUrl: toAvatarUrl(m.otherUserProfile?.avatarUrl),
+            lastMessage: '',
+            lastMessageAt: '',
+            unreadCount: 0,
+          }))
+        );
         setThreads(data);
         setChatUnreadTotal(data.reduce((s, t) => s + (t.unreadCount || 0), 0));
         if (data.length > 0 && !selectedThreadId && !threadIdFromUrl) {
@@ -219,25 +238,27 @@ export const ChatPage: React.FC = () => {
         }
         const data = await chatService.getThreads(token);
         // Fetch profile photos for avatar images
-        const withAvatars = await Promise.all(
-          data.map(async (t) => {
-            if (!t.otherUserId) return t;
-            try {
-              const profile = await profileService.getProfile(token, t.otherUserId) as { photoUrls?: string[]; PhotoUrls?: string[] } | undefined;
-              const urls = profile?.photoUrls ?? profile?.PhotoUrls ?? [];
-              return { ...t, otherUserAvatarUrl: urls[0] };
-            } catch {
-              return t;
-            }
-          })
+        const withAvatars = dedupeThreadsByPeer(
+          await Promise.all(
+            data.map(async (t) => {
+              if (!t.otherUserId) return t;
+              try {
+                const profile = await profileService.getProfile(token, t.otherUserId) as { photoUrls?: string[]; PhotoUrls?: string[] } | undefined;
+                const urls = profile?.photoUrls ?? profile?.PhotoUrls ?? [];
+                return { ...t, otherUserAvatarUrl: urls[0] };
+              } catch {
+                return t;
+              }
+            })
+          )
         );
         setThreads(withAvatars);
         setChatUnreadTotal(withAvatars.reduce((s, t) => s + (t.unreadCount || 0), 0));
-        if (data.length > 0 && !selectedThreadId && !threadIdFromUrl) {
-          setSelectedThreadId(data[0].threadId);
+        if (withAvatars.length > 0 && !selectedThreadId && !threadIdFromUrl) {
+          setSelectedThreadId(withAvatars[0].threadId);
         }
         if (threadIdFromUrl) {
-          const preview = data.find((t) => t.threadId === threadIdFromUrl);
+          const preview = withAvatars.find((t) => t.threadId === threadIdFromUrl);
           if (preview) setOtherName(preview.otherUserName);
         }
       }
@@ -253,6 +274,19 @@ export const ChatPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!user?.sub) {
+      setThreads([]);
+      setSelectedThreadId(null);
+      setMessages([]);
+      setLoading(false);
+      setError('');
+      return;
+    }
+    void loadThreads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload threads when signed-in user changes
+  }, [user?.sub]);
 
   const handleUnlockChat = async () => {
     if (!threadIdFromUrl || unlocking || (me?.credits ?? 0) < 1) return;
