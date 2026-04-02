@@ -776,39 +776,52 @@ public class MatchService : IMatchService
         }
     }
 
-    public async Task<List<SentRequestItem>> ListSentRequestsAsync(string userId)
+    /// <summary>All match rows where the user is a participant (single table scan; reuse for sent + discover exclusions).</summary>
+    private async Task<List<Match>> ListMatchesInvolvingUserAsync(string userId)
     {
         var table = Table.LoadTable(_dynamoDb, _matchesTable);
         var search = table.Scan(new ScanFilter());
-        var list = new List<SentRequestItem>();
+        var list = new List<Match>();
         do
         {
             foreach (var doc in await search.GetNextSetAsync())
             {
                 var m = DocumentToMatch(doc);
-                if (m.UserId1 != userId && m.UserId2 != userId) continue;
-                var iAm1 = m.UserId1 == userId;
-                var iLiked = iAm1 ? m.User1Liked : m.User2Liked;
-                if (!iLiked) continue;
-                var otherId = iAm1 ? m.UserId2 : m.UserId1;
-                var tp = await _profileService.GetProfileAsync(otherId);
-                var name = tp?.Name ?? "User";
-                var photos = ResolvePhotoUrlsForProfile(tp);
-                list.Add(new SentRequestItem
-                {
-                    UserId = otherId,
-                    Name = name,
-                    City = tp?.City,
-                    PhotoUrls = photos,
-                    Status = m.IsMatched ? "Matched" : "Pending",
-                    MatchId = m.MatchId,
-                    CompatibilityScore = m.CompatibilityScore,
-                    UpdatedAt = m.UpdatedAt
-                });
+                if (m.UserId1 == userId || m.UserId2 == userId)
+                    list.Add(m);
             }
         } while (!search.IsDone);
 
-        return list.OrderByDescending(x => x.UpdatedAt).ToList();
+        return list;
+    }
+
+    public async Task<List<SentRequestItem>> ListSentRequestsAsync(string userId)
+    {
+        var matches = await ListMatchesInvolvingUserAsync(userId);
+        var list = new List<SentRequestItem>();
+        foreach (var m in matches.OrderByDescending(x => x.UpdatedAt))
+        {
+            var iAm1 = m.UserId1 == userId;
+            var iLiked = iAm1 ? m.User1Liked : m.User2Liked;
+            if (!iLiked) continue;
+            var otherId = iAm1 ? m.UserId2 : m.UserId1;
+            var tp = await _profileService.GetProfileAsync(otherId);
+            var name = tp?.Name ?? "User";
+            var photos = ResolvePhotoUrlsForProfile(tp);
+            list.Add(new SentRequestItem
+            {
+                UserId = otherId,
+                Name = name,
+                City = tp?.City,
+                PhotoUrls = photos,
+                Status = m.IsMatched ? "Matched" : "Pending",
+                MatchId = m.MatchId,
+                CompatibilityScore = m.CompatibilityScore,
+                UpdatedAt = m.UpdatedAt
+            });
+        }
+
+        return list;
     }
 
     public async Task<List<SkippedProfileItem>> ListSkippedProfilesAsync(string userId)
@@ -869,24 +882,17 @@ public class MatchService : IMatchService
     private async Task<HashSet<string>> GetUserIdsExcludedFromDiscoverByMatchesAsync(string userId)
     {
         var excluded = new HashSet<string>(StringComparer.Ordinal);
-        var table = Table.LoadTable(_dynamoDb, _matchesTable);
-        var search = table.Scan(new ScanFilter());
-        do
+        foreach (var m in await ListMatchesInvolvingUserAsync(userId))
         {
-            foreach (var doc in await search.GetNextSetAsync())
+            var other = m.UserId1 == userId ? m.UserId2 : m.UserId1;
+            if (m.IsMatched)
             {
-                var m = DocumentToMatch(doc);
-                if (m.UserId1 != userId && m.UserId2 != userId) continue;
-                var other = m.UserId1 == userId ? m.UserId2 : m.UserId1;
-                if (m.IsMatched)
-                {
-                    excluded.Add(other);
-                    continue;
-                }
-                var iLiked = m.UserId1 == userId ? m.User1Liked : m.User2Liked;
-                if (iLiked) excluded.Add(other);
+                excluded.Add(other);
+                continue;
             }
-        } while (!search.IsDone);
+            var iLiked = m.UserId1 == userId ? m.User1Liked : m.User2Liked;
+            if (iLiked) excluded.Add(other);
+        }
         return excluded;
     }
 

@@ -46,8 +46,39 @@ export const LIST_MY_MATCHES = /* GraphQL */ `
         unlockedByMe
         createdAt
         otherUserProfile {
-          userId displayName age city bio sports goals avatarUrl
+          userId displayName age city bio sports goals avatarUrl level modes
         }
+      }
+    }
+  }
+`;
+
+export const LIST_MY_SENT_REQUESTS = /* GraphQL */ `
+  query ListMySentRequests {
+    listMySentRequests {
+      items {
+        userId
+        displayName
+        city
+        avatarUrl
+        status
+        matchId
+        compatibilityScore
+        updatedAt
+      }
+    }
+  }
+`;
+
+export const LIST_MY_SKIPPED = /* GraphQL */ `
+  query ListMySkipped {
+    listMySkipped {
+      items {
+        userId
+        displayName
+        city
+        avatarUrl
+        skippedAt
       }
     }
   }

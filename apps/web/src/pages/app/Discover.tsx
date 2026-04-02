@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Box, Button, Typography, Alert, Snackbar, useMediaQuery, useTheme } from '@mui/material';
 import { ProfileCardSkeleton } from '@/components/ui/Skeleton';
 import { FiltersDrawer, DiscoverFilters } from '@/components/discover/FiltersDrawer';
@@ -41,6 +42,7 @@ import { Modal } from '@/components/ui/Modal';
 import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import type { MatchInsightResponse } from '@/types/ai';
 import styles from './Discover.module.css';
+import { matchQueryKeys } from '@/lib/queryKeys';
 
 function scheduleSummary(schedule: { days?: string[]; timeStart?: string; timeEnd?: string }[] | undefined): string {
   if (!schedule?.length) return '';
@@ -93,6 +95,8 @@ export const DiscoverPage: React.FC = () => {
   const { user, logout } = useAuthContext();
   const { me, refreshMe } = useMe();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const discoverLoadGenRef = useRef(0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -171,6 +175,8 @@ export const DiscoverPage: React.FC = () => {
   }, []);
 
   const loadFeed = async (isRetryAfter401 = false) => {
+    const loadId = ++discoverLoadGenRef.current;
+    const stale = () => loadId !== discoverLoadGenRef.current;
     try {
       setLoading(true);
       setError('');
@@ -216,6 +222,7 @@ export const DiscoverPage: React.FC = () => {
             seenBefore: !!c.seenBefore,
           };
         });
+        if (stale()) return;
         const location = locationRaw ?? FALLBACK_LOCATION;
         setFeed(sortDiscoverFeed(feedFromApi));
         setUserLocationLabel(location.label);
@@ -225,8 +232,10 @@ export const DiscoverPage: React.FC = () => {
       } else {
         const token = await authService.getJWT(isRetryAfter401);
         if (!token) {
-          setError('Not authenticated');
-          setLoading(false);
+          if (!stale()) {
+            setError('Not authenticated');
+            setLoading(false);
+          }
           return;
         }
         const [feedFromApi, locationRaw] = await Promise.all([
@@ -237,6 +246,7 @@ export const DiscoverPage: React.FC = () => {
           ...c,
           photoUrls: getMultiplePhotoUrls(c.photoUrls, c.userId, 4, c.name),
         }));
+        if (stale()) return;
         const location = locationRaw ?? FALLBACK_LOCATION;
         setFeed(sortDiscoverFeed(feedWithPhotos));
         setUserLocationLabel(location.label);
@@ -294,6 +304,7 @@ export const DiscoverPage: React.FC = () => {
                   seenBefore: !!c.seenBefore,
                 };
               });
+              if (stale()) return;
               const location = locationRaw ?? FALLBACK_LOCATION;
               setFeed(sortDiscoverFeed(feedFromApi));
               setUserLocationLabel(location.label);
@@ -308,6 +319,7 @@ export const DiscoverPage: React.FC = () => {
                 ...c,
                 photoUrls: getMultiplePhotoUrls(c.photoUrls, c.userId, 4, c.name),
               }));
+              if (stale()) return;
               const location = locationRaw ?? FALLBACK_LOCATION;
               setFeed(sortDiscoverFeed(feedWithPhotos));
               setUserLocationLabel(location.label);
@@ -315,30 +327,36 @@ export const DiscoverPage: React.FC = () => {
               setPhotoErrorForIndex(null);
               setPhotoFallbackUrls({});
             }
-            setLoading(false);
+            if (!stale()) setLoading(false);
             return;
           } catch {
             // fall through to error
           }
         }
-        setError('Session expired. Please sign in again.');
-        setLoading(false);
-        await logout();
-        navigate('/login', { state: { from: '/app/discover' }, replace: true });
+        if (!stale()) {
+          setError('Session expired. Please sign in again.');
+          setLoading(false);
+          await logout();
+          navigate('/login', { state: { from: '/app/discover' }, replace: true });
+        }
         return;
       }
 
-      if (isNetworkError(err)) {
-        setError(
-          'Unable to connect to the API. The backend may not be deployed or CORS is not configured.'
-        );
-      } else if (status === 401) {
-        setError('Authentication required. Please sign in again.');
-      } else {
-        setError(getErrorMessage(err));
+      if (!stale()) {
+        if (isNetworkError(err)) {
+          setError(
+            'Unable to connect to the API. The backend may not be deployed or CORS is not configured.'
+          );
+        } else if (status === 401) {
+          setError('Authentication required. Please sign in again.');
+        } else {
+          setError(getErrorMessage(err));
+        }
       }
     } finally {
-      setLoading(false);
+      if (loadId === discoverLoadGenRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -406,6 +424,10 @@ export const DiscoverPage: React.FC = () => {
         const result = await graphqlLikeUser(currentCard.userId);
         if (creditBefore === 0) incrementDailyLike(user?.sub);
         await refreshMe();
+        if (user?.sub) {
+          void queryClient.invalidateQueries({ queryKey: matchQueryKeys.sentRequests(user.sub) });
+          void queryClient.invalidateQueries({ queryKey: matchQueryKeys.mutualMatches(user.sub) });
+        }
         if (result.isMatched) {
           setMatchCelebration({
             name: currentCard.name,
@@ -430,6 +452,10 @@ export const DiscoverPage: React.FC = () => {
           const result = await matchService.likeUser(token, currentCard.userId);
           if (creditBefore === 0) incrementDailyLike(user?.sub);
           await refreshMe();
+          if (user?.sub) {
+            void queryClient.invalidateQueries({ queryKey: matchQueryKeys.sentRequests(user.sub) });
+            void queryClient.invalidateQueries({ queryKey: matchQueryKeys.mutualMatches(user.sub) });
+          }
           if (result.isMatched) {
             setMatchCelebration({
               name: currentCard.name,
@@ -453,6 +479,10 @@ export const DiscoverPage: React.FC = () => {
                 const result = await matchService.likeUser(token, currentCard.userId);
                 if (creditBefore === 0) incrementDailyLike(user?.sub);
                 await refreshMe();
+                if (user?.sub) {
+                  void queryClient.invalidateQueries({ queryKey: matchQueryKeys.sentRequests(user.sub) });
+                  void queryClient.invalidateQueries({ queryKey: matchQueryKeys.mutualMatches(user.sub) });
+                }
                 if (result.isMatched) {
                   setMatchCelebration({
                     name: currentCard.name,
@@ -499,7 +529,7 @@ export const DiscoverPage: React.FC = () => {
     } finally {
       setLikeLoading(false);
     }
-  }, [advanceToNextCard, currentIndex, feed, me?.credits, openDailyLimitModal, refreshMe, me, user?.sub]);
+  }, [advanceToNextCard, currentIndex, feed, me?.credits, openDailyLimitModal, refreshMe, me, user?.sub, queryClient]);
 
   const handlePass = async () => {
     if (currentIndex >= feed.length) return;
@@ -534,6 +564,9 @@ export const DiscoverPage: React.FC = () => {
             throw passErr;
           }
         }
+      }
+      if (user?.sub) {
+        void queryClient.invalidateQueries({ queryKey: matchQueryKeys.skippedProfiles(user.sub) });
       }
       setLastSkippedProfile(currentCard);
       setSkipUndoOpen(true);

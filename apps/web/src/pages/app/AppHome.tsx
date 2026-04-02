@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Box, Card, CardActionArea, Container, Typography } from '@mui/material';
 import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined';
 import FavoriteBorderOutlinedIcon from '@mui/icons-material/FavoriteBorderOutlined';
@@ -11,11 +12,11 @@ import PsychologyOutlinedIcon from '@mui/icons-material/PsychologyOutlined';
 import SkipNextOutlinedIcon from '@mui/icons-material/SkipNextOutlined';
 import { useI18n } from '@/hooks/useI18n';
 import { useMe } from '@/hooks/useMe';
+import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMatchStatusForHeader } from '@/hooks/useMatchStatusForHeader';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
-import { authService } from '@/services/authService';
-import { matchService } from '@/services/matchService';
-import { isGraphQLEnabled } from '@/services/graphqlService';
+import { matchQueryKeys } from '@/lib/queryKeys';
+import { fetchSentRequestsForUser } from '@/services/matchExploreQueries';
 
 const cardSx = {
   borderRadius: 2,
@@ -39,34 +40,25 @@ type Tile = {
 export const AppHomePage: React.FC = () => {
   const { t } = useI18n();
   const { me } = useMe();
+  const { user } = useAuthContext();
+  const userSub = user?.sub ?? '';
   const matchStatus = useMatchStatusForHeader(!!me?.user?.id);
   const chatUnread = useChatUnreadCount();
-  const [sentPending, setSentPending] = useState<number | null>(null);
+
+  const sentEnabled =
+    !!userSub && me?.profile?.discoverCanReviewLikedProfiles !== false;
+  const { data: sentItems } = useQuery({
+    queryKey: matchQueryKeys.sentRequests(userSub),
+    queryFn: () => fetchSentRequestsForUser(userSub),
+    enabled: sentEnabled,
+    staleTime: 45_000,
+  });
+  const sentPending =
+    sentItems != null ? sentItems.filter((s) => s.status === 'Pending').length : null;
 
   const first = me?.profile?.name?.trim()?.split(/\s+/)[0];
   const greeting = first || 'there';
   const credits = me?.credits ?? 0;
-
-  useEffect(() => {
-    if (!me?.user?.id || isGraphQLEnabled) {
-      setSentPending(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const token = await authService.getJWT();
-      if (!token || cancelled) return;
-      try {
-        const sent = await matchService.getSentRequests(token);
-        if (!cancelled) setSentPending(sent.filter((s) => s.status === 'Pending').length);
-      } catch {
-        if (!cancelled) setSentPending(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [me?.user?.id]);
 
   const tiles: Tile[] = useMemo(() => {
     const discoverSub = 'Browse by shared intent — Train, Vibe, or Date';
@@ -103,7 +95,7 @@ export const AppHomePage: React.FC = () => {
       list.push({
         to: '/app/sent-requests',
         title: 'Sent',
-        subtitle: isGraphQLEnabled ? 'REST app for full sent list' : sentSub,
+        subtitle: sentSub,
         icon: <ForwardToInboxOutlinedIcon sx={{ fontSize: 32, opacity: 0.9 }} />,
       });
     }

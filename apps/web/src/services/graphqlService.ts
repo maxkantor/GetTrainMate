@@ -11,6 +11,8 @@ import {
   GET_PROFILE,
   DISCOVER_CANDIDATES,
   LIST_MY_MATCHES,
+  LIST_MY_SENT_REQUESTS,
+  LIST_MY_SKIPPED,
   GET_THREAD_BY_MATCH,
   LIST_MESSAGES,
   ENSURE_FREE_START_CREDITS,
@@ -196,6 +198,89 @@ export async function graphqlListMyMatches() {
   const data = (result as { data?: { listMyMatches?: { items: unknown[] } } }).data;
   if (!data?.listMyMatches) throw new Error('listMyMatches failed');
   return data.listMyMatches.items;
+}
+
+function graphqlAvatarToUrl(avatarUrl: string | null | undefined): string[] {
+  if (!avatarUrl) return [];
+  if (/randomuser\.me/i.test(avatarUrl)) return [];
+  if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) return [avatarUrl];
+  return [`${IMAGE_BUCKET_BASE}/${avatarUrl.replace(/^\//, '')}`];
+}
+
+export async function graphqlListMySentRequests() {
+  try {
+    const result = await getClient().graphql({
+      query: LIST_MY_SENT_REQUESTS,
+    }) as {
+      data?: {
+        listMySentRequests?: {
+          items: Array<{
+            userId: string;
+            displayName: string;
+            city?: string | null;
+            avatarUrl?: string | null;
+            status: string;
+            matchId: string;
+            compatibilityScore?: number | null;
+            updatedAt?: string | null;
+          }>;
+        };
+      };
+      errors?: Array<{ message?: string; extensions?: Record<string, unknown> }>;
+    };
+    checkResult(result, (d) => d.listMySentRequests, 'listMySentRequests');
+    const items = result.data!.listMySentRequests!.items;
+    return items.map((i) => ({
+      userId: i.userId,
+      name: i.displayName,
+      city: i.city ?? undefined,
+      photoUrls: graphqlAvatarToUrl(i.avatarUrl ?? undefined),
+      status: i.status,
+      matchId: i.matchId,
+      compatibilityScore: i.compatibilityScore ?? 0,
+      updatedAt: i.updatedAt ?? new Date().toISOString(),
+    }));
+  } catch (e) {
+    const status = statusFromThrownError(e);
+    const graphqlErrors = errorsFromThrown(e);
+    const message = messageFromThrown(e);
+    throw new GraphQLApiError(message, status, graphqlErrors);
+  }
+}
+
+export async function graphqlListMySkipped() {
+  try {
+    const result = await getClient().graphql({
+      query: LIST_MY_SKIPPED,
+    }) as {
+      data?: {
+        listMySkipped?: {
+          items: Array<{
+            userId: string;
+            displayName: string;
+            city?: string | null;
+            avatarUrl?: string | null;
+            skippedAt: string;
+          }>;
+        };
+      };
+      errors?: Array<{ message?: string; extensions?: Record<string, unknown> }>;
+    };
+    checkResult(result, (d) => d.listMySkipped, 'listMySkipped');
+    const items = result.data!.listMySkipped!.items;
+    return items.map((i) => ({
+      userId: i.userId,
+      name: i.displayName,
+      city: i.city ?? undefined,
+      photoUrls: graphqlAvatarToUrl(i.avatarUrl ?? undefined),
+      skippedAt: i.skippedAt,
+    }));
+  } catch (e) {
+    const status = statusFromThrownError(e);
+    const graphqlErrors = errorsFromThrown(e);
+    const message = messageFromThrown(e);
+    throw new GraphQLApiError(message, status, graphqlErrors);
+  }
 }
 
 export async function graphqlGetThreadByMatch(matchId: string) {

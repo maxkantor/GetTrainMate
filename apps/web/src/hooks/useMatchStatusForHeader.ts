@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthContext } from '@/hooks/useAuthContext';
-import { authService } from '@/services/authService';
-import { matchService } from '@/services/matchService';
-import { isGraphQLEnabled, graphqlListMyMatches } from '@/services/graphqlService';
 import { getDailyLikeCount } from '@/utils/dailySwipeTracker';
+import { matchQueryKeys } from '@/lib/queryKeys';
+import { fetchMutualMatchRows } from '@/services/matchExploreQueries';
 
 export interface MatchStatusForHeader {
   /** Mutual matches where chat is not unlocked yet (best signal when API provides it). */
@@ -18,10 +18,13 @@ export interface MatchStatusForHeader {
 export function useMatchStatusForHeader(enabled: boolean): MatchStatusForHeader {
   const { user } = useAuthContext();
   const userSub = user?.sub;
-  const [waitingForAction, setWaitingForAction] = useState(0);
-  const [totalMatches, setTotalMatches] = useState(0);
   const [likesToday, setLikesToday] = useState(0);
-  const [loading, setLoading] = useState(false);
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: matchQueryKeys.mutualMatches(userSub ?? ''),
+    queryFn: () => fetchMutualMatchRows(userSub!),
+    enabled: enabled && !!userSub,
+  });
 
   useEffect(() => {
     setLikesToday(getDailyLikeCount(userSub));
@@ -31,42 +34,6 @@ export function useMatchStatusForHeader(enabled: boolean): MatchStatusForHeader 
     setLikesToday(getDailyLikeCount(userSub));
   }, [userSub]);
 
-  const loadMatches = useCallback(async () => {
-    if (!enabled) return;
-    setLoading(true);
-    try {
-      if (isGraphQLEnabled) {
-        const items = (await graphqlListMyMatches()) as Array<{ unlockedByMe?: boolean }>;
-        setTotalMatches(items.length);
-        const waiting = items.filter((m) => !m.unlockedByMe).length;
-        setWaitingForAction(waiting);
-      } else {
-        const token = await authService.getJWT();
-        if (!token) {
-          setTotalMatches(0);
-          setWaitingForAction(0);
-          return;
-        }
-        const data = await matchService.getMyMatches(token);
-        const list = Array.isArray(data) ? data : [];
-        setTotalMatches(list.length);
-        setWaitingForAction(list.length);
-      }
-    } catch {
-      setTotalMatches(0);
-      setWaitingForAction(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [enabled]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    loadMatches();
-    const id = window.setInterval(loadMatches, 90_000);
-    return () => window.clearInterval(id);
-  }, [enabled, loadMatches]);
-
   useEffect(() => {
     if (!enabled) return;
     const onDaily = () => refreshLikes();
@@ -74,5 +41,13 @@ export function useMatchStatusForHeader(enabled: boolean): MatchStatusForHeader 
     return () => window.removeEventListener('gtm-daily-swipe', onDaily);
   }, [enabled, refreshLikes]);
 
-  return { waitingForAction, totalMatches, likesToday, loading };
+  const totalMatches = rows.length;
+  const waitingForAction = rows.filter((m) => !m.unlockedByMe).length;
+
+  return {
+    waitingForAction,
+    totalMatches,
+    likesToday,
+    loading: isLoading,
+  };
 }

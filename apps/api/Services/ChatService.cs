@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
+using Amazon.DynamoDBv2.Model;
 using GetTrainMate.Api.Models;
 
 namespace GetTrainMate.Api.Services;
@@ -195,22 +196,26 @@ public class ChatService : IChatService
     {
         try
         {
-            var threadsTable = Table.LoadTable(_dynamoDb, _threadsTable);
-            var scanFilter = new ScanFilter();
-            
-            var search = threadsTable.Scan(scanFilter);
             var threadPreviews = new List<ThreadPreviewResponse>();
+            Dictionary<string, AttributeValue>? exclusiveStartKey = null;
 
             do
             {
-                var batch = await search.GetNextSetAsync();
-                foreach (var doc in batch)
+                var scanResponse = await _dynamoDb.ScanAsync(new ScanRequest
                 {
+                    TableName = _threadsTable,
+                    FilterExpression = "contains(participantIds, :uid)",
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        [":uid"] = new AttributeValue { S = userId }
+                    },
+                    ExclusiveStartKey = exclusiveStartKey
+                });
+
+                foreach (var item in scanResponse.Items)
+                {
+                    var doc = Document.FromAttributeMap(item);
                     var thread = DocumentToThread(doc);
-                    
-                    // Check if user is in thread
-                    if (!thread.ParticipantIds.Contains(userId))
-                        continue;
 
                     var otherUserId = thread.ParticipantIds.FirstOrDefault(id => id != userId);
                     if (string.IsNullOrEmpty(otherUserId))
@@ -220,7 +225,6 @@ public class ChatService : IChatService
                     if (otherProfile == null)
                         continue;
 
-                    // Count unread messages
                     var messages = await GetMessagesAsync(thread.ThreadId, 1000);
                     var unreadCount = messages.Count(m => m.SenderId != userId && !m.IsRead);
 
@@ -234,9 +238,12 @@ public class ChatService : IChatService
                         UnreadCount = unreadCount
                     });
                 }
-            } while (!search.IsDone);
 
-            // One row per conversation partner (duplicate thread docs for same pair are merged).
+                exclusiveStartKey = scanResponse.LastEvaluatedKey is { Count: > 0 }
+                    ? scanResponse.LastEvaluatedKey
+                    : null;
+            } while (exclusiveStartKey != null);
+
             return threadPreviews
                 .GroupBy(t => t.OtherUserId)
                 .Select(g => g.OrderByDescending(x => x.LastMessageAt).First())

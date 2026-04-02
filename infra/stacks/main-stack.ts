@@ -309,7 +309,16 @@ export class GetTrainMateStack extends cdk.Stack {
     const queryType = 'Query';
     const mutationType = 'Mutation';
     const subscriptionType = 'Subscription';
-    ['getMe', 'getProfile', 'discoverCandidates', 'listMyMatches', 'getThreadByMatch', 'listMessages'].forEach(
+    [
+      'getMe',
+      'getProfile',
+      'discoverCandidates',
+      'listMyMatches',
+      'listMySentRequests',
+      'listMySkipped',
+      'getThreadByMatch',
+      'listMessages',
+    ].forEach(
       (field) => {
         lambdaDs.createResolver(`${queryType}${field}`, {
           typeName: queryType,

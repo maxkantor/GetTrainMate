@@ -384,6 +384,90 @@ async function listMyMatches(identity) {
   return { items };
 }
 
+/** Outgoing likes / invites (pending or matched), same semantics as REST /api/match/sent-requests. */
+async function listMySentRequests(identity) {
+  const userId = getUserId(identity);
+  const profRes = await dynamo.send(new GetItemCommand({
+    TableName: tables.profiles,
+    Key: marshall({ userId }),
+  }));
+  if (profRes.Item) {
+    const raw = unmarshall(profRes.Item);
+    if (raw.discoverCanReviewLikedProfiles === false) throw new Error('FORBIDDEN');
+  }
+  const scan = await dynamo.send(new ScanCommand({
+    TableName: tables.matches,
+    FilterExpression: '(userId1 = :u AND user1Liked = :t) OR (userId2 = :u AND user2Liked = :t)',
+    ExpressionAttributeValues: marshall({ ':u': userId, ':t': true }),
+  }));
+  const items = [];
+  for (const raw of scan.Items || []) {
+    const m = unmarshall(raw);
+    const iAm1 = m.userId1 === userId;
+    const otherId = iAm1 ? m.userId2 : m.userId1;
+    const otherProfile = await getProfile(otherId);
+    if (!otherProfile) continue;
+    const status = m.isMatched ? 'Matched' : 'Pending';
+    items.push({
+      userId: otherId,
+      displayName: otherProfile.displayName || 'User',
+      city: otherProfile.city || null,
+      avatarUrl: otherProfile.avatarUrl || null,
+      status,
+      matchId: m.matchId,
+      compatibilityScore: m.compatibilityScore ?? 0,
+      updatedAt: m.updatedAt || m.createdAt || null,
+    });
+  }
+  items.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  return { items };
+}
+
+/** Skipped profiles for current user (discover-passes), aligned with REST /api/match/skipped-profiles. */
+async function listMySkipped(identity) {
+  const userId = getUserId(identity);
+  const profRes = await dynamo.send(new GetItemCommand({
+    TableName: tables.profiles,
+    Key: marshall({ userId }),
+  }));
+  if (profRes.Item) {
+    const raw = unmarshall(profRes.Item);
+    if (raw.discoverCanReviewSkippedProfiles === false) throw new Error('FORBIDDEN');
+  }
+  const out = [];
+  let startKey;
+  do {
+    const res = await dynamo.send(new QueryCommand({
+      TableName: tables.discoverPasses,
+      KeyConditionExpression: 'userId = :u',
+      ExpressionAttributeValues: marshall({ ':u': userId }),
+      ExclusiveStartKey: startKey,
+    }));
+    for (const raw of res.Items || []) {
+      const row = unmarshall(raw);
+      const isSkipped = row.isSkipped !== false;
+      const restored = !!row.restored;
+      const status = row.status || 'skipped';
+      if (!isSkipped || restored || String(status).toLowerCase() === 'active') continue;
+      const targetUserId = row.targetUserId;
+      if (!targetUserId) continue;
+      const skippedAt = row.skippedAt || row.createdAt || new Date().toISOString();
+      const p = await getProfile(targetUserId);
+      if (!p) continue;
+      out.push({
+        userId: targetUserId,
+        displayName: p.displayName || 'User',
+        city: p.city || null,
+        avatarUrl: p.avatarUrl || null,
+        skippedAt,
+      });
+    }
+    startKey = res.LastEvaluatedKey;
+  } while (startKey);
+  out.sort((a, b) => String(b.skippedAt).localeCompare(String(a.skippedAt)));
+  return { items: out };
+}
+
 async function getThreadByMatch(identity, args) {
   const userId = getUserId(identity);
   const matchId = args.matchId;
@@ -489,6 +573,7 @@ async function ensureFreeStartCredits(identity) {
     balance = u.Balance ?? 0;
     lifetimeEarned = u.LifetimeEarned ?? 0;
   }
+  const balanceBeforeFree = balance;
   balance += FREE_START_CREDITS;
   lifetimeEarned += FREE_START_CREDITS;
   const now = new Date().toISOString();
@@ -511,6 +596,8 @@ async function ensureFreeStartCredits(identity) {
       Reason: FREE_START_REASON,
       RefId: FREE_START_REASON,
       CreatedAt: now,
+      BalanceBefore: balanceBeforeFree,
+      BalanceAfter: balance,
     }),
   }));
   return true;
@@ -550,6 +637,8 @@ async function spendCredits(userId, amount, reason, refId) {
       Reason: reason,
       RefId: refId || undefined,
       CreatedAt: now,
+      BalanceBefore: balance,
+      BalanceAfter: newBalance,
     }),
   }));
 }
@@ -1046,6 +1135,8 @@ const queryHandlers = {
   getProfile: (identity, args) => getProfileByUserId(identity, args),
   discoverCandidates: (identity, args) => discoverCandidates(identity, args),
   listMyMatches: (identity) => listMyMatches(identity),
+  listMySentRequests: (identity) => listMySentRequests(identity),
+  listMySkipped: (identity) => listMySkipped(identity),
   getThreadByMatch: (identity, args) => getThreadByMatch(identity, args),
   listMessages: (identity, args) => listMessages(identity, args),
 };

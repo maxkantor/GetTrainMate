@@ -17,6 +17,7 @@
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.14.0",
     "@mui/material": "^5.14.0",
+    "@tanstack/react-query": "^5.96.1",
     "aws-amplify": "^6.1.0",
     "axios": "^1.6.0",
     "framer-motion": "^11.18.2",

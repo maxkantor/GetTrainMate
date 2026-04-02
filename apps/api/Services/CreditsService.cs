@@ -287,6 +287,7 @@ public class CreditsService : ICreditsService
                 lifetimeEarned = userDoc.Contains("LifetimeEarned") ? userDoc["LifetimeEarned"].AsInt() : 0;
             }
 
+            var balanceBeforePurchase = balance;
             balance += credits;
             lifetimeEarned += credits;
 
@@ -302,6 +303,8 @@ public class CreditsService : ICreditsService
                 ["Reason"] = packKey,
                 ["StripeCheckoutSessionId"] = session.Id,
                 ["CreatedAt"] = DateTime.UtcNow.ToString("O"),
+                ["BalanceBefore"] = balanceBeforePurchase,
+                ["BalanceAfter"] = balance,
             };
             if (!string.IsNullOrEmpty(session.PaymentIntentId))
                 txDoc["StripePaymentIntentId"] = session.PaymentIntentId;
@@ -390,6 +393,7 @@ public class CreditsService : ICreditsService
                 lifetimeEarned = userDoc.Contains("LifetimeEarned") ? userDoc["LifetimeEarned"].AsInt() : 0;
             }
 
+            var balanceBeforeWebhook = balance;
             balance += credits;
             lifetimeEarned += credits;
 
@@ -405,6 +409,8 @@ public class CreditsService : ICreditsService
                 ["Reason"] = packKey,
                 ["StripeCheckoutSessionId"] = session.Id,
                 ["CreatedAt"] = DateTime.UtcNow.ToString("O"),
+                ["BalanceBefore"] = balanceBeforeWebhook,
+                ["BalanceAfter"] = balance,
             };
             if (!string.IsNullOrEmpty(session.PaymentIntentId))
                 txDoc["StripePaymentIntentId"] = session.PaymentIntentId;
@@ -473,6 +479,7 @@ public class CreditsService : ICreditsService
 
             await userTable.PutItemAsync(BuildUserCreditsPutDocument(userId, balance, lifetimeEarned, userDoc));
 
+            var balanceBeforeSignup = balance - FreeSignupCredits;
             var txId = Guid.NewGuid().ToString("N");
             await txTable.PutItemAsync(new Document
             {
@@ -482,6 +489,8 @@ public class CreditsService : ICreditsService
                 ["CreditsDelta"] = FreeSignupCredits,
                 ["Reason"] = FreeSignupReason,
                 ["CreatedAt"] = DateTime.UtcNow.ToString("O"),
+                ["BalanceBefore"] = balanceBeforeSignup,
+                ["BalanceAfter"] = balance,
             });
 
             _logger.LogInformation("Granted {Credits} free signup credits to user {UserId}.", FreeSignupCredits, userId);
@@ -509,6 +518,7 @@ public class CreditsService : ICreditsService
             lifetimeEarned = userDoc.Contains("LifetimeEarned") ? userDoc["LifetimeEarned"].AsInt() : 0;
         }
 
+        var balanceBefore = balance;
         balance += amount;
         lifetimeEarned += amount;
 
@@ -524,6 +534,8 @@ public class CreditsService : ICreditsService
             ["CreditsDelta"] = amount,
             ["Reason"] = reason,
             ["CreatedAt"] = DateTime.UtcNow.ToString("O"),
+            ["BalanceBefore"] = balanceBefore,
+            ["BalanceAfter"] = balance,
         });
 
         _logger.LogInformation("Granted {Amount} credits to user {UserId}, reason={Reason}, newBalance={NewBalance}", amount, userId, reason, balance);

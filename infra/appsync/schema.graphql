@@ -90,6 +90,33 @@ type ListMyMatchesResult {
   items: [MatchWithThread!]!
 }
 
+type SentInterest {
+  userId: ID!
+  displayName: String!
+  city: String
+  avatarUrl: String
+  status: String!
+  matchId: ID!
+  compatibilityScore: Int
+  updatedAt: AWSDateTime
+}
+
+type ListMySentRequestsResult {
+  items: [SentInterest!]!
+}
+
+type SkippedProfile {
+  userId: ID!
+  displayName: String!
+  city: String
+  avatarUrl: String
+  skippedAt: AWSDateTime!
+}
+
+type ListMySkippedResult {
+  items: [SkippedProfile!]!
+}
+
 # ----- Chat -----
 type ChatThreadInfo {
   threadId: ID!
@@ -142,6 +169,8 @@ type Query {
   getProfile(userId: ID!): Profile
   discoverCandidates(limit: Int, nextToken: String): DiscoverCandidatesResult
   listMyMatches: ListMyMatchesResult
+  listMySentRequests: ListMySentRequestsResult
+  listMySkipped: ListMySkippedResult
   getThreadByMatch(matchId: ID!): ChatThreadInfo
   listMessages(threadId: ID!, limit: Int, nextToken: String): ListMessagesResult
 }

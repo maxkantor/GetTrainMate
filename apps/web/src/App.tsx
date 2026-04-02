@@ -3,6 +3,7 @@ import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { I18nProvider } from '@/contexts/I18nContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { MeProvider } from '@/contexts/MeContext';
+import { ReactQueryProvider } from '@/providers/ReactQueryProvider';
 import { Router } from '@/Router';
 import { authService } from '@/services/authService';
 
@@ -85,9 +86,11 @@ function App() {
       <CssBaseline />
       <I18nProvider>
         <AuthProvider>
-          <MeProvider>
-            <Router />
-          </MeProvider>
+          <ReactQueryProvider>
+            <MeProvider>
+              <Router />
+            </MeProvider>
+          </ReactQueryProvider>
         </AuthProvider>
       </I18nProvider>
     </ThemeProvider>

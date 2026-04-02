@@ -1,49 +1,49 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Box, Typography, Alert, CircularProgress } from '@mui/material';
+import React from 'react';
+import { Box, Typography, Alert, CircularProgress, Button } from '@mui/material';
 import { Link } from 'react-router-dom';
-import { authService } from '@/services/authService';
-import { matchService, type SkippedProfileItem } from '@/services/matchService';
+import { useQuery } from '@tanstack/react-query';
+import { useAuthContext } from '@/hooks/useAuthContext';
 import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
-import { isGraphQLEnabled } from '@/services/graphqlService';
+import { GraphQLApiError } from '@/services/graphqlService';
+import { matchQueryKeys } from '@/lib/queryKeys';
+import { fetchSkippedProfilesForUser } from '@/services/matchExploreQueries';
 import styles from './ConnectionsList.module.css';
 
 export const SkippedProfilesPage: React.FC = () => {
-  const [items, setItems] = useState<SkippedProfileItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { user } = useAuthContext();
+  const userSub = user?.sub ?? '';
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      if (isGraphQLEnabled) {
-        setError('Open the REST-backed app to load skipped profiles, or disable AppSync for this environment.');
-        setItems([]);
-        return;
-      }
-      const token = await authService.getJWT(true);
-      if (!token) {
-        setError('Sign in to view skipped profiles.');
-        return;
-      }
-      const list = await matchService.getSkippedProfiles(token);
-      setItems(list);
-    } catch (e: unknown) {
-      const status = (e as { response?: { status?: number } })?.response?.status;
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      if (status === 403) {
-        setError(msg || 'Reviewing skipped profiles is not enabled for your account.');
-      } else {
-        setError(msg || (e instanceof Error ? e.message : 'Could not load skipped profiles'));
-      }
-    } finally {
-      setLoading(false);
+  const {
+    data: items = [],
+    isLoading: loading,
+    isError,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: matchQueryKeys.skippedProfiles(userSub),
+    queryFn: () => fetchSkippedProfilesForUser(userSub),
+    enabled: !!userSub,
+  });
+
+  const error = (() => {
+    if (!isError || queryError == null) return '';
+    if (queryError instanceof GraphQLApiError && queryError.status === 403) {
+      return 'Reviewing skipped profiles is not enabled for your account.';
     }
-  }, []);
+    const status = (queryError as { response?: { status?: number; data?: { message?: string } } })?.response?.status;
+    const msg = (queryError as { response?: { data?: { message?: string } } })?.response?.data?.message;
+    if (status === 403) return msg || 'Reviewing skipped profiles is not enabled for your account.';
+    if (queryError instanceof Error) return queryError.message;
+    return 'Could not load skipped profiles';
+  })();
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  if (!userSub) {
+    return (
+      <Box className={styles.root} py={4}>
+        <Typography color="text.secondary">Sign in to view skipped profiles.</Typography>
+      </Box>
+    );
+  }
 
   if (loading) {
     return (
@@ -62,14 +62,14 @@ export const SkippedProfilesPage: React.FC = () => {
         Profiles you passed on in Discover. They stay out of your deck unless an admin enables recycling (then they
         appear with a &quot;Seen before&quot; label).
       </Typography>
-      {error && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
+      {error ? (
+        <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => refetch()}>Retry</Button>}>
           {error}
         </Alert>
-      )}
-      {items.length === 0 && !error ? (
+      ) : null}
+      {!error && items.length === 0 ? (
         <Typography color="text.secondary">You have not skipped anyone yet.</Typography>
-      ) : (
+      ) : !error ? (
         <ul className={styles.list}>
           {items.map((row) => {
             const photo =
@@ -95,7 +95,7 @@ export const SkippedProfilesPage: React.FC = () => {
             );
           })}
         </ul>
-      )}
+      ) : null}
     </div>
   );
 };

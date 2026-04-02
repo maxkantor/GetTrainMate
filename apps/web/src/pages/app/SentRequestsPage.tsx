@@ -1,50 +1,49 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Box, Typography, Alert, Chip, CircularProgress } from '@mui/material';
+import React from 'react';
+import { Box, Typography, Alert, Chip, CircularProgress, Button } from '@mui/material';
 import { Link } from 'react-router-dom';
-import { authService } from '@/services/authService';
-import { matchService, type SentRequestItem } from '@/services/matchService';
+import { useQuery } from '@tanstack/react-query';
+import { useAuthContext } from '@/hooks/useAuthContext';
 import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
-import { isGraphQLEnabled } from '@/services/graphqlService';
+import { GraphQLApiError } from '@/services/graphqlService';
+import { matchQueryKeys } from '@/lib/queryKeys';
+import { fetchSentRequestsForUser } from '@/services/matchExploreQueries';
 import styles from './ConnectionsList.module.css';
 
 export const SentRequestsPage: React.FC = () => {
-  const [items, setItems] = useState<SentRequestItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { user } = useAuthContext();
+  const userSub = user?.sub ?? '';
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      if (isGraphQLEnabled) {
-        setError('Open the REST-backed app to load sent requests, or disable AppSync for this environment.');
-        setItems([]);
-        return;
-      }
-      const token = await authService.getJWT(true);
-      if (!token) {
-        setError('Sign in to view sent requests.');
-        return;
-      }
-      const list = await matchService.getSentRequests(token);
-      setItems(list);
-    } catch (e: unknown) {
-      const status = (e as { response?: { status?: number; data?: { message?: string; code?: string } } })?.response
-        ?.status;
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      if (status === 403) {
-        setError(msg || 'Sent requests are not enabled for your account.');
-      } else {
-        setError(msg || (e instanceof Error ? e.message : 'Could not load sent requests'));
-      }
-    } finally {
-      setLoading(false);
+  const {
+    data: items = [],
+    isLoading: loading,
+    isError,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: matchQueryKeys.sentRequests(userSub),
+    queryFn: () => fetchSentRequestsForUser(userSub),
+    enabled: !!userSub,
+  });
+
+  const error = (() => {
+    if (!isError || queryError == null) return '';
+    if (queryError instanceof GraphQLApiError && queryError.status === 403) {
+      return 'Sent requests are not enabled for your account.';
     }
-  }, []);
+    const status = (queryError as { response?: { status?: number; data?: { message?: string } } })?.response?.status;
+    const msg = (queryError as { response?: { data?: { message?: string } } })?.response?.data?.message;
+    if (status === 403) return msg || 'Sent requests are not enabled for your account.';
+    if (queryError instanceof Error) return queryError.message;
+    return 'Could not load sent requests';
+  })();
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  if (!userSub) {
+    return (
+      <Box className={styles.root} py={4}>
+        <Typography color="text.secondary">Sign in to view sent requests.</Typography>
+      </Box>
+    );
+  }
 
   if (loading) {
     return (
@@ -62,14 +61,14 @@ export const SentRequestsPage: React.FC = () => {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         People you invited or liked. Pending means they have not matched back yet.
       </Typography>
-      {error && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
+      {error ? (
+        <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => refetch()}>Retry</Button>}>
           {error}
         </Alert>
-      )}
-      {items.length === 0 && !error ? (
+      ) : null}
+      {!error && items.length === 0 ? (
         <Typography color="text.secondary">No outgoing requests yet.</Typography>
-      ) : (
+      ) : !error ? (
         <ul className={styles.list}>
           {items.map((row) => {
             const photo =
@@ -106,7 +105,7 @@ export const SentRequestsPage: React.FC = () => {
             );
           })}
         </ul>
-      )}
+      ) : null}
     </div>
   );
 };
