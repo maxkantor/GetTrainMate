@@ -27,11 +27,17 @@ public class EmailService : IEmailService
         _ses = ses;
         _configuration = configuration;
         _logger = logger;
-        
-        _fromEmail = Environment.GetEnvironmentVariable("SES_FROM_EMAIL")
+
+        // Do not throw here: Match/Chat/DI would fail with 500 before any request runs.
+        // Validate in SendEmailAsync when mail is actually sent.
+        _fromEmail = (Environment.GetEnvironmentVariable("SES_FROM_EMAIL")
             ?? configuration["SES:FromEmail"]
-            ?? throw new InvalidOperationException("SES_FROM_EMAIL not configured");
-        
+            ?? "").Trim();
+
+        if (string.IsNullOrEmpty(_fromEmail))
+            _logger.LogWarning(
+                "SES_FROM_EMAIL not set (env SES_FROM_EMAIL or SES:FromEmail). Outbound email is disabled until configured.");
+
         _configurationSet = Environment.GetEnvironmentVariable("SES_CONFIGURATION_SET")
             ?? configuration["SES:ConfigurationSet"];
     }
@@ -46,6 +52,13 @@ public class EmailService : IEmailService
         List<EmailAttachment>? attachments = null,
         string? threadId = null)
     {
+        if (string.IsNullOrWhiteSpace(_fromEmail))
+        {
+            _logger.LogWarning("SendEmailAsync skipped: SES_FROM_EMAIL not configured (to={To})", to);
+            throw new InvalidOperationException(
+                "SES_FROM_EMAIL is not configured. Set the Lambda environment variable SES_FROM_EMAIL to a verified SES identity.");
+        }
+
         try
         {
             var request = new SendEmailRequest

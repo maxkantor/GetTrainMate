@@ -104,6 +104,11 @@ export class GetTrainMateStack extends cdk.Stack {
         Bedrock__ModelId: bedrockModelId,
         BEDROCK_MODEL_ID: bedrockModelId,
         Bedrock__Region: this.region,
+        // Verified SES identity for outbound mail (chat notifications, etc.). Optional: omit until SES is set up.
+        SES_FROM_EMAIL:
+          this.node.tryGetContext('sesFromEmail') ||
+          process.env.SES_FROM_EMAIL ||
+          '',
       },
     });
 
