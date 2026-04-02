@@ -16,6 +16,8 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { isAuthConfigured, getAuthPoolDebug } from '@/services/authService';
 import { PageShell } from '@/components/layout/PageShell';
 
+const REMEMBER_EMAIL_KEY = 'rememberEmail';
+
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -81,8 +83,14 @@ export const LoginPage: React.FC = () => {
     try {
       const result = await login(email, password);
       if (result.success) {
-        if (rememberMe) {
-          localStorage.setItem('rememberEmail', email);
+        try {
+          if (rememberMe) {
+            localStorage.setItem(REMEMBER_EMAIL_KEY, email.trim());
+          } else {
+            localStorage.removeItem(REMEMBER_EMAIL_KEY);
+          }
+        } catch {
+          /* ignore */
         }
         const plan = localStorage.getItem('selectedPlanKey');
         if (plan === 'pro' || plan === 'elite') {
@@ -114,8 +122,14 @@ export const LoginPage: React.FC = () => {
     try {
       const result = await confirmSignInWithNewPassword(newPassword);
       if (result.success) {
-        if (rememberMe) {
-          localStorage.setItem('rememberEmail', email);
+        try {
+          if (rememberMe) {
+            localStorage.setItem(REMEMBER_EMAIL_KEY, email.trim());
+          } else {
+            localStorage.removeItem(REMEMBER_EMAIL_KEY);
+          }
+        } catch {
+          /* ignore */
         }
         const plan = localStorage.getItem('selectedPlanKey');
         if (plan === 'pro' || plan === 'elite') {
