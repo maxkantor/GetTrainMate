@@ -25,12 +25,17 @@ export interface UserProfile {
   mode: 'TRAIN' | 'VIBE' | 'DATE';
   latitude?: number;
   longitude?: number;
-  photoKey?: string; // S3 key for profile photo
+  photoKey?: string; // S3 key for primary / cover photo
+  photoKeys?: string[]; // Ordered gallery keys (cover is first)
   photoUrls: string[]; // Legacy support
   preferredDistanceMiles?: number;
   isComplete: boolean;
   createdAt?: string;
   updatedAt?: string;
+  /** When false, no chat notification emails are sent while offline. */
+  chatNotificationsEnabled?: boolean;
+  /** realtime | smart | daily */
+  chatNotificationFrequency?: string;
 }
 
 export interface UpdateProfileRequest {
@@ -49,7 +54,10 @@ export interface UpdateProfileRequest {
   latitude?: number;
   longitude?: number;
   photoKey?: string; // S3 key for profile photo
+  photoKeys?: string[]; // Full gallery (optional; replaces list when set)
   preferredDistanceMiles?: number;
+  chatNotificationsEnabled?: boolean;
+  chatNotificationFrequency?: 'realtime' | 'smart' | 'daily';
 }
 
 export interface PhotoUploadInfo {

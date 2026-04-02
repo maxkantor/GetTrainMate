@@ -20,8 +20,8 @@ export const LoggedInActionHero: React.FC = () => {
   const credits = me?.credits ?? 0;
   const [limitModalOpen, setLimitModalOpen] = useState(false);
 
-  const primaryHref = complete ? '/app/discover' : '/onboarding/profile';
-  const primaryLabel = complete ? t('landing.cta_start_discovering') : t('landing.cta_finish_profile');
+  const primaryHref = complete ? '/app' : '/onboarding/profile';
+  const primaryLabel = complete ? t('header.home') : t('landing.cta_finish_profile');
   const usedToday = Math.min(likesToday, DAILY_LIKE_LIMIT);
   const limitReached = usedToday >= DAILY_LIKE_LIMIT;
   const progressPercent = (usedToday / DAILY_LIKE_LIMIT) * 100;
@@ -80,7 +80,18 @@ export const LoggedInActionHero: React.FC = () => {
             >
               {primaryLabel}
             </Button>
-            {credits > 0 && (
+            {complete && credits <= 0 && (
+              <Button
+                component={RouterLink}
+                to="/app/discover"
+                variant="outlined"
+                size="large"
+                className={styles.secondaryCta}
+              >
+                {t('nav.discover')}
+              </Button>
+            )}
+            {complete && credits > 0 && (
               <>
                 <Button
                   component={RouterLink}

@@ -18,12 +18,19 @@ public class UserProfile
     public string Mode { get; set; } = "TRAIN"; // "TRAIN", "VIBE", "DATE"
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
-    public string? PhotoKey { get; set; } // S3 key for profile photo (optional)
+    public string? PhotoKey { get; set; } // S3 key for primary / cover photo (optional; mirrors first PhotoKeys entry)
+    public List<string> PhotoKeys { get; set; } = new(); // Ordered S3 keys for gallery (optional)
     public List<string> PhotoUrls { get; set; } = new(); // Legacy support
     public double? PreferredDistanceMiles { get; set; } // Optional
     public bool IsComplete { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Email/push style chat notifications when not in app.</summary>
+    public bool ChatNotificationsEnabled { get; set; } = true;
+
+    /// <summary>realtime | smart | daily</summary>
+    public string ChatNotificationFrequency { get; set; } = "smart";
 }
 
 public class AvailabilitySlot
@@ -50,5 +57,8 @@ public class UpdateProfileRequest
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public string? PhotoKey { get; set; } // S3 key for profile photo
+    public List<string>? PhotoKeys { get; set; } // Full gallery (ordered); primary is first
     public double? PreferredDistanceMiles { get; set; }
+    public bool? ChatNotificationsEnabled { get; set; }
+    public string? ChatNotificationFrequency { get; set; }
 }

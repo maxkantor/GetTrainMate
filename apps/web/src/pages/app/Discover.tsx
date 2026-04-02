@@ -31,8 +31,8 @@ import { ProfileCard } from './discover/ProfileCard';
 import { MatchPanel } from './discover/MatchPanel';
 import { ActionBar } from './discover/ActionBar';
 import { FiltersButton } from './discover/FiltersButton';
-import { ConfirmConnectModal } from './discover/ConfirmConnectModal';
 import { DISCOVER_STRINGS } from './discover/constants';
+import { DiscoverProfileDrawer } from './discover/DiscoverProfileDrawer';
 import { incrementDailyLike, getDailyLikeCount } from '@/utils/dailySwipeTracker';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 import { MatchCelebrationOverlay, MatchCelebrationState } from '@/components/discover/MatchCelebrationOverlay';
@@ -118,13 +118,10 @@ export const DiscoverPage: React.FC = () => {
 
   const [feed, setFeed] = useState<MatchFeedItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [undoStack, setUndoStack] = useState<number[]>([]);
-  const [showUndo, setShowUndo] = useState(false);
-  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interestAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [matchCelebration, setMatchCelebration] = useState<MatchCelebrationState | null>(null);
-  const [retentionMessage, setRetentionMessage] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [dailyLimitModalOpen, setDailyLimitModalOpen] = useState(false);
@@ -133,7 +130,7 @@ export const DiscoverPage: React.FC = () => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [userLocationLabel, setUserLocationLabel] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [filters, setFilters] = useState<DiscoverFilters>({
     distance: '30 miles',
     goals: [],
@@ -180,20 +177,7 @@ export const DiscoverPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const uid = me?.user?.id ?? user?.sub ?? '';
-    const last = localStorage.getItem('gtm_discover_last_visit');
     const now = Date.now();
-    const dayKey = new Date().toISOString().slice(0, 10);
-    const shownKey = `gtm_retention_shown_${dayKey}`;
-    if (
-      uid &&
-      last &&
-      now - parseInt(last, 10) > 60 * 60 * 1000 &&
-      !sessionStorage.getItem(shownKey)
-    ) {
-      setRetentionMessage('🔥 3 new athletes matched your profile');
-      sessionStorage.setItem(shownKey, '1');
-    }
     localStorage.setItem('gtm_discover_last_visit', String(now));
   }, [me?.user?.id, user?.sub]);
 
@@ -210,7 +194,7 @@ export const DiscoverPage: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+      if (interestAdvanceTimerRef.current) clearTimeout(interestAdvanceTimerRef.current);
     };
   }, []);
 
@@ -269,8 +253,6 @@ export const DiscoverPage: React.FC = () => {
         setFeed(sortDiscoverFeed(merged));
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
-        setUndoStack([]);
-        setShowUndo(false);
         setPhotoErrorForIndex(null);
         setPhotoFallbackUrls({});
       } else {
@@ -293,8 +275,6 @@ export const DiscoverPage: React.FC = () => {
         setFeed(sortDiscoverFeed(merged));
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
-        setUndoStack([]);
-        setShowUndo(false);
         setPhotoErrorForIndex(null);
         setPhotoFallbackUrls({});
       }
@@ -385,45 +365,26 @@ export const DiscoverPage: React.FC = () => {
     }
   };
 
-  const advanceWithUndo = useCallback(() => {
-    const prev = currentIndex;
-    setUndoStack((s) => [...s, prev]);
-    setShowUndo(true);
-    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
-    undoTimeoutRef.current = setTimeout(() => {
-      setShowUndo(false);
-      setUndoStack((s) => s.slice(0, -1));
-      undoTimeoutRef.current = null;
-    }, 3000);
-
+  const advanceToNextCard = useCallback(() => {
     if (currentIndex < feed.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      setCurrentIndex((i) => i + 1);
     } else {
       setFeed([]);
       setError('No more profiles to discover!');
     }
   }, [currentIndex, feed.length]);
 
-  const handleUndo = useCallback(() => {
-    if (undoTimeoutRef.current) {
-      clearTimeout(undoTimeoutRef.current);
-      undoTimeoutRef.current = null;
-    }
-    const stack = [...undoStack];
-    if (stack.length === 0) return;
-    const prevIndex = stack.pop();
-    setUndoStack(stack);
-    setShowUndo(false);
-    if (prevIndex != null) setCurrentIndex(prevIndex);
-  }, [undoStack]);
-
-  const handleLike = useCallback(async () => {
+  const handleWantToTrain = useCallback(async () => {
     if (currentIndex >= feed.length) return;
 
     const currentCard = feed[currentIndex];
     if (isDummyNearbyProfile(currentCard.userId)) {
-      setToast('This is a preview profile — keep swiping to see profiles you can like and connect with.');
-      advanceWithUndo();
+      setToast(DISCOVER_STRINGS.previewProfileHint);
+      if (interestAdvanceTimerRef.current) clearTimeout(interestAdvanceTimerRef.current);
+      interestAdvanceTimerRef.current = setTimeout(() => {
+        advanceToNextCard();
+        interestAdvanceTimerRef.current = null;
+      }, 1000);
       return;
     }
 
@@ -438,6 +399,16 @@ export const DiscoverPage: React.FC = () => {
       const g = inferGenderFromName(currentCard.name);
       return urls[0] || placeholderPhotoUrl(currentCard.userId, 0, g);
     })();
+
+    const finishInterestSent = () => {
+      setProfileDrawerOpen(false);
+      setToast(DISCOVER_STRINGS.interestSent);
+      if (interestAdvanceTimerRef.current) clearTimeout(interestAdvanceTimerRef.current);
+      interestAdvanceTimerRef.current = setTimeout(() => {
+        advanceToNextCard();
+        interestAdvanceTimerRef.current = null;
+      }, 1000);
+    };
 
     try {
       setLikeLoading(true);
@@ -457,9 +428,8 @@ export const DiscoverPage: React.FC = () => {
           setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
           openDailyLimitModal();
         } else {
-          setToast(DISCOVER_STRINGS.liked);
+          finishInterestSent();
         }
-        advanceWithUndo();
       } else {
         let token = await authService.getJWT(true);
         if (!token) {
@@ -482,9 +452,8 @@ export const DiscoverPage: React.FC = () => {
             setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
             openDailyLimitModal();
           } else {
-            setToast(DISCOVER_STRINGS.liked);
+            finishInterestSent();
           }
-          advanceWithUndo();
         } catch (likeErr: unknown) {
           const status = (likeErr as { response?: { status?: number } })?.response?.status;
           if (status === 401) {
@@ -506,9 +475,8 @@ export const DiscoverPage: React.FC = () => {
                   setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
                   openDailyLimitModal();
                 } else {
-                  setToast(DISCOVER_STRINGS.liked);
+                  finishInterestSent();
                 }
-                advanceWithUndo();
                 return;
               } catch {
                 /* fall through */
@@ -535,13 +503,13 @@ export const DiscoverPage: React.FC = () => {
         } else if (apiError.status === 401 || apiError.isAuthError) {
           setToast('Session expired. Please sign in again.');
         } else {
-          setToast(apiError.message || 'Failed to like');
+          setToast(apiError.message || 'Could not send interest');
         }
       }
     } finally {
       setLikeLoading(false);
     }
-  }, [advanceWithUndo, currentIndex, feed, openDailyLimitModal, refreshMe]);
+  }, [advanceToNextCard, currentIndex, feed, openDailyLimitModal, refreshMe]);
 
   const handlePass = async () => {
     if (currentIndex >= feed.length) return;
@@ -622,30 +590,22 @@ export const DiscoverPage: React.FC = () => {
     await handleUndoSkip();
   }, [handleUndoSkip, lastSkippedProfile, skipUndoOpen]);
 
-  const handleConnectConfirm = () => {
+  const handleViewProfile = () => {
     const currentCard = feed[currentIndex];
     if (currentCard?.userId) {
-      setConnectModalOpen(false);
-      navigate(`/app/profile/${currentCard.userId}`);
-    }
-  };
-
-  const handleConnect = () => {
-    const currentCard = feed[currentIndex];
-    if (currentCard?.userId) {
-      navigate(`/app/profile/${currentCard.userId}`);
+      setProfileDrawerOpen(true);
     }
   };
 
   const discoverActionsRef = useRef({
     pass: async () => {},
-    like: async () => {},
-    connect: () => {},
+    interest: async () => {},
+    viewProfile: () => {},
   });
   discoverActionsRef.current = {
     pass: handlePass,
-    like: handleLike,
-    connect: handleConnect,
+    interest: handleWantToTrain,
+    viewProfile: handleViewProfile,
   };
 
   useEffect(() => {
@@ -662,10 +622,10 @@ export const DiscoverPage: React.FC = () => {
         void discoverActionsRef.current.pass();
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        void discoverActionsRef.current.like();
+        void discoverActionsRef.current.interest();
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        discoverActionsRef.current.connect();
+        discoverActionsRef.current.viewProfile();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -714,9 +674,9 @@ export const DiscoverPage: React.FC = () => {
   const closeMatchCelebration = useCallback(
     (advance: boolean) => {
       setMatchCelebration(null);
-      if (advance) advanceWithUndo();
+      if (advance) advanceToNextCard();
     },
-    [advanceWithUndo]
+    [advanceToNextCard]
   );
 
   const handleUnlockAiInsight = useCallback(async () => {
@@ -908,21 +868,7 @@ export const DiscoverPage: React.FC = () => {
             />
           </>
         }
-        banner={
-          retentionMessage ? (
-            <div className={styles.retentionBanner} role="status">
-              {retentionMessage}
-              <button
-                type="button"
-                className={styles.retentionDismiss}
-                aria-label="Dismiss"
-                onClick={() => setRetentionMessage(null)}
-              >
-                ×
-              </button>
-            </div>
-          ) : null
-        }
+        banner={null}
         headerRow={null}
         progressBar={
           <div className={styles.progressSection}>
@@ -949,7 +895,7 @@ export const DiscoverPage: React.FC = () => {
             }}
             onPhotoError={handlePhotoError}
             onSwipeLeft={handlePass}
-            onSwipeRight={handleLike}
+            onSwipeRight={handleWantToTrain}
             matched={false}
           />
         }
@@ -971,13 +917,10 @@ export const DiscoverPage: React.FC = () => {
           <>
             <ActionBar
               onPass={handlePass}
-              onLike={handleLike}
-              onConnect={handleConnect}
-              onUndo={handleUndo}
+              onInterest={handleWantToTrain}
+              onViewProfile={handleViewProfile}
               onRewind={handleRewindLastSkip}
-              likeLoading={likeLoading}
-              canUndo={undoStack.length > 0}
-              showUndo={showUndo}
+              interestLoading={likeLoading}
               canRewind={!!lastSkippedProfile && !skipUndoOpen}
             />
           </>
@@ -993,13 +936,26 @@ export const DiscoverPage: React.FC = () => {
         anchor={isMobile ? 'bottom' : 'right'}
       />
 
-      <ConfirmConnectModal
-        open={connectModalOpen}
-        onClose={() => setConnectModalOpen(false)}
-        onConfirm={handleConnectConfirm}
-        title={DISCOVER_STRINGS.connectModalTitle}
-        body={DISCOVER_STRINGS.connectModalBody}
-        confirmLabel={DISCOVER_STRINGS.connectModalConfirm}
+      <DiscoverProfileDrawer
+        open={profileDrawerOpen}
+        onClose={() => setProfileDrawerOpen(false)}
+        userId={feed[currentIndex]?.userId ?? null}
+        previewCard={feed[currentIndex] ?? null}
+        matchReasons={matchReasons}
+        compatibilityScore={currentCard.compatibilityScore}
+        aiInsightCreditCost={aiInsightCost}
+        aiMatchInsightFull={insightMap[currentCard.userId]}
+        onUnlockAiInsight={isDummy ? undefined : handleUnlockAiInsight}
+        aiInsightLoading={loadingInsightFor === currentCard.userId}
+        onSkip={() => {
+          setProfileDrawerOpen(false);
+          void handlePass();
+        }}
+        onWantToTrain={() => {
+          void handleWantToTrain();
+        }}
+        interestLoading={likeLoading}
+        canAct={!isDummy}
       />
 
       <MatchCelebrationOverlay
@@ -1016,10 +972,14 @@ export const DiscoverPage: React.FC = () => {
 
       <Snackbar
         open={!!toast}
-        autoHideDuration={toast?.includes('sign in') || toast?.includes('Session expired') ? 10000 : 5000}
+        autoHideDuration={toast?.includes('sign in') || toast?.includes('Session expired') ? 10000 : 5200}
         onClose={() => setToast(null)}
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{
+          bottom: { xs: 100, sm: 108 },
+          '& .MuiSnackbarContent-root': { maxWidth: 420 },
+        }}
         action={
           toast && (toast.includes('sign in') || toast.includes('Session expired')) ? (
             <Button
@@ -1041,7 +1001,7 @@ export const DiscoverPage: React.FC = () => {
         open={skipUndoOpen}
         autoHideDuration={4500}
         onClose={() => setSkipUndoOpen(false)}
-        message="Profile skipped"
+        message={DISCOVER_STRINGS.skippedToast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         action={
           <Button

@@ -62,8 +62,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (isAdmin && !isAdminUser) {
-    if (DEV) console.log('[ProtectedRoute] Redirecting to /app/discover (not admin)');
-    return <Navigate to="/app/discover" replace />;
+    if (DEV) console.log('[ProtectedRoute] Redirecting to /app (not admin)');
+    return <Navigate to="/app" replace />;
   }
 
   const profileJustCompleted = (location.state as { profileJustCompleted?: boolean } | null)?.profileJustCompleted;

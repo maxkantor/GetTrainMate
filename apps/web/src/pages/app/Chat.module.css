@@ -74,6 +74,20 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
+.threadItemHighlight {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.65);
+  animation: threadPulse 1.2s ease-out 2;
+}
+
+@keyframes threadPulse {
+  from {
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.9);
+  }
+  to {
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+  }
+}
+
 .threadItemActive {
   background: rgba(99, 102, 241, 0.15);
   box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3);

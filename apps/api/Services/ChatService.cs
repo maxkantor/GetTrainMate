@@ -10,6 +10,7 @@ public class ChatService : IChatService
     private readonly IProfileService _profileService;
     private readonly ICreditsService _creditsService;
     private readonly IMatchService _matchService;
+    private readonly IChatNotificationService _chatNotificationService;
     private readonly string _messagesTable;
     private readonly string _threadsTable;
     private readonly ILogger<ChatService> _logger;
@@ -19,6 +20,7 @@ public class ChatService : IChatService
         IProfileService profileService,
         ICreditsService creditsService,
         IMatchService matchService,
+        IChatNotificationService chatNotificationService,
         IConfiguration configuration,
         ILogger<ChatService> logger)
     {
@@ -26,6 +28,7 @@ public class ChatService : IChatService
         _profileService = profileService;
         _creditsService = creditsService;
         _matchService = matchService;
+        _chatNotificationService = chatNotificationService;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _messagesTable = configuration["DYNAMODB_TABLE_MESSAGES"] ?? $"{prefix}messages";
         _threadsTable = configuration["DYNAMODB_TABLE_CHAT_THREADS"] ?? $"{prefix}chat-threads";
@@ -265,6 +268,7 @@ public class ChatService : IChatService
         {
             var message = new ChatMessage
             {
+                MessageId = Guid.NewGuid().ToString(),
                 ThreadId = threadId,
                 SenderId = senderId,
                 SenderName = senderName,
@@ -287,6 +291,29 @@ public class ChatService : IChatService
                 var threadsTable = Table.LoadTable(_dynamoDb, _threadsTable);
                 var threadDoc = ThreadToDocument(thread);
                 await threadsTable.PutItemAsync(threadDoc);
+            }
+
+            if (thread != null)
+            {
+                var recipientId = thread.ParticipantIds.FirstOrDefault(p => p != senderId);
+                if (!string.IsNullOrEmpty(recipientId))
+                {
+                    try
+                    {
+                        var allMessages = await GetMessagesAsync(threadId, 500);
+                        var hints = BuildChatNotificationHints(allMessages, senderId, message);
+                        await _chatNotificationService.NotifyIncomingMessageAsync(
+                            threadId,
+                            senderName,
+                            content,
+                            recipientId,
+                            hints);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Chat notification hook failed for thread {ThreadId}", threadId);
+                    }
+                }
             }
 
             return message;
@@ -418,6 +445,29 @@ public class ChatService : IChatService
         if (doc.ContainsKey("unlockedByUserB"))
             thread.UnlockedByUserB = doc["unlockedByUserB"].AsBoolean();
         return thread;
+    }
+
+    private static ChatNotificationHints BuildChatNotificationHints(
+        List<ChatMessage> all,
+        string senderId,
+        ChatMessage current)
+    {
+        var fromSender = all.Where(m => m.SenderId == senderId).OrderBy(m => m.CreatedAt).ToList();
+        var isFirst = fromSender.Count == 1;
+        var prevFromSender = fromSender
+            .Where(m => m.MessageId != current.MessageId)
+            .OrderByDescending(m => m.CreatedAt)
+            .FirstOrDefault();
+        var replyAfterInactivity = prevFromSender != null
+            && (current.CreatedAt - prevFromSender.CreatedAt).TotalHours >= 1;
+        var windowStart = current.CreatedAt.AddSeconds(-60);
+        var burst = all.Count(m => m.SenderId == senderId && m.CreatedAt >= windowStart) >= 3;
+        return new ChatNotificationHints
+        {
+            IsFirstMessageFromSender = isFirst,
+            IsReplyAfterInactivity = replyAfterInactivity,
+            IsBurstSpam = burst,
+        };
     }
 
     private Document MessageToDocument(ChatMessage message)

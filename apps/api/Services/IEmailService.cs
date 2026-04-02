@@ -1,5 +1,6 @@
 namespace GetTrainMate.Api.Services;
 
+/// <summary>Transactional email via Amazon SES (<c>SendEmail</c>). Not SNS.</summary>
 public interface IEmailService
 {
     Task<string> SendEmailAsync(

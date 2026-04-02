@@ -272,7 +272,7 @@ export const ProfileOnboardingPage: React.FC = () => {
       }
 
       await refreshMe();
-      navigate('/app/discover', { state: { profileJustCompleted: true }, replace: true });
+      navigate('/app', { state: { profileJustCompleted: true }, replace: true });
     } catch (err: unknown) {
       setError(handleApiError(err as Error).message || 'Failed to save profile');
     } finally {

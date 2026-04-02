@@ -12,7 +12,7 @@ import {
   Typography,
   Stack,
 } from '@mui/material';
-import { getCircularCroppedBlob } from '@/utils/cropProfilePhoto';
+import { getCircularCroppedBlob, getCenterSquareCropFallback } from '@/utils/cropProfilePhoto';
 import styles from './PhotoCropModal.module.css';
 
 interface PhotoCropModalProps {
@@ -53,9 +53,10 @@ export const PhotoCropModal: React.FC<PhotoCropModalProps> = ({
   }, []);
 
   const handleSave = async () => {
-    if (!imgSrc || !croppedAreaPixels) return;
+    if (!imgSrc) return;
     try {
-      const blob = await getCircularCroppedBlob(imgSrc, croppedAreaPixels);
+      const area = croppedAreaPixels ?? (await getCenterSquareCropFallback(imgSrc));
+      const blob = await getCircularCroppedBlob(imgSrc, area);
       onSave(blob);
     } catch {
       /* caller shows snack */
@@ -76,8 +77,12 @@ export const PhotoCropModal: React.FC<PhotoCropModalProps> = ({
               crop={crop}
               zoom={zoom}
               aspect={1}
+              minZoom={0.5}
+              maxZoom={4}
               cropShape="round"
               showGrid={false}
+              objectFit="cover"
+              initialCroppedAreaPercentages={{ width: 85, height: 85, x: 7.5, y: 7.5 }}
               onCropChange={setCrop}
               onZoomChange={setZoom}
               onCropComplete={onCropComplete}
@@ -90,8 +95,8 @@ export const PhotoCropModal: React.FC<PhotoCropModalProps> = ({
           </Typography>
           <Slider
             value={zoom}
-            min={1}
-            max={3}
+            min={0.5}
+            max={4}
             step={0.01}
             onChange={(_, v) => setZoom(v as number)}
             aria-label="Zoom"
@@ -102,7 +107,7 @@ export const PhotoCropModal: React.FC<PhotoCropModalProps> = ({
         <Button onClick={onClose} disabled={saving}>
           Cancel
         </Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving || !croppedAreaPixels}>
+        <Button variant="contained" onClick={handleSave} disabled={saving || !imgSrc}>
           {saving ? 'Saving…' : 'Save photo'}
         </Button>
       </DialogActions>

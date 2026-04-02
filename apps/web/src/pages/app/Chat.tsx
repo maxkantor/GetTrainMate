@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Button, CircularProgress, Alert } from '@mui/material';
+import { Button, CircularProgress, Alert, Snackbar } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import LockIcon from '@mui/icons-material/Lock';
 import { useI18n } from '@/hooks/useI18n';
@@ -21,6 +21,8 @@ import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 import { getIcebreakers, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import { profileService } from '@/services/profileService';
 import { IMAGE_BUCKET_BASE } from '@/config/media';
+import { setChatUnreadTotal } from '@/utils/chatUnreadStore';
+import { useChatPresence } from '@/contexts/ChatPresenceContext';
 import chatStyles from './Chat.module.css';
 
 function toAvatarUrl(avatarUrl: string | undefined): string | undefined {
@@ -33,6 +35,7 @@ export const ChatPage: React.FC = () => {
   const { t } = useI18n();
   const { user } = useAuthContext();
   const { me, refreshMe } = useMe();
+  const { setActiveChatThreadId } = useChatPresence();
   const [searchParams] = useSearchParams();
   const threadIdFromUrl = searchParams.get('thread');
 
@@ -50,11 +53,85 @@ export const ChatPage: React.FC = () => {
   const [icebreakerSuggestions, setIcebreakerSuggestions] = useState<string[]>([]);
   const [icebreakerLoading, setIcebreakerLoading] = useState(false);
   const [icebreakerError, setIcebreakerError] = useState('');
+  const [msgToast, setMsgToast] = useState<{ name: string } | null>(null);
+  const [highlightedThreadId, setHighlightedThreadId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const selectedThreadIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    selectedThreadIdRef.current = selectedThreadId;
+  }, [selectedThreadId]);
+
+  useEffect(() => {
+    setActiveChatThreadId(selectedThreadId);
+    return () => setActiveChatThreadId(null);
+  }, [selectedThreadId, setActiveChatThreadId]);
 
   useEffect(() => {
     loadThreads();
   }, []);
+
+  const threadIdsKey = useMemo(() => threads.map((t) => t.threadId).sort().join(','), [threads]);
+
+  useEffect(() => {
+    if (!isGraphQLEnabled || !user?.sub || threads.length === 0) return;
+    const subs = threads.slice(0, 30).map((thread) =>
+      graphqlSubscribeMessages(thread.threadId, (raw) => {
+        const m = raw as {
+          id?: string;
+          threadId?: string;
+          fromUserId?: string;
+          body?: string;
+          senderName?: string;
+          createdAt?: string;
+        };
+        if (!m?.fromUserId || m.fromUserId === user.sub) return;
+        const tid = m.threadId || thread.threadId;
+        const viewing = tid === selectedThreadIdRef.current;
+
+        setThreads((prev) => {
+          const next = prev.map((t) => {
+            if (t.threadId !== tid) return t;
+            const inc = viewing ? 0 : 1;
+            return {
+              ...t,
+              unreadCount: (t.unreadCount || 0) + inc,
+              lastMessage: m.body ?? t.lastMessage,
+            };
+          });
+          setChatUnreadTotal(next.reduce((s, t) => s + (t.unreadCount || 0), 0));
+          return next;
+        });
+
+        if (viewing) {
+          setMessages((prev) => {
+            if (m.id && prev.some((x) => x.messageId === m.id)) return prev;
+            return [
+              ...prev,
+              {
+                messageId: m.id ?? `sub-${Date.now()}`,
+                threadId: tid,
+                senderId: m.fromUserId!,
+                senderName: m.senderName ?? '',
+                content: m.body ?? '',
+                isRead: false,
+                createdAt: m.createdAt ?? new Date().toISOString(),
+              },
+            ];
+          });
+          void (async () => {
+            const token = await authService.getJWT();
+            if (token) await chatService.markThreadAsRead(token, tid);
+          })();
+          return;
+        }
+
+        setMsgToast({ name: m.senderName?.trim() || 'Someone' });
+        setHighlightedThreadId(tid);
+      })
+    );
+    return () => subs.forEach((s) => s.unsubscribe());
+  }, [isGraphQLEnabled, user?.sub, threadIdsKey]);
 
   useEffect(() => {
     if (threadIdFromUrl) {
@@ -126,6 +203,7 @@ export const ChatPage: React.FC = () => {
           unreadCount: 0,
         }));
         setThreads(data);
+        setChatUnreadTotal(data.reduce((s, t) => s + (t.unreadCount || 0), 0));
         if (data.length > 0 && !selectedThreadId && !threadIdFromUrl) {
           setSelectedThreadId(data[0].threadId);
         }
@@ -154,6 +232,7 @@ export const ChatPage: React.FC = () => {
           })
         );
         setThreads(withAvatars);
+        setChatUnreadTotal(withAvatars.reduce((s, t) => s + (t.unreadCount || 0), 0));
         if (data.length > 0 && !selectedThreadId && !threadIdFromUrl) {
           setSelectedThreadId(data[0].threadId);
         }
@@ -243,11 +322,12 @@ export const ChatPage: React.FC = () => {
       if (!token) return;
 
       await chatService.markThreadAsRead(token, threadId);
-      
-      // Update thread unread count
-      setThreads(threads.map(t => 
-        t.threadId === threadId ? { ...t, unreadCount: 0 } : t
-      ));
+
+      setThreads((prev) => {
+        const next = prev.map((t) => (t.threadId === threadId ? { ...t, unreadCount: 0 } : t));
+        setChatUnreadTotal(next.reduce((s, t) => s + (t.unreadCount || 0), 0));
+        return next;
+      });
     } catch (err: any) {
       console.error('Error marking as read:', err);
     }
@@ -384,6 +464,14 @@ export const ChatPage: React.FC = () => {
 
   return (
     <div className={chatStyles.root}>
+      <Snackbar
+        open={!!msgToast}
+        autoHideDuration={4500}
+        onClose={() => setMsgToast(null)}
+        message={msgToast ? `New message from ${msgToast.name}` : ''}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ bottom: { xs: 88, sm: 96 } }}
+      />
       <div className={chatStyles.layout}>
         {/* Thread List */}
         <aside className={chatStyles.threadList}>
@@ -393,8 +481,11 @@ export const ChatPage: React.FC = () => {
               <button
                 key={thread.threadId}
                 type="button"
-                className={`${chatStyles.threadItem} ${selectedThreadId === thread.threadId ? chatStyles.threadItemActive : ''}`}
-                onClick={() => setSelectedThreadId(thread.threadId)}
+                className={`${chatStyles.threadItem} ${selectedThreadId === thread.threadId ? chatStyles.threadItemActive : ''} ${highlightedThreadId === thread.threadId ? chatStyles.threadItemHighlight : ''}`}
+                onClick={() => {
+                  setSelectedThreadId(thread.threadId);
+                  if (highlightedThreadId === thread.threadId) setHighlightedThreadId(null);
+                }}
               >
                 <Avatar url={thread.otherUserAvatarUrl} letter={avatarLetter(thread.otherUserName)} className={chatStyles.threadAvatar} />
                 <div className={chatStyles.threadMeta}>

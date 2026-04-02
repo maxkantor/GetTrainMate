@@ -90,7 +90,7 @@ export const LoginPage: React.FC = () => {
           navigate(`/pricing?checkout=${plan}`);
           return;
         }
-        navigate('/app/discover');
+        navigate('/app');
       } else if (result.requiresNewPassword) {
         setRequiresNewPassword(true);
         setError('');
@@ -123,7 +123,7 @@ export const LoginPage: React.FC = () => {
           navigate(`/pricing?checkout=${plan}`);
           return;
         }
-        navigate('/app/discover');
+        navigate('/app');
       } else {
         setError(result.error || 'Failed to set new password');
       }

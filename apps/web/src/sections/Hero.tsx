@@ -44,12 +44,12 @@ export const Hero: React.FC = () => {
     ? '/signup'
     : !profileComplete
       ? '/onboarding/profile'
-      : '/app/discover';
+      : '/app';
   const ctaPrimaryLabel = !isAuthenticated
     ? LANDING_PRIMARY_CTA
     : !profileComplete
       ? 'Finish profile'
-      : LANDING_PRIMARY_CTA;
+      : 'Home';
   const showCtaSubtext = profileComplete;
   const primaryOpensFlow = !isAuthenticated && ctaPrimaryLabel === LANDING_PRIMARY_CTA;
 

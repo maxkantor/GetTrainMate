@@ -20,6 +20,7 @@ import { LoginPage } from '@/pages/Login';
 import { SignupPage } from '@/pages/Signup';
 import { VerifyEmailPage } from '@/pages/VerifyEmail';
 import { DashboardPage as AppDashboardPage } from '@/pages/app/Dashboard';
+import { AppHomePage } from '@/pages/app/AppHome';
 import { ProfilePage } from '@/pages/app/Profile';
 import { PublicProfilePage } from '@/pages/app/PublicProfile';
 import { DiscoverPage } from '@/pages/app/Discover';
@@ -85,8 +86,8 @@ export const Router: React.FC = () => {
 
             {/* Protected app routes - require profile completion */}
             <Route path="/app" element={<ProtectedRoute requireProfileComplete={true} />}>
-              <Route index element={<DiscoverPage />} />
-              <Route path="dashboard" element={<DiscoverPage />} />
+              <Route index element={<AppHomePage />} />
+              <Route path="dashboard" element={<AppHomePage />} />
               <Route path="discover" element={<DiscoverPage />} />
               <Route path="matches" element={<MatchesPage />} />
               <Route path="chat" element={<ChatPage />} />

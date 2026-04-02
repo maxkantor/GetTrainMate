@@ -19,6 +19,7 @@ const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const { CognitoIdentityProviderClient, AdminGetUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
 
 const PREFIX = process.env.DYNAMODB_TABLE_PREFIX || 'gettrainmate-';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || '';
@@ -65,6 +66,8 @@ const tables = {
   messages: `${PREFIX}messages`,
   userCredits: `${PREFIX}user-credits`,
   creditTransactions: `${PREFIX}credit-transactions`,
+  userActivity: `${PREFIX}user-activity`,
+  chatNotificationState: `${PREFIX}chat-notification-state`,
 };
 
 const FREE_START_CREDITS = 3;
@@ -614,6 +617,175 @@ async function countMessagesFromSender(threadId, senderId) {
   return items.filter((m) => m.senderId === senderId).length;
 }
 
+const FRONTEND_URL_NOTIFY = process.env.FRONTEND_URL || 'https://localhost:5173';
+const SES_FROM_EMAIL_NOTIFY = process.env.SES_FROM_EMAIL || '';
+/** Optional comma-separated substrings; if any appear in preview text, redact (align with API ChatNotifications:PreviewBlocklistWords). */
+const CHAT_PREVIEW_BLOCKLIST = (process.env.CHAT_NOTIFICATION_BLOCKLIST || '')
+  .split(',')
+  .map((x) => x.trim().toLowerCase())
+  .filter(Boolean);
+
+const PREVIEW_REDACTED = '[Preview not shown — open GetTrainMate to read safely.]';
+
+function sanitizeChatPreviewForEmail(raw) {
+  if (raw == null || typeof raw !== 'string') return '…';
+  const collapsed = raw.trim().replace(/\s+/g, ' ');
+  if (!collapsed) return '…';
+  for (let i = 0; i < collapsed.length; i++) {
+    const c = collapsed.charCodeAt(i);
+    if (c < 32 && c !== 9 && c !== 10 && c !== 13) return PREVIEW_REDACTED;
+  }
+  if (/<\s*(script|iframe|object|embed)\b/i.test(collapsed) || /javascript\s*:/i.test(collapsed)) return PREVIEW_REDACTED;
+  const lower = collapsed.toLowerCase();
+  for (const w of CHAT_PREVIEW_BLOCKLIST) {
+    if (w.length >= 2 && lower.includes(w)) return PREVIEW_REDACTED;
+  }
+  let maxRun = 1;
+  let run = 1;
+  for (let i = 1; i < collapsed.length; i++) {
+    if (collapsed[i] === collapsed[i - 1]) {
+      run += 1;
+      maxRun = Math.max(maxRun, run);
+    } else {
+      run = 1;
+    }
+  }
+  if (collapsed.length >= 80 && maxRun > 40) return PREVIEW_REDACTED;
+  return collapsed.length <= 180 ? collapsed : `${collapsed.slice(0, 179)}…`;
+}
+
+function buildChatNotifyHints(all, senderId, current) {
+  const fromSender = all.filter((m) => m.senderId === senderId).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  const isFirst = fromSender.length === 1;
+  const prevFromSender = fromSender.filter((m) => m.messageId !== current.messageId).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+  const replyAfterInactivity = prevFromSender && (new Date(current.createdAt) - new Date(prevFromSender.createdAt)) / 3600000 >= 1;
+  const ws = new Date(current.createdAt).getTime() - 60000;
+  const burst = all.filter((m) => m.senderId === senderId && new Date(m.createdAt).getTime() >= ws).length >= 3;
+  let priority = 'medium';
+  if (burst) priority = 'low';
+  else if (isFirst || replyAfterInactivity) priority = 'high';
+  return priority;
+}
+
+function chatNotifyCooldownMinutes(freq, priority) {
+  const f = (freq || 'smart').toLowerCase();
+  if (f === 'daily') return 24 * 60;
+  if (f === 'realtime') return 15;
+  if (priority === 'high') return 15;
+  if (priority === 'medium') return 20;
+  return 30;
+}
+
+async function notifyChatRecipientEmailAsync({ threadId, senderId, senderName, body, messageId, createdAt }) {
+  try {
+    if (!SES_FROM_EMAIL_NOTIFY) return;
+    const threadRes = await dynamo.send(new GetItemCommand({
+      TableName: tables.chatThreads,
+      Key: marshall({ threadId }),
+    }));
+    if (!threadRes.Item) return;
+    const thread = unmarshall(threadRes.Item);
+    const participantIds = thread.participantIds || [];
+    const recipientId = participantIds.find((id) => id !== senderId);
+    if (!recipientId) return;
+
+    const cognitoRecipient = await getCognitoUser(recipientId);
+    const toEmail = cognitoRecipient.email;
+    if (!toEmail) return;
+
+    const profRes = await dynamo.send(new GetItemCommand({
+      TableName: tables.profiles,
+      Key: marshall({ userId: recipientId }),
+    }));
+    const raw = profRes.Item ? unmarshall(profRes.Item) : {};
+    if (raw.chatNotificationsEnabled === false) return;
+    const freq = (raw.chatNotificationFrequency || 'smart').toLowerCase();
+
+    const actRes = await dynamo.send(new GetItemCommand({
+      TableName: tables.userActivity,
+      Key: marshall({ userId: recipientId }),
+    }));
+    if (actRes.Item) {
+      const act = unmarshall(actRes.Item);
+      const lastSeen = act.lastSeenUtc ? new Date(act.lastSeenUtc) : null;
+      const viewingThis =
+        act.activeChatThreadId === threadId &&
+        lastSeen &&
+        Date.now() - lastSeen.getTime() < 15 * 60 * 1000;
+      if (viewingThis) return;
+      if (lastSeen && Date.now() - lastSeen.getTime() < 5 * 60 * 1000) return;
+    }
+
+    const q = await dynamo.send(new QueryCommand({
+      TableName: tables.messages,
+      KeyConditionExpression: 'threadId = :tid',
+      ExpressionAttributeValues: marshall({ ':tid': threadId }),
+    }));
+    const all = (q.Items || []).map((i) => unmarshall(i));
+    const current = { messageId, senderId, createdAt };
+    const priority = buildChatNotifyHints(all, senderId, current);
+    const cooldown = chatNotifyCooldownMinutes(freq, priority);
+
+    const stateKey = `${recipientId}#${threadId}`;
+    const stRes = await dynamo.send(new GetItemCommand({
+      TableName: tables.chatNotificationState,
+      Key: marshall({ stateKey }),
+    }));
+    const st = stRes.Item ? unmarshall(stRes.Item) : {};
+    const pending = (st.pendingCount || 0) + 1;
+    const lastEmail = st.lastEmailSentUtc ? new Date(st.lastEmailSentUtc) : null;
+    const canSend = !lastEmail || (Date.now() - lastEmail.getTime() >= cooldown * 60 * 1000);
+
+    const preview = sanitizeChatPreviewForEmail(body);
+    if (!canSend) {
+      const doc = {
+        stateKey,
+        pendingCount: pending,
+        lastSenderName: senderName,
+        lastPreview: preview,
+      };
+      if (st.lastEmailSentUtc) doc.lastEmailSentUtc = st.lastEmailSentUtc;
+      await dynamo.send(new PutItemCommand({ TableName: tables.chatNotificationState, Item: marshall(doc) }));
+      return;
+    }
+
+    const count = pending;
+    const name = (senderName || 'Someone').trim();
+    const subject = count <= 1 ? `New message from ${name}` : `You have ${count} new messages from ${name}`;
+    const base = FRONTEND_URL_NOTIFY.replace(/\/$/, '');
+    const chatUrl = `${base}/app/chat?thread=${encodeURIComponent(threadId)}`;
+    const headline = count <= 1 ? `${name} sent you a message on GetTrainMate.` : `You have ${count} new messages from ${name} on GetTrainMate.`;
+    const text = [headline, '', 'Preview:', preview, '', 'Reply now:', chatUrl].join('\n');
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const html = `<p>${esc(headline)}</p><p style="color:#555;font-size:14px"><strong>Preview:</strong> ${esc(preview)}</p><p><a href="${esc(chatUrl)}" style="display:inline-block;padding:12px 20px;background:#6366f1;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">Reply now</a></p>`;
+
+    await ses.send(new SendEmailCommand({
+      Source: SES_FROM_EMAIL_NOTIFY,
+      Destination: { ToAddresses: [toEmail] },
+      Message: {
+        Subject: { Data: subject, Charset: 'UTF-8' },
+        Body: {
+          Text: { Data: text, Charset: 'UTF-8' },
+          Html: { Data: html, Charset: 'UTF-8' },
+        },
+      },
+    }));
+
+    await dynamo.send(new PutItemCommand({
+      TableName: tables.chatNotificationState,
+      Item: marshall({
+        stateKey,
+        pendingCount: 0,
+        lastEmailSentUtc: new Date().toISOString(),
+        lastSenderName: senderName,
+        lastPreview: preview,
+      }),
+    }));
+  } catch (e) {
+    console.error('notifyChatRecipientEmailAsync', e);
+  }
+}
+
 async function createMessage(identity, args) {
   const userId = getUserId(identity);
   const body = (args.body || '').trim();
@@ -662,6 +834,14 @@ async function createMessage(identity, args) {
     TableName: tables.chatThreads,
     Item: marshall(thread),
   }));
+  notifyChatRecipientEmailAsync({
+    threadId,
+    senderId: userId,
+    senderName,
+    body,
+    messageId,
+    createdAt: now,
+  }).catch(() => {});
   return {
     id: messageId,
     threadId,

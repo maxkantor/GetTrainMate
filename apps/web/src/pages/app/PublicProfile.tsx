@@ -14,7 +14,6 @@ import {
   IconButton,
   Snackbar,
 } from '@mui/material';
-import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -24,12 +23,15 @@ import { authService } from '@/services/authService';
 import { profileService } from '@/services/profileService';
 import { matchService } from '@/services/matchService';
 import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
-import { isGraphQLEnabled, graphqlGetProfile, graphqlLikeUser } from '@/services/graphqlService';
+import { isGraphQLEnabled, graphqlGetProfile, graphqlLikeUser, graphqlPassUser } from '@/services/graphqlService';
 import { MatchPanel } from './discover/MatchPanel';
 import { handleApiError } from '@/utils/apiErrorHandler';
 import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import { getDiscoverDemoCard, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
 import { getLandingProfile, isLandingProfileUserId } from '@/data/landingProfiles';
+import { DISCOVER_STRINGS } from '@/pages/app/discover/constants';
+import { incrementDailyLike, getDailyLikeCount } from '@/utils/dailySwipeTracker';
+import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 
 interface PublicProfilePageProps {
   userIdFromRoute?: string;
@@ -59,6 +61,8 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
     level?: string;
     mode?: string;
     photoUrls?: string[];
+    goals?: string[];
+    availabilitySchedule?: { days?: string[]; timeStart?: string; timeEnd?: string }[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -266,25 +270,66 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
     }
   };
 
-  const handleLike = async () => {
+  const handleSkipPass = async () => {
+    if (!userId || !profile) return;
+    if (isDummyNearbyProfile(userId) || isLandingProfileUserId(userId)) return;
+    try {
+      if (isGraphQLEnabled) {
+        await graphqlPassUser(userId);
+      } else {
+        const token = await authService.getJWT(true);
+        if (!token) {
+          setToast('Please sign in again.');
+          return;
+        }
+        await matchService.passUser(token, userId);
+      }
+      setToast(DISCOVER_STRINGS.skippedToast);
+      navigate('/app/discover');
+    } catch {
+      setToast('Could not skip. Try again.');
+    }
+  };
+
+  const handleWantToTrain = async () => {
     if (!userId || !profile) return;
     if (isDummyNearbyProfile(userId) || isLandingProfileUserId(userId)) {
       setMatched(false);
+      return;
+    }
+    if (getDailyLikeCount() >= DAILY_LIKE_LIMIT) {
+      setToast(`You've reached today's ${DAILY_LIKE_LIMIT}-match limit.`);
       return;
     }
     try {
       setLiking(true);
       if (isGraphQLEnabled) {
         const result = await graphqlLikeUser(userId);
-        if (result.isMatched) setMatched(true);
+        incrementDailyLike();
+        await refreshMe();
+        if (result.isMatched) {
+          setMatched(true);
+        } else {
+          setToast(DISCOVER_STRINGS.interestSent);
+        }
       } else {
-        const token = await authService.getJWT();
-        if (!token) return;
+        const token = await authService.getJWT(true);
+        if (!token) {
+          setToast('Please sign in again.');
+          return;
+        }
         const result = await matchService.likeUser(token, userId);
-        if (result.isMatched) setMatched(true);
+        incrementDailyLike();
+        await refreshMe();
+        if (result.isMatched) {
+          setMatched(true);
+        } else {
+          setToast(DISCOVER_STRINGS.interestSent);
+        }
       }
-    } catch (err: any) {
-      console.error('Error liking user:', err);
+    } catch (err: unknown) {
+      const apiError = handleApiError(err);
+      setToast(apiError.message || 'Could not send interest');
     } finally {
       setLiking(false);
     }
@@ -327,15 +372,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
   const isDemoProfile = isDummyNearbyProfile(profile.userId) || isLandingProfileUserId(profile.userId);
 
   return (
-    <Container maxWidth="sm" sx={{ py: 4 }}>
-      <Button
-        startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/app/discover')}
-        sx={{ mb: 2 }}
-      >
-        Back to Discover
-      </Button>
-
+    <Container maxWidth="sm" sx={{ py: 4, pb: 10 }}>
       <Card sx={{ boxShadow: 3 }}>
         <Box sx={{ position: 'relative', bgcolor: 'grey.200' }}>
           <Box
@@ -444,6 +481,23 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
           {profile.mode && (
             <Chip label={`Mode: ${profile.mode}`} color="secondary" size="small" sx={{ mt: 1 }} />
           )}
+          {profile.goals && profile.goals.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                Goals
+              </Typography>
+              <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                {profile.goals.map((g) => (
+                  <Chip key={g} label={g} size="small" variant="outlined" />
+                ))}
+              </Stack>
+            </Box>
+          )}
+          {profile.availabilitySchedule && profile.availabilitySchedule.length > 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              <strong>Availability:</strong> {scheduleSummary(profile.availabilitySchedule)}
+            </Typography>
+          )}
         </CardContent>
       </Card>
 
@@ -467,29 +521,51 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
 
       {isDemoProfile && (
         <Alert severity="info" sx={{ mt: 2 }}>
-          This is a preview profile. You can&apos;t match or message here. Go to Discover and keep swiping to find real profiles you can like and connect with.
+          Preview only — open Discover to send interest to real members.
         </Alert>
       )}
 
-      <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
-        <Button
-          fullWidth
-          variant="outlined"
-          onClick={() => navigate('/app/discover')}
-        >
-          Back to Discover
-        </Button>
-        <Button
-          fullWidth
-          variant="contained"
-          color="primary"
-          startIcon={<ThumbUpIcon />}
-          onClick={handleLike}
-          disabled={liking || isDemoProfile}
-        >
-          {isDemoProfile ? "Can't match (preview)" : liking ? '...' : 'Like'}
-        </Button>
-      </Stack>
+      <Box
+        sx={{
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 3,
+          mt: 3,
+          pt: 2,
+          pb: { xs: 2, sm: 2.5 },
+          mx: { xs: -1, sm: 0 },
+          px: { xs: 1, sm: 0 },
+          bgcolor: 'background.default',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          boxShadow: '0 -8px 32px rgba(0,0,0,0.35)',
+        }}
+      >
+        <Stack spacing={1.25}>
+          <Button fullWidth variant="outlined" onClick={() => navigate('/app/discover')}>
+            Back to Discover
+          </Button>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={handleSkipPass}
+              disabled={isDemoProfile}
+            >
+              {DISCOVER_STRINGS.skip}
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              onClick={handleWantToTrain}
+              disabled={liking || isDemoProfile}
+            >
+              {isDemoProfile ? 'Preview' : liking ? <CircularProgress size={22} color="inherit" /> : DISCOVER_STRINGS.wantToTrain}
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
 
       {matched && (
         <Alert severity="success" sx={{ mt: 3 }}>
@@ -502,10 +578,11 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
 
       <Snackbar
         open={!!toast}
-        autoHideDuration={5000}
+        autoHideDuration={5200}
         onClose={() => setToast(null)}
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ bottom: { xs: 24, sm: 32 } }}
       />
     </Container>
   );

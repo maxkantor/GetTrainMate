@@ -1,6 +1,6 @@
 import type { Area } from 'react-easy-crop';
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -8,6 +8,15 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error('Image load failed'));
     img.src = src;
   });
+}
+
+/** Center square crop in image pixels (fallback when crop state not ready yet). */
+export async function getCenterSquareCropFallback(imageSrc: string): Promise<Area> {
+  const image = await loadImage(imageSrc);
+  const size = Math.min(image.width, image.height);
+  const x = (image.width - size) / 2;
+  const y = (image.height - size) / 2;
+  return { x, y, width: size, height: size };
 }
 
 /** Circular JPEG export (512px) for profile upload. */

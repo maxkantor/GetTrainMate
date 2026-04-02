@@ -5,6 +5,12 @@ using Microsoft.Extensions.Logging;
 
 namespace GetTrainMate.Api.Services;
 
+/// <summary>
+/// User-facing mail uses <see cref="IAmazonSimpleEmailService"/> (SES <c>SendEmail</c>) only.
+/// Do not publish end-user notifications through SNS for delivery — SNS is not used to send email to users.
+/// Optionally, configure an SES Configuration Set (<see cref="SendEmailRequest.ConfigurationSetName"/>)
+/// in AWS to publish <em>delivery, bounce, complaint</em> events to SNS for operational monitoring (not required for sending).
+/// </summary>
 public class EmailService : IEmailService
 {
     private readonly IAmazonSimpleEmailService _ses;

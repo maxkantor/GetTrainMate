@@ -15,7 +15,7 @@ export const AdminNoAccessPage: React.FC = () => (
         <Button as="link" to="/" variant="primary">
           Go to Home
         </Button>
-        <Button as="link" to="/app/discover" variant="outline">
+        <Button as="link" to="/app" variant="outline">
           Open App
         </Button>
       </div>

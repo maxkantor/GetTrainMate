@@ -13,15 +13,18 @@ public class MeController : ControllerBase
 {
     private readonly IProfileService _profileService;
     private readonly ICreditsService _creditsService;
+    private readonly IUserActivityService _userActivityService;
     private readonly ILogger<MeController> _logger;
 
     public MeController(
         IProfileService profileService,
         ICreditsService creditsService,
+        IUserActivityService userActivityService,
         ILogger<MeController> logger)
     {
         _profileService = profileService;
         _creditsService = creditsService;
+        _userActivityService = userActivityService;
         _logger = logger;
     }
 
@@ -60,6 +63,21 @@ public class MeController : ControllerBase
             _logger.LogError(ex, "Error getting /me for user {UserId}", userId);
             return StatusCode(500, new { code = "ERROR", message = "Error loading account" });
         }
+    }
+
+    /// <summary>
+    /// Heartbeat: marks user active (suppresses chat notification emails when recently seen).
+    /// Optional <see cref="ActivityHeartbeatRequest.ActiveThreadId"/> when the user is viewing that chat thread.
+    /// </summary>
+    [HttpPost("me/activity")]
+    public async Task<IActionResult> RecordActivity([FromBody] ActivityHeartbeatRequest? body, CancellationToken cancellationToken)
+    {
+        var userId = GetUserIdFromToken();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized(new { code = "NOT_AUTHENTICATED", message = "Invalid token" });
+        var thread = string.IsNullOrWhiteSpace(body?.ActiveThreadId) ? null : body!.ActiveThreadId.Trim();
+        await _userActivityService.RecordHeartbeatAsync(userId, thread, cancellationToken);
+        return Ok(new { ok = true });
     }
 
     private string? GetUserIdFromToken()

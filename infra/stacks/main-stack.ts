@@ -272,6 +272,13 @@ export class GetTrainMateStack extends cdk.Stack {
         resources: [userPool.userPoolArn],
       }),
     );
+    resolverLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+        resources: ['*'],
+      }),
+    );
 
     const lambdaDs = graphqlApi.addLambdaDataSource('ResolverDataSource', resolverLambda);
 
@@ -542,6 +549,22 @@ export class GetTrainMateStack extends cdk.Stack {
       encryption: dynamodb.TableEncryption.DEFAULT,
     });
     tables.push(chatThreadsTable);
+
+    const userActivityTable = new dynamodb.Table(this, 'UserActivityTable', {
+      tableName: 'gettrainmate-user-activity',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(userActivityTable);
+
+    const chatNotificationStateTable = new dynamodb.Table(this, 'ChatNotificationStateTable', {
+      tableName: 'gettrainmate-chat-notification-state',
+      partitionKey: { name: 'stateKey', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(chatNotificationStateTable);
 
     // Contact email threads table
     const threadsTable = new dynamodb.Table(this, 'ContactEmailThreadsTable', {

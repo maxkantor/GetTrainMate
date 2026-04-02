@@ -4,6 +4,7 @@ import styles from './ProfileCard.module.css';
 import { ProfileDetailsModal } from './ProfileDetailsModal';
 import type { MatchFeedItem } from '@/services/matchService';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
+import { DISCOVER_STRINGS } from './constants';
 
 interface ProfileCardProps {
   profile: MatchFeedItem;
@@ -88,7 +89,9 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
               {profile.mode && <span className={styles.chipOverlayMuted}>Mode: {profile.mode}</span>}
             </div>
             {overlayBio && <p className={styles.overlayBio}>{overlayBio}</p>}
-            <p className={styles.scheduleHint}>Swipe · arrows · buttons</p>
+            <p className={styles.scheduleHint}>
+              Swipe: {DISCOVER_STRINGS.skip} ← · → {DISCOVER_STRINGS.wantToTrain}
+            </p>
           </div>
           {allPhotoUrls.length > 1 && (
             <div className={styles.photoDots} aria-label="Photo gallery">

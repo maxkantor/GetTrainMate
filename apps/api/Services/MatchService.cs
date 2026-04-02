@@ -182,16 +182,22 @@ public class MatchService : IMatchService
                     : 50;
 
                 var photoUrls = targetProfile.PhotoUrls ?? new List<string>();
-                if (photoUrls.Count == 0 && !string.IsNullOrEmpty(targetProfile.PhotoKey))
+                if (photoUrls.Count == 0)
                 {
-                    try
+                    var keyForCover = targetProfile.PhotoKeys != null && targetProfile.PhotoKeys.Count > 0
+                        ? targetProfile.PhotoKeys[0]
+                        : targetProfile.PhotoKey;
+                    if (!string.IsNullOrEmpty(keyForCover))
                     {
-                        var signedUrl = _storageService.GetPresignedDownloadUrl(targetProfile.PhotoKey, TimeSpan.FromHours(1));
-                        photoUrls = new List<string> { signedUrl };
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Could not generate photo URL for user {UserId}", targetProfile.UserId);
+                        try
+                        {
+                            var signedUrl = _storageService.GetPresignedDownloadUrl(keyForCover, TimeSpan.FromHours(1));
+                            photoUrls = new List<string> { signedUrl };
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Could not generate photo URL for user {UserId}", targetProfile.UserId);
+                        }
                     }
                 }
 
@@ -907,6 +913,9 @@ public class MatchService : IMatchService
         var updatedAt = document.ContainsKey("updatedAt") && DateTime.TryParse(document["updatedAt"].AsString(), out var ua) ? ua : DateTime.UtcNow;
 
         var photoKey = document.ContainsKey("photoKey") ? document["photoKey"].AsString() : null;
+        var photoKeys = document.ContainsKey("photoKeys") ? document["photoKeys"].AsListOfString() : new List<string>();
+        if (photoKeys.Count == 0 && !string.IsNullOrEmpty(photoKey))
+            photoKeys = new List<string> { photoKey };
 
         return new UserProfile
         {
@@ -918,6 +927,7 @@ public class MatchService : IMatchService
             SportTags = document.ContainsKey("sportTags") ? document["sportTags"].AsListOfString() : new List<string>(),
             Level = document.ContainsKey("level") ? document["level"].AsString() : null,
             PhotoKey = photoKey,
+            PhotoKeys = photoKeys,
             Goals = document.ContainsKey("goals") ?
                 (document["goals"] is DynamoDBList goalsList ? goalsList.AsListOfString() :
                  document["goals"].AsString() is string goalsStr && !string.IsNullOrEmpty(goalsStr) ? new List<string> { goalsStr } :

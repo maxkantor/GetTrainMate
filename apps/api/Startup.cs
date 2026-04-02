@@ -44,6 +44,8 @@ public class Startup
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IMatchService, MatchService>();
         services.AddScoped<IChatService, ChatService>();
+        services.AddScoped<IUserActivityService, UserActivityService>();
+        services.AddScoped<IChatNotificationService, ChatNotificationService>();
         services.AddScoped<GetTrainMate.Api.Services.IEventService, GetTrainMate.Api.Services.EventService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<ISecretsService, SecretsService>();

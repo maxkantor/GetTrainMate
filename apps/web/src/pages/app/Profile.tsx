@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Box,
@@ -18,19 +18,22 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
-  Checkbox,
-  FormGroup,
+  Switch,
   Card,
-  CardContent,
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
 } from '@mui/material';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useI18n } from '@/hooks/useI18n';
-import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { profileService, UpdateProfileRequest, AvailabilitySlot } from '@/services/profileService';
 import { getUploadLimits } from '@/config/uploadLimits';
 import { PhotoCropModal } from '@/components/profile/PhotoCropModal';
 import { authService } from '@/services/authService';
-import { Alert as MUIAlert, Snackbar } from '@mui/material';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 import { getProfileOptimize, getAiErrorMessage } from '@/services/aiService';
 import type { ProfileOptimizeResponse } from '@/types/ai';
@@ -56,22 +59,50 @@ const TIME_SLOTS = [
   { label: 'Night (9 PM-12 AM)', start: '21:00', end: '00:00' },
 ];
 
+type ProfileBaseline = { form: UpdateProfileRequest; photoKeys: string[] };
+
+function cloneForm(f: UpdateProfileRequest): UpdateProfileRequest {
+  return {
+    ...f,
+    sportTags: [...(f.sportTags || [])],
+    goals: [...(f.goals || [])],
+    availabilitySchedule: (f.availabilitySchedule || []).map((s) => ({
+      days: [...(s.days || [])],
+      timeStart: s.timeStart,
+      timeEnd: s.timeEnd,
+    })),
+    chatNotificationsEnabled: f.chatNotificationsEnabled,
+    chatNotificationFrequency: f.chatNotificationFrequency,
+  };
+}
+
+function snapshotProfile(form: UpdateProfileRequest, photoKeys: string[]): string {
+  return JSON.stringify({ form, photoKeys });
+}
+
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { user } = useAuthContext();
-  const { me } = useMe();
+  const { me, refreshMe } = useMe();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [myPhotos, setMyPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [snack, setSnack] = useState<{open: boolean; message: string; severity: 'success'|'error'|'info'}>({open: false, message: '', severity: 'success'});
-  const [photoKey, setPhotoKey] = useState<string | null>(null);
+  const [photoKeys, setPhotoKeys] = useState<string[]>([]);
   const [cropOpen, setCropOpen] = useState(false);
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
+  const [baseline, setBaseline] = useState<ProfileBaseline | null>(null);
+  const [discardModalOpen, setDiscardModalOpen] = useState(false);
+  const [sectionHint, setSectionHint] = useState<{ photo?: boolean; availability?: boolean; mode?: boolean }>({});
+  const formDataRef = useRef<UpdateProfileRequest | null>(null);
+  const baselineRef = useRef<ProfileBaseline | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistInFlightRef = useRef(false);
+  const photoKeysRef = useRef<string[]>([]);
 
   const [formData, setFormData] = useState<UpdateProfileRequest>({
     name: '',
@@ -84,10 +115,24 @@ export const ProfilePage: React.FC = () => {
     goals: [],
     availabilitySchedule: [],
     mode: 'TRAIN',
+    chatNotificationsEnabled: true,
+    chatNotificationFrequency: 'smart',
   });
   const [aiSuggestions, setAiSuggestions] = useState<ProfileOptimizeResponse | null>(null);
   const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
   const [aiSuggestionsError, setAiSuggestionsError] = useState('');
+
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
+  useEffect(() => {
+    baselineRef.current = baseline;
+  }, [baseline]);
+
+  useEffect(() => {
+    photoKeysRef.current = photoKeys;
+  }, [photoKeys]);
 
   useEffect(() => {
     loadProfile();
@@ -103,7 +148,7 @@ export const ProfilePage: React.FC = () => {
       }
 
       const profile = await profileService.getMyProfile(token);
-      setFormData({
+      const nextForm: UpdateProfileRequest = {
         name: profile.name || '',
         city: profile.city || '',
         state: profile.state || '',
@@ -114,20 +159,33 @@ export const ProfilePage: React.FC = () => {
         goals: profile.goals || [],
         availabilitySchedule: profile.availabilitySchedule || [],
         mode: profile.mode || 'TRAIN',
-      });
-      // Show photo from photoKey if available, otherwise use photoUrls
-      if (profile.photoKey) {
+        chatNotificationsEnabled: profile.chatNotificationsEnabled !== false,
+        chatNotificationFrequency: (profile.chatNotificationFrequency as 'realtime' | 'smart' | 'daily') || 'smart',
+      };
+      setFormData(nextForm);
+      const keys =
+        profile.photoKeys && profile.photoKeys.length > 0
+          ? [...profile.photoKeys]
+          : profile.photoKey
+            ? [profile.photoKey]
+            : [];
+      setPhotoKeys(keys);
+      setBaseline({ form: cloneForm(nextForm), photoKeys: [...keys] });
+      if (keys.length > 0) {
         try {
-          // Get signed URL for the photo
-          const signedUrl = await profileService.getPhotoUrl(token, profile.photoKey);
-          setMyPhotos([signedUrl]);
-          setPhotoKey(profile.photoKey);
+          const urls = await Promise.all(
+            keys.map(async (key) => {
+              try {
+                return await profileService.getPhotoUrl(token, key);
+              } catch {
+                return `https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/${key}`;
+              }
+            })
+          );
+          setMyPhotos(urls);
         } catch (err) {
-          console.error('Error loading photo URL:', err);
-          // Fallback to direct URL if signed URL fails
-          const photoUrl = `https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/${profile.photoKey}`;
-          setMyPhotos([photoUrl]);
-          setPhotoKey(profile.photoKey);
+          console.error('Error loading photo URLs:', err);
+          setMyPhotos([]);
         }
       } else {
         setMyPhotos(profile.photoUrls || []);
@@ -145,34 +203,152 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  const isDirty = useMemo(() => {
+    if (!baseline) return false;
+    return snapshotProfile(formData, photoKeys) !== snapshotProfile(baseline.form, baseline.photoKeys);
+  }, [baseline, formData, photoKeys]);
+
+  const showSectionHint = useCallback((key: 'photo' | 'availability' | 'mode') => {
+    setSectionHint((h) => ({ ...h, [key]: true }));
+    window.setTimeout(() => {
+      setSectionHint((h) => ({ ...h, [key]: false }));
+    }, 2800);
+  }, []);
+
+  const persistProfile = useCallback(
+    async (kind: 'manual' | 'auto'): Promise<boolean> => {
+      const fd = formDataRef.current;
+      if (!fd) return false;
+      if (persistInFlightRef.current) return false;
+      persistInFlightRef.current = true;
+      try {
+        const token = await authService.getJWT();
+        if (!token) {
+          setSnack({ open: true, message: 'Not authenticated', severity: 'error' });
+          return false;
+        }
+        if (kind === 'manual') setSaving(true);
+        if (kind === 'auto') setAutoSaving(true);
+
+        await profileService.updateMyProfile(token, {
+          ...fd,
+          photoKeys: photoKeysRef.current,
+        });
+        setBaseline({ form: cloneForm(fd), photoKeys: [...photoKeysRef.current] });
+        await refreshMe();
+        if (kind === 'manual') {
+          setSnack({ open: true, message: 'Profile updated successfully', severity: 'success' });
+        }
+        return true;
+      } catch (err: unknown) {
+        const apiError = handleApiError(err);
+        if (isNetworkError(err) || apiError.isCorsError) {
+          setSnack({
+            open: true,
+            message: 'Unable to connect to the API. Please check your connection and try again.',
+            severity: 'error',
+          });
+        } else {
+          setSnack({ open: true, message: apiError.message || 'Failed to update profile', severity: 'error' });
+        }
+        return false;
+      } finally {
+        if (kind === 'manual') setSaving(false);
+        if (kind === 'auto') setAutoSaving(false);
+        persistInFlightRef.current = false;
+      }
+    },
+    [refreshMe]
+  );
+
+  const autoSaveKey = useMemo(
+    () =>
+      JSON.stringify({
+        mode: formData.mode,
+        availabilitySchedule: formData.availabilitySchedule,
+      }),
+    [formData.mode, formData.availabilitySchedule]
+  );
+
+  const baselineAutoKey = useMemo(
+    () =>
+      baseline
+        ? JSON.stringify({
+            mode: baseline.form.mode,
+            availabilitySchedule: baseline.form.availabilitySchedule,
+          })
+        : '',
+    [baseline]
+  );
+
+  useEffect(() => {
+    if (!baseline) return;
+    if (autoSaveKey === baselineAutoKey) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      const b = baselineRef.current;
+      const fd = formDataRef.current;
+      if (!b || !fd) return;
+      const modeChanged = fd.mode !== b.form.mode;
+      const avChanged =
+        JSON.stringify(fd.availabilitySchedule) !== JSON.stringify(b.form.availabilitySchedule);
+      const ok = await persistProfile('auto');
+      if (ok) {
+        if (modeChanged) showSectionHint('mode');
+        if (avChanged) showSectionHint('availability');
+      }
+    }, 650);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [autoSaveKey, baselineAutoKey, baseline, persistProfile, showSectionHint]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
+    if (!isDirty) return;
 
+    await persistProfile('manual');
+  };
+
+  const handleCancel = () => {
+    if (!isDirty) {
+      navigate(-1);
+      return;
+    }
+    setDiscardModalOpen(true);
+  };
+
+  const handleDiscardAndLeave = () => {
+    setDiscardModalOpen(false);
+    navigate(-1);
+  };
+
+  const removePhotoAt = async (index: number) => {
+    const nextKeys = photoKeys.filter((_, i) => i !== index);
     try {
-      setSaving(true);
       const token = await authService.getJWT();
       if (!token) {
-        setError('Not authenticated');
+        setSnack({ open: true, message: 'Not authenticated', severity: 'error' });
         return;
       }
-
-      await profileService.updateMyProfile(token, formData);
-      setSuccess(t('profile.save_profile') + ' successful!');
-      
-      setTimeout(() => {
-        navigate('/app/discover');
-      }, 1500);
-    } catch (err: any) {
-      const apiError = handleApiError(err);
-      if (isNetworkError(err) || apiError.isCorsError) {
-        setError('Unable to connect to the API. Please check your connection and try again.');
+      await profileService.updateMyProfile(token, { photoKeys: nextKeys });
+      setPhotoKeys(nextKeys);
+      if (nextKeys.length > 0) {
+        const urls = await Promise.all(
+          nextKeys.map((key) => profileService.getPhotoUrl(token, key))
+        );
+        setMyPhotos(urls);
       } else {
-        setError(apiError.message || 'Failed to update profile');
+        setMyPhotos([]);
       }
-    } finally {
-      setSaving(false);
+      setBaseline((b) => (b ? { ...b, photoKeys: nextKeys } : null));
+      await refreshMe();
+      showSectionHint('photo');
+      setSnack({ open: true, message: 'Profile updated successfully', severity: 'success' });
+    } catch (e: unknown) {
+      const apiError = handleApiError(e);
+      setSnack({ open: true, message: apiError.message || 'Could not remove photo', severity: 'error' });
     }
   };
 
@@ -187,9 +363,16 @@ export const ProfilePage: React.FC = () => {
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-        <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 0 }}>
-          {t('profile.edit_profile')}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, flexWrap: 'wrap' }}>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 0 }}>
+            {t('profile.edit_profile')}
+          </Typography>
+          {autoSaving && (
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 0.02 }}>
+              Saving…
+            </Typography>
+          )}
+        </Box>
         <Button
           variant="outlined"
           color="primary"
@@ -228,12 +411,6 @@ export const ProfilePage: React.FC = () => {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
         </Alert>
       )}
 
@@ -381,6 +558,11 @@ export const ProfilePage: React.FC = () => {
 
         <FormControl fullWidth margin="normal" required>
           <FormLabel sx={{ mb: 1 }}>{t('profile.schedule')}</FormLabel>
+          {sectionHint.availability && (
+            <Typography variant="caption" color="success.main" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
+              Saved ✓
+            </Typography>
+          )}
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             Add at least one time slot when you're available to train
           </Typography>
@@ -488,6 +670,11 @@ export const ProfilePage: React.FC = () => {
 
         <FormControl fullWidth margin="normal">
           <FormLabel>{t('profile.mode')}</FormLabel>
+          {sectionHint.mode && (
+            <Typography variant="caption" color="success.main" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
+              Saved ✓
+            </Typography>
+          )}
           <RadioGroup
             row
             value={formData.mode}
@@ -499,31 +686,125 @@ export const ProfilePage: React.FC = () => {
           </RadioGroup>
         </FormControl>
 
+        <FormControl fullWidth margin="normal">
+          <FormLabel>Chat notifications</FormLabel>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+            When you&apos;re not active in the app, we can email you about new messages — grouped and rate-limited so it never feels spammy.
+          </Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={formData.chatNotificationsEnabled !== false}
+                onChange={(e) => setFormData({ ...formData, chatNotificationsEnabled: e.target.checked })}
+              />
+            }
+            label="Notify me about new messages (email when offline)"
+          />
+          <FormControl fullWidth margin="dense" sx={{ mt: 1.5 }}>
+            <InputLabel id="chat-notify-freq">Email frequency</InputLabel>
+            <Select
+              labelId="chat-notify-freq"
+              label="Email frequency"
+              value={formData.chatNotificationFrequency || 'smart'}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  chatNotificationFrequency: e.target.value as 'realtime' | 'smart' | 'daily',
+                })
+              }
+              disabled={formData.chatNotificationsEnabled === false}
+            >
+              <MenuItem value="realtime">Real-time (min. 15 min between emails per conversation)</MenuItem>
+              <MenuItem value="smart">Smart — balanced (default)</MenuItem>
+              <MenuItem value="daily">Daily (at most one email per day per conversation)</MenuItem>
+            </Select>
+          </FormControl>
+        </FormControl>
+
         <Box sx={{ mt: 3 }}>
           <FormLabel>Profile Photos</FormLabel>
+          {sectionHint.photo && (
+            <Typography variant="caption" color="success.main" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
+              Saved ✓
+            </Typography>
+          )}
           <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 0.5 }}>
             No nude or adult content. Photos must be appropriate for a fitness partner app.
           </Typography>
+          <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 1.5 }}>
+            First photo is your cover image in Discover. Add more when your plan allows.
+          </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', my: 1 }}>
-            {myPhotos.map((u) => (
-              <Box key={u} component="img" src={u} alt="profile" sx={{ width: 96, height: 96, objectFit: 'cover', objectPosition: 'center top', borderRadius: 1, border: '1px solid #eee' }} />
+            {photoKeys.map((key, index) => (
+              <Box
+                key={key}
+                sx={{
+                  position: 'relative',
+                  width: 96,
+                  height: 96,
+                  borderRadius: 1,
+                  overflow: 'hidden',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                }}
+              >
+                <Box
+                  component="img"
+                  src={myPhotos[index] || ''}
+                  alt=""
+                  sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }}
+                />
+                <IconButton
+                  size="small"
+                  aria-label="Remove photo"
+                  onClick={() => void removePhotoAt(index)}
+                  sx={{
+                    position: 'absolute',
+                    top: 2,
+                    right: 2,
+                    bgcolor: 'rgba(0,0,0,0.5)',
+                    color: 'common.white',
+                    '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+                  }}
+                >
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+                {index === 0 && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      textAlign: 'center',
+                      bgcolor: 'rgba(0,0,0,0.55)',
+                      color: 'common.white',
+                      py: 0.25,
+                      fontSize: '0.65rem',
+                    }}
+                  >
+                    Cover
+                  </Typography>
+                )}
+              </Box>
             ))}
-            {myPhotos.length === 0 && (
+            {photoKeys.length === 0 && (
               <Typography variant="body2" color="textSecondary">No photos yet</Typography>
             )}
           </Box>
           {(() => {
             const limits = getUploadLimits(me?.credits ?? 0);
-            const atLimit = myPhotos.length >= limits.maxPhotos;
+            const atLimit = photoKeys.length >= limits.maxPhotos;
             return (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             <Button
               variant="outlined"
               component="label"
               disabled={uploading}
-              title={atLimit ? 'Replace your profile photo' : 'Add a profile photo'}
+              title={atLimit ? 'Replace cover photo (first slot)' : 'Add a profile photo'}
             >
-              {atLimit ? 'Replace photo' : 'Choose Photo'}
+              {atLimit ? 'Replace cover photo' : 'Add photo'}
               <input 
                 type="file" 
                 hidden 
@@ -569,6 +850,7 @@ export const ProfilePage: React.FC = () => {
                     setSnack({ open: true, message: 'Not authenticated', severity: 'error' });
                     return;
                   }
+                  const limitsInner = getUploadLimits(me?.credits ?? 0);
                   const file = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
                   const info = await profileService.getPhotoUploadUrl(token, 'image/jpeg');
                   const uploadResponse = await fetch(info.uploadUrl, {
@@ -579,11 +861,23 @@ export const ProfilePage: React.FC = () => {
                   if (!uploadResponse.ok) {
                     throw new Error('Failed to upload photo');
                   }
-                  await profileService.updateMyProfile(token, { photoKey: info.key });
-                  setPhotoKey(info.key);
-                  const displayUrl = await profileService.getPhotoUrl(token, info.key);
-                  setMyPhotos([displayUrl]);
-                  setSnack({ open: true, message: 'Photo saved', severity: 'success' });
+                  let nextKeys: string[];
+                  if (photoKeysRef.current.length >= limitsInner.maxPhotos) {
+                    nextKeys = [...photoKeysRef.current];
+                    nextKeys[0] = info.key;
+                  } else {
+                    nextKeys = [...photoKeysRef.current, info.key];
+                  }
+                  await profileService.updateMyProfile(token, { photoKeys: nextKeys });
+                  setPhotoKeys(nextKeys);
+                  const urls = await Promise.all(
+                    nextKeys.map((k) => profileService.getPhotoUrl(token, k))
+                  );
+                  setMyPhotos(urls);
+                  setBaseline((b) => (b ? { ...b, photoKeys: nextKeys } : null));
+                  await refreshMe();
+                  showSectionHint('photo');
+                  setSnack({ open: true, message: 'Profile updated successfully', severity: 'success' });
                   setCropOpen(false);
                   setPendingCropFile(null);
                 } catch (e: unknown) {
@@ -604,26 +898,73 @@ export const ProfilePage: React.FC = () => {
           })()}
         </Box>
 
-        <Box sx={{ mt: 4, display: 'flex', gap: 2 }}>
-          <Button
-            fullWidth
-            variant="contained"
-            color="primary"
-            type="submit"
-            disabled={saving}
-          >
-            {saving ? <CircularProgress size={24} /> : t('profile.save_profile')}
-          </Button>
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={() => navigate('/app/discover')}
-            disabled={saving}
-          >
-            {t('common.cancel')}
+        <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              type="submit"
+              disabled={!isDirty || saving || loading}
+              sx={{
+                flex: 1,
+                minWidth: 160,
+                ...(isDirty && !saving
+                  ? {
+                      boxShadow: '0 0 0 2px rgba(124, 58, 237, 0.45)',
+                    }
+                  : {}),
+              }}
+            >
+              {saving ? (
+                <>
+                  <CircularProgress size={18} sx={{ mr: 1 }} color="inherit" />
+                  Saving…
+                </>
+              ) : (
+                t('profile.save_profile')
+              )}
+            </Button>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={handleCancel}
+              disabled={saving}
+              sx={{ flex: 1, minWidth: 160 }}
+            >
+              {t('common.cancel')}
+            </Button>
+          </Box>
+          <Button component={Link} to="/app" variant="text" color="primary" sx={{ alignSelf: 'center' }}>
+            Back Home
           </Button>
         </Box>
       </Box>
+
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={5000}
+        onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        message={snack.message}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
+
+      <Dialog open={discardModalOpen} onClose={() => setDiscardModalOpen(false)} aria-labelledby="discard-title">
+        <DialogTitle id="discard-title">You have unsaved changes</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            If you leave now, changes you have not saved will be lost.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1, flexWrap: 'wrap' }}>
+          <Button onClick={() => setDiscardModalOpen(false)} variant="contained" color="primary">
+            Stay and Continue Editing
+          </Button>
+          <Button onClick={handleDiscardAndLeave} variant="outlined" color="error">
+            Discard Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

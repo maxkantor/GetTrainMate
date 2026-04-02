@@ -115,8 +115,28 @@ public class ProfileService : IProfileService
             if (!string.IsNullOrWhiteSpace(request.Mode)) existingProfile.Mode = request.Mode.Trim();
             if (request.Latitude != null) existingProfile.Latitude = request.Latitude;
             if (request.Longitude != null) existingProfile.Longitude = request.Longitude;
-            if (request.PhotoKey != null) existingProfile.PhotoKey = request.PhotoKey.Trim();
+            if (request.PhotoKeys != null)
+            {
+                existingProfile.PhotoKeys = request.PhotoKeys
+                    .Where(k => !string.IsNullOrWhiteSpace(k))
+                    .Select(k => k.Trim())
+                    .Distinct()
+                    .ToList();
+                existingProfile.PhotoKey = existingProfile.PhotoKeys.FirstOrDefault();
+            }
+            else if (request.PhotoKey != null)
+            {
+                existingProfile.PhotoKey = request.PhotoKey.Trim();
+                if (!existingProfile.PhotoKeys.Any())
+                    existingProfile.PhotoKeys = new List<string> { existingProfile.PhotoKey };
+                else
+                    existingProfile.PhotoKeys[0] = existingProfile.PhotoKey;
+            }
             if (request.PreferredDistanceMiles != null) existingProfile.PreferredDistanceMiles = request.PreferredDistanceMiles;
+            if (request.ChatNotificationsEnabled.HasValue)
+                existingProfile.ChatNotificationsEnabled = request.ChatNotificationsEnabled.Value;
+            if (!string.IsNullOrWhiteSpace(request.ChatNotificationFrequency))
+                existingProfile.ChatNotificationFrequency = request.ChatNotificationFrequency.Trim();
 
             existingProfile.UpdatedAt = DateTime.UtcNow;
             existingProfile.IsComplete = IsProfileComplete(existingProfile);
@@ -210,8 +230,12 @@ public class ProfileService : IProfileService
         if (profile.Latitude.HasValue) doc["latitude"] = profile.Latitude.Value;
         if (profile.Longitude.HasValue) doc["longitude"] = profile.Longitude.Value;
         if (!string.IsNullOrEmpty(profile.PhotoKey)) doc["photoKey"] = profile.PhotoKey;
+        if (profile.PhotoKeys.Any()) doc["photoKeys"] = new DynamoDBList(profile.PhotoKeys.Select(k => new Primitive(k)));
         if (profile.PreferredDistanceMiles.HasValue) doc["preferredDistanceMiles"] = profile.PreferredDistanceMiles.Value;
         if (profile.PhotoUrls.Any()) doc["photoUrls"] = new DynamoDBList(profile.PhotoUrls.Select(u => new Primitive(u)));
+        doc["chatNotificationsEnabled"] = profile.ChatNotificationsEnabled;
+        if (!string.IsNullOrEmpty(profile.ChatNotificationFrequency))
+            doc["chatNotificationFrequency"] = profile.ChatNotificationFrequency;
 
         return doc;
     }
@@ -248,11 +272,18 @@ public class ProfileService : IProfileService
             Latitude = document.ContainsKey("latitude") ? (double?)document["latitude"].AsDouble() : null,
             Longitude = document.ContainsKey("longitude") ? (double?)document["longitude"].AsDouble() : null,
             PhotoKey = document.ContainsKey("photoKey") ? document["photoKey"].AsString() : null,
+            PhotoKeys = document.ContainsKey("photoKeys") ? document["photoKeys"].AsListOfString() : new List<string>(),
             PreferredDistanceMiles = document.ContainsKey("preferredDistanceMiles") ? (double?)document["preferredDistanceMiles"].AsDouble() : null,
             PhotoUrls = document.ContainsKey("photoUrls") ? document["photoUrls"].AsListOfString() : new List<string>(),
             IsComplete = isComplete,
             CreatedAt = createdAt,
-            UpdatedAt = updatedAt
+            UpdatedAt = updatedAt,
+            ChatNotificationsEnabled = document.ContainsKey("chatNotificationsEnabled")
+                ? document["chatNotificationsEnabled"].AsBoolean()
+                : true,
+            ChatNotificationFrequency = document.ContainsKey("chatNotificationFrequency")
+                ? (document["chatNotificationFrequency"].AsString() ?? "smart")
+                : "smart",
         };
 
         // Handle AvailabilitySchedule - support both old (List<string>) and new (List<AvailabilitySlot>) formats
@@ -295,6 +326,9 @@ public class ProfileService : IProfileService
         {
             profile.AvailabilitySchedule = new List<AvailabilitySlot>();
         }
+
+        if (!profile.PhotoKeys.Any() && !string.IsNullOrEmpty(profile.PhotoKey))
+            profile.PhotoKeys = new List<string> { profile.PhotoKey };
 
         return profile;
     }

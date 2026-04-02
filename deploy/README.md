@@ -4,7 +4,9 @@ This folder contains the Lambda deployment package for the GetTrainMate API.
 
 ## Files
 
-- `gettrainmate-api-lambda.zip` - Lambda deployment package
+- `gettrainmate-api-lambda.zip` — .NET API Lambda deployment package (from `npm run zip`).
+- `GetTrainMate.Api-backend-YYYYMMDD-HHmm.zip` — optional timestamped copy of the same artifact.
+- `gettrainmate-appsync-resolver-lambda.zip` — AppSync GraphQL resolver (Node, includes `node_modules`). Build: `npm install --omit=dev` in `infra/lambdas/appsync-resolver`, then zip `index.js`, `package.json`, `package-lock.json`, `node_modules`. Prefer CDK deploy, which bundles this automatically.
 
 ## Building the Package
 
@@ -14,7 +16,7 @@ From repo root:
 npm run zip
 ```
 
-Creates `deploy/gettrainmate-api-lambda.zip`.
+Creates `deploy/gettrainmate-api-lambda.zip`. Zips under `deploy/*.zip` are gitignored; regenerate locally after changes.
 
 ## Deploying
 

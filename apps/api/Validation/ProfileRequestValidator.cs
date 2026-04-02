@@ -7,6 +7,7 @@ public static class ProfileRequestValidator
 {
     private static readonly string[] ValidLevels = { "beginner", "intermediate", "advanced", "pro" };
     private static readonly string[] ValidModes = { "TRAIN", "VIBE", "DATE" };
+    private static readonly string[] ValidChatNotificationFrequencies = { "realtime", "smart", "daily" };
 
     public static Dictionary<string, string[]> Validate(UpdateProfileRequest request)
     {
@@ -36,6 +37,13 @@ public static class ProfileRequestValidator
 
         if (request.Mode != null && !ValidModes.Contains(request.Mode.Trim(), StringComparer.OrdinalIgnoreCase))
             errors["mode"] = new[] { "Mode must be one of: TRAIN, VIBE, DATE" };
+
+        if (request.ChatNotificationFrequency != null)
+        {
+            var f = request.ChatNotificationFrequency.Trim().ToLowerInvariant();
+            if (!ValidChatNotificationFrequencies.Contains(f))
+                errors["chatNotificationFrequency"] = new[] { "Must be one of: realtime, smart, daily" };
+        }
 
         if (request.AvailabilitySchedule != null)
         {

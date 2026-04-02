@@ -1,30 +1,26 @@
 import React from 'react';
 import CloseIcon from '@mui/icons-material/Close';
-import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
+import FavoriteBorderOutlinedIcon from '@mui/icons-material/FavoriteBorderOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { CircularProgress } from '@mui/material';
+import { DISCOVER_STRINGS } from './constants';
 import styles from './ActionBar.module.css';
 
 interface ActionBarProps {
   onPass: () => void;
-  onLike: () => void;
-  onConnect: () => void;
+  onInterest: () => void;
+  onViewProfile: () => void;
   onRewind?: () => void;
-  onUndo?: () => void;
-  likeLoading: boolean;
-  canUndo: boolean;
-  showUndo: boolean;
+  interestLoading: boolean;
   canRewind?: boolean;
 }
 
 export const ActionBar: React.FC<ActionBarProps> = ({
   onPass,
-  onLike,
-  onConnect,
+  onInterest,
+  onViewProfile,
   onRewind,
-  onUndo,
-  likeLoading,
-  canUndo,
-  showUndo,
+  interestLoading,
   canRewind = false,
 }) => {
   return (
@@ -34,38 +30,38 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           type="button"
           className={`${styles.btn} ${styles.btnPass}`}
           onClick={onPass}
-          disabled={likeLoading}
-          aria-label="Skip this profile"
+          disabled={interestLoading}
+          aria-label={`${DISCOVER_STRINGS.skip} this profile`}
         >
           <CloseIcon className={styles.icon} aria-hidden />
-          Skip
+          {DISCOVER_STRINGS.skip}
         </button>
         <button
           type="button"
-          className={`${styles.btn} ${styles.btnLike}`}
-          onClick={onLike}
-          disabled={likeLoading}
-          aria-label="Train — like this profile"
-        >
-          <FitnessCenterIcon className={styles.icon} aria-hidden />
-          Train
-        </button>
-        <button
-          type="button"
-          className={`${styles.btn} ${styles.btnConnect}`}
-          onClick={onConnect}
-          aria-label="View profile details"
+          className={`${styles.btn} ${styles.btnView}`}
+          onClick={onViewProfile}
+          disabled={interestLoading}
+          aria-label={DISCOVER_STRINGS.viewProfile}
         >
           <InfoOutlinedIcon className={styles.icon} aria-hidden />
-          <span className={styles.connectLabel}>View Profile</span>
+          <span className={styles.viewLabel}>{DISCOVER_STRINGS.viewProfile}</span>
+        </button>
+        <button
+          type="button"
+          className={`${styles.btn} ${styles.btnPrimary}`}
+          onClick={onInterest}
+          disabled={interestLoading}
+          aria-label={DISCOVER_STRINGS.wantToTrain}
+        >
+          {interestLoading ? (
+            <CircularProgress size={22} color="inherit" aria-hidden />
+          ) : (
+            <FavoriteBorderOutlinedIcon className={styles.icon} aria-hidden />
+          )}
+          <span className={styles.primaryLabel}>{DISCOVER_STRINGS.wantToTrain}</span>
         </button>
       </div>
-      {showUndo && canUndo && onUndo && (
-        <button type="button" className={styles.undoBtn} onClick={onUndo} aria-label="Undo last action">
-          Undo
-        </button>
-      )}
-      {!showUndo && canRewind && onRewind && (
+      {canRewind && onRewind && (
         <button type="button" className={styles.rewindBtn} onClick={onRewind} aria-label="Restore last skipped profile">
           Rewind last skip
         </button>

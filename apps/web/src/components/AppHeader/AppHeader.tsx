@@ -9,6 +9,7 @@ import { HeaderNavLink } from './HeaderNavLink';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { useMatchStatusForHeader } from '@/hooks/useMatchStatusForHeader';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
+import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import styles from './AppHeader.module.css';
 
 export const AppHeader: React.FC = () => {
@@ -26,6 +27,7 @@ export const AppHeader: React.FC = () => {
   const profileComplete = me?.isProfileComplete ?? true;
   const isAdmin = me?.isAdmin ?? user?.groups?.includes('Admin') ?? false;
   const matchStatus = useMatchStatusForHeader(isLoggedIn);
+  const chatUnread = useChatUnreadCount();
 
   const credits = me?.credits ?? 0;
   const creditCap = Math.max(me?.lifetimeEarned ?? 0, credits);
@@ -81,10 +83,15 @@ export const AppHeader: React.FC = () => {
     alsoActiveOnPaths?: string[];
   }[] = [
     {
+      label: t('header.home'),
+      href: '/app',
+      exact: true,
+      alsoActiveOnPaths: ['/app/dashboard'],
+    },
+    {
       label: t('nav.discover'),
       href: '/app/discover',
       exact: true,
-      alsoActiveOnPaths: ['/app', '/app/dashboard'],
     },
     { label: t('nav.match'), href: '/app/matches' },
     { label: t('nav.chat'), href: '/app/chat' },
@@ -192,7 +199,7 @@ export const AppHeader: React.FC = () => {
             <div className={styles.signedLeft}>
               <RouterLink
                 className={styles.logoCompact}
-                to="/"
+                to="/app"
                 aria-label={`${t('common.appName')} — ${t('header.home')}`}
               >
                 <span className={styles.logoIcon}>⚡</span>
@@ -207,6 +214,7 @@ export const AppHeader: React.FC = () => {
                     icon={item.icon}
                     exact={item.exact ?? false}
                     alsoActiveOnPaths={item.alsoActiveOnPaths}
+                    badgeCount={item.href === '/app/chat' ? chatUnread : undefined}
                   />
                 ))}
               </nav>

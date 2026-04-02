@@ -9,6 +9,8 @@ interface HeaderNavLinkProps {
   exact?: boolean;
   /** Treat these paths as active (e.g. Discover tab also active on `/app` index). */
   alsoActiveOnPaths?: string[];
+  /** Unread count badge (e.g. chat). */
+  badgeCount?: number;
 }
 
 export const HeaderNavLink: React.FC<HeaderNavLinkProps> = ({
@@ -17,6 +19,7 @@ export const HeaderNavLink: React.FC<HeaderNavLinkProps> = ({
   icon,
   exact = false,
   alsoActiveOnPaths,
+  badgeCount,
 }) => {
   const location = useLocation();
   const extraActive =
@@ -31,7 +34,12 @@ export const HeaderNavLink: React.FC<HeaderNavLinkProps> = ({
       }
     >
       {icon != null && <span className={styles.headerNavLinkIcon} aria-hidden>{icon}</span>}
-      {label}
+      <span className={styles.headerNavLinkLabel}>{label}</span>
+      {typeof badgeCount === 'number' && badgeCount > 0 && (
+        <span className={styles.navBadge} aria-label={`${badgeCount} unread`}>
+          {badgeCount > 99 ? '99+' : badgeCount}
+        </span>
+      )}
     </NavLink>
   );
 };

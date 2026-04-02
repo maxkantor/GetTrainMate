@@ -79,8 +79,27 @@
   border-color: rgba(255, 255, 255, 0.34);
 }
 
-.btnLike {
-  flex: 1.35;
+.btnView {
+  flex: 1;
+  background: rgba(148, 163, 184, 0.08);
+  color: rgba(226, 232, 240, 0.95);
+  border: 2px solid rgba(148, 163, 184, 0.4);
+}
+
+.btnView:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(203, 213, 225, 0.56);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35);
+}
+
+.viewLabel {
+  font-size: 0.74rem;
+  opacity: 0.92;
+}
+
+.btnPrimary {
+  flex: 1.2;
+  min-width: 0;
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: #fff;
   box-shadow:
@@ -89,28 +108,18 @@
   letter-spacing: 0.01em;
 }
 
-.btnLike:hover:not(:disabled) {
+.btnPrimary:hover:not(:disabled) {
   box-shadow:
     0 14px 34px rgba(99, 102, 241, 0.52),
     0 0 0 1px rgba(216, 180, 254, 0.3) inset;
 }
 
-.btnConnect {
-  flex: 0.98;
-  background: rgba(148, 163, 184, 0.08);
-  color: rgba(226, 232, 240, 0.95);
-  border: 2px solid rgba(148, 163, 184, 0.4);
-}
-
-.btnConnect:hover {
-  background: rgba(148, 163, 184, 0.14);
-  border-color: rgba(203, 213, 225, 0.56);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35);
-}
-
-.connectLabel {
-  font-size: 0.74rem;
-  opacity: 0.92;
+.primaryLabel {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.15;
+  max-width: 100%;
 }
 
 @media (max-width: 767px) {
@@ -119,37 +128,14 @@
     padding-right: 12px;
   }
 
-  .btnLike {
-    flex: 1.25;
+  .btnPrimary {
+    flex: 1.15;
   }
 
   .btnPass,
-  .btnConnect {
-    flex: 0.9;
+  .btnView {
+    flex: 0.88;
   }
-}
-
-.undoBtn {
-  display: block;
-  margin: var(--space-2) auto 0;
-  padding: var(--space-1) var(--space-3);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  text-decoration: underline;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.undoBtn:hover {
-  color: var(--color-primary-dark);
-}
-
-.undoBtn:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
 }
 
 .rewindBtn {
