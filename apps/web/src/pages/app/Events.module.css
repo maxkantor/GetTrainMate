@@ -8,6 +8,17 @@
   flex-direction: column;
 }
 
+/** Centers Events content (~900px) to reduce empty side space on wide viewports */
+.pageFrame {
+  width: 100%;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--page-inner-padding, var(--space-4));
+  padding-right: var(--page-inner-padding, var(--space-4));
+  box-sizing: border-box;
+}
+
 .launchPaper {
   position: relative;
   overflow: hidden;

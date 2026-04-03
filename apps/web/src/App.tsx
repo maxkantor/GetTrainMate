@@ -77,6 +77,34 @@ const theme = createTheme({
         },
       },
     },
+    /** Avoid blurry / low-contrast label + icon on hover (GPU layer + explicit colors). */
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          letterSpacing: '0.01em',
+        },
+        containedPrimary: {
+          color: '#ffffff',
+          WebkitFontSmoothing: 'subpixel-antialiased',
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+          transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
+          '&:hover': {
+            color: '#ffffff',
+            filter: 'none',
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden',
+            backgroundColor: '#4f46e5',
+            boxShadow: '0 6px 20px rgba(79, 70, 229, 0.45)',
+          },
+          '& .MuiButton-startIcon, & .MuiButton-endIcon': {
+            color: '#ffffff',
+            opacity: 1,
+          },
+        },
+      },
+    },
   },
 });
 

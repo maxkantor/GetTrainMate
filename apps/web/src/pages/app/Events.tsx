@@ -32,6 +32,7 @@ import styles from './Events.module.css';
 
 type ViewMode = 'list' | 'calendar';
 
+/** Waitlist is one profile record per user (PUT /api/profile/me); client always upserts the same document. */
 function interestLabel(id: string): string {
   return EVENT_INTEREST_OPTIONS.find((o) => o.id === id)?.label ?? id;
 }
@@ -40,6 +41,7 @@ export const EventsPage: React.FC = () => {
   const { t } = useI18n();
   const { me, refreshMe, loading: meLoading } = useMe();
   const profileInitRef = useRef<string | null>(null);
+  const waitlistSubmitLockRef = useRef(false);
 
   const [events, setEvents] = useState<EventResponse[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -52,6 +54,8 @@ export const EventsPage: React.FC = () => {
   const [savingWaitlist, setSavingWaitlist] = useState(false);
   const [waitlistError, setWaitlistError] = useState('');
   const [editPreferences, setEditPreferences] = useState(false);
+  /** Snapshot when opening edit — Cancel restores this without persisting partial edits */
+  const [editBaseline, setEditBaseline] = useState<{ city: string; types: string[] } | null>(null);
 
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [suggestDraft, setSuggestDraft] = useState('');
@@ -80,6 +84,7 @@ export const EventsPage: React.FC = () => {
     setCityDraft(me.profile.eventsCityInterest || me.profile.city || '');
     setSelectedTypes(me.profile.eventsInterestTypes?.length ? [...me.profile.eventsInterestTypes] : []);
     setEditPreferences(false);
+    setEditBaseline(null);
   }, [userKey, me?.profile]);
 
   const loadEvents = useCallback(async () => {
@@ -113,11 +118,35 @@ export const EventsPage: React.FC = () => {
     setSelectedTypes((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
+  const beginEditPreferences = () => {
+    const city = (me?.profile?.eventsCityInterest || me?.profile?.city || '').trim();
+    const types = [...(me?.profile?.eventsInterestTypes ?? [])];
+    setEditBaseline({ city, types });
+    setCityDraft(city || me?.profile?.city || '');
+    setSelectedTypes(types.length ? types : []);
+    setWaitlistError('');
+    setEditPreferences(true);
+  };
+
+  const cancelEditPreferences = () => {
+    if (editBaseline) {
+      setCityDraft(editBaseline.city);
+      setSelectedTypes([...editBaseline.types]);
+    } else {
+      setCityDraft(savedCity || me?.profile?.city || '');
+      setSelectedTypes(savedTypes.length ? [...savedTypes] : []);
+    }
+    setEditBaseline(null);
+    setEditPreferences(false);
+    setWaitlistError('');
+  };
+
   const handleJoinWaitlist = async () => {
-    if (savingWaitlist) return;
+    if (waitlistSubmitLockRef.current || savingWaitlist) return;
+    waitlistSubmitLockRef.current = true;
+    setSavingWaitlist(true);
     setWaitlistError('');
     try {
-      setSavingWaitlist(true);
       const token = await authService.getJWT(true);
       if (!token) {
         setWaitlistError('Sign in to join the waitlist.');
@@ -137,6 +166,7 @@ export const EventsPage: React.FC = () => {
       });
       await refreshMe();
       setEditPreferences(false);
+      setEditBaseline(null);
       setToastMessage(
         wasFirstJoin
           ? `We'll notify you when events launch in ${city}.`
@@ -148,6 +178,7 @@ export const EventsPage: React.FC = () => {
       setWaitlistError(apiError.message || 'Could not save. Try again.');
     } finally {
       setSavingWaitlist(false);
+      waitlistSubmitLockRef.current = false;
     }
   };
 
@@ -207,8 +238,10 @@ export const EventsPage: React.FC = () => {
     return "We'll notify you when local meetups launch";
   }, [waitlisted, displayCity]);
 
+  const formStackSx = { width: '100%' };
+
   const WaitlistSuccessPanel = ({ compact }: { compact?: boolean }) => (
-    <Stack spacing={compact ? 1.5 : 2} sx={{ width: '100%', maxWidth: compact ? 520 : 480 }}>
+    <Stack spacing={compact ? 1.5 : 2} sx={formStackSx}>
       <Alert severity="success" icon={<EventAvailableIcon />} sx={{ borderRadius: 2, textAlign: 'left' }}>
         <Typography variant="subtitle2" fontWeight={700}>
           You&apos;re on the list
@@ -227,7 +260,7 @@ export const EventsPage: React.FC = () => {
           </Typography>
         ) : (
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-            Add interests below anytime with Edit preferences.
+            Add interests anytime with Edit preferences.
           </Typography>
         )}
       </Alert>
@@ -235,12 +268,7 @@ export const EventsPage: React.FC = () => {
         variant="outlined"
         size={compact ? 'small' : 'medium'}
         startIcon={<EditOutlinedIcon />}
-        onClick={() => {
-          setEditPreferences(true);
-          setCityDraft(savedCity || me?.profile?.city || '');
-          setSelectedTypes(savedTypes.length ? [...savedTypes] : []);
-          setWaitlistError('');
-        }}
+        onClick={beginEditPreferences}
         sx={{ alignSelf: compact ? 'flex-start' : 'center' }}
       >
         Edit preferences
@@ -251,10 +279,12 @@ export const EventsPage: React.FC = () => {
     </Stack>
   );
 
+  const notifyDisabled = savingWaitlist || (waitlisted && !editPreferences);
+
   const WaitlistForm = ({ compact }: { compact?: boolean }) => (
-    <Stack spacing={compact ? 2 : 2.5} sx={{ width: '100%', maxWidth: compact ? 520 : 480 }}>
+    <Stack spacing={compact ? 2 : 2.5} sx={formStackSx}>
       {!compact ? (
-        <Box sx={{ width: '100%', maxWidth: 420, alignSelf: 'center' }}>
+        <Box sx={{ width: '100%' }}>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ textAlign: 'left', mb: 1 }}>
             City for launch alerts
           </Typography>
@@ -302,13 +332,16 @@ export const EventsPage: React.FC = () => {
                 size={compact ? 'small' : 'medium'}
                 className={styles.interestChip}
                 sx={{
-                  borderColor: active ? 'rgba(167, 139, 250, 0.55)' : 'rgba(167, 139, 250, 0.35)',
+                  borderColor: active ? 'rgba(167, 139, 250, 0.55)' : 'rgba(167, 139, 250, 0.4)',
+                  bgcolor: active ? undefined : 'transparent',
                   ...(active
                     ? {
                         boxShadow: '0 0 18px rgba(139, 92, 246, 0.45), 0 0 4px rgba(167, 139, 250, 0.4)',
                         background: 'linear-gradient(145deg, rgba(99, 102, 241, 0.45), rgba(139, 92, 246, 0.35))',
                       }
-                    : {}),
+                    : {
+                        backgroundColor: 'transparent',
+                      }),
                 }}
               />
             );
@@ -320,47 +353,46 @@ export const EventsPage: React.FC = () => {
           {waitlistError}
         </Alert>
       ) : null}
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        <Button
-          variant="contained"
-          size={compact ? 'medium' : 'large'}
-          fullWidth
-          disabled={savingWaitlist || (waitlisted && !editPreferences)}
-          onClick={() => void handleJoinWaitlist()}
-          sx={{ py: compact ? 1 : 1.5, fontWeight: 700 }}
-        >
-          {savingWaitlist
-            ? 'Saving…'
-            : editPreferences
-              ? 'Save changes'
-              : 'Notify me when Events launch'}
-        </Button>
-        {editPreferences ? (
-          <Stack spacing={1} sx={{ width: '100%' }}>
-            <Button
-              variant="text"
-              size={compact ? 'medium' : 'large'}
-              fullWidth
-              disabled={savingWaitlist}
-              onClick={() => {
-                setEditPreferences(false);
-                setCityDraft(savedCity || me?.profile?.city || '');
-                setSelectedTypes(savedTypes.length ? [...savedTypes] : []);
-                setWaitlistError('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button variant="text" size="small" onClick={openSuggestModal}>
-              Suggest a city
-            </Button>
-          </Stack>
-        ) : (
-          <Button variant="outlined" size={compact ? 'medium' : 'large'} fullWidth onClick={openSuggestModal} sx={{ py: compact ? 1 : 1.5 }}>
+      {editPreferences ? (
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ width: '100%' }}>
+          <Button
+            variant="contained"
+            size={compact ? 'medium' : 'large'}
+            fullWidth
+            disabled={notifyDisabled}
+            onClick={() => void handleJoinWaitlist()}
+            sx={{ py: compact ? 1 : 1.5, fontWeight: 700, flex: { sm: 1 } }}
+          >
+            {savingWaitlist ? 'Saving…' : 'Save changes'}
+          </Button>
+          <Button
+            variant="outlined"
+            size={compact ? 'medium' : 'large'}
+            fullWidth
+            disabled={savingWaitlist}
+            onClick={cancelEditPreferences}
+            sx={{ py: compact ? 1 : 1.5, flex: { sm: 1 } }}
+          >
+            Cancel
+          </Button>
+        </Stack>
+      ) : (
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ width: '100%' }}>
+          <Button
+            variant="contained"
+            size={compact ? 'medium' : 'large'}
+            fullWidth
+            disabled={notifyDisabled}
+            onClick={() => void handleJoinWaitlist()}
+            sx={{ py: compact ? 1 : 1.5, fontWeight: 700, flex: { sm: 1 } }}
+          >
+            {savingWaitlist ? 'Saving…' : 'Notify me when Events launch'}
+          </Button>
+          <Button variant="outlined" size={compact ? 'medium' : 'large'} fullWidth onClick={openSuggestModal} sx={{ py: compact ? 1 : 1.5, flex: { sm: 1 } }}>
             Suggest a city
           </Button>
-        )}
-      </Stack>
+        </Stack>
+      )}
       <Typography variant="caption" color="text.secondary" sx={{ textAlign: compact ? 'left' : 'center' }}>
         Limited early access per city — spots are filled in order of signup.
       </Typography>
@@ -377,12 +409,16 @@ export const EventsPage: React.FC = () => {
     return <WaitlistForm compact={compact} />;
   };
 
+  const pageFrame = (children: React.ReactNode) => <div className={styles.pageFrame}>{children}</div>;
+
   if (meLoading && !me) {
     return (
       <div className={styles.container}>
-        <div className={styles.loading}>
-          <CircularProgress sx={{ color: 'primary.light' }} />
-        </div>
+        {pageFrame(
+          <div className={styles.loading}>
+            <CircularProgress sx={{ color: 'primary.light' }} />
+          </div>
+        )}
       </div>
     );
   }
@@ -390,23 +426,29 @@ export const EventsPage: React.FC = () => {
   if (loadingEvents && events.length === 0 && !error) {
     return (
       <div className={styles.container}>
-        <div className={styles.loading}>
-          <CircularProgress sx={{ color: 'primary.light' }} />
-        </div>
+        {pageFrame(
+          <div className={styles.loading}>
+            <CircularProgress sx={{ color: 'primary.light' }} />
+          </div>
+        )}
       </div>
     );
   }
 
   if (error && events.length === 0) {
     return (
-      <Container maxWidth="sm" className={styles.container}>
-        <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
-          {error}
-        </Alert>
-        <Button variant="contained" onClick={() => void loadEvents()}>
-          Retry
-        </Button>
-      </Container>
+      <div className={styles.container}>
+        {pageFrame(
+          <Container maxWidth={false} disableGutters sx={{ py: 2 }}>
+            <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+              {error}
+            </Alert>
+            <Button variant="contained" onClick={() => void loadEvents()}>
+              Retry
+            </Button>
+          </Container>
+        )}
+      </div>
     );
   }
 
@@ -451,124 +493,128 @@ export const EventsPage: React.FC = () => {
         </Alert>
       </Snackbar>
 
-      {showPublishedEvents ? (
+      {pageFrame(
         <>
-          <div className={styles.header}>
-            <h1 className={styles.title}>{t('nav.events')}</h1>
-            <div className={styles.viewToggle}>
-              <button
-                type="button"
-                className={`${styles.toggleBtn} ${viewMode === 'list' ? styles.toggleActive : ''}`}
-                onClick={() => setViewMode('list')}
-                aria-pressed={viewMode === 'list'}
-              >
-                <ViewListIcon sx={{ fontSize: 20 }} />
-                List
-              </button>
-              <button
-                type="button"
-                className={`${styles.toggleBtn} ${viewMode === 'calendar' ? styles.toggleActive : ''}`}
-                onClick={() => setViewMode('calendar')}
-                aria-pressed={viewMode === 'calendar'}
-              >
-                <CalendarMonthIcon sx={{ fontSize: 20 }} />
-                Calendar
-              </button>
-            </div>
-          </div>
+          {showPublishedEvents ? (
+            <>
+              <div className={styles.header}>
+                <h1 className={styles.title}>{t('nav.events')}</h1>
+                <div className={styles.viewToggle}>
+                  <button
+                    type="button"
+                    className={`${styles.toggleBtn} ${viewMode === 'list' ? styles.toggleActive : ''}`}
+                    onClick={() => setViewMode('list')}
+                    aria-pressed={viewMode === 'list'}
+                  >
+                    <ViewListIcon sx={{ fontSize: 20 }} />
+                    List
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.toggleBtn} ${viewMode === 'calendar' ? styles.toggleActive : ''}`}
+                    onClick={() => setViewMode('calendar')}
+                    aria-pressed={viewMode === 'calendar'}
+                  >
+                    <CalendarMonthIcon sx={{ fontSize: 20 }} />
+                    Calendar
+                  </button>
+                </div>
+              </div>
 
-          <Paper elevation={0} className={styles.compactWaitlist} sx={{ mb: 3 }}>
-            {waitlisted && !editPreferences ? (
-              <WaitlistSuccessPanel compact />
-            ) : (
-              <>
-                <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-                  {editPreferences ? 'Update your Events preferences' : 'Get notified for your city'}
-                </Typography>
-                {!editPreferences ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Published events are below — tell us where to launch meetups next.
+              <Paper elevation={0} className={styles.compactWaitlist} sx={{ mb: 3 }}>
+                {waitlisted && !editPreferences ? (
+                  <WaitlistSuccessPanel compact />
+                ) : (
+                  <>
+                    <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                      {editPreferences ? 'Update your Events preferences' : 'Get notified for your city'}
+                    </Typography>
+                    {!editPreferences ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Published events are below — tell us where to launch meetups next.
+                      </Typography>
+                    ) : null}
+                    <WaitlistForm compact />
+                  </>
+                )}
+              </Paper>
+
+              {viewMode === 'calendar' && (
+                <div className={styles.calendarPlaceholder}>
+                  <CalendarMonthIcon sx={{ fontSize: 48, color: 'rgba(167, 139, 250, 0.5)' }} />
+                  <p>Calendar view coming soon</p>
+                </div>
+              )}
+
+              <div className={styles.eventList}>
+                {events.map((evt) => (
+                  <article key={evt.eventId} className={styles.eventCard}>
+                    <div className={styles.eventHeader}>
+                      <h3 className={styles.eventTitle}>{evt.title}</h3>
+                      <span className={styles.eventSport}>{evt.sport}</span>
+                    </div>
+                    <p className={styles.eventDesc}>{evt.description || 'No description'}</p>
+                    <div className={styles.eventMeta}>
+                      <span>📍 {evt.city}</span>
+                      <span>📅 {new Date(evt.eventDate).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
+                      <span>
+                        👥 {evt.participantCount} / {evt.maxParticipants}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.rsvpBtn}
+                      onClick={() => handleRSVP(evt.eventId)}
+                      disabled={evt.isJoined || joiningId === evt.eventId}
+                    >
+                      {evt.isJoined ? 'Joined' : joiningId === evt.eventId ? 'Joining…' : 'RSVP'}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : null}
+
+          {!showPublishedEvents ? (
+            <Box sx={{ py: { xs: 2, sm: 4 } }}>
+              <Paper elevation={0} className={styles.launchPaper}>
+                <Box className={styles.launchGlow} aria-hidden />
+                <Stack spacing={3} alignItems="center" textAlign="center">
+                  <Box
+                    sx={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 3,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(139, 92, 246, 0.25))',
+                      border: '1px solid rgba(167, 139, 250, 0.35)',
+                    }}
+                  >
+                    <NotificationsActiveIcon sx={{ fontSize: 40, color: 'primary.light' }} />
+                  </Box>
+                  <Typography variant="overline" sx={{ letterSpacing: '0.2em', color: 'text.secondary', fontWeight: 700 }}>
+                    Coming online
                   </Typography>
-                ) : null}
-                <WaitlistForm compact />
-              </>
-            )}
-          </Paper>
+                  <Typography variant="h4" component="h1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+                    Train together IRL
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 520 }}>
+                    Local workout meetups, partner sessions, and community events are coming soon.
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 540, lineHeight: 1.65 }}>
+                    We&apos;re preparing city-based fitness meetups and RSVP flows. Join the waitlist to get notified when
+                    Events launch in your area.
+                  </Typography>
 
-          {viewMode === 'calendar' && (
-            <div className={styles.calendarPlaceholder}>
-              <CalendarMonthIcon sx={{ fontSize: 48, color: 'rgba(167, 139, 250, 0.5)' }} />
-              <p>Calendar view coming soon</p>
-            </div>
-          )}
-
-          <div className={styles.eventList}>
-            {events.map((evt) => (
-              <article key={evt.eventId} className={styles.eventCard}>
-                <div className={styles.eventHeader}>
-                  <h3 className={styles.eventTitle}>{evt.title}</h3>
-                  <span className={styles.eventSport}>{evt.sport}</span>
-                </div>
-                <p className={styles.eventDesc}>{evt.description || 'No description'}</p>
-                <div className={styles.eventMeta}>
-                  <span>📍 {evt.city}</span>
-                  <span>📅 {new Date(evt.eventDate).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
-                  <span>
-                    👥 {evt.participantCount} / {evt.maxParticipants}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className={styles.rsvpBtn}
-                  onClick={() => handleRSVP(evt.eventId)}
-                  disabled={evt.isJoined || joiningId === evt.eventId}
-                >
-                  {evt.isJoined ? 'Joined' : joiningId === evt.eventId ? 'Joining…' : 'RSVP'}
-                </button>
-              </article>
-            ))}
-          </div>
+                  {renderWaitlistBlock()}
+                </Stack>
+              </Paper>
+            </Box>
+          ) : null}
         </>
-      ) : null}
-
-      {!showPublishedEvents ? (
-        <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 } }}>
-          <Paper elevation={0} className={styles.launchPaper}>
-            <Box className={styles.launchGlow} aria-hidden />
-            <Stack spacing={3} alignItems="center" textAlign="center">
-              <Box
-                sx={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 3,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(139, 92, 246, 0.25))',
-                  border: '1px solid rgba(167, 139, 250, 0.35)',
-                }}
-              >
-                <NotificationsActiveIcon sx={{ fontSize: 40, color: 'primary.light' }} />
-              </Box>
-              <Typography variant="overline" sx={{ letterSpacing: '0.2em', color: 'text.secondary', fontWeight: 700 }}>
-                Coming online
-              </Typography>
-              <Typography variant="h4" component="h1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                Train together IRL
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 520 }}>
-                Local workout meetups, partner sessions, and community events are coming soon.
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 540, lineHeight: 1.65 }}>
-                We&apos;re preparing city-based fitness meetups and RSVP flows. Join the waitlist to get notified when
-                Events launch in your area.
-              </Typography>
-
-              {renderWaitlistBlock()}
-            </Stack>
-          </Paper>
-        </Container>
-      ) : null}
+      )}
     </div>
   );
 };
