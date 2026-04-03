@@ -18,6 +18,7 @@ export const LoggedInActionHero: React.FC = () => {
   const { likesToday } = useMatchStatusForHeader(true);
   const complete = me?.isProfileComplete ?? false;
   const credits = me?.credits ?? 0;
+  const creditCap = Math.max(me?.lifetimeEarned ?? 0, credits);
   const [limitModalOpen, setLimitModalOpen] = useState(false);
 
   const primaryHref = complete ? '/app' : '/onboarding/profile';
@@ -56,8 +57,9 @@ export const LoggedInActionHero: React.FC = () => {
         <h1 className={styles.title}>Today's Matches</h1>
         {hasCredits ? (
           <p className={styles.usage}>
-            {credits} credits — 1 credit per send-interest
+            {credits} / {creditCap} credits
             {me?.unlimitedDiscovery ? ' · unlimited discovery (browse)' : ''}
+            <span className={styles.usageHint}> · rates in app header</span>
           </p>
         ) : (
           <>

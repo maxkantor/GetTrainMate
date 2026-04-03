@@ -60,6 +60,24 @@ public static class ProfileRequestValidator
             }
         }
 
+        if (request.EventsCityInterest != null && request.EventsCityInterest.Length > 120)
+            errors["eventsCityInterest"] = new[] { "City must be 120 characters or less" };
+
+        if (request.EventsInterestTypes != null)
+        {
+            if (request.EventsInterestTypes.Count > 12)
+                errors["eventsInterestTypes"] = new[] { "At most 12 interest tags" };
+            else
+            {
+                for (var i = 0; i < request.EventsInterestTypes.Count; i++)
+                {
+                    var t = request.EventsInterestTypes[i];
+                    if (t != null && t.Length > 80)
+                        errors[$"eventsInterestTypes[{i}]"] = new[] { "Each tag must be 80 characters or less" };
+                }
+            }
+        }
+
         return errors;
     }
 }

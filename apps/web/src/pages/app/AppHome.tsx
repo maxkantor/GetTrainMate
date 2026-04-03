@@ -87,7 +87,12 @@ export const AppHomePage: React.FC = () => {
       : `${matchStatus.totalMatches} mutual match${matchStatus.totalMatches === 1 ? '' : 'es'}`;
     const chatSub =
       chatUnread > 0 ? `${chatUnread} unread message${chatUnread === 1 ? '' : 's'}` : 'Messages with mutual matches';
-    const eventsSub = 'Train together IRL when events go live';
+    const eventsCity = me?.profile?.eventsCityInterest || me?.profile?.city;
+    const eventsSub = me?.profile?.eventsWaitlistEnabled
+      ? eventsCity
+        ? `Waitlist joined for ${eventsCity}`
+        : "We'll notify you when local meetups launch"
+      : 'Get notified when local fitness meetups launch';
     const profileSub = 'Photos, bio, modes, schedule';
     const aiSub = 'Workouts and training guidance';
 
@@ -159,6 +164,9 @@ export const AppHomePage: React.FC = () => {
     me?.profile?.discoverCanReviewLikedProfiles,
     me?.profile?.discoverCanReviewSkippedProfiles,
     sentPending,
+    me?.profile?.eventsWaitlistEnabled,
+    me?.profile?.eventsCityInterest,
+    me?.profile?.city,
   ]);
 
   return (

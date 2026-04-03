@@ -155,6 +155,31 @@ public class ProfileService : IProfileService
             if (!string.IsNullOrWhiteSpace(request.ChatNotificationFrequency))
                 existingProfile.ChatNotificationFrequency = request.ChatNotificationFrequency.Trim();
 
+            if (request.EventsWaitlistEnabled.HasValue)
+            {
+                var prevWaitlist = existingProfile.EventsWaitlistEnabled;
+                existingProfile.EventsWaitlistEnabled = request.EventsWaitlistEnabled.Value;
+                if (existingProfile.EventsWaitlistEnabled && (!prevWaitlist || !existingProfile.EventsJoinedWaitlistAt.HasValue))
+                {
+                    existingProfile.EventsJoinedWaitlistAt = DateTime.UtcNow;
+                    existingProfile.EventsNotifiedAt = DateTime.UtcNow;
+                }
+            }
+
+            if (request.EventsCityInterest != null)
+                existingProfile.EventsCityInterest = string.IsNullOrWhiteSpace(request.EventsCityInterest)
+                    ? null
+                    : request.EventsCityInterest.Trim();
+
+            if (request.EventsInterestTypes != null)
+            {
+                existingProfile.EventsInterestTypes = request.EventsInterestTypes
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
             existingProfile.UpdatedAt = DateTime.UtcNow;
             existingProfile.IsComplete = IsProfileComplete(existingProfile);
             EnsureModesArraySynced(existingProfile);
@@ -369,6 +394,19 @@ public class ProfileService : IProfileService
             DiscoverCanReplayDiscoverQueue = document.ContainsKey("discoverCanReplayDiscoverQueue") && document["discoverCanReplayDiscoverQueue"].AsBoolean(),
             DiscoverCanRewindLastSkip = !document.ContainsKey("discoverCanRewindLastSkip") || document["discoverCanRewindLastSkip"].AsBoolean(),
             DiscoverCanRecycleSkippedProfiles = document.ContainsKey("discoverCanRecycleSkippedProfiles") && document["discoverCanRecycleSkippedProfiles"].AsBoolean(),
+            EventsWaitlistEnabled = document.ContainsKey("eventsWaitlistEnabled") && document["eventsWaitlistEnabled"].AsBoolean(),
+            EventsCityInterest = document.ContainsKey("eventsCityInterest") ? document["eventsCityInterest"].AsString() : null,
+            EventsInterestTypes = document.ContainsKey("eventsInterestTypes") && document["eventsInterestTypes"] is DynamoDBList etl
+                ? etl.AsListOfString()
+                : new List<string>(),
+            EventsJoinedWaitlistAt = document.ContainsKey("eventsJoinedWaitlistAt") &&
+                DateTime.TryParse(document["eventsJoinedWaitlistAt"].AsString(), out var ej)
+                ? ej
+                : null,
+            EventsNotifiedAt = document.ContainsKey("eventsNotifiedAt") &&
+                DateTime.TryParse(document["eventsNotifiedAt"].AsString(), out var en)
+                ? en
+                : null,
         };
 
         // Legacy single `mode` → always surface as `modes` array for API/clients (never silently drop multi-intent).

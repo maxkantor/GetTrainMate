@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { authService } from '@/services/authService';
 import { meService, type MeResponse } from '@/services/meService';
+import type { UserProfile } from '@/services/profileService';
 import { isGraphQLEnabled, graphqlGetMe, graphqlEnsureFreeStartCredits, GraphQLApiError } from '@/services/graphqlService';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { syncAuthScopeToCurrentUser } from '@/utils/authScopeReset';
@@ -22,6 +23,27 @@ export const MeContext = createContext<MeContextType>({
 
 interface MeProviderProps {
   children: React.ReactNode;
+}
+
+/** GraphQL getMe may omit REST-only profile fields (e.g. Events waitlist); overlay from /api/me. */
+function mergeEventsProfileFields(
+  gqlProfile: UserProfile | null,
+  restProfile: UserProfile | null
+): UserProfile | null {
+  if (!gqlProfile && !restProfile) return null;
+  if (!restProfile) return gqlProfile;
+  if (!gqlProfile) return restProfile;
+  return {
+    ...gqlProfile,
+    eventsWaitlistEnabled: restProfile.eventsWaitlistEnabled ?? gqlProfile.eventsWaitlistEnabled,
+    eventsCityInterest: restProfile.eventsCityInterest ?? gqlProfile.eventsCityInterest,
+    eventsInterestTypes:
+      restProfile.eventsInterestTypes && restProfile.eventsInterestTypes.length > 0
+        ? restProfile.eventsInterestTypes
+        : gqlProfile.eventsInterestTypes,
+    eventsJoinedWaitlistAt: restProfile.eventsJoinedWaitlistAt ?? gqlProfile.eventsJoinedWaitlistAt,
+    eventsNotifiedAt: restProfile.eventsNotifiedAt ?? gqlProfile.eventsNotifiedAt,
+  };
 }
 
 function mapGraphQLMeToResponse(g: Awaited<ReturnType<typeof graphqlGetMe>>): MeResponse {
@@ -99,7 +121,17 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
       if (isGraphQLEnabled) {
         try {
           const data = await graphqlGetMe();
-          setMe(mapGraphQLMeToResponse(data));
+          let mapped = mapGraphQLMeToResponse(data);
+          try {
+            const rest = await meService.getMe(token);
+            mapped = {
+              ...mapped,
+              profile: mergeEventsProfileFields(mapped.profile, rest.profile),
+            };
+          } catch {
+            /* REST /me optional merge */
+          }
+          setMe(mapped);
           if (import.meta.env.DEV) {
             console.log('[MeContext] Profile loaded (GraphQL):', (data as { user?: { id?: string } }).user?.id, 'onboarding required:', !(data as { isProfileComplete?: boolean }).isProfileComplete);
           }

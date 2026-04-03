@@ -44,6 +44,12 @@ export interface UserProfile {
   discoverCanReplayDiscoverQueue?: boolean;
   discoverCanRewindLastSkip?: boolean;
   discoverCanRecycleSkippedProfiles?: boolean;
+  /** Events early-access; server-stored; user-scoped */
+  eventsWaitlistEnabled?: boolean;
+  eventsCityInterest?: string | null;
+  eventsInterestTypes?: string[];
+  eventsJoinedWaitlistAt?: string;
+  eventsNotifiedAt?: string;
 }
 
 export interface UpdateProfileRequest {
@@ -69,6 +75,9 @@ export interface UpdateProfileRequest {
   preferredDistanceMiles?: number;
   chatNotificationsEnabled?: boolean;
   chatNotificationFrequency?: 'realtime' | 'smart' | 'daily';
+  eventsWaitlistEnabled?: boolean;
+  eventsCityInterest?: string | null;
+  eventsInterestTypes?: string[];
 }
 
 export interface PhotoUploadInfo {

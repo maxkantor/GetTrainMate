@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link as RouterLink, useNavigate, useLocation, matchPath } from 'react-router-dom';
+import { Tooltip, Box, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
@@ -37,20 +38,23 @@ export const AppHeader: React.FC = () => {
   const blockedOnDiscover = outOfFreeSwipes && credits < 1;
   const pressureCredits = lowCredits || blockedOnDiscover;
 
-  /** Server: each send-interest costs 1 credit when balance &gt; 0; at 0 balance, up to 5 free UTC likes/day. Unlimited discovery = browse entitlement only. */
-  const statusLine = useMemo(() => {
-    if (!matchStatus.loading && matchStatus.waitingForAction > 0) {
+  /** Status between nav and credits — never repeat balance (shown in credit pill + tooltip). */
+  const centerStatus = useMemo(() => {
+    if (matchStatus.loading) return '';
+    if (matchStatus.waitingForAction > 0) {
       return `${matchStatus.waitingForAction} match${matchStatus.waitingForAction === 1 ? '' : 'es'} waiting`;
     }
     if (blockedOnDiscover) {
-      return 'No free likes or credits left today — add credits or try after midnight UTC.';
+      return 'No free likes left today — add credits or try after midnight UTC.';
     }
     const used = Math.min(likesToday, DAILY_LIKE_LIMIT);
-    const browse = me?.unlimitedDiscovery ? ' · Unlimited discovery (browse)' : '';
-    if (credits > 0) {
-      return `${credits} credits · 1 credit per send-interest · ${used}/${DAILY_LIKE_LIMIT} free likes/day at 0 balance${browse}`;
+    if (credits === 0) {
+      return `${used}/${DAILY_LIKE_LIMIT} free send-interests left today`;
     }
-    return `${used}/${DAILY_LIKE_LIMIT} free likes today (0 balance) · credits add more send-interests & unlocks${browse}`;
+    if (me?.unlimitedDiscovery) {
+      return 'Unlimited browsing';
+    }
+    return '';
   }, [
     matchStatus.loading,
     matchStatus.waitingForAction,
@@ -59,6 +63,23 @@ export const AppHeader: React.FC = () => {
     credits,
     me?.unlimitedDiscovery,
   ]);
+
+  const creditTooltip = useMemo(
+    () => (
+      <Box component="div" role="presentation" sx={{ py: 0.5, px: 0.25, maxWidth: 280 }}>
+        <Typography variant="caption" component="div" sx={{ display: 'block', fontWeight: 700, mb: 0.75 }}>
+          {credits} remaining out of {creditCap} total credits
+        </Typography>
+        <Typography variant="caption" component="div" sx={{ display: 'block', opacity: 0.92, lineHeight: 1.45 }}>
+          1 credit per send-interest
+        </Typography>
+        <Typography variant="caption" component="div" sx={{ display: 'block', opacity: 0.92, lineHeight: 1.45, mt: 0.5 }}>
+          AI Icebreaker: 1 credit
+        </Typography>
+      </Box>
+    ),
+    [credits, creditCap]
+  );
 
   const avatarLetter =
     me?.profile?.name?.trim()?.charAt(0)?.toUpperCase() ||
@@ -247,23 +268,34 @@ export const AppHeader: React.FC = () => {
               </nav>
             </div>
 
-            <div className={styles.statusCenter} aria-live="polite">
-              <span className={styles.statusText}>{statusLine}</span>
-            </div>
+            {centerStatus ? (
+              <div className={styles.statusCenter} aria-live="polite">
+                <span className={styles.statusText}>{centerStatus}</span>
+              </div>
+            ) : (
+              <div className={styles.statusCenterSpacer} aria-hidden />
+            )}
 
             <div className={styles.signedRight}>
               <div className={styles.langMuted} title="Language">
                 <LanguageDropdown />
               </div>
-              <span
-                className={styles.headerCredits}
-                title={`You have ${credits} out of ${creditCap} credits available`}
-                aria-label={`You have ${credits} out of ${creditCap} credits available`}
-              >
-                <span className={styles.headerCreditsVal}>{credits}</span>
-                <span className={styles.headerCreditsSep}>/</span>
-                <span className={styles.headerCreditsMax}>{creditCap}</span>
-              </span>
+              <Tooltip title={creditTooltip} arrow enterTouchDelay={0} placement="bottom">
+                <span
+                  className={styles.headerCredits}
+                  aria-label={`${credits} remaining out of ${creditCap} total credits. 1 credit per send-interest. AI Icebreaker 1 credit.`}
+                >
+                  <span className={styles.headerCreditsVerbose}>
+                    <span className={styles.headerCreditsVal}>{credits}</span>
+                    <span className={styles.headerCreditsSep}> / </span>
+                    <span className={styles.headerCreditsMax}>{creditCap}</span>
+                    <span className={styles.headerCreditsWord}> credits</span>
+                  </span>
+                  <span className={styles.headerCreditsTight} aria-hidden>
+                    {credits}/{creditCap} credits
+                  </span>
+                </span>
+              </Tooltip>
               <RouterLink
                 to="/pricing"
                 className={`${styles.upgradeBtn} ${pressureCredits ? styles.upgradeBtnUrgent : ''}`}
@@ -341,9 +373,9 @@ export const AppHeader: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <div className={styles.mobileStatus}>
-                    {statusLine}
-                  </div>
+                  {centerStatus ? (
+                    <div className={styles.mobileStatus}>{centerStatus}</div>
+                  ) : null}
                   {navItems.map(({ label, href, exact, alsoActiveOnPaths }) => {
                     const navActive = isAppNavItemActive(location.pathname, href, { exact, alsoActiveOnPaths });
                     return (
@@ -369,13 +401,22 @@ export const AppHeader: React.FC = () => {
                   <div className={styles.mobileUser} aria-hidden>
                     {me?.profile?.name?.trim() || user?.email?.split('@')[0] || 'Profile'}
                   </div>
-                  <span
-                    className={styles.mobileCredits}
-                    title={`You have ${credits} out of ${creditCap} credits available`}
-                    aria-label={`You have ${credits} out of ${creditCap} credits available`}
-                  >
-                    {credits}/{creditCap}
-                  </span>
+                  <Tooltip title={creditTooltip} arrow enterTouchDelay={0}>
+                    <span
+                      className={styles.mobileCredits}
+                      aria-label={`${credits} remaining out of ${creditCap} total credits`}
+                    >
+                      <span className={styles.headerCreditsVerbose}>
+                        <span className={styles.headerCreditsVal}>{credits}</span>
+                        <span className={styles.headerCreditsSep}> / </span>
+                        <span className={styles.headerCreditsMax}>{creditCap}</span>
+                        <span className={styles.headerCreditsWord}> credits</span>
+                      </span>
+                      <span className={styles.headerCreditsTight} aria-hidden>
+                        {credits}/{creditCap} credits
+                      </span>
+                    </span>
+                  </Tooltip>
                   <RouterLink
                     to="/pricing"
                     className={`${styles.mobileUpgrade} ${pressureCredits ? styles.mobileUpgradeUrgent : ''}`}

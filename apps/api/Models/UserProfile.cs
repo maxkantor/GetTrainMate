@@ -43,6 +43,13 @@ public class UserProfile
     public bool DiscoverCanReplayDiscoverQueue { get; set; }
     public bool DiscoverCanRewindLastSkip { get; set; } = true;
     public bool DiscoverCanRecycleSkippedProfiles { get; set; }
+
+    // Events early-access (waitlist; user-scoped; no billing until bookings go live)
+    public bool EventsWaitlistEnabled { get; set; }
+    public string? EventsCityInterest { get; set; }
+    public List<string> EventsInterestTypes { get; set; } = new();
+    public DateTime? EventsJoinedWaitlistAt { get; set; }
+    public DateTime? EventsNotifiedAt { get; set; }
 }
 
 public class AvailabilitySlot
@@ -76,4 +83,8 @@ public class UpdateProfileRequest
     public double? PreferredDistanceMiles { get; set; }
     public bool? ChatNotificationsEnabled { get; set; }
     public string? ChatNotificationFrequency { get; set; }
+
+    public bool? EventsWaitlistEnabled { get; set; }
+    public string? EventsCityInterest { get; set; }
+    public List<string>? EventsInterestTypes { get; set; }
 }

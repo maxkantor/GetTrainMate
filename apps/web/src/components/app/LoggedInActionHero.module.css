@@ -34,6 +34,12 @@
   color: #fff;
 }
 
+.usageHint {
+  font-weight: 600;
+  font-size: 0.85em;
+  opacity: 0.88;
+}
+
 .sub {
   margin: 0.9rem 0 0;
   font-size: 0.95rem;
