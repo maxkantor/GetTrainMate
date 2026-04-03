@@ -50,6 +50,9 @@ public class UserProfile
     public List<string> EventsInterestTypes { get; set; } = new();
     public DateTime? EventsJoinedWaitlistAt { get; set; }
     public DateTime? EventsNotifiedAt { get; set; }
+    /// <summary>User-requested city for future coverage (separate from waitlist city).</summary>
+    public string? EventsCitySuggestion { get; set; }
+    public DateTime? EventsCitySuggestionAt { get; set; }
 }
 
 public class AvailabilitySlot
@@ -87,4 +90,5 @@ public class UpdateProfileRequest
     public bool? EventsWaitlistEnabled { get; set; }
     public string? EventsCityInterest { get; set; }
     public List<string>? EventsInterestTypes { get; set; }
+    public string? EventsCitySuggestion { get; set; }
 }

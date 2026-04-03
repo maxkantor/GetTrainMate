@@ -63,6 +63,9 @@ public static class ProfileRequestValidator
         if (request.EventsCityInterest != null && request.EventsCityInterest.Length > 120)
             errors["eventsCityInterest"] = new[] { "City must be 120 characters or less" };
 
+        if (request.EventsCitySuggestion != null && request.EventsCitySuggestion.Length > 120)
+            errors["eventsCitySuggestion"] = new[] { "City must be 120 characters or less" };
+
         if (request.EventsInterestTypes != null)
         {
             if (request.EventsInterestTypes.Count > 12)

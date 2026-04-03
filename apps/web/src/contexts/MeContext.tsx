@@ -43,6 +43,8 @@ function mergeEventsProfileFields(
         : gqlProfile.eventsInterestTypes,
     eventsJoinedWaitlistAt: restProfile.eventsJoinedWaitlistAt ?? gqlProfile.eventsJoinedWaitlistAt,
     eventsNotifiedAt: restProfile.eventsNotifiedAt ?? gqlProfile.eventsNotifiedAt,
+    eventsCitySuggestion: restProfile.eventsCitySuggestion ?? gqlProfile.eventsCitySuggestion,
+    eventsCitySuggestionAt: restProfile.eventsCitySuggestionAt ?? gqlProfile.eventsCitySuggestionAt,
   };
 }
 

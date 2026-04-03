@@ -211,6 +211,7 @@ export class GetTrainMateStack extends cdk.Stack {
         allowHeaders: [
           'Content-Type',
           'Authorization',
+          'X-Admin-Token',
           'X-Requested-With',
           'Accept',
           'Origin',

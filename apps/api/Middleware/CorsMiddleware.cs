@@ -30,7 +30,7 @@ public class CorsMiddleware
             }
             if (!context.Response.Headers.ContainsKey("Access-Control-Allow-Headers"))
             {
-                context.Response.Headers.Append("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers");
+                context.Response.Headers.Append("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Token, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers");
             }
             if (!context.Response.Headers.ContainsKey("Access-Control-Max-Age"))
             {

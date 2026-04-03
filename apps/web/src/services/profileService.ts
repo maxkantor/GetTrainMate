@@ -50,6 +50,9 @@ export interface UserProfile {
   eventsInterestTypes?: string[];
   eventsJoinedWaitlistAt?: string;
   eventsNotifiedAt?: string;
+  /** Requested city coverage (Suggest a city). */
+  eventsCitySuggestion?: string | null;
+  eventsCitySuggestionAt?: string;
 }
 
 export interface UpdateProfileRequest {
@@ -78,6 +81,7 @@ export interface UpdateProfileRequest {
   eventsWaitlistEnabled?: boolean;
   eventsCityInterest?: string | null;
   eventsInterestTypes?: string[];
+  eventsCitySuggestion?: string | null;
 }
 
 export interface PhotoUploadInfo {

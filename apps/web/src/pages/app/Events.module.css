@@ -218,3 +218,12 @@
   max-width: 320px;
   line-height: 1.5;
 }
+
+.interestChip {
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.interestChip:hover {
+  transform: translateY(-1px);
+}
+

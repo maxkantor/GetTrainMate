@@ -160,10 +160,7 @@ public class ProfileService : IProfileService
                 var prevWaitlist = existingProfile.EventsWaitlistEnabled;
                 existingProfile.EventsWaitlistEnabled = request.EventsWaitlistEnabled.Value;
                 if (existingProfile.EventsWaitlistEnabled && (!prevWaitlist || !existingProfile.EventsJoinedWaitlistAt.HasValue))
-                {
                     existingProfile.EventsJoinedWaitlistAt = DateTime.UtcNow;
-                    existingProfile.EventsNotifiedAt = DateTime.UtcNow;
-                }
             }
 
             if (request.EventsCityInterest != null)
@@ -178,6 +175,21 @@ public class ProfileService : IProfileService
                     .Select(s => s.Trim())
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
+            }
+
+            if (request.EventsCitySuggestion != null)
+            {
+                var s = request.EventsCitySuggestion.Trim();
+                if (string.IsNullOrEmpty(s))
+                {
+                    existingProfile.EventsCitySuggestion = null;
+                    existingProfile.EventsCitySuggestionAt = null;
+                }
+                else
+                {
+                    existingProfile.EventsCitySuggestion = s;
+                    existingProfile.EventsCitySuggestionAt = DateTime.UtcNow;
+                }
             }
 
             existingProfile.UpdatedAt = DateTime.UtcNow;
@@ -337,6 +349,18 @@ public class ProfileService : IProfileService
         doc["discoverCanRewindLastSkip"] = profile.DiscoverCanRewindLastSkip;
         doc["discoverCanRecycleSkippedProfiles"] = profile.DiscoverCanRecycleSkippedProfiles;
 
+        doc["eventsWaitlistEnabled"] = profile.EventsWaitlistEnabled;
+        if (!string.IsNullOrEmpty(profile.EventsCityInterest)) doc["eventsCityInterest"] = profile.EventsCityInterest;
+        if (profile.EventsInterestTypes.Count > 0)
+            doc["eventsInterestTypes"] = new DynamoDBList(profile.EventsInterestTypes.Select(t => new Primitive(t)));
+        if (profile.EventsJoinedWaitlistAt.HasValue)
+            doc["eventsJoinedWaitlistAt"] = profile.EventsJoinedWaitlistAt.Value.ToString("O");
+        if (profile.EventsNotifiedAt.HasValue)
+            doc["eventsNotifiedAt"] = profile.EventsNotifiedAt.Value.ToString("O");
+        if (!string.IsNullOrEmpty(profile.EventsCitySuggestion)) doc["eventsCitySuggestion"] = profile.EventsCitySuggestion;
+        if (profile.EventsCitySuggestionAt.HasValue)
+            doc["eventsCitySuggestionAt"] = profile.EventsCitySuggestionAt.Value.ToString("O");
+
         return doc;
     }
 
@@ -406,6 +430,11 @@ public class ProfileService : IProfileService
             EventsNotifiedAt = document.ContainsKey("eventsNotifiedAt") &&
                 DateTime.TryParse(document["eventsNotifiedAt"].AsString(), out var en)
                 ? en
+                : null,
+            EventsCitySuggestion = document.ContainsKey("eventsCitySuggestion") ? document["eventsCitySuggestion"].AsString() : null,
+            EventsCitySuggestionAt = document.ContainsKey("eventsCitySuggestionAt") &&
+                DateTime.TryParse(document["eventsCitySuggestionAt"].AsString(), out var esa)
+                ? esa
                 : null,
         };
 
