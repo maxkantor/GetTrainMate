@@ -62,6 +62,7 @@ const tables = {
   profiles: `${PREFIX}profiles`,
   matches: `${PREFIX}matches`,
   discoverPasses: `${PREFIX}discover-passes`,
+  userInteractions: `${PREFIX}user-interactions`,
   chatThreads: `${PREFIX}chat-threads`,
   messages: `${PREFIX}messages`,
   userCredits: `${PREFIX}user-credits`,
@@ -237,23 +238,34 @@ function isProfileCompleteCheck(p) {
   );
 }
 
+async function upsertUserInteraction(userId, targetUserId, state) {
+  if (!userId || !targetUserId || userId === targetUserId) return;
+  await dynamo.send(new PutItemCommand({
+    TableName: tables.userInteractions,
+    Item: marshall({
+      userId,
+      targetUserId,
+      state,
+      updatedAt: new Date().toISOString(),
+    }),
+  }));
+}
+
 async function getActiveSkippedTargetIds(userId) {
   const passed = new Set();
   let lastKey = null;
   do {
     const r = await dynamo.send(new QueryCommand({
-      TableName: tables.discoverPasses,
+      TableName: tables.userInteractions,
       KeyConditionExpression: 'userId = :u',
-      ExpressionAttributeValues: marshall({ ':u': userId }),
+      FilterExpression: '#st = :sk',
+      ExpressionAttributeNames: { '#st': 'state' },
+      ExpressionAttributeValues: marshall({ ':u': userId, ':sk': 'SKIPPED' }),
       ...(lastKey && { ExclusiveStartKey: lastKey }),
     }));
     for (const item of r.Items || []) {
       const row = unmarshall(item);
-      if (!row.targetUserId) continue;
-      const isSkipped = row.isSkipped !== false;
-      const restored = !!row.restored;
-      const status = row.status || 'skipped';
-      if (isSkipped && !restored && status !== 'active') passed.add(row.targetUserId);
+      if (row.targetUserId) passed.add(row.targetUserId);
     }
     lastKey = r.LastEvaluatedKey || null;
   } while (lastKey);
@@ -264,21 +276,17 @@ async function getExcludedFromMatchesForDiscover(userId) {
   const excluded = new Set();
   let lastKey = null;
   do {
-    const r = await dynamo.send(new ScanCommand({
-      TableName: tables.matches,
-      Limit: 500,
+    const r = await dynamo.send(new QueryCommand({
+      TableName: tables.userInteractions,
+      KeyConditionExpression: 'userId = :u',
+      FilterExpression: '(#st = :s OR #st = :m)',
+      ExpressionAttributeNames: { '#st': 'state' },
+      ExpressionAttributeValues: marshall({ ':u': userId, ':s': 'SENT', ':m': 'MATCHED' }),
       ...(lastKey && { ExclusiveStartKey: lastKey }),
     }));
     for (const item of r.Items || []) {
-      const m = unmarshall(item);
-      if (m.userId1 !== userId && m.userId2 !== userId) continue;
-      const other = m.userId1 === userId ? m.userId2 : m.userId1;
-      if (m.isMatched) {
-        excluded.add(other);
-        continue;
-      }
-      const iLiked = m.userId1 === userId ? !!m.user1Liked : !!m.user2Liked;
-      if (iLiked) excluded.add(other);
+      const row = unmarshall(item);
+      if (row.targetUserId) excluded.add(row.targetUserId);
     }
     lastKey = r.LastEvaluatedKey || null;
   } while (lastKey);
@@ -353,15 +361,34 @@ async function discoverCandidates(identity, args) {
 
 async function listMyMatches(identity) {
   const userId = getUserId(identity);
-  const scan = await dynamo.send(new ScanCommand({
-    TableName: tables.matches,
-    FilterExpression: 'isMatched = :t AND (userId1 = :u OR userId2 = :u)',
-    ExpressionAttributeValues: marshall({ ':t': true, ':u': userId }),
-  }));
+  const rows = [];
+  let lastKey = null;
+  do {
+    const res = await dynamo.send(new QueryCommand({
+      TableName: tables.userInteractions,
+      KeyConditionExpression: 'userId = :u',
+      FilterExpression: '#st = :m',
+      ExpressionAttributeNames: { '#st': 'state' },
+      ExpressionAttributeValues: marshall({ ':u': userId, ':m': 'MATCHED' }),
+      ...(lastKey && { ExclusiveStartKey: lastKey }),
+    }));
+    for (const raw of res.Items || []) rows.push(unmarshall(raw));
+    lastKey = res.LastEvaluatedKey || null;
+  } while (lastKey);
+  rows.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
   const items = [];
-  for (const item of scan.Items || []) {
-    const m = unmarshall(item);
-    const otherUserId = m.userId1 === userId ? m.userId2 : m.userId1;
+  for (const row of rows) {
+    const otherUserId = row.targetUserId;
+    if (!otherUserId || otherUserId === userId) continue;
+    const matchRes = await dynamo.send(new ScanCommand({
+      TableName: tables.matches,
+      FilterExpression: '(userId1 = :a AND userId2 = :b) OR (userId1 = :b AND userId2 = :a)',
+      ExpressionAttributeValues: marshall({ ':a': userId, ':b': otherUserId }),
+      Limit: 1,
+    }));
+    if (!matchRes.Items?.length) continue;
+    const m = unmarshall(matchRes.Items[0]);
+    if (!m.isMatched) continue;
     const otherProfile = await getProfile(otherUserId);
     if (!otherProfile) continue;
     const threadId = m.matchId;
@@ -398,17 +425,33 @@ async function listMySentRequests(identity) {
     const raw = unmarshall(profRes.Item);
     if (raw.discoverCanReviewLikedProfiles === false) throw new Error('FORBIDDEN');
   }
-  const scan = await dynamo.send(new ScanCommand({
-    TableName: tables.matches,
-    FilterExpression: '(userId1 = :u AND user1Liked = :t) OR (userId2 = :u AND user2Liked = :t)',
-    ExpressionAttributeValues: marshall({ ':u': userId, ':t': true }),
-  }));
+  const rows = [];
+  let startKey;
+  do {
+    const res = await dynamo.send(new QueryCommand({
+      TableName: tables.userInteractions,
+      KeyConditionExpression: 'userId = :u',
+      FilterExpression: '(#st = :sent OR #st = :matched)',
+      ExpressionAttributeNames: { '#st': 'state' },
+      ExpressionAttributeValues: marshall({ ':u': userId, ':sent': 'SENT', ':matched': 'MATCHED' }),
+      ...(startKey && { ExclusiveStartKey: startKey }),
+    }));
+    for (const raw of res.Items || []) rows.push(unmarshall(raw));
+    startKey = res.LastEvaluatedKey;
+  } while (startKey);
+  rows.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
   const items = [];
-  for (const raw of scan.Items || []) {
-    const m = unmarshall(raw);
-    const iAm1 = m.userId1 === userId;
-    const otherId = iAm1 ? m.userId2 : m.userId1;
-    if (otherId === userId) continue;
+  for (const row of rows.slice(0, RELATIONSHIP_LIST_LIMIT)) {
+    const otherId = row.targetUserId;
+    if (!otherId || otherId === userId) continue;
+    const matchRes = await dynamo.send(new ScanCommand({
+      TableName: tables.matches,
+      FilterExpression: '(userId1 = :a AND userId2 = :b) OR (userId1 = :b AND userId2 = :a)',
+      ExpressionAttributeValues: marshall({ ':a': userId, ':b': otherId }),
+      Limit: 1,
+    }));
+    if (!matchRes.Items?.length) continue;
+    const m = unmarshall(matchRes.Items[0]);
     const otherProfile = await getProfile(otherId);
     if (!otherProfile) continue;
     const status = m.isMatched ? 'Matched' : 'Pending';
@@ -423,11 +466,10 @@ async function listMySentRequests(identity) {
       updatedAt: m.updatedAt || m.createdAt || null,
     });
   }
-  items.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
-  return { items: items.slice(0, RELATIONSHIP_LIST_LIMIT) };
+  return { items };
 }
 
-/** Skipped profiles for current user (discover-passes), aligned with REST /api/match/skipped-profiles. */
+/** Skipped profiles for current user (user-interactions SKIPPED), aligned with REST /api/match/skipped-profiles. */
 async function listMySkipped(identity) {
   const userId = getUserId(identity);
   const profRes = await dynamo.send(new GetItemCommand({
@@ -442,20 +484,18 @@ async function listMySkipped(identity) {
   let startKey;
   do {
     const res = await dynamo.send(new QueryCommand({
-      TableName: tables.discoverPasses,
+      TableName: tables.userInteractions,
       KeyConditionExpression: 'userId = :u',
-      ExpressionAttributeValues: marshall({ ':u': userId }),
-      ExclusiveStartKey: startKey,
+      FilterExpression: '#st = :sk',
+      ExpressionAttributeNames: { '#st': 'state' },
+      ExpressionAttributeValues: marshall({ ':u': userId, ':sk': 'SKIPPED' }),
+      ...(startKey && { ExclusiveStartKey: startKey }),
     }));
     for (const raw of res.Items || []) {
       const row = unmarshall(raw);
-      const isSkipped = row.isSkipped !== false;
-      const restored = !!row.restored;
-      const status = row.status || 'skipped';
-      if (!isSkipped || restored || String(status).toLowerCase() === 'active') continue;
       const targetUserId = row.targetUserId;
       if (!targetUserId || targetUserId === userId) continue;
-      const skippedAt = row.skippedAt || row.createdAt || new Date().toISOString();
+      const skippedAt = row.updatedAt || new Date().toISOString();
       const p = await getProfile(targetUserId);
       if (!p) continue;
       out.push({
@@ -713,6 +753,9 @@ async function likeUser(identity, args) {
       }
     }
   }
+  const interactionState = match.isMatched ? 'MATCHED' : 'SENT';
+  await upsertUserInteraction(userId, toUserId, interactionState);
+  if (match.isMatched) await upsertUserInteraction(toUserId, userId, 'MATCHED');
   return {
     matchId: match.matchId,
     isMatched: !!match.isMatched,
@@ -727,7 +770,17 @@ async function passUserMutation(identity, args) {
   const now = new Date().toISOString();
   await dynamo.send(new PutItemCommand({
     TableName: tables.discoverPasses,
-    Item: marshall({ userId, targetUserId, createdAt: now }),
+    Item: marshall({
+      userId,
+      targetUserId,
+      createdAt: now,
+      updatedAt: now,
+      isSkipped: true,
+      skippedAt: now,
+      skippedByUserId: userId,
+      restored: false,
+      status: 'skipped',
+    }),
   }));
   const matchRes = await dynamo.send(new ScanCommand({
     TableName: tables.matches,
@@ -742,6 +795,11 @@ async function passUserMutation(identity, args) {
       Key: marshall({ matchId: m.matchId }),
     }));
   }
+  await dynamo.send(new DeleteItemCommand({
+    TableName: tables.userInteractions,
+    Key: marshall({ userId: targetUserId, targetUserId: userId }),
+  })).catch(() => {});
+  await upsertUserInteraction(userId, targetUserId, 'SKIPPED');
   return true;
 }
 

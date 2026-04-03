@@ -2,9 +2,11 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
 using GetTrainMate.Api.Models;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 
 namespace GetTrainMate.Api.Services;
 
@@ -17,7 +19,12 @@ public class MatchService : IMatchService
     private readonly string _matchesTable;
     private readonly string _profilesTable;
     private readonly string _discoverPassesTable;
+    private readonly string _userInteractionsTable;
+    private readonly string _chatThreadsTable;
+    private readonly string _messagesTable;
     private readonly ILogger<MatchService> _logger;
+
+    private static readonly ConcurrentDictionary<string, long> LastUserInteractionSyncMs = new();
 
     // Scoring weights for compatibility
     private const int SportsMatchWeight = 30;
@@ -47,6 +54,9 @@ public class MatchService : IMatchService
         _matchesTable = configuration["DYNAMODB_TABLE_MATCHES"] ?? $"{prefix}matches";
         _profilesTable = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
         _discoverPassesTable = configuration["DYNAMODB_TABLE_DISCOVER_PASSES"] ?? $"{prefix}discover-passes";
+        _userInteractionsTable = configuration["DYNAMODB_TABLE_USER_INTERACTIONS"] ?? $"{prefix}user-interactions";
+        _chatThreadsTable = configuration["DYNAMODB_TABLE_CHAT_THREADS"] ?? $"{prefix}chat-threads";
+        _messagesTable = configuration["DYNAMODB_TABLE_MESSAGES"] ?? $"{prefix}messages";
         _logger = logger;
     }
 
@@ -126,6 +136,7 @@ public class MatchService : IMatchService
     {
         try
         {
+            await EnsureLegacyInteractionsSyncedForUserAsync(userId);
             var userProfile = await _profileService.GetProfileAsync(userId);
             // Return other profiles even when current user has no profile (e.g. new account, eventual consistency)
 
@@ -300,6 +311,11 @@ public class MatchService : IMatchService
 
             await SaveMatchAsync(match);
 
+            var interactionState = match.IsMatched ? UserInteractionState.Matched : UserInteractionState.Sent;
+            await UpsertUserInteractionAsync(userId, targetUserId, interactionState);
+            if (match.IsMatched)
+                await UpsertUserInteractionAsync(targetUserId, userId, UserInteractionState.Matched);
+
             return new MatchResponse
             {
                 MatchId = match.MatchId,
@@ -327,6 +343,13 @@ public class MatchService : IMatchService
             {
                 var table = Table.LoadTable(_dynamoDb, _matchesTable);
                 await table.DeleteItemAsync(existingMatch.MatchId);
+            }
+
+            if (!string.IsNullOrEmpty(targetUserId))
+            {
+                // Match row is gone; clear the reverse direction so SENT/MATCHED cannot linger for this pair.
+                await DeleteUserInteractionAsync(targetUserId, userId);
+                await UpsertUserInteractionAsync(userId, targetUserId, UserInteractionState.Skipped);
             }
 
             return new MatchResponse
@@ -371,17 +394,21 @@ public class MatchService : IMatchService
 
     private async Task<HashSet<string>> GetPassedTargetUserIdsAsync(string userId)
     {
+        await EnsureLegacyInteractionsSyncedForUserAsync(userId);
         var result = new HashSet<string>(StringComparer.Ordinal);
         Dictionary<string, AttributeValue>? startKey = null;
         do
         {
             var query = new QueryRequest
             {
-                TableName = _discoverPassesTable,
+                TableName = _userInteractionsTable,
                 KeyConditionExpression = "userId = :u",
+                FilterExpression = "#st = :skipped",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#st"] = "state" },
                 ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                 {
-                    { ":u", new AttributeValue { S = userId } }
+                    [":u"] = new AttributeValue { S = userId },
+                    [":skipped"] = new AttributeValue { S = UserInteractionState.Skipped }
                 },
                 ExclusiveStartKey = startKey
             };
@@ -390,11 +417,7 @@ public class MatchService : IMatchService
             {
                 if (!item.TryGetValue("targetUserId", out var tid) || tid.S == null)
                     continue;
-                var isSkipped = !item.TryGetValue("isSkipped", out var skippedVal) || skippedVal.BOOL;
-                var restored = item.TryGetValue("restored", out var restoredVal) && restoredVal.BOOL;
-                var status = item.TryGetValue("status", out var statusVal) ? statusVal.S : "skipped";
-                if (isSkipped && !restored && !string.Equals(status, "active", StringComparison.OrdinalIgnoreCase))
-                    result.Add(tid.S);
+                result.Add(tid.S);
             }
             startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
         } while (startKey != null);
@@ -418,22 +441,34 @@ public class MatchService : IMatchService
         document["restoredAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
         document["updatedAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
         await table.PutItemAsync(document);
+        try
+        {
+            await DeleteUserInteractionAsync(userId, targetUserId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Undo pass: could not delete user-interaction row for {UserId}->{Target}", userId, targetUserId);
+        }
         return true;
     }
 
     public async Task<DiscoverSkipRecord?> GetLastSkippedProfileAsync(string userId)
     {
-        Dictionary<string, AttributeValue>? startKey = null;
+        await EnsureLegacyInteractionsSyncedForUserAsync(userId);
         DiscoverSkipRecord? latestRecord = null;
+        Dictionary<string, AttributeValue>? startKey = null;
         do
         {
             var query = new QueryRequest
             {
-                TableName = _discoverPassesTable,
+                TableName = _userInteractionsTable,
                 KeyConditionExpression = "userId = :u",
+                FilterExpression = "#st = :skipped",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#st"] = "state" },
                 ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                 {
-                    [":u"] = new AttributeValue { S = userId }
+                    [":u"] = new AttributeValue { S = userId },
+                    [":skipped"] = new AttributeValue { S = UserInteractionState.Skipped }
                 },
                 ExclusiveStartKey = startKey
             };
@@ -442,17 +477,9 @@ public class MatchService : IMatchService
             {
                 if (!item.TryGetValue("targetUserId", out var tid) || string.IsNullOrWhiteSpace(tid.S))
                     continue;
-                var isSkipped = !item.TryGetValue("isSkipped", out var skippedVal) || skippedVal.BOOL;
-                var restored = item.TryGetValue("restored", out var restoredVal) && restoredVal.BOOL;
-                var status = item.TryGetValue("status", out var statusVal) ? statusVal.S : "skipped";
-                if (!isSkipped || restored || string.Equals(status, "active", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
                 var skippedAt = DateTime.UtcNow;
-                if (item.TryGetValue("skippedAt", out var skippedAtVal) && DateTime.TryParse(skippedAtVal.S, out var parsedSkippedAt))
-                    skippedAt = parsedSkippedAt;
-                else if (item.TryGetValue("createdAt", out var createdAtVal) && DateTime.TryParse(createdAtVal.S, out var parsedCreatedAt))
-                    skippedAt = parsedCreatedAt;
+                if (item.TryGetValue("updatedAt", out var uAt) && DateTime.TryParse(uAt.S, out var parsed))
+                    skippedAt = parsed;
 
                 if (latestRecord == null || skippedAt > latestRecord.SkippedAt)
                 {
@@ -460,11 +487,9 @@ public class MatchService : IMatchService
                     {
                         TargetUserId = tid.S!,
                         SkippedAt = skippedAt,
-                        SkippedByUserId = item.TryGetValue("skippedByUserId", out var skippedByVal) && !string.IsNullOrWhiteSpace(skippedByVal.S)
-                            ? skippedByVal.S!
-                            : userId,
-                        IsSkipped = isSkipped,
-                        Restored = restored
+                        SkippedByUserId = userId,
+                        IsSkipped = true,
+                        Restored = false
                     };
                 }
             }
@@ -637,6 +662,30 @@ public class MatchService : IMatchService
             });
         }
 
+        var uiScan = await _dynamoDb.ScanAsync(new ScanRequest
+        {
+            TableName = _userInteractionsTable,
+            FilterExpression = "targetUserId = :t",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":t"] = new AttributeValue { S = profileUserId }
+            }
+        });
+        foreach (var item in uiScan.Items)
+        {
+            if (!item.TryGetValue("userId", out var uid) || uid.S == null) continue;
+            if (!item.TryGetValue("targetUserId", out var tid) || tid.S == null) continue;
+            await _dynamoDb.DeleteItemAsync(new DeleteItemRequest
+            {
+                TableName = _userInteractionsTable,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    ["userId"] = new AttributeValue { S = uid.S },
+                    ["targetUserId"] = new AttributeValue { S = tid.S }
+                }
+            });
+        }
+
         return true;
     }
 
@@ -703,21 +752,48 @@ public class MatchService : IMatchService
     {
         try
         {
-            var table = Table.LoadTable(_dynamoDb, _matchesTable);
-            var search = table.Scan(new ScanFilter());
-            var matches = new List<Match>();
-
+            await EnsureLegacyInteractionsSyncedForUserAsync(userId);
+            var rows = new List<(string TargetId, DateTime UpdatedAt)>();
+            Dictionary<string, AttributeValue>? startKey = null;
             do
             {
-                var batch = await search.GetNextSetAsync();
-                foreach (var doc in batch)
+                var query = new QueryRequest
                 {
-                    var match = DocumentToMatch(doc);
-                    if (!match.IsMatched) continue;
-                    if (match.UserId1 == userId || match.UserId2 == userId)
-                        matches.Add(match);
+                    TableName = _userInteractionsTable,
+                    KeyConditionExpression = "userId = :u",
+                    FilterExpression = "#st = :matched",
+                    ExpressionAttributeNames = new Dictionary<string, string> { ["#st"] = "state" },
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        [":u"] = new AttributeValue { S = userId },
+                        [":matched"] = new AttributeValue { S = UserInteractionState.Matched }
+                    },
+                    ExclusiveStartKey = startKey
+                };
+                var response = await _dynamoDb.QueryAsync(query);
+                foreach (var item in response.Items)
+                {
+                    if (!item.TryGetValue("targetUserId", out var tid) || string.IsNullOrWhiteSpace(tid.S))
+                        continue;
+                    var uAt = DateTime.UtcNow;
+                    if (item.TryGetValue("updatedAt", out var u) && DateTime.TryParse(u.S, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed))
+                        uAt = parsed.ToUniversalTime();
+                    rows.Add((tid.S!, uAt));
                 }
-            } while (!search.IsDone);
+                startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+            } while (startKey != null);
+
+            var matches = new List<Match>();
+            foreach (var (otherId, _) in rows.OrderByDescending(x => x.UpdatedAt))
+            {
+                var m = await GetMatchAsync(userId, otherId);
+                if (m == null || !m.IsMatched)
+                {
+                    _logger.LogWarning("Matches list: interaction MATCHED for {User}->{Target} but match row missing or not mutual", userId, otherId);
+                    continue;
+                }
+                matches.Add(m);
+            }
 
             return matches;
         }
@@ -799,16 +875,50 @@ public class MatchService : IMatchService
 
     public async Task<List<SentRequestItem>> ListSentRequestsAsync(string userId)
     {
-        var matches = await ListMatchesInvolvingUserAsync(userId);
-        var list = new List<SentRequestItem>();
-        foreach (var m in matches.OrderByDescending(x => x.UpdatedAt))
+        await EnsureLegacyInteractionsSyncedForUserAsync(userId);
+        var rows = new List<(string TargetId, string State, DateTime InteractionUpdatedAt)>();
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
         {
-            var iAm1 = m.UserId1 == userId;
-            var iLiked = iAm1 ? m.User1Liked : m.User2Liked;
-            if (!iLiked) continue;
-            var otherId = iAm1 ? m.UserId2 : m.UserId1;
+            var query = new QueryRequest
+            {
+                TableName = _userInteractionsTable,
+                KeyConditionExpression = "userId = :u",
+                FilterExpression = "(#st = :sent OR #st = :matched)",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#st"] = "state" },
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":u"] = new AttributeValue { S = userId },
+                    [":sent"] = new AttributeValue { S = UserInteractionState.Sent },
+                    [":matched"] = new AttributeValue { S = UserInteractionState.Matched }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("targetUserId", out var tid) || string.IsNullOrWhiteSpace(tid.S))
+                    continue;
+                var st = item.TryGetValue("state", out var sVal) && sVal.S != null ? sVal.S! : UserInteractionState.Sent;
+                var iaUpdated = DateTime.UtcNow;
+                if (item.TryGetValue("updatedAt", out var uAt) && DateTime.TryParse(uAt.S, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed))
+                    iaUpdated = parsed.ToUniversalTime();
+                rows.Add((tid.S!, st, iaUpdated));
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+
+        var list = new List<SentRequestItem>();
+        foreach (var (otherId, st, _) in rows.OrderByDescending(x => x.InteractionUpdatedAt).Take(RelationshipListLimit))
+        {
             if (string.Equals(otherId, userId, StringComparison.Ordinal))
                 continue;
+            var m = await GetMatchAsync(userId, otherId);
+            if (m == null)
+            {
+                _logger.LogWarning("Sent list: interaction {State} for {User}->{Target} but no match row", st, userId, otherId);
+                continue;
+            }
             var tp = await _profileService.GetProfileAsync(otherId);
             var name = tp?.Name ?? "User";
             var photos = ResolvePhotoUrlsForProfile(tp);
@@ -818,29 +928,33 @@ public class MatchService : IMatchService
                 Name = name,
                 City = tp?.City,
                 PhotoUrls = photos,
-                Status = m.IsMatched ? "Matched" : "Pending",
+                Status = st == UserInteractionState.Matched ? "Matched" : "Pending",
                 MatchId = m.MatchId,
                 CompatibilityScore = m.CompatibilityScore,
                 UpdatedAt = m.UpdatedAt
             });
         }
 
-        return list.Take(RelationshipListLimit).ToList();
+        return list;
     }
 
     public async Task<List<SkippedProfileItem>> ListSkippedProfilesAsync(string userId)
     {
+        await EnsureLegacyInteractionsSyncedForUserAsync(userId);
         var rows = new List<(string TargetId, DateTime SkippedAt)>();
         Dictionary<string, AttributeValue>? startKey = null;
         do
         {
             var query = new QueryRequest
             {
-                TableName = _discoverPassesTable,
+                TableName = _userInteractionsTable,
                 KeyConditionExpression = "userId = :u",
+                FilterExpression = "#st = :skipped",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#st"] = "state" },
                 ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                 {
-                    [":u"] = new AttributeValue { S = userId }
+                    [":u"] = new AttributeValue { S = userId },
+                    [":skipped"] = new AttributeValue { S = UserInteractionState.Skipped }
                 },
                 ExclusiveStartKey = startKey
             };
@@ -849,17 +963,9 @@ public class MatchService : IMatchService
             {
                 if (!item.TryGetValue("targetUserId", out var tid) || string.IsNullOrWhiteSpace(tid.S))
                     continue;
-                var isSkipped = !item.TryGetValue("isSkipped", out var skippedVal) || skippedVal.BOOL;
-                var restored = item.TryGetValue("restored", out var restoredVal) && restoredVal.BOOL;
-                var status = item.TryGetValue("status", out var statusVal) ? statusVal.S : "skipped";
-                if (!isSkipped || restored || string.Equals(status, "active", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
                 var skippedAt = DateTime.UtcNow;
-                if (item.TryGetValue("skippedAt", out var skippedAtVal) && DateTime.TryParse(skippedAtVal.S, out var parsedSkippedAt))
-                    skippedAt = parsedSkippedAt;
-                else if (item.TryGetValue("createdAt", out var createdAtVal) && DateTime.TryParse(createdAtVal.S, out var parsedCreatedAt))
-                    skippedAt = parsedCreatedAt;
+                if (item.TryGetValue("updatedAt", out var uAt) && DateTime.TryParse(uAt.S, out var parsed))
+                    skippedAt = parsed;
 
                 rows.Add((tid.S!, skippedAt));
             }
@@ -887,18 +993,35 @@ public class MatchService : IMatchService
 
     private async Task<HashSet<string>> GetUserIdsExcludedFromDiscoverByMatchesAsync(string userId)
     {
+        await EnsureLegacyInteractionsSyncedForUserAsync(userId);
         var excluded = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var m in await ListMatchesInvolvingUserAsync(userId))
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
         {
-            var other = m.UserId1 == userId ? m.UserId2 : m.UserId1;
-            if (m.IsMatched)
+            var query = new QueryRequest
             {
-                excluded.Add(other);
-                continue;
+                TableName = _userInteractionsTable,
+                KeyConditionExpression = "userId = :u",
+                FilterExpression = "(#st = :sent OR #st = :matched)",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#st"] = "state" },
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":u"] = new AttributeValue { S = userId },
+                    [":sent"] = new AttributeValue { S = UserInteractionState.Sent },
+                    [":matched"] = new AttributeValue { S = UserInteractionState.Matched }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("targetUserId", out var tid) || string.IsNullOrWhiteSpace(tid.S))
+                    continue;
+                excluded.Add(tid.S!);
             }
-            var iLiked = m.UserId1 == userId ? m.User1Liked : m.User2Liked;
-            if (iLiked) excluded.Add(other);
-        }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+
         return excluded;
     }
 
@@ -1209,5 +1332,445 @@ public class MatchService : IMatchService
             profile.Mode = profile.Modes[0];
 
         return profile;
+    }
+
+    private async Task UpsertUserInteractionAsync(string userId, string targetUserId, string state)
+    {
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(targetUserId)) return;
+        if (string.Equals(userId, targetUserId, StringComparison.Ordinal)) return;
+        var table = Table.LoadTable(_dynamoDb, _userInteractionsTable);
+        var doc = new Document
+        {
+            ["userId"] = userId,
+            ["targetUserId"] = targetUserId,
+            ["state"] = state,
+            ["updatedAt"] = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)
+        };
+        await table.PutItemAsync(doc);
+    }
+
+    private async Task DeleteUserInteractionAsync(string userId, string targetUserId)
+    {
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(targetUserId)) return;
+        var table = Table.LoadTable(_dynamoDb, _userInteractionsTable);
+        await table.DeleteItemAsync(userId, targetUserId);
+    }
+
+    private async Task<string?> GetUserInteractionStateAsync(string userId, string targetUserId)
+    {
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, _userInteractionsTable);
+            var doc = await table.GetItemAsync(userId, targetUserId);
+            if (doc == null || !doc.ContainsKey("state")) return null;
+            return doc["state"].AsString();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GetUserInteractionState failed for {User}->{Target}", userId, targetUserId);
+            return null;
+        }
+    }
+
+    private async Task EnsureLegacyInteractionsSyncedForUserAsync(string userId)
+    {
+        if (string.IsNullOrEmpty(userId) || userId.StartsWith("__", StringComparison.Ordinal)) return;
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        // Full match scan per user is expensive; throttle to avoid one scan per discover request.
+        if (LastUserInteractionSyncMs.TryGetValue(userId, out var last) && nowMs - last < 300_000)
+            return;
+        LastUserInteractionSyncMs[userId] = nowMs;
+
+        foreach (var m in await ListMatchesInvolvingUserAsync(userId))
+        {
+            var other = m.UserId1 == userId ? m.UserId2 : m.UserId1;
+            var iLiked = m.UserId1 == userId ? m.User1Liked : m.User2Liked;
+            if (!iLiked) continue;
+            var state = m.IsMatched ? UserInteractionState.Matched : UserInteractionState.Sent;
+            await UpsertUserInteractionAsync(userId, other, state);
+        }
+
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
+        {
+            var query = new QueryRequest
+            {
+                TableName = _discoverPassesTable,
+                KeyConditionExpression = "userId = :u",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":u"] = new AttributeValue { S = userId }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("targetUserId", out var tid) || string.IsNullOrWhiteSpace(tid.S))
+                    continue;
+                var target = tid.S!;
+                if (string.Equals(target, userId, StringComparison.Ordinal)) continue;
+
+                var isSkipped = !item.TryGetValue("isSkipped", out var skippedVal) || skippedVal.BOOL;
+                var restored = item.TryGetValue("restored", out var restoredVal) && restoredVal.BOOL;
+                var status = item.TryGetValue("status", out var statusVal) ? statusVal.S : "skipped";
+                if (!isSkipped || restored || string.Equals(status, "active", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var existing = await GetUserInteractionStateAsync(userId, target);
+                if (existing == UserInteractionState.Sent || existing == UserInteractionState.Matched)
+                    continue;
+
+                await UpsertUserInteractionAsync(userId, target, UserInteractionState.Skipped);
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+    }
+
+    public async Task<int> RebuildUserInteractionsFromLegacyAsync(CancellationToken cancellationToken = default)
+    {
+        var n = 0;
+        var matchTable = Table.LoadTable(_dynamoDb, _matchesTable);
+        var matchSearch = matchTable.Scan(new ScanFilter());
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var batch = await matchSearch.GetNextSetAsync();
+            foreach (var doc in batch)
+            {
+                var m = DocumentToMatch(doc);
+                if (m.User1Liked)
+                {
+                    await UpsertUserInteractionAsync(m.UserId1, m.UserId2, m.IsMatched ? UserInteractionState.Matched : UserInteractionState.Sent);
+                    n++;
+                }
+                if (m.User2Liked)
+                {
+                    await UpsertUserInteractionAsync(m.UserId2, m.UserId1, m.IsMatched ? UserInteractionState.Matched : UserInteractionState.Sent);
+                    n++;
+                }
+            }
+        } while (!matchSearch.IsDone);
+
+        var passScan = Table.LoadTable(_dynamoDb, _discoverPassesTable).Scan(new ScanFilter());
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var batch = await passScan.GetNextSetAsync();
+            foreach (var doc in batch)
+            {
+                if (!doc.ContainsKey("userId") || !doc.ContainsKey("targetUserId")) continue;
+                var uid = doc["userId"].AsString();
+                var tid = doc["targetUserId"].AsString();
+                if (string.IsNullOrEmpty(uid) || string.IsNullOrEmpty(tid)) continue;
+                if (uid.StartsWith("__", StringComparison.Ordinal)) continue;
+
+                var isSkipped = !doc.ContainsKey("isSkipped") || doc["isSkipped"].AsBoolean();
+                var restored = doc.ContainsKey("restored") && doc["restored"].AsBoolean();
+                var st = doc.ContainsKey("status") ? doc["status"].AsString() : "skipped";
+                if (!isSkipped || restored || string.Equals(st, "active", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var existing = await GetUserInteractionStateAsync(uid, tid);
+                if (existing == UserInteractionState.Sent || existing == UserInteractionState.Matched)
+                    continue;
+
+                await UpsertUserInteractionAsync(uid, tid, UserInteractionState.Skipped);
+                n++;
+            }
+        } while (!passScan.IsDone);
+
+        return n;
+    }
+
+    private void ClearInteractionSyncThrottle(string userId)
+    {
+        if (!string.IsNullOrEmpty(userId))
+            LastUserInteractionSyncMs.TryRemove(userId, out _);
+    }
+
+    public async Task<AdminDiscoverResetResult> AdminResetUserSkippedAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        var result = new AdminDiscoverResetResult();
+        if (string.IsNullOrWhiteSpace(userId)) return result;
+        ClearInteractionSyncThrottle(userId);
+
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var query = new QueryRequest
+            {
+                TableName = _userInteractionsTable,
+                KeyConditionExpression = "userId = :u",
+                FilterExpression = "#st = :sk",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#st"] = "state" },
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":u"] = new AttributeValue { S = userId },
+                    [":sk"] = new AttributeValue { S = UserInteractionState.Skipped }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("targetUserId", out var tid) || tid.S == null) continue;
+                await _dynamoDb.DeleteItemAsync(new DeleteItemRequest
+                {
+                    TableName = _userInteractionsTable,
+                    Key = new Dictionary<string, AttributeValue>
+                    {
+                        ["userId"] = new AttributeValue { S = userId },
+                        ["targetUserId"] = new AttributeValue { S = tid.S }
+                    }
+                });
+                result.SkippedInteractionsRemoved++;
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+
+        result.DiscoverPassesRemoved = await DeleteAllDiscoverPassesForViewerAsync(userId, cancellationToken);
+        return result;
+    }
+
+    public async Task<AdminDiscoverResetResult> AdminResetUserOutgoingSentAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        var result = new AdminDiscoverResetResult();
+        if (string.IsNullOrWhiteSpace(userId)) return result;
+        ClearInteractionSyncThrottle(userId);
+
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var query = new QueryRequest
+            {
+                TableName = _userInteractionsTable,
+                KeyConditionExpression = "userId = :u",
+                FilterExpression = "(#st = :sent OR #st = :matched)",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#st"] = "state" },
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":u"] = new AttributeValue { S = userId },
+                    [":sent"] = new AttributeValue { S = UserInteractionState.Sent },
+                    [":matched"] = new AttributeValue { S = UserInteractionState.Matched }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("targetUserId", out var tid) || tid.S == null) continue;
+                await _dynamoDb.DeleteItemAsync(new DeleteItemRequest
+                {
+                    TableName = _userInteractionsTable,
+                    Key = new Dictionary<string, AttributeValue>
+                    {
+                        ["userId"] = new AttributeValue { S = userId },
+                        ["targetUserId"] = new AttributeValue { S = tid.S }
+                    }
+                });
+                result.OutgoingSentOrMatchedRemoved++;
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+
+        return result;
+    }
+
+    public async Task<AdminDiscoverResetResult> AdminResetUserDiscoverStateAsync(string userId, bool removeMatchesAndChats, CancellationToken cancellationToken = default)
+    {
+        var result = new AdminDiscoverResetResult();
+        if (string.IsNullOrWhiteSpace(userId)) return result;
+        ClearInteractionSyncThrottle(userId);
+
+        result.AllOutgoingInteractionsRemoved = await DeleteAllOutgoingInteractionsForUserAsync(userId, cancellationToken);
+        result.ReverseInteractionsRemoved = await DeleteInteractionsWhereTargetUserIdAsync(userId, cancellationToken);
+        result.DiscoverPassesRemoved = await DeleteAllDiscoverPassesForViewerAsync(userId, cancellationToken);
+
+        try
+        {
+            await _profileService.PatchDiscoverLifecycleAsync(userId, new DiscoverLifecycleFlagsPatch
+            {
+                CanReplayDiscoverQueue = false,
+                CanRecycleSkippedProfiles = false
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Admin reset: could not patch discover lifecycle for {UserId}", userId);
+        }
+
+        if (!removeMatchesAndChats)
+            return result;
+
+        var matches = await ListMatchesInvolvingUserAsync(userId);
+        foreach (var m in matches)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                result.ChatMessagesRemoved += await DeleteChatMessagesForThreadAsync(m.MatchId, cancellationToken);
+                var threadsTable = Table.LoadTable(_dynamoDb, _chatThreadsTable);
+                await threadsTable.DeleteItemAsync(m.MatchId);
+                result.ChatThreadsRemoved++;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Admin reset: thread delete for match {MatchId}", m.MatchId);
+            }
+
+            try
+            {
+                var matchTable = Table.LoadTable(_dynamoDb, _matchesTable);
+                await matchTable.DeleteItemAsync(m.MatchId);
+                result.MatchesRemoved++;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Admin reset: match delete {MatchId}", m.MatchId);
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<int> DeleteAllOutgoingInteractionsForUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        var n = 0;
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var query = new QueryRequest
+            {
+                TableName = _userInteractionsTable,
+                KeyConditionExpression = "userId = :u",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":u"] = new AttributeValue { S = userId }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("targetUserId", out var tid) || tid.S == null) continue;
+                await _dynamoDb.DeleteItemAsync(new DeleteItemRequest
+                {
+                    TableName = _userInteractionsTable,
+                    Key = new Dictionary<string, AttributeValue>
+                    {
+                        ["userId"] = new AttributeValue { S = userId },
+                        ["targetUserId"] = new AttributeValue { S = tid.S }
+                    }
+                });
+                n++;
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+
+        return n;
+    }
+
+    private async Task<int> DeleteInteractionsWhereTargetUserIdAsync(string targetUserId, CancellationToken cancellationToken)
+    {
+        var n = 0;
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var scan = new ScanRequest
+            {
+                TableName = _userInteractionsTable,
+                FilterExpression = "targetUserId = :t",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":t"] = new AttributeValue { S = targetUserId }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.ScanAsync(scan);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("userId", out var uid) || uid.S == null) continue;
+                if (!item.TryGetValue("targetUserId", out var tid) || tid.S == null) continue;
+                await _dynamoDb.DeleteItemAsync(new DeleteItemRequest
+                {
+                    TableName = _userInteractionsTable,
+                    Key = new Dictionary<string, AttributeValue>
+                    {
+                        ["userId"] = new AttributeValue { S = uid.S },
+                        ["targetUserId"] = new AttributeValue { S = tid.S }
+                    }
+                });
+                n++;
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+
+        return n;
+    }
+
+    private async Task<int> DeleteAllDiscoverPassesForViewerAsync(string userId, CancellationToken cancellationToken)
+    {
+        var n = 0;
+        if (userId.StartsWith("__", StringComparison.Ordinal)) return 0;
+        Dictionary<string, AttributeValue>? startKey = null;
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var query = new QueryRequest
+            {
+                TableName = _discoverPassesTable,
+                KeyConditionExpression = "userId = :u",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":u"] = new AttributeValue { S = userId }
+                },
+                ExclusiveStartKey = startKey
+            };
+            var response = await _dynamoDb.QueryAsync(query);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("targetUserId", out var tid) || tid.S == null) continue;
+                await _dynamoDb.DeleteItemAsync(new DeleteItemRequest
+                {
+                    TableName = _discoverPassesTable,
+                    Key = new Dictionary<string, AttributeValue>
+                    {
+                        ["userId"] = new AttributeValue { S = userId },
+                        ["targetUserId"] = new AttributeValue { S = tid.S }
+                    }
+                });
+                n++;
+            }
+            startKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (startKey != null);
+
+        return n;
+    }
+
+    private async Task<int> DeleteChatMessagesForThreadAsync(string threadId, CancellationToken cancellationToken)
+    {
+        var n = 0;
+        var table = Table.LoadTable(_dynamoDb, _messagesTable);
+        var scanFilter = new ScanFilter();
+        scanFilter.AddCondition("threadId", ScanOperator.Equal, threadId);
+        var search = table.Scan(scanFilter);
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var batch = await search.GetNextSetAsync();
+            foreach (var doc in batch)
+            {
+                if (!doc.ContainsKey("messageId")) continue;
+                await table.DeleteItemAsync(doc);
+                n++;
+            }
+        } while (!search.IsDone);
+
+        return n;
     }
 }

@@ -9,20 +9,22 @@ namespace GetTrainMate.Api.Controllers;
 
 [ApiController]
 [Route("api/admin/login")]
-[AllowAnonymous]
 public class AdminLoginController : ControllerBase
 {
     private readonly IAdminService _adminService;
     private readonly IAmazonSimpleSystemsManagement _ssm;
+    private readonly IAuditLogService _auditLogService;
     private readonly ILogger<AdminLoginController> _logger;
 
     public AdminLoginController(
         IAdminService adminService,
         IAmazonSimpleSystemsManagement ssm,
+        IAuditLogService auditLogService,
         ILogger<AdminLoginController> logger)
     {
         _adminService = adminService;
         _ssm = ssm;
+        _auditLogService = auditLogService;
         _logger = logger;
     }
 
@@ -41,6 +43,12 @@ public class AdminLoginController : ControllerBase
             try
             {
                 var response = await _adminService.LoginAsync(request.Email, request.Password);
+                var adminIdentity = new AdminIdentity
+                {
+                    Sub = response.Admin.AdminId,
+                    Email = response.Admin.Email
+                };
+                await _auditLogService.LogActionAsync(adminIdentity, "admin.auth.login", "admin", response.Admin.AdminId);
                 return Ok(new AdminLoginApiResponse
                 {
                     Success = true,
@@ -70,6 +78,11 @@ public class AdminLoginController : ControllerBase
                 }
                 await _adminService.InitializeAdminAsync(request.Email, "Admin");
                 var r = await _adminService.LoginAsync(request.Email, request.Password);
+                await _auditLogService.LogActionAsync(
+                    new AdminIdentity { Sub = r.Admin.AdminId, Email = r.Admin.Email },
+                    "admin.auth.login",
+                    "admin",
+                    r.Admin.AdminId);
                 return Ok(new AdminLoginApiResponse
                 {
                     Success = true,
@@ -94,26 +107,27 @@ public class AdminLoginController : ControllerBase
 
     /// <summary>
     /// POST /api/admin/login/validate-session
-    /// Validate a cached session token
+    /// Validates the same token used as X-Admin-Token (DynamoDB admin user + SSM password flow).
     /// </summary>
     [HttpPost("validate-session")]
+    [AllowAnonymous]
     public async Task<ActionResult<AdminSessionResponse>> ValidateSession([FromBody] ValidateSessionRequest request)
     {
         try
         {
-            // For simplicity, we'll just check if the token format is valid
-            // In production, you might want to store sessions in DynamoDB
             if (string.IsNullOrEmpty(request.SessionToken))
-            {
                 return Unauthorized(new { error = "Invalid session" });
-            }
 
-            // Basic validation - in production, check against stored sessions
+            var admin = await _adminService.ValidateAdminTokenAsync(request.SessionToken, TimeSpan.FromDays(8));
             return Ok(new AdminSessionResponse
             {
                 Valid = true,
-                Email = request.Email
+                Email = admin.Email
             });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Unauthorized(new { error = "Invalid session" });
         }
         catch (Exception ex)
         {

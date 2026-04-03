@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Drawer,
@@ -27,6 +27,9 @@ import ContactsIcon from '@mui/icons-material/Contacts';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ScienceIcon from '@mui/icons-material/Science';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { clearAdminSession, getAdminSession } from '@/services/adminAuthStorage';
+import { adminApiService } from '@/services/adminApiService';
 
 const drawerWidth = 240;
 
@@ -48,6 +51,18 @@ const menuItems = [
 export const AdminLayout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const adminEmail = getAdminSession()?.email ?? '';
+
+  const handleLogout = async () => {
+    try {
+      await adminApiService.post('/api/admin/auth/logout', {});
+    } catch {
+      /* ignore */
+    }
+    clearAdminSession();
+    navigate('/admin/login', { replace: true });
+  };
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -97,9 +112,17 @@ export const AdminLayout: React.FC = () => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Admin Portal
           </Typography>
+          {adminEmail && (
+            <Typography variant="body2" sx={{ mr: 2, opacity: 0.85 }} noWrap>
+              {adminEmail}
+            </Typography>
+          )}
+          <IconButton color="inherit" onClick={() => void handleLogout()} aria-label="Sign out" title="Sign out">
+            <LogoutIcon />
+          </IconButton>
         </Toolbar>
       </AppBar>
       <Box

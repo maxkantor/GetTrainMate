@@ -134,6 +134,64 @@ public class AdminDiscoverController : ControllerBase
         return Ok(new { success = true });
     }
 
+    /// <summary>Clear SKIPPED user-interactions + discover-pass rows for this viewer.</summary>
+    [HttpPost("users/{userId}/reset-skipped")]
+    public async Task<ActionResult<AdminDiscoverResetResult>> ResetUserSkipped(string userId, CancellationToken cancellationToken)
+    {
+        var admin = GetAdminIdentity();
+        var r = await _matchService.AdminResetUserSkippedAsync(userId, cancellationToken);
+        await _auditLogService.LogActionAsync(admin, "RESET_SKIPPED", "user", userId, after: r);
+        return Ok(r);
+    }
+
+    /// <summary>Remove outgoing SENT and MATCHED interaction rows for this user (Sent / Match lists clear).</summary>
+    [HttpPost("users/{userId}/reset-sent")]
+    public async Task<ActionResult<AdminDiscoverResetResult>> ResetUserSent(string userId, CancellationToken cancellationToken)
+    {
+        var admin = GetAdminIdentity();
+        var r = await _matchService.AdminResetUserOutgoingSentAsync(userId, cancellationToken);
+        await _auditLogService.LogActionAsync(admin, "RESET_SENT", "user", userId, after: r);
+        return Ok(r);
+    }
+
+    /// <summary>
+    /// Full discover reset: all outgoing + incoming interaction rows for this user, discover passes, optional matches/chats.
+    /// </summary>
+    [HttpPost("users/{userId}/reset-discover-state")]
+    public async Task<ActionResult<AdminDiscoverResetResult>> ResetUserDiscoverState(
+        string userId,
+        [FromBody] ResetDiscoverStateRequest? body,
+        CancellationToken cancellationToken)
+    {
+        var admin = GetAdminIdentity();
+        var removeMatches = body?.RemoveMatchesAndChats == true;
+        var r = await _matchService.AdminResetUserDiscoverStateAsync(userId, removeMatches, cancellationToken);
+        await _auditLogService.LogActionAsync(
+            admin,
+            removeMatches ? "RESET_DISCOVER_STATE_WITH_MATCHES" : "RESET_DISCOVER_STATE",
+            "user",
+            userId,
+            after: r);
+        return Ok(r);
+    }
+
+    /// <summary>
+    /// Rebuilds <c>gettrainmate-user-interactions</c> from matches + discover-passes (repair after migration or bad data).
+    /// </summary>
+    [HttpPost("rebuild-user-interactions")]
+    public async Task<ActionResult<object>> RebuildUserInteractions(CancellationToken cancellationToken)
+    {
+        var admin = GetAdminIdentity();
+        var updated = await _matchService.RebuildUserInteractionsFromLegacyAsync(cancellationToken);
+        await _auditLogService.LogActionAsync(
+            admin,
+            "discover.rebuild_user_interactions",
+            "discover",
+            "rebuild",
+            after: new { updated });
+        return Ok(new { success = true, updated });
+    }
+
     private async Task<ActionResult<object>> SetProfileStatus(string profileUserId, string status, string auditAction)
     {
         try
@@ -156,4 +214,10 @@ public class AdminDiscoverController : ControllerBase
             return StatusCode(500, new { message = "Failed updating discover status" });
         }
     }
+}
+
+public class ResetDiscoverStateRequest
+{
+    /// <summary>Also delete matches + chat threads/messages involving this user (destructive).</summary>
+    public bool RemoveMatchesAndChats { get; set; }
 }

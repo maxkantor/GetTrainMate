@@ -55,7 +55,7 @@ export const DashboardPage: React.FC = () => {
         recentActivity: [],
       });
     } catch (err: any) {
-      const status = err?.response?.status;
+      const status = err?.status ?? err?.response?.status;
       const msg = err?.message ?? '';
       if (status === 403 || /forbidden/i.test(msg)) {
         setError('FORBIDDEN');

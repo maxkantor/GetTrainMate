@@ -170,6 +170,7 @@ public class Startup
         app.UseRouting();
 
         app.UseMiddleware<CognitoAuthMiddleware>();
+        app.UseMiddleware<AdminTokenAuthMiddleware>();
         app.UseAuthorization();
         app.UseMiddleware<AdminAuthorizationMiddleware>();
 

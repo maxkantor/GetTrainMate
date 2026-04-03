@@ -1,69 +1,48 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { Alert, Snackbar } from '@mui/material';
+import { Alert, Box, CircularProgress, Snackbar } from '@mui/material';
 import { adminApiService } from '@/services/adminApiService';
 
-const SESSION_STORAGE_KEY = 'admin_session';
-
-interface AdminRouteProps {
-  // No props needed - uses Outlet pattern
-}
-
 /**
- * Admin route guard that checks for valid admin session
- * Uses SSM-based password authentication with cached sessions
+ * Requires a valid admin password session (X-Admin-Token).
+ * Does not treat Cognito app login as admin access.
  */
-export const AdminRoute: React.FC<AdminRouteProps> = () => {
+export const AdminRoute: React.FC = () => {
   const location = useLocation();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     const checkAdminSession = async () => {
+      setError(null);
       try {
-        const sessionData = localStorage.getItem(SESSION_STORAGE_KEY);
-        
-        if (!sessionData) {
+        await adminApiService.get('/api/admin/auth/session');
+        if (!cancelled) setIsAdmin(true);
+      } catch (err: unknown) {
+        if (!cancelled) {
           setIsAdmin(false);
-          return;
+          const msg = err instanceof Error ? err.message : 'Please sign in';
+          if (!/session required/i.test(msg)) setError(msg);
         }
-
-        const session = JSON.parse(sessionData);
-        
-        // Check if session is expired
-        if (new Date(session.expiresAt) <= new Date()) {
-          localStorage.removeItem(SESSION_STORAGE_KEY);
-          setIsAdmin(false);
-          return;
-        }
-
-        // Validate session with backend
-        try {
-          await adminApiService.post('/api/admin/login/validate-session', {
-            sessionToken: session.sessionToken,
-            email: session.email,
-          });
-          
-          setIsAdmin(true);
-        } catch (err) {
-          // Session invalid
-          localStorage.removeItem(SESSION_STORAGE_KEY);
-          setIsAdmin(false);
-          setError('Session expired. Please login again.');
-        }
-      } catch (err) {
-        console.error('Error checking admin session:', err);
-        setIsAdmin(false);
-        setError('Error checking admin access');
       }
     };
 
-    checkAdminSession();
-  }, []);
+    setIsAdmin(null);
+    void checkAdminSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname]);
 
   if (isAdmin === null) {
-    // Still checking
-    return <div>Checking admin access...</div>;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
   if (!isAdmin) {
@@ -77,7 +56,7 @@ export const AdminRoute: React.FC<AdminRouteProps> = () => {
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
           <Alert severity="error" onClose={() => setError(null)}>
-            {error || 'Please login to access the admin portal'}
+            {error || 'Please sign in to access the admin portal'}
           </Alert>
         </Snackbar>
       </>

@@ -36,9 +36,8 @@ public class AdminAuthorizationMiddleware
             return;
         }
 
-        // Skip /api/admin/login
-        if (context.Request.Path.StartsWithSegments("/api/admin/login") && 
-            context.Request.Method == "POST")
+        // Anonymous: password login + validate-session under /api/admin/login
+        if (context.Request.Path.StartsWithSegments("/api/admin/login"))
         {
             await _next(context);
             return;

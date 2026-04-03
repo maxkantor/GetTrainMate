@@ -441,6 +441,16 @@ export class GetTrainMateStack extends cdk.Stack {
     });
     tables.push(discoverPassesTable);
 
+    // One row per (viewer, target): SKIPPED | SENT | MATCHED — single source of truth for Sent / Skipped / Match lists
+    const userInteractionsTable = new dynamodb.Table(this, 'UserInteractionsTable', {
+      tableName: 'gettrainmate-user-interactions',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'targetUserId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+    });
+    tables.push(userInteractionsTable);
+
     return tables;
   }
 

@@ -1,4 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography as MuiTypography,
+} from '@mui/material';
 import { adminApiService } from '@/services/adminApiService';
 import { AdminNoAccessPage } from './AdminNoAccess';
 import { DataTable, Column } from '@/components/ui/DataTable';
@@ -44,6 +51,10 @@ export const UsersPage: React.FC = () => {
   const [grantLoading, setGrantLoading] = useState(false);
   const [discoverLifecycle, setDiscoverLifecycle] = useState<DiscoverLifecycleFlags | null>(null);
   const [discoverLifecycleLoading, setDiscoverLifecycleLoading] = useState(false);
+  const [confirmReset, setConfirmReset] = useState<
+    null | 'skipped' | 'sent' | 'discover' | 'discoverMatches'
+  >(null);
+  const [resetBusy, setResetBusy] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -61,7 +72,7 @@ export const UsersPage: React.FC = () => {
       setUsers(response.items || []);
       setTotalPages(response.totalPages || 1);
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
+      const status = (err as Error & { status?: number })?.status;
       const msg = (err as Error)?.message ?? '';
       if (status === 403 || /forbidden/i.test(msg)) {
         setError('FORBIDDEN');
@@ -169,6 +180,27 @@ export const UsersPage: React.FC = () => {
       setError((err as Error)?.message || 'Failed to grant credits');
     } finally {
       setGrantLoading(false);
+    }
+  };
+
+  const errStatus = (err: unknown) => (err as Error & { status?: number })?.status;
+
+  const runReset = async (path: string, body?: Record<string, unknown>) => {
+    if (!detailUser) return;
+    setResetBusy(true);
+    setError(null);
+    try {
+      await adminApiService.post(
+        `/api/admin/discover/users/${encodeURIComponent(detailUser.userId)}/${path}`,
+        body
+      );
+      setConfirmReset(null);
+      await loadUsers();
+    } catch (err: unknown) {
+      if (errStatus(err) === 403) setError('FORBIDDEN');
+      else setError((err as Error)?.message || 'Reset failed');
+    } finally {
+      setResetBusy(false);
     }
   };
 
@@ -339,6 +371,49 @@ export const UsersPage: React.FC = () => {
                 <p className={styles.lifecycleHint}>Could not load lifecycle flags (check admin auth).</p>
               )}
             </div>
+
+            <div className={styles.resetSection}>
+              <h3 className={styles.lifecycleTitle}>Discover & relationship reset</h3>
+              <p className={styles.lifecycleHint}>
+                Clears stored interaction state for this user. Does not remove profile or credits unless you use the
+                advanced option (matches/chats).
+              </p>
+              <div className={styles.resetActions}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!detailUser || resetBusy}
+                  onClick={() => setConfirmReset('skipped')}
+                >
+                  Reset skipped
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!detailUser || resetBusy}
+                  onClick={() => setConfirmReset('sent')}
+                >
+                  Reset sent / liked
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!detailUser || resetBusy}
+                  onClick={() => setConfirmReset('discover')}
+                >
+                  Reset discover state
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!detailUser || resetBusy}
+                  onClick={() => setConfirmReset('discoverMatches')}
+                >
+                  Reset discover + matches/chats
+                </Button>
+              </div>
+            </div>
+
             <div className={styles.detailActions}>
               <div className={styles.grantRow}>
                 <label className={styles.grantLabel} htmlFor="grant-credits">
@@ -387,6 +462,55 @@ export const UsersPage: React.FC = () => {
         )}
       </aside>
       {detailOpen && <div className={styles.backdrop} onClick={() => setDetailOpen(false)} aria-hidden />}
+
+      <Dialog open={confirmReset !== null} onClose={() => !resetBusy && setConfirmReset(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Confirm reset</DialogTitle>
+        <DialogContent>
+          {confirmReset === 'skipped' && (
+            <MuiTypography variant="body2">
+              Remove all <strong>skipped</strong> interaction records for this user? Their Skipped list will be empty.
+            </MuiTypography>
+          )}
+          {confirmReset === 'sent' && (
+            <MuiTypography variant="body2">
+              Remove <strong>sent</strong> and <strong>matched</strong> outgoing interaction rows? Sent Requests and
+              Matches (from interactions) will clear for this user. Match rows in the database are unchanged.
+            </MuiTypography>
+          )}
+          {confirmReset === 'discover' && (
+            <MuiTypography variant="body2">
+              Full <strong>discover state</strong> reset: all interaction rows for this user (both directions),
+              discover passes, and replay/recycle flags reset. Does <strong>not</strong> delete matches or chats.
+            </MuiTypography>
+          )}
+          {confirmReset === 'discoverMatches' && (
+            <MuiTypography variant="body2" color="error">
+              <strong>Destructive:</strong> Same as reset discover state, plus deletes <strong>matches</strong>,{' '}
+              <strong>chat threads</strong>, and <strong>messages</strong> involving this user. Use only for support /
+              abuse recovery.
+            </MuiTypography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <button type="button" className={styles.dialogBtn} onClick={() => setConfirmReset(null)} disabled={resetBusy}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.dialogBtnPrimary}
+            disabled={resetBusy}
+            onClick={() => {
+              if (confirmReset === 'skipped') void runReset('reset-skipped');
+              else if (confirmReset === 'sent') void runReset('reset-sent');
+              else if (confirmReset === 'discover') void runReset('reset-discover-state', { removeMatchesAndChats: false });
+              else if (confirmReset === 'discoverMatches')
+                void runReset('reset-discover-state', { removeMatchesAndChats: true });
+            }}
+          >
+            {resetBusy ? 'Working…' : 'Confirm'}
+          </button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

@@ -32,41 +32,58 @@ public class AdminAuthorizationService : IAdminAuthorizationService
 
     public async Task<AdminIdentity?> RequireAdminAsync(HttpContext context)
     {
-        // Extract JWT claims from authenticated user
+        // Password-based admin portal (X-Admin-Token → ClaimsIdentity AuthenticationType AdminToken)
+        if (string.Equals(context.User.Identity?.AuthenticationType, "AdminToken", StringComparison.Ordinal))
+        {
+            var sub = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? context.User.FindFirst("sub")?.Value;
+            var email = context.User.FindFirst(ClaimTypes.Email)?.Value
+                ?? context.User.FindFirst("email")?.Value;
+            if (string.IsNullOrEmpty(sub))
+            {
+                _logger.LogWarning("Admin token identity missing sub");
+                throw new UnauthorizedAccessException("Invalid admin session");
+            }
+            return new AdminIdentity
+            {
+                Sub = sub,
+                CognitoUsername = null,
+                Email = email
+            };
+        }
+
+        // Cognito access token + allowlist (legacy / staff-only access)
         if (!context.User.Identity?.IsAuthenticated ?? true)
         {
             _logger.LogWarning("User not authenticated for admin route");
             throw new UnauthorizedAccessException("Authentication required");
         }
 
-        // Extract claims
-        var sub = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+        var sub2 = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
             ?? context.User.FindFirst("sub")?.Value;
         var cognitoUsername = context.User.FindFirst("cognito:username")?.Value;
-        var email = context.User.FindFirst(ClaimTypes.Email)?.Value 
+        var email2 = context.User.FindFirst(ClaimTypes.Email)?.Value 
             ?? context.User.FindFirst("email")?.Value;
 
-        if (string.IsNullOrEmpty(sub))
+        if (string.IsNullOrEmpty(sub2))
         {
             _logger.LogWarning("JWT missing 'sub' claim");
             throw new UnauthorizedAccessException("Invalid JWT: missing 'sub' claim");
         }
 
-        // Check allowlist
-        if (!IsInAllowlist(sub, cognitoUsername, email))
+        if (!IsInAllowlist(sub2, cognitoUsername, email2))
         {
             _logger.LogWarning(
                 "User not in admin allowlist - Sub: {Sub}, Username: {Username}, Email: {Email}",
-                sub, cognitoUsername, email);
+                sub2, cognitoUsername, email2);
             return null;
         }
 
-        // Return admin identity for audit logging
         return new AdminIdentity
         {
-            Sub = sub,
+            Sub = sub2,
             CognitoUsername = cognitoUsername,
-            Email = email
+            Email = email2
         };
     }
 

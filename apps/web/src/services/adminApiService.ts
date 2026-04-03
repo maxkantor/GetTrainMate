@@ -1,29 +1,16 @@
-import { fetchAuthSession } from 'aws-amplify/auth';
-
 import { API_BASE_URL } from '@/config/api';
-
-const ADMIN_TOKEN_KEY = 'adminToken';
+import { getAdminToken } from '@/services/adminAuthStorage';
 
 class AdminApiService {
-  private async getAuthHeaders(): Promise<HeadersInit> {
-    const adminToken = localStorage.getItem(ADMIN_TOKEN_KEY);
-    if (adminToken) {
-      return {
-        'X-Admin-Token': adminToken,
-        'Content-Type': 'application/json',
-      };
+  private getAuthHeaders(): HeadersInit {
+    const token = getAdminToken();
+    if (!token) {
+      throw new Error('Admin session required. Please sign in at /admin/login.');
     }
-
-    const session = await fetchAuthSession();
-    const token = session.tokens?.accessToken?.toString();
-    if (token) {
-      return {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      };
-    }
-
-    throw new Error('No admin or auth token found. Please log in.');
+    return {
+      'X-Admin-Token': token,
+      'Content-Type': 'application/json',
+    };
   }
 
   private async parseResponse(response: Response): Promise<any> {
@@ -36,8 +23,18 @@ class AdminApiService {
     }
   }
 
+  private attachStatusError(response: Response, data: any, fallback: string): Error {
+    const msg =
+      (typeof data?.error === 'string' && data.error) ||
+      (typeof data?.message === 'string' && data.message) ||
+      fallback;
+    const err = new Error(msg) as Error & { status?: number };
+    err.status = response.status;
+    return err;
+  }
+
   async get(endpoint: string): Promise<any> {
-    const headers = await this.getAuthHeaders();
+    const headers = this.getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'GET',
       headers,
@@ -46,23 +43,24 @@ class AdminApiService {
     const data = await this.parseResponse(response);
 
     if (!response.ok) {
-      const error = data?.error ?? data?.message ?? 'Request failed';
-      throw new Error(typeof error === 'string' ? error : `HTTP ${response.status}`);
+      throw this.attachStatusError(response, data, `HTTP ${response.status}`);
     }
 
     return data;
   }
 
+  /**
+   * @param skipAuth only for unauthenticated endpoints: POST /api/admin/login, POST /api/admin/login/validate-session
+   */
   async post(endpoint: string, data?: any, skipAuth: boolean = false): Promise<any> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
-    
+
     if (!skipAuth) {
-      const authHeaders = await this.getAuthHeaders();
-      Object.assign(headers, authHeaders);
+      Object.assign(headers, this.getAuthHeaders());
     }
-    
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers,
@@ -72,15 +70,14 @@ class AdminApiService {
     const parsed = await this.parseResponse(response);
 
     if (!response.ok) {
-      const error = parsed?.error ?? parsed?.message ?? 'Request failed';
-      throw new Error(typeof error === 'string' ? error : `HTTP ${response.status}`);
+      throw this.attachStatusError(response, parsed, `HTTP ${response.status}`);
     }
 
     return parsed;
   }
 
   async put(endpoint: string, data?: any): Promise<any> {
-    const headers = await this.getAuthHeaders();
+    const headers = this.getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PUT',
       headers,
@@ -90,15 +87,14 @@ class AdminApiService {
     const parsed = await this.parseResponse(response);
 
     if (!response.ok) {
-      const error = parsed?.error ?? parsed?.message ?? 'Request failed';
-      throw new Error(typeof error === 'string' ? error : `HTTP ${response.status}`);
+      throw this.attachStatusError(response, parsed, `HTTP ${response.status}`);
     }
 
     return parsed;
   }
 
   async delete(endpoint: string, data?: any): Promise<any> {
-    const headers = await this.getAuthHeaders();
+    const headers = this.getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'DELETE',
       headers,
@@ -108,8 +104,7 @@ class AdminApiService {
     const parsed = await this.parseResponse(response);
 
     if (!response.ok) {
-      const error = parsed?.error ?? parsed?.message ?? 'Request failed';
-      throw new Error(typeof error === 'string' ? error : `HTTP ${response.status}`);
+      throw this.attachStatusError(response, parsed, `HTTP ${response.status}`);
     }
 
     return parsed;

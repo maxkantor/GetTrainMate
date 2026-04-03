@@ -239,3 +239,44 @@
   background: rgba(0, 0, 0, 0.3);
   z-index: calc(var(--z-modal) - 1);
 }
+
+.resetSection {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-neutral-200);
+}
+
+.resetActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dialogBtn {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-neutral-300);
+  background: #fff;
+  cursor: pointer;
+  font-size: var(--font-sm);
+}
+
+.dialogBtn:hover:not(:disabled) {
+  background: var(--color-neutral-50);
+}
+
+.dialogBtnPrimary {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-weight: var(--font-semibold);
+}
+
+.dialogBtnPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
