@@ -21,23 +21,28 @@ function isAppRoute(pathname: string): boolean {
   return pathname.startsWith('/app');
 }
 
+/** Admin CRM uses its own AppBar + sidebar; skip global marketing header/footer. */
+function isAdminRoute(pathname: string): boolean {
+  return pathname.startsWith('/admin');
+}
+
 /** True when on landing page (hero full-bleed, immersive nav). */
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { pathname } = useLocation();
   const isApp = isAppRoute(pathname);
+  const isAdmin = isAdminRoute(pathname);
   const { user } = useAuthContext();
 
   return (
     <div className={styles.wrapper}>
       <ChatPresenceProvider>
-        {user && isApp && <AppActivityHeartbeat />}
-        <AppHeader />
-        <main className={isApp ? styles.mainApp : styles.main}>
-          {isApp ? <div className={styles.appContainer}>{children}</div> : children}
+        {user && isApp && !isAdmin && <AppActivityHeartbeat />}
+        {!isAdmin && <AppHeader />}
+        <main className={isApp && !isAdmin ? styles.mainApp : styles.main}>
+          {isApp && !isAdmin ? <div className={styles.appContainer}>{children}</div> : children}
         </main>
       </ChatPresenceProvider>
-      {/* Footer on all routes; brand logo → / when logged out, /app when logged in */}
-      <Footer />
+      {!isAdmin && <Footer />}
     </div>
   );
 };

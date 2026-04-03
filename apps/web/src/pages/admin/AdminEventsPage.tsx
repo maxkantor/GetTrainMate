@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminApiService } from '@/services/adminApiService';
+import { pickPagedItems } from '@/utils/adminApiNormalize';
 import { AdminNoAccessPage } from './AdminNoAccess';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import styles from './AdminPlaceholderPage.module.css';
@@ -23,7 +24,7 @@ export const AdminEventsPage: React.FC = () => {
     setError(null);
     try {
       const res = await adminApiService.get('/api/admin/events?page=1&pageSize=50');
-      const raw = (res.items || []) as Omit<EventRow, 'rowKey'>[];
+      const raw = pickPagedItems<Omit<EventRow, 'rowKey'>>(res);
       setItems(
         raw.map((r, i) => ({
           ...r,

@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import { adminApiService } from '@/services/adminApiService';
+import { pickPagedItems } from '@/utils/adminApiNormalize';
 
 interface Contact {
   contactId: string;
@@ -62,7 +63,7 @@ export const ContactsPage: React.FC = () => {
     setError(null);
     try {
       const data = await adminApiService.get('/api/admin/contacts?page=1&pageSize=50');
-      setContacts(data.items || []);
+      setContacts(pickPagedItems<Contact>(data));
     } catch (err: any) {
       setError(err.message || 'Failed to load contacts');
     } finally {

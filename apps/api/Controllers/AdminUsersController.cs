@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
+using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
+using Amazon.DynamoDBv2.DocumentModel;
 using System.Security.Claims;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,19 +16,29 @@ namespace GetTrainMate.Api.Controllers;
 public class AdminUsersController : ControllerBase
 {
     private readonly IDynamoDBContext _context;
+    private readonly IAmazonDynamoDB _dynamoDb;
     private readonly IAuditLogService _auditLogService;
     private readonly IProfileService _profileService;
+    private readonly ICreditsService _creditsService;
+    private readonly string _profilesTableName;
     private readonly ILogger<AdminUsersController> _logger;
 
     public AdminUsersController(
         IDynamoDBContext context,
+        IAmazonDynamoDB dynamoDb,
         IAuditLogService auditLogService,
         IProfileService profileService,
+        ICreditsService creditsService,
+        IConfiguration configuration,
         ILogger<AdminUsersController> logger)
     {
         _context = context;
+        _dynamoDb = dynamoDb;
         _auditLogService = auditLogService;
         _profileService = profileService;
+        _creditsService = creditsService;
+        var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
+        _profilesTableName = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
         _logger = logger;
     }
 
@@ -64,15 +76,53 @@ public class AdminUsersController : ControllerBase
     {
         try
         {
-            // TODO: Implement user listing with DynamoDB query/scan
-            // For now, return placeholder
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 200);
+
+            var table = Table.LoadTable(_dynamoDb, _profilesTableName);
+            var scan = table.Scan(new ScanOperationConfig());
+            var all = new List<Document>();
+            do
+            {
+                var batch = await scan.GetNextSetAsync();
+                all.AddRange(batch);
+            } while (!scan.IsDone);
+
+            var q = search?.Trim().ToLowerInvariant();
+            IEnumerable<UserListItem> rows = all.Select(MapDocumentToListItem).Where(x => x.UserId.Length > 0);
+
+            if (!string.IsNullOrEmpty(q))
+            {
+                rows = rows.Where(x =>
+                    (x.Email?.ToLowerInvariant().Contains(q) ?? false) ||
+                    (x.Name?.ToLowerInvariant().Contains(q) ?? false) ||
+                    (x.UserId?.ToLowerInvariant().Contains(q) ?? false) ||
+                    (x.City?.ToLowerInvariant().Contains(q) ?? false));
+            }
+
+            if (!string.IsNullOrEmpty(status) && !string.Equals(status, "all", StringComparison.OrdinalIgnoreCase))
+                rows = rows.Where(x => string.Equals(x.Status, status, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrEmpty(plan) && !string.Equals(plan, "all", StringComparison.OrdinalIgnoreCase))
+                rows = rows.Where(x => string.Equals(x.Plan ?? "free", plan, StringComparison.OrdinalIgnoreCase));
+
+            var list = rows.ToList();
+            if (string.Equals(sort ?? "createdAt", "createdAt", StringComparison.OrdinalIgnoreCase))
+                list = list.OrderByDescending(x => x.CreatedAt).ToList();
+            else
+                list = list.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();
+
+            var totalCount = list.Count;
+            var totalPages = totalCount == 0 ? 1 : (int)Math.Ceiling(totalCount / (double)pageSize);
+            var slice = list.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
             return Ok(new PagedResponse<UserListItem>
             {
-                Items = new List<UserListItem>(),
+                Items = slice,
                 Page = page,
                 PageSize = pageSize,
-                TotalCount = 0,
-                TotalPages = 0
+                TotalCount = totalCount,
+                TotalPages = totalPages
             });
         }
         catch (Exception ex)
@@ -80,6 +130,25 @@ public class AdminUsersController : ControllerBase
             _logger.LogError(ex, "Error listing users");
             return StatusCode(500, new { error = "Failed to list users" });
         }
+    }
+
+    private static UserListItem MapDocumentToListItem(Document doc)
+    {
+        var uid = doc.ContainsKey("userId") ? doc["userId"].AsString() : "";
+        var created = DateTime.UtcNow;
+        if (doc.ContainsKey("createdAt") && DateTime.TryParse(doc["createdAt"].AsString(), out var ca))
+            created = ca;
+        return new UserListItem
+        {
+            UserId = uid,
+            Email = doc.ContainsKey("email") ? doc["email"].AsString() : "",
+            Name = doc.ContainsKey("name") ? doc["name"].AsString() : "",
+            Status = "active",
+            Plan = "free",
+            City = doc.ContainsKey("city") ? doc["city"].AsString() : null,
+            State = doc.ContainsKey("state") ? doc["state"].AsString() : null,
+            CreatedAt = created
+        };
     }
 
     /// <summary>
@@ -91,8 +160,26 @@ public class AdminUsersController : ControllerBase
     {
         try
         {
-            // TODO: Implement user detail retrieval
-            return NotFound(new { error = "User not found" });
+            var profile = await _profileService.GetProfileAsync(userId);
+            if (profile == null)
+                return NotFound(new { error = "User not found" });
+
+            var credits = await _creditsService.GetCreditsBalanceAsync(userId);
+
+            return Ok(new UserDetail
+            {
+                UserId = profile.UserId,
+                Email = profile.Email,
+                Name = profile.Name,
+                Status = "active",
+                Plan = "free",
+                City = profile.City,
+                State = profile.State,
+                CreatedAt = profile.CreatedAt,
+                Credits = credits.Balance,
+                LifetimeEarned = credits.LifetimeEarned,
+                UnlimitedDiscovery = credits.UnlimitedDiscovery
+            });
         }
         catch (Exception ex)
         {
@@ -258,6 +345,8 @@ public class UserListItem
     public string Name { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string? Plan { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -268,8 +357,12 @@ public class UserDetail
     public string Name { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string? Plan { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
     public DateTime CreatedAt { get; set; }
-    // Add more fields as needed
+    public int Credits { get; set; }
+    public int LifetimeEarned { get; set; }
+    public bool UnlimitedDiscovery { get; set; }
 }
 
 public class BanUserRequest

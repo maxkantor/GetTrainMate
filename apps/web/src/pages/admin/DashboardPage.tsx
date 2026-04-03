@@ -14,6 +14,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import EventIcon from '@mui/icons-material/Event';
 import PaymentIcon from '@mui/icons-material/Payment';
 import { adminApiService } from '@/services/adminApiService';
+import { normalizeAdminMetrics } from '@/utils/adminApiNormalize';
 
 interface Metrics {
   totalUsers: number;
@@ -24,6 +25,7 @@ interface Metrics {
   totalEvents: number;
   premiumSubscriptions: number;
   revenue: number;
+  orders7d: number;
   recentActivity: Array<{
     type: string;
     description: string;
@@ -43,16 +45,18 @@ export const DashboardPage: React.FC = () => {
   const loadMetrics = async () => {
     try {
       const data = await adminApiService.get('/api/admin/metrics?range=7d');
-      setMetrics(data ?? {
-        totalUsers: 0,
-        activeUsers: 0,
-        newUsers: 0,
-        totalMatches: 0,
-        totalMessages: 0,
-        totalEvents: 0,
-        premiumSubscriptions: 0,
-        revenue: 0,
-        recentActivity: [],
+      const n = normalizeAdminMetrics(data);
+      setMetrics({
+        totalUsers: n.totalUsers,
+        activeUsers: n.activeUsers,
+        newUsers: n.newUsers,
+        totalMatches: n.totalMatches,
+        totalMessages: n.totalMessages,
+        totalEvents: n.totalEvents,
+        premiumSubscriptions: n.premiumSubscriptions,
+        revenue: n.revenue,
+        recentActivity: n.recentActivity,
+        orders7d: n.orders7d,
       });
     } catch (err: any) {
       const status = err?.status ?? err?.response?.status;
@@ -84,7 +88,7 @@ export const DashboardPage: React.FC = () => {
 
   const statCards = [
     { title: 'Revenue (MTD)', value: `$${(metrics?.revenue ?? 0).toLocaleString()}`, icon: <PaymentIcon sx={{ fontSize: 40 }} />, color: '#2e7d32' },
-    { title: 'Orders (7d)', value: metrics?.recentActivity?.length ?? 0, icon: <TrendingUpIcon sx={{ fontSize: 40 }} />, color: '#1976d2' },
+    { title: 'Orders (7d)', value: metrics?.orders7d ?? 0, icon: <TrendingUpIcon sx={{ fontSize: 40 }} />, color: '#1976d2' },
     { title: 'New Users', value: metrics?.newUsers ?? 0, icon: <PeopleIcon sx={{ fontSize: 40 }} />, color: '#6366f1' },
     { title: 'Active Users', value: metrics?.activeUsers ?? 0, icon: <PeopleIcon sx={{ fontSize: 40 }} />, color: '#ed6c02' },
     { title: 'Total Matches', value: metrics?.totalMatches ?? 0, icon: <EventIcon sx={{ fontSize: 40 }} />, color: '#9c27b0' },
@@ -123,14 +127,18 @@ export const DashboardPage: React.FC = () => {
           </Typography>
           {metrics?.recentActivity && metrics.recentActivity.length > 0 ? (
             <Box component="ul" sx={{ pl: 2 }}>
-              {metrics.recentActivity.map((activity, index) => (
-                <li key={index}>
-                  <Typography variant="body2">
-                    <strong>{activity.type}:</strong> {activity.description} -{' '}
-                    {new Date(activity.timestamp).toLocaleString()}
-                  </Typography>
-                </li>
-              ))}
+              {metrics.recentActivity.map((activity, index) => {
+                const ts = activity.timestamp;
+                const when =
+                  ts && !Number.isNaN(Date.parse(ts)) ? new Date(ts).toLocaleString() : '—';
+                return (
+                  <li key={index}>
+                    <Typography variant="body2">
+                      <strong>{activity.type || 'event'}:</strong> {activity.description} — {when}
+                    </Typography>
+                  </li>
+                );
+              })}
             </Box>
           ) : (
             <Typography variant="body2" color="textSecondary">

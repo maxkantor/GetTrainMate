@@ -46,7 +46,9 @@ export const AdminMatchesPage: React.FC = () => {
       ]);
       setMetrics(metricsRes as MetricsResponse);
       setControls((controlsRes as DiscoverControls) ?? { ignoreSkippedProfilesInDiscoverForAdmin: false });
-      setProfiles((profilesRes as DiscoverProfileRow[]) ?? []);
+      const pr = profilesRes as unknown;
+      const list = Array.isArray(pr) ? pr : (pr as { items?: DiscoverProfileRow[] })?.items;
+      setProfiles(Array.isArray(list) ? list : []);
     } catch (err: unknown) {
       const msg = (err as Error)?.message ?? '';
       if (/forbidden|403/i.test(msg)) setError('FORBIDDEN');

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminApiService } from '@/services/adminApiService';
+import { pickPagedItems } from '@/utils/adminApiNormalize';
 import { AdminNoAccessPage } from './AdminNoAccess';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import styles from './AdminPlaceholderPage.module.css';
@@ -7,10 +8,12 @@ import styles from './AdminPlaceholderPage.module.css';
 interface AuditRow {
   rowKey: string;
   id?: string;
+  logId?: string;
   action?: string;
   targetType?: string;
   targetId?: string;
   createdAt?: string;
+  timestamp?: string;
   adminEmail?: string;
 }
 
@@ -24,11 +27,11 @@ export const AdminAuditPage: React.FC = () => {
     setError(null);
     try {
       const res = await adminApiService.get('/api/admin/audit?page=1&pageSize=50');
-      const raw = (res.items || []) as Omit<AuditRow, 'rowKey'>[];
+      const raw = pickPagedItems<Omit<AuditRow, 'rowKey'>>(res);
       setItems(
         raw.map((r, i) => ({
           ...r,
-          rowKey: r.id || `audit-${i}`,
+          rowKey: r.id || r.logId || `audit-${i}`,
         }))
       );
     } catch (err: unknown) {
@@ -52,7 +55,10 @@ export const AdminAuditPage: React.FC = () => {
     {
       key: 'createdAt',
       header: 'When',
-      render: (r) => (r.createdAt ? new Date(r.createdAt).toLocaleString() : '—'),
+      render: (r) => {
+        const t = r.createdAt || r.timestamp;
+        return t ? new Date(t).toLocaleString() : '—';
+      },
     },
   ];
 
@@ -76,7 +82,7 @@ export const AdminAuditPage: React.FC = () => {
         columns={columns}
         data={items}
         keyField="rowKey"
-        emptyMessage="No audit entries in this page range."
+        emptyMessage="No audit events recorded yet."
         loading={loading}
       />
     </div>

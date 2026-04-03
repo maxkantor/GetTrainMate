@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminApiService } from '@/services/adminApiService';
+import { pickPagedItems } from '@/utils/adminApiNormalize';
 import { AdminNoAccessPage } from './AdminNoAccess';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import styles from './AdminPlaceholderPage.module.css';
@@ -16,7 +17,7 @@ interface SubRow {
 
 export const AdminStripePage: React.FC = () => {
   const [items, setItems] = useState<SubRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
@@ -26,7 +27,7 @@ export const AdminStripePage: React.FC = () => {
     setError(null);
     try {
       const res = await adminApiService.get('/api/admin/stripe/subscriptions?page=1&pageSize=50');
-      const raw = (res.items || []) as Omit<SubRow, 'rowKey'>[];
+      const raw = pickPagedItems<Omit<SubRow, 'rowKey'>>(res);
       setItems(
         raw.map((r, i) => ({
           ...r,

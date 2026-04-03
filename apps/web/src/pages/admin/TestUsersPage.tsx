@@ -16,9 +16,13 @@ export const TestUsersPage: React.FC = () => {
   if (!isDev) {
     return (
       <Container maxWidth="sm" sx={{ py: 6 }}>
-        <Alert severity="info">
-          Test Users tool is only available in development.
+        <Alert severity="info" sx={{ mb: 2 }}>
+          The Test Users helper (sample accounts and passwords) is only enabled in local development builds.
         </Alert>
+        <Typography variant="body2" color="text.secondary">
+          In production, use <strong>Users CRM</strong> to inspect real accounts, or create test users through normal signup
+          in a staging environment.
+        </Typography>
       </Container>
     );
   }

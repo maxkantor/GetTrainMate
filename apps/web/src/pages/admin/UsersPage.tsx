@@ -7,6 +7,7 @@ import {
   Typography as MuiTypography,
 } from '@mui/material';
 import { adminApiService } from '@/services/adminApiService';
+import { pickPagedItems, pickPagedMeta, normalizeAdminUserRow, normalizeAdminUserDetail } from '@/utils/adminApiNormalize';
 import { AdminNoAccessPage } from './AdminNoAccess';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
@@ -21,7 +22,10 @@ interface User {
   plan?: string;
   createdAt: string;
   city?: string;
+  state?: string;
   credits?: number;
+  lifetimeEarned?: number;
+  unlimitedDiscovery?: boolean;
 }
 
 /** Mirrors API DiscoverLifecycleDto (camelCase JSON). */
@@ -35,7 +39,7 @@ interface DiscoverLifecycleFlags {
 
 export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [planFilter, setPlanFilter] = useState('');
@@ -69,8 +73,9 @@ export const UsersPage: React.FC = () => {
       if (planFilter) params.append('plan', planFilter);
 
       const response = await adminApiService.get(`/api/admin/users?${params}`);
-      setUsers(response.items || []);
-      setTotalPages(response.totalPages || 1);
+      const rows = pickPagedItems<Record<string, unknown>>(response).map((r) => normalizeAdminUserRow(r));
+      setUsers(rows);
+      setTotalPages(pickPagedMeta(response).totalPages);
     } catch (err: unknown) {
       const status = (err as Error & { status?: number })?.status;
       const msg = (err as Error)?.message ?? '';
@@ -95,7 +100,7 @@ export const UsersPage: React.FC = () => {
     setDiscoverLifecycle(null);
     try {
       const user = await adminApiService.get(`/api/admin/users/${row.userId}`);
-      setDetailUser(user);
+      setDetailUser({ ...row, ...normalizeAdminUserDetail(user) });
     } catch {
       setDetailUser(row);
     } finally {
@@ -225,15 +230,27 @@ export const UsersPage: React.FC = () => {
   };
 
   const columns: Column<User>[] = [
-    { key: 'userId', header: 'User ID', render: (r) => <span className={styles.mono}>{r.userId.slice(0, 12)}…</span> },
+    {
+      key: 'userId',
+      header: 'User ID',
+      render: (r) => (
+        <span className={styles.mono}>{(r.userId || '').length > 12 ? `${(r.userId || '').slice(0, 12)}…` : r.userId || '—'}</span>
+      ),
+    },
     { key: 'email', header: 'Email' },
     { key: 'name', header: 'Name' },
+    {
+      key: 'location',
+      header: 'City / State',
+      render: (r) => [r.city, r.state].filter(Boolean).join(', ') || '—',
+    },
     {
       key: 'status',
       header: 'Status',
       render: (r) => <Badge variant={r.status === 'active' ? 'success' : r.status === 'banned' ? 'error' : 'neutral'}>{r.status}</Badge>,
     },
     { key: 'plan', header: 'Plan', render: (r) => r.plan || '—' },
+    { key: 'credits', header: 'Credits', render: (r) => (r.credits != null ? String(r.credits) : '—') },
     { key: 'createdAt', header: 'Created', render: (r) => new Date(r.createdAt).toLocaleDateString() },
   ];
 
@@ -332,6 +349,14 @@ export const UsersPage: React.FC = () => {
               <dd><Badge variant={detailUser.status === 'active' ? 'success' : detailUser.status === 'banned' ? 'error' : 'neutral'}>{detailUser.status}</Badge></dd>
               <dt>Plan</dt>
               <dd>{detailUser.plan || '—'}</dd>
+              <dt>City / State</dt>
+              <dd>{[detailUser.city, detailUser.state].filter(Boolean).join(', ') || '—'}</dd>
+              <dt>Credits</dt>
+              <dd>
+                {detailUser.credits ?? '—'}
+                {detailUser.lifetimeEarned != null ? ` (lifetime ${detailUser.lifetimeEarned})` : ''}
+                {detailUser.unlimitedDiscovery ? ' · Unlimited discovery' : ''}
+              </dd>
               <dt>Created</dt>
               <dd>{new Date(detailUser.createdAt).toLocaleString()}</dd>
             </dl>

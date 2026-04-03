@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminApiService } from '@/services/adminApiService';
+import { pickPagedItems } from '@/utils/adminApiNormalize';
 import { AdminNoAccessPage } from './AdminNoAccess';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import styles from './AdminPlaceholderPage.module.css';
@@ -15,7 +16,7 @@ interface ChatRow {
 
 export const AdminChatsPage: React.FC = () => {
   const [items, setItems] = useState<ChatRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -23,7 +24,7 @@ export const AdminChatsPage: React.FC = () => {
     setError(null);
     try {
       const res = await adminApiService.get('/api/admin/chats?page=1&pageSize=50');
-      const raw = (res.items || []) as Omit<ChatRow, 'rowKey'>[];
+      const raw = pickPagedItems<Omit<ChatRow, 'rowKey'>>(res);
       setItems(
         raw.map((r, i) => ({
           ...r,

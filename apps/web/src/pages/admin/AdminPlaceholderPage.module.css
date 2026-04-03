@@ -18,12 +18,13 @@
   font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .lead {
   margin: 0 0 20px;
   font-size: 0.95rem;
-  color: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.68);
   line-height: 1.5;
 }
 
@@ -81,14 +82,14 @@
 .metricCard {
   padding: 16px;
   border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: #fafafa;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 18, 30, 0.65);
 }
 
 .metricVal {
   font-size: 1.5rem;
   font-weight: 900;
-  color: #111;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .metricLabel {
@@ -96,5 +97,5 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.55);
 }

@@ -97,9 +97,13 @@ export const AdminLayout: React.FC = () => {
     <Box sx={{ display: 'flex' }}>
       <AppBar
         position="fixed"
+        color="default"
+        elevation={0}
         sx={{
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           ml: { sm: `${drawerWidth}px` },
+          bgcolor: 'rgba(12, 14, 24, 0.92)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
         }}
       >
         <Toolbar>
@@ -138,7 +142,12 @@ export const AdminLayout: React.FC = () => {
           }}
           sx={{
             display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: drawerWidth,
+              bgcolor: 'rgba(10, 12, 22, 0.98)',
+              borderRight: '1px solid rgba(255,255,255,0.08)',
+            },
           }}
         >
           {drawer}
@@ -147,7 +156,12 @@ export const AdminLayout: React.FC = () => {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: drawerWidth,
+              bgcolor: 'rgba(10, 12, 22, 0.98)',
+              borderRight: '1px solid rgba(255,255,255,0.08)',
+            },
           }}
           open
         >
@@ -160,6 +174,8 @@ export const AdminLayout: React.FC = () => {
           flexGrow: 1,
           p: 3,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
+          minHeight: '100vh',
+          bgcolor: 'background.default',
         }}
       >
         <Toolbar />

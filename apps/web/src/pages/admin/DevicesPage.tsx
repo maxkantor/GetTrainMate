@@ -53,7 +53,8 @@ export const DevicesPage: React.FC = () => {
     setError(null);
     try {
       const data = await adminApiService.get(`/api/admin/users/${userId}/devices`);
-      setDevices(data.devices || []);
+      const list = (data?.devices ?? data?.Devices) as Device[] | undefined;
+      setDevices(Array.isArray(list) ? list : []);
     } catch (err: any) {
       setError(err.message || 'Failed to load devices');
     } finally {
