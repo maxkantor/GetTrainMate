@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Alert, CircularProgress, Button } from '@mui/material';
+import { Box, Typography, Alert, CircularProgress, Button, Card, CardContent } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthContext } from '@/hooks/useAuthContext';
@@ -39,7 +39,7 @@ export const SkippedProfilesPage: React.FC = () => {
 
   if (!userSub) {
     return (
-      <Box className={styles.root} py={4}>
+      <Box className={styles.rootWide} py={4}>
         <Typography color="text.secondary">Sign in to view skipped profiles.</Typography>
       </Box>
     );
@@ -47,20 +47,20 @@ export const SkippedProfilesPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Box className={styles.root} display="flex" justifyContent="center" py={6}>
+      <Box className={styles.rootWide} display="flex" justifyContent="center" py={6}>
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <div className={styles.root}>
+    <div className={styles.rootWide}>
       <Typography variant="h5" component="h1" gutterBottom>
         Skipped
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Profiles you passed on in Discover. They stay out of your deck unless an admin enables recycling (then they
-        appear with a &quot;Seen before&quot; label).
+        Last 30 profiles you passed in Discover, newest first. They stay out of your deck unless an admin enables
+        recycling (then they can appear with a &quot;Seen before&quot; label).
       </Typography>
       {error ? (
         <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => refetch()}>Retry</Button>}>
@@ -70,31 +70,43 @@ export const SkippedProfilesPage: React.FC = () => {
       {!error && items.length === 0 ? (
         <Typography color="text.secondary">You have not skipped anyone yet.</Typography>
       ) : !error ? (
-        <ul className={styles.list}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, minmax(0, 1fr))',
+              md: 'repeat(3, minmax(0, 1fr))',
+            },
+            gap: 2,
+          }}
+        >
           {items.map((row) => {
             const photo =
               getMultiplePhotoUrls(row.photoUrls, row.userId, 1, row.name)[0] || NO_PHOTO_PLACEHOLDER;
             const when = row.skippedAt ? new Date(row.skippedAt).toLocaleString() : '';
             return (
-              <li key={row.userId} className={styles.row}>
-                <img src={photo} alt="" className={styles.avatar} />
-                <div className={styles.meta}>
-                  <Link to={`/app/profile/${encodeURIComponent(row.userId)}`} className={styles.nameLink}>
-                    {row.name}
-                  </Link>
-                  {row.city ? (
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      {row.city}
+              <Card key={row.userId} variant="outlined" sx={{ borderRadius: 2, bgcolor: 'background.paper' }}>
+                <CardContent sx={{ display: 'flex', gap: 1.5, p: 2 }}>
+                  <img src={photo} alt="" className={styles.gridAvatar} />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Link to={`/app/profile/${encodeURIComponent(row.userId)}`} className={styles.nameLink}>
+                      {row.name}
+                    </Link>
+                    {row.city ? (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {row.city}
+                      </Typography>
+                    ) : null}
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                      {when}
                     </Typography>
-                  ) : null}
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Skipped {when}
-                  </Typography>
-                </div>
-              </li>
+                  </Box>
+                </CardContent>
+              </Card>
             );
           })}
-        </ul>
+        </Box>
       ) : null}
     </div>
   );

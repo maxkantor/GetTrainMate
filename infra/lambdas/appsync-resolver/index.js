@@ -70,6 +70,9 @@ const tables = {
   chatNotificationState: `${PREFIX}chat-notification-state`,
 };
 
+/** Sent / Skipped list cap (aligned with REST MatchService). */
+const RELATIONSHIP_LIST_LIMIT = 30;
+
 const FREE_START_CREDITS = 3;
 const FREE_START_REASON = 'FREE_START';
 const CREDIT_REASON_LIKE = 'LIKE';
@@ -405,6 +408,7 @@ async function listMySentRequests(identity) {
     const m = unmarshall(raw);
     const iAm1 = m.userId1 === userId;
     const otherId = iAm1 ? m.userId2 : m.userId1;
+    if (otherId === userId) continue;
     const otherProfile = await getProfile(otherId);
     if (!otherProfile) continue;
     const status = m.isMatched ? 'Matched' : 'Pending';
@@ -420,7 +424,7 @@ async function listMySentRequests(identity) {
     });
   }
   items.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
-  return { items };
+  return { items: items.slice(0, RELATIONSHIP_LIST_LIMIT) };
 }
 
 /** Skipped profiles for current user (discover-passes), aligned with REST /api/match/skipped-profiles. */
@@ -450,7 +454,7 @@ async function listMySkipped(identity) {
       const status = row.status || 'skipped';
       if (!isSkipped || restored || String(status).toLowerCase() === 'active') continue;
       const targetUserId = row.targetUserId;
-      if (!targetUserId) continue;
+      if (!targetUserId || targetUserId === userId) continue;
       const skippedAt = row.skippedAt || row.createdAt || new Date().toISOString();
       const p = await getProfile(targetUserId);
       if (!p) continue;
@@ -465,7 +469,7 @@ async function listMySkipped(identity) {
     startKey = res.LastEvaluatedKey;
   } while (startKey);
   out.sort((a, b) => String(b.skippedAt).localeCompare(String(a.skippedAt)));
-  return { items: out };
+  return { items: out.slice(0, RELATIONSHIP_LIST_LIMIT) };
 }
 
 async function getThreadByMatch(identity, args) {

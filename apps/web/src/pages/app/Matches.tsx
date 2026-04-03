@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Button as MuiButton } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
@@ -14,6 +14,7 @@ import { matchQueryKeys } from '@/lib/queryKeys';
 import { fetchMutualMatchRows, type MutualMatchRow } from '@/services/matchExploreQueries';
 import { useNavigate, Link } from 'react-router-dom';
 import { formatLookingForLine } from '@/config/modes';
+import { MATCHES_PAGE_SIZE } from '@/config/relationshipLimits';
 import { UpgradeBanner } from '@/components/discover/UpgradeBanner';
 import { ProfileCardSkeleton } from '@/components/ui/Skeleton';
 import styles from './Matches.module.css';
@@ -55,6 +56,7 @@ export const MatchesPage: React.FC = () => {
   const [unlockError, setUnlockError] = useState('');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('newest');
+  const [visibleCount, setVisibleCount] = useState(MATCHES_PAGE_SIZE);
 
   const filteredAndSorted = useMemo(() => {
     let result = [...matches];
@@ -74,6 +76,16 @@ export const MatchesPage: React.FC = () => {
     }
     return result;
   }, [matches, search, sortBy]);
+
+  useEffect(() => {
+    setVisibleCount(MATCHES_PAGE_SIZE);
+  }, [search, sortBy, matches.length]);
+
+  const displayedMatches = useMemo(
+    () => filteredAndSorted.slice(0, visibleCount),
+    [filteredAndSorted, visibleCount]
+  );
+  const hasMore = filteredAndSorted.length > visibleCount;
 
   const handleUnlockChat = async (m: Match) => {
     if (unlockingMatchId || (me?.credits ?? 0) < 1) return;
@@ -180,7 +192,7 @@ export const MatchesPage: React.FC = () => {
       </div>
 
       <div className={styles.grid}>
-        {filteredAndSorted.map((match) => (
+        {displayedMatches.map((match) => (
           <article key={match.matchId} className={styles.card}>
             {match.photoUrls && match.photoUrls.length > 0 ? (
               <img
@@ -249,6 +261,13 @@ export const MatchesPage: React.FC = () => {
           </article>
         ))}
       </div>
+      {hasMore ? (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+          <MuiButton variant="outlined" onClick={() => setVisibleCount((c) => c + MATCHES_PAGE_SIZE)}>
+            Load more ({filteredAndSorted.length - visibleCount} remaining)
+          </MuiButton>
+        </div>
+      ) : null}
     </div>
   );
 };

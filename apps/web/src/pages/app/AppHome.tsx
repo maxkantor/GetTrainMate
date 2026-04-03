@@ -1,7 +1,15 @@
 import React, { useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Box, Card, CardActionArea, Container, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Card,
+  CardActionArea,
+  Container,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined';
 import FavoriteBorderOutlinedIcon from '@mui/icons-material/FavoriteBorderOutlined';
 import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
@@ -16,7 +24,7 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMatchStatusForHeader } from '@/hooks/useMatchStatusForHeader';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import { matchQueryKeys } from '@/lib/queryKeys';
-import { fetchSentRequestsForUser } from '@/services/matchExploreQueries';
+import { fetchSentRequestsForUser, fetchSkippedProfilesForUser } from '@/services/matchExploreQueries';
 
 const cardSx = {
   borderRadius: 2,
@@ -35,6 +43,7 @@ type Tile = {
   title: string;
   subtitle: string;
   icon: React.ReactNode;
+  emphasize?: boolean;
 };
 
 export const AppHomePage: React.FC = () => {
@@ -47,38 +56,42 @@ export const AppHomePage: React.FC = () => {
 
   const sentEnabled =
     !!userSub && me?.profile?.discoverCanReviewLikedProfiles !== false;
+  const skippedEnabled =
+    !!userSub && me?.profile?.discoverCanReviewSkippedProfiles !== false;
+
   const { data: sentItems } = useQuery({
     queryKey: matchQueryKeys.sentRequests(userSub),
     queryFn: () => fetchSentRequestsForUser(userSub),
     enabled: sentEnabled,
     staleTime: 45_000,
   });
+  const { data: skippedItems } = useQuery({
+    queryKey: matchQueryKeys.skippedProfiles(userSub),
+    queryFn: () => fetchSkippedProfilesForUser(userSub),
+    enabled: skippedEnabled,
+    staleTime: 45_000,
+  });
+
   const sentPending =
     sentItems != null ? sentItems.filter((s) => s.status === 'Pending').length : null;
+  const matchesCount = matchStatus.loading ? null : matchStatus.totalMatches;
+  const skippedCount = skippedItems != null ? skippedItems.length : null;
 
   const first = me?.profile?.name?.trim()?.split(/\s+/)[0];
   const greeting = first || 'there';
   const credits = me?.credits ?? 0;
 
   const tiles: Tile[] = useMemo(() => {
-    const discoverSub = 'Browse by shared intent — Train, Vibe, or Date';
     const matchesSub = matchStatus.loading
       ? 'Loading…'
       : `${matchStatus.totalMatches} mutual match${matchStatus.totalMatches === 1 ? '' : 'es'}`;
     const chatSub =
       chatUnread > 0 ? `${chatUnread} unread message${chatUnread === 1 ? '' : 's'}` : 'Messages with mutual matches';
     const eventsSub = 'Train together IRL when events go live';
-    const profileSub =
-      credits > 0 ? `${credits} credits · photos, bio, modes, schedule` : 'Photos, bio, modes, schedule';
+    const profileSub = 'Photos, bio, modes, schedule';
     const aiSub = 'Workouts and training guidance';
 
     const list: Tile[] = [
-      {
-        to: '/app/discover',
-        title: t('nav.discover'),
-        subtitle: discoverSub,
-        icon: <ExploreOutlinedIcon sx={{ fontSize: 32, opacity: 0.9 }} />,
-      },
       {
         to: '/app/matches',
         title: t('nav.match'),
@@ -115,6 +128,7 @@ export const AppHomePage: React.FC = () => {
         title: t('nav.chat'),
         subtitle: chatSub,
         icon: <ChatBubbleOutlineOutlinedIcon sx={{ fontSize: 32, opacity: 0.9 }} />,
+        emphasize: chatUnread > 0,
       },
       {
         to: '/app/events',
@@ -142,7 +156,6 @@ export const AppHomePage: React.FC = () => {
     matchStatus.loading,
     matchStatus.totalMatches,
     chatUnread,
-    credits,
     me?.profile?.discoverCanReviewLikedProfiles,
     me?.profile?.discoverCanReviewSkippedProfiles,
     sentPending,
@@ -156,9 +169,80 @@ export const AppHomePage: React.FC = () => {
       <Typography variant="h4" component="h1" sx={{ fontWeight: 800, mt: 0.5, mb: 1 }}>
         Welcome back, {greeting}
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3, maxWidth: 560 }}>
+      <Tooltip title="1 credit per send" placement="top" arrow>
+        <Typography
+          component="span"
+          variant="body2"
+          color="text.secondary"
+          sx={{ display: 'inline-block', mb: 2, cursor: 'default', borderBottom: '1px dotted', borderColor: 'divider' }}
+        >
+          {credits} credits left
+        </Typography>
+      </Tooltip>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 2, maxWidth: 560 }}>
         Quick access to Discover, matches, and messages. Use the logo anytime to return here.
       </Typography>
+
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 1.5,
+          mb: 2,
+          typography: 'caption',
+          color: 'text.secondary',
+        }}
+      >
+        <Box component="span">
+          Matches:{' '}
+          <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
+            {matchesCount == null ? '…' : matchesCount}
+          </Box>
+        </Box>
+        <Box component="span" sx={{ opacity: 0.4 }}>
+          ·
+        </Box>
+        <Box component="span">
+          Pending sent:{' '}
+          <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
+            {sentPending == null ? '…' : sentPending}
+          </Box>
+        </Box>
+        {skippedEnabled ? (
+          <>
+            <Box component="span" sx={{ opacity: 0.4 }}>
+              ·
+            </Box>
+            <Box component="span">
+              Skipped:{' '}
+              <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
+                {skippedCount == null ? '…' : skippedCount}
+              </Box>
+            </Box>
+          </>
+        ) : null}
+        <Box component="span" sx={{ opacity: 0.4 }}>
+          ·
+        </Box>
+        <Box component="span">
+          Unread chats:{' '}
+          <Box component="span" sx={{ color: chatUnread > 0 ? 'primary.main' : 'text.primary', fontWeight: 700 }}>
+            {chatUnread}
+          </Box>
+        </Box>
+      </Box>
+
+      <Button
+        component={RouterLink}
+        to="/app/discover"
+        variant="contained"
+        size="large"
+        fullWidth
+        startIcon={<ExploreOutlinedIcon />}
+        sx={{ mb: 3, py: 1.5, fontWeight: 600 }}
+      >
+        Start Discovering
+      </Button>
 
       <Box
         sx={{
@@ -168,7 +252,19 @@ export const AppHomePage: React.FC = () => {
         }}
       >
         {tiles.map((item) => (
-          <Card key={item.to} variant="outlined" sx={cardSx}>
+          <Card
+            key={item.to}
+            variant="outlined"
+            sx={{
+              ...cardSx,
+              ...(item.emphasize
+                ? {
+                    borderColor: 'primary.main',
+                    boxShadow: '0 0 0 1px rgba(129, 140, 248, 0.35)',
+                  }
+                : {}),
+            }}
+          >
             <CardActionArea
               component={RouterLink}
               to={item.to}

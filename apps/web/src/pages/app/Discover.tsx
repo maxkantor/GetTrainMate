@@ -61,6 +61,12 @@ function sortDiscoverFeed<T extends { userId: string }>(items: T[]): T[] {
   });
 }
 
+/** Never surface the signed-in user as a discoverable card (defensive; backend should exclude too). */
+function excludeDiscoverSelf<T extends { userId: string }>(items: T[], selfId?: string): T[] {
+  if (!selfId) return items;
+  return items.filter((c) => c.userId !== selfId);
+}
+
 function toPhotoUrl(
   avatarUrl: string | undefined,
   userId: string,
@@ -224,7 +230,7 @@ export const DiscoverPage: React.FC = () => {
         });
         if (stale()) return;
         const location = locationRaw ?? FALLBACK_LOCATION;
-        setFeed(sortDiscoverFeed(feedFromApi));
+        setFeed(sortDiscoverFeed(excludeDiscoverSelf(feedFromApi, user?.sub)));
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
@@ -306,7 +312,7 @@ export const DiscoverPage: React.FC = () => {
               });
               if (stale()) return;
               const location = locationRaw ?? FALLBACK_LOCATION;
-              setFeed(sortDiscoverFeed(feedFromApi));
+              setFeed(sortDiscoverFeed(excludeDiscoverSelf(feedFromApi, user?.sub)));
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoFallbackUrls({});
@@ -321,7 +327,7 @@ export const DiscoverPage: React.FC = () => {
               }));
               if (stale()) return;
               const location = locationRaw ?? FALLBACK_LOCATION;
-              setFeed(sortDiscoverFeed(feedWithPhotos));
+              setFeed(sortDiscoverFeed(excludeDiscoverSelf(feedWithPhotos, user?.sub)));
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoErrorForIndex(null);

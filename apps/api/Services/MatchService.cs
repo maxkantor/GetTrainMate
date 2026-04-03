@@ -28,6 +28,8 @@ public class MatchService : IMatchService
     private const string AdminControlsPartitionKey = "__discover_controls__";
     private const string AdminControlsSortKey = "admin";
     private const string AdminProfileStatusPartitionKey = "__discover_profile_status__";
+    /// <summary>Sent / Skipped review lists: most recent N only (UI + payload size).</summary>
+    private const int RelationshipListLimit = 30;
 
     public MatchService(
         IAmazonDynamoDB dynamoDb,
@@ -805,6 +807,8 @@ public class MatchService : IMatchService
             var iLiked = iAm1 ? m.User1Liked : m.User2Liked;
             if (!iLiked) continue;
             var otherId = iAm1 ? m.UserId2 : m.UserId1;
+            if (string.Equals(otherId, userId, StringComparison.Ordinal))
+                continue;
             var tp = await _profileService.GetProfileAsync(otherId);
             var name = tp?.Name ?? "User";
             var photos = ResolvePhotoUrlsForProfile(tp);
@@ -821,7 +825,7 @@ public class MatchService : IMatchService
             });
         }
 
-        return list;
+        return list.Take(RelationshipListLimit).ToList();
     }
 
     public async Task<List<SkippedProfileItem>> ListSkippedProfilesAsync(string userId)
@@ -865,6 +869,8 @@ public class MatchService : IMatchService
         var list = new List<SkippedProfileItem>();
         foreach (var (targetId, skippedAt) in rows.OrderByDescending(x => x.SkippedAt))
         {
+            if (string.Equals(targetId, userId, StringComparison.Ordinal))
+                continue;
             var tp = await _profileService.GetProfileAsync(targetId);
             if (tp == null) continue;
             list.Add(new SkippedProfileItem
@@ -876,7 +882,7 @@ public class MatchService : IMatchService
                 SkippedAt = skippedAt
             });
         }
-        return list;
+        return list.Take(RelationshipListLimit).ToList();
     }
 
     private async Task<HashSet<string>> GetUserIdsExcludedFromDiscoverByMatchesAsync(string userId)

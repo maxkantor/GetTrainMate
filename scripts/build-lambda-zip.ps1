@@ -14,8 +14,10 @@ if (-not (Test-Path $DEPLOY)) { New-Item -ItemType Directory -Path $DEPLOY | Out
 if (Test-Path $ZIP_PATH) { Remove-Item $ZIP_PATH -Force }
 
 Set-Location $PUBLISH
+# Match build-lambda-zip.sh: omit debug symbols and XML docs from the Lambda package.
+Get-ChildItem -Path . -Recurse -Include *.pdb,*.xml -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
 Compress-Archive -Path * -DestinationPath $ZIP_PATH -CompressionLevel Optimal
-# Compress-Archive includes all files; for exclusions we'd need 7-zip or .NET. Proceed with full zip.
 
 Write-Host "Built: $ZIP_PATH"
 Get-Item $ZIP_PATH | Format-List Name, Length

@@ -8,6 +8,7 @@ import {
   graphqlListMySentRequests,
   graphqlListMySkipped,
 } from '@/services/graphqlService';
+import { RELATIONSHIP_LIST_LIMIT } from '@/config/relationshipLimits';
 
 /** Row shape shared by Matches page and match-status header (TanStack Query cache). */
 export interface MutualMatchRow {
@@ -25,12 +26,16 @@ export interface MutualMatchRow {
   unlockedByMe?: boolean;
 }
 
+function filterSelfFromMutualRows(rows: MutualMatchRow[], selfId: string): MutualMatchRow[] {
+  return rows.filter((r) => r.userId && r.userId !== selfId);
+}
+
 export async function fetchMutualMatchRows(currentUserSub: string): Promise<MutualMatchRow[]> {
   if (!currentUserSub) return [];
 
   if (isGraphQLEnabled) {
     const items = await graphqlListMyMatches();
-    return (
+    const mapped: MutualMatchRow[] = (
       items as {
         matchId: string;
         threadId: string;
@@ -71,6 +76,7 @@ export async function fetchMutualMatchRows(currentUserSub: string): Promise<Mutu
         unlockedByMe: m.unlockedByMe,
       };
     });
+    return filterSelfFromMutualRows(mapped, currentUserSub);
   }
 
   const token = await authService.getJWT();
@@ -136,23 +142,29 @@ export async function fetchMutualMatchRows(currentUserSub: string): Promise<Mutu
     )
   );
 
-  return transformed;
+  return filterSelfFromMutualRows(transformed, currentUserSub);
 }
 
 export async function fetchSentRequestsForUser(_userSub: string): Promise<SentRequestItem[]> {
+  let list: SentRequestItem[];
   if (isGraphQLEnabled) {
-    return graphqlListMySentRequests();
+    list = await graphqlListMySentRequests();
+  } else {
+    const token = await authService.getJWT(true);
+    if (!token) throw new Error('Not authenticated');
+    list = await matchService.getSentRequests(token);
   }
-  const token = await authService.getJWT(true);
-  if (!token) throw new Error('Not authenticated');
-  return matchService.getSentRequests(token);
+  return list.slice(0, RELATIONSHIP_LIST_LIMIT);
 }
 
 export async function fetchSkippedProfilesForUser(_userSub: string): Promise<SkippedProfileItem[]> {
+  let list: SkippedProfileItem[];
   if (isGraphQLEnabled) {
-    return graphqlListMySkipped();
+    list = await graphqlListMySkipped();
+  } else {
+    const token = await authService.getJWT(true);
+    if (!token) throw new Error('Not authenticated');
+    list = await matchService.getSkippedProfiles(token);
   }
-  const token = await authService.getJWT(true);
-  if (!token) throw new Error('Not authenticated');
-  return matchService.getSkippedProfiles(token);
+  return list.slice(0, RELATIONSHIP_LIST_LIMIT);
 }
