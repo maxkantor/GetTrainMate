@@ -73,6 +73,23 @@ public class ProfileService : IProfileService
         }
     }
 
+    public async Task<UserProfile?> SetProfileEmailIfEmptyAsync(string userId, string email)
+    {
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(email))
+            return null;
+        var profile = await GetProfileAsync(userId);
+        if (profile == null)
+            return null;
+        if (!string.IsNullOrWhiteSpace(profile.Email))
+            return profile;
+        profile.Email = email.Trim();
+        profile.UpdatedAt = DateTime.UtcNow;
+        EnsureModesArraySynced(profile);
+        var table = Table.LoadTable(_dynamoDb, _tableName);
+        await table.PutItemAsync(ProfileToDocument(profile));
+        return profile;
+    }
+
     public async Task<UserProfile> UpdateProfileAsync(string userId, UpdateProfileRequest request)
     {
         try

@@ -68,6 +68,13 @@ public class ProfileController : ControllerBase
             }
 
             _logger.LogDebug("GetMyProfile: Returning profile for userId {UserId}, IsComplete: {IsComplete}", userId, profile.IsComplete);
+            var tokenEmail = GetEmailFromToken();
+            if (!string.IsNullOrWhiteSpace(tokenEmail) && string.IsNullOrWhiteSpace(profile.Email))
+            {
+                var merged = await _profileService.SetProfileEmailIfEmptyAsync(userId, tokenEmail);
+                if (merged != null)
+                    profile = merged;
+            }
             return Ok(profile);
         }
         catch (Exception ex)
@@ -204,8 +211,13 @@ public class ProfileController : ControllerBase
 
             var profile = await _profileService.UpdateProfileAsync(userId, request);
 
-            if (string.IsNullOrEmpty(profile.Email))
-                profile.Email = GetEmailFromToken() ?? "";
+            var tokenEmail = GetEmailFromToken();
+            if (!string.IsNullOrEmpty(tokenEmail) && string.IsNullOrEmpty(profile.Email))
+            {
+                var merged = await _profileService.SetProfileEmailIfEmptyAsync(userId, tokenEmail);
+                if (merged != null)
+                    profile = merged;
+            }
 
             _logger.LogInformation("UpdateMyProfile requestId={RequestId} userId={UserId} success IsComplete={IsComplete}", requestId, userId, profile.IsComplete);
             return Ok(profile);

@@ -156,6 +156,14 @@ public class AdminUsersController : ControllerBase
         return false;
     }
 
+    private static string? EmailFromCognitoAttributes(List<AttributeType> attrs)
+    {
+        var email = attrs.FirstOrDefault(a => a.Name == "email")?.Value;
+        if (!string.IsNullOrEmpty(email))
+            return email;
+        return attrs.FirstOrDefault(a => a.Name == "preferred_username")?.Value;
+    }
+
     private async Task<string?> TryGetCognitoEmailAsync(string userId)
     {
         if (string.IsNullOrEmpty(_cognitoUserPoolId) || userId.StartsWith("dummy-user-", StringComparison.OrdinalIgnoreCase))
@@ -167,13 +175,27 @@ public class AdminUsersController : ControllerBase
                 UserPoolId = _cognitoUserPoolId,
                 Username = userId
             });
-            var email = resp.UserAttributes.FirstOrDefault(a => a.Name == "email")?.Value;
-            if (!string.IsNullOrEmpty(email))
-                return email;
-            return resp.UserAttributes.FirstOrDefault(a => a.Name == "preferred_username")?.Value;
+            return EmailFromCognitoAttributes(resp.UserAttributes);
         }
         catch (UserNotFoundException)
         {
+            // JWT "sub" is not always Cognito's Username (e.g. email sign-in). Resolve by sub attribute.
+            try
+            {
+                var list = await _cognito.ListUsersAsync(new ListUsersRequest
+                {
+                    UserPoolId = _cognitoUserPoolId,
+                    Filter = $"sub = \"{userId}\"",
+                    Limit = 2
+                });
+                var u = list.Users.FirstOrDefault();
+                if (u?.Attributes != null)
+                    return EmailFromCognitoAttributes(u.Attributes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "ListUsers by sub failed for {UserId}", userId);
+            }
             return null;
         }
         catch (Exception ex)
