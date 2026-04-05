@@ -143,6 +143,54 @@ public class Startup
         }
         services.AddSingleton(new StripeWebhookSecret(stripeWebhookSecret ?? string.Empty));
 
+        // SES: appsettings / Lambda env → SSM /gettrainmate/ses-from-email (matches Stripe/Bedrock pattern)
+        var sesFromEmail = (Configuration["SES:FromEmail"]
+            ?? Environment.GetEnvironmentVariable("SES_FROM_EMAIL")
+            ?? "").Trim();
+        var sesAdminEmail = (Configuration["SES:AdminEmail"]
+            ?? Environment.GetEnvironmentVariable("SES_ADMIN_EMAIL")
+            ?? "").Trim();
+        const string ssmSesFrom = "/gettrainmate/ses-from-email";
+        const string ssmSesAdmin = "/gettrainmate/ses-admin-email";
+        if (string.IsNullOrEmpty(sesFromEmail) || string.IsNullOrEmpty(sesAdminEmail))
+        {
+            try
+            {
+                using var ssmSes = new AmazonSimpleSystemsManagementClient();
+                if (string.IsNullOrEmpty(sesFromEmail))
+                {
+                    var fromResp = ssmSes.GetParameterAsync(new GetParameterRequest { Name = ssmSesFrom })
+                        .GetAwaiter().GetResult();
+                    sesFromEmail = fromResp.Parameter?.Value?.Trim() ?? "";
+                    if (!string.IsNullOrEmpty(sesFromEmail))
+                    {
+                        Environment.SetEnvironmentVariable("SES_FROM_EMAIL", sesFromEmail);
+                        Log.Information("SES from-address loaded from SSM {Param}", ssmSesFrom);
+                    }
+                }
+                if (string.IsNullOrEmpty(sesAdminEmail))
+                {
+                    try
+                    {
+                        var adminResp = ssmSes.GetParameterAsync(new GetParameterRequest { Name = ssmSesAdmin })
+                            .GetAwaiter().GetResult();
+                        sesAdminEmail = adminResp.Parameter?.Value?.Trim() ?? "";
+                        if (!string.IsNullOrEmpty(sesAdminEmail))
+                            Environment.SetEnvironmentVariable("SES_ADMIN_EMAIL", sesAdminEmail);
+                    }
+                    catch (ParameterNotFoundException) { /* optional */ }
+                }
+            }
+            catch (ParameterNotFoundException)
+            {
+                Log.Warning("SES SSM parameter not found at {Param}. Set SES_FROM_EMAIL on the Lambda or create the parameter.", ssmSesFrom);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not load SES settings from SSM");
+            }
+        }
+
         services.AddAuthorization(options =>
         {
             options.FallbackPolicy = null;

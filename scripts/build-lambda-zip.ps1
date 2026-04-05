@@ -1,4 +1,4 @@
-# Build API and create Lambda zip in deploy/
+# Build API and create Lambda zip in <repo>/deploy/ (e.g. C:\Apps\GetTrainMate\deploy\gettrainmate-api-lambda.zip)
 $ErrorActionPreference = "Stop"
 $ROOT = Split-Path -Parent $PSScriptRoot
 $DEPLOY = Join-Path $ROOT "deploy"

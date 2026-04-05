@@ -1,4 +1,4 @@
-using Amazon.DynamoDBv2.DataModel;
+using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using GetTrainMate.Api.Models;
 using System.Text.Json;
@@ -8,16 +8,20 @@ namespace GetTrainMate.Api.Services;
 
 public class AuditLogService : IAuditLogService
 {
-    private readonly IDynamoDBContext _context;
+    private readonly IAmazonDynamoDB _dynamoDb;
+    private readonly string _tableName;
     private readonly ILogger<AuditLogService> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     public AuditLogService(
-        IDynamoDBContext context,
+        IAmazonDynamoDB dynamoDb,
+        IConfiguration configuration,
         ILogger<AuditLogService> logger,
         IHttpContextAccessor httpContextAccessor)
     {
-        _context = context;
+        _dynamoDb = dynamoDb;
+        var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
+        _tableName = configuration["DYNAMODB_TABLE_AUDIT_LOG"] ?? $"{prefix}audit-log";
         _logger = logger;
         _httpContextAccessor = httpContextAccessor;
     }
@@ -48,7 +52,6 @@ public class AuditLogService : IAuditLogService
                 AfterJson = after != null ? JsonSerializer.Serialize(after) : null
             };
 
-            // Extract request metadata
             var httpContext = _httpContextAccessor.HttpContext;
             if (httpContext != null)
             {
@@ -56,13 +59,14 @@ public class AuditLogService : IAuditLogService
                 log.UserAgent = httpContext.Request.Headers["User-Agent"].FirstOrDefault();
             }
 
-            await _context.SaveAsync(log);
-            _logger.LogInformation("Audit log created: {Action} on {TargetType}/{TargetId} by {AdminSub}", 
+            var table = Table.LoadTable(_dynamoDb, _tableName);
+            await table.PutItemAsync(AuditLogToDocument(log));
+
+            _logger.LogInformation("Audit log created: {Action} on {TargetType}/{TargetId} by {AdminSub}",
                 action, targetType, targetId, admin.Sub);
         }
         catch (Exception ex)
         {
-            // Don't fail the request if audit logging fails, but log the error
             _logger.LogError(ex, "Failed to create audit log for action {Action}", action);
         }
     }
@@ -78,27 +82,40 @@ public class AuditLogService : IAuditLogService
     {
         try
         {
-            var conditions = new List<ScanCondition>();
-
+            var table = Table.LoadTable(_dynamoDb, _tableName);
+            var cfg = new ScanOperationConfig();
+            var filter = new ScanFilter();
+            var hasFilter = false;
             if (!string.IsNullOrEmpty(adminSub))
             {
-                conditions.Add(new ScanCondition(nameof(AuditLog.AdminSub), ScanOperator.Equal, adminSub));
+                filter.AddCondition("AdminSub", ScanOperator.Equal, adminSub);
+                hasFilter = true;
             }
-
             if (!string.IsNullOrEmpty(targetType))
             {
-                conditions.Add(new ScanCondition(nameof(AuditLog.TargetType), ScanOperator.Equal, targetType));
+                filter.AddCondition("TargetType", ScanOperator.Equal, targetType);
+                hasFilter = true;
             }
-
             if (!string.IsNullOrEmpty(targetId))
             {
-                conditions.Add(new ScanCondition(nameof(AuditLog.TargetId), ScanOperator.Equal, targetId));
+                filter.AddCondition("TargetId", ScanOperator.Equal, targetId);
+                hasFilter = true;
             }
+            if (hasFilter)
+                cfg.Filter = filter;
 
-            var scan = _context.ScanAsync<AuditLog>(conditions);
-            var allLogs = await scan.GetRemainingAsync();
+            var scan = table.Scan(cfg);
+            var allLogs = new List<AuditLog>();
+            do
+            {
+                var batch = await scan.GetNextSetAsync();
+                foreach (var doc in batch)
+                {
+                    if (TryDocumentToAuditLog(doc, out var log))
+                        allLogs.Add(log);
+                }
+            } while (!scan.IsDone);
 
-            // Filter by date range if provided
             if (from.HasValue || to.HasValue)
             {
                 allLogs = allLogs.Where(log =>
@@ -113,7 +130,6 @@ public class AuditLogService : IAuditLogService
                 }).ToList();
             }
 
-            // Sort by timestamp descending and paginate
             var sorted = allLogs
                 .OrderByDescending(log => log.Timestamp)
                 .Skip((page - 1) * pageSize)
@@ -126,6 +142,72 @@ public class AuditLogService : IAuditLogService
         {
             _logger.LogError(ex, "Error retrieving audit logs");
             throw;
+        }
+    }
+
+    private static Document AuditLogToDocument(AuditLog log)
+    {
+        // Match legacy DynamoDBContext attribute names (PascalCase) so existing table keys/indexes align.
+        var doc = new Document
+        {
+            ["LogId"] = log.LogId,
+            ["Timestamp"] = log.Timestamp,
+            ["AdminSub"] = log.AdminSub,
+            ["Action"] = log.Action,
+            ["TargetType"] = log.TargetType,
+        };
+        if (!string.IsNullOrEmpty(log.AdminEmail)) doc["AdminEmail"] = log.AdminEmail;
+        if (!string.IsNullOrEmpty(log.AdminUsername)) doc["AdminUsername"] = log.AdminUsername;
+        if (!string.IsNullOrEmpty(log.TargetId)) doc["TargetId"] = log.TargetId;
+        if (!string.IsNullOrEmpty(log.BeforeJson)) doc["BeforeJson"] = log.BeforeJson;
+        if (!string.IsNullOrEmpty(log.AfterJson)) doc["AfterJson"] = log.AfterJson;
+        if (!string.IsNullOrEmpty(log.RequestId)) doc["RequestId"] = log.RequestId;
+        if (!string.IsNullOrEmpty(log.IpAddress)) doc["IpAddress"] = log.IpAddress;
+        if (!string.IsNullOrEmpty(log.UserAgent)) doc["UserAgent"] = log.UserAgent;
+        return doc;
+    }
+
+    private static bool TryDocumentToAuditLog(Document doc, out AuditLog log)
+    {
+        log = null!;
+        try
+        {
+            static string S(Document d, params string[] keys)
+            {
+                foreach (var k in keys)
+                {
+                    if (d.ContainsKey(k))
+                        return d[k].AsString();
+                }
+                return "";
+            }
+
+            var logId = S(doc, "logId", "LogId");
+            if (string.IsNullOrEmpty(logId))
+                return false;
+
+            log = new AuditLog
+            {
+                LogId = logId,
+                Timestamp = S(doc, "timestamp", "Timestamp"),
+                AdminSub = S(doc, "adminSub", "AdminSub"),
+                AdminEmail = string.IsNullOrEmpty(S(doc, "adminEmail", "AdminEmail")) ? null : S(doc, "adminEmail", "AdminEmail"),
+                AdminUsername = string.IsNullOrEmpty(S(doc, "adminUsername", "AdminUsername")) ? null : S(doc, "adminUsername", "AdminUsername"),
+                Action = S(doc, "action", "Action"),
+                TargetType = S(doc, "targetType", "TargetType"),
+                TargetId = string.IsNullOrEmpty(S(doc, "targetId", "TargetId")) ? null : S(doc, "targetId", "TargetId"),
+                BeforeJson = string.IsNullOrEmpty(S(doc, "beforeJson", "BeforeJson")) ? null : S(doc, "beforeJson", "BeforeJson"),
+                AfterJson = string.IsNullOrEmpty(S(doc, "afterJson", "AfterJson")) ? null : S(doc, "afterJson", "AfterJson"),
+                RequestId = string.IsNullOrEmpty(S(doc, "requestId", "RequestId")) ? null : S(doc, "requestId", "RequestId"),
+                IpAddress = string.IsNullOrEmpty(S(doc, "ipAddress", "IpAddress")) ? null : S(doc, "ipAddress", "IpAddress"),
+                UserAgent = string.IsNullOrEmpty(S(doc, "userAgent", "UserAgent")) ? null : S(doc, "userAgent", "UserAgent"),
+                Metadata = new Dictionary<string, string>()
+            };
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 }

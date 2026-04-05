@@ -11,6 +11,8 @@ public interface IMatchService
     Task<List<SkippedProfileItem>> ListSkippedProfilesAsync(string userId);
     Task<MatchResponse> LikeUserAsync(string userId, string targetUserId);
     Task<MatchResponse> PassUserAsync(string userId, string targetUserId);
+    /// <summary>Withdraw a pending (one-way) sent invite; sets interaction to CANCELLED and removes the pending match row.</summary>
+    Task CancelSentInviteAsync(string userId, string targetUserId);
     Task<bool> UndoPassAsync(string userId, string targetUserId);
     Task<DiscoverSkipRecord?> GetLastSkippedProfileAsync(string userId);
     Task<AdminDiscoverControls> GetAdminDiscoverControlsAsync();

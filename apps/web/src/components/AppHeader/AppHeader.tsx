@@ -277,7 +277,7 @@ export const AppHeader: React.FC = () => {
             )}
 
             <div className={styles.signedRight}>
-              <div className={styles.langMuted} title="Language">
+              <div className={styles.langWrap} title="Language">
                 <LanguageDropdown />
               </div>
               <Tooltip title={creditTooltip} arrow enterTouchDelay={0} placement="bottom">

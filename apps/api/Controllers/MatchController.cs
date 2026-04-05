@@ -234,6 +234,41 @@ public class MatchController : ControllerBase
         }
     }
 
+    /// <summary>Withdraw a pending one-way invite (interaction SENT, match not mutual).</summary>
+    [HttpPost("cancel-sent-invite")]
+    public async Task<ActionResult> CancelSentInvite([FromBody] CancelSentInviteRequest request)
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { code = "NOT_AUTHENTICATED", message = "Invalid token" });
+
+            if (string.IsNullOrEmpty(request.TargetUserId))
+                return BadRequest(new { code = "VALIDATION_ERROR", message = "TargetUserId is required" });
+
+            var profile = await _profileService.GetProfileAsync(userId);
+            if (profile != null && !profile.DiscoverCanReviewLikedProfiles)
+                return StatusCode(403, new { code = "FEATURE_DISABLED", message = "Sent requests are not enabled for this account." });
+
+            await _matchService.CancelSentInviteAsync(userId, request.TargetUserId);
+            return Ok(new { success = true });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { code = "CANCEL_NOT_ALLOWED", message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { code = "VALIDATION_ERROR", message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling sent invite");
+            return StatusCode(500, new { message = "Error cancelling invite" });
+        }
+    }
+
     [HttpGet("my-matches")]
     public async Task<ActionResult<List<Match>>> GetMyMatches()
     {

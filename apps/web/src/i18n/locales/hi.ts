@@ -103,6 +103,24 @@ export const hi = {
   discover: {
     no_photo: 'कोई फोटो नहीं',
   },
+  sentRequests: {
+    title: 'भेजे गए अनुरोध',
+    subtitle:
+      'आपके अंतिम 30 आउटगोइंग लाइक, नए पहले। मैच = चैट; लंबित = अभी जवाब नहीं।',
+    cancel_invite: 'आमंत्रण रद्द करें',
+    cancel_confirm_title: 'यह आमंत्रण रद्द करें?',
+    cancel_confirm_body:
+      'उन्हें आपकी लंबित रुचि दिखाई नहीं देगी। बाद में प्रोफ़ाइल से नया इंटरेस्ट भेज सकते हैं।',
+    keep_invite: 'आमंत्रण रखें',
+    confirm_cancel: 'आमंत्रण रद्द करें',
+    invite_cancelled: 'आमंत्रण रद्द हो गया',
+    error_cancel: 'आमंत्रण रद्द नहीं हो सका',
+    empty_pending_title: 'कोई लंबित आमंत्रण नहीं',
+    empty_pending_hint: 'डिस्कवर से इंटरेस्ट भेजने पर वे यहाँ दिखेंगे जब तक दूसरा व्यक्ति मैच न करे।',
+    empty_all: 'अभी कोई आउटगोइंग अनुरोध नहीं।',
+    waiting: 'प्रतीक्षा',
+    no_matched: 'अभी कोई मैच नहीं।',
+  },
   profile: {
     my_profile: 'मेरी प्रोफाइल',
     edit_profile: 'प्रोफाइल संपादित करें',

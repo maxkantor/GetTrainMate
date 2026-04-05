@@ -279,9 +279,9 @@ async function getExcludedFromMatchesForDiscover(userId) {
     const r = await dynamo.send(new QueryCommand({
       TableName: tables.userInteractions,
       KeyConditionExpression: 'userId = :u',
-      FilterExpression: '(#st = :s OR #st = :m)',
+      FilterExpression: '(#st = :s OR #st = :m OR #st = :c)',
       ExpressionAttributeNames: { '#st': 'state' },
-      ExpressionAttributeValues: marshall({ ':u': userId, ':s': 'SENT', ':m': 'MATCHED' }),
+      ExpressionAttributeValues: marshall({ ':u': userId, ':s': 'SENT', ':m': 'MATCHED', ':c': 'CANCELLED' }),
       ...(lastKey && { ExclusiveStartKey: lastKey }),
     }));
     for (const item of r.Items || []) {
@@ -803,6 +803,53 @@ async function passUserMutation(identity, args) {
   return true;
 }
 
+async function cancelSentInviteMutation(identity, args) {
+  const userId = getUserId(identity);
+  const targetUserId = args.targetUserId;
+  if (!targetUserId) throw new Error('targetUserId required');
+
+  const profRes = await dynamo.send(new GetItemCommand({
+    TableName: tables.profiles,
+    Key: marshall({ userId }),
+  }));
+  if (profRes.Item) {
+    const raw = unmarshall(profRes.Item);
+    if (raw.discoverCanReviewLikedProfiles === false) throw new Error('FORBIDDEN');
+  }
+
+  const intRes = await dynamo.send(new GetItemCommand({
+    TableName: tables.userInteractions,
+    Key: marshall({ userId, targetUserId }),
+  }));
+  if (!intRes.Item) throw new Error('NOT_FOUND');
+  const inter = unmarshall(intRes.Item);
+  if (inter.state === 'MATCHED') throw new Error('ALREADY_MATCHED');
+  if (inter.state !== 'SENT') throw new Error('NO_PENDING_INVITE');
+
+  const matchRes = await dynamo.send(new ScanCommand({
+    TableName: tables.matches,
+    FilterExpression: '(userId1 = :a AND userId2 = :b) OR (userId1 = :b AND userId2 = :a)',
+    ExpressionAttributeValues: marshall({ ':a': userId, ':b': targetUserId }),
+    Limit: 1,
+  }));
+  if (!matchRes.Items?.length) throw new Error('MATCH_NOT_FOUND');
+  const match = unmarshall(matchRes.Items[0]);
+  if (match.isMatched) throw new Error('ALREADY_MATCHED');
+  const iLiked = match.userId1 === userId ? match.user1Liked : match.user2Liked;
+  if (!iLiked) throw new Error('NO_OUTGOING_INVITE');
+
+  await dynamo.send(new DeleteItemCommand({
+    TableName: tables.matches,
+    Key: marshall({ matchId: match.matchId }),
+  }));
+  await upsertUserInteraction(userId, targetUserId, 'CANCELLED');
+  await dynamo.send(new DeleteItemCommand({
+    TableName: tables.userInteractions,
+    Key: marshall({ userId: targetUserId, targetUserId: userId }),
+  })).catch(() => {});
+  return true;
+}
+
 async function unlockChat(identity, args) {
   const userId = getUserId(identity);
   const matchId = args.matchId;
@@ -1207,6 +1254,7 @@ const mutationHandlers = {
   ensureFreeStartCredits: (identity) => ensureFreeStartCredits(identity),
   likeUser: (identity, args) => likeUser(identity, args),
   passUser: (identity, args) => passUserMutation(identity, args),
+  cancelSentInvite: (identity, args) => cancelSentInviteMutation(identity, args),
   unlockChat: (identity, args) => unlockChat(identity, args),
   createMessage: (identity, args) => createMessage(identity, args),
   upsertProfile: (identity, args) => upsertProfile(identity, args),

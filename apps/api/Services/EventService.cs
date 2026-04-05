@@ -34,7 +34,8 @@ public class EventService : IEventService
                 var batch = await search.GetNextSetAsync();
                 foreach (var doc in batch)
                 {
-                    var evt = DocumentToEvent(doc);
+                    if (!TryDocumentToEvent(doc, out var evt))
+                        continue;
                     // Only return future events
                     if (evt.EventDate > DateTime.UtcNow)
                     {
@@ -55,13 +56,39 @@ public class EventService : IEventService
         }
     }
 
+    public async Task<List<Event>> ListAllEventsForAdminAsync()
+    {
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, _eventsTable);
+            var search = table.Scan(new ScanFilter());
+            var events = new List<Event>();
+            do
+            {
+                var batch = await search.GetNextSetAsync();
+                foreach (var doc in batch)
+                {
+                    if (TryDocumentToEvent(doc, out var evt))
+                        events.Add(evt);
+                }
+            } while (!search.IsDone);
+
+            return events;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing events for admin");
+            throw;
+        }
+    }
+
     public async Task<Event?> GetEventAsync(string eventId)
     {
         try
         {
             var table = Table.LoadTable(_dynamoDb, _eventsTable);
             var doc = await table.GetItemAsync(eventId);
-            return doc != null ? DocumentToEvent(doc) : null;
+            return doc != null && TryDocumentToEvent(doc, out var evt) ? evt : null;
         }
         catch (Exception ex)
         {
@@ -100,6 +127,28 @@ public class EventService : IEventService
         {
             _logger.LogError(ex, "Error creating event");
             throw;
+        }
+    }
+
+    public async Task PutEventAsync(Event evt)
+    {
+        var table = Table.LoadTable(_dynamoDb, _eventsTable);
+        var doc = EventToDocument(evt);
+        await table.PutItemAsync(doc);
+    }
+
+    public async Task<bool> DeleteEventByIdAsync(string eventId)
+    {
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, _eventsTable);
+            await table.DeleteItemAsync(eventId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting event {EventId}", eventId);
+            return false;
         }
     }
 
@@ -199,25 +248,53 @@ public class EventService : IEventService
         return doc;
     }
 
-    private Event DocumentToEvent(Document doc)
+    private static bool TryDocumentToEvent(Document doc, out Event evt)
     {
-        return new Event
+        evt = null!;
+        try
         {
-            EventId = doc["eventId"],
-            Title = doc["title"],
-            Description = doc["description"],
-            Sport = doc["sport"],
-            City = doc["city"],
-            Latitude = doc.ContainsKey("latitude") ? (double?)doc["latitude"].AsDouble() : null,
-            Longitude = doc.ContainsKey("longitude") ? (double?)doc["longitude"].AsDouble() : null,
-            EventDate = DateTime.Parse(doc["eventDate"]),
-            SkillLevel = doc["skillLevel"],
-            MaxParticipants = (int)doc["maxParticipants"].AsInt(),
-            OrganizerUserId = doc["organizerUserId"],
-            OrganizerName = doc["organizerName"],
-            ParticipantIds = doc.ContainsKey("participantIds") ? doc["participantIds"].AsListOfString() : new List<string>(),
-            CreatedAt = DateTime.Parse(doc["createdAt"]),
-            UpdatedAt = DateTime.Parse(doc["updatedAt"])
-        };
+            var id = doc.ContainsKey("eventId") ? doc["eventId"].AsString()
+                : doc.ContainsKey("EventId") ? doc["EventId"].AsString() : null;
+            if (string.IsNullOrEmpty(id))
+                return false;
+
+            static string S(Document d, string a, string b = "") =>
+                d.ContainsKey(a) ? d[a].AsString() : !string.IsNullOrEmpty(b) && d.ContainsKey(b) ? d[b].AsString() : "";
+
+            static DateTime ParseDt(Document d, string a, string b)
+            {
+                var raw = d.ContainsKey(a) ? d[a].AsString() : d.ContainsKey(b) ? d[b].AsString() : null;
+                if (string.IsNullOrEmpty(raw)) return DateTime.UtcNow;
+                return DateTime.TryParse(raw, out var dt) ? dt : DateTime.UtcNow;
+            }
+
+            evt = new Event
+            {
+                EventId = id,
+                Title = S(doc, "title", "Title"),
+                Description = S(doc, "description", "Description"),
+                Sport = S(doc, "sport", "Sport"),
+                City = S(doc, "city", "City"),
+                Latitude = doc.ContainsKey("latitude") ? (double?)doc["latitude"].AsDouble()
+                    : doc.ContainsKey("Latitude") ? (double?)doc["Latitude"].AsDouble() : null,
+                Longitude = doc.ContainsKey("longitude") ? (double?)doc["longitude"].AsDouble()
+                    : doc.ContainsKey("Longitude") ? (double?)doc["Longitude"].AsDouble() : null,
+                EventDate = ParseDt(doc, "eventDate", "EventDate"),
+                SkillLevel = S(doc, "skillLevel", "SkillLevel"),
+                MaxParticipants = doc.ContainsKey("maxParticipants") ? (int)doc["maxParticipants"].AsInt()
+                    : doc.ContainsKey("MaxParticipants") ? (int)doc["MaxParticipants"].AsInt() : 10,
+                OrganizerUserId = S(doc, "organizerUserId", "OrganizerUserId"),
+                OrganizerName = S(doc, "organizerName", "OrganizerName"),
+                ParticipantIds = doc.ContainsKey("participantIds") ? doc["participantIds"].AsListOfString()
+                    : doc.ContainsKey("ParticipantIds") ? doc["ParticipantIds"].AsListOfString() : new List<string>(),
+                CreatedAt = ParseDt(doc, "createdAt", "CreatedAt"),
+                UpdatedAt = ParseDt(doc, "updatedAt", "UpdatedAt")
+            };
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

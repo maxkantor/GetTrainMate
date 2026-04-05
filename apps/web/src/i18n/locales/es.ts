@@ -103,6 +103,24 @@ export const es = {
   discover: {
     no_photo: 'Sin foto',
   },
+  sentRequests: {
+    title: 'Solicitudes enviadas',
+    subtitle:
+      'Tus últimos 30 “me interesa”, del más reciente al más antiguo. Coincidencia = podéis chatear; Pendiente = aún no han respondido.',
+    cancel_invite: 'Cancelar invitación',
+    cancel_confirm_title: '¿Cancelar esta invitación?',
+    cancel_confirm_body:
+      'Ya no verán tu interés pendiente. Más tarde puedes enviar otro interés desde su perfil.',
+    keep_invite: 'Mantener invitación',
+    confirm_cancel: 'Cancelar invitación',
+    invite_cancelled: 'Invitación cancelada',
+    error_cancel: 'No se pudo cancelar la invitación',
+    empty_pending_title: 'Sin invitaciones pendientes',
+    empty_pending_hint: 'Cuando envíes intereses desde Descubrir, aparecerán aquí hasta que la otra persona coincida.',
+    empty_all: 'Aún no hay solicitudes enviadas.',
+    waiting: 'En espera',
+    no_matched: 'Aún no hay coincidencias.',
+  },
   profile: {
     my_profile: 'Mi Perfil',
     edit_profile: 'Editar Perfil',

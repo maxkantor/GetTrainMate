@@ -47,6 +47,11 @@ public class PassRequest
     public string TargetUserId { get; set; } = string.Empty;
 }
 
+public class CancelSentInviteRequest
+{
+    public string TargetUserId { get; set; } = string.Empty;
+}
+
 public class MatchResponse
 {
     public string MatchId { get; set; } = string.Empty;

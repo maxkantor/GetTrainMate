@@ -123,6 +123,12 @@ export const PASS_USER = /* GraphQL */ `
   }
 `;
 
+export const CANCEL_SENT_INVITE = /* GraphQL */ `
+  mutation CancelSentInvite($targetUserId: ID!) {
+    cancelSentInvite(targetUserId: $targetUserId)
+  }
+`;
+
 export const UNLOCK_CHAT = /* GraphQL */ `
   mutation UnlockChat($matchId: ID!) {
     unlockChat(matchId: $matchId) {

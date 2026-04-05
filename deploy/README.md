@@ -16,7 +16,13 @@ From repo root:
 npm run zip
 ```
 
-Creates `deploy/gettrainmate-api-lambda.zip`. Zips under `deploy/*.zip` are gitignored; regenerate locally after changes.
+Creates **`C:\Apps\GetTrainMate\deploy\gettrainmate-api-lambda.zip`** when the repo lives at `C:\Apps\GetTrainMate` (otherwise `<repo>/deploy/...`). Zips under `deploy/*.zip` are gitignored.
+
+If you already ran `dotnet publish` to `apps/api/publish`, only re-zip (fast):
+
+```bash
+npm run zip:publish
+```
 
 ## Deploying
 

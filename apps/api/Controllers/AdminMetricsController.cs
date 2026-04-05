@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
@@ -47,7 +48,16 @@ public class AdminMetricsController : ControllerBase
             var fromDate = DateTime.UtcNow.AddDays(-days);
             var activeCutoff = DateTime.UtcNow.AddDays(-7);
 
-            var profileDocs = await ScanAllDocumentsAsync(profilesTable);
+            List<Document> profileDocs;
+            try
+            {
+                profileDocs = await ScanAllDocumentsAsync(profilesTable);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Profile scan failed for metrics (table {Table})", profilesTable);
+                profileDocs = new List<Document>();
+            }
             var totalUsers = profileDocs.Count;
             var newUsers = 0;
             var activeUsers = 0;
@@ -59,11 +69,20 @@ public class AdminMetricsController : ControllerBase
                     activeUsers++;
             }
 
-            var totalMatches = await CountTableAsync(matchesTable);
-            var totalMessages = await CountTableAsync(messagesTable);
-            var totalEvents = await CountTableAsync(eventsTable);
+            var totalMatches = await CountTableSafeAsync(matchesTable);
+            var totalMessages = await CountTableSafeAsync(messagesTable);
+            var totalEvents = await CountTableSafeAsync(eventsTable);
 
-            var recentLogs = await _auditLogService.GetLogsAsync(null, null, null, null, null, 1, 20);
+            List<AuditLog> recentLogs;
+            try
+            {
+                recentLogs = await _auditLogService.GetLogsAsync(null, null, null, null, null, 1, 20);
+            }
+            catch (Exception auditEx)
+            {
+                _logger.LogWarning(auditEx, "Audit log unavailable for dashboard metrics");
+                recentLogs = new List<AuditLog>();
+            }
             var recentActivity = recentLogs
                 .OrderByDescending(l => l.Timestamp)
                 .Take(15)
@@ -160,6 +179,19 @@ public class AdminMetricsController : ControllerBase
             lastKey = resp.LastEvaluatedKey;
         } while (lastKey != null && lastKey.Count > 0);
         return total;
+    }
+
+    private async Task<int> CountTableSafeAsync(string tableName)
+    {
+        try
+        {
+            return await CountTableAsync(tableName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Count failed for table {Table}", tableName);
+            return 0;
+        }
     }
 }
 

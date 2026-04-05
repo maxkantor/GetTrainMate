@@ -162,6 +162,14 @@ class MatchService {
     return response.data;
   }
 
+  async cancelSentInvite(token: string, targetUserId: string): Promise<void> {
+    await axios.post(
+      `${API_BASE_URL}/api/match/cancel-sent-invite`,
+      { targetUserId },
+      this.getHeaders(token)
+    );
+  }
+
   async getSkippedProfiles(token: string): Promise<SkippedProfileItem[]> {
     const response = await axios.get<SkippedProfileItem[]>(
       `${API_BASE_URL}/api/match/skipped-profiles`,

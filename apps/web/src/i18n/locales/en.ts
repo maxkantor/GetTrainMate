@@ -133,6 +133,23 @@ export const en = {
   discover: {
     no_photo: 'No photo',
   },
+  sentRequests: {
+    title: 'Sent requests',
+    subtitle:
+      'Your last 30 outgoing likes, newest first. Matched means you can chat; Pending means they have not matched back yet.',
+    cancel_invite: 'Cancel invite',
+    cancel_confirm_title: 'Cancel this invite?',
+    cancel_confirm_body: 'They will no longer see your pending interest. You can send a new interest later from their profile.',
+    keep_invite: 'Keep invite',
+    confirm_cancel: 'Cancel invite',
+    invite_cancelled: 'Invite cancelled',
+    error_cancel: 'Could not cancel invite',
+    empty_pending_title: 'No pending invites',
+    empty_pending_hint: 'When you send interests from Discover, they appear here until the other person matches back.',
+    empty_all: 'No outgoing requests yet.',
+    waiting: 'Waiting',
+    no_matched: 'No matched invites yet.',
+  },
   profile: {
     my_profile: 'My Profile',
     edit_profile: 'Edit Profile',

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Typography,
@@ -8,18 +8,36 @@ import {
   Button,
   Card,
   CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
 } from '@mui/material';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { useI18n } from '@/hooks/useI18n';
 import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import { GraphQLApiError } from '@/services/graphqlService';
 import { matchQueryKeys } from '@/lib/queryKeys';
-import { fetchSentRequestsForUser } from '@/services/matchExploreQueries';
+import { fetchSentRequestsForUser, cancelSentInviteForUser } from '@/services/matchExploreQueries';
 import type { SentRequestItem } from '@/services/matchService';
 import styles from './ConnectionsList.module.css';
 
-function SentCard({ row }: { row: SentRequestItem }) {
+function SentCard({
+  row,
+  showCancelButton,
+  onRequestCancel,
+  cancelBusy,
+}: {
+  row: SentRequestItem;
+  showCancelButton: boolean;
+  onRequestCancel?: () => void;
+  cancelBusy?: boolean;
+}) {
+  const { t } = useI18n();
   const photo =
     getMultiplePhotoUrls(row.photoUrls, row.userId, 1, row.name)[0] || NO_PHOTO_PLACEHOLDER;
   const isMatched = row.status === 'Matched';
@@ -30,11 +48,7 @@ function SentCard({ row }: { row: SentRequestItem }) {
     <Card variant="outlined" sx={{ height: '100%', borderRadius: 2, bgcolor: 'background.paper' }}>
       <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, p: 2 }}>
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-          <img
-            src={photo}
-            alt=""
-            className={styles.gridAvatar}
-          />
+          <img src={photo} alt="" className={styles.gridAvatar} />
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Link to={`/app/profile/${encodeURIComponent(row.userId)}`} className={styles.nameLink}>
               {row.name}
@@ -58,9 +72,26 @@ function SentCard({ row }: { row: SentRequestItem }) {
           >
             Open chat
           </Button>
+        ) : showCancelButton ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 'auto' }}>
+            <Typography variant="caption" color="text.secondary">
+              {t('sentRequests.waiting')}
+            </Typography>
+            <Button
+              type="button"
+              variant="outlined"
+              color="inherit"
+              size="small"
+              fullWidth
+              disabled={cancelBusy}
+              onClick={onRequestCancel}
+            >
+              {t('sentRequests.cancel_invite')}
+            </Button>
+          </Box>
         ) : (
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-            Waiting
+            {t('sentRequests.waiting')}
           </Typography>
         )}
       </CardContent>
@@ -69,8 +100,13 @@ function SentCard({ row }: { row: SentRequestItem }) {
 }
 
 export const SentRequestsPage: React.FC = () => {
+  const { t } = useI18n();
   const { user } = useAuthContext();
   const userSub = user?.sub ?? '';
+  const queryClient = useQueryClient();
+  const [cancelTarget, setCancelTarget] = useState<SentRequestItem | null>(null);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const {
     data: items = [],
@@ -82,6 +118,32 @@ export const SentRequestsPage: React.FC = () => {
     queryKey: matchQueryKeys.sentRequests(userSub),
     queryFn: () => fetchSentRequestsForUser(userSub),
     enabled: !!userSub,
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (targetUserId: string) => cancelSentInviteForUser(targetUserId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: matchQueryKeys.sentRequests(userSub) });
+      setCancelTarget(null);
+      setToastOpen(true);
+      setActionError(null);
+    },
+    onError: (err: unknown) => {
+      if (axios.isAxiosError(err)) {
+        const m = (err.response?.data as { message?: string } | undefined)?.message;
+        if (m) {
+          setActionError(m);
+          return;
+        }
+      }
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'string'
+            ? err
+            : t('sentRequests.error_cancel');
+      setActionError(msg);
+    },
   });
 
   const { matched, pending } = useMemo(() => {
@@ -99,7 +161,8 @@ export const SentRequestsPage: React.FC = () => {
     if (queryError instanceof GraphQLApiError && queryError.status === 403) {
       return 'Sent requests are not enabled for your account.';
     }
-    const status = (queryError as { response?: { status?: number; data?: { message?: string } } })?.response?.status;
+    const status = (queryError as { response?: { status?: number; data?: { message?: string } } })?.response
+      ?.status;
     const msg = (queryError as { response?: { data?: { message?: string } } })?.response?.data?.message;
     if (status === 403) return msg || 'Sent requests are not enabled for your account.';
     if (queryError instanceof Error) return queryError.message;
@@ -125,19 +188,30 @@ export const SentRequestsPage: React.FC = () => {
   return (
     <div className={styles.rootWide}>
       <Typography variant="h5" component="h1" gutterBottom>
-        Sent requests
+        {t('sentRequests.title')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Your last 30 outgoing likes, newest first. Matched means you can chat; Pending means they have not matched back
-        yet.
+        {t('sentRequests.subtitle')}
       </Typography>
       {error ? (
         <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => refetch()}>Retry</Button>}>
           {error}
         </Alert>
       ) : null}
+      {actionError ? (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
+          {actionError}
+        </Alert>
+      ) : null}
       {!error && items.length === 0 ? (
-        <Typography color="text.secondary">No outgoing requests yet.</Typography>
+        <Box sx={{ py: 4, textAlign: 'center', maxWidth: 420, mx: 'auto' }}>
+          <Typography color="text.secondary" sx={{ mb: 1 }}>
+            {t('sentRequests.empty_all')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t('sentRequests.empty_pending_hint')}
+          </Typography>
+        </Box>
       ) : !error ? (
         <>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, letterSpacing: '0.06em' }}>
@@ -145,7 +219,7 @@ export const SentRequestsPage: React.FC = () => {
           </Typography>
           {matched.length === 0 ? (
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              No matched invites yet.
+              {t('sentRequests.no_matched')}
             </Typography>
           ) : (
             <Box
@@ -157,7 +231,7 @@ export const SentRequestsPage: React.FC = () => {
               }}
             >
               {matched.map((row) => (
-                <SentCard key={row.matchId} row={row} />
+                <SentCard key={row.matchId} row={row} showCancelButton={false} />
               ))}
             </Box>
           )}
@@ -166,9 +240,14 @@ export const SentRequestsPage: React.FC = () => {
             Pending
           </Typography>
           {pending.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              No pending invites.
-            </Typography>
+            <Box sx={{ py: 3, px: 2, borderRadius: 2, border: '1px dashed', borderColor: 'divider' }}>
+              <Typography variant="subtitle1" color="text.primary" gutterBottom>
+                {t('sentRequests.empty_pending_title')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t('sentRequests.empty_pending_hint')}
+              </Typography>
+            </Box>
           ) : (
             <Box
               sx={{
@@ -178,12 +257,50 @@ export const SentRequestsPage: React.FC = () => {
               }}
             >
               {pending.map((row) => (
-                <SentCard key={row.matchId} row={row} />
+                <SentCard
+                  key={`${row.matchId}-${row.userId}`}
+                  row={row}
+                  showCancelButton={row.status === 'Pending'}
+                  cancelBusy={cancelMutation.isPending}
+                  onRequestCancel={() => setCancelTarget(row)}
+                />
               ))}
             </Box>
           )}
         </>
       ) : null}
+
+      <Dialog open={cancelTarget !== null} onClose={() => !cancelMutation.isPending && setCancelTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('sentRequests.cancel_confirm_title')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            {t('sentRequests.cancel_confirm_body')}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCancelTarget(null)} disabled={cancelMutation.isPending}>
+            {t('sentRequests.keep_invite')}
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={cancelMutation.isPending || !cancelTarget}
+            onClick={() => {
+              if (cancelTarget) cancelMutation.mutate(cancelTarget.userId);
+            }}
+          >
+            {cancelMutation.isPending ? '…' : t('sentRequests.confirm_cancel')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={4000}
+        onClose={() => setToastOpen(false)}
+        message={t('sentRequests.invite_cancelled')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </div>
   );
 };

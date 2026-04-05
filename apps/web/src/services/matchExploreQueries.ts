@@ -7,6 +7,7 @@ import {
   graphqlListMyMatches,
   graphqlListMySentRequests,
   graphqlListMySkipped,
+  graphqlCancelSentInvite,
 } from '@/services/graphqlService';
 import { RELATIONSHIP_LIST_LIMIT } from '@/config/relationshipLimits';
 
@@ -155,6 +156,16 @@ export async function fetchSentRequestsForUser(_userSub: string): Promise<SentRe
     list = await matchService.getSentRequests(token);
   }
   return list.slice(0, RELATIONSHIP_LIST_LIMIT);
+}
+
+export async function cancelSentInviteForUser(targetUserId: string): Promise<void> {
+  if (isGraphQLEnabled) {
+    await graphqlCancelSentInvite(targetUserId);
+    return;
+  }
+  const token = await authService.getJWT(true);
+  if (!token) throw new Error('Not authenticated');
+  await matchService.cancelSentInvite(token, targetUserId);
 }
 
 export async function fetchSkippedProfilesForUser(_userSub: string): Promise<SkippedProfileItem[]> {

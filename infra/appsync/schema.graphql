@@ -182,6 +182,8 @@ type Mutation {
   likeUser(toUserId: ID!): LikeResult
   """Record a Pass: target is hidden from Discover until you clear passes (future). Deletes pending one-sided match if any."""
   passUser(targetUserId: ID!): Boolean!
+  """Withdraw a pending one-way invite; sets user-interaction to CANCELLED and removes the non-mutual match row."""
+  cancelSentInvite(targetUserId: ID!): Boolean!
   unlockChat(matchId: ID!): UnlockChatResult
   createMessage(matchId: ID, threadId: ID, body: String!): Message
   seedDemoData: SeedDemoResult

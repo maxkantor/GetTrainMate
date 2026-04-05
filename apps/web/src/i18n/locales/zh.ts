@@ -103,6 +103,22 @@ export const zh = {
   discover: {
     no_photo: '无照片',
   },
+  sentRequests: {
+    title: '已发送请求',
+    subtitle: '最近 30 条发出的喜欢，新的在前。已匹配可聊天；待处理表示对方尚未回应。',
+    cancel_invite: '取消邀请',
+    cancel_confirm_title: '要取消此邀请吗？',
+    cancel_confirm_body: '对方将不再看到你的待处理兴趣。之后仍可在其资料页再次发送。',
+    keep_invite: '保留邀请',
+    confirm_cancel: '取消邀请',
+    invite_cancelled: '邀请已取消',
+    error_cancel: '无法取消邀请',
+    empty_pending_title: '暂无待处理邀请',
+    empty_pending_hint: '在「发现」中发送的兴趣会显示在这里，直到对方匹配回来。',
+    empty_all: '还没有发出的请求。',
+    waiting: '等待中',
+    no_matched: '还没有匹配。',
+  },
   profile: {
     my_profile: '我的个人资料',
     edit_profile: '编辑个人资料',

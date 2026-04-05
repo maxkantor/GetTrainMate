@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
+using Amazon.CognitoIdentityProvider;
+using Amazon.CognitoIdentityProvider.Model;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
@@ -21,6 +23,8 @@ public class AdminUsersController : ControllerBase
     private readonly IProfileService _profileService;
     private readonly ICreditsService _creditsService;
     private readonly string _profilesTableName;
+    private readonly string _cognitoUserPoolId;
+    private readonly IAmazonCognitoIdentityProvider _cognito;
     private readonly ILogger<AdminUsersController> _logger;
 
     public AdminUsersController(
@@ -29,6 +33,7 @@ public class AdminUsersController : ControllerBase
         IAuditLogService auditLogService,
         IProfileService profileService,
         ICreditsService creditsService,
+        IAmazonCognitoIdentityProvider cognito,
         IConfiguration configuration,
         ILogger<AdminUsersController> logger)
     {
@@ -37,8 +42,12 @@ public class AdminUsersController : ControllerBase
         _auditLogService = auditLogService;
         _profileService = profileService;
         _creditsService = creditsService;
+        _cognito = cognito;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _profilesTableName = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
+        _cognitoUserPoolId = (configuration["Aws:CognitoUserPoolId"]
+            ?? Environment.GetEnvironmentVariable("COGNITO_USER_POOL_ID")
+            ?? "").Trim();
         _logger = logger;
     }
 
@@ -71,6 +80,7 @@ public class AdminUsersController : ControllerBase
         [FromQuery] string? status = null,
         [FromQuery] string? plan = null,
         [FromQuery] string? sort = "createdAt",
+        [FromQuery] bool testUsersOnly = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
@@ -90,6 +100,8 @@ public class AdminUsersController : ControllerBase
 
             var q = search?.Trim().ToLowerInvariant();
             IEnumerable<UserListItem> rows = all.Select(MapDocumentToListItem).Where(x => x.UserId.Length > 0);
+
+            rows = rows.Where(x => testUsersOnly ? IsTestUserRow(x) : !IsTestUserRow(x));
 
             if (!string.IsNullOrEmpty(q))
             {
@@ -116,6 +128,9 @@ public class AdminUsersController : ControllerBase
             var totalPages = totalCount == 0 ? 1 : (int)Math.Ceiling(totalCount / (double)pageSize);
             var slice = list.Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
+            if (!testUsersOnly && !string.IsNullOrEmpty(_cognitoUserPoolId))
+                await EnrichEmailsFromCognitoAsync(slice);
+
             return Ok(new PagedResponse<UserListItem>
             {
                 Items = slice,
@@ -132,21 +147,78 @@ public class AdminUsersController : ControllerBase
         }
     }
 
+    private static bool IsTestUserRow(UserListItem x)
+    {
+        if (x.UserId.StartsWith("dummy-user-", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (!string.IsNullOrEmpty(x.Email) && x.Email.EndsWith("@test.com", StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+
+    private async Task<string?> TryGetCognitoEmailAsync(string userId)
+    {
+        if (string.IsNullOrEmpty(_cognitoUserPoolId) || userId.StartsWith("dummy-user-", StringComparison.OrdinalIgnoreCase))
+            return null;
+        try
+        {
+            var resp = await _cognito.AdminGetUserAsync(new AdminGetUserRequest
+            {
+                UserPoolId = _cognitoUserPoolId,
+                Username = userId
+            });
+            var email = resp.UserAttributes.FirstOrDefault(a => a.Name == "email")?.Value;
+            if (!string.IsNullOrEmpty(email))
+                return email;
+            return resp.UserAttributes.FirstOrDefault(a => a.Name == "preferred_username")?.Value;
+        }
+        catch (UserNotFoundException)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not resolve email from Cognito for user {UserId}", userId);
+            return null;
+        }
+    }
+
+    private async Task EnrichEmailsFromCognitoAsync(List<UserListItem> slice)
+    {
+        foreach (var u in slice)
+        {
+            if (!string.IsNullOrWhiteSpace(u.Email) || IsTestUserRow(u))
+                continue;
+            var em = await TryGetCognitoEmailAsync(u.UserId);
+            if (!string.IsNullOrEmpty(em))
+                u.Email = em;
+        }
+    }
+
     private static UserListItem MapDocumentToListItem(Document doc)
     {
-        var uid = doc.ContainsKey("userId") ? doc["userId"].AsString() : "";
+        var uid = doc.ContainsKey("userId") ? doc["userId"].AsString()
+            : doc.ContainsKey("UserId") ? doc["UserId"].AsString() : "";
         var created = DateTime.UtcNow;
-        if (doc.ContainsKey("createdAt") && DateTime.TryParse(doc["createdAt"].AsString(), out var ca))
+        var createdRaw = doc.ContainsKey("createdAt") ? doc["createdAt"].AsString()
+            : doc.ContainsKey("CreatedAt") ? doc["CreatedAt"].AsString() : null;
+        if (!string.IsNullOrEmpty(createdRaw) && DateTime.TryParse(createdRaw, out var ca))
             created = ca;
+        var email = doc.ContainsKey("email") ? doc["email"].AsString()
+            : doc.ContainsKey("Email") ? doc["Email"].AsString() : "";
+        var name = doc.ContainsKey("name") ? doc["name"].AsString()
+            : doc.ContainsKey("Name") ? doc["Name"].AsString() : "";
         return new UserListItem
         {
             UserId = uid,
-            Email = doc.ContainsKey("email") ? doc["email"].AsString() : "",
-            Name = doc.ContainsKey("name") ? doc["name"].AsString() : "",
+            Email = email,
+            Name = name,
             Status = "active",
             Plan = "free",
-            City = doc.ContainsKey("city") ? doc["city"].AsString() : null,
-            State = doc.ContainsKey("state") ? doc["state"].AsString() : null,
+            City = doc.ContainsKey("city") ? doc["city"].AsString()
+                : doc.ContainsKey("City") ? doc["City"].AsString() : null,
+            State = doc.ContainsKey("state") ? doc["state"].AsString()
+                : doc.ContainsKey("State") ? doc["State"].AsString() : null,
             CreatedAt = created
         };
     }
@@ -166,10 +238,18 @@ public class AdminUsersController : ControllerBase
 
             var credits = await _creditsService.GetCreditsBalanceAsync(userId);
 
+            var email = profile.Email;
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                var fromCognito = await TryGetCognitoEmailAsync(userId);
+                if (!string.IsNullOrEmpty(fromCognito))
+                    email = fromCognito;
+            }
+
             return Ok(new UserDetail
             {
                 UserId = profile.UserId,
-                Email = profile.Email,
+                Email = email ?? string.Empty,
                 Name = profile.Name,
                 Status = "active",
                 Plan = "free",

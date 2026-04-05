@@ -18,6 +18,7 @@ import {
   ENSURE_FREE_START_CREDITS,
   LIKE_USER,
   PASS_USER,
+  CANCEL_SENT_INVITE,
   UNLOCK_CHAT,
   CREATE_MESSAGE,
   ON_MESSAGE_CREATED,
@@ -327,6 +328,15 @@ export async function graphqlPassUser(targetUserId: string) {
   });
   const data = (result as { data?: { passUser?: boolean } }).data;
   if (data?.passUser !== true) throw new Error('passUser failed');
+}
+
+export async function graphqlCancelSentInvite(targetUserId: string) {
+  const result = await getClient().graphql({
+    query: CANCEL_SENT_INVITE,
+    variables: { targetUserId },
+  });
+  const data = (result as { data?: { cancelSentInvite?: boolean } }).data;
+  if (data?.cancelSentInvite !== true) throw new Error('cancelSentInvite failed');
 }
 
 export async function graphqlUnlockChat(matchId: string) {

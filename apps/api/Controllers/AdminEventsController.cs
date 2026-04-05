@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
-using Amazon.DynamoDBv2.DataModel;
 using System.Security.Claims;
 
 namespace GetTrainMate.Api.Controllers;
@@ -12,16 +11,16 @@ namespace GetTrainMate.Api.Controllers;
 [Authorize]
 public class AdminEventsController : ControllerBase
 {
-    private readonly IDynamoDBContext _context;
+    private readonly IEventService _eventService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<AdminEventsController> _logger;
 
     public AdminEventsController(
-        IDynamoDBContext context,
+        IEventService eventService,
         IAuditLogService auditLogService,
         ILogger<AdminEventsController> logger)
     {
-        _context = context;
+        _eventService = eventService;
         _auditLogService = auditLogService;
         _logger = logger;
     }
@@ -29,14 +28,12 @@ public class AdminEventsController : ControllerBase
     private AdminIdentity GetAdminIdentity()
     {
         if (HttpContext.Items["AdminIdentity"] is AdminIdentity identity)
-        {
             return identity;
-        }
-        
-        var sub = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-            ?? User.FindFirst("sub")?.Value 
+
+        var sub = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? User.FindFirst("sub")?.Value
             ?? throw new UnauthorizedAccessException("Admin identity not found");
-        
+
         return new AdminIdentity
         {
             Sub = sub,
@@ -56,10 +53,7 @@ public class AdminEventsController : ControllerBase
     {
         try
         {
-            // Scan events table
-            var events = await _context.ScanAsync<Event>(new List<ScanCondition>())
-                .GetRemainingAsync();
-
+            var events = await _eventService.ListAllEventsForAdminAsync();
             var paged = events
                 .OrderByDescending(e => e.CreatedAt)
                 .Skip((page - 1) * pageSize)
@@ -101,20 +95,22 @@ public class AdminEventsController : ControllerBase
         try
         {
             var admin = GetAdminIdentity();
-            
-            var evt = new Event
+
+            var createReq = new CreateEventRequest
             {
-                EventId = Guid.NewGuid().ToString(),
                 Title = request.Name,
-                Description = request.Description,
+                Description = request.Description ?? string.Empty,
                 EventDate = request.Date,
                 City = request.Location,
                 Sport = request.SportTags?.FirstOrDefault() ?? "general",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                SkillLevel = string.Empty,
+                MaxParticipants = 10
             };
 
-            await _context.SaveAsync(evt);
+            var evt = await _eventService.CreateEventAsync(
+                createReq,
+                admin.Sub,
+                admin.Email ?? admin.CognitoUsername ?? "admin");
 
             await _auditLogService.LogActionAsync(
                 admin,
@@ -141,11 +137,9 @@ public class AdminEventsController : ControllerBase
     {
         try
         {
-            var evt = await _context.LoadAsync<Event>(eventId);
+            var evt = await _eventService.GetEventAsync(eventId);
             if (evt == null)
-            {
                 return NotFound(new { error = "Event not found" });
-            }
 
             return Ok(evt);
         }
@@ -166,16 +160,13 @@ public class AdminEventsController : ControllerBase
         try
         {
             var admin = GetAdminIdentity();
-            
-            var evt = await _context.LoadAsync<Event>(eventId);
+
+            var evt = await _eventService.GetEventAsync(eventId);
             if (evt == null)
-            {
                 return NotFound(new { error = "Event not found" });
-            }
 
             var before = System.Text.Json.JsonSerializer.Serialize(evt);
 
-            // Update fields
             if (!string.IsNullOrEmpty(request.Name)) evt.Title = request.Name;
             if (!string.IsNullOrEmpty(request.Description)) evt.Description = request.Description;
             if (request.Date.HasValue) evt.EventDate = request.Date.Value;
@@ -183,7 +174,7 @@ public class AdminEventsController : ControllerBase
             if (request.SportTags != null && request.SportTags.Any()) evt.Sport = request.SportTags.First();
             evt.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveAsync(evt);
+            await _eventService.PutEventAsync(evt);
 
             await _auditLogService.LogActionAsync(
                 admin,
@@ -212,15 +203,15 @@ public class AdminEventsController : ControllerBase
         try
         {
             var admin = GetAdminIdentity();
-            
-            var evt = await _context.LoadAsync<Event>(eventId);
+
+            var evt = await _eventService.GetEventAsync(eventId);
             if (evt == null)
-            {
                 return NotFound(new { error = "Event not found" });
-            }
 
             var before = System.Text.Json.JsonSerializer.Serialize(evt);
-            await _context.DeleteAsync<Event>(eventId);
+            var ok = await _eventService.DeleteEventByIdAsync(eventId);
+            if (!ok)
+                return StatusCode(500, new { error = "Failed to delete event" });
 
             await _auditLogService.LogActionAsync(
                 admin,

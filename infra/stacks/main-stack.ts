@@ -97,6 +97,7 @@ export class GetTrainMateStack extends cdk.Stack {
         // AWS_REGION is automatically set by Lambda runtime
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         DYNAMODB_TABLE_PREFIX: 'gettrainmate-',
+        DYNAMODB_TABLE_AUDIT_LOG: 'gettrainmate-audit-log',
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
         // Required for Stripe checkout redirect URLs. Set: npx cdk deploy --context frontendUrl=https://yourdomain.com
         FRONTEND_URL: this.node.tryGetContext('frontendUrl') || process.env.FRONTEND_URL || '',
@@ -334,6 +335,7 @@ export class GetTrainMateStack extends cdk.Stack {
       'ensureFreeStartCredits',
       'likeUser',
       'passUser',
+      'cancelSentInvite',
       'unlockChat',
       'createMessage',
       'seedDemoData',

@@ -366,6 +366,50 @@ public class MatchService : IMatchService
         }
     }
 
+    /// <inheritdoc />
+    public async Task CancelSentInviteAsync(string userId, string targetUserId)
+    {
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(targetUserId))
+            throw new ArgumentException("User and target are required");
+        if (string.Equals(userId, targetUserId, StringComparison.Ordinal))
+            throw new InvalidOperationException("Invalid target");
+
+        var state = await GetUserInteractionStateAsync(userId, targetUserId);
+        if (state != UserInteractionState.Sent)
+        {
+            if (state == UserInteractionState.Matched)
+                throw new InvalidOperationException("Cannot cancel a mutual match");
+            throw new InvalidOperationException("No pending invite to cancel");
+        }
+
+        var match = await GetMatchAsync(userId, targetUserId);
+        if (match == null)
+            throw new InvalidOperationException("Match record not found");
+
+        if (match.IsMatched)
+            throw new InvalidOperationException("Cannot cancel a mutual match");
+
+        var iLiked = match.UserId1 == userId ? match.User1Liked : match.User2Liked;
+        if (!iLiked)
+            throw new InvalidOperationException("No outgoing invite to cancel");
+
+        ClearInteractionSyncThrottle(userId);
+
+        var matchTable = Table.LoadTable(_dynamoDb, _matchesTable);
+        await matchTable.DeleteItemAsync(match.MatchId);
+
+        await UpsertUserInteractionAsync(userId, targetUserId, UserInteractionState.Cancelled);
+
+        try
+        {
+            await DeleteUserInteractionAsync(targetUserId, userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Cancel invite: optional reverse interaction delete for {Target}->{User}", targetUserId, userId);
+        }
+    }
+
     private async Task RecordDiscoverPassAsync(string userId, string targetUserId)
     {
         try
@@ -1002,13 +1046,14 @@ public class MatchService : IMatchService
             {
                 TableName = _userInteractionsTable,
                 KeyConditionExpression = "userId = :u",
-                FilterExpression = "(#st = :sent OR #st = :matched)",
+                FilterExpression = "(#st = :sent OR #st = :matched OR #st = :cancelled)",
                 ExpressionAttributeNames = new Dictionary<string, string> { ["#st"] = "state" },
                 ExpressionAttributeValues = new Dictionary<string, AttributeValue>
                 {
                     [":u"] = new AttributeValue { S = userId },
                     [":sent"] = new AttributeValue { S = UserInteractionState.Sent },
-                    [":matched"] = new AttributeValue { S = UserInteractionState.Matched }
+                    [":matched"] = new AttributeValue { S = UserInteractionState.Matched },
+                    [":cancelled"] = new AttributeValue { S = UserInteractionState.Cancelled }
                 },
                 ExclusiveStartKey = startKey
             };
@@ -1418,7 +1463,7 @@ public class MatchService : IMatchService
                     continue;
 
                 var existing = await GetUserInteractionStateAsync(userId, target);
-                if (existing == UserInteractionState.Sent || existing == UserInteractionState.Matched)
+                if (existing == UserInteractionState.Sent || existing == UserInteractionState.Matched || existing == UserInteractionState.Cancelled)
                     continue;
 
                 await UpsertUserInteractionAsync(userId, target, UserInteractionState.Skipped);
@@ -1472,7 +1517,7 @@ public class MatchService : IMatchService
                     continue;
 
                 var existing = await GetUserInteractionStateAsync(uid, tid);
-                if (existing == UserInteractionState.Sent || existing == UserInteractionState.Matched)
+                if (existing == UserInteractionState.Sent || existing == UserInteractionState.Matched || existing == UserInteractionState.Cancelled)
                     continue;
 
                 await UpsertUserInteractionAsync(uid, tid, UserInteractionState.Skipped);
