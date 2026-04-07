@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Container,
@@ -33,10 +33,17 @@ export const AICoachPage: React.FC = () => {
   const [workoutResult, setWorkoutResult] = useState<{ title: string; summary: string; sessions: string[] } | null>(null);
   const [workoutLoading, setWorkoutLoading] = useState(false);
   const [workoutError, setWorkoutError] = useState('');
+  const messagesRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    messagesRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  }, []);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   useEffect(() => {
+    if (history.length === 0 && !streamingContent) return;
     scrollToBottom();
   }, [history, streamingContent]);
 
@@ -112,7 +119,7 @@ export const AICoachPage: React.FC = () => {
         </Typography>
 
         <Paper className={styles.chatPanel} elevation={0}>
-          <div className={styles.messages}>
+          <div ref={messagesRef} className={styles.messages}>
             {history.length === 0 && !streamingContent && (
               <div className={styles.placeholder}>
                 <p>Ask anything about:</p>
