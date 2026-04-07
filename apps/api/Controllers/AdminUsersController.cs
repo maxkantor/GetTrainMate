@@ -23,7 +23,8 @@ public class AdminUsersController : ControllerBase
     private readonly IProfileService _profileService;
     private readonly ICreditsService _creditsService;
     private readonly string _profilesTableName;
-    private readonly string _cognitoUserPoolId;
+    /// <summary>Primary + optional extra pools (e.g. Amplify app pool when stack uses a different pool).</summary>
+    private readonly string[] _cognitoUserPoolIds;
     private readonly IAmazonCognitoIdentityProvider _cognito;
     private readonly ILogger<AdminUsersController> _logger;
 
@@ -45,9 +46,17 @@ public class AdminUsersController : ControllerBase
         _cognito = cognito;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _profilesTableName = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
-        _cognitoUserPoolId = (configuration["Aws:CognitoUserPoolId"]
+        var primary = (configuration["Aws:CognitoUserPoolId"]
             ?? Environment.GetEnvironmentVariable("COGNITO_USER_POOL_ID")
             ?? "").Trim();
+        var extraRaw = configuration["Aws:CognitoExtraUserPoolIds"]
+            ?? Environment.GetEnvironmentVariable("COGNITO_EXTRA_USER_POOL_IDS")
+            ?? "";
+        _cognitoUserPoolIds = string.Join(',', primary, extraRaw)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         _logger = logger;
     }
 
@@ -128,8 +137,7 @@ public class AdminUsersController : ControllerBase
             var totalPages = totalCount == 0 ? 1 : (int)Math.Ceiling(totalCount / (double)pageSize);
             var slice = list.Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
-            if (!testUsersOnly && !string.IsNullOrEmpty(_cognitoUserPoolId))
-                await EnrichEmailsFromCognitoAsync(slice);
+            await EnrichListFieldsAsync(slice, includeCognitoEmailLookup: !testUsersOnly);
 
             return Ok(new PagedResponse<UserListItem>
             {
@@ -161,30 +169,55 @@ public class AdminUsersController : ControllerBase
         var email = attrs.FirstOrDefault(a => a.Name == "email")?.Value;
         if (!string.IsNullOrEmpty(email))
             return email;
-        return attrs.FirstOrDefault(a => a.Name == "preferred_username")?.Value;
+        var pref = attrs.FirstOrDefault(a => a.Name == "preferred_username")?.Value;
+        if (!string.IsNullOrEmpty(pref) && pref.Contains('@', StringComparison.Ordinal))
+            return pref;
+        return pref;
     }
 
     private async Task<string?> TryGetCognitoEmailAsync(string userId)
     {
-        if (string.IsNullOrEmpty(_cognitoUserPoolId) || userId.StartsWith("dummy-user-", StringComparison.OrdinalIgnoreCase))
+        if (userId.StartsWith("dummy-user-", StringComparison.OrdinalIgnoreCase))
             return null;
+        if (_cognitoUserPoolIds.Length == 0)
+        {
+            _logger.LogWarning("Cognito user pool id not configured; cannot resolve emails from Cognito.");
+            return null;
+        }
+
+        foreach (var poolId in _cognitoUserPoolIds)
+        {
+            var em = await TryGetCognitoEmailInPoolAsync(userId, poolId);
+            if (!string.IsNullOrEmpty(em))
+                return em;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// AdminGetUser(Username=sub) works when Cognito username equals sub; otherwise ListUsers(sub=...) is required.
+    /// Lambda must have cognito-idp:ListUsers on the pool (email-alias sign-in uses non-sub Username).
+    /// </summary>
+    private async Task<string?> TryGetCognitoEmailInPoolAsync(string userId, string poolId)
+    {
         try
         {
             var resp = await _cognito.AdminGetUserAsync(new AdminGetUserRequest
             {
-                UserPoolId = _cognitoUserPoolId,
+                UserPoolId = poolId,
                 Username = userId
             });
             return EmailFromCognitoAttributes(resp.UserAttributes);
         }
         catch (UserNotFoundException)
         {
-            // JWT "sub" is not always Cognito's Username (e.g. email sign-in). Resolve by sub attribute.
+            // Username is often the email while sub is the stable id — find user by sub.
             try
             {
                 var list = await _cognito.ListUsersAsync(new ListUsersRequest
                 {
-                    UserPoolId = _cognitoUserPoolId,
+                    UserPoolId = poolId,
                     Filter = $"sub = \"{userId}\"",
                     Limit = 2
                 });
@@ -192,29 +225,86 @@ public class AdminUsersController : ControllerBase
                 if (u?.Attributes != null)
                     return EmailFromCognitoAttributes(u.Attributes);
             }
+            catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
+            {
+                _logger.LogWarning(ex, "Cognito ListUsers denied for pool {PoolId}. Grant cognito-idp:ListUsers on this pool to the API Lambda role.", poolId);
+            }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "ListUsers by sub failed for {UserId}", userId);
+                _logger.LogWarning(ex, "ListUsers by sub failed for {UserId} pool {PoolId}", userId, poolId);
             }
+
+            return null;
+        }
+        catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
+        {
+            _logger.LogWarning(ex, "Cognito AdminGetUser denied for pool {PoolId}. Check Lambda IAM.", poolId);
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Could not resolve email from Cognito for user {UserId}", userId);
+            _logger.LogDebug(ex, "Could not resolve email from Cognito for user {UserId} pool {PoolId}", userId, poolId);
             return null;
         }
     }
 
-    private async Task EnrichEmailsFromCognitoAsync(List<UserListItem> slice)
+    private async Task<string?> TryGetWalletEmailAsync(string userId)
     {
-        foreach (var u in slice)
+        if (string.IsNullOrWhiteSpace(userId))
+            return null;
+        try
         {
-            if (!string.IsNullOrWhiteSpace(u.Email) || IsTestUserRow(u))
-                continue;
-            var em = await TryGetCognitoEmailAsync(u.UserId);
-            if (!string.IsNullOrEmpty(em))
-                u.Email = em;
+            var wallets = await _context.QueryAsync<TokenWallet>(
+                    userId,
+                    new DynamoDBOperationConfig { IndexName = "userId-index" })
+                .GetRemainingAsync();
+            var email = wallets
+                .Select(w => (w.Email ?? string.Empty).Trim())
+                .FirstOrDefault(e => !string.IsNullOrWhiteSpace(e));
+            return string.IsNullOrWhiteSpace(email) ? null : email;
         }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not resolve wallet email for user {UserId}", userId);
+            return null;
+        }
+    }
+
+    private async Task<int?> TryGetCreditsAsync(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            return null;
+        try
+        {
+            var credits = await _creditsService.GetCreditsBalanceAsync(userId);
+            return credits.Balance;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not resolve credits for user {UserId}", userId);
+            return null;
+        }
+    }
+
+    private async Task EnrichListFieldsAsync(List<UserListItem> slice, bool includeCognitoEmailLookup)
+    {
+        var tasks = slice.Select(async u =>
+        {
+            // Email: prefer persisted profile email; fallback to Cognito when available.
+            if (includeCognitoEmailLookup && string.IsNullOrWhiteSpace(u.Email) && !IsTestUserRow(u))
+            {
+                var em = await TryGetCognitoEmailAsync(u.UserId) ?? await TryGetWalletEmailAsync(u.UserId);
+                if (!string.IsNullOrEmpty(em))
+                {
+                    u.Email = em;
+                    await _profileService.SetProfileEmailIfEmptyAsync(u.UserId, em);
+                }
+            }
+
+            // Credits: always attempt to resolve for list view.
+            u.Credits = await TryGetCreditsAsync(u.UserId);
+        });
+        await Task.WhenAll(tasks);
     }
 
     private static UserListItem MapDocumentToListItem(Document doc)
@@ -263,9 +353,9 @@ public class AdminUsersController : ControllerBase
             var email = profile.Email;
             if (string.IsNullOrWhiteSpace(email))
             {
-                var fromCognito = await TryGetCognitoEmailAsync(userId);
-                if (!string.IsNullOrEmpty(fromCognito))
-                    email = fromCognito;
+                email = await TryGetCognitoEmailAsync(userId) ?? await TryGetWalletEmailAsync(userId) ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(email))
+                    await _profileService.SetProfileEmailIfEmptyAsync(userId, email);
             }
 
             return Ok(new UserDetail
@@ -450,6 +540,7 @@ public class UserListItem
     public string? City { get; set; }
     public string? State { get; set; }
     public DateTime CreatedAt { get; set; }
+    public int? Credits { get; set; }
 }
 
 public class UserDetail

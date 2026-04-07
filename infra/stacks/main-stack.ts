@@ -68,6 +68,22 @@ export class GetTrainMateStack extends cdk.Stack {
       userPoolClientIdOutput = userPoolClient.userPoolClientId;
     }
 
+    // Optional: Amplify / legacy pool IDs when app users authenticate against a different pool than the stack primary
+    const cognitoExtraPoolIds = String(
+      (this.node.tryGetContext('cognitoExtraUserPoolIds') as string | undefined) || process.env.COGNITO_EXTRA_USER_POOL_IDS || ''
+    )
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const cognitoUserPoolArns = Array.from(
+      new Set([
+        userPool.userPoolArn,
+        ...cognitoExtraPoolIds.map(
+          (id) => `arn:aws:cognito-idp:${this.region}:${this.account}:userpool/${id}`
+        ),
+      ])
+    );
+
     // DynamoDB Tables
     const tables = this.createDynamoDBTables();
     const adminTables = this.createAdminAndCRMTables();
@@ -96,6 +112,7 @@ export class GetTrainMateStack extends cdk.Stack {
         ASPNETCORE_ENVIRONMENT: 'Production',
         // AWS_REGION is automatically set by Lambda runtime
         COGNITO_USER_POOL_ID: userPool.userPoolId,
+        COGNITO_EXTRA_USER_POOL_IDS: cognitoExtraPoolIds.join(','),
         DYNAMODB_TABLE_PREFIX: 'gettrainmate-',
         DYNAMODB_TABLE_AUDIT_LOG: 'gettrainmate-audit-log',
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
@@ -131,9 +148,11 @@ export class GetTrainMateStack extends cdk.Stack {
       actions: [
         'cognito-idp:GetUser',
         'cognito-idp:AdminGetUser',
+        // Admin CRM resolves email via ListUsers when Username != sub (email sign-in / aliases)
+        'cognito-idp:ListUsers',
         'cognito-idp:AdminListGroupsForUser',
       ],
-      resources: [userPool.userPoolArn],
+      resources: cognitoUserPoolArns,
     }));
 
     // Grant Lambda access to Secrets Manager
