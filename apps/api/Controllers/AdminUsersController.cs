@@ -226,6 +226,17 @@ public class AdminUsersController : ControllerBase
         return string.Join(",", attrs.Select(a => a.Name ?? "?").OrderBy(s => s));
     }
 
+    /// <summary>True when Cognito returns that the user pool id does not exist in this account/region.</summary>
+    private static bool IsCognitoUserPoolMissing(AmazonCognitoIdentityProviderException ex)
+    {
+        if (ex == null) return false;
+        if (!string.Equals(ex.ErrorCode, "ResourceNotFoundException", StringComparison.OrdinalIgnoreCase))
+            return false;
+        var m = ex.Message ?? "";
+        return m.Contains("User pool", StringComparison.OrdinalIgnoreCase)
+               && m.Contains("does not exist", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string? EmailFromCognitoAttributes(List<AttributeType> attrs)
     {
         if (attrs == null || attrs.Count == 0)
@@ -372,6 +383,14 @@ public class AdminUsersController : ControllerBase
                 T("LIST_USERS_RESULT", $"filter={filterField} count={list.Users.Count} hasMorePagination={!string.IsNullOrEmpty(list.PaginationToken)}");
                 return await resolveFromListUserAsync(list.Users.FirstOrDefault(), $"ListUsers:{filterField}");
             }
+            catch (AmazonCognitoIdentityProviderException ex) when (IsCognitoUserPoolMissing(ex))
+            {
+                T("LIST_USERS_ERR", $"{filterField} POOL_DOES_NOT_EXIST");
+                _logger.LogError(
+                    "AdminCRM: ListUsers failed — user pool {PoolId} does not exist in this account. Fix AMPLIFY_USER_POOL_ID / cdk.json amplifyUserPoolId to a real Cognito pool ID, then cdk deploy.",
+                    poolId);
+                return null;
+            }
             catch (AmazonCognitoIdentityProviderException ex)
             {
                 T("LIST_USERS_ERR", $"{filterField} {ex.ErrorCode}: {ex.Message}");
@@ -474,6 +493,15 @@ public class AdminUsersController : ControllerBase
             }
 
             T("POOL_GIVE_UP", "UserNotFound path exhausted");
+            return null;
+        }
+        catch (AmazonCognitoIdentityProviderException ex) when (IsCognitoUserPoolMissing(ex))
+        {
+            _logger.LogError(
+                "AdminCRM: AdminGetUser failed — user pool {PoolId} does not exist in this AWS account/region. " +
+                "Update infra/cdk.json \"amplifyUserPoolId\" and Lambda AMPLIFY_USER_POOL_ID / COGNITO_EXTRA_USER_POOL_IDS to the Pool Id shown in Cognito console for the pool your users use (must match Amplify VITE_COGNITO_USER_POOL_ID). Then: cdk deploy.",
+                poolId);
+            T("POOL_DOES_NOT_EXIST", ex.Message);
             return null;
         }
         catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
