@@ -205,6 +205,27 @@ public class AdminUsersController : ControllerBase
         return userId;
     }
 
+    /// <summary>Short id for logs (full sub is still unique enough for support).</summary>
+    private static string ShortUserIdForLogs(string? userId)
+    {
+        if (string.IsNullOrEmpty(userId)) return "(empty)";
+        return userId.Length <= 14 ? userId : userId[..8] + "…" + userId[^4..];
+    }
+
+    private static string DescribeCognitoUsername(string? username)
+    {
+        if (string.IsNullOrEmpty(username)) return "empty";
+        if (username.Contains('@', StringComparison.Ordinal)) return "email-shaped";
+        if (Guid.TryParse(username, out _)) return "uuid-shaped";
+        return "other";
+    }
+
+    private static string FormatAttrNames(List<AttributeType>? attrs)
+    {
+        if (attrs == null || attrs.Count == 0) return "(no attrs)";
+        return string.Join(",", attrs.Select(a => a.Name ?? "?").OrderBy(s => s));
+    }
+
     private static string? EmailFromCognitoAttributes(List<AttributeType> attrs)
     {
         if (attrs == null || attrs.Count == 0)
@@ -244,14 +265,30 @@ public class AdminUsersController : ControllerBase
             return null;
         }
 
+        var lookupPreview = NormalizeUserIdForCognitoLookup(userId);
+        _logger.LogInformation(
+            "AdminCRM email | user={User} | COGNITO_START | pools={Pools} rawEqualsLookup={Same}",
+            ShortUserIdForLogs(userId),
+            string.Join(",", _cognitoUserPoolIds),
+            string.Equals(userId, lookupPreview, StringComparison.Ordinal));
+
         foreach (var poolId in _cognitoUserPoolIds)
         {
             var em = await TryGetCognitoEmailInPoolAsync(userId, poolId);
             if (!string.IsNullOrEmpty(em))
+            {
+                _logger.LogInformation(
+                    "AdminCRM email | user={User} | COGNITO_OK | pool={Pool} | source=cognito",
+                    ShortUserIdForLogs(userId),
+                    poolId);
                 return em;
+            }
         }
 
-        _logger.LogDebug("Could not resolve email from Cognito for userId {UserId} after trying pools: {Pools}", userId, string.Join(", ", _cognitoUserPoolIds));
+        _logger.LogWarning(
+            "AdminCRM email | user={User} | COGNITO_FAIL | tried_pools={Pools}",
+            ShortUserIdForLogs(userId),
+            string.Join(",", _cognitoUserPoolIds));
         return null;
     }
 
@@ -263,27 +300,57 @@ public class AdminUsersController : ControllerBase
     {
         var lookupId = NormalizeUserIdForCognitoLookup(userId);
 
-        async Task<string?> resolveFromListUserAsync(UserType? u)
+        void T(string step, string? detail = null)
+        {
+            _logger.LogInformation(
+                "AdminCRM email | user={User} | pool={Pool} | {Step} | {Detail}",
+                ShortUserIdForLogs(userId),
+                poolId,
+                step,
+                detail ?? "-");
+        }
+
+        async Task<string?> resolveFromListUserAsync(UserType? u, string via)
         {
             if (u == null)
+            {
+                T("LIST_USERS_ROW", $"{via}: no user row");
                 return null;
+            }
+
+            var names = FormatAttrNames(u.Attributes);
+            T("LIST_USERS_ROW", $"{via}: UsernameKind={DescribeCognitoUsername(u.Username)} UserStatus={u.UserStatus} attrNames=[{names}]");
+
             var fromList = u.Attributes != null ? EmailFromCognitoAttributes(u.Attributes) : null;
             if (!string.IsNullOrEmpty(fromList))
+            {
+                T("EMAIL_EXTRACT", $"{via}: from ListUsers attributes");
                 return fromList;
+            }
+
             if (string.IsNullOrEmpty(u.Username))
+            {
+                T("LIST_USERS_ROW", $"{via}: empty Username, cannot AdminGetUser fallback");
                 return null;
+            }
+
             try
             {
+                T("ADMIN_GET_USER_FALLBACK", $"after ListUsers, UsernameKind={DescribeCognitoUsername(u.Username)}");
                 var agu = await _cognito.AdminGetUserAsync(new AdminGetUserRequest
                 {
                     UserPoolId = poolId,
                     Username = u.Username
                 });
-                return EmailFromCognitoAttributes(agu.UserAttributes);
+                var aguNames = FormatAttrNames(agu.UserAttributes);
+                var extracted = EmailFromCognitoAttributes(agu.UserAttributes);
+                T("ADMIN_GET_USER_FALLBACK_RESULT", $"attrNames=[{aguNames}] extracted={(string.IsNullOrEmpty(extracted) ? "no" : "yes")}");
+                return extracted;
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "AdminGetUser after ListUsers for Username {Username} pool {PoolId}", u.Username, poolId);
+                T("ADMIN_GET_USER_FALLBACK_ERR", ex.Message);
+                _logger.LogWarning(ex, "AdminGetUser after ListUsers failed pool {PoolId}", poolId);
                 return null;
             }
         }
@@ -293,17 +360,28 @@ public class AdminUsersController : ControllerBase
             var filter = filterField == "sub"
                 ? $"sub = \"{lookupId}\""
                 : $"username = \"{lookupId.Replace("\"", "\\\"")}\"";
-            var list = await _cognito.ListUsersAsync(new ListUsersRequest
+            T("LIST_USERS_REQUEST", $"{filterField} filter (value normalized)");
+            try
             {
-                UserPoolId = poolId,
-                Filter = filter,
-                Limit = 2
-            });
-            return await resolveFromListUserAsync(list.Users.FirstOrDefault());
+                var list = await _cognito.ListUsersAsync(new ListUsersRequest
+                {
+                    UserPoolId = poolId,
+                    Filter = filter,
+                    Limit = 5
+                });
+                T("LIST_USERS_RESULT", $"filter={filterField} count={list.Users.Count} hasMorePagination={!string.IsNullOrEmpty(list.PaginationToken)}");
+                return await resolveFromListUserAsync(list.Users.FirstOrDefault(), $"ListUsers:{filterField}");
+            }
+            catch (AmazonCognitoIdentityProviderException ex)
+            {
+                T("LIST_USERS_ERR", $"{filterField} {ex.ErrorCode}: {ex.Message}");
+                throw;
+            }
         }
 
-        async Task<string?> listUsersStrategiesAsync()
+        async Task<string?> listUsersStrategiesAsync(string reason)
         {
+            T("LIST_USERS_STRATEGIES", reason);
             try
             {
                 var bySub = await listUsersByFilterAsync("sub");
@@ -313,12 +391,15 @@ public class AdminUsersController : ControllerBase
             catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
             {
                 _logger.LogWarning(ex, "Cognito ListUsers denied for pool {PoolId}. Grant cognito-idp:ListUsers on this pool to the API Lambda role.", poolId);
+                T("LIST_USERS_DENIED", ex.ErrorCode ?? "denied");
                 return null;
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "ListUsers(sub) failed for {UserId} pool {PoolId}", lookupId, poolId);
+                T("LIST_USERS_EXCEPTION", $"sub: {ex.Message}");
             }
+
             try
             {
                 return await listUsersByFilterAsync("username");
@@ -326,13 +407,18 @@ public class AdminUsersController : ControllerBase
             catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
             {
                 _logger.LogWarning(ex, "Cognito ListUsers denied for pool {PoolId}. Grant cognito-idp:ListUsers on this pool to the API Lambda role.", poolId);
+                T("LIST_USERS_DENIED", ex.ErrorCode ?? "denied");
             }
             catch (Exception ex)
             {
                 _logger.LogDebug(ex, "ListUsers(username) failed for {UserId} pool {PoolId}", lookupId, poolId);
+                T("LIST_USERS_EXCEPTION", $"username: {ex.Message}");
             }
+
             return null;
         }
+
+        T("POOL_ENTER", $"lookupId={ShortUserIdForLogs(lookupId)}");
 
         try
         {
@@ -341,12 +427,19 @@ public class AdminUsersController : ControllerBase
                 UserPoolId = poolId,
                 Username = lookupId
             });
+            var agNames = FormatAttrNames(resp.UserAttributes);
+            T("ADMIN_GET_USER_OK", $"Username={DescribeCognitoUsername(resp.Username)} attrNames=[{agNames}]");
             var fromAttrs = EmailFromCognitoAttributes(resp.UserAttributes);
             if (!string.IsNullOrEmpty(fromAttrs))
+            {
+                T("EMAIL_EXTRACT", "from AdminGetUser attributes");
                 return fromAttrs;
+            }
+
+            T("ADMIN_GET_USER_NO_EMAIL", "trying ListUsers strategies after AdminGetUser returned no extractable email");
             try
             {
-                var fromList = await listUsersStrategiesAsync();
+                var fromList = await listUsersStrategiesAsync("after AdminGetUser without email");
                 if (!string.IsNullOrEmpty(fromList))
                     return fromList;
             }
@@ -357,14 +450,18 @@ public class AdminUsersController : ControllerBase
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "ListUsers strategies failed for {UserId} pool {PoolId}", lookupId, poolId);
+                T("LIST_USERS_STRATEGIES_ERR", ex.Message);
             }
+
+            T("POOL_GIVE_UP", "no email after AdminGetUser + ListUsers");
             return null;
         }
         catch (UserNotFoundException)
         {
+            T("ADMIN_GET_USER", "UserNotFound for Username=lookupId — trying ListUsers by sub/username");
             try
             {
-                return await listUsersStrategiesAsync();
+                return await listUsersStrategiesAsync("after UserNotFound");
             }
             catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
             {
@@ -373,18 +470,22 @@ public class AdminUsersController : ControllerBase
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "ListUsers strategies failed for {UserId} pool {PoolId}", lookupId, poolId);
+                T("LIST_USERS_STRATEGIES_ERR", ex.Message);
             }
 
+            T("POOL_GIVE_UP", "UserNotFound path exhausted");
             return null;
         }
         catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
         {
             _logger.LogWarning(ex, "Cognito AdminGetUser denied for pool {PoolId}. Check Lambda IAM.", poolId);
+            T("ADMIN_GET_USER_DENIED", ex.ErrorCode ?? "denied");
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Could not resolve email from Cognito for user {UserId} pool {PoolId}", userId, poolId);
+            T("ADMIN_GET_USER_ERR", $"{ex.GetType().Name}: {ex.Message}");
+            _logger.LogWarning(ex, "AdminGetUser unexpected error user {User} pool {Pool}", ShortUserIdForLogs(userId), poolId);
             return null;
         }
     }
@@ -399,14 +500,29 @@ public class AdminUsersController : ControllerBase
                     userId,
                     new DynamoDBOperationConfig { IndexName = "userId-index" })
                 .GetRemainingAsync();
+            _logger.LogInformation(
+                "AdminCRM email | user={User} | WALLET_QUERY | rows={Count}",
+                ShortUserIdForLogs(userId),
+                wallets.Count);
             var email = wallets
                 .Select(w => (w.Email ?? string.Empty).Trim())
                 .FirstOrDefault(e => !string.IsNullOrWhiteSpace(e));
-            return string.IsNullOrWhiteSpace(email) ? null : email;
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                _logger.LogInformation(
+                    "AdminCRM email | user={User} | WALLET_QUERY | no non-empty Email on wallets",
+                    ShortUserIdForLogs(userId));
+                return null;
+            }
+
+            _logger.LogInformation(
+                "AdminCRM email | user={User} | WALLET_OK | source=token-wallet",
+                ShortUserIdForLogs(userId));
+            return email;
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Could not resolve wallet email for user {UserId}", userId);
+            _logger.LogWarning(ex, "AdminCRM email | user={User} | WALLET_ERR", ShortUserIdForLogs(userId));
             return null;
         }
     }
@@ -429,16 +545,27 @@ public class AdminUsersController : ControllerBase
 
     private async Task EnrichListFieldsAsync(List<UserListItem> slice, bool includeCognitoEmailLookup)
     {
+        if (includeCognitoEmailLookup && slice.Count > 0)
+            _logger.LogInformation("AdminCRM email | ENRICH_BATCH | slice={Count}", slice.Count);
+
         var tasks = slice.Select(async u =>
         {
             // Email: prefer persisted profile email; fallback to Cognito when available.
             if (includeCognitoEmailLookup && string.IsNullOrWhiteSpace(u.Email) && !IsTestUserRow(u))
             {
-                var em = await TryGetCognitoEmailAsync(u.UserId) ?? await TryGetWalletEmailAsync(u.UserId);
+                var fromCog = await TryGetCognitoEmailAsync(u.UserId);
+                var fromWal = string.IsNullOrEmpty(fromCog) ? await TryGetWalletEmailAsync(u.UserId) : null;
+                var em = fromCog ?? fromWal;
                 if (!string.IsNullOrEmpty(em))
                 {
                     u.Email = em;
                     await _profileService.SetProfileEmailIfEmptyAsync(u.UserId, em);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "AdminCRM email | user={User} | ROW_STILL_NO_EMAIL | after cognito+wallet; Dynamo profile had no email",
+                        ShortUserIdForLogs(u.UserId));
                 }
             }
 
