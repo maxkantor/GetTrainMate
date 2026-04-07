@@ -12,6 +12,11 @@ export default defineConfig(({ mode }) => {
   const ogImageUrl = siteUrl ? `${siteUrl}${ogImagePath}` : ogImagePath
   const canonicalLine = siteUrl ? `<link rel="canonical" href="${siteUrl}/" />` : ''
   const ogUrlLine = siteUrl ? `<meta property="og:url" content="${siteUrl}/" />` : ''
+  const gsc = (env.VITE_GSC_VERIFICATION || '').trim()
+  const gscMetaLine = gsc
+    ? `<meta name="google-site-verification" content="${gsc.replace(/"/g, '')}" />`
+    : ''
+  const themeColor = env.VITE_THEME_COLOR || '#070b1a'
 
   return {
     plugins: [
@@ -25,6 +30,8 @@ export default defineConfig(({ mode }) => {
             .replace(/%OG_IMAGE_URL%/g, ogImageUrl)
             .replace(/%CANONICAL_LINE%/g, canonicalLine)
             .replace(/%OG_URL_LINE%/g, ogUrlLine)
+            .replace(/%GSC_META_LINE%/g, gscMetaLine)
+            .replace(/%THEME_COLOR%/g, themeColor)
         },
       },
     ],

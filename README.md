@@ -95,6 +95,10 @@ cd apps/api && dotnet build
 npm run infra:synth
 ```
 
+### SEO and analytics (production)
+
+Canonical URL, Google Analytics 4, Search Console HTML verification, `robots.txt`, and `sitemap.xml` are covered in [docs/SEO-Analytics.md](docs/SEO-Analytics.md). For production builds, set `VITE_PUBLIC_SITE_URL` and `VITE_GA_MEASUREMENT_ID` in Amplify (or `apps/web/.env`).
+
 ### Testing
 
 ```bash

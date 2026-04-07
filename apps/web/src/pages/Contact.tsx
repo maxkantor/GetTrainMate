@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { PageShell } from '@/components/layout/PageShell';
+import { trackContactSubmit, trackLead } from '@/utils/analytics';
 
 export const ContactPage: React.FC = () => {
   const { t: _t } = useI18n();
@@ -39,9 +40,8 @@ export const ContactPage: React.FC = () => {
       return;
     }
 
-    // TODO: Connect to backend API to save the contact form submission
-    // For now, just simulate success
-    console.log('Contact form submitted:', formData);
+    trackContactSubmit(formData.subject);
+    trackLead('contact', { subject_category: formData.subject });
     setSubmitted(true);
 
     // Reset form

@@ -15,6 +15,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { isAuthConfigured, getAuthPoolDebug } from '@/services/authService';
 import { PageShell } from '@/components/layout/PageShell';
+import { trackLogin } from '@/utils/analytics';
 
 /** Last email used for a successful sign-in (pre-filled on return visits). */
 const LAST_LOGIN_EMAIL_KEY = 'gtm_last_login_email';
@@ -144,6 +145,7 @@ export const LoginPage: React.FC = () => {
     try {
       const result = await confirmSignInWithNewPassword(newPassword);
       if (result.success) {
+        trackLogin('email');
         persistLoginEmail(email.trim(), rememberMe);
         const plan = localStorage.getItem('selectedPlanKey');
         if (plan === 'pro' || plan === 'elite') {

@@ -7,42 +7,9 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { authService } from '@/services/authService';
 import { askHelp } from '@/services/aiService';
 import { PageShell } from '@/components/layout/PageShell';
+import { FaqJsonLd } from '@/components/seo/FaqJsonLd';
 
-export const FAQPage: React.FC = () => {
-  const { t: _t } = useI18n();
-  const { isAuthenticated } = useAuthContext();
-  const [expanded, setExpanded] = useState<string | false>('panel1');
-  const [helpQuestion, setHelpQuestion] = useState('');
-  const [helpAnswer, setHelpAnswer] = useState('');
-  const [helpLoading, setHelpLoading] = useState(false);
-  const [helpError, setHelpError] = useState('');
-
-  const handleChange = (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
-    setExpanded(isExpanded ? panel : false);
-  };
-
-  const handleAskHelp = async () => {
-    const q = helpQuestion.trim();
-    if (!q) return;
-    const token = await authService.getJWT();
-    if (!token) {
-      setHelpError('Please sign in to use the help assistant.');
-      return;
-    }
-    setHelpError('');
-    setHelpAnswer('');
-    setHelpLoading(true);
-    try {
-      const res = await askHelp(token, q);
-      setHelpAnswer(res.answer);
-    } catch (err) {
-      setHelpError(err instanceof Error ? err.message : 'Something went wrong.');
-    } finally {
-      setHelpLoading(false);
-    }
-  };
-
-  const faqs = [
+const FAQ_SECTIONS = [
     {
       category: 'Getting Started',
       questions: [
@@ -149,10 +116,49 @@ export const FAQPage: React.FC = () => {
         },
       ],
     },
-  ];
+];
+
+const FAQ_JSON_LD_ITEMS = FAQ_SECTIONS.flatMap((c) =>
+  c.questions.map((q) => ({ question: q.q, answer: q.a }))
+);
+
+export const FAQPage: React.FC = () => {
+  const { t: _t } = useI18n();
+  const { isAuthenticated } = useAuthContext();
+  const [expanded, setExpanded] = useState<string | false>('panel1');
+  const [helpQuestion, setHelpQuestion] = useState('');
+  const [helpAnswer, setHelpAnswer] = useState('');
+  const [helpLoading, setHelpLoading] = useState(false);
+  const [helpError, setHelpError] = useState('');
+
+  const handleChange = (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
+    setExpanded(isExpanded ? panel : false);
+  };
+
+  const handleAskHelp = async () => {
+    const q = helpQuestion.trim();
+    if (!q) return;
+    const token = await authService.getJWT();
+    if (!token) {
+      setHelpError('Please sign in to use the help assistant.');
+      return;
+    }
+    setHelpError('');
+    setHelpAnswer('');
+    setHelpLoading(true);
+    try {
+      const res = await askHelp(token, q);
+      setHelpAnswer(res.answer);
+    } catch (err) {
+      setHelpError(err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setHelpLoading(false);
+    }
+  };
 
   return (
     <PageShell variant="content" showBackLink>
+      <FaqJsonLd items={FAQ_JSON_LD_ITEMS} />
       <Container maxWidth="md" disableGutters sx={{ maxWidth: '100%' }}>
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: '1.75rem' }}>
@@ -163,7 +169,7 @@ export const FAQPage: React.FC = () => {
           </Typography>
         </Box>
 
-        {faqs.map((category, catIndex) => (
+        {FAQ_SECTIONS.map((category, catIndex) => (
           <Box key={catIndex} sx={{ mb: 4 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
               <Chip label={category.category} color="primary" />

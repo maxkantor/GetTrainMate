@@ -12,6 +12,7 @@ import {
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { PageShell } from '@/components/layout/PageShell';
+import { trackSignUp } from '@/utils/analytics';
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
@@ -76,6 +77,7 @@ export const SignupPage: React.FC = () => {
     try {
       const result = await signup(email, password, name);
       if (result.success && result.username) {
+        trackSignUp('email');
         navigate('/verify-email', { state: { email, username: result.username } });
       } else if (!result.success) {
         setError(result.error ?? t('errors.signupFailed'));

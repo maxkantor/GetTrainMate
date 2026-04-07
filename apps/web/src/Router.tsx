@@ -1,4 +1,5 @@
 import React from 'react';
+import { HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter, Routes, Route, Link as RouterLink, useParams, Navigate } from 'react-router-dom';
 import { Box, Container, Typography, Button, CircularProgress } from '@mui/material';
 import { Layout } from '@/components/Layout';
@@ -48,6 +49,9 @@ import { AdminTicketsPage } from '@/pages/admin/AdminTicketsPage';
 import { AdminAuditPage } from '@/pages/admin/AdminAuditPage';
 import { AdminMatchesPage } from '@/pages/admin/AdminMatchesPage';
 import { ScrollToTop } from '@/components/ScrollToTop';
+import { DocumentSeo } from '@/components/seo/DocumentSeo';
+import { GlobalJsonLd } from '@/components/seo/GlobalJsonLd';
+import { Ga4Bootstrap } from '@/components/seo/Ga4Bootstrap';
 import { LandingConversionProvider } from '@/contexts/LandingConversionContext';
 
 function PublicProfileRoute() {
@@ -93,7 +97,11 @@ function NotFoundPage() {
 export const Router: React.FC = () => {
   return (
     <ErrorBoundary>
+      <HelmetProvider>
       <BrowserRouter>
+        <Ga4Bootstrap />
+        <DocumentSeo />
+        <GlobalJsonLd />
         <ScrollToTop />
         <LandingConversionProvider>
         <Layout>
@@ -164,6 +172,7 @@ export const Router: React.FC = () => {
         </Layout>
         </LandingConversionProvider>
       </BrowserRouter>
+      </HelmetProvider>
     </ErrorBoundary>
   );
 };

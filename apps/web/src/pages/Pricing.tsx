@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { analytics } from '@/utils/analytics';
+import { analytics, trackBeginCheckout, trackTrialStart } from '@/utils/analytics';
 import { useSearchParams } from 'react-router-dom';
 import { Snackbar } from '@mui/material';
 import { Container } from '@/components/layout/Container';
@@ -80,16 +80,22 @@ export const PricingPage: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const startCheckout = useCallback(async (packKey: string) => {
+  const startCheckout = useCallback(async (pack: CreditPack) => {
     setError(null);
-    setLoadingPack(packKey);
+    setLoadingPack(pack.key);
     try {
       const token = await authService.getJWT();
       if (!token) {
         window.location.href = '/signup';
         return;
       }
-      const url = await billingService.createCheckoutSession(token, packKey);
+      const itemName = PACK_DISPLAY_TITLES[pack.key] ?? pack.title;
+      trackBeginCheckout({
+        packKey: pack.key,
+        itemName,
+        valueUsd: pack.priceUsd,
+      });
+      const url = await billingService.createCheckoutSession(token, pack.key);
       window.location.assign(url);
     } catch (err: unknown) {
       const res =
@@ -118,6 +124,7 @@ export const PricingPage: React.FC = () => {
         return;
       }
       await billingService.grantFreeSignup(token);
+      trackTrialStart('free_pack');
       setToast('3 credits added');
     } catch {
       setError('Could not grant free credits. Try again.');
@@ -136,7 +143,7 @@ export const PricingPage: React.FC = () => {
         window.location.href = '/signup';
         return;
       }
-      startCheckout(pack.key);
+      startCheckout(pack);
     },
     [isAuthenticated, user, handleFree, startCheckout]
   );

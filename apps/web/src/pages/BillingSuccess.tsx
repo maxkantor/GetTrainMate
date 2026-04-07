@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { authService } from '@/services/authService';
 import { billingService, CreditsBalanceDto } from '@/services/billingService';
 import { useMe } from '@/hooks/useMe';
+import { trackPurchase } from '@/utils/analytics';
 
 /** Credits one-time payment success: show confirmation, poll balance, and refresh app credits so header shows updated total. */
 export const BillingSuccessPage: React.FC = () => {
@@ -10,6 +11,17 @@ export const BillingSuccessPage: React.FC = () => {
   const sessionId = searchParams.get('session_id');
   const [balance, setBalance] = useState<CreditsBalanceDto | null>(null);
   const { refreshMe } = useMe();
+  const purchaseTracked = useRef(false);
+
+  useEffect(() => {
+    if (!sessionId || balance === null || purchaseTracked.current) return;
+    purchaseTracked.current = true;
+    trackPurchase({
+      transactionId: sessionId,
+      valueUsd: 0,
+      packKey: 'credit_pack',
+    });
+  }, [sessionId, balance]);
 
   useEffect(() => {
     if (!sessionId) return;

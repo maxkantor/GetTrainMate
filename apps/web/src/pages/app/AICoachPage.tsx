@@ -22,6 +22,7 @@ import {
 } from '@/services/aiService';
 import type { AiChatMessage } from '@/types/ai';
 import styles from './AICoachPage.module.css';
+import { trackGeneratePlan } from '@/utils/analytics';
 
 export const AICoachPage: React.FC = () => {
   const { user } = useAuthContext();
@@ -101,6 +102,7 @@ export const AICoachPage: React.FC = () => {
         durationMinutes: 45,
       });
       setWorkoutResult(res);
+      trackGeneratePlan('workout');
     } catch (err) {
       setWorkoutError(getAiErrorMessage(err));
     } finally {
