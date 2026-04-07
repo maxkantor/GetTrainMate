@@ -29,7 +29,7 @@ public class MatchFeedItem
     public List<string> CommonSports { get; set; } = new();
     public string? Mode { get; set; }
     public List<string> Modes { get; set; } = new();
-    /// <summary>exact | overlap | unknown</summary>
+    /// <summary>exact | overlap | relaxed (no shared Train/Vibe/Date — broad Discover fallback) | unknown</summary>
     public string IntentMatchTier { get; set; } = "unknown";
     public List<string> MatchPreviewReasons { get; set; } = new();
     public List<string> LockedInsightReasons { get; set; } = new();

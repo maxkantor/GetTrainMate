@@ -162,108 +162,139 @@ public class MatchService : IMatchService
             var replayQueue = userProfile?.DiscoverCanReplayDiscoverQueue == true;
             var showSkippedAgain = ignoreSkippedForAdmin || recycleSkipped || replayQueue;
 
-            foreach (var doc in allProfiles)
+            // Pass 0: require overlapping TRAIN/VIBE/DATE intent. Pass 1 (only if pass 0 is empty): show others so a
+            // small pool + mismatched modes (e.g. DATE vs TRAIN only) does not leave Discover permanently empty.
+            for (var intentPass = 0; intentPass < 2; intentPass++)
             {
-                if (!doc.ContainsKey("userId"))
+                if (intentPass == 1)
+                    feedItems.Clear();
+
+                foreach (var doc in allProfiles)
                 {
-                    _logger.LogDebug("Discovery feed: skipping profile document without userId");
-                    continue;
-                }
-                var profileUserId = doc["userId"].AsString();
-                if (string.IsNullOrEmpty(profileUserId))
-                    continue;
-                
-                // Skip only self so Discover shows all other profiles (Max sees Alex, Sasha, etc.)
-                if (profileUserId == userId)
-                    continue;
-
-                if (excludedLikedOrMatched.Contains(profileUserId))
-                    continue;
-
-                var wasPassed = passedTargetIds.Contains(profileUserId);
-                if (wasPassed && !showSkippedAgain)
-                    continue;
-
-                var seenBefore = wasPassed && showSkippedAgain;
-
-                if (adminProfileStatusMap.TryGetValue(profileUserId, out var profileStatus))
-                {
-                    if (string.Equals(profileStatus, "hidden", StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    if (!ignoreSkippedForAdmin && string.Equals(profileStatus, "skipped", StringComparison.OrdinalIgnoreCase))
-                        continue;
-                }
-
-                UserProfile targetProfile;
-                try
-                {
-                    targetProfile = DocumentToProfile(doc);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Discovery feed: skipping profile document for userId {UserId}", profileUserId);
-                    continue;
-                }
-
-                if (userProfile != null && !ProfileModes.HasIntentOverlap(userProfile, targetProfile))
-                    continue;
-
-                var compatibilityScore = userProfile != null
-                    ? CalculateCompatibilityScore(userProfile, targetProfile)
-                    : 50;
-
-                var distanceKm = userProfile != null
-                    ? CalculateDistance(userProfile.Latitude, userProfile.Longitude, targetProfile.Latitude, targetProfile.Longitude)
-                    : double.MaxValue;
-                var intentTier = userProfile != null && ProfileModes.IsExactIntentAlignment(userProfile, targetProfile)
-                    ? "exact"
-                    : "overlap";
-                var (previewReasons, lockedReasons) = userProfile != null
-                    ? BuildMatchInsightReasons(userProfile, targetProfile, distanceKm)
-                    : (new List<string>(), new List<string> { "🔒 Strength compatibility", "🔒 Training rhythm", "🔒 Personality fit" });
-
-                var photoUrls = targetProfile.PhotoUrls ?? new List<string>();
-                if (photoUrls.Count == 0)
-                {
-                    var keyForCover = targetProfile.PhotoKeys != null && targetProfile.PhotoKeys.Count > 0
-                        ? targetProfile.PhotoKeys[0]
-                        : targetProfile.PhotoKey;
-                    if (!string.IsNullOrEmpty(keyForCover))
+                    if (!doc.ContainsKey("userId"))
                     {
-                        try
+                        _logger.LogDebug("Discovery feed: skipping profile document without userId");
+                        continue;
+                    }
+                    var profileUserId = doc["userId"].AsString();
+                    if (string.IsNullOrEmpty(profileUserId))
+                        continue;
+
+                    // Skip only self so Discover shows all other profiles (Max sees Alex, Sasha, etc.)
+                    if (profileUserId == userId)
+                        continue;
+
+                    if (excludedLikedOrMatched.Contains(profileUserId))
+                        continue;
+
+                    var wasPassed = passedTargetIds.Contains(profileUserId);
+                    if (wasPassed && !showSkippedAgain)
+                        continue;
+
+                    var seenBefore = wasPassed && showSkippedAgain;
+
+                    if (adminProfileStatusMap.TryGetValue(profileUserId, out var profileStatus))
+                    {
+                        if (string.Equals(profileStatus, "hidden", StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        if (!ignoreSkippedForAdmin && string.Equals(profileStatus, "skipped", StringComparison.OrdinalIgnoreCase))
+                            continue;
+                    }
+
+                    UserProfile targetProfile;
+                    try
+                    {
+                        targetProfile = DocumentToProfile(doc);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Discovery feed: skipping profile document for userId {UserId}", profileUserId);
+                        continue;
+                    }
+
+                    var intentOverlap = userProfile == null || ProfileModes.HasIntentOverlap(userProfile, targetProfile);
+                    if (userProfile != null && !intentOverlap && intentPass == 0)
+                        continue;
+
+                    var compatibilityScore = userProfile != null
+                        ? CalculateCompatibilityScore(userProfile, targetProfile)
+                        : 50;
+
+                    var distanceKm = userProfile != null
+                        ? CalculateDistance(userProfile.Latitude, userProfile.Longitude, targetProfile.Latitude, targetProfile.Longitude)
+                        : double.MaxValue;
+                    string intentTier;
+                    if (userProfile == null)
+                        intentTier = "unknown";
+                    else if (!intentOverlap)
+                        intentTier = "relaxed";
+                    else if (ProfileModes.IsExactIntentAlignment(userProfile, targetProfile))
+                        intentTier = "exact";
+                    else
+                        intentTier = "overlap";
+
+                    var (previewReasons, lockedReasons) = userProfile != null
+                        ? BuildMatchInsightReasons(userProfile, targetProfile, distanceKm)
+                        : (new List<string>(), new List<string> { "🔒 Strength compatibility", "🔒 Training rhythm", "🔒 Personality fit" });
+
+                    if (intentTier == "relaxed" && previewReasons.Count == 0)
+                        previewReasons = new List<string> { "Add overlapping intent modes on Profile (Train / Vibe / Date) for tighter matches." };
+
+                    var photoUrls = targetProfile.PhotoUrls ?? new List<string>();
+                    if (photoUrls.Count == 0)
+                    {
+                        var keyForCover = targetProfile.PhotoKeys != null && targetProfile.PhotoKeys.Count > 0
+                            ? targetProfile.PhotoKeys[0]
+                            : targetProfile.PhotoKey;
+                        if (!string.IsNullOrEmpty(keyForCover))
                         {
-                            var signedUrl = _storageService.GetPresignedDownloadUrl(keyForCover, TimeSpan.FromHours(1));
-                            photoUrls = new List<string> { signedUrl };
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Could not generate photo URL for user {UserId}", targetProfile.UserId);
+                            try
+                            {
+                                var signedUrl = _storageService.GetPresignedDownloadUrl(keyForCover, TimeSpan.FromHours(1));
+                                photoUrls = new List<string> { signedUrl };
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Could not generate photo URL for user {UserId}", targetProfile.UserId);
+                            }
                         }
                     }
+
+                    feedItems.Add(new MatchFeedItem
+                    {
+                        UserId = targetProfile.UserId,
+                        Name = targetProfile.Name ?? "User",
+                        City = targetProfile.City,
+                        Bio = targetProfile.Bio,
+                        SportTags = targetProfile.SportTags,
+                        Level = targetProfile.Level,
+                        PhotoUrls = photoUrls,
+                        CompatibilityScore = compatibilityScore,
+                        CommonSports = userProfile != null ? GetCommonSports(userProfile.SportTags, targetProfile.SportTags) : new List<string>(),
+                        Mode = targetProfile.Mode,
+                        Modes = ProfileModes.GetNormalizedModes(targetProfile),
+                        IntentMatchTier = intentTier,
+                        MatchPreviewReasons = previewReasons,
+                        LockedInsightReasons = lockedReasons,
+                        SeenBefore = seenBefore
+                    });
                 }
 
-                feedItems.Add(new MatchFeedItem
+                if (feedItems.Count > 0)
                 {
-                    UserId = targetProfile.UserId,
-                    Name = targetProfile.Name ?? "User",
-                    City = targetProfile.City,
-                    Bio = targetProfile.Bio,
-                    SportTags = targetProfile.SportTags,
-                    Level = targetProfile.Level,
-                    PhotoUrls = photoUrls,
-                    CompatibilityScore = compatibilityScore,
-                    CommonSports = userProfile != null ? GetCommonSports(userProfile.SportTags, targetProfile.SportTags) : new List<string>(),
-                    Mode = targetProfile.Mode,
-                    Modes = ProfileModes.GetNormalizedModes(targetProfile),
-                    IntentMatchTier = intentTier,
-                    MatchPreviewReasons = previewReasons,
-                    LockedInsightReasons = lockedReasons,
-                    SeenBefore = seenBefore
-                });
+                    if (intentPass == 1)
+                    {
+                        _logger.LogInformation(
+                            "Discovery feed: relaxed intent pass used for user {UserId} (no strict TRAIN/VIBE/DATE overlap with anyone in pool)",
+                            userId);
+                    }
+
+                    break;
+                }
             }
 
             return feedItems
-                .OrderByDescending(x => x.IntentMatchTier == "exact" ? 1 : 0)
+                .OrderByDescending(x => x.IntentMatchTier == "exact" ? 3 : x.IntentMatchTier == "overlap" ? 2 : x.IntentMatchTier == "relaxed" ? 1 : 0)
                 .ThenByDescending(x => x.CompatibilityScore)
                 .Take(limit)
                 .ToList();
