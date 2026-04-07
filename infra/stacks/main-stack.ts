@@ -82,12 +82,9 @@ export class GetTrainMateStack extends cdk.Stack {
     const allExtraPoolIds = Array.from(
       new Set([...cognitoExtraPoolIds, amplifyUserPoolId].filter((id) => id.length > 0))
     );
-    const cognitoUserPoolArns = Array.from(
-      new Set([
-        userPool.userPoolArn,
-        ...allExtraPoolIds.map((id) => `arn:aws:cognito-idp:${this.region}:${this.account}:userpool/${id}`),
-      ])
-    );
+    // Allow AdminGetUser/ListUsers/GetUser for any user pool in this account. Scoped ARNs from synth
+    // alone caused AccessDenied after runtime pool-id fixes (typo I→l, SSM) until IAM was redeployed.
+    const cognitoIdpUserPoolsInAccount = `arn:aws:cognito-idp:*:${this.account}:userpool/*`;
 
     // DynamoDB Tables
     const tables = this.createDynamoDBTables();
@@ -158,7 +155,7 @@ export class GetTrainMateStack extends cdk.Stack {
         'cognito-idp:ListUsers',
         'cognito-idp:AdminListGroupsForUser',
       ],
-      resources: cognitoUserPoolArns,
+      resources: [cognitoIdpUserPoolsInAccount],
     }));
     // Cold-start diagnostics: list/describe pools when configured pool id is wrong (account/typo)
     apiLambda.addToRolePolicy(new iam.PolicyStatement({
