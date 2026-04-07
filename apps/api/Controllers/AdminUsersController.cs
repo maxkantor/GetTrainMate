@@ -196,15 +196,41 @@ public class AdminUsersController : ControllerBase
         return false;
     }
 
+    /// <summary>Cognito stores <c>sub</c> as a lowercase GUID string; Dynamo/JWT may differ in casing.</summary>
+    private static string NormalizeUserIdForCognitoLookup(string userId)
+    {
+        userId = userId.Trim();
+        if (Guid.TryParse(userId, out var g))
+            return g.ToString("D");
+        return userId;
+    }
+
     private static string? EmailFromCognitoAttributes(List<AttributeType> attrs)
     {
-        var email = attrs.FirstOrDefault(a => a.Name == "email")?.Value;
-        if (!string.IsNullOrEmpty(email))
+        if (attrs == null || attrs.Count == 0)
+            return null;
+        static bool LooksLikeEmail(string? s) =>
+            !string.IsNullOrWhiteSpace(s) && s.Contains('@', StringComparison.Ordinal)
+            && s.IndexOf('@', StringComparison.Ordinal) > 0
+            && s.IndexOf('@', StringComparison.Ordinal) < s.Length - 1;
+
+        var email = attrs.FirstOrDefault(a => string.Equals(a.Name, "email", StringComparison.OrdinalIgnoreCase))?.Value?.Trim();
+        if (LooksLikeEmail(email))
             return email;
-        var pref = attrs.FirstOrDefault(a => a.Name == "preferred_username")?.Value;
-        if (!string.IsNullOrEmpty(pref) && pref.Contains('@', StringComparison.Ordinal))
+        var pref = attrs.FirstOrDefault(a => a.Name == "preferred_username")?.Value?.Trim();
+        if (LooksLikeEmail(pref))
             return pref;
-        return pref;
+        foreach (var a in attrs)
+        {
+            if (a.Name != null && a.Name.Contains("email", StringComparison.OrdinalIgnoreCase) && LooksLikeEmail(a.Value))
+                return a.Value!.Trim();
+        }
+        foreach (var a in attrs)
+        {
+            if (LooksLikeEmail(a.Value) && a.Name is "nickname" or "profile" or "website")
+                return a.Value!.Trim();
+        }
+        return null;
     }
 
     private async Task<string?> TryGetCognitoEmailAsync(string userId)
@@ -235,16 +261,77 @@ public class AdminUsersController : ControllerBase
     /// </summary>
     private async Task<string?> TryGetCognitoEmailInPoolAsync(string userId, string poolId)
     {
-        async Task<string?> listUsersBySubAsync()
+        var lookupId = NormalizeUserIdForCognitoLookup(userId);
+
+        async Task<string?> resolveFromListUserAsync(UserType? u)
         {
+            if (u == null)
+                return null;
+            var fromList = u.Attributes != null ? EmailFromCognitoAttributes(u.Attributes) : null;
+            if (!string.IsNullOrEmpty(fromList))
+                return fromList;
+            if (string.IsNullOrEmpty(u.Username))
+                return null;
+            try
+            {
+                var agu = await _cognito.AdminGetUserAsync(new AdminGetUserRequest
+                {
+                    UserPoolId = poolId,
+                    Username = u.Username
+                });
+                return EmailFromCognitoAttributes(agu.UserAttributes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "AdminGetUser after ListUsers for Username {Username} pool {PoolId}", u.Username, poolId);
+                return null;
+            }
+        }
+
+        async Task<string?> listUsersByFilterAsync(string filterField)
+        {
+            var filter = filterField == "sub"
+                ? $"sub = \"{lookupId}\""
+                : $"username = \"{lookupId.Replace("\"", "\\\"")}\"";
             var list = await _cognito.ListUsersAsync(new ListUsersRequest
             {
                 UserPoolId = poolId,
-                Filter = $"sub = \"{userId}\"",
+                Filter = filter,
                 Limit = 2
             });
-            var u = list.Users.FirstOrDefault();
-            return u?.Attributes != null ? EmailFromCognitoAttributes(u.Attributes) : null;
+            return await resolveFromListUserAsync(list.Users.FirstOrDefault());
+        }
+
+        async Task<string?> listUsersStrategiesAsync()
+        {
+            try
+            {
+                var bySub = await listUsersByFilterAsync("sub");
+                if (!string.IsNullOrEmpty(bySub))
+                    return bySub;
+            }
+            catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
+            {
+                _logger.LogWarning(ex, "Cognito ListUsers denied for pool {PoolId}. Grant cognito-idp:ListUsers on this pool to the API Lambda role.", poolId);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "ListUsers(sub) failed for {UserId} pool {PoolId}", lookupId, poolId);
+            }
+            try
+            {
+                return await listUsersByFilterAsync("username");
+            }
+            catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
+            {
+                _logger.LogWarning(ex, "Cognito ListUsers denied for pool {PoolId}. Grant cognito-idp:ListUsers on this pool to the API Lambda role.", poolId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "ListUsers(username) failed for {UserId} pool {PoolId}", lookupId, poolId);
+            }
+            return null;
         }
 
         try
@@ -252,15 +339,14 @@ public class AdminUsersController : ControllerBase
             var resp = await _cognito.AdminGetUserAsync(new AdminGetUserRequest
             {
                 UserPoolId = poolId,
-                Username = userId
+                Username = lookupId
             });
             var fromAttrs = EmailFromCognitoAttributes(resp.UserAttributes);
             if (!string.IsNullOrEmpty(fromAttrs))
                 return fromAttrs;
-            // Rare: AdminGetUser matched but email missing from attributes — try sub filter (complete attribute set).
             try
             {
-                var fromList = await listUsersBySubAsync();
+                var fromList = await listUsersStrategiesAsync();
                 if (!string.IsNullOrEmpty(fromList))
                     return fromList;
             }
@@ -270,16 +356,15 @@ public class AdminUsersController : ControllerBase
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "ListUsers by sub failed for {UserId} pool {PoolId}", userId, poolId);
+                _logger.LogWarning(ex, "ListUsers strategies failed for {UserId} pool {PoolId}", lookupId, poolId);
             }
             return null;
         }
         catch (UserNotFoundException)
         {
-            // Username is often the email while sub is the stable id — find user by sub.
             try
             {
-                return await listUsersBySubAsync();
+                return await listUsersStrategiesAsync();
             }
             catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
             {
@@ -287,7 +372,7 @@ public class AdminUsersController : ControllerBase
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "ListUsers by sub failed for {UserId} pool {PoolId}", userId, poolId);
+                _logger.LogWarning(ex, "ListUsers strategies failed for {UserId} pool {PoolId}", lookupId, poolId);
             }
 
             return null;
