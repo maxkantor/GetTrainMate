@@ -187,7 +187,17 @@ export const AppHomePage: React.FC = () => {
           {credits} credits left
         </Typography>
       </Tooltip>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 2, maxWidth: 560 }}>
+      <Typography
+        variant="body1"
+        color="text.secondary"
+        sx={{
+          mb: 2,
+          maxWidth: { xs: '100%', sm: 'fit-content' },
+          whiteSpace: { xs: 'normal', sm: 'nowrap' },
+          overflow: { xs: 'visible', sm: 'hidden' },
+          textOverflow: { xs: 'clip', sm: 'ellipsis' },
+        }}
+      >
         Quick access to Discover, matches, and messages. Use the logo anytime to return here.
       </Typography>
 
