@@ -46,18 +46,38 @@ public class AdminUsersController : ControllerBase
         _cognito = cognito;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _profilesTableName = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
-        var primary = (configuration["Aws:CognitoUserPoolId"]
-            ?? Environment.GetEnvironmentVariable("COGNITO_USER_POOL_ID")
-            ?? "").Trim();
-        var extraRaw = configuration["Aws:CognitoExtraUserPoolIds"]
-            ?? Environment.GetEnvironmentVariable("COGNITO_EXTRA_USER_POOL_IDS")
-            ?? "";
+        // appsettings.json ships a non-empty placeholder; it must NOT win over Lambda COGNITO_USER_POOL_ID
+        // (otherwise Cognito calls target us-east-1_XXXXXXXXX and IAM denies AdminGetUser).
+        var primary = ResolvePrimaryUserPoolId(configuration);
+        var extraRaw = ResolveExtraUserPoolIdsRaw(configuration);
         _cognitoUserPoolIds = string.Join(',', primary, extraRaw)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         _logger = logger;
+    }
+
+    private static string NormalizeUserPoolId(string? value)
+    {
+        var s = (value ?? "").Trim();
+        if (s.Length == 0) return "";
+        if (string.Equals(s, "us-east-1_XXXXXXXXX", StringComparison.OrdinalIgnoreCase)) return "";
+        return s;
+    }
+
+    private static string ResolvePrimaryUserPoolId(IConfiguration configuration)
+    {
+        var env = NormalizeUserPoolId(Environment.GetEnvironmentVariable("COGNITO_USER_POOL_ID"));
+        if (env.Length > 0) return env;
+        return NormalizeUserPoolId(configuration["Aws:CognitoUserPoolId"]);
+    }
+
+    private static string ResolveExtraUserPoolIdsRaw(IConfiguration configuration)
+    {
+        var env = (Environment.GetEnvironmentVariable("COGNITO_EXTRA_USER_POOL_IDS") ?? "").Trim();
+        if (env.Length > 0) return env;
+        return (configuration["Aws:CognitoExtraUserPoolIds"] ?? "").Trim();
     }
 
     private AdminIdentity GetAdminIdentity()
