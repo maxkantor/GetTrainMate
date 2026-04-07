@@ -59,6 +59,7 @@ export const UsersPage: React.FC = () => {
     null | 'skipped' | 'sent' | 'discover' | 'discoverMatches'
   >(null);
   const [resetBusy, setResetBusy] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -97,6 +98,7 @@ export const UsersPage: React.FC = () => {
     setSelectedUser(row);
     setDetailOpen(true);
     setDetailLoading(true);
+    setResetSuccess(null);
     setDiscoverLifecycle(null);
     try {
       const user = await adminApiService.get(`/api/admin/users/${row.userId}`);
@@ -190,15 +192,38 @@ export const UsersPage: React.FC = () => {
 
   const errStatus = (err: unknown) => (err as Error & { status?: number })?.status;
 
+  const formatDiscoverResetSummary = (data: unknown): string => {
+    if (!data || typeof data !== 'object') return 'Reset completed. Ask the user to refresh the Discover page.';
+    const d = data as Record<string, unknown>;
+    const n = (k: string) => (typeof d[k] === 'number' ? (d[k] as number) : 0);
+    const parts: string[] = [];
+    const add = (key: string, label: string) => {
+      const v = n(key);
+      if (v > 0) parts.push(`${v} ${label}`);
+    };
+    add('skippedInteractionsRemoved', 'skipped interactions');
+    add('outgoingSentOrMatchedRemoved', 'sent/matched interactions');
+    add('allOutgoingInteractionsRemoved', 'outgoing interactions');
+    add('reverseInteractionsRemoved', 'incoming interactions');
+    add('discoverPassesRemoved', 'discover passes');
+    add('pendingNonMutualMatchesRemoved', 'pending (non-mutual) matches');
+    add('matchesRemoved', 'matches');
+    add('chatThreadsRemoved', 'chat threads');
+    const summary = parts.length > 0 ? `Removed: ${parts.join(', ')}.` : 'Done.';
+    return `${summary} Ask the user to refresh Discover (or reopen the app).`;
+  };
+
   const runReset = async (path: string, body?: Record<string, unknown>) => {
     if (!detailUser) return;
     setResetBusy(true);
     setError(null);
+    setResetSuccess(null);
     try {
-      await adminApiService.post(
+      const data = await adminApiService.post(
         `/api/admin/discover/users/${encodeURIComponent(detailUser.userId)}/${path}`,
         body
       );
+      setResetSuccess(formatDiscoverResetSummary(data));
       setConfirmReset(null);
       await loadUsers();
     } catch (err: unknown) {
@@ -271,6 +296,12 @@ export const UsersPage: React.FC = () => {
         <div className={styles.alert} role="alert">
           {error}
           <button type="button" className={styles.dismiss} onClick={() => setError(null)} aria-label="Dismiss">×</button>
+        </div>
+      )}
+      {resetSuccess && (
+        <div className={styles.alertSuccess} role="status">
+          {resetSuccess}
+          <button type="button" className={styles.dismiss} onClick={() => setResetSuccess(null)} aria-label="Dismiss">×</button>
         </div>
       )}
 

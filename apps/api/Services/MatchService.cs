@@ -1648,7 +1648,13 @@ public class MatchService : IMatchService
         }
 
         if (!removeMatchesAndChats)
+        {
+            // Otherwise EnsureLegacyInteractionsSyncedForUserAsync (next Discover load) re-upserts Sent from
+            // pending match rows and those targets stay excluded — reset looked "broken".
+            result.PendingNonMutualMatchesRemoved =
+                await DeletePendingNonMutualMatchesForUserAsync(userId, cancellationToken);
             return result;
+        }
 
         var matches = await ListMatchesInvolvingUserAsync(userId);
         foreach (var m in matches)
@@ -1679,6 +1685,31 @@ public class MatchService : IMatchService
         }
 
         return result;
+    }
+
+    /// <summary>Removes match rows where both sides are not mutually matched (pending likes). Keeps mutual matches.</summary>
+    private async Task<int> DeletePendingNonMutualMatchesForUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        var n = 0;
+        var matches = await ListMatchesInvolvingUserAsync(userId);
+        var matchTable = Table.LoadTable(_dynamoDb, _matchesTable);
+        foreach (var m in matches)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (m.IsMatched)
+                continue;
+            try
+            {
+                await matchTable.DeleteItemAsync(m.MatchId);
+                n++;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Admin reset: could not delete pending match {MatchId}", m.MatchId);
+            }
+        }
+
+        return n;
     }
 
     private async Task<int> DeleteAllOutgoingInteractionsForUserAsync(string userId, CancellationToken cancellationToken)
