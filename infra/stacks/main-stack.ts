@@ -75,12 +75,18 @@ export class GetTrainMateStack extends cdk.Stack {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
+    // Hosted UI (Amplify) often uses a different User Pool than CDK's primary; subs + emails live there.
+    const amplifyUserPoolId = String(
+      (this.node.tryGetContext('amplifyUserPoolId') as string | undefined) || process.env.AMPLIFY_USER_POOL_ID || ''
+    )
+      .trim();
+    const allExtraPoolIds = Array.from(
+      new Set([...cognitoExtraPoolIds, amplifyUserPoolId].filter((id) => id.length > 0))
+    );
     const cognitoUserPoolArns = Array.from(
       new Set([
         userPool.userPoolArn,
-        ...cognitoExtraPoolIds.map(
-          (id) => `arn:aws:cognito-idp:${this.region}:${this.account}:userpool/${id}`
-        ),
+        ...allExtraPoolIds.map((id) => `arn:aws:cognito-idp:${this.region}:${this.account}:userpool/${id}`),
       ])
     );
 
@@ -112,7 +118,8 @@ export class GetTrainMateStack extends cdk.Stack {
         ASPNETCORE_ENVIRONMENT: 'Production',
         // AWS_REGION is automatically set by Lambda runtime
         COGNITO_USER_POOL_ID: userPool.userPoolId,
-        COGNITO_EXTRA_USER_POOL_IDS: cognitoExtraPoolIds.join(','),
+        COGNITO_EXTRA_USER_POOL_IDS: allExtraPoolIds.join(','),
+        AMPLIFY_USER_POOL_ID: amplifyUserPoolId,
         DYNAMODB_TABLE_PREFIX: 'gettrainmate-',
         DYNAMODB_TABLE_AUDIT_LOG: 'gettrainmate-audit-log',
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,

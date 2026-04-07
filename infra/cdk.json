@@ -5,6 +5,7 @@
     "exclude": ["lib/**/*.d.ts", "node_modules/**"]
   },
   "context": {
-    "@aws-cdk/core:newStyleStackSynthesis": true
+    "@aws-cdk/core:newStyleStackSynthesis": true,
+    "amplifyUserPoolId": "us-east-1_MRv5xL2I5"
   }
 }

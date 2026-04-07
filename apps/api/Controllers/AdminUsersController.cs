@@ -50,6 +50,9 @@ public class AdminUsersController : ControllerBase
         // (otherwise Cognito calls target us-east-1_XXXXXXXXX and IAM denies AdminGetUser).
         var primary = ResolvePrimaryUserPoolId(configuration);
         var extraRaw = ResolveExtraUserPoolIdsRaw(configuration);
+        var amplifyPool = NormalizeUserPoolId(Environment.GetEnvironmentVariable("AMPLIFY_USER_POOL_ID"));
+        if (!string.IsNullOrEmpty(amplifyPool))
+            extraRaw = string.IsNullOrEmpty(extraRaw) ? amplifyPool : $"{extraRaw},{amplifyPool}";
         _cognitoUserPoolIds = string.Join(',', primary, extraRaw)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(s => !string.IsNullOrWhiteSpace(s))
