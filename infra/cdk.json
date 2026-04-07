@@ -6,6 +6,7 @@
   },
   "context": {
     "@aws-cdk/core:newStyleStackSynthesis": true,
-    "amplifyUserPoolId": "us-east-1_MRv5xL2I5"
+    "userPoolId": "us-east-1_MRv5xL2I5",
+    "userPoolClientId": "7phu8vk1o9s4nmmqofvcfmbntq"
   }
 }
