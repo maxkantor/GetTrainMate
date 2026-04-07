@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using GetTrainMate.Api.Constants;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
 using Amazon.CognitoIdentityProvider;
@@ -789,6 +790,7 @@ public class AdminUsersController : ControllerBase
                         Goals = user.Goals.ToList(),
                         AvailabilitySchedule = user.AvailabilitySchedule.ToList(),
                         Mode = user.Mode,
+                        PhotoUrls = DummyProfilePhotos.GetPhotoUrls(user.UserId),
                         IsComplete = true,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,

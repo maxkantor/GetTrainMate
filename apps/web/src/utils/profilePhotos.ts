@@ -40,7 +40,7 @@ const FEMALE_PERSON_IDS = [
   'photo-1529626455592-4c4e2b0e7b6a',
 ];
 
-/** One photo ID per "person" – men. */
+/** One photo ID per "person" – men. All entries must be unique (duplicates caused two dummy users to share Mike Cyclist’s face). */
 const MALE_PERSON_IDS = [
   'photo-1506794778202-cad84cf45f1d',
   'photo-1507003211169-0a1dd7228f2d',
@@ -48,12 +48,27 @@ const MALE_PERSON_IDS = [
   'photo-1500648767791-00dcc994a43e',
   'photo-1519085360753-af0119f7cbe7',
   'photo-1566492031773-4f4e44671857',
-  'photo-1506794778202-cad84cf45f1d',
-  'photo-1507003211169-0a1dd7228f2d',
+  'photo-1560250097-0b93528c311a',
+  'photo-1570295995919-56ce5e9b81d5',
 ];
 
 /** Different crops of the same photo = "different images of the same person". */
 const CROPS = ['faces', 'top', 'bottom', 'entropy'] as const;
+
+/**
+ * Seeded test users: fixed cover URLs (aligned with `DummyProfilePhotos` in the API).
+ * Used when the profile has no real photos (or only filtered randomuser.me placeholders).
+ */
+export const DUMMY_USER_PRIMARY_PHOTO: Record<string, string> = {
+  'dummy-user-1': 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=600&q=80',
+  'dummy-user-2': 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=600&q=80',
+  'dummy-user-3': 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&q=80',
+  'dummy-user-4': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=80',
+  'dummy-user-5': 'https://images.unsplash.com/photo-1622163642998-27549003c62e?w=600&q=80',
+  'dummy-user-6': 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=600&q=80',
+  'dummy-user-7': 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600&q=80',
+  'dummy-user-8': 'https://images.unsplash.com/photo-1530549387789-4c101f663662?w=600&q=80',
+};
 
 export type GenderHint = 'female' | 'male';
 
@@ -103,5 +118,7 @@ export function getMultiplePhotoUrls(
   const raw = (existingUrls ?? []).filter(Boolean);
   const existing = raw.filter((u) => !isBackendPlaceholderPhotoUrl(u));
   if (existing.length > 0) return existing;
+  const dummy = userId && DUMMY_USER_PRIMARY_PHOTO[userId];
+  if (dummy) return [dummy];
   return [placeholderPhotoUrl(userId, 0, inferGenderFromName(displayName || 'Guest'))];
 }
