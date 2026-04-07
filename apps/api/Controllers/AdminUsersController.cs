@@ -53,12 +53,21 @@ public class AdminUsersController : ControllerBase
         var amplifyPool = NormalizeUserPoolId(Environment.GetEnvironmentVariable("AMPLIFY_USER_POOL_ID"));
         if (!string.IsNullOrEmpty(amplifyPool))
             extraRaw = string.IsNullOrEmpty(extraRaw) ? amplifyPool : $"{extraRaw},{amplifyPool}";
-        _cognitoUserPoolIds = string.Join(',', primary, extraRaw)
+        var poolIds = string.Join(',', primary, extraRaw)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+            .ToList();
+        // Real app users usually authenticate against the Amplify pool; try it first to avoid wrong-pool hits and latency.
+        if (!string.IsNullOrEmpty(amplifyPool))
+        {
+            poolIds.RemoveAll(p => string.Equals(p, amplifyPool, StringComparison.OrdinalIgnoreCase));
+            poolIds.Insert(0, amplifyPool);
+        }
+        _cognitoUserPoolIds = poolIds.ToArray();
         _logger = logger;
+        if (_cognitoUserPoolIds.Length > 0)
+            _logger.LogInformation("Admin CRM Cognito email lookup pool order: {Pools}", string.Join(", ", _cognitoUserPoolIds));
     }
 
     private static string NormalizeUserPoolId(string? value)
@@ -200,7 +209,8 @@ public class AdminUsersController : ControllerBase
 
     private async Task<string?> TryGetCognitoEmailAsync(string userId)
     {
-        if (userId.StartsWith("dummy-user-", StringComparison.OrdinalIgnoreCase))
+        userId = (userId ?? "").Trim();
+        if (userId.Length == 0 || userId.StartsWith("dummy-user-", StringComparison.OrdinalIgnoreCase))
             return null;
         if (_cognitoUserPoolIds.Length == 0)
         {
@@ -215,6 +225,7 @@ public class AdminUsersController : ControllerBase
                 return em;
         }
 
+        _logger.LogDebug("Could not resolve email from Cognito for userId {UserId} after trying pools: {Pools}", userId, string.Join(", ", _cognitoUserPoolIds));
         return null;
     }
 
@@ -224,6 +235,18 @@ public class AdminUsersController : ControllerBase
     /// </summary>
     private async Task<string?> TryGetCognitoEmailInPoolAsync(string userId, string poolId)
     {
+        async Task<string?> listUsersBySubAsync()
+        {
+            var list = await _cognito.ListUsersAsync(new ListUsersRequest
+            {
+                UserPoolId = poolId,
+                Filter = $"sub = \"{userId}\"",
+                Limit = 2
+            });
+            var u = list.Users.FirstOrDefault();
+            return u?.Attributes != null ? EmailFromCognitoAttributes(u.Attributes) : null;
+        }
+
         try
         {
             var resp = await _cognito.AdminGetUserAsync(new AdminGetUserRequest
@@ -231,22 +254,32 @@ public class AdminUsersController : ControllerBase
                 UserPoolId = poolId,
                 Username = userId
             });
-            return EmailFromCognitoAttributes(resp.UserAttributes);
+            var fromAttrs = EmailFromCognitoAttributes(resp.UserAttributes);
+            if (!string.IsNullOrEmpty(fromAttrs))
+                return fromAttrs;
+            // Rare: AdminGetUser matched but email missing from attributes — try sub filter (complete attribute set).
+            try
+            {
+                var fromList = await listUsersBySubAsync();
+                if (!string.IsNullOrEmpty(fromList))
+                    return fromList;
+            }
+            catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
+            {
+                _logger.LogWarning(ex, "Cognito ListUsers denied for pool {PoolId}. Grant cognito-idp:ListUsers on this pool to the API Lambda role.", poolId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "ListUsers by sub failed for {UserId} pool {PoolId}", userId, poolId);
+            }
+            return null;
         }
         catch (UserNotFoundException)
         {
             // Username is often the email while sub is the stable id — find user by sub.
             try
             {
-                var list = await _cognito.ListUsersAsync(new ListUsersRequest
-                {
-                    UserPoolId = poolId,
-                    Filter = $"sub = \"{userId}\"",
-                    Limit = 2
-                });
-                var u = list.Users.FirstOrDefault();
-                if (u?.Attributes != null)
-                    return EmailFromCognitoAttributes(u.Attributes);
+                return await listUsersBySubAsync();
             }
             catch (AmazonCognitoIdentityProviderException ex) when (ex.ErrorCode == "AccessDeniedException" || ex.ErrorCode == "NotAuthorizedException")
             {
