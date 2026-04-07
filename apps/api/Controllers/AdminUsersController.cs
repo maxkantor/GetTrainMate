@@ -49,21 +49,31 @@ public class AdminUsersController : ControllerBase
         // appsettings.json ships a non-empty placeholder; it must NOT win over Lambda COGNITO_USER_POOL_ID
         // (otherwise Cognito calls target us-east-1_XXXXXXXXX and IAM denies AdminGetUser).
         var primary = ResolvePrimaryUserPoolId(configuration);
-        var extraRaw = ResolveExtraUserPoolIdsRaw(configuration);
         var amplifyPool = NormalizeUserPoolId(Environment.GetEnvironmentVariable("AMPLIFY_USER_POOL_ID"));
+        // Same id twice (e.g. manual Lambda edits) must not reorder or duplicate.
+        if (!string.IsNullOrEmpty(amplifyPool) &&
+            string.Equals(amplifyPool, primary, StringComparison.OrdinalIgnoreCase))
+            amplifyPool = "";
+
+        var extraRaw = ResolveExtraUserPoolIdsRaw(configuration);
         if (!string.IsNullOrEmpty(amplifyPool))
             extraRaw = string.IsNullOrEmpty(extraRaw) ? amplifyPool : $"{extraRaw},{amplifyPool}";
+
         var poolIds = string.Join(',', primary, extraRaw)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        // Real app users usually authenticate against the Amplify pool; try it first to avoid wrong-pool hits and latency.
-        if (!string.IsNullOrEmpty(amplifyPool))
+
+        // Always try COGNITO_USER_POOL_ID (primary) first — it is the CDK/deploy source of truth.
+        // Legacy setups used AMPLIFY_USER_POOL_ID first when the API stack pointed at a different pool; that ordering
+        // broke CRM when AMPLIFY_* / EXTRAS were typos or stale while primary was correct.
+        if (poolIds.Count > 0 && !string.IsNullOrEmpty(primary))
         {
-            poolIds.RemoveAll(p => string.Equals(p, amplifyPool, StringComparison.OrdinalIgnoreCase));
-            poolIds.Insert(0, amplifyPool);
+            poolIds.RemoveAll(p => string.Equals(p, primary, StringComparison.OrdinalIgnoreCase));
+            poolIds.Insert(0, primary);
         }
+
         _cognitoUserPoolIds = poolIds.ToArray();
         _logger = logger;
         if (_cognitoUserPoolIds.Length > 0)

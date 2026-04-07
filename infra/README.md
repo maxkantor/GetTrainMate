@@ -35,12 +35,12 @@ AWS CDK infrastructure for GetTrainMate platform.
 If you already have a Cognito User Pool (like in your case), pass it as context:
 
 ```bash
-cdk deploy --context userPoolId=us-east-1_MRv5xL215 --context userPoolClientId=7phu8vk1o9s4nmmqofvcfmbntq
+cdk deploy --context userPoolId=us-east-1_MRv5xL2l5 --context userPoolClientId=7phu8vk1o9s4nmmqofvcfmbntq
 ```
 
 Or set environment variables:
 ```bash
-export COGNITO_USER_POOL_ID=us-east-1_MRv5xL215
+export COGNITO_USER_POOL_ID=us-east-1_MRv5xL2l5
 export COGNITO_CLIENT_ID=7phu8vk1o9s4nmmqofvcfmbntq
 cdk deploy
 ```
@@ -63,7 +63,7 @@ Each time the stack is deployed **without** `userPoolId` context (e.g. plain `np
 cdk deploy --context userPoolId=us-east-1_YOUR_POOL_ID --context userPoolClientId=YOUR_CLIENT_ID
 ```
 
-**To clean up:** In AWS Console → Cognito → User pools, delete the pools you don’t use. Keep the one that matches `VITE_COGNITO_USER_POOL_ID` in your app’s `.env` (e.g. `us-east-1_MRv5xL215`).
+**To clean up:** In AWS Console → Cognito → User pools, delete the pools you don’t use. Keep the one that matches `VITE_COGNITO_USER_POOL_ID` in your app’s `.env` (e.g. `us-east-1_MRv5xL2l5` — note the suffix uses lowercase **l**, not capital **I**).
 
 ## Deployment
 
@@ -79,7 +79,7 @@ cdk deploy --context userPoolId=us-east-1_YOUR_POOL_ID --context userPoolClientI
 
    Or with Cognito context:
    ```bash
-   cdk deploy --context userPoolId=us-east-1_MRv5xL215 --context userPoolClientId=7phu8vk1o9s4nmmqofvcfmbntq
+   cdk deploy --context userPoolId=us-east-1_MRv5xL2l5 --context userPoolClientId=7phu8vk1o9s4nmmqofvcfmbntq
    ```
 
 3. **Get the API URL:**

@@ -9,7 +9,7 @@ API_URL=$(aws cloudformation describe-stacks \
   --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
   --output text)
 
-USER_POOL_ID="us-east-1_MRv5xL215"
+USER_POOL_ID="us-east-1_MRv5xL2l5"
 CLIENT_ID="7phu8vk1o9s4nmmqofvcfmbntq"
 EMAIL="mykantor@bellsouth.net"
 

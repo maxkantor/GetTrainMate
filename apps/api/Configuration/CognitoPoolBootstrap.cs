@@ -136,9 +136,14 @@ public static class CognitoPoolBootstrap
                 regionName,
                 string.Join(" || ", rows));
 
+            var ids = rows
+                .Select(r => r.Split('|')[0].Trim())
+                .Where(s => s.Length > 0)
+                .ToList();
+
             if (rows.Count == 1)
             {
-                var onlyId = rows[0].Split('|')[0].Trim();
+                var onlyId = ids[0];
                 if (!string.Equals(onlyId, poolId, StringComparison.Ordinal))
                 {
                     Log.Warning(
@@ -148,6 +153,34 @@ public static class CognitoPoolBootstrap
                     Environment.SetEnvironmentVariable("COGNITO_USER_POOL_ID", onlyId);
                 }
             }
+            else
+            {
+                // Common copy/paste typo: capital I vs lowercase l in opaque pool suffix (e.g. mxju5 pool).
+                var typoCandidates = ids
+                    .Where(id => id.Length == poolId.Length && LevenshteinDistance(id, poolId) == 1)
+                    .ToList();
+                if (typoCandidates.Count == 1)
+                {
+                    var good = typoCandidates[0];
+                    Log.Warning(
+                        "AUTO_FIX_COGNITO_POOL_ID: Configured id looks like a 1-character typo (often I vs l). Replacing {Bad} with {Good}",
+                        poolId,
+                        good);
+                    Environment.SetEnvironmentVariable("COGNITO_USER_POOL_ID", good);
+                    try
+                    {
+                        var fix = cognito.DescribeUserPoolAsync(new DescribeUserPoolRequest { UserPoolId = good }).GetAwaiter().GetResult();
+                        Log.Information(
+                            "Cognito DescribeUserPool OK after typo fix: PoolId={PoolId} Name={Name}",
+                            good,
+                            fix.UserPool?.Name ?? "?");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "DescribeUserPool failed even after typo-corrected id {PoolId}", good);
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -155,5 +188,28 @@ public static class CognitoPoolBootstrap
                 ex,
                 "ListUserPools failed — ensure Lambda IAM includes cognito-idp:ListUserPools on resource *");
         }
+    }
+
+    private static int LevenshteinDistance(string a, string b)
+    {
+        var n = a.Length;
+        var m = b.Length;
+        if (n == 0) return m;
+        if (m == 0) return n;
+        var d = new int[n + 1, m + 1];
+        for (var i = 0; i <= n; i++) d[i, 0] = i;
+        for (var j = 0; j <= m; j++) d[0, j] = j;
+        for (var i = 1; i <= n; i++)
+        {
+            for (var j = 1; j <= m; j++)
+            {
+                var cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                d[i, j] = Math.Min(
+                    Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                    d[i - 1, j - 1] + cost);
+            }
+        }
+
+        return d[n, m];
     }
 }

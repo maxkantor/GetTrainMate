@@ -68,18 +68,17 @@ export class GetTrainMateStack extends cdk.Stack {
       userPoolClientIdOutput = userPoolClient.userPoolClientId;
     }
 
-    // Optional: Amplify / legacy pool IDs when app users authenticate against a different pool than the stack primary
-    const cognitoExtraPoolIds = String(
-      (this.node.tryGetContext('cognitoExtraUserPoolIds') as string | undefined) || process.env.COGNITO_EXTRA_USER_POOL_IDS || ''
-    )
+    // Optional second pools — **cdk.json context only** (do not read process.env here: a stray shell var at synth
+    // time used to bake wrong AMPLIFY_USER_POOL_ID into Lambda and break Admin CRM).
+    const primaryPoolId = userPool.userPoolId;
+    const cognitoExtraPoolIds = String((this.node.tryGetContext('cognitoExtraUserPoolIds') as string | undefined) ?? '')
       .split(',')
       .map((s) => s.trim())
-      .filter(Boolean);
-    // Hosted UI (Amplify) often uses a different User Pool than CDK's primary; subs + emails live there.
-    const amplifyUserPoolId = String(
-      (this.node.tryGetContext('amplifyUserPoolId') as string | undefined) || process.env.AMPLIFY_USER_POOL_ID || ''
-    )
-      .trim();
+      .filter(Boolean)
+      .filter((id) => id !== primaryPoolId);
+    const amplifyRaw = String((this.node.tryGetContext('amplifyUserPoolId') as string | undefined) ?? '').trim();
+    const amplifyUserPoolId =
+      amplifyRaw.length > 0 && amplifyRaw !== primaryPoolId ? amplifyRaw : '';
     const allExtraPoolIds = Array.from(
       new Set([...cognitoExtraPoolIds, amplifyUserPoolId].filter((id) => id.length > 0))
     );
