@@ -161,6 +161,23 @@ export class GetTrainMateStack extends cdk.Stack {
       ],
       resources: cognitoUserPoolArns,
     }));
+    // Cold-start diagnostics: list/describe pools when configured pool id is wrong (account/typo)
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['cognito-idp:ListUserPools'],
+      resources: ['*'],
+    }));
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['cognito-idp:DescribeUserPool'],
+      // Pool region comes from pool id prefix (may differ from stack region if ever cross-region)
+      resources: [`arn:aws:cognito-idp:*:${this.account}:userpool/*`],
+    }));
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['sts:GetCallerIdentity'],
+      resources: ['*'],
+    }));
 
     // Grant Lambda access to Secrets Manager
     apiLambda.addToRolePolicy(new iam.PolicyStatement({

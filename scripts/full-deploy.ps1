@@ -48,9 +48,9 @@ npm run deploy
 if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
 Pop-Location
 
-Write-Host "`n==> Lambda zip → deploy\gettrainmate-api-lambda.zip..."
+Write-Host "`n==> Lambda zip → deploy\gettrainmate-api-lambda.zip (from publish folder; no second dotnet publish)..."
 Push-Location $ROOT
-npm run zip
+npm run zip:publish
 if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
 Pop-Location
 

@@ -1,0 +1,11 @@
+---
+description: After changing the .NET API (apps/api), produce the Lambda zip artifact.
+globs: apps/api/**/*
+alwaysApply: false
+---
+
+When you change `apps/api/**`, finish with **`npm run api:publish`** from the repo root. That runs `dotnet publish` to `apps/api/publish` and then zips to `deploy/gettrainmate-api-lambda.zip`.
+
+If `apps/api/publish` is already up to date, **`npm run zip:publish`** only refreshes the zip.
+
+Do not skip the zip after backend edits when a deployable artifact is expected.

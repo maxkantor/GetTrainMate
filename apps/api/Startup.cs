@@ -1,3 +1,4 @@
+using Amazon;
 using Amazon.CognitoIdentityProvider;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
@@ -31,9 +32,22 @@ public class Startup
             .WriteTo.Console()
             .CreateLogger();
 
-        // Add AWS services
+        // Add AWS services (GetAWSOptions reads "AWS" section; appsettings uses "Aws" — Cognito must match pool region prefix.)
         services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
-        services.AddAWSService<IAmazonCognitoIdentityProvider>();
+
+        CognitoPoolBootstrap.ApplySsmUserPoolIdOverride(Configuration);
+        var cognitoRegionName = CognitoRegionResolver.ResolveRegionNameForCognitoClient(Configuration);
+        using (var cognitoProbe = new AmazonCognitoIdentityProviderClient(RegionEndpoint.GetBySystemName(cognitoRegionName)))
+        {
+            CognitoPoolBootstrap.ValidatePoolExistsOrDiagnose(cognitoProbe, cognitoRegionName);
+        }
+
+        cognitoRegionName = CognitoRegionResolver.ResolveRegionNameForCognitoClient(Configuration);
+        Log.Information(
+            "Cognito Identity Provider client region: {Region} (after SSM pool override / optional auto-fix)",
+            cognitoRegionName);
+        services.AddSingleton<IAmazonCognitoIdentityProvider>(_ =>
+            new AmazonCognitoIdentityProviderClient(RegionEndpoint.GetBySystemName(cognitoRegionName)));
         services.AddAWSService<IAmazonDynamoDB>();
         services.AddAWSService<IAmazonSimpleSystemsManagement>();
         services.AddAWSService<IAmazonS3>();
