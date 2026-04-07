@@ -13,6 +13,7 @@ interface AuditRow {
   targetType?: string;
   targetId?: string;
   createdAt?: string;
+  /** ISO timestamp from API */
   timestamp?: string;
   adminEmail?: string;
 }
@@ -27,12 +28,27 @@ export const AdminAuditPage: React.FC = () => {
     setError(null);
     try {
       const res = await adminApiService.get('/api/admin/audit?page=1&pageSize=50');
-      const raw = pickPagedItems<Omit<AuditRow, 'rowKey'>>(res);
+      const raw = pickPagedItems<Record<string, unknown>>(res);
       setItems(
-        raw.map((r, i) => ({
-          ...r,
-          rowKey: r.id || r.logId || `audit-${i}`,
-        }))
+        raw.map((r, i) => {
+          const o = r;
+          const logId = String(o.logId ?? o.LogId ?? '');
+          const action = String(o.action ?? o.Action ?? '');
+          const targetType = String(o.targetType ?? o.TargetType ?? '');
+          const targetId = (o.targetId ?? o.TargetId) != null ? String(o.targetId ?? o.TargetId) : undefined;
+          const adminEmail = (o.adminEmail ?? o.AdminEmail) != null ? String(o.adminEmail ?? o.AdminEmail) : undefined;
+          const ts = o.timestamp ?? o.Timestamp ?? o.createdAt ?? o.CreatedAt;
+          const timestamp = ts != null ? String(ts) : undefined;
+          return {
+            rowKey: logId || `audit-${i}`,
+            logId: logId || undefined,
+            action: action || undefined,
+            targetType: targetType || undefined,
+            targetId,
+            adminEmail,
+            timestamp,
+          };
+        })
       );
     } catch (err: unknown) {
       const msg = (err as Error)?.message ?? '';
@@ -56,7 +72,7 @@ export const AdminAuditPage: React.FC = () => {
       key: 'createdAt',
       header: 'When',
       render: (r) => {
-        const t = r.createdAt || r.timestamp;
+        const t = r.timestamp || r.createdAt;
         return t ? new Date(t).toLocaleString() : '—';
       },
     },

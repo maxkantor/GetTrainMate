@@ -9,6 +9,8 @@ interface ChatRow {
   rowKey: string;
   threadId?: string;
   chatId?: string;
+  userId1?: string;
+  userId2?: string;
   userA?: string;
   userB?: string;
   lastMessageAt?: string;
@@ -46,8 +48,16 @@ export const AdminChatsPage: React.FC = () => {
 
   const columns: Column<ChatRow>[] = [
     { key: 'threadId', header: 'Thread', render: (r) => r.threadId ?? r.chatId ?? '—' },
-    { key: 'userA', header: 'User A' },
-    { key: 'userB', header: 'User B' },
+    {
+      key: 'userA',
+      header: 'User A',
+      render: (r) => r.userId1 ?? r.userA ?? '—',
+    },
+    {
+      key: 'userB',
+      header: 'User B',
+      render: (r) => r.userId2 ?? r.userB ?? '—',
+    },
     {
       key: 'lastMessageAt',
       header: 'Last activity',

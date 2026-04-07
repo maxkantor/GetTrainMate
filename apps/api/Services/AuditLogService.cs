@@ -71,7 +71,7 @@ public class AuditLogService : IAuditLogService
         }
     }
 
-    public async Task<List<AuditLog>> GetLogsAsync(
+    public async Task<(List<AuditLog> Items, int TotalCount)> GetLogsAsync(
         string? adminSub = null,
         string? targetType = null,
         string? targetId = null,
@@ -132,11 +132,14 @@ public class AuditLogService : IAuditLogService
 
             var sorted = allLogs
                 .OrderByDescending(log => log.Timestamp)
+                .ToList();
+            var totalCount = sorted.Count;
+            var pageItems = sorted
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToList();
 
-            return sorted;
+            return (pageItems, totalCount);
         }
         catch (Exception ex)
         {

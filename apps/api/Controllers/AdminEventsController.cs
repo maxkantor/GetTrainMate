@@ -61,11 +61,16 @@ public class AdminEventsController : ControllerBase
                 .Select(e => new EventListItem
                 {
                     EventId = e.EventId,
-                    Name = e.Title,
+                    Name = string.IsNullOrWhiteSpace(e.Title)
+                        ? (string.IsNullOrWhiteSpace(e.Sport)
+                            ? e.EventId
+                            : $"{e.Sport} · {e.EventId.Substring(0, Math.Min(8, e.EventId.Length))}…")
+                        : e.Title,
                     Date = e.EventDate,
-                    Location = e.City,
+                    Location = string.IsNullOrWhiteSpace(e.City) ? "—" : e.City,
                     AttendeeCount = e.ParticipantIds?.Count ?? 0,
-                    CreatedAt = e.CreatedAt
+                    CreatedAt = e.CreatedAt,
+                    Status = e.EventDate >= DateTime.UtcNow ? "scheduled" : "past"
                 })
                 .ToList();
 
@@ -239,6 +244,8 @@ public class EventListItem
     public string Location { get; set; } = string.Empty;
     public int AttendeeCount { get; set; }
     public DateTime CreatedAt { get; set; }
+    /// <summary>scheduled (future) or past — derived from event date.</summary>
+    public string Status { get; set; } = "scheduled";
 }
 
 public class AdminCreateEventRequest

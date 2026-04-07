@@ -355,6 +355,71 @@ public class ChatService : IChatService
         }
     }
 
+    /// <inheritdoc />
+    public async Task<(List<AdminChatThreadListItem> Items, int TotalCount)> ListThreadsForAdminAsync(int page, int pageSize, string? search = null)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, _threadsTable);
+            var scanOp = table.Scan(new ScanFilter());
+            var threads = new List<ChatThread>();
+            do
+            {
+                var batch = await scanOp.GetNextSetAsync();
+                foreach (var doc in batch)
+                {
+                    try
+                    {
+                        threads.Add(DocumentToThread(doc));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Admin thread list: skip malformed row");
+                    }
+                }
+            } while (!scanOp.IsDone);
+
+            var ordered = threads
+                .OrderByDescending(t => t.LastMessageAt)
+                .ThenBy(t => t.ThreadId)
+                .ToList();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.Trim();
+                ordered = ordered
+                    .Where(t =>
+                        t.ThreadId.Contains(q, StringComparison.OrdinalIgnoreCase)
+                        || t.ParticipantIds.Any(p => p.Contains(q, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
+
+            var total = ordered.Count;
+            var slice = ordered
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            var items = slice.Select(t => new AdminChatThreadListItem
+            {
+                ThreadId = t.ThreadId,
+                UserId1 = t.ParticipantIds.ElementAtOrDefault(0) ?? string.Empty,
+                UserId2 = t.ParticipantIds.ElementAtOrDefault(1) ?? string.Empty,
+                LastMessageAt = t.LastMessageAt,
+                MessageCount = 0
+            }).ToList();
+
+            return (items, total);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing threads for admin");
+            throw;
+        }
+    }
+
     public async Task<bool> MarkThreadAsReadAsync(string threadId, string userId)
     {
         try

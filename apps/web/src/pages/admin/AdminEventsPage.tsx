@@ -24,12 +24,27 @@ export const AdminEventsPage: React.FC = () => {
     setError(null);
     try {
       const res = await adminApiService.get('/api/admin/events?page=1&pageSize=50');
-      const raw = pickPagedItems<Omit<EventRow, 'rowKey'>>(res);
+      const raw = pickPagedItems<Record<string, unknown>>(res);
       setItems(
-        raw.map((r, i) => ({
-          ...r,
-          rowKey: r.eventId || `ev-${i}`,
-        }))
+        raw.map((r, i) => {
+          const o = r;
+          const eventId = String(o.eventId ?? o.EventId ?? '');
+          const title = String(o.name ?? o.Name ?? o.title ?? o.Title ?? '');
+          const city = String(o.location ?? o.Location ?? o.city ?? o.City ?? '');
+          const dateVal = o.date ?? o.Date ?? o.startsAt ?? o.StartsAt;
+          let startsAt = '';
+          if (typeof dateVal === 'string') startsAt = dateVal;
+          else if (dateVal instanceof Date) startsAt = dateVal.toISOString();
+          const status = String(o.status ?? o.Status ?? '');
+          return {
+            rowKey: eventId || `ev-${i}`,
+            eventId: eventId || undefined,
+            title: title || undefined,
+            city: city || undefined,
+            startsAt: startsAt || undefined,
+            status: status || undefined,
+          };
+        })
       );
     } catch (err: unknown) {
       const msg = (err as Error)?.message ?? '';

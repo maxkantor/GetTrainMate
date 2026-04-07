@@ -648,6 +648,7 @@ public class MatchService : IMatchService
 
         var matchedProfileIds = await GetMatchedProfileIdsAsync();
         var statusMap = await GetAdminProfileStatusMetadataMapAsync();
+        var passSkipsByTarget = await GetLatestDiscoverPassSkipByTargetAsync();
 
         var rows = docs
             .Where(d => d.ContainsKey("userId"))
@@ -657,13 +658,24 @@ public class MatchService : IMatchService
                 var explicitStatus = statusMap.TryGetValue(userId, out var m) ? m.Status : null;
                 var status = explicitStatus
                     ?? (matchedProfileIds.Contains(userId) ? "matched" : "active");
+                DateTime? lastSkipAt = statusMap.TryGetValue(userId, out var sm) ? sm.LastSkippedAt : null;
+                string? lastSkipBy = statusMap.TryGetValue(userId, out var sm2) ? sm2.LastSkippedByUserId : null;
+                if (passSkipsByTarget.TryGetValue(userId, out var pass) && pass.At.HasValue)
+                {
+                    if (!lastSkipAt.HasValue || pass.At > lastSkipAt)
+                    {
+                        lastSkipAt = pass.At;
+                        lastSkipBy = pass.By;
+                    }
+                }
+
                 return new AdminDiscoverProfileRow
                 {
                     UserId = userId,
                     Name = d.ContainsKey("name") ? d["name"].AsString() : userId,
                     Status = status,
-                    LastSkippedAt = statusMap.TryGetValue(userId, out var sm) ? sm.LastSkippedAt : null,
-                    LastSkippedByUserId = statusMap.TryGetValue(userId, out var sm2) ? sm2.LastSkippedByUserId : null
+                    LastSkippedAt = lastSkipAt,
+                    LastSkippedByUserId = lastSkipBy
                 };
             })
             .ToList();
@@ -780,6 +792,43 @@ public class MatchService : IMatchService
             }
         } while (!scan.IsDone);
         return ids;
+    }
+
+    /// <summary>
+    /// Latest in-app Discover pass per <b>target</b> profile (viewer → target rows in discover-passes), excluding admin partition keys.
+    /// </summary>
+    private async Task<Dictionary<string, (DateTime? At, string? By)>> GetLatestDiscoverPassSkipByTargetAsync()
+    {
+        var map = new Dictionary<string, (DateTime? At, string? By)>(StringComparer.Ordinal);
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, _discoverPassesTable);
+            var scan = table.Scan(new ScanFilter());
+            do
+            {
+                foreach (var doc in await scan.GetNextSetAsync())
+                {
+                    if (!doc.ContainsKey("userId") || !doc.ContainsKey("targetUserId")) continue;
+                    var pk = doc["userId"].AsString();
+                    if (pk == AdminControlsPartitionKey || pk == AdminProfileStatusPartitionKey) continue;
+                    var tid = doc["targetUserId"].AsString();
+                    if (string.IsNullOrEmpty(tid)) continue;
+                    if (!doc.ContainsKey("skippedAt")) continue;
+                    if (!DateTime.TryParse(doc["skippedAt"].AsString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at))
+                        continue;
+                    var by = doc.ContainsKey("skippedByUserId") ? doc["skippedByUserId"].AsString() : pk;
+                    if (string.IsNullOrEmpty(by)) by = pk;
+                    if (!map.TryGetValue(tid, out var cur) || !cur.At.HasValue || at > cur.At.Value)
+                        map[tid] = (at, by);
+                }
+            } while (!scan.IsDone);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GetLatestDiscoverPassSkipByTargetAsync failed");
+        }
+
+        return map;
     }
 
     private async Task<Dictionary<string, (string Status, DateTime? LastSkippedAt, string? LastSkippedByUserId)>> GetAdminProfileStatusMetadataMapAsync()

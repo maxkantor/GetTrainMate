@@ -30,7 +30,7 @@ interface Contact {
   email: string;
   phone?: string;
   status: string;
-  tags: string[];
+  tags?: string[];
   createdAt: string;
 }
 
@@ -168,7 +168,7 @@ export const ContactsPage: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    {contact.tags.map((tag) => (
+                    {(contact.tags ?? []).map((tag) => (
                       <Chip key={tag} label={tag} size="small" sx={{ mr: 0.5 }} />
                     ))}
                   </TableCell>

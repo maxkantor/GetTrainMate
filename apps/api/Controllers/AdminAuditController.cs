@@ -38,7 +38,7 @@ public class AdminAuditController : ControllerBase
     {
         try
         {
-            var logs = await _auditLogService.GetLogsAsync(
+            var (logs, totalCount) = await _auditLogService.GetLogsAsync(
                 adminSub,
                 targetType,
                 targetId,
@@ -52,8 +52,8 @@ public class AdminAuditController : ControllerBase
                 Items = logs,
                 Page = page,
                 PageSize = pageSize,
-                TotalCount = logs.Count, // TODO: Get actual total count
-                TotalPages = (int)Math.Ceiling(logs.Count / (double)pageSize)
+                TotalCount = totalCount,
+                TotalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize))
             });
         }
         catch (Exception ex)

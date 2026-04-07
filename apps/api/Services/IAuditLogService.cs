@@ -13,7 +13,7 @@ public interface IAuditLogService
         object? after = null,
         string? requestId = null);
     
-    Task<List<AuditLog>> GetLogsAsync(
+    Task<(List<AuditLog> Items, int TotalCount)> GetLogsAsync(
         string? adminSub = null,
         string? targetType = null,
         string? targetId = null,

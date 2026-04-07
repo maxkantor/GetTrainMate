@@ -63,14 +63,58 @@ public class AdminContactsController : ControllerBase
     {
         try
         {
-            // TODO: Implement contact listing with DynamoDB query/scan
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 200);
+
+            var scan = _context.ScanAsync<Contact>(new List<ScanCondition>());
+            var all = await scan.GetRemainingAsync();
+            var active = all.Where(c => !c.SoftDeleted).ToList();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var q = search.Trim();
+                active = active.Where(c =>
+                    c.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || c.Email.Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || (!string.IsNullOrEmpty(c.Phone) && c.Phone.Contains(q, StringComparison.OrdinalIgnoreCase))).ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                active = active.Where(c =>
+                    string.Equals(c.Status, status.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(tag))
+            {
+                var t = tag.Trim();
+                active = active.Where(c => c.Tags != null && c.Tags.Contains(t, StringComparer.OrdinalIgnoreCase)).ToList();
+            }
+
+            var totalCount = active.Count;
+            var paged = active
+                .OrderByDescending(c => c.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(c => new ContactListItem
+                {
+                    ContactId = c.ContactId,
+                    Name = c.Name,
+                    Email = c.Email,
+                    Phone = c.Phone,
+                    Status = c.Status,
+                    Tags = c.Tags ?? new List<string>(),
+                    CreatedAt = c.CreatedAt
+                })
+                .ToList();
+
             return Ok(new PagedResponse<ContactListItem>
             {
-                Items = new List<ContactListItem>(),
+                Items = paged,
                 Page = page,
                 PageSize = pageSize,
-                TotalCount = 0,
-                TotalPages = 0
+                TotalCount = totalCount,
+                TotalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize))
             });
         }
         catch (Exception ex)
@@ -383,6 +427,7 @@ public class ContactListItem
     public string ContactId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
     public string Status { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
     public DateTime CreatedAt { get; set; }

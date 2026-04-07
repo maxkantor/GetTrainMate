@@ -76,7 +76,7 @@ public class AdminMetricsController : ControllerBase
             List<AuditLog> recentLogs;
             try
             {
-                recentLogs = await _auditLogService.GetLogsAsync(null, null, null, null, null, 1, 20);
+                recentLogs = (await _auditLogService.GetLogsAsync(null, null, null, null, null, 1, 20)).Items;
             }
             catch (Exception auditEx)
             {

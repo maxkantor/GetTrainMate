@@ -14,4 +14,7 @@ public interface IChatService
     Task<List<ChatMessage>> GetMessagesAsync(string threadId, int limit = 50);
     Task<ChatMessage> SendMessageAsync(string threadId, string senderId, string senderName, string content);
     Task<bool> MarkThreadAsReadAsync(string threadId, string userId);
+
+    /// <summary>All chat threads for admin moderation (paginated). Optional search matches thread or user ids.</summary>
+    Task<(List<AdminChatThreadListItem> Items, int TotalCount)> ListThreadsForAdminAsync(int page, int pageSize, string? search = null);
 }
