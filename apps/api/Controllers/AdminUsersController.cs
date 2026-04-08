@@ -994,13 +994,59 @@ public class AdminUsersController : ControllerBase
             var key = $"profiles/{normalizedUserId}/admin-{Guid.NewGuid():N}{extension}";
             var uploadUrl = _storageService.GetPresignedUploadUrl(key, contentType, TimeSpan.FromMinutes(10));
             var publicUrl = _storageService.GetPublicUrl(key);
-            return Ok(new { key, uploadUrl, publicUrl });
+            // Private buckets: canonical URL is not readable in <img>; use presigned GET for admin preview.
+            var previewUrl = _storageService.GetPresignedDownloadUrl(key, TimeSpan.FromHours(24));
+            return Ok(new { key, uploadUrl, publicUrl, previewUrl });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating test user photo upload URL for {UserId}", userId);
             return StatusCode(500, new { error = "Failed to generate upload URL" });
         }
+    }
+
+    /// <summary>
+    /// POST /api/admin/users/test-users/{userId}/photos/preview-urls
+    /// Presigned GET URLs for admin image preview when the media bucket is not public-read.
+    /// </summary>
+    [HttpPost("test-users/{userId}/photos/preview-urls")]
+    public ActionResult GetTestUserPhotoPreviewUrls(string userId, [FromBody] AdminPhotoPreviewBatchRequest? request)
+    {
+        try
+        {
+            var normalizedUserId = (userId ?? string.Empty).Trim();
+            if (!IsTestUserId(normalizedUserId))
+                return BadRequest(new { error = "Only dummy/test users are allowed." });
+
+            var urls = request?.Urls ?? new List<string>();
+            var previews = new Dictionary<string, string>();
+            foreach (var raw in urls)
+            {
+                var url = (raw ?? string.Empty).Trim();
+                if (url.Length == 0) continue;
+                if (!TryGetProfilePhotoKey(url, normalizedUserId, out var key)) continue;
+                previews[url] = _storageService.GetPresignedDownloadUrl(key, TimeSpan.FromHours(12));
+            }
+
+            return Ok(new { previews });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error building preview URLs for {UserId}", userId);
+            return StatusCode(500, new { error = "Failed to build preview URLs" });
+        }
+    }
+
+    /// <summary>HTTPS S3 URL whose path is <c>profiles/{userId}/…</c>.</summary>
+    private static bool TryGetProfilePhotoKey(string url, string expectedUserId, out string key)
+    {
+        key = string.Empty;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
+        if (!string.Equals(u.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return false;
+        var path = u.AbsolutePath.TrimStart('/');
+        if (!path.StartsWith($"profiles/{expectedUserId}/", StringComparison.Ordinal)) return false;
+        key = path;
+        return true;
     }
 
     private static string? ValidateTestUserRequest(AdminTestUserUpsertRequest request, bool requireUserId)
@@ -1015,14 +1061,15 @@ public class AdminUsersController : ControllerBase
         if (request.Mode != null && !new[] { "TRAIN", "VIBE", "DATE" }.Contains(request.Mode.Trim(), StringComparer.OrdinalIgnoreCase))
             return "mode must be one of: TRAIN, VIBE, DATE.";
 
+        // ProfileRequestValidator treats SportTags=[] as invalid; omit empty lists so "unchanged" / partial payloads work.
         var profileValidation = ProfileRequestValidator.Validate(new UpdateProfileRequest
         {
             Name = request.Name,
             Bio = request.Bio,
             Level = request.Level,
             Mode = request.Mode,
-            SportTags = request.SportTags,
-            Goals = request.Goals
+            SportTags = request.SportTags is { Count: > 0 } ? request.SportTags : null,
+            Goals = request.Goals is { Count: > 0 } ? request.Goals : null
         });
         if (profileValidation.Count > 0)
             return profileValidation.SelectMany(kv => kv.Value).FirstOrDefault() ?? "Validation failed.";
@@ -1159,6 +1206,11 @@ public class AdminPhotoUploadRequest
 {
     public string? ContentType { get; set; }
     public string? FileName { get; set; }
+}
+
+public class AdminPhotoPreviewBatchRequest
+{
+    public List<string> Urls { get; set; } = new();
 }
 
 public class BanUserRequest

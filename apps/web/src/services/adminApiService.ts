@@ -23,11 +23,29 @@ class AdminApiService {
     }
   }
 
+  private formatErrorBody(data: unknown, fallback: string): string {
+    if (data == null || typeof data !== 'object') return fallback;
+    const o = data as Record<string, unknown>;
+    const base =
+      (typeof o.error === 'string' && o.error) ||
+      (typeof o.message === 'string' && o.message) ||
+      '';
+    const errs = o.errors;
+    if (errs != null && typeof errs === 'object' && !Array.isArray(errs)) {
+      const parts: string[] = [];
+      for (const [k, v] of Object.entries(errs)) {
+        if (Array.isArray(v)) parts.push(...v.map((x) => `${k}: ${String(x)}`));
+        else if (v != null) parts.push(`${k}: ${String(v)}`);
+      }
+      if (parts.length) {
+        return base ? `${base} — ${parts.join('; ')}` : parts.join('; ');
+      }
+    }
+    return base || fallback;
+  }
+
   private attachStatusError(response: Response, data: any, fallback: string): Error {
-    const msg =
-      (typeof data?.error === 'string' && data.error) ||
-      (typeof data?.message === 'string' && data.message) ||
-      fallback;
+    const msg = this.formatErrorBody(data, fallback);
     const err = new Error(msg) as Error & { status?: number };
     err.status = response.status;
     return err;

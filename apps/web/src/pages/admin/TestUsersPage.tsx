@@ -64,6 +64,8 @@ export const TestUsersPage: React.FC = () => {
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
   const [form, setForm] = useState<TestUserFormState>(EMPTY_FORM);
+  /** S3 objects may be private; map canonical public URL → presigned GET for admin preview. */
+  const [photoPreviewMap, setPhotoPreviewMap] = useState<Record<string, string>>({});
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -111,6 +113,7 @@ export const TestUsersPage: React.FC = () => {
     setForm(EMPTY_FORM);
     setActiveUserId(null);
     setIsEditing(false);
+    setPhotoPreviewMap({});
   }, []);
 
   const startCreate = useCallback(() => {
@@ -153,6 +156,23 @@ export const TestUsersPage: React.FC = () => {
         goals,
         photoUrls: photoUrls.join('\n'),
       });
+      if (photoUrls.length > 0) {
+        try {
+          const prevRes = await adminApiService.post(
+            `/api/admin/users/test-users/${encodeURIComponent(row.userId)}/photos/preview-urls`,
+            { urls: photoUrls }
+          );
+          const raw = (prevRes as { previews?: Record<string, string>; Previews?: Record<string, string> }) ?? {};
+          const previews = raw.previews ?? raw.Previews;
+          if (previews && typeof previews === 'object') {
+            setPhotoPreviewMap(previews);
+          }
+        } catch {
+          setPhotoPreviewMap({});
+        }
+      } else {
+        setPhotoPreviewMap({});
+      }
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to load test user details');
       setShowForm(false);
@@ -254,6 +274,7 @@ export const TestUsersPage: React.FC = () => {
 
           const uploadUrl = String(signed?.uploadUrl ?? signed?.UploadUrl ?? '');
           const publicUrl = String(signed?.publicUrl ?? signed?.PublicUrl ?? '');
+          const previewUrl = String(signed?.previewUrl ?? signed?.PreviewUrl ?? '');
           if (!uploadUrl || !publicUrl) {
             throw new Error('Upload URL response was incomplete.');
           }
@@ -270,6 +291,9 @@ export const TestUsersPage: React.FC = () => {
             throw new Error(`Failed uploading ${file.name} (${putResponse.status}).`);
           }
           uploadedUrls.push(publicUrl);
+          if (previewUrl) {
+            setPhotoPreviewMap((m) => ({ ...m, [publicUrl]: previewUrl }));
+          }
         }
 
         if (uploadedUrls.length) {
@@ -524,14 +548,19 @@ export const TestUsersPage: React.FC = () => {
                     Upload images
                   </Button>
                   <span className={styles.uploadHint}>
-                    Uploads to S3 and appends public URLs.
+                    Stored URL is the canonical S3 path; preview uses a signed URL if the bucket is private.
                   </span>
                 </div>
 
                 {previewUrls.length > 0 && (
                   <div className={styles.photoPreviewGrid}>
                     {previewUrls.map((url) => (
-                      <img key={url} className={styles.photoPreview} src={url} alt="Test user preview" />
+                      <img
+                        key={url}
+                        className={styles.photoPreview}
+                        src={photoPreviewMap[url] ?? url}
+                        alt="Test user preview"
+                      />
                     ))}
                   </div>
                 )}
