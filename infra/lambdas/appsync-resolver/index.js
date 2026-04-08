@@ -24,7 +24,7 @@ const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
 const PREFIX = process.env.DYNAMODB_TABLE_PREFIX || 'gettrainmate-';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || '';
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
-const MEDIA_BUCKET = process.env.MEDIA_BUCKET_NAME || 'getrainmate-media-bucket';
+const MEDIA_BUCKET = process.env.MEDIA_BUCKET_NAME || 'gettrainmate-media-bucket';
 const AWS_REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-1';
 // Demo profile photos: distinct person portraits so each profile shows a different face (women for female profiles, men for male)
 const RANDOMUSER = 'https://randomuser.me/api/portraits';
@@ -39,11 +39,46 @@ const DEMO_PERSON_PHOTOS = [
   `${RANDOMUSER}/women/12.jpg`, // Riley
 ];
 
-async function toAvatarUrl(photoUrls, photoKey, userIdForPlaceholder) {
-  if (photoUrls && photoUrls[0] && (photoUrls[0].startsWith('http://') || photoUrls[0].startsWith('https://'))) return photoUrls[0];
-  if (photoKey) {
+/** Dynamo may store photoUrls as a List of strings or (legacy / bad writes) a single string — normalize before indexing. */
+function normalizePhotoUrlList(photoUrls) {
+  if (photoUrls == null) return [];
+  if (typeof photoUrls === 'string') {
+    const t = photoUrls.trim();
+    return t ? [t] : [];
+  }
+  if (!Array.isArray(photoUrls)) return [];
+  const out = [];
+  for (const u of photoUrls) {
+    const s = typeof u === 'string' ? u.trim() : u != null ? String(u).trim() : '';
+    if (s) out.push(s);
+  }
+  return out;
+}
+
+function pickHttpUrlFromList(urls) {
+  for (const u of urls) {
+    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+  }
+  return null;
+}
+
+function primaryS3Key(photoKey, photoKeys) {
+  const k = photoKey && String(photoKey).trim();
+  if (k) return k.replace(/^\//, '');
+  if (Array.isArray(photoKeys) && photoKeys.length) {
+    const first = photoKeys[0];
+    if (first != null && String(first).trim()) return String(first).trim().replace(/^\//, '');
+  }
+  return null;
+}
+
+async function toAvatarUrl(photoUrls, photoKey, photoKeys, userIdForPlaceholder) {
+  const list = normalizePhotoUrlList(photoUrls);
+  const direct = pickHttpUrlFromList(list);
+  if (direct) return direct;
+  const key = primaryS3Key(photoKey, photoKeys);
+  if (key) {
     const s3 = new S3Client({ region: AWS_REGION });
-    const key = photoKey.replace(/^\//, '');
     return getSignedUrl(s3, new GetObjectCommand({ Bucket: MEDIA_BUCKET, Key: key }), { expiresIn: 3600 });
   }
   if (userIdForPlaceholder) {
@@ -170,7 +205,7 @@ async function profileFromDoc(d) {
     sports: d.sportTags || [],
     goals: d.goals || [],
     schedule: scheduleParsed,
-    avatarUrl: await toAvatarUrl(d.photoUrls, d.photoKey, d.userId),
+    avatarUrl: await toAvatarUrl(d.photoUrls, d.photoKey, d.photoKeys, d.userId),
     level: d.level || null,
     modes: normalizedModesFromDoc(d),
     workoutStyle: d.workoutStyle || null,
@@ -212,7 +247,7 @@ async function getMe(identity) {
   const displayName = (profile?.displayName?.trim() || user.name || '').trim() || null;
   const profileOut = profile
     ? { ...profile, displayName: displayName || profile.displayName || '', updatedAt: profile.updatedAt || null }
-    : (displayName ? { userId, displayName, age: null, city: null, bio: null, sports: [], goals: [], schedule: [], modes: ['TRAIN'], avatarUrl: await toAvatarUrl(null, null, userId), level: null, isComplete: false, updatedAt: null } : null);
+    : (displayName ? { userId, displayName, age: null, city: null, bio: null, sports: [], goals: [], schedule: [], modes: ['TRAIN'], avatarUrl: await toAvatarUrl(null, null, null, userId), level: null, isComplete: false, updatedAt: null } : null);
   return {
     user: {
       id: user.id,
