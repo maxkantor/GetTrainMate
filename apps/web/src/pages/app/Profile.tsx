@@ -356,6 +356,31 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  /** Cover = first entry in photoKeys (same order Discover uses). */
+  const makeCoverAt = async (index: number) => {
+    if (index <= 0 || index >= photoKeys.length) return;
+    try {
+      const token = await authService.getJWT();
+      if (!token) {
+        setSnack({ open: true, message: 'Not authenticated', severity: 'error' });
+        return;
+      }
+      const chosen = photoKeys[index];
+      const nextKeys = [chosen, ...photoKeys.filter((_, i) => i !== index)];
+      await profileService.updateMyProfile(token, { photoKeys: nextKeys });
+      setPhotoKeys(nextKeys);
+      const urls = await Promise.all(nextKeys.map((key) => profileService.getPhotoUrl(token, key)));
+      setMyPhotos(urls);
+      setBaseline((b) => (b ? { ...b, photoKeys: nextKeys } : null));
+      await refreshMe();
+      showSectionHint('photo');
+      setSnack({ open: true, message: 'Cover photo updated', severity: 'success' });
+    } catch (e: unknown) {
+      const apiError = handleApiError(e);
+      setSnack({ open: true, message: apiError.message || 'Could not update cover photo', severity: 'error' });
+    }
+  };
+
   if (loading) {
     return (
       <Container maxWidth="md" sx={{ py: 8, textAlign: 'center' }}>
@@ -768,60 +793,77 @@ export const ProfilePage: React.FC = () => {
             No nude or adult content. Photos must be appropriate for a fitness partner app.
           </Typography>
           <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 1.5 }}>
-            First photo is your cover image in Discover. Add more when your plan allows.
+            The first photo is your cover in Discover. With multiple photos, use{' '}
+            <strong>Make cover</strong> on any thumbnail to move it to the front. More slots unlock with credits.
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', my: 1 }}>
             {photoKeys.map((key, index) => (
               <Box
-                key={key}
-                sx={{
-                  position: 'relative',
-                  width: 96,
-                  height: 96,
-                  borderRadius: 1,
-                  overflow: 'hidden',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                }}
+                key={`${key}-${index}`}
+                sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0.5, maxWidth: 120 }}
               >
                 <Box
-                  component="img"
-                  src={myPhotos[index] || ''}
-                  alt=""
-                  sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }}
-                />
-                <IconButton
-                  size="small"
-                  aria-label="Remove photo"
-                  onClick={() => void removePhotoAt(index)}
                   sx={{
-                    position: 'absolute',
-                    top: 2,
-                    right: 2,
-                    bgcolor: 'rgba(0,0,0,0.5)',
-                    color: 'common.white',
-                    '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+                    position: 'relative',
+                    width: 96,
+                    height: 96,
+                    borderRadius: 1,
+                    overflow: 'hidden',
+                    border: '1px solid',
+                    borderColor: 'divider',
                   }}
                 >
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-                {index === 0 && (
-                  <Typography
-                    variant="caption"
+                  <Box
+                    component="img"
+                    src={myPhotos[index] || ''}
+                    alt=""
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }}
+                  />
+                  <IconButton
+                    size="small"
+                    aria-label="Remove photo"
+                    onClick={() => void removePhotoAt(index)}
                     sx={{
                       position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      textAlign: 'center',
-                      bgcolor: 'rgba(0,0,0,0.55)',
+                      top: 2,
+                      right: 2,
+                      bgcolor: 'rgba(0,0,0,0.5)',
                       color: 'common.white',
-                      py: 0.25,
-                      fontSize: '0.65rem',
+                      '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
                     }}
                   >
-                    Cover
-                  </Typography>
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                  {index === 0 && (
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        textAlign: 'center',
+                        bgcolor: 'rgba(0,0,0,0.55)',
+                        color: 'common.white',
+                        py: 0.25,
+                        fontSize: '0.65rem',
+                      }}
+                    >
+                      Cover
+                    </Typography>
+                  )}
+                </Box>
+                {photoKeys.length > 1 && index > 0 ? (
+                  <Button
+                    size="small"
+                    variant="text"
+                    sx={{ fontSize: '0.7rem', minHeight: 28, py: 0, textTransform: 'none' }}
+                    onClick={() => void makeCoverAt(index)}
+                  >
+                    Make cover
+                  </Button>
+                ) : (
+                  <Box sx={{ height: 28 }} aria-hidden />
                 )}
               </Box>
             ))}
