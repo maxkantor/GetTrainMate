@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Constants;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
+using GetTrainMate.Api.Validation;
 using Amazon.CognitoIdentityProvider;
 using Amazon.CognitoIdentityProvider.Model;
 using Amazon.DynamoDBv2;
@@ -23,6 +24,7 @@ public class AdminUsersController : ControllerBase
     private readonly IAuditLogService _auditLogService;
     private readonly IProfileService _profileService;
     private readonly ICreditsService _creditsService;
+    private readonly IStorageService _storageService;
     private readonly string _profilesTableName;
     /// <summary>Primary + optional extra pools (e.g. Amplify app pool when stack uses a different pool).</summary>
     private readonly string[] _cognitoUserPoolIds;
@@ -35,6 +37,7 @@ public class AdminUsersController : ControllerBase
         IAuditLogService auditLogService,
         IProfileService profileService,
         ICreditsService creditsService,
+        IStorageService storageService,
         IAmazonCognitoIdentityProvider cognito,
         IConfiguration configuration,
         ILogger<AdminUsersController> logger)
@@ -44,6 +47,7 @@ public class AdminUsersController : ControllerBase
         _auditLogService = auditLogService;
         _profileService = profileService;
         _creditsService = creditsService;
+        _storageService = storageService;
         _cognito = cognito;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _profilesTableName = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
@@ -674,6 +678,12 @@ public class AdminUsersController : ControllerBase
                 Plan = "free",
                 City = profile.City,
                 State = profile.State,
+                Bio = profile.Bio,
+                Level = profile.Level,
+                Mode = profile.Mode,
+                SportTags = profile.SportTags,
+                Goals = profile.Goals,
+                PhotoUrls = profile.PhotoUrls,
                 CreatedAt = profile.CreatedAt,
                 Credits = credits.Balance,
                 LifetimeEarned = credits.LifetimeEarned,
@@ -826,6 +836,264 @@ public class AdminUsersController : ControllerBase
             return StatusCode(500, new { error = "Failed to seed dummy users", message = ex.Message });
         }
     }
+
+    /// <summary>
+    /// POST /api/admin/users/test-users
+    /// Create a dummy test user profile from Admin CRM.
+    /// </summary>
+    [HttpPost("test-users")]
+    public async Task<ActionResult<UserDetail>> CreateTestUser([FromBody] AdminTestUserUpsertRequest request)
+    {
+        try
+        {
+            var admin = GetAdminIdentity();
+            var validationError = ValidateTestUserRequest(request, requireUserId: false);
+            if (validationError != null)
+                return BadRequest(new { error = validationError });
+
+            var userId = string.IsNullOrWhiteSpace(request.UserId)
+                ? GenerateDummyUserId(request.Name ?? "test-user")
+                : request.UserId!.Trim();
+
+            if (!IsTestUserId(userId))
+                return BadRequest(new { error = "Test user id must start with dummy-user- or use a @test.com email." });
+
+            var existing = await _profileService.GetProfileAsync(userId);
+            if (existing != null)
+                return Conflict(new { error = "A user with this id already exists." });
+
+            var level = NormalizeLevel(request.Level);
+            var mode = NormalizeMode(request.Mode);
+            var sportTags = NormalizeCsvOrList(request.SportTags);
+            var goals = NormalizeCsvOrList(request.Goals);
+            var photos = NormalizePhotoUrls(request.PhotoUrls);
+
+            var profile = new UserProfile
+            {
+                UserId = userId,
+                Email = BuildTestEmail(userId, request.Email),
+                Name = (request.Name ?? string.Empty).Trim(),
+                City = string.IsNullOrWhiteSpace(request.City) ? null : request.City.Trim(),
+                State = string.IsNullOrWhiteSpace(request.State) ? null : request.State.Trim(),
+                Bio = string.IsNullOrWhiteSpace(request.Bio) ? DefaultBioForName(request.Name) : request.Bio.Trim(),
+                Level = level,
+                Mode = mode,
+                Modes = new List<string> { mode },
+                SportTags = sportTags.Count > 0 ? sportTags : new List<string> { "Running" },
+                Goals = goals,
+                PhotoUrls = photos,
+                IsComplete = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            };
+
+            await _profileService.CreateProfileAsync(profile);
+            await _auditLogService.LogActionAsync(
+                admin,
+                "test_user.create",
+                "user",
+                userId,
+                after: new { profile.Name, profile.Email, profile.City, profile.State });
+
+            return await GetUser(userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating admin test user");
+            return StatusCode(500, new { error = "Failed to create test user" });
+        }
+    }
+
+    /// <summary>
+    /// PUT /api/admin/users/test-users/{userId}
+    /// Edit an existing dummy test user profile from Admin CRM.
+    /// </summary>
+    [HttpPut("test-users/{userId}")]
+    public async Task<ActionResult<UserDetail>> UpdateTestUser(string userId, [FromBody] AdminTestUserUpsertRequest request)
+    {
+        try
+        {
+            var admin = GetAdminIdentity();
+            var normalizedUserId = (userId ?? string.Empty).Trim();
+            if (!IsTestUserId(normalizedUserId))
+                return BadRequest(new { error = "Only dummy/test users can be edited here." });
+
+            var validationError = ValidateTestUserRequest(request, requireUserId: false);
+            if (validationError != null)
+                return BadRequest(new { error = validationError });
+
+            var existing = await _profileService.GetProfileAsync(normalizedUserId);
+            if (existing == null)
+                return NotFound(new { error = "Test user not found" });
+
+            if (!string.IsNullOrWhiteSpace(request.Name))
+                existing.Name = request.Name.Trim();
+            if (request.Email != null)
+                existing.Email = BuildTestEmail(normalizedUserId, request.Email);
+            if (request.City != null)
+                existing.City = string.IsNullOrWhiteSpace(request.City) ? null : request.City.Trim();
+            if (request.State != null)
+                existing.State = string.IsNullOrWhiteSpace(request.State) ? null : request.State.Trim();
+            if (request.Bio != null)
+                existing.Bio = string.IsNullOrWhiteSpace(request.Bio) ? DefaultBioForName(existing.Name) : request.Bio.Trim();
+            if (request.Level != null)
+                existing.Level = NormalizeLevel(request.Level);
+            if (request.Mode != null)
+            {
+                existing.Mode = NormalizeMode(request.Mode);
+                existing.Modes = new List<string> { existing.Mode };
+            }
+            if (request.SportTags != null)
+            {
+                var tags = NormalizeCsvOrList(request.SportTags);
+                existing.SportTags = tags.Count > 0 ? tags : existing.SportTags;
+            }
+            if (request.Goals != null)
+                existing.Goals = NormalizeCsvOrList(request.Goals);
+            if (request.PhotoUrls != null)
+                existing.PhotoUrls = NormalizePhotoUrls(request.PhotoUrls);
+
+            existing.UpdatedAt = DateTime.UtcNow;
+            existing.IsComplete = true;
+
+            await _profileService.CreateProfileAsync(existing);
+            await _auditLogService.LogActionAsync(
+                admin,
+                "test_user.update",
+                "user",
+                normalizedUserId,
+                after: new { existing.Name, existing.Email, existing.City, existing.State });
+
+            return await GetUser(normalizedUserId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating admin test user {UserId}", userId);
+            return StatusCode(500, new { error = "Failed to update test user" });
+        }
+    }
+
+    /// <summary>
+    /// POST /api/admin/users/test-users/{userId}/photos/upload-url
+    /// Generate a presigned upload URL for admin-managed test user profile images.
+    /// </summary>
+    [HttpPost("test-users/{userId}/photos/upload-url")]
+    public ActionResult GetTestUserPhotoUploadUrl(string userId, [FromBody] AdminPhotoUploadRequest request)
+    {
+        try
+        {
+            var normalizedUserId = (userId ?? string.Empty).Trim();
+            if (!IsTestUserId(normalizedUserId))
+                return BadRequest(new { error = "Only dummy/test users are allowed." });
+
+            var contentType = string.IsNullOrWhiteSpace(request.ContentType) ? "application/octet-stream" : request.ContentType!.Trim();
+            if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { error = "Only image content types are allowed." });
+
+            var extension = InferImageExtension(contentType, request.FileName);
+            var key = $"profiles/{normalizedUserId}/admin-{Guid.NewGuid():N}{extension}";
+            var uploadUrl = _storageService.GetPresignedUploadUrl(key, contentType, TimeSpan.FromMinutes(10));
+            var publicUrl = _storageService.GetPublicUrl(key);
+            return Ok(new { key, uploadUrl, publicUrl });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating test user photo upload URL for {UserId}", userId);
+            return StatusCode(500, new { error = "Failed to generate upload URL" });
+        }
+    }
+
+    private static string? ValidateTestUserRequest(AdminTestUserUpsertRequest request, bool requireUserId)
+    {
+        if (request == null) return "Request body is required.";
+        if (requireUserId && string.IsNullOrWhiteSpace(request.UserId)) return "userId is required.";
+        if (string.IsNullOrWhiteSpace(request.Name)) return "name is required.";
+        if (request.Name.Trim().Length > 200) return "name must be 200 characters or less.";
+        if (request.Bio != null && request.Bio.Trim().Length is > 0 and < 20) return "bio must be at least 20 characters if provided.";
+        if (request.Level != null && !new[] { "beginner", "intermediate", "advanced", "pro" }.Contains(request.Level.Trim(), StringComparer.OrdinalIgnoreCase))
+            return "level must be one of: beginner, intermediate, advanced, pro.";
+        if (request.Mode != null && !new[] { "TRAIN", "VIBE", "DATE" }.Contains(request.Mode.Trim(), StringComparer.OrdinalIgnoreCase))
+            return "mode must be one of: TRAIN, VIBE, DATE.";
+
+        var profileValidation = ProfileRequestValidator.Validate(new UpdateProfileRequest
+        {
+            Name = request.Name,
+            Bio = request.Bio,
+            Level = request.Level,
+            Mode = request.Mode,
+            SportTags = request.SportTags,
+            Goals = request.Goals
+        });
+        if (profileValidation.Count > 0)
+            return profileValidation.SelectMany(kv => kv.Value).FirstOrDefault() ?? "Validation failed.";
+
+        return null;
+    }
+
+    private static bool IsTestUserId(string userId) =>
+        !string.IsNullOrWhiteSpace(userId) && userId.StartsWith("dummy-user-", StringComparison.OrdinalIgnoreCase);
+
+    private static string GenerateDummyUserId(string name)
+    {
+        var safe = new string((name ?? "test-user").Trim().ToLowerInvariant().Select(ch =>
+            char.IsLetterOrDigit(ch) ? ch : '-').ToArray());
+        safe = string.Join('-', safe.Split('-', StringSplitOptions.RemoveEmptyEntries));
+        if (string.IsNullOrWhiteSpace(safe)) safe = "test-user";
+        return $"dummy-user-{safe}-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+    }
+
+    private static string NormalizeLevel(string? level) =>
+        string.IsNullOrWhiteSpace(level) ? "intermediate" : level.Trim().ToLowerInvariant();
+
+    private static string NormalizeMode(string? mode) =>
+        string.IsNullOrWhiteSpace(mode) ? "TRAIN" : mode.Trim().ToUpperInvariant();
+
+    private static List<string> NormalizeCsvOrList(List<string>? values)
+    {
+        if (values == null) return new List<string>();
+        return values
+            .SelectMany(v => (v ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static List<string> NormalizePhotoUrls(List<string>? urls)
+    {
+        if (urls == null) return new List<string>();
+        return urls
+            .SelectMany(v => (v ?? "").Split(new[] { '\r', '\n', ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Where(v => Uri.TryCreate(v.Trim(), UriKind.Absolute, out _))
+            .Select(v => v.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(6)
+            .ToList();
+    }
+
+    private static string BuildTestEmail(string userId, string? requestedEmail)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedEmail) && requestedEmail.Trim().EndsWith("@test.com", StringComparison.OrdinalIgnoreCase))
+            return requestedEmail.Trim().ToLowerInvariant();
+        return $"{userId}@test.com".ToLowerInvariant();
+    }
+
+    private static string DefaultBioForName(string? name) =>
+        $"{(string.IsNullOrWhiteSpace(name) ? "Test user" : name.Trim())} is a seeded training partner profile for admin CRM testing.";
+
+    private static string InferImageExtension(string contentType, string? fileName)
+    {
+        var ct = (contentType ?? "").Trim().ToLowerInvariant();
+        if (ct == "image/jpeg" || ct == "image/jpg") return ".jpg";
+        if (ct == "image/png") return ".png";
+        if (ct == "image/webp") return ".webp";
+        if (ct == "image/gif") return ".gif";
+
+        var ext = Path.GetExtension(fileName ?? "").ToLowerInvariant();
+        if (ext is ".jpg" or ".jpeg" or ".png" or ".webp" or ".gif")
+            return ext == ".jpeg" ? ".jpg" : ext;
+        return ".jpg";
+    }
 }
 
 // Request/Response models
@@ -860,10 +1128,37 @@ public class UserDetail
     public string? Plan { get; set; }
     public string? City { get; set; }
     public string? State { get; set; }
+    public string? Bio { get; set; }
+    public string? Level { get; set; }
+    public string? Mode { get; set; }
+    public List<string> SportTags { get; set; } = new();
+    public List<string> Goals { get; set; } = new();
+    public List<string> PhotoUrls { get; set; } = new();
     public DateTime CreatedAt { get; set; }
     public int Credits { get; set; }
     public int LifetimeEarned { get; set; }
     public bool UnlimitedDiscovery { get; set; }
+}
+
+public class AdminTestUserUpsertRequest
+{
+    public string? UserId { get; set; }
+    public string? Email { get; set; }
+    public string? Name { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? Bio { get; set; }
+    public string? Level { get; set; }
+    public string? Mode { get; set; }
+    public List<string>? SportTags { get; set; }
+    public List<string>? Goals { get; set; }
+    public List<string>? PhotoUrls { get; set; }
+}
+
+public class AdminPhotoUploadRequest
+{
+    public string? ContentType { get; set; }
+    public string? FileName { get; set; }
 }
 
 public class BanUserRequest

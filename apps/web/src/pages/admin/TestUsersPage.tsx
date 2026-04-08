@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminApiService } from '@/services/adminApiService';
 import { pickPagedItems, pickPagedMeta, normalizeAdminUserRow } from '@/utils/adminApiNormalize';
 import { DataTable, Column } from '@/components/ui/DataTable';
@@ -15,7 +15,37 @@ interface User {
   createdAt: string;
   city?: string;
   state?: string;
+  credits?: number;
+  photoUrls?: string[];
 }
+
+type TestUserFormState = {
+  userId: string;
+  name: string;
+  email: string;
+  city: string;
+  state: string;
+  bio: string;
+  level: string;
+  mode: string;
+  sportTags: string;
+  goals: string;
+  photoUrls: string;
+};
+
+const EMPTY_FORM: TestUserFormState = {
+  userId: '',
+  name: '',
+  email: '',
+  city: 'San Francisco',
+  state: 'CA',
+  bio: '',
+  level: 'intermediate',
+  mode: 'TRAIN',
+  sportTags: 'Running',
+  goals: '',
+  photoUrls: '',
+};
 
 /**
  * Lists seeded / test accounts (dummy-user-* and @test.com) from the API.
@@ -25,8 +55,15 @@ export const TestUsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [showForm, setShowForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  const [form, setForm] = useState<TestUserFormState>(EMPTY_FORM);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -52,6 +89,204 @@ export const TestUsersPage: React.FC = () => {
   useEffect(() => {
     void loadUsers();
   }, [loadUsers]);
+
+  const seedDummyUsers = useCallback(async () => {
+    setError(null);
+    setSuccess(null);
+    setLoading(true);
+    try {
+      const response = await adminApiService.post('/api/admin/users/seed-dummy');
+      const created = Number(response?.created?.length ?? response?.Created?.length ?? 0);
+      const failed = Number(response?.failed?.length ?? response?.Failed?.length ?? 0);
+      setSuccess(`Seed complete: ${created} created, ${failed} failed.`);
+      await loadUsers();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to seed dummy users');
+    } finally {
+      setLoading(false);
+    }
+  }, [loadUsers]);
+
+  const resetForm = useCallback(() => {
+    setForm(EMPTY_FORM);
+    setActiveUserId(null);
+    setIsEditing(false);
+  }, []);
+
+  const startCreate = useCallback(() => {
+    setError(null);
+    setSuccess(null);
+    resetForm();
+    setShowForm(true);
+  }, [resetForm]);
+
+  const startEdit = useCallback(async (row: User) => {
+    setError(null);
+    setSuccess(null);
+    setFormLoading(true);
+    setShowForm(true);
+    setIsEditing(true);
+    setActiveUserId(row.userId);
+    try {
+      const detail = await adminApiService.get(`/api/admin/users/${encodeURIComponent(row.userId)}`);
+      const o = (detail && typeof detail === 'object' ? detail : {}) as Record<string, unknown>;
+      const photoUrls = Array.isArray(o.photoUrls ?? o.PhotoUrls)
+        ? ((o.photoUrls ?? o.PhotoUrls) as unknown[]).map((x) => String(x))
+        : [];
+      const sportTags = Array.isArray(o.sportTags ?? o.SportTags)
+        ? ((o.sportTags ?? o.SportTags) as unknown[]).map((x) => String(x)).join(', ')
+        : '';
+      const goals = Array.isArray(o.goals ?? o.Goals)
+        ? ((o.goals ?? o.Goals) as unknown[]).map((x) => String(x)).join(', ')
+        : '';
+
+      setForm({
+        userId: String(o.userId ?? o.UserId ?? row.userId),
+        name: String(o.name ?? o.Name ?? row.name ?? ''),
+        email: String(o.email ?? o.Email ?? row.email ?? ''),
+        city: String(o.city ?? o.City ?? row.city ?? ''),
+        state: String(o.state ?? o.State ?? row.state ?? ''),
+        bio: String(o.bio ?? o.Bio ?? ''),
+        level: String(o.level ?? o.Level ?? 'intermediate'),
+        mode: String(o.mode ?? o.Mode ?? 'TRAIN'),
+        sportTags,
+        goals,
+        photoUrls: photoUrls.join('\n'),
+      });
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to load test user details');
+      setShowForm(false);
+      resetForm();
+    } finally {
+      setFormLoading(false);
+    }
+  }, [resetForm]);
+
+  const updateForm = useCallback((key: keyof TestUserFormState, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const previewUrls = useMemo(
+    () =>
+      form.photoUrls
+        .split(/\r?\n|,/)
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .slice(0, 6),
+    [form.photoUrls]
+  );
+
+  const saveForm = useCallback(async () => {
+    if (!form.name.trim()) {
+      setError('Name is required.');
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+    setFormLoading(true);
+    try {
+      const payload = {
+        userId: form.userId.trim() || undefined,
+        name: form.name.trim(),
+        email: form.email.trim() || undefined,
+        city: form.city.trim() || undefined,
+        state: form.state.trim() || undefined,
+        bio: form.bio.trim() || undefined,
+        level: form.level.trim() || undefined,
+        mode: form.mode.trim() || undefined,
+        sportTags: form.sportTags
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean),
+        goals: form.goals
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean),
+        photoUrls: form.photoUrls
+          .split(/\r?\n|,/)
+          .map((x) => x.trim())
+          .filter(Boolean),
+      };
+
+      if (isEditing && activeUserId) {
+        await adminApiService.put(`/api/admin/users/test-users/${encodeURIComponent(activeUserId)}`, payload);
+        setSuccess(`Updated ${form.name}.`);
+      } else {
+        await adminApiService.post('/api/admin/users/test-users', payload);
+        setSuccess(`Created ${form.name}.`);
+      }
+      setShowForm(false);
+      resetForm();
+      await loadUsers();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to save test user');
+    } finally {
+      setFormLoading(false);
+    }
+  }, [activeUserId, form, isEditing, loadUsers, resetForm]);
+
+  const uploadFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      const targetUserId = (isEditing ? activeUserId ?? '' : form.userId).trim();
+      if (!targetUserId) {
+        setError('Set a test user ID before uploading images.');
+        return;
+      }
+      if (!targetUserId.toLowerCase().startsWith('dummy-user-')) {
+        setError('Test user ID must start with dummy-user- for uploads.');
+        return;
+      }
+
+      setUploadingPhotos(true);
+      setError(null);
+      try {
+        const uploadedUrls: string[] = [];
+        for (const file of Array.from(files).slice(0, 6)) {
+          const signed = await adminApiService.post(
+            `/api/admin/users/test-users/${encodeURIComponent(targetUserId)}/photos/upload-url`,
+            {
+              contentType: file.type || 'application/octet-stream',
+              fileName: file.name,
+            }
+          );
+
+          const uploadUrl = String(signed?.uploadUrl ?? signed?.UploadUrl ?? '');
+          const publicUrl = String(signed?.publicUrl ?? signed?.PublicUrl ?? '');
+          if (!uploadUrl || !publicUrl) {
+            throw new Error('Upload URL response was incomplete.');
+          }
+
+          const putResponse = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': file.type || 'application/octet-stream',
+            },
+            body: file,
+          });
+
+          if (!putResponse.ok) {
+            throw new Error(`Failed uploading ${file.name} (${putResponse.status}).`);
+          }
+          uploadedUrls.push(publicUrl);
+        }
+
+        if (uploadedUrls.length) {
+          setForm((prev) => ({
+            ...prev,
+            photoUrls: [prev.photoUrls, ...uploadedUrls].filter(Boolean).join('\n'),
+          }));
+          setSuccess(`Uploaded ${uploadedUrls.length} image${uploadedUrls.length > 1 ? 's' : ''}.`);
+        }
+      } catch (err: unknown) {
+        setError((err as Error)?.message || 'Image upload failed.');
+      } finally {
+        setUploadingPhotos(false);
+      }
+    },
+    [activeUserId, form.userId, isEditing]
+  );
 
   const columns: Column<User>[] = [
     {
@@ -80,13 +315,31 @@ export const TestUsersPage: React.FC = () => {
       ),
     },
     { key: 'plan', header: 'Plan', render: (r) => r.plan || '—' },
+    { key: 'credits', header: 'Credits', render: (r) => String(r.credits ?? 0) },
     { key: 'createdAt', header: 'Created', render: (r) => new Date(r.createdAt).toLocaleDateString() },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (r) => (
+        <Button variant="secondary" size="sm" onClick={() => void startEdit(r)}>
+          Edit
+        </Button>
+      ),
+    },
   ];
 
   return (
     <div className={styles.root}>
       <div className={styles.header}>
         <h1 className={styles.title}>Test Users</h1>
+        <div className={styles.actions}>
+          <Button variant="secondary" size="sm" onClick={() => void seedDummyUsers()} loading={loading}>
+            Seed dummy set
+          </Button>
+          <Button size="sm" onClick={startCreate}>
+            Add test user
+          </Button>
+        </div>
       </div>
       <p style={{ marginBottom: 'var(--space-4)', color: 'var(--color-neutral-500)', fontSize: 'var(--font-sm)' }}>
         Dummy and seeded accounts excluded from Users CRM. Add more via seed-dummy (dev) or signup in staging.
@@ -100,6 +353,14 @@ export const TestUsersPage: React.FC = () => {
           </button>
         </div>
       )}
+      {success && (
+        <div className={styles.alertSuccess} role="status">
+          {success}
+          <button type="button" className={styles.dismiss} onClick={() => setSuccess(null)} aria-label="Dismiss">
+            ×
+          </button>
+        </div>
+      )}
 
       <DataTable
         columns={columns}
@@ -107,6 +368,7 @@ export const TestUsersPage: React.FC = () => {
         keyField="userId"
         emptyMessage="No test users found."
         loading={loading}
+        onRowClick={(row) => void startEdit(row)}
       />
 
       {totalPages > 1 && (
@@ -130,6 +392,161 @@ export const TestUsersPage: React.FC = () => {
           >
             Next
           </Button>
+        </div>
+      )}
+
+      {showForm && <div className={styles.backdrop} onClick={() => setShowForm(false)} />}
+      {showForm && (
+        <div className={`${styles.detailPanel} ${styles.open}`}>
+          <div className={styles.detailHeader}>
+            <h2>{isEditing ? 'Edit test user' : 'Add test user'}</h2>
+            <button
+              type="button"
+              className={styles.closeBtn}
+              onClick={() => {
+                setShowForm(false);
+                resetForm();
+              }}
+              aria-label="Close panel"
+            >
+              ×
+            </button>
+          </div>
+          <div className={styles.detailContent}>
+            {formLoading ? (
+              <div className={styles.detailLoading}>Loading…</div>
+            ) : (
+              <>
+                {!isEditing && (
+                  <label className={styles.formField}>
+                    <span>User ID (optional)</span>
+                    <input
+                      className={styles.search}
+                      value={form.userId}
+                      onChange={(e) => updateForm('userId', e.target.value)}
+                      placeholder="dummy-user-custom-id"
+                    />
+                  </label>
+                )}
+                <label className={styles.formField}>
+                  <span>Name</span>
+                  <input className={styles.search} value={form.name} onChange={(e) => updateForm('name', e.target.value)} />
+                </label>
+                <label className={styles.formField}>
+                  <span>Email (@test.com)</span>
+                  <input className={styles.search} value={form.email} onChange={(e) => updateForm('email', e.target.value)} />
+                </label>
+                <div className={styles.formGrid}>
+                  <label className={styles.formField}>
+                    <span>City</span>
+                    <input className={styles.search} value={form.city} onChange={(e) => updateForm('city', e.target.value)} />
+                  </label>
+                  <label className={styles.formField}>
+                    <span>State</span>
+                    <input className={styles.search} value={form.state} onChange={(e) => updateForm('state', e.target.value)} />
+                  </label>
+                </div>
+                <div className={styles.formGrid}>
+                  <label className={styles.formField}>
+                    <span>Level</span>
+                    <select className={styles.select} value={form.level} onChange={(e) => updateForm('level', e.target.value)}>
+                      <option value="beginner">beginner</option>
+                      <option value="intermediate">intermediate</option>
+                      <option value="advanced">advanced</option>
+                      <option value="pro">pro</option>
+                    </select>
+                  </label>
+                  <label className={styles.formField}>
+                    <span>Mode</span>
+                    <select className={styles.select} value={form.mode} onChange={(e) => updateForm('mode', e.target.value)}>
+                      <option value="TRAIN">TRAIN</option>
+                      <option value="VIBE">VIBE</option>
+                      <option value="DATE">DATE</option>
+                    </select>
+                  </label>
+                </div>
+                <label className={styles.formField}>
+                  <span>Sport tags (comma-separated)</span>
+                  <input
+                    className={styles.search}
+                    value={form.sportTags}
+                    onChange={(e) => updateForm('sportTags', e.target.value)}
+                    placeholder="Running, Cycling, Yoga"
+                  />
+                </label>
+                <label className={styles.formField}>
+                  <span>Goals (comma-separated)</span>
+                  <input
+                    className={styles.search}
+                    value={form.goals}
+                    onChange={(e) => updateForm('goals', e.target.value)}
+                    placeholder="Complete a marathon, Improve pace"
+                  />
+                </label>
+                <label className={styles.formField}>
+                  <span>Bio</span>
+                  <textarea
+                    className={styles.formTextarea}
+                    value={form.bio}
+                    onChange={(e) => updateForm('bio', e.target.value)}
+                    rows={4}
+                  />
+                </label>
+                <label className={styles.formField}>
+                  <span>Photo URLs (one per line)</span>
+                  <textarea
+                    className={styles.formTextarea}
+                    value={form.photoUrls}
+                    onChange={(e) => updateForm('photoUrls', e.target.value)}
+                    placeholder="https://example.com/photo1.jpg"
+                    rows={5}
+                  />
+                </label>
+                <div className={styles.uploadRow}>
+                  <input
+                    id="test-user-photo-upload"
+                    className={styles.hiddenInput}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => void uploadFiles(e.target.files)}
+                    disabled={uploadingPhotos}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const input = document.getElementById('test-user-photo-upload') as HTMLInputElement | null;
+                      input?.click();
+                    }}
+                    loading={uploadingPhotos}
+                  >
+                    Upload images
+                  </Button>
+                  <span className={styles.uploadHint}>
+                    Uploads to S3 and appends public URLs.
+                  </span>
+                </div>
+
+                {previewUrls.length > 0 && (
+                  <div className={styles.photoPreviewGrid}>
+                    {previewUrls.map((url) => (
+                      <img key={url} className={styles.photoPreview} src={url} alt="Test user preview" />
+                    ))}
+                  </div>
+                )}
+
+                <div className={styles.detailActions}>
+                  <Button variant="secondary" onClick={() => setShowForm(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={() => void saveForm()} loading={formLoading}>
+                    {isEditing ? 'Save changes' : 'Create test user'}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
