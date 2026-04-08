@@ -80,6 +80,8 @@ public class AdminDiscoverProfileRow
     public string Status { get; set; } = "active"; // active | skipped | matched | hidden
     public DateTime? LastSkippedAt { get; set; }
     public string? LastSkippedByUserId { get; set; }
+    /// <summary>Display name of the profile that last skipped this user in Discover (when found in profiles table).</summary>
+    public string? LastSkippedByName { get; set; }
 }
 
 public class CompatibilityInfo

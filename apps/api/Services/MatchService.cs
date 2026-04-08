@@ -666,11 +666,62 @@ public class MatchService : IMatchService
         if (!string.Equals(filter, "all", StringComparison.OrdinalIgnoreCase))
             rows = rows.Where(r => string.Equals(r.Status, filter, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        return rows
+        var limited = rows
             .OrderByDescending(r => r.LastSkippedAt ?? DateTime.MinValue)
             .ThenBy(r => r.Name)
             .Take(Math.Clamp(limit, 1, 500))
             .ToList();
+
+        var skipperNameMap = await ResolveProfileNamesForUserIdsAsync(
+            limited.Select(r => r.LastSkippedByUserId));
+        foreach (var r in limited)
+        {
+            var skipperId = r.LastSkippedByUserId?.Trim();
+            if (!string.IsNullOrEmpty(skipperId) &&
+                skipperNameMap.TryGetValue(skipperId, out var skipperName))
+                r.LastSkippedByName = skipperName;
+        }
+
+        return limited;
+    }
+
+    private async Task<IReadOnlyDictionary<string, string>> ResolveProfileNamesForUserIdsAsync(
+        IEnumerable<string?> userIds,
+        CancellationToken cancellationToken = default)
+    {
+        var distinct = userIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id!.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (distinct.Count == 0)
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+
+        var tasks = distinct.Select(async id =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var p = await _profileService.GetProfileAsync(id);
+                var label = !string.IsNullOrWhiteSpace(p?.Name) ? p!.Name.Trim() : null;
+                return (id, label);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Resolve profile name for userId {UserId}", id);
+                return (id, (string?)null);
+            }
+        });
+
+        var pairs = await Task.WhenAll(tasks);
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (id, label) in pairs)
+        {
+            if (!string.IsNullOrEmpty(label))
+                map[id] = label!;
+        }
+
+        return map;
     }
 
     public async Task<bool> AdminSetProfileDiscoverStatusAsync(string profileUserId, string status, string adminUserId)

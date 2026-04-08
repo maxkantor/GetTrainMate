@@ -21,6 +21,8 @@ interface DiscoverProfileRow {
   status: 'active' | 'skipped' | 'matched' | 'hidden';
   lastSkippedAt?: string;
   lastSkippedByUserId?: string;
+  /** Resolved from profiles table; falls back to lastSkippedByUserId in UI when absent. */
+  lastSkippedByName?: string;
 }
 
 export const AdminMatchesPage: React.FC = () => {
@@ -175,7 +177,12 @@ export const AdminMatchesPage: React.FC = () => {
                   <td style={{ padding: '8px 6px' }}>{row.name}</td>
                   <td style={{ padding: '8px 6px', textTransform: 'capitalize' }}>{row.status}</td>
                   <td style={{ padding: '8px 6px' }}>{row.lastSkippedAt ? new Date(row.lastSkippedAt).toLocaleString() : '—'}</td>
-                  <td style={{ padding: '8px 6px' }}>{row.lastSkippedByUserId ?? '—'}</td>
+                  <td
+                    style={{ padding: '8px 6px' }}
+                    title={row.lastSkippedByUserId ? `User id: ${row.lastSkippedByUserId}` : undefined}
+                  >
+                    {row.lastSkippedByName?.trim() || row.lastSkippedByUserId || '—'}
+                  </td>
                   <td style={{ padding: '8px 6px' }}>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button type="button" className={styles.refresh} disabled={savingProfileId === row.userId} onClick={() => void actOnProfile(row.userId, 'restore')}>
