@@ -338,16 +338,91 @@
 .photoPreviewGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
-  margin: var(--space-4) 0;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.photoPreviewTile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.photoPreviewFrame {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .photoPreview {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: block;
+  vertical-align: middle;
+}
+
+.photoPreviewRemove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photoPreviewRemove:hover {
+  background: rgba(127, 29, 29, 0.9);
+}
+
+.photoPreviewToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.photoPreviewLinkBtn {
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.photoPreviewLinkBtn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.35);
+  border-color: rgba(129, 140, 248, 0.5);
+}
+
+.photoPreviewLinkBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.photoCoverBadge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(99, 102, 241, 0.25);
 }
 
 .uploadRow {

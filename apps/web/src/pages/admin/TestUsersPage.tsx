@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { adminApiService } from '@/services/adminApiService';
 import { pickPagedItems, pickPagedMeta, normalizeAdminUserRow } from '@/utils/adminApiNormalize';
 import { PROFILE_SPORTS, normalizeSportTagsToCanonical, sortSportsByProfileOrder } from '@/constants/profileSports';
@@ -34,6 +34,16 @@ type TestUserFormState = {
   photoUrls: string;
 };
 
+const MAX_TEST_USER_PHOTOS = 6;
+
+function parsePhotoUrlLines(raw: string): string[] {
+  return raw
+    .split(/\r?\n/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, MAX_TEST_USER_PHOTOS);
+}
+
 const EMPTY_FORM: TestUserFormState = {
   userId: '',
   name: '',
@@ -68,6 +78,9 @@ export const TestUsersPage: React.FC = () => {
   const [form, setForm] = useState<TestUserFormState>(EMPTY_FORM);
   /** S3 objects may be private; map canonical public URL → presigned GET for admin preview. */
   const [photoPreviewMap, setPhotoPreviewMap] = useState<Record<string, string>>({});
+  /** When set, next file picked goes to replace this index (0-based). */
+  const [replaceSlotIndex, setReplaceSlotIndex] = useState<number | null>(null);
+  const replaceFileInputRef = useRef<HTMLInputElement>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -202,15 +215,7 @@ export const TestUsersPage: React.FC = () => {
     updateForm('sportTags', sortSportsByProfileOrder(next).join(', '));
   }, [form.sportTags, updateForm]);
 
-  const previewUrls = useMemo(
-    () =>
-      form.photoUrls
-        .split(/\r?\n|,/)
-        .map((x) => x.trim())
-        .filter(Boolean)
-        .slice(0, 6),
-    [form.photoUrls]
-  );
+  const photoLines = useMemo(() => parsePhotoUrlLines(form.photoUrls), [form.photoUrls]);
 
   const saveForm = useCallback(async () => {
     if (!form.name.trim()) {
@@ -236,10 +241,7 @@ export const TestUsersPage: React.FC = () => {
           .split(',')
           .map((x) => x.trim())
           .filter(Boolean),
-        photoUrls: form.photoUrls
-          .split(/\r?\n|,/)
-          .map((x) => x.trim())
-          .filter(Boolean),
+        photoUrls: parsePhotoUrlLines(form.photoUrls),
       };
 
       if (isEditing && activeUserId) {
@@ -272,11 +274,17 @@ export const TestUsersPage: React.FC = () => {
         return;
       }
 
+      const room = MAX_TEST_USER_PHOTOS - parsePhotoUrlLines(form.photoUrls).length;
+      if (room <= 0) {
+        setError(`You can have at most ${MAX_TEST_USER_PHOTOS} photos. Remove one to add more.`);
+        return;
+      }
+
       setUploadingPhotos(true);
       setError(null);
       try {
         const uploadedUrls: string[] = [];
-        for (const file of Array.from(files).slice(0, 6)) {
+        for (const file of Array.from(files).slice(0, room)) {
           const signed = await adminApiService.post(
             `/api/admin/users/test-users/${encodeURIComponent(targetUserId)}/photos/upload-url`,
             {
@@ -310,10 +318,11 @@ export const TestUsersPage: React.FC = () => {
         }
 
         if (uploadedUrls.length) {
-          setForm((prev) => ({
-            ...prev,
-            photoUrls: [prev.photoUrls, ...uploadedUrls].filter(Boolean).join('\n'),
-          }));
+          setForm((prev) => {
+            const existing = parsePhotoUrlLines(prev.photoUrls);
+            const merged = [...existing, ...uploadedUrls].slice(0, MAX_TEST_USER_PHOTOS);
+            return { ...prev, photoUrls: merged.join('\n') };
+          });
           setSuccess(`Uploaded ${uploadedUrls.length} image${uploadedUrls.length > 1 ? 's' : ''}.`);
         }
       } catch (err: unknown) {
@@ -322,7 +331,120 @@ export const TestUsersPage: React.FC = () => {
         setUploadingPhotos(false);
       }
     },
+    [activeUserId, form.photoUrls, form.userId, isEditing]
+  );
+
+  const removePhotoAt = useCallback(
+    (index: number) => {
+      const lines = parsePhotoUrlLines(form.photoUrls);
+      const removed = lines[index];
+      const next = lines.filter((_, i) => i !== index);
+      updateForm('photoUrls', next.join('\n'));
+      if (removed) {
+        setPhotoPreviewMap((m) => {
+          const c = { ...m };
+          delete c[removed];
+          return c;
+        });
+      }
+    },
+    [form.photoUrls, updateForm]
+  );
+
+  const makeCoverAt = useCallback(
+    (index: number) => {
+      if (index <= 0) return;
+      const lines = parsePhotoUrlLines(form.photoUrls);
+      const url = lines[index];
+      if (!url) return;
+      const next = [url, ...lines.filter((_, i) => i !== index)];
+      updateForm('photoUrls', next.join('\n'));
+    },
+    [form.photoUrls, updateForm]
+  );
+
+  const uploadToSlot = useCallback(
+    async (file: File, slotIndex: number) => {
+      const targetUserId = (isEditing ? activeUserId ?? '' : form.userId).trim();
+      if (!targetUserId) {
+        setError('Set a test user ID before uploading images.');
+        return;
+      }
+      if (!targetUserId.toLowerCase().startsWith('dummy-user-')) {
+        setError('Test user ID must start with dummy-user- for uploads.');
+        return;
+      }
+
+      setUploadingPhotos(true);
+      setError(null);
+      try {
+        const signed = await adminApiService.post(
+          `/api/admin/users/test-users/${encodeURIComponent(targetUserId)}/photos/upload-url`,
+          {
+            contentType: file.type || 'application/octet-stream',
+            fileName: file.name,
+          }
+        );
+
+        const uploadUrl = String(signed?.uploadUrl ?? signed?.UploadUrl ?? '');
+        const publicUrl = String(signed?.publicUrl ?? signed?.PublicUrl ?? '');
+        const previewUrl = String(signed?.previewUrl ?? signed?.PreviewUrl ?? '');
+        if (!uploadUrl || !publicUrl) {
+          throw new Error('Upload URL response was incomplete.');
+        }
+
+        const putResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+          },
+          body: file,
+        });
+
+        if (!putResponse.ok) {
+          throw new Error(`Failed uploading (${putResponse.status}).`);
+        }
+
+        let oldUrlReplaced: string | undefined;
+        setForm((prev) => {
+          const lines = parsePhotoUrlLines(prev.photoUrls);
+          if (slotIndex < 0 || slotIndex >= lines.length) return prev;
+          oldUrlReplaced = lines[slotIndex];
+          const next = [...lines];
+          next[slotIndex] = publicUrl;
+          return { ...prev, photoUrls: next.join('\n') };
+        });
+        setPhotoPreviewMap((m) => {
+          const c = { ...m };
+          if (oldUrlReplaced) delete c[oldUrlReplaced];
+          if (previewUrl) c[publicUrl] = previewUrl;
+          return c;
+        });
+        setSuccess('Photo updated.');
+      } catch (err: unknown) {
+        setError((err as Error)?.message || 'Image upload failed.');
+      } finally {
+        setUploadingPhotos(false);
+      }
+    },
     [activeUserId, form.userId, isEditing]
+  );
+
+  const openReplacePicker = useCallback((index: number) => {
+    setReplaceSlotIndex(index);
+    requestAnimationFrame(() => replaceFileInputRef.current?.click());
+  }, []);
+
+  const handleReplaceFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      const slot = replaceSlotIndex;
+      setReplaceSlotIndex(null);
+      if (!file || slot === null) return;
+      await uploadToSlot(file, slot);
+    },
+    [replaceSlotIndex, uploadToSlot]
   );
 
   const deleteActiveUser = useCallback(async () => {
@@ -561,54 +683,104 @@ export const TestUsersPage: React.FC = () => {
                     rows={4}
                   />
                 </label>
-                <label className={styles.formField}>
-                  <span>Photo URLs (one per line)</span>
-                  <textarea
-                    className={styles.formTextarea}
-                    value={form.photoUrls}
-                    onChange={(e) => updateForm('photoUrls', e.target.value)}
-                    placeholder="https://example.com/photo1.jpg"
-                    rows={5}
-                  />
-                </label>
-                <div className={styles.uploadRow}>
-                  <input
-                    id="test-user-photo-upload"
-                    className={styles.hiddenInput}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => void uploadFiles(e.target.files)}
-                    disabled={uploadingPhotos}
-                  />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      const input = document.getElementById('test-user-photo-upload') as HTMLInputElement | null;
-                      input?.click();
-                    }}
-                    loading={uploadingPhotos}
-                  >
-                    Upload images
-                  </Button>
-                  <span className={styles.uploadHint}>
-                    Stored URL is the canonical S3 path; preview uses a signed URL if the bucket is private.
-                  </span>
-                </div>
-
-                {previewUrls.length > 0 && (
-                  <div className={styles.photoPreviewGrid}>
-                    {previewUrls.map((url) => (
-                      <img
-                        key={url}
-                        className={styles.photoPreview}
-                        src={photoPreviewMap[url] ?? url}
-                        alt="Test user preview"
-                      />
-                    ))}
+                <div className={styles.formField}>
+                  <span>Profile photos</span>
+                  <p className={styles.fieldHint}>
+                    First image is the Discover cover. Use thumbnails to remove, replace, or set cover — or edit URLs
+                    below. Max {MAX_TEST_USER_PHOTOS} images.
+                  </p>
+                  <div className={styles.uploadRow}>
+                    <input
+                      id="test-user-photo-upload"
+                      className={styles.hiddenInput}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => void uploadFiles(e.target.files)}
+                      disabled={uploadingPhotos}
+                    />
+                    <input
+                      ref={replaceFileInputRef}
+                      className={styles.hiddenInput}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => void handleReplaceFileChange(e)}
+                      disabled={uploadingPhotos}
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        const input = document.getElementById('test-user-photo-upload') as HTMLInputElement | null;
+                        input?.click();
+                      }}
+                      loading={uploadingPhotos}
+                    >
+                      Add images
+                    </Button>
+                    <span className={styles.uploadHint}>
+                      Canonical S3 URLs; preview uses a signed URL when the bucket is private.
+                    </span>
                   </div>
-                )}
+
+                  {photoLines.length > 0 ? (
+                    <div className={styles.photoPreviewGrid}>
+                      {photoLines.map((url, index) => (
+                        <div key={`${url}-${index}`} className={styles.photoPreviewTile}>
+                          <div className={styles.photoPreviewFrame}>
+                            <img
+                              className={styles.photoPreview}
+                              src={photoPreviewMap[url] ?? url}
+                              alt=""
+                            />
+                            <button
+                              type="button"
+                              className={styles.photoPreviewRemove}
+                              onClick={() => removePhotoAt(index)}
+                              aria-label="Remove this photo"
+                              title="Remove"
+                            >
+                              ×
+                            </button>
+                          </div>
+                          <div className={styles.photoPreviewToolbar}>
+                            {index === 0 ? (
+                              <span className={styles.photoCoverBadge}>Cover</span>
+                            ) : (
+                              <button
+                                type="button"
+                                className={styles.photoPreviewLinkBtn}
+                                onClick={() => makeCoverAt(index)}
+                                disabled={uploadingPhotos}
+                              >
+                                Make cover
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className={styles.photoPreviewLinkBtn}
+                              onClick={() => openReplacePicker(index)}
+                              disabled={uploadingPhotos}
+                            >
+                              Replace
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className={styles.formField} style={{ marginTop: 'var(--space-3)' }}>
+                    <span>Photo URLs (one per line)</span>
+                    <textarea
+                      className={styles.formTextarea}
+                      value={form.photoUrls}
+                      onChange={(e) => updateForm('photoUrls', e.target.value)}
+                      placeholder="https://example.com/photo1.jpg"
+                      rows={4}
+                    />
+                  </div>
+                </div>
 
                 <div className={styles.detailActions}>
                   {isEditing && activeUserId ? (
