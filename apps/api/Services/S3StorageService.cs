@@ -54,4 +54,31 @@ public class S3StorageService : IStorageService
 
         return _s3.GetPreSignedURL(request);
     }
+
+    public string? TryPresignCanonicalMediaUrl(string? url, TimeSpan expiresIn)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri)) return null;
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return null;
+
+        var host = uri.IdnHost;
+        if (string.IsNullOrEmpty(host)) return null;
+
+        // Virtual-hosted: {bucket}.s3.amazonaws.com or {bucket}.s3.<region>.amazonaws.com
+        var bucketPrefix = $"{_bucket}.s3.";
+        if (!host.StartsWith(bucketPrefix, StringComparison.OrdinalIgnoreCase)) return null;
+        if (!host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase)) return null;
+
+        var key = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
+        if (string.IsNullOrEmpty(key)) return null;
+
+        try
+        {
+            return GetPresignedDownloadUrl(key, expiresIn);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

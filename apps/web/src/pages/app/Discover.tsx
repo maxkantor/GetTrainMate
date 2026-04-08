@@ -8,6 +8,7 @@ import { OnboardingModal, shouldShowOnboardingModal } from '@/components/onboard
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { matchService, MatchFeedItem } from '@/services/matchService';
+import { profileService } from '@/services/profileService';
 import { authService } from '@/services/authService';
 import {
   isGraphQLEnabled,
@@ -22,6 +23,7 @@ import {
   placeholderPhotoUrl,
   fallbackPlaceholderPhotoUrl,
   inferGenderFromName,
+  isLikelyStockDiscoverPhoto,
   NO_PHOTO_PLACEHOLDER,
 } from '@/utils/profilePhotos';
 import { IMAGE_BUCKET_BASE } from '@/config/media';
@@ -77,6 +79,69 @@ function toPhotoUrl(
   if (avatarUrl) return `${IMAGE_BUCKET_BASE}/${avatarUrl.replace(/^\//, '')}`;
   const gender = displayName ? inferGenderFromName(displayName) : 'male';
   return placeholderPhotoUrl(userId, 0, gender);
+}
+
+type GraphqlDiscoverCandidate = {
+  userId: string;
+  displayName: string;
+  city?: string;
+  bio?: string;
+  sports?: string[];
+  avatarUrl?: string;
+  compatibilityScore?: number;
+  level?: string;
+  modes?: string[];
+  intentMatchTier?: string;
+  matchPreviewReasons?: string[];
+  lockedInsightReasons?: string[];
+  seenBefore?: boolean;
+};
+
+function mapGraphqlDiscoverToFeedItems(items: GraphqlDiscoverCandidate[]): MatchFeedItem[] {
+  return items.map((c) => {
+    const url = toPhotoUrl(c.avatarUrl, c.userId, c.displayName);
+    const photoUrls = getMultiplePhotoUrls([url], c.userId, 4, c.displayName);
+    const modes = c.modes?.length ? c.modes : ['TRAIN'];
+    return {
+      userId: c.userId,
+      name: c.displayName,
+      city: c.city,
+      bio: c.bio ?? undefined,
+      sportTags: c.sports ?? [],
+      level: c.level,
+      photoUrls,
+      compatibilityScore: c.compatibilityScore ?? 50,
+      commonSports: c.sports ?? [],
+      mode: modes[0],
+      modes,
+      intentMatchTier: c.intentMatchTier,
+      matchPreviewReasons: c.matchPreviewReasons,
+      lockedInsightReasons: c.lockedInsightReasons,
+      seenBefore: !!c.seenBefore,
+    };
+  });
+}
+
+/** When GraphQL omits photos or returns placeholders, pull presigned URLs from REST (same CRM as Admin). */
+async function hydrateDiscoverFeedFromRest(items: MatchFeedItem[], token: string | null): Promise<MatchFeedItem[]> {
+  if (!token) return items;
+  return Promise.all(
+    items.map(async (row) => {
+      const primary = row.photoUrls?.[0];
+      if (!isLikelyStockDiscoverPhoto(primary, row.userId)) return row;
+      try {
+        const p = await profileService.getProfile(token, row.userId);
+        const fromRest = (p.photoUrls ?? []).filter(Boolean);
+        if (fromRest.length === 0) return row;
+        return {
+          ...row,
+          photoUrls: getMultiplePhotoUrls(fromRest, row.userId, 4, row.name),
+        };
+      } catch {
+        return row;
+      }
+    })
+  );
 }
 
 function newAthletesTodayCount(seed: string): number {
@@ -187,50 +252,18 @@ export const DiscoverPage: React.FC = () => {
       setLoading(true);
       setError('');
       if (isGraphQLEnabled) {
-        const [result, locationRaw] = await Promise.all([
+        const [result, locationRaw, token] = await Promise.all([
           graphqlDiscoverCandidates(50),
           getLocationFromIp().catch(() => null),
+          authService.getJWT(isRetryAfter401),
         ]);
-        const items = (result.items || []) as {
-          userId: string;
-          displayName: string;
-          city?: string;
-          bio?: string;
-          sports?: string[];
-          avatarUrl?: string;
-          compatibilityScore?: number;
-          level?: string;
-          modes?: string[];
-          intentMatchTier?: string;
-          matchPreviewReasons?: string[];
-          lockedInsightReasons?: string[];
-          seenBefore?: boolean;
-        }[];
-        const feedFromApi: MatchFeedItem[] = items.map((c) => {
-          const url = toPhotoUrl(c.avatarUrl, c.userId, c.displayName);
-          const photoUrls = getMultiplePhotoUrls([url], c.userId, 4, c.displayName);
-          const modes = c.modes?.length ? c.modes : ['TRAIN'];
-          return {
-            userId: c.userId,
-            name: c.displayName,
-            city: c.city,
-            bio: c.bio ?? undefined,
-            sportTags: c.sports ?? [],
-            level: c.level,
-            photoUrls,
-            compatibilityScore: c.compatibilityScore ?? 50,
-            commonSports: c.sports ?? [],
-            mode: modes[0],
-            modes,
-            intentMatchTier: c.intentMatchTier,
-            matchPreviewReasons: c.matchPreviewReasons,
-            lockedInsightReasons: c.lockedInsightReasons,
-            seenBefore: !!c.seenBefore,
-          };
-        });
+        const items = (result.items || []) as GraphqlDiscoverCandidate[];
+        const feedFromApi = mapGraphqlDiscoverToFeedItems(items);
+        const sorted = sortDiscoverFeed(excludeDiscoverSelf(feedFromApi, user?.sub));
+        const hydrated = await hydrateDiscoverFeedFromRest(sorted, token);
         if (stale()) return;
         const location = locationRaw ?? FALLBACK_LOCATION;
-        setFeed(sortDiscoverFeed(excludeDiscoverSelf(feedFromApi, user?.sub)));
+        setFeed(hydrated);
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
@@ -273,46 +306,14 @@ export const DiscoverPage: React.FC = () => {
                 graphqlDiscoverCandidates(50),
                 getLocationFromIp().catch(() => null),
               ]);
-              const items = (result.items || []) as {
-                userId: string;
-                displayName: string;
-                city?: string;
-                bio?: string;
-                sports?: string[];
-                avatarUrl?: string;
-                compatibilityScore?: number;
-                level?: string;
-                modes?: string[];
-                intentMatchTier?: string;
-                matchPreviewReasons?: string[];
-                lockedInsightReasons?: string[];
-                seenBefore?: boolean;
-              }[];
-              const feedFromApi: MatchFeedItem[] = items.map((c) => {
-                const url = toPhotoUrl(c.avatarUrl, c.userId, c.displayName);
-                const photoUrls = getMultiplePhotoUrls([url], c.userId, 4, c.displayName);
-                const modes = c.modes?.length ? c.modes : ['TRAIN'];
-                return {
-                  userId: c.userId,
-                  name: c.displayName,
-                  city: c.city,
-                  bio: c.bio ?? undefined,
-                  sportTags: c.sports ?? [],
-                  level: c.level,
-                  photoUrls,
-                  compatibilityScore: c.compatibilityScore ?? 50,
-                  commonSports: c.sports ?? [],
-                  mode: modes[0],
-                  modes,
-                  intentMatchTier: c.intentMatchTier,
-                  matchPreviewReasons: c.matchPreviewReasons,
-                  lockedInsightReasons: c.lockedInsightReasons,
-                  seenBefore: !!c.seenBefore,
-                };
-              });
+              const jwt = freshToken ?? (await authService.getJWT(true));
+              const items = (result.items || []) as GraphqlDiscoverCandidate[];
+              const feedFromApi = mapGraphqlDiscoverToFeedItems(items);
+              const sorted = sortDiscoverFeed(excludeDiscoverSelf(feedFromApi, user?.sub));
+              const hydrated = await hydrateDiscoverFeedFromRest(sorted, jwt);
               if (stale()) return;
               const location = locationRaw ?? FALLBACK_LOCATION;
-              setFeed(sortDiscoverFeed(excludeDiscoverSelf(feedFromApi, user?.sub)));
+              setFeed(hydrated);
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoFallbackUrls({});

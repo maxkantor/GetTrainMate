@@ -1,6 +1,7 @@
 import { authService } from '@/services/authService';
 import { matchService, type SentRequestItem, type SkippedProfileItem } from '@/services/matchService';
 import { profileService } from '@/services/profileService';
+import { getMultiplePhotoUrls, isLikelyStockDiscoverPhoto } from '@/utils/profilePhotos';
 import { chatService } from '@/services/chatService';
 import {
   isGraphQLEnabled,
@@ -172,6 +173,25 @@ export async function fetchSkippedProfilesForUser(_userSub: string): Promise<Ski
   let list: SkippedProfileItem[];
   if (isGraphQLEnabled) {
     list = await graphqlListMySkipped();
+    const token = await authService.getJWT(true);
+    if (token) {
+      list = await Promise.all(
+        list.map(async (row) => {
+          if (!isLikelyStockDiscoverPhoto(row.photoUrls?.[0], row.userId)) return row;
+          try {
+            const p = await profileService.getProfile(token, row.userId);
+            const fromRest = (p.photoUrls ?? []).filter(Boolean);
+            if (fromRest.length === 0) return row;
+            return {
+              ...row,
+              photoUrls: getMultiplePhotoUrls(fromRest, row.userId, 1, row.name),
+            };
+          } catch {
+            return row;
+          }
+        })
+      );
+    }
   } else {
     const token = await authService.getJWT(true);
     if (!token) throw new Error('Not authenticated');

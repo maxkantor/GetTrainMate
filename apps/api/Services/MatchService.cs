@@ -241,25 +241,7 @@ public class MatchService : IMatchService
                     if (intentTier == "relaxed" && previewReasons.Count == 0)
                         previewReasons = new List<string> { "Add overlapping intent modes on Profile (Train / Vibe / Date) for tighter matches." };
 
-                    var photoUrls = targetProfile.PhotoUrls ?? new List<string>();
-                    if (photoUrls.Count == 0)
-                    {
-                        var keyForCover = targetProfile.PhotoKeys != null && targetProfile.PhotoKeys.Count > 0
-                            ? targetProfile.PhotoKeys[0]
-                            : targetProfile.PhotoKey;
-                        if (!string.IsNullOrEmpty(keyForCover))
-                        {
-                            try
-                            {
-                                var signedUrl = _storageService.GetPresignedDownloadUrl(keyForCover, TimeSpan.FromHours(1));
-                                photoUrls = new List<string> { signedUrl };
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning(ex, "Could not generate photo URL for user {UserId}", targetProfile.UserId);
-                            }
-                        }
-                    }
+                    var photoUrls = ResolvePhotoUrlsForProfile(targetProfile);
 
                     feedItems.Add(new MatchFeedItem
                     {
@@ -1154,12 +1136,19 @@ public class MatchService : IMatchService
     private List<string> ResolvePhotoUrlsForProfile(UserProfile? targetProfile)
     {
         if (targetProfile == null) return new List<string>();
-        var photoUrls = targetProfile.PhotoUrls ?? new List<string>();
-        if (photoUrls.Count > 0) return photoUrls;
+        var raw = targetProfile.PhotoUrls ?? new List<string>();
+        var list = raw.Where(u => !string.IsNullOrWhiteSpace(u)).Select(u => u.Trim()).ToList();
+        for (var i = 0; i < list.Count; i++)
+        {
+            var signed = _storageService.TryPresignCanonicalMediaUrl(list[i], TimeSpan.FromHours(1));
+            if (!string.IsNullOrEmpty(signed))
+                list[i] = signed!;
+        }
+        if (list.Count > 0) return list;
         var keyForCover = targetProfile.PhotoKeys != null && targetProfile.PhotoKeys.Count > 0
             ? targetProfile.PhotoKeys[0]
             : targetProfile.PhotoKey;
-        if (string.IsNullOrEmpty(keyForCover)) return photoUrls;
+        if (string.IsNullOrEmpty(keyForCover)) return list;
         try
         {
             var signedUrl = _storageService.GetPresignedDownloadUrl(keyForCover, TimeSpan.FromHours(1));
@@ -1168,7 +1157,7 @@ public class MatchService : IMatchService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not presign photo for user {UserId}", targetProfile.UserId);
-            return photoUrls;
+            return list;
         }
     }
 

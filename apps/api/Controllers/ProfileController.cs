@@ -253,6 +253,14 @@ public class ProfileController : ControllerBase
             if (photoUrls.Count == 0 && !string.IsNullOrEmpty(profile.PhotoKey))
                 photoUrls.Add(_storageService.GetPresignedDownloadUrl(profile.PhotoKey, TimeSpan.FromHours(1)));
 
+            // Private bucket: CRM often stores canonical https://{bucket}.s3.amazonaws.com/... URLs — presign so <img> works.
+            for (var i = 0; i < photoUrls.Count; i++)
+            {
+                var signed = _storageService.TryPresignCanonicalMediaUrl(photoUrls[i], TimeSpan.FromHours(1));
+                if (!string.IsNullOrEmpty(signed))
+                    photoUrls[i] = signed!;
+            }
+
             // Return limited public profile info (exclude sensitive data)
             return Ok(new
             {

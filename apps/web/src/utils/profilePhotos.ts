@@ -23,6 +23,15 @@ export function isBackendPlaceholderPhotoUrl(url: string | undefined): boolean {
   }
 }
 
+/** Discover showed Unsplash/dummy when CRM had real S3 photos — use to trigger REST hydration. */
+export function isLikelyStockDiscoverPhoto(url: string | undefined, userId: string): boolean {
+  if (!url) return true;
+  if (isBackendPlaceholderPhotoUrl(url)) return true;
+  if (/images\.unsplash\.com|picsum\.photo/i.test(url)) return true;
+  if (userId && DUMMY_USER_PRIMARY_PHOTO[userId] === url) return true;
+  return false;
+}
+
 /** Neutral "no photo" placeholder — gray silhouette, no face. Use when profile has no real photo. */
 export const NO_PHOTO_PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="500" viewBox="0 0 400 500"><rect fill="#e5e7eb" width="400" height="500"/><circle cx="200" cy="180" r="80" fill="#9ca3af"/><ellipse cx="200" cy="420" rx="120" ry="80" fill="#9ca3af"/><text x="200" y="260" font-family="sans-serif" font-size="14" fill="#6b7280" text-anchor="middle">No photo yet</text></svg>'

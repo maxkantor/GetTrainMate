@@ -72,10 +72,34 @@ function primaryS3Key(photoKey, photoKeys) {
   return null;
 }
 
+/** Private buckets: canonical https://{bucket}.s3.../key is not readable in browser — return presigned GET. */
+async function tryPresignCanonicalMediaUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'https:') return null;
+    const host = u.hostname.toLowerCase();
+    const b = MEDIA_BUCKET.toLowerCase();
+    const ok =
+      host === `${b}.s3.amazonaws.com` ||
+      (host.startsWith(`${b}.s3.`) && host.endsWith('.amazonaws.com'));
+    if (!ok) return null;
+    const key = decodeURIComponent(u.pathname.replace(/^\//, ''));
+    if (!key) return null;
+    const s3 = new S3Client({ region: AWS_REGION });
+    return getSignedUrl(s3, new GetObjectCommand({ Bucket: MEDIA_BUCKET, Key: key }), { expiresIn: 3600 });
+  } catch (_) {
+    return null;
+  }
+}
+
 async function toAvatarUrl(photoUrls, photoKey, photoKeys, userIdForPlaceholder) {
   const list = normalizePhotoUrlList(photoUrls);
   const direct = pickHttpUrlFromList(list);
-  if (direct) return direct;
+  if (direct) {
+    const signed = await tryPresignCanonicalMediaUrl(direct);
+    if (signed) return signed;
+    return direct;
+  }
   const key = primaryS3Key(photoKey, photoKeys);
   if (key) {
     const s3 = new S3Client({ region: AWS_REGION });
