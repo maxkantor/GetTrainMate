@@ -26,29 +26,38 @@ import {
   IconButton,
   ToggleButton,
   ToggleButtonGroup,
+  Autocomplete,
+  Checkbox,
 } from '@mui/material';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useI18n } from '@/hooks/useI18n';
 import { useMe } from '@/hooks/useMe';
 import { profileService, UpdateProfileRequest, AvailabilitySlot } from '@/services/profileService';
 import { getUploadLimits } from '@/config/uploadLimits';
+import { PROFILE_SPORTS } from '@/constants/profileSports';
 import { PhotoCropModal } from '@/components/profile/PhotoCropModal';
 import { authService } from '@/services/authService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 import { getProfileOptimize, getAiErrorMessage } from '@/services/aiService';
 import type { ProfileOptimizeResponse } from '@/types/ai';
 
-const SPORTS = [
-  'Running', 'Cycling', 'Swimming', 'Tennis', 'Basketball', 'Soccer',
-  'Volleyball', 'Gym', 'Yoga', 'Hiking', 'Climbing', 'CrossFit',
-  'Hyrox', 'Pickleball', 'Fishing', 'Boxing', 'MMA', 'Dancing',
-  'Golf', 'Skiing', 'Surfing', 'Rowing', 'Paddleboarding', 'Rock Climbing',
-  'Martial Arts', 'Pilates', 'Barre', 'HIIT', 'Powerlifting', 'Weightlifting',
-  'Rugby', 'Baseball', 'Softball', 'Badminton', 'Squash', 'Racquetball',
-  'Table Tennis', 'Archery', 'Kayaking', 'Canoeing', 'Triathlon', 'Ultramarathon',
-];
+const TRAINING_GOALS = [
+  'Lose fat',
+  'Build muscle',
+  'Race prep',
+  'Improve endurance',
+  'Increase strength',
+  'Stay active',
+  'Social connection',
+  'Competition',
+] as const;
 
 const LEVELS = ['beginner', 'intermediate', 'advanced', 'pro'];
+
+const SPORT_CHECKBOX_ICON = <CheckBoxOutlineBlankIcon fontSize="small" />;
+const SPORT_CHECKBOX_CHECKED_ICON = <CheckBoxIcon fontSize="small" />;
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const TIME_SLOTS = [
@@ -85,6 +94,7 @@ export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useI18n();
   const { me, refreshMe } = useMe();
+  const uploadLimits = useMemo(() => getUploadLimits(me?.credits ?? 0), [me?.credits]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -521,28 +531,40 @@ export const ProfilePage: React.FC = () => {
           placeholder="Tell us about yourself..."
         />
 
-        <FormControl fullWidth margin="normal" required>
-          <InputLabel>{t('profile.sport_tags')}</InputLabel>
-          <Select
-            multiple
-            value={formData.sportTags || []}
-            onChange={(e) => setFormData({ ...formData, sportTags: e.target.value as string[] })}
-            input={<OutlinedInput label={t('profile.sport_tags')} />}
-            renderValue={(selected) => (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {selected.map((value) => (
-                  <Chip key={value} label={value} size="small" />
-                ))}
-              </Box>
-            )}
-          >
-            {SPORTS.map((sport) => (
-              <MenuItem key={sport} value={sport}>
-                {sport}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Autocomplete
+          multiple
+          disableCloseOnSelect
+          options={[...PROFILE_SPORTS]}
+          value={formData.sportTags || []}
+          onChange={(_, v) => setFormData({ ...formData, sportTags: v })}
+          getOptionLabel={(o) => o}
+          renderOption={(props, option, { selected }) => (
+            <li {...props} key={option}>
+              <Checkbox
+                icon={SPORT_CHECKBOX_ICON}
+                checkedIcon={SPORT_CHECKBOX_CHECKED_ICON}
+                style={{ marginRight: 8 }}
+                checked={selected}
+              />
+              {option}
+            </li>
+          )}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              required
+              margin="normal"
+              label={t('profile.sport_tags')}
+              placeholder="Search or pick sports"
+              helperText="Multi-select: check any sport. Click away when done."
+            />
+          )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => (
+              <Chip {...getTagProps({ index })} key={option} label={option} size="small" />
+            ))
+          }
+        />
 
         <FormControl fullWidth margin="normal" required>
           <InputLabel>{t('profile.level')}</InputLabel>
@@ -559,31 +581,39 @@ export const ProfilePage: React.FC = () => {
           </Select>
         </FormControl>
 
-        <FormControl fullWidth margin="normal">
-          <InputLabel>Training Goals (Optional)</InputLabel>
-          <Select
-            multiple
-            value={formData.goals || []}
-            onChange={(e) => setFormData({ ...formData, goals: e.target.value as string[] })}
-            input={<OutlinedInput label="Training Goals (Optional)" />}
-            renderValue={(selected) => (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {(selected as string[]).map((goal) => (
-                  <Chip key={goal} label={goal} size="small" />
-                ))}
-              </Box>
-            )}
-          >
-            <MenuItem value="Lose fat">Lose fat</MenuItem>
-            <MenuItem value="Build muscle">Build muscle</MenuItem>
-            <MenuItem value="Race prep">Race prep</MenuItem>
-            <MenuItem value="Improve endurance">Improve endurance</MenuItem>
-            <MenuItem value="Increase strength">Increase strength</MenuItem>
-            <MenuItem value="Stay active">Stay active</MenuItem>
-            <MenuItem value="Social connection">Social connection</MenuItem>
-            <MenuItem value="Competition">Competition</MenuItem>
-          </Select>
-        </FormControl>
+        <Autocomplete
+          multiple
+          disableCloseOnSelect
+          options={[...TRAINING_GOALS]}
+          value={formData.goals || []}
+          onChange={(_, v) => setFormData({ ...formData, goals: v })}
+          getOptionLabel={(o) => o}
+          renderOption={(props, option, { selected }) => (
+            <li {...props} key={option}>
+              <Checkbox
+                icon={SPORT_CHECKBOX_ICON}
+                checkedIcon={SPORT_CHECKBOX_CHECKED_ICON}
+                style={{ marginRight: 8 }}
+                checked={selected}
+              />
+              {option}
+            </li>
+          )}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              margin="normal"
+              label="Training goals (optional)"
+              placeholder="Pick goals"
+              helperText="Optional — same multi-select as sports."
+            />
+          )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => (
+              <Chip {...getTagProps({ index })} key={option} label={option} size="small" />
+            ))
+          }
+        />
 
         <FormControl fullWidth margin="normal" required>
           <FormLabel sx={{ mb: 1 }}>{t('profile.schedule')}</FormLabel>
@@ -789,6 +819,19 @@ export const ProfilePage: React.FC = () => {
               Saved ✓
             </Typography>
           )}
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, maxWidth: 560 }}>
+            You can upload up to <strong>{uploadLimits.maxPhotos}</strong> photo
+            {uploadLimits.maxPhotos === 1 ? '' : 's'} (you have {photoKeys.length}).
+            {uploadLimits.maxVideoSeconds > 0 ? (
+              <>
+                {' '}
+                Your plan also allows an intro video (up to <strong>{uploadLimits.maxVideoSeconds}s</strong>) where the app
+                supports it.
+              </>
+            ) : (
+              <> More photo slots unlock as you earn or purchase credits.</>
+            )}
+          </Typography>
           <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 0.5 }}>
             No nude or adult content. Photos must be appropriate for a fitness partner app.
           </Typography>
@@ -872,8 +915,7 @@ export const ProfilePage: React.FC = () => {
             )}
           </Box>
           {(() => {
-            const limits = getUploadLimits(me?.credits ?? 0);
-            const atLimit = photoKeys.length >= limits.maxPhotos;
+            const atLimit = photoKeys.length >= uploadLimits.maxPhotos;
             return (
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             <Button
@@ -928,7 +970,6 @@ export const ProfilePage: React.FC = () => {
                     setSnack({ open: true, message: 'Not authenticated', severity: 'error' });
                     return;
                   }
-                  const limitsInner = getUploadLimits(me?.credits ?? 0);
                   const file = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
                   const info = await profileService.getPhotoUploadUrl(token, 'image/jpeg');
                   const uploadResponse = await fetch(info.uploadUrl, {
@@ -940,7 +981,7 @@ export const ProfilePage: React.FC = () => {
                     throw new Error('Failed to upload photo');
                   }
                   let nextKeys: string[];
-                  if (photoKeysRef.current.length >= limitsInner.maxPhotos) {
+                  if (photoKeysRef.current.length >= uploadLimits.maxPhotos) {
                     nextKeys = [...photoKeysRef.current];
                     nextKeys[0] = info.key;
                   } else {
@@ -966,9 +1007,9 @@ export const ProfilePage: React.FC = () => {
                 }
               }}
             />
-            {atLimit && limits.maxPhotos < 10 && (
+            {atLimit && uploadLimits.maxPhotos < 10 && (
               <Typography variant="body2" color="primary" component={Link} to="/pricing" sx={{ textDecoration: 'underline' }}>
-                Get credits to unlock more photo slots (currently {limits.maxPhotos})
+                Get credits to unlock more photo slots (currently {uploadLimits.maxPhotos})
               </Typography>
             )}
           </Box>

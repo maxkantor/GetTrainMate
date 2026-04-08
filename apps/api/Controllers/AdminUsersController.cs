@@ -698,6 +698,87 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
+    /// DELETE /api/admin/users/{userId}
+    /// Removes the user's profile from DynamoDB and attempts Cognito <c>AdminDeleteUser</c>. Irreversible.
+    /// </summary>
+    [HttpDelete("{userId}")]
+    public async Task<ActionResult> DeleteUser(string userId)
+    {
+        try
+        {
+            var admin = GetAdminIdentity();
+            if (string.IsNullOrWhiteSpace(userId))
+                return BadRequest(new { error = "userId is required" });
+
+            var selfSub = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("sub")?.Value;
+            if (!string.IsNullOrEmpty(selfSub) &&
+                string.Equals(userId.Trim(), selfSub.Trim(), StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { error = "You cannot delete your own account from the admin CRM." });
+
+            var profile = await _profileService.GetProfileAsync(userId);
+            if (profile == null)
+                return NotFound(new { error = "User not found" });
+
+            var cognitoDeleted = await TryAdminDeleteCognitoUserAsync(userId);
+            var deleted = await _profileService.DeleteProfileAsync(userId);
+            if (!deleted)
+                return StatusCode(500, new { error = "Failed to delete profile from database" });
+
+            await _auditLogService.LogActionAsync(
+                admin,
+                "user.delete",
+                "user",
+                userId,
+                after: new { cognitoDeleted, email = profile.Email, name = profile.Name });
+
+            return Ok(new { message = "User profile deleted", cognitoDeleted });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting user {UserId}", userId);
+            return StatusCode(500, new { error = "Failed to delete user" });
+        }
+    }
+
+    private async Task<bool> TryAdminDeleteCognitoUserAsync(string userId)
+    {
+        if (_cognitoUserPoolIds.Length == 0) return false;
+        var username = NormalizeUserIdForCognitoLookup(userId);
+        foreach (var poolId in _cognitoUserPoolIds)
+        {
+            try
+            {
+                await _cognito.AdminDeleteUserAsync(new AdminDeleteUserRequest
+                {
+                    UserPoolId = poolId,
+                    Username = username,
+                });
+                _logger.LogInformation(
+                    "AdminDeleteUser succeeded for {UserId} in pool {PoolId}",
+                    ShortUserIdForLogs(userId),
+                    poolId);
+                return true;
+            }
+            catch (UserNotFoundException)
+            {
+                // Try next pool
+            }
+            catch (AmazonCognitoIdentityProviderException ex) when (
+                string.Equals(ex.ErrorCode, "UserNotFoundException", StringComparison.OrdinalIgnoreCase))
+            {
+                // Try next pool
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "AdminDeleteUser failed for {UserId} pool {PoolId}", userId, poolId);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// POST /api/admin/users/{userId}/ban
     /// Ban a user
     /// </summary>

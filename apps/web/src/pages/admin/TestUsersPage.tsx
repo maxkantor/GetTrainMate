@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminApiService } from '@/services/adminApiService';
 import { pickPagedItems, pickPagedMeta, normalizeAdminUserRow } from '@/utils/adminApiNormalize';
+import { PROFILE_SPORTS, normalizeSportTagsToCanonical, sortSportsByProfileOrder } from '@/constants/profileSports';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -62,6 +63,7 @@ export const TestUsersPage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
   const [form, setForm] = useState<TestUserFormState>(EMPTY_FORM);
   /** S3 objects may be private; map canonical public URL → presigned GET for admin preview. */
@@ -136,9 +138,12 @@ export const TestUsersPage: React.FC = () => {
       const photoUrls = Array.isArray(o.photoUrls ?? o.PhotoUrls)
         ? ((o.photoUrls ?? o.PhotoUrls) as unknown[]).map((x) => String(x))
         : [];
-      const sportTags = Array.isArray(o.sportTags ?? o.SportTags)
-        ? ((o.sportTags ?? o.SportTags) as unknown[]).map((x) => String(x)).join(', ')
-        : '';
+      const rawSports = Array.isArray(o.sportTags ?? o.SportTags)
+        ? ((o.sportTags ?? o.SportTags) as unknown[]).map((x) => String(x))
+        : [];
+      const sportTags = sortSportsByProfileOrder(
+        normalizeSportTagsToCanonical(rawSports.join(','))
+      ).join(', ');
       const goals = Array.isArray(o.goals ?? o.Goals)
         ? ((o.goals ?? o.Goals) as unknown[]).map((x) => String(x)).join(', ')
         : '';
@@ -186,6 +191,17 @@ export const TestUsersPage: React.FC = () => {
     setForm((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  const sportTagsSelected = useMemo(
+    () => normalizeSportTagsToCanonical(form.sportTags),
+    [form.sportTags]
+  );
+
+  const toggleSportTag = useCallback((sport: string) => {
+    const cur = normalizeSportTagsToCanonical(form.sportTags);
+    const next = cur.includes(sport) ? cur.filter((s) => s !== sport) : [...cur, sport];
+    updateForm('sportTags', sortSportsByProfileOrder(next).join(', '));
+  }, [form.sportTags, updateForm]);
+
   const previewUrls = useMemo(
     () =>
       form.photoUrls
@@ -215,10 +231,7 @@ export const TestUsersPage: React.FC = () => {
         bio: form.bio.trim() || undefined,
         level: form.level.trim() || undefined,
         mode: form.mode.trim() || undefined,
-        sportTags: form.sportTags
-          .split(',')
-          .map((x) => x.trim())
-          .filter(Boolean),
+        sportTags: normalizeSportTagsToCanonical(form.sportTags),
         goals: form.goals
           .split(',')
           .map((x) => x.trim())
@@ -311,6 +324,31 @@ export const TestUsersPage: React.FC = () => {
     },
     [activeUserId, form.userId, isEditing]
   );
+
+  const deleteActiveUser = useCallback(async () => {
+    if (!activeUserId || !isEditing) return;
+    if (
+      !window.confirm(
+        `Permanently delete this user (${form.name || activeUserId})? Their profile will be removed from the database; Cognito user is removed when present. This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setDeletingUser(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await adminApiService.delete(`/api/admin/users/${encodeURIComponent(activeUserId)}`);
+      setSuccess('User deleted.');
+      setShowForm(false);
+      resetForm();
+      await loadUsers();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to delete user');
+    } finally {
+      setDeletingUser(false);
+    }
+  }, [activeUserId, isEditing, form.name, loadUsers, resetForm]);
 
   const columns: Column<User>[] = [
     {
@@ -489,15 +527,22 @@ export const TestUsersPage: React.FC = () => {
                     </select>
                   </label>
                 </div>
-                <label className={styles.formField}>
-                  <span>Sport tags (comma-separated)</span>
-                  <input
-                    className={styles.search}
-                    value={form.sportTags}
-                    onChange={(e) => updateForm('sportTags', e.target.value)}
-                    placeholder="Running, Cycling, Yoga"
-                  />
-                </label>
+                <div className={styles.formField}>
+                  <span>Sports (same list as app Profile)</span>
+                  <div className={styles.sportCheckboxPanel} role="group" aria-label="Sports">
+                    {PROFILE_SPORTS.map((s) => (
+                      <label key={s} className={styles.sportCheckboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={sportTagsSelected.includes(s)}
+                          onChange={() => toggleSportTag(s)}
+                        />
+                        <span>{s}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <span className={styles.fieldHint}>Check all that apply. Values match the in-app sport picker.</span>
+                </div>
                 <label className={styles.formField}>
                   <span>Goals (comma-separated)</span>
                   <input
@@ -566,6 +611,11 @@ export const TestUsersPage: React.FC = () => {
                 )}
 
                 <div className={styles.detailActions}>
+                  {isEditing && activeUserId ? (
+                    <Button variant="danger" onClick={() => void deleteActiveUser()} loading={deletingUser}>
+                      Delete user
+                    </Button>
+                  ) : null}
                   <Button variant="secondary" onClick={() => setShowForm(false)}>
                     Cancel
                   </Button>

@@ -60,6 +60,7 @@ export const UsersPage: React.FC = () => {
   >(null);
   const [resetBusy, setResetBusy] = useState(false);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
+  const [deleteUserLoading, setDeleteUserLoading] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -165,6 +166,29 @@ export const UsersPage: React.FC = () => {
       setError((err as Error)?.message || 'Failed to unban user');
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, displayName: string) => {
+    if (
+      !window.confirm(
+        `Permanently delete ${displayName || userId}? Profile data will be removed; Cognito user deleted when present. Cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setDeleteUserLoading(true);
+    setError(null);
+    try {
+      await adminApiService.delete(`/api/admin/users/${encodeURIComponent(userId)}`);
+      setDetailOpen(false);
+      setDetailUser(null);
+      setSelectedUser(null);
+      await loadUsers();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to delete user');
+    } finally {
+      setDeleteUserLoading(false);
     }
   };
 
@@ -511,6 +535,14 @@ export const UsersPage: React.FC = () => {
                   Deactivate (ban)
                 </Button>
               )}
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => void handleDeleteUser(detailUser.userId, detailUser.name)}
+                loading={deleteUserLoading}
+              >
+                Delete user
+              </Button>
             </div>
           </div>
         ) : (

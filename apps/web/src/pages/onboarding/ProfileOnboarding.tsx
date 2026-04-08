@@ -30,13 +30,7 @@ import {
   buildDefaultBio,
 } from '@/utils/landingPrefs';
 import { getUploadLimits } from '@/config/uploadLimits';
-
-const SPORTS = [
-  'Running', 'Cycling', 'Swimming', 'Tennis', 'Basketball', 'Soccer',
-  'Volleyball', 'Gym', 'Yoga', 'Hiking', 'Climbing', 'CrossFit',
-  'Hyrox', 'Pickleball', 'Fishing', 'Boxing', 'MMA', 'Dancing',
-  'Golf', 'Skiing', 'Surfing', 'Rowing', 'CrossFit', 'HIIT',
-];
+import { PROFILE_SPORTS } from '@/constants/profileSports';
 
 const STEPS = ['Photo', 'Tags', 'Extra photo'];
 
@@ -410,7 +404,7 @@ export const ProfileOnboardingPage: React.FC = () => {
                 </Select>
               </FormControl>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {SPORTS.map((s) => {
+                {PROFILE_SPORTS.map((s) => {
                   const selected = (formData.sportTags || []).includes(s);
                   return (
                     <Chip

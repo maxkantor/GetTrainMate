@@ -365,3 +365,35 @@
   font-size: var(--font-xs);
   color: rgba(255, 255, 255, 0.6);
 }
+
+.sportCheckboxPanel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: var(--space-3);
+  margin-top: var(--space-2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-md);
+  background: rgba(15, 18, 30, 0.5);
+  font-size: var(--font-xs);
+}
+
+.sportCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.fieldHint {
+  display: block;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 6px;
+  text-transform: none;
+  letter-spacing: normal;
+}
