@@ -66,8 +66,34 @@ public class UnlockChatRequest
 public class AdminChatThreadListItem
 {
     public string ThreadId { get; set; } = string.Empty;
+    public string? MatchId { get; set; }
     public string UserId1 { get; set; } = string.Empty;
     public string UserId2 { get; set; } = string.Empty;
+    /// <summary>Resolved profile display name for <see cref="UserId1"/>.</summary>
+    public string UserDisplayName1 { get; set; } = string.Empty;
+    /// <summary>Resolved profile display name for <see cref="UserId2"/>.</summary>
+    public string UserDisplayName2 { get; set; } = string.Empty;
     public DateTime LastMessageAt { get; set; }
+    /// <summary>Truncated <see cref="ChatThread.LastMessage"/> for the list.</summary>
+    public string LastMessagePreview { get; set; } = string.Empty;
+    public bool UnlockedByUserA { get; set; }
+    public bool UnlockedByUserB { get; set; }
     public int MessageCount { get; set; }
+}
+
+/// <summary>Admin thread detail: participants + full message history for moderation.</summary>
+public class AdminChatThreadDetail
+{
+    public string ThreadId { get; set; } = string.Empty;
+    public string? MatchId { get; set; }
+    public bool UnlockedByUserA { get; set; }
+    public bool UnlockedByUserB { get; set; }
+    public List<AdminChatParticipantInfo> Participants { get; set; } = new();
+    public List<ChatMessage> Messages { get; set; } = new();
+}
+
+public class AdminChatParticipantInfo
+{
+    public string UserId { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
 }

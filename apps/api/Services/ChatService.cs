@@ -392,7 +392,10 @@ public class ChatService : IChatService
                 ordered = ordered
                     .Where(t =>
                         t.ThreadId.Contains(q, StringComparison.OrdinalIgnoreCase)
-                        || t.ParticipantIds.Any(p => p.Contains(q, StringComparison.OrdinalIgnoreCase)))
+                        || (!string.IsNullOrEmpty(t.MatchId) &&
+                            t.MatchId.Contains(q, StringComparison.OrdinalIgnoreCase))
+                        || t.ParticipantIds.Any(p => p.Contains(q, StringComparison.OrdinalIgnoreCase))
+                        || (t.LastMessage?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false))
                     .ToList();
             }
 
@@ -402,14 +405,35 @@ public class ChatService : IChatService
                 .Take(pageSize)
                 .ToList();
 
-            var items = slice.Select(t => new AdminChatThreadListItem
+            var nameIds = slice
+                .SelectMany(t => t.ParticipantIds)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            var nameMap = await ResolveDisplayNamesForAdminAsync(nameIds);
+
+            var items = new List<AdminChatThreadListItem>();
+            foreach (var t in slice)
             {
-                ThreadId = t.ThreadId,
-                UserId1 = t.ParticipantIds.ElementAtOrDefault(0) ?? string.Empty,
-                UserId2 = t.ParticipantIds.ElementAtOrDefault(1) ?? string.Empty,
-                LastMessageAt = t.LastMessageAt,
-                MessageCount = 0
-            }).ToList();
+                var u1 = t.ParticipantIds.ElementAtOrDefault(0) ?? string.Empty;
+                var u2 = t.ParticipantIds.ElementAtOrDefault(1) ?? string.Empty;
+                nameMap.TryGetValue(u1, out var dn1);
+                nameMap.TryGetValue(u2, out var dn2);
+                items.Add(new AdminChatThreadListItem
+                {
+                    ThreadId = t.ThreadId,
+                    MatchId = t.MatchId,
+                    UserId1 = u1,
+                    UserId2 = u2,
+                    UserDisplayName1 = !string.IsNullOrEmpty(dn1) ? dn1 : FormatAdminUserFallback(u1),
+                    UserDisplayName2 = !string.IsNullOrEmpty(dn2) ? dn2 : FormatAdminUserFallback(u2),
+                    LastMessageAt = t.LastMessageAt,
+                    LastMessagePreview = TruncateAdminPreview(t.LastMessage),
+                    UnlockedByUserA = t.UnlockedByUserA,
+                    UnlockedByUserB = t.UnlockedByUserB,
+                    MessageCount = 0
+                });
+            }
 
             return (items, total);
         }
@@ -619,5 +643,54 @@ public class ChatService : IChatService
             IsRead = doc["isRead"].AsBoolean(),
             CreatedAt = DateTime.Parse(doc["createdAt"])
         };
+    }
+
+    private static string TruncateAdminPreview(string? text, int maxLen = 160)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        var t = text.Trim().ReplaceLineEndings(" ");
+        if (t.Length <= maxLen) return t;
+        return string.Concat(t.AsSpan(0, maxLen - 1), "…");
+    }
+
+    private static string FormatAdminUserFallback(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId)) return "—";
+        return userId.Length > 14 ? string.Concat(userId.AsSpan(0, 8), "…") : userId;
+    }
+
+    private async Task<Dictionary<string, string>> ResolveDisplayNamesForAdminAsync(IEnumerable<string> userIds)
+    {
+        var distinct = userIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (distinct.Count == 0)
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+
+        var tasks = distinct.Select(async id =>
+        {
+            try
+            {
+                var p = await _profileService.GetProfileAsync(id);
+                var label = !string.IsNullOrWhiteSpace(p?.Name) ? p!.Name.Trim() : null;
+                return (id, label);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Admin chat list: could not load profile for {UserId}", id);
+                return (id, (string?)null);
+            }
+        });
+        var pairs = await Task.WhenAll(tasks);
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (id, label) in pairs)
+        {
+            if (!string.IsNullOrEmpty(label))
+                map[id] = label;
+        }
+
+        return map;
     }
 }

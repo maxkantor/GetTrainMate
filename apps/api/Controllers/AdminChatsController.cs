@@ -14,17 +14,20 @@ public class AdminChatsController : ControllerBase
 {
     private readonly IDynamoDBContext _context;
     private readonly IChatService _chatService;
+    private readonly IProfileService _profileService;
     private readonly IAuditLogService _auditLogService;
     private readonly ILogger<AdminChatsController> _logger;
 
     public AdminChatsController(
         IDynamoDBContext context,
         IChatService chatService,
+        IProfileService profileService,
         IAuditLogService auditLogService,
         ILogger<AdminChatsController> logger)
     {
         _context = context;
         _chatService = chatService;
+        _profileService = profileService;
         _auditLogService = auditLogService;
         _logger = logger;
     }
@@ -80,20 +83,44 @@ public class AdminChatsController : ControllerBase
 
     /// <summary>
     /// GET /api/admin/chats/{chatId}
-    /// Get chat thread details and messages
+    /// Thread metadata, participant display names, and ordered messages for moderation.
     /// </summary>
     [HttpGet("{chatId}")]
-    public async Task<ActionResult<ChatThreadDetail>> GetChat(string chatId)
+    public async Task<ActionResult<AdminChatThreadDetail>> GetChat(string chatId)
     {
         try
         {
-            var messages = await _context.QueryAsync<ChatMessage>(chatId)
-                .GetRemainingAsync();
+            var thread = await _chatService.GetThreadAsync(chatId);
+            if (thread == null)
+                return NotFound(new { error = "Thread not found" });
 
-            return Ok(new ChatThreadDetail
+            var messages = await _chatService.GetMessagesAsync(chatId, 500);
+            var ordered = messages.OrderBy(m => m.CreatedAt).ToList();
+
+            var participantTasks = thread.ParticipantIds.Select(async userId =>
             {
-                ThreadId = chatId,
-                Messages = messages.OrderBy(m => m.CreatedAt).ToList()
+                try
+                {
+                    var p = await _profileService.GetProfileAsync(userId);
+                    var display = !string.IsNullOrWhiteSpace(p?.Name) ? p!.Name.Trim() : ShortUserLabel(userId);
+                    return new AdminChatParticipantInfo { UserId = userId, DisplayName = display };
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Admin chat detail: profile {UserId}", userId);
+                    return new AdminChatParticipantInfo { UserId = userId, DisplayName = ShortUserLabel(userId) };
+                }
+            });
+            var participants = (await Task.WhenAll(participantTasks)).ToList();
+
+            return Ok(new AdminChatThreadDetail
+            {
+                ThreadId = thread.ThreadId,
+                MatchId = thread.MatchId,
+                UnlockedByUserA = thread.UnlockedByUserA,
+                UnlockedByUserB = thread.UnlockedByUserB,
+                Participants = participants,
+                Messages = ordered
             });
         }
         catch (Exception ex)
@@ -103,12 +130,18 @@ public class AdminChatsController : ControllerBase
         }
     }
 
+    private static string ShortUserLabel(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId)) return "—";
+        return userId.Length > 14 ? userId[..8] + "…" : userId;
+    }
+
     /// <summary>
     /// DELETE /api/admin/chats/{chatId}/messages/{messageId}
     /// Soft delete a message
     /// </summary>
     [HttpDelete("{chatId}/messages/{messageId}")]
-    public async Task<ActionResult> DeleteMessage(string chatId, string messageId, [FromBody] DeleteMessageRequest request)
+    public async Task<ActionResult> DeleteMessage(string chatId, string messageId, [FromBody] DeleteMessageRequest? request)
     {
         try
         {
@@ -140,12 +173,6 @@ public class AdminChatsController : ControllerBase
             return StatusCode(500, new { error = "Failed to delete message" });
         }
     }
-}
-
-public class ChatThreadDetail
-{
-    public string ThreadId { get; set; } = string.Empty;
-    public List<ChatMessage> Messages { get; set; } = new();
 }
 
 public class DeleteMessageRequest
