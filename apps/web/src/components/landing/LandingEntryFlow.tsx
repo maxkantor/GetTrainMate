@@ -12,6 +12,7 @@ import {
   type LandingMatchPreviewResult,
   type LandingMatchPreviewUser,
 } from '@/services/matchPreviewService';
+import { DUMMY_USER_PRIMARY_PHOTO } from '@/utils/profilePhotos';
 import styles from './LandingEntryFlow.module.css';
 
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'] as const;
@@ -29,19 +30,18 @@ const ANALYZE_MESSAGES = [
 
 const MIN_ANALYZE_MS = 1650;
 
-/** Labeled demo when API fails (same persona as server fallback). */
+/** Labeled demo when API fails (aligned with seeded dummy-user-1 / server BuildDemoUser). */
 const OFFLINE_DEMO: LandingMatchPreviewResult = {
   kind: 'demo',
   matchCount: 1,
   exampleLabel: 'Example match based on your preferences',
   users: [
     {
-      name: 'Alex Drogba',
-      age: 29,
-      trainingSummary: 'Gym / Cross-training',
-      goalLine: 'Strength & conditioning',
-      photoUrl:
-        'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=400&fit=crop&crop=faces',
+      name: 'Sarah Runner',
+      age: 28,
+      trainingSummary: 'Running · Yoga · Hiking',
+      goalLine: 'Complete a sub-4 hour marathon',
+      photoUrl: DUMMY_USER_PRIMARY_PHOTO['dummy-user-1'],
     },
   ],
 };

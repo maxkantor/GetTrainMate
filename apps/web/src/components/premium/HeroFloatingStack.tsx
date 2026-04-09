@@ -1,23 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import styles from './HeroFloatingStack.module.css';
+import { LANDING_SHOWCASE_STACK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase } from '@/services/landingShowcaseService';
 
 type StackItem = { text: string; avatar: string };
 
-const FALLBACK: StackItem[] = [
-  {
-    text: 'Sofia matched with Marcus',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=faces',
-  },
-  {
-    text: 'Alex found a 5AM partner',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=faces',
-  },
-  {
-    text: 'New matches every day',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&h=120&fit=crop&crop=faces',
-  },
-];
+const FALLBACK: StackItem[] = LANDING_SHOWCASE_STACK_FALLBACK;
 
 const ROTATE_MS = 4000;
 

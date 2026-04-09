@@ -1,6 +1,7 @@
 using System.Globalization;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using GetTrainMate.Api.Constants;
 using GetTrainMate.Api.Models;
 
 namespace GetTrainMate.Api.Services;
@@ -375,11 +376,11 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
 
     private static LandingMatchPreviewUserDto BuildDemoUser() => new()
     {
-        Name = "Alex Drogba",
-        Age = 29,
-        TrainingSummary = "Gym / Cross-training",
-        GoalLine = "Strength & conditioning",
-        PhotoUrl = "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=400&fit=crop&crop=faces",
+        Name = "Sarah Runner",
+        Age = 28,
+        TrainingSummary = "Running · Yoga · Hiking",
+        GoalLine = "Complete a sub-4 hour marathon",
+        PhotoUrl = DummyProfilePhotos.PrimaryPhotoByUserId["dummy-user-1"],
     };
 
     private static string BuildTrainingSummary(UserProfile p)

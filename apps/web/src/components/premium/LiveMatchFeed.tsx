@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import styles from './LiveMatchFeed.module.css';
 
 const FEED_ITEMS = [
-  { id: '1', text: 'Sofia matched with Marcus — HYROX' },
-  { id: '2', text: 'Alex found a 5AM running partner' },
-  { id: '3', text: '3 new matches near Atlanta' },
-  { id: '4', text: 'Jordan + Riley — same gym, new PRs' },
-  { id: '5', text: '12 swimmers connected this hour' },
+  { id: '1', text: 'Sarah and Mike — both training for a century ride' },
+  { id: '2', text: 'Mike found a weekend cycling partner' },
+  { id: '3', text: 'Emma matched with a morning yoga buddy' },
+  { id: '4', text: 'New training partners in San Francisco' },
+  { id: '5', text: 'Runners and lifters connecting on GetTrainMate' },
 ];
 
 export const LiveMatchFeed: React.FC = () => {

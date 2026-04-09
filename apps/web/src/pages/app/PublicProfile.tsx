@@ -201,7 +201,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
         setError('Profile not found');
         setProfile(null);
       } else {
-        const photoUrls = getMultiplePhotoUrls(undefined, landing.userId, 4, landing.name);
+        const photoUrls = getMultiplePhotoUrls(undefined, landing.seedUserId, 4, landing.name);
         setProfile({
           userId: landing.userId,
           name: `${landing.name}, ${landing.age}`,

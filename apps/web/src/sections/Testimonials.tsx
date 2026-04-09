@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
+import { DUMMY_USER_PRIMARY_PHOTO } from '@/utils/profilePhotos';
 import styles from './sections.module.css';
 
 type T = {
@@ -12,27 +13,30 @@ type T = {
   avatar: string;
 };
 
+const thumb = (url: string) => (url.includes('?') ? `${url}&w=96&h=96&fit=crop&crop=faces` : `${url}?w=96&h=96&fit=crop&crop=faces`);
+
+/** First names match seeded dummy users (Sarah Runner, Mike Cyclist, Emma Yoga). */
 const items: T[] = [
   {
     quote: 'Found my partner in 2 days. Same goals, same grind.',
     name: 'Mike',
-    place: 'Atlanta',
-    sport: '🏃‍♂️',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=96&h=96&fit=crop&crop=faces',
+    place: 'San Francisco',
+    sport: '🚴',
+    avatar: thumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-2']),
   },
   {
     quote: 'Hit PRs this month — we hold each other accountable.',
-    name: 'Sofia',
-    place: 'Austin',
+    name: 'Sarah',
+    place: 'San Francisco',
     sport: '🏃‍♀️',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=96&h=96&fit=crop&crop=faces',
+    avatar: thumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-1']),
   },
   {
-    quote: 'Found my HYROX partner fast. Training finally feels serious.',
-    name: 'James',
-    place: 'Denver',
-    sport: '🏋️',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=96&h=96&fit=crop&crop=faces',
+    quote: 'Morning sessions finally stick — found someone who shows up.',
+    name: 'Emma',
+    place: 'San Francisco',
+    sport: '🧘',
+    avatar: thumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-3']),
   },
 ];
 

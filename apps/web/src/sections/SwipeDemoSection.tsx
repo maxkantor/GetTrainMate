@@ -5,6 +5,7 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
 import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
+import { LANDING_SHOWCASE_DECK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase } from '@/services/landingShowcaseService';
 import styles from './SwipeDemoSection.module.css';
 
@@ -18,43 +19,13 @@ type DeckProfile = {
   matchPct: number;
 };
 
-const FALLBACK_PROFILES: DeckProfile[] = [
-  {
-    name: 'Jordan',
-    age: 28,
-    photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=640&h=800&fit=crop&crop=faces',
-    tags: ['HYROX', 'Strength', '5AM'],
-    matchPct: 94,
-  },
-  {
-    name: 'Riley',
-    age: 26,
-    photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=640&h=800&fit=crop&crop=faces',
-    tags: ['HYROX', 'Strength', '5AM'],
-    matchPct: 91,
-  },
-  {
-    name: 'Morgan',
-    age: 31,
-    photo: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=640&h=800&fit=crop&crop=faces',
-    tags: ['HYROX', 'Strength', '5AM'],
-    matchPct: 88,
-  },
-  {
-    name: 'Casey',
-    age: 29,
-    photo: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=640&h=800&fit=crop&crop=faces',
-    tags: ['HYROX', 'Strength', '5AM'],
-    matchPct: 92,
-  },
-  {
-    name: 'Sam',
-    age: 27,
-    photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=640&h=800&fit=crop&crop=faces',
-    tags: ['HYROX', 'Strength', '5AM'],
-    matchPct: 89,
-  },
-];
+const FALLBACK_PROFILES: DeckProfile[] = LANDING_SHOWCASE_DECK_FALLBACK.map((p) => ({
+  name: p.name,
+  age: p.age,
+  photo: p.photo,
+  tags: p.tags,
+  matchPct: p.matchPct,
+}));
 
 const IDLE_MS = 3000;
 const SWIPE_MS = 580;

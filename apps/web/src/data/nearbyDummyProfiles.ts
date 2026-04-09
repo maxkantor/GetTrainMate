@@ -9,13 +9,13 @@ export function isDummyNearbyProfile(userId: string): boolean {
 }
 
 /**
- * Two demo cards with real photos, appended at the end of Discover so all real
- * user-created profiles (Max, Alex, Sasha, etc.) show first.
+ * Two demo cards with real photos (same URLs as seeded dummy-user-1 / dummy-user-2), appended
+ * at the end of Discover so real user-created profiles show first.
  */
 const DEMO_CARDS: MatchFeedItem[] = [
   {
     userId: `${NEARBY_DUMMY_USER_PREFIX}0`,
-    name: 'Jordan',
+    name: 'Sarah Runner',
     city: 'Near you',
     bio: 'Running and strength. Looking for a steady training buddy a few times a week.',
     sportTags: ['Running', 'Strength'],
@@ -30,7 +30,7 @@ const DEMO_CARDS: MatchFeedItem[] = [
   },
   {
     userId: `${NEARBY_DUMMY_USER_PREFIX}1`,
-    name: 'Sam',
+    name: 'Mike Cyclist',
     city: 'Near you',
     bio: 'Gym and CrossFit. Prefer morning sessions. Down for lifting or cardio.',
     sportTags: ['CrossFit', 'Gym'],
