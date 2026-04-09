@@ -18,7 +18,8 @@ public interface ICreditsService
     Task RecordWebhookEventReceivedAsync(string eventId, string type);
     Task<bool> ProcessCheckoutSessionCompletedAsync(string stripeEventId, Stripe.Checkout.Session session);
     Task<CreditsBalanceDto> GetCreditsBalanceAsync(string userId);
-    Task<bool> GrantFreeSignupCreditsAsync(string userId);
+    /// <param name="signupEmail">Cognito email claim when available (for admin notification).</param>
+    Task<bool> GrantFreeSignupCreditsAsync(string userId, string? signupEmail = null);
     /// <summary>Admin: grant credits to a user (e.g. refund for failed AI).</summary>
     Task GrantCreditsAsync(string userId, int amount, string reason);
     /// <summary>

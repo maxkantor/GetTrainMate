@@ -12,6 +12,7 @@ import {
 import { useI18n } from '@/hooks/useI18n';
 import { PageShell } from '@/components/layout/PageShell';
 import { trackContactSubmit, trackLead } from '@/utils/analytics';
+import { API_BASE_URL } from '@/config/api';
 
 export const ContactPage: React.FC = () => {
   const { t: _t } = useI18n();
@@ -22,6 +23,7 @@ export const ContactPage: React.FC = () => {
     message: '',
   });
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,15 +42,35 @@ export const ContactPage: React.FC = () => {
       return;
     }
 
-    trackContactSubmit(formData.subject);
-    trackLead('contact', { subject_category: formData.subject });
-    setSubmitted(true);
-
-    // Reset form
-    setTimeout(() => {
-      setFormData({ name: '', email: '', subject: 'general', message: '' });
-      setSubmitted(false);
-    }, 5000);
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/public/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          subject: formData.subject,
+          message: formData.message.trim(),
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      if (!res.ok) {
+        setError(typeof data.error === 'string' ? data.error : 'Could not send your message. Please try again.');
+        return;
+      }
+      trackContactSubmit(formData.subject);
+      trackLead('contact', { subject_category: formData.subject });
+      setSubmitted(true);
+      setTimeout(() => {
+        setFormData({ name: '', email: '', subject: 'general', message: '' });
+        setSubmitted(false);
+      }, 5000);
+    } catch {
+      setError('Network error. Please check your connection and try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const subjects = [
@@ -91,7 +113,7 @@ export const ContactPage: React.FC = () => {
             label="Your Name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            disabled={submitted}
+            disabled={submitted || submitting}
             sx={{ mb: 2 }}
           />
           <TextField
@@ -101,7 +123,7 @@ export const ContactPage: React.FC = () => {
             type="email"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            disabled={submitted}
+            disabled={submitted || submitting}
             sx={{ mb: 2 }}
           />
           <TextField
@@ -110,7 +132,7 @@ export const ContactPage: React.FC = () => {
             label="Subject"
             value={formData.subject}
             onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-            disabled={submitted}
+            disabled={submitted || submitting}
             sx={{ mb: 2 }}
           >
             {subjects.map((option) => (
@@ -128,7 +150,7 @@ export const ContactPage: React.FC = () => {
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
             placeholder="Tell us how we can help you..."
-            disabled={submitted}
+            disabled={submitted || submitting}
             sx={{ mb: 2 }}
           />
           <Button
@@ -136,10 +158,10 @@ export const ContactPage: React.FC = () => {
             variant="contained"
             size="large"
             fullWidth
-            disabled={submitted}
+            disabled={submitted || submitting}
             sx={{ py: 1.25 }}
           >
-            {submitted ? 'Message Sent!' : 'Send Message'}
+            {submitted ? 'Message Sent!' : submitting ? 'Sending…' : 'Send Message'}
           </Button>
         </Box>
 

@@ -79,7 +79,8 @@ public class BillingController : ControllerBase
         var userId = GetUserIdFromToken();
         if (string.IsNullOrEmpty(userId))
             return Unauthorized(new { error = "Valid authentication required." });
-        var ok = await _creditsService.GrantFreeSignupCreditsAsync(userId);
+        var email = GetEmailFromToken();
+        var ok = await _creditsService.GrantFreeSignupCreditsAsync(userId, email);
         return ok ? Ok(new { message = "Free credits granted.", credits = 3 }) : BadRequest(new { error = "Could not grant free credits." });
     }
 
@@ -358,6 +359,30 @@ public class BillingController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Billing: failed to parse JWT");
+            return null;
+        }
+    }
+
+    private string? GetEmailFromToken()
+    {
+        var email = User.FindFirst("email")?.Value
+            ?? User.FindFirst(ClaimTypes.Email)?.Value;
+        if (!string.IsNullOrEmpty(email)) return email;
+
+        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+            return null;
+
+        var token = authHeader.Substring("Bearer ".Length).Trim();
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jsonToken = handler.ReadJwtToken(token);
+            return jsonToken.Claims.FirstOrDefault(c =>
+                c.Type == "email" || c.Type == ClaimTypes.Email)?.Value;
+        }
+        catch
+        {
             return null;
         }
     }

@@ -67,6 +67,7 @@ public class Startup
         services.AddScoped<IAdminAuthorizationService, AdminAuthorizationService>();
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IAdminNotificationService, AdminNotificationService>();
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<ICreditsService, CreditsService>();
 

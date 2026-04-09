@@ -28,11 +28,16 @@ public class CreditsService : ICreditsService
 
     private readonly IAmazonDynamoDB _dynamoDb;
     private readonly ILogger<CreditsService> _logger;
+    private readonly IAdminNotificationService _adminNotify;
 
-    public CreditsService(IAmazonDynamoDB dynamoDb, ILogger<CreditsService> logger)
+    public CreditsService(
+        IAmazonDynamoDB dynamoDb,
+        ILogger<CreditsService> logger,
+        IAdminNotificationService adminNotify)
     {
         _dynamoDb = dynamoDb;
         _logger = logger;
+        _adminNotify = adminNotify;
     }
 
     /// <summary>Preserves entitlement and daily-free-like counters when rewriting the user-credits item (full PutItem).</summary>
@@ -311,6 +316,15 @@ public class CreditsService : ICreditsService
             await txTable.PutItemAsync(txDoc);
 
             _logger.LogInformation("ConfirmCreditsPurchase: credited user {UserId} with {Credits} credits (session {SessionId}).", userId, credits, session.Id);
+            _ = _adminNotify.NotifyCreditsPurchaseAsync(
+                userId,
+                credits,
+                packKey,
+                session.Id,
+                session.PaymentIntentId,
+                session.AmountTotal,
+                session.Currency,
+                CancellationToken.None);
             return await GetCreditsBalanceAsync(userId);
         }
         catch (Exception ex)
@@ -418,6 +432,15 @@ public class CreditsService : ICreditsService
 
             await MarkWebhookEventProcessedAsync(eventsTable, stripeEventId, null);
             _logger.LogInformation("Credited user {UserId} with {Credits} credits (session {SessionId}).", userId, credits, session.Id);
+            _ = _adminNotify.NotifyCreditsPurchaseAsync(
+                userId,
+                credits,
+                packKey,
+                session.Id,
+                session.PaymentIntentId,
+                session.AmountTotal,
+                session.Currency,
+                CancellationToken.None);
             return true;
         }
         catch (Exception ex)
@@ -448,7 +471,7 @@ public class CreditsService : ICreditsService
         return new CreditsBalanceDto { Balance = 0, LifetimeEarned = 0, UnlimitedDiscovery = false };
     }
 
-    public async Task<bool> GrantFreeSignupCreditsAsync(string userId)
+    public async Task<bool> GrantFreeSignupCreditsAsync(string userId, string? signupEmail = null)
     {
         var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
         var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
@@ -494,6 +517,7 @@ public class CreditsService : ICreditsService
             });
 
             _logger.LogInformation("Granted {Credits} free signup credits to user {UserId}.", FreeSignupCredits, userId);
+            _ = _adminNotify.NotifyNewSignupAsync(userId, signupEmail, CancellationToken.None);
             return true;
         }
         catch (Exception ex)
