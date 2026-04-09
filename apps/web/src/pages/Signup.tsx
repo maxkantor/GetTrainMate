@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -13,7 +13,6 @@ import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { PageShell } from '@/components/layout/PageShell';
 import { trackSignUp } from '@/utils/analytics';
-import { checkRegistrationEmail } from '@/services/registrationCheckService';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -38,13 +37,6 @@ export const SignupPage: React.FC = () => {
   const [submitResendUsername, setSubmitResendUsername] = useState<string | null>(null);
   const [failedRegistrationStatus, setFailedRegistrationStatus] = useState<string | null>(null);
   const [resendNotice, setResendNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
-  const [emailProbe, setEmailProbe] = useState<{
-    status: 'idle' | 'checking' | 'available' | 'taken';
-    message?: string;
-    resendUsername?: string;
-    registrationStatus?: string;
-  }>({ status: 'idle' });
-  const probeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [validationErrors, setValidationErrors] = useState<{
     name?: string;
     email?: string;
@@ -52,70 +44,36 @@ export const SignupPage: React.FC = () => {
     confirmPassword?: string;
   }>({});
 
-  const runEmailProbe = useCallback(async (addr: string) => {
-    const trimmed = addr.trim();
-    if (!EMAIL_RE.test(trimmed)) {
-      setEmailProbe({ status: 'idle' });
-      return;
-    }
-    setEmailProbe((prev) => ({ ...prev, status: 'checking' }));
-    const r = await checkRegistrationEmail(trimmed);
-    if (!r.available) {
-      setEmailProbe({
-        status: 'taken',
-        message: r.message ?? undefined,
-        resendUsername: r.resendUsername ?? undefined,
-        registrationStatus: r.status,
-      });
-    } else {
-      setEmailProbe({ status: 'available' });
-    }
-  }, []);
-
   useEffect(() => {
+    setError('');
     setSubmitResendUsername(null);
     setFailedRegistrationStatus(null);
     setResendNotice(null);
   }, [email]);
 
-  useEffect(() => {
-    if (probeTimerRef.current) clearTimeout(probeTimerRef.current);
-    const trimmed = email.trim();
-    if (!EMAIL_RE.test(trimmed)) {
-      setEmailProbe({ status: 'idle' });
-      return;
-    }
-    probeTimerRef.current = setTimeout(() => {
-      void runEmailProbe(trimmed);
-    }, 480);
-    return () => {
-      if (probeTimerRef.current) clearTimeout(probeTimerRef.current);
-    };
-  }, [email, runEmailProbe]);
-
   const validateForm = () => {
     const errors: typeof validationErrors = {};
-    
+
     if (!name || name.trim().length < 2) {
       errors.name = t('validation.nameRequired');
     }
-    
+
     if (!email) {
       errors.email = t('validation.emailRequired');
     } else if (!EMAIL_RE.test(email)) {
       errors.email = t('validation.emailInvalid');
     }
-    
+
     if (!password) {
       errors.password = t('validation.passwordRequired');
     } else if (password.length < 8) {
       errors.password = t('validation.passwordMinLength');
     }
-    
+
     if (password !== confirmPassword) {
       errors.confirmPassword = t('validation.passwordMismatch');
     }
-    
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -123,12 +81,16 @@ export const SignupPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSubmitResendUsername(null);
+    setFailedRegistrationStatus(null);
+    setResendNotice(null);
 
     if (!validateForm()) {
       return;
     }
 
     try {
+      // signup() runs check-email first; only calls Cognito signUp when email is available
       const result = await signup(email, password, name);
       if (result.success && result.username) {
         trackSignUp('email');
@@ -144,23 +106,19 @@ export const SignupPage: React.FC = () => {
     }
   };
 
-  const cognitoResendTarget =
-    emailProbe.resendUsername ?? submitResendUsername ?? null;
   const showResendCta =
-    !!cognitoResendTarget &&
-    (emailProbe.registrationStatus === 'ExistsUnconfirmed' ||
-      failedRegistrationStatus === 'ExistsUnconfirmed' ||
-      submitResendUsername != null ||
-      (emailProbe.status === 'taken' && !!emailProbe.resendUsername));
+    failedRegistrationStatus === 'ExistsUnconfirmed' && submitResendUsername != null;
 
   const showSignInFromError =
     failedRegistrationStatus === 'ExistsConfirmed' ||
     (error && /already exists|sign in instead/i.test(error));
 
+  const signupAlertSeverity = failedRegistrationStatus === 'ExistsUnconfirmed' ? 'warning' : 'error';
+
   const handleResendCode = async () => {
-    if (!cognitoResendTarget) return;
+    if (!submitResendUsername) return;
     setResendNotice(null);
-    const r = await resendSignupCode(cognitoResendTarget);
+    const r = await resendSignupCode(submitResendUsername);
     if (r.success) {
       setResendNotice({
         kind: 'success',
@@ -174,167 +132,129 @@ export const SignupPage: React.FC = () => {
   return (
     <PageShell variant="form" showBackLink>
       <Container maxWidth="sm" sx={{ py: 4 }}>
-      <Box sx={{ padding: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
-          {t('auth.signup_title')}
-        </Typography>
-        <Typography variant="body2" color="textSecondary" sx={{ marginBottom: 3 }}>
-          {t('auth.joinUs')}
-        </Typography>
-
-        {error && (
-          <Alert severity="error" sx={{ marginBottom: 2 }}>
-            {error}
-            {showSignInFromError && (
-              <Box sx={{ mt: 1.5 }}>
-                <Button component={Link} to="/login" variant="contained" size="small">
-                  Sign in
-                </Button>
-              </Box>
-            )}
-            {showResendCta && (
-              <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  size="small"
-                  onClick={() => void handleResendCode()}
-                  disabled={isLoading}
-                >
-                  Resend verification email
-                </Button>
-                <Typography variant="caption" color="text.secondary" sx={{ width: '100%' }}>
-                  Already have the code?{' '}
-                  <Link to="/verify-email" state={{ email: email.trim(), username: cognitoResendTarget ?? undefined }}>
-                    Enter it here
-                  </Link>
-                </Typography>
-              </Box>
-            )}
-          </Alert>
-        )}
-
-        {resendNotice && (
-          <Alert severity={resendNotice.kind === 'success' ? 'success' : 'error'} sx={{ marginBottom: 2 }}>
-            {resendNotice.text}
-          </Alert>
-        )}
-
-        {emailProbe.status === 'checking' && EMAIL_RE.test(email.trim()) && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-            Checking email…
+        <Box sx={{ padding: 3 }}>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
+            {t('auth.signup_title')}
           </Typography>
-        )}
+          <Typography variant="body2" color="textSecondary" sx={{ marginBottom: 3 }}>
+            {t('auth.joinUs')}
+          </Typography>
 
-        {emailProbe.status === 'taken' && emailProbe.message && !error && (
-          <Alert severity="warning" sx={{ marginBottom: 2 }}>
-            {emailProbe.message}
-            {emailProbe.registrationStatus === 'ExistsConfirmed' && (
-              <Box sx={{ mt: 1.5 }}>
-                <Button component={Link} to="/login" variant="contained" size="small" sx={{ mr: 1 }}>
-                  Sign in
-                </Button>
-              </Box>
-            )}
-            {showResendCta && emailProbe.registrationStatus === 'ExistsUnconfirmed' && (
-              <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
-                <Button
-                  type="button"
-                  variant="outlined"
-                  size="small"
-                  onClick={() => void handleResendCode()}
-                  disabled={isLoading}
-                >
-                  Resend verification email
-                </Button>
-                <Typography variant="caption" color="text.secondary">
-                  <Link
-                    to="/verify-email"
-                    state={{ email: email.trim(), username: cognitoResendTarget ?? undefined }}
+          {error && (
+            <Alert severity={signupAlertSeverity} sx={{ marginBottom: 2 }}>
+              {error}
+              {showSignInFromError && (
+                <Box sx={{ mt: 1.5 }}>
+                  <Button component={Link} to="/login" variant="contained" size="small">
+                    Sign in
+                  </Button>
+                </Box>
+              )}
+              {showResendCta && (
+                <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    size="small"
+                    onClick={() => void handleResendCode()}
+                    disabled={isLoading}
                   >
-                    I have my code — verify now
-                  </Link>
-                </Typography>
-              </Box>
-            )}
-          </Alert>
-        )}
+                    Resend verification email
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">
+                    <Link
+                      to="/verify-email"
+                      state={{ email: email.trim(), username: submitResendUsername ?? undefined }}
+                    >
+                      I have my code — verify now
+                    </Link>
+                  </Typography>
+                </Box>
+              )}
+            </Alert>
+          )}
 
-        <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label={t('auth.name')}
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            error={!!validationErrors.name}
-            helperText={validationErrors.name}
-            disabled={isLoading}
-            margin="normal"
-            autoComplete="name"
-          />
+          {resendNotice && (
+            <Alert severity={resendNotice.kind === 'success' ? 'success' : 'error'} sx={{ marginBottom: 2 }}>
+              {resendNotice.text}
+            </Alert>
+          )}
 
-          <TextField
-            fullWidth
-            label={t('auth.email')}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            error={!!validationErrors.email}
-            helperText={validationErrors.email}
-            disabled={isLoading}
-            margin="normal"
-            autoComplete="email"
-          />
+          <form onSubmit={handleSubmit}>
+            <TextField
+              fullWidth
+              label={t('auth.name')}
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              error={!!validationErrors.name}
+              helperText={validationErrors.name}
+              disabled={isLoading}
+              margin="normal"
+              autoComplete="name"
+            />
 
-          <TextField
-            fullWidth
-            label={t('auth.password')}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={!!validationErrors.password}
-            helperText={validationErrors.password}
-            disabled={isLoading}
-            margin="normal"
-            autoComplete="new-password"
-          />
+            <TextField
+              fullWidth
+              label={t('auth.email')}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={!!validationErrors.email}
+              helperText={validationErrors.email}
+              disabled={isLoading}
+              margin="normal"
+              autoComplete="email"
+            />
 
-          <TextField
-            fullWidth
-            label={t('auth.confirmPassword')}
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            error={!!validationErrors.confirmPassword}
-            helperText={validationErrors.confirmPassword}
-            disabled={isLoading}
-            margin="normal"
-            autoComplete="new-password"
-          />
+            <TextField
+              fullWidth
+              label={t('auth.password')}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              error={!!validationErrors.password}
+              helperText={validationErrors.password}
+              disabled={isLoading}
+              margin="normal"
+              autoComplete="new-password"
+            />
 
-          <Button
-            fullWidth
-            variant="contained"
-            color="primary"
-            type="submit"
-            disabled={isLoading}
-            sx={{ marginY: 2, padding: '10px' }}
-          >
-            {isLoading ? <CircularProgress size={24} /> : t('auth.signup')}
-          </Button>
-        </form>
+            <TextField
+              fullWidth
+              label={t('auth.confirmPassword')}
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              error={!!validationErrors.confirmPassword}
+              helperText={validationErrors.confirmPassword}
+              disabled={isLoading}
+              margin="normal"
+              autoComplete="new-password"
+            />
 
-        <Box sx={{ marginTop: 3, textAlign: 'center' }}>
-          <Typography variant="body2">
-            {t('auth.hasAccount')}{' '}
-            <Link to="/login" style={{ textDecoration: 'none', color: '#1976d2' }}>
-              {t('auth.loginLink')}
-            </Link>
-          </Typography>
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              type="submit"
+              disabled={isLoading}
+              sx={{ marginY: 2, padding: '10px' }}
+            >
+              {isLoading ? <CircularProgress size={24} /> : t('auth.signup')}
+            </Button>
+          </form>
+
+          <Box sx={{ marginTop: 3, textAlign: 'center' }}>
+            <Typography variant="body2">
+              {t('auth.hasAccount')}{' '}
+              <Link to="/login" style={{ textDecoration: 'none', color: '#1976d2' }}>
+                {t('auth.loginLink')}
+              </Link>
+            </Typography>
+          </Box>
         </Box>
-      </Box>
-    </Container>
+      </Container>
     </PageShell>
   );
 };
