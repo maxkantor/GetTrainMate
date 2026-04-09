@@ -6,9 +6,8 @@ import { authService } from '@/services/authService';
 import { saveLandingPrefs } from '@/utils/landingPrefs';
 import { useI18n } from '@/hooks/useI18n';
 import { FooterLegalLinksRow } from '@/components/layout/FooterLegalLinksRow';
+import { LANDING_TRAINING_OPTIONS } from '@/config/landingTrainingOptions';
 import styles from './LandingEntryFlow.module.css';
-
-const TRAINING = ['HYROX', 'Strength & conditioning', 'Running / cardio', 'CrossFit / functional'] as const;
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'] as const;
 const TIMES = ['Morning (5–9am)', 'Mid-day', 'Evening'] as const;
 
@@ -102,10 +101,17 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
 
             {step === 1 && (
               <div className={styles.step}>
-                <h2 id="entry-flow-title" className={styles.title}>
-                  Quick setup
-                </h2>
-                <p className={styles.lead}>No account yet — we use this to preview partners near you.</p>
+                <div className={styles.titleRow}>
+                  <h2 id="entry-flow-title" className={styles.title}>
+                    Quick setup
+                  </h2>
+                  <span className={styles.premiumBadge} title="Premium athlete matching">
+                    $10M premium
+                  </span>
+                </div>
+                <p className={styles.lead}>
+                  No account yet — premium matching uses this to preview partners near you.
+                </p>
 
                 <label className={styles.field}>
                   <span className={styles.label}>Training type</span>
@@ -115,9 +121,9 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     onChange={(e) => setTraining(e.target.value)}
                   >
                     <option value="">Choose one</option>
-                    {TRAINING.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
+                    {LANDING_TRAINING_OPTIONS.map((o) => (
+                      <option key={o.label} value={o.label}>
+                        {o.label}
                       </option>
                     ))}
                   </select>

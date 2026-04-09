@@ -1,4 +1,5 @@
 import type { AvailabilitySlot } from '@/services/profileService';
+import { landingTrainingLabelToSportTag } from '@/config/landingTrainingOptions';
 
 /** Session-only prefs from landing quick setup → signup / onboarding prefill */
 export const LANDING_PREFS_KEY = 'gtm_landing_prefs';
@@ -36,13 +37,7 @@ export function readLandingPrefs(): LandingPrefs | null {
 
 /** Map landing "training type" dropdown to a sport tag for onboarding */
 export function trainingToSportTag(training: string): string {
-  const m: Record<string, string> = {
-    HYROX: 'Hyrox',
-    'Strength & conditioning': 'Gym',
-    'Running / cardio': 'Running',
-    'CrossFit / functional': 'CrossFit',
-  };
-  return m[training] ?? 'Gym';
+  return landingTrainingLabelToSportTag(training);
 }
 
 export function landingLevelToProfileLevel(level: string): string {
