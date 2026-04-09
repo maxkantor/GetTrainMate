@@ -8,6 +8,8 @@ import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
 import { LANDING_SHOWCASE_DECK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase } from '@/services/landingShowcaseService';
+import { pickLandingShowcasePhotoUrl } from '@/utils/landingShowcaseImages';
+import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import styles from './SwipeDemoSection.module.css';
 
 type Phase = 'idle' | 'swipe' | 'match';
@@ -159,7 +161,8 @@ export const SwipeDemoSection: React.FC = () => {
       }
       const mapped: DeckProfile[] = data.deck.map((card, i) => {
         const fallback = FALLBACK_PROFILES[i % FALLBACK_PROFILES.length];
-        const photo = (card.photoUrl || '').trim() || fallback.photo;
+        const photoPick = pickLandingShowcasePhotoUrl(card.photoUrl);
+        const photo = photoPick !== NO_PHOTO_PLACEHOLDER ? photoPick : fallback.photo;
         const tags =
           card.tags?.filter((t) => t && t.trim().length > 0).map((t) => t.trim()) ?? fallback.tags;
         return {

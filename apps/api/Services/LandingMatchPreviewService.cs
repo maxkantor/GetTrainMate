@@ -290,10 +290,8 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
     }
 
     /// <summary>
-    /// Picks the cover URL the same way Admin → Test Users previews work: canonical S3 URLs under
-    /// <c>profiles/{userId}/</c> are presigned. Seed stock URLs (Unsplash) must not win when a CRM photo exists.
-    /// Order: virtual-host presign → path-based key presign (matches <see cref="Controllers.AdminUsersController"/>)
-    /// → pass-through (stock last).
+    /// Landing / hero must show the same media as Admin → Test Users. Never prefer seed Unsplash over
+    /// <c>profiles/{userId}/…</c> S3 keys. User id in the path is matched case-insensitively (CRM vs Dynamo).
     /// </summary>
     private string? ResolvePrimaryPhotoUrl(UserProfile p)
     {
@@ -301,18 +299,24 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         var urls = (p.PhotoUrls ?? new List<string>())
             .Where(u => !string.IsNullOrWhiteSpace(u))
             .Select(u => u.Trim())
+            .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        foreach (var url in urls)
+        if (urls.Count == 0)
+            return ResolveShowcasePhotoFromLegacyKeys(p);
+
+        var ordered = urls
+            .OrderBy(u => LandingShowcasePhotoRank(u, userId))
+            .ToList();
+
+        foreach (var url in ordered)
         {
             var signed = _storage.TryPresignCanonicalMediaUrl(url, TimeSpan.FromHours(1));
             if (!string.IsNullOrEmpty(signed))
                 return signed;
         }
 
-        // Same key rule as POST .../test-users/{id}/photos/preview-urls when virtual-host presign fails
-        // (e.g. bucket name mismatch) but path is profiles/{userId}/...
-        foreach (var url in urls)
+        foreach (var url in ordered)
         {
             if (!TryGetProfilePhotoStorageKey(url, userId, out var key))
                 continue;
@@ -326,12 +330,20 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             }
         }
 
-        foreach (var url in urls.OrderBy(u => IsStockOrPlaceholderImageUrl(u) ? 1 : 0))
+        // Do not pass through Unsplash / random avatars — wrong person vs CRM
+        foreach (var url in ordered)
         {
+            if (IsStockOrPlaceholderImageUrl(url))
+                continue;
             if (ShouldPassThroughUnmodifiedHttpsImageUrl(url))
                 return url;
         }
 
+        return ResolveShowcasePhotoFromLegacyKeys(p);
+    }
+
+    private string? ResolveShowcasePhotoFromLegacyKeys(UserProfile p)
+    {
         var keyForCover = p.PhotoKeys is { Count: > 0 } ? p.PhotoKeys[0] : p.PhotoKey;
         if (string.IsNullOrEmpty(keyForCover))
             return null;
@@ -341,12 +353,24 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Presign showcase photo for {UserId}", p.UserId);
+            _logger.LogDebug(ex, "Presign showcase legacy key for {UserId}", p.UserId);
             return null;
         }
     }
 
-    /// <summary>HTTPS URL whose path is <c>profiles/{userId}/…</c> (same rule as admin test-user photo preview).</summary>
+    private static int LandingShowcasePhotoRank(string url, string userId)
+    {
+        if (string.IsNullOrEmpty(userId)) return 50;
+        if (TryGetProfilePhotoStorageKey(url, userId, out _))
+            return 0;
+        if (IsStockOrPlaceholderImageUrl(url))
+            return 100;
+        return 25;
+    }
+
+    /// <summary>
+    /// HTTPS URL under <c>profiles/{userId}/…</c>; user id segment compared case-insensitively.
+    /// </summary>
     private static bool TryGetProfilePhotoStorageKey(string url, string expectedUserId, out string key)
     {
         key = string.Empty;
@@ -354,7 +378,12 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
         if (!string.Equals(u.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return false;
         var path = u.AbsolutePath.TrimStart('/');
-        if (!path.StartsWith($"profiles/{expectedUserId}/", StringComparison.Ordinal)) return false;
+        if (!path.StartsWith("profiles/", StringComparison.OrdinalIgnoreCase)) return false;
+        var afterProfiles = path.AsSpan("profiles/".Length);
+        var slash = afterProfiles.IndexOf('/');
+        if (slash <= 0) return false;
+        var idSeg = afterProfiles[..slash].ToString();
+        if (!idSeg.Equals(expectedUserId, StringComparison.OrdinalIgnoreCase)) return false;
         key = path;
         return true;
     }
@@ -364,7 +393,8 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
         var h = u.IdnHost;
         return h.Contains("unsplash.com", StringComparison.OrdinalIgnoreCase)
-               || h.Contains("picsum.photos", StringComparison.OrdinalIgnoreCase);
+               || h.Contains("picsum.photos", StringComparison.OrdinalIgnoreCase)
+               || h.Contains("randomuser.me", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

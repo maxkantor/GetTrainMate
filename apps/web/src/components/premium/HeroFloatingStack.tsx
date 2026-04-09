@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_SHOWCASE_STACK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase } from '@/services/landingShowcaseService';
+import { pickLandingShowcasePhotoUrl } from '@/utils/landingShowcaseImages';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import styles from './HeroFloatingStack.module.css';
 
@@ -32,8 +33,13 @@ export const HeroFloatingStack: React.FC = () => {
       setPremiumUsd(usd);
       const next: StackItem[] = data.activity.slice(0, 3).map((row, i) => {
         const fb = FALLBACK[i % FALLBACK.length];
-        const primary = (row.avatarUrl || '').trim() || fb.avatar;
-        const secondary = (row.secondaryAvatarUrl || '').trim() || fb.secondaryAvatar;
+        const primaryPick = pickLandingShowcasePhotoUrl(row.avatarUrl);
+        const primary = primaryPick !== NO_PHOTO_PLACEHOLDER ? primaryPick : fb.avatar;
+        const secPick = (row.secondaryAvatarUrl || '').trim()
+          ? pickLandingShowcasePhotoUrl(row.secondaryAvatarUrl)
+          : '';
+        const secondary =
+          secPick && secPick !== NO_PHOTO_PLACEHOLDER ? secPick : undefined;
         return {
           text: row.line,
           avatar: primary,

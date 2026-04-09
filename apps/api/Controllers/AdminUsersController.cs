@@ -1118,14 +1118,19 @@ public class AdminUsersController : ControllerBase
         }
     }
 
-    /// <summary>HTTPS S3 URL whose path is <c>profiles/{userId}/…</c>.</summary>
+    /// <summary>HTTPS S3 URL whose path is <c>profiles/{userId}/…</c> (user id segment case-insensitive).</summary>
     private static bool TryGetProfilePhotoKey(string url, string expectedUserId, out string key)
     {
         key = string.Empty;
+        if (string.IsNullOrEmpty(expectedUserId)) return false;
         if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
         if (!string.Equals(u.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return false;
         var path = u.AbsolutePath.TrimStart('/');
-        if (!path.StartsWith($"profiles/{expectedUserId}/", StringComparison.Ordinal)) return false;
+        if (!path.StartsWith("profiles/", StringComparison.OrdinalIgnoreCase)) return false;
+        var after = path.AsSpan("profiles/".Length);
+        var slash = after.IndexOf('/');
+        if (slash <= 0) return false;
+        if (!after[..slash].Equals(expectedUserId.AsSpan(), StringComparison.OrdinalIgnoreCase)) return false;
         key = path;
         return true;
     }

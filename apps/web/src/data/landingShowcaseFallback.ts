@@ -1,9 +1,8 @@
 /**
- * Offline / API-failure fallbacks for the landing hero.
- * Use base URLs only — sizing is CSS (`object-fit`). Never append query params to S3 presigned URLs
- * (that invalidates signatures and shows broken images).
+ * Offline fallbacks when /api/public/landing-showcase is unavailable.
+ * Do not use Unsplash here — it shows the wrong person vs Admin → Test Users (CRM S3).
  */
-import { DUMMY_USER_PRIMARY_PHOTO } from '@/utils/profilePhotos';
+import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 
 export type LandingStackFallbackItem = {
   text: string;
@@ -11,20 +10,19 @@ export type LandingStackFallbackItem = {
   secondaryAvatar?: string;
 };
 
-/** Matches copy patterns in LandingMatchPreviewService.BuildShowcaseActivityAsync fallback lines. */
 export const LANDING_SHOWCASE_STACK_FALLBACK: LandingStackFallbackItem[] = [
   {
     text: 'Sarah matched with Mike',
-    avatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-1'],
-    secondaryAvatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
+    avatar: NO_PHOTO_PLACEHOLDER,
+    secondaryAvatar: NO_PHOTO_PLACEHOLDER,
   },
   {
     text: 'Mike found a training partner',
-    avatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
+    avatar: NO_PHOTO_PLACEHOLDER,
   },
   {
     text: 'New training partners every week',
-    avatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-3'],
+    avatar: NO_PHOTO_PLACEHOLDER,
   },
 ];
 
@@ -36,47 +34,46 @@ export type LandingDeckFallback = {
   matchPct: number;
 };
 
-/** Deck swipe demo — aligned with MatchService.SeedDemoProfilesAsync (sports/tags). */
 export const LANDING_SHOWCASE_DECK_FALLBACK: LandingDeckFallback[] = [
   {
     name: 'Sarah Runner',
     age: 28,
-    photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-1'],
+    photo: NO_PHOTO_PLACEHOLDER,
     tags: ['RUNNING', 'YOGA', 'HIKING'],
     matchPct: 94,
   },
   {
     name: 'Mike Cyclist',
     age: 32,
-    photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
+    photo: NO_PHOTO_PLACEHOLDER,
     tags: ['CYCLING', 'GYM', 'CROSSFIT'],
     matchPct: 91,
   },
   {
     name: 'Emma Yoga',
     age: 27,
-    photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-3'],
+    photo: NO_PHOTO_PLACEHOLDER,
     tags: ['YOGA', 'PILATES', 'MEDITATION'],
     matchPct: 88,
   },
   {
     name: 'Sarah Runner',
     age: 28,
-    photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-1'],
+    photo: NO_PHOTO_PLACEHOLDER,
     tags: ['RUNNING', 'YOGA', 'HIKING'],
     matchPct: 92,
   },
   {
     name: 'Mike Cyclist',
     age: 32,
-    photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
+    photo: NO_PHOTO_PLACEHOLDER,
     tags: ['CYCLING', 'GYM', 'CROSSFIT'],
     matchPct: 89,
   },
   {
     name: 'Emma Yoga',
     age: 27,
-    photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-3'],
+    photo: NO_PHOTO_PLACEHOLDER,
     tags: ['YOGA', 'PILATES', 'MEDITATION'],
     matchPct: 90,
   },
