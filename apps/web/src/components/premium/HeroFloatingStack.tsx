@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_SHOWCASE_STACK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase } from '@/services/landingShowcaseService';
-import { pickLandingShowcasePhotoUrl } from '@/utils/landingShowcaseImages';
+import { landingShowcaseImageProps, pickLandingShowcasePhotoUrl } from '@/utils/landingShowcaseImages';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import styles from './HeroFloatingStack.module.css';
 
@@ -99,6 +99,7 @@ export const HeroFloatingStack: React.FC = () => {
                       height={50}
                       loading="eager"
                       decoding="async"
+                      {...landingShowcaseImageProps(item.avatar)}
                       onError={onAvatarError}
                     />
                     <img
@@ -109,6 +110,7 @@ export const HeroFloatingStack: React.FC = () => {
                       height={50}
                       loading="eager"
                       decoding="async"
+                      {...landingShowcaseImageProps(item.secondaryAvatar)}
                       onError={onAvatarError}
                     />
                   </>
@@ -121,6 +123,7 @@ export const HeroFloatingStack: React.FC = () => {
                     height={50}
                     loading="eager"
                     decoding="async"
+                    {...landingShowcaseImageProps(item.avatar)}
                     onError={onAvatarError}
                   />
                 )}

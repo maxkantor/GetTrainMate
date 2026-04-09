@@ -302,6 +302,12 @@
   transform-origin: center center;
 }
 
+/* During match burst, hide swiped card entirely — avoids ghost text with mid-stack meta. */
+.swipeLayerHidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .topCard {
   width: 100%;
   height: 100%;

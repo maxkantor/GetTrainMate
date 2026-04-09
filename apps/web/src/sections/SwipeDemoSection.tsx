@@ -8,7 +8,7 @@ import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
 import { LANDING_SHOWCASE_DECK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase } from '@/services/landingShowcaseService';
-import { pickLandingShowcasePhotoUrl } from '@/utils/landingShowcaseImages';
+import { landingShowcaseImageProps, pickLandingShowcasePhotoUrl } from '@/utils/landingShowcaseImages';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import styles from './SwipeDemoSection.module.css';
 
@@ -76,9 +76,12 @@ type FaceProps = {
   depth: 0 | 1 | 2;
   /** Shown on the interactive top card — premium match preview. */
   previewPriceLabel?: string;
+  /** Hide name/tags during match overlay so mid-stack copy does not bleed through. */
+  hideMeta?: boolean;
 };
 
-function DeckFace({ profile, depth, previewPriceLabel }: FaceProps) {
+function DeckFace({ profile, depth, previewPriceLabel, hideMeta }: FaceProps) {
+  const imgExtras = landingShowcaseImageProps(profile.photo);
   if (depth === 0) {
     return (
       <div className={styles.faceTop}>
@@ -90,10 +93,56 @@ function DeckFace({ profile, depth, previewPriceLabel }: FaceProps) {
         ) : null}
         <div className={styles.photoShell}>
           <div className={styles.photoParallax} data-parallax="1">
-            <img src={profile.photo} alt="" className={styles.photo} width={400} height={500} loading="lazy" />
+            <img
+              src={profile.photo}
+              alt=""
+              className={styles.photo}
+              width={400}
+              height={500}
+              loading="lazy"
+              {...imgExtras}
+            />
           </div>
           <div className={styles.photoScrim} aria-hidden />
         </div>
+        {hideMeta ? null : (
+          <div className={styles.faceMeta}>
+            <div className={styles.nameRow}>
+              <span className={styles.name}>
+                {profile.name}, {profile.age}
+              </span>
+              <MatchBadge percent={profile.matchPct} />
+            </div>
+            <div className={styles.tags}>
+              {profile.tags.map((t) => (
+                <span key={t} className={styles.tag}>
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  const layer = depth === 1 ? styles.faceMid : styles.faceBack;
+  return (
+    <div className={`${styles.face} ${layer}`}>
+      <div className={styles.photoShell}>
+        <div className={styles.photoParallax}>
+          <img
+            src={profile.photo}
+            alt=""
+            className={styles.photo}
+            width={400}
+            height={500}
+            loading="lazy"
+            {...imgExtras}
+          />
+        </div>
+        <div className={styles.photoScrim} aria-hidden />
+      </div>
+      {hideMeta ? null : (
         <div className={styles.faceMeta}>
           <div className={styles.nameRow}>
             <span className={styles.name}>
@@ -109,33 +158,7 @@ function DeckFace({ profile, depth, previewPriceLabel }: FaceProps) {
             ))}
           </div>
         </div>
-      </div>
-    );
-  }
-  const layer = depth === 1 ? styles.faceMid : styles.faceBack;
-  return (
-    <div className={`${styles.face} ${layer}`}>
-      <div className={styles.photoShell}>
-        <div className={styles.photoParallax}>
-          <img src={profile.photo} alt="" className={styles.photo} width={400} height={500} loading="lazy" />
-        </div>
-        <div className={styles.photoScrim} aria-hidden />
-      </div>
-      <div className={styles.faceMeta}>
-        <div className={styles.nameRow}>
-          <span className={styles.name}>
-            {profile.name}, {profile.age}
-          </span>
-          <MatchBadge percent={profile.matchPct} />
-        </div>
-        <div className={styles.tags}>
-          {profile.tags.map((t) => (
-            <span key={t} className={styles.tag}>
-              {t}
-            </span>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -300,13 +323,13 @@ export const SwipeDemoSection: React.FC = () => {
           <div className={styles.deckParallax}>
             <div className={styles.deckFloat}>
             <div className={styles.stackBehind}>
-              <DeckFace profile={profiles[iBack]} depth={2} />
-              <DeckFace profile={profiles[iMid]} depth={1} />
+              <DeckFace profile={profiles[iBack]} depth={2} hideMeta={showMatch} />
+              <DeckFace profile={profiles[iMid]} depth={1} hideMeta={showMatch} />
             </div>
 
             <motion.div
               key={deckIndex}
-              className={styles.swipeLayer}
+              className={`${styles.swipeLayer} ${showMatch ? styles.swipeLayerHidden : ''}`}
               initial={false}
               animate={
                 reduceMotion
@@ -344,7 +367,12 @@ export const SwipeDemoSection: React.FC = () => {
                   onMouseMove={onPhotoParallax}
                   onMouseLeave={onPhotoParallaxLeave}
                 >
-                  <DeckFace profile={profiles[iFront]} depth={0} previewPriceLabel={priceLabel} />
+                  <DeckFace
+                    profile={profiles[iFront]}
+                    depth={0}
+                    previewPriceLabel={priceLabel}
+                    hideMeta={showMatch}
+                  />
                 </div>
               </motion.div>
             </motion.div>

@@ -13,3 +13,11 @@ export function pickLandingShowcasePhotoUrl(apiUrl: string | undefined | null): 
   if (u && !isLandingStockOrPlaceholderPhotoUrl(u)) return u;
   return NO_PHOTO_PLACEHOLDER;
 }
+
+/** Props for landing hero / deck photos so S3 presigned URLs load reliably in the browser. */
+export function landingShowcaseImageProps(url: string): { referrerPolicy?: 'no-referrer' } {
+  const u = (url || '').trim();
+  if (!u || u.startsWith('data:')) return {};
+  if (/^https?:\/\//i.test(u)) return { referrerPolicy: 'no-referrer' };
+  return {};
+}
