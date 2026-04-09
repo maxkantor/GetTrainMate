@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_SHOWCASE_STACK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase } from '@/services/landingShowcaseService';
+import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import styles from './HeroFloatingStack.module.css';
 
 type StackItem = { text: string; avatar: string; secondaryAvatar?: string };
@@ -55,6 +56,13 @@ export const HeroFloatingStack: React.FC = () => {
 
   const priceLabel = Number.isInteger(premiumUsd) ? `$${premiumUsd}` : `$${premiumUsd.toFixed(2)}`;
 
+  const onAvatarError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const el = e.currentTarget;
+    if (el.dataset.fallback === '1') return;
+    el.dataset.fallback = '1';
+    el.src = NO_PHOTO_PLACEHOLDER;
+  }, []);
+
   return (
     <div className={styles.column}>
       <div className={styles.premiumHeader}>
@@ -66,7 +74,7 @@ export const HeroFloatingStack: React.FC = () => {
           Matching preview · {priceLabel}
         </Link>
       </div>
-      <p className={styles.crmHint}>From your CRM test community when seeded</p>
+      <p className={styles.crmHint}>Photos load from CRM test-user profiles (S3) — not stock overlays.</p>
       <div className={styles.wrap} aria-hidden>
         {stack.map((item, i) => (
           <div
@@ -85,6 +93,7 @@ export const HeroFloatingStack: React.FC = () => {
                       height={50}
                       loading="eager"
                       decoding="async"
+                      onError={onAvatarError}
                     />
                     <img
                       src={item.secondaryAvatar}
@@ -94,6 +103,7 @@ export const HeroFloatingStack: React.FC = () => {
                       height={50}
                       loading="eager"
                       decoding="async"
+                      onError={onAvatarError}
                     />
                   </>
                 ) : (
@@ -105,6 +115,7 @@ export const HeroFloatingStack: React.FC = () => {
                     height={50}
                     loading="eager"
                     decoding="async"
+                    onError={onAvatarError}
                   />
                 )}
               </div>

@@ -1,14 +1,9 @@
 /**
- * Offline / API-failure fallbacks for the landing hero. Uses the same seeded test users
- * as the API (`dummy-user-*` + DummyProfilePhotos) — not unrelated stock personas.
+ * Offline / API-failure fallbacks for the landing hero.
+ * Use base URLs only — sizing is CSS (`object-fit`). Never append query params to S3 presigned URLs
+ * (that invalidates signatures and shows broken images).
  */
 import { DUMMY_USER_PRIMARY_PHOTO } from '@/utils/profilePhotos';
-
-function cropThumb(url: string): string {
-  const u = url.trim();
-  if (!u) return u;
-  return u.includes('?') ? `${u}&w=120&h=120&fit=crop&crop=faces` : `${u}?w=120&h=120&fit=crop&crop=faces`;
-}
 
 export type LandingStackFallbackItem = {
   text: string;
@@ -20,16 +15,16 @@ export type LandingStackFallbackItem = {
 export const LANDING_SHOWCASE_STACK_FALLBACK: LandingStackFallbackItem[] = [
   {
     text: 'Sarah matched with Mike',
-    avatar: cropThumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-1']),
-    secondaryAvatar: cropThumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-2']),
+    avatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-1'],
+    secondaryAvatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
   },
   {
     text: 'Mike found a training partner',
-    avatar: cropThumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-2']),
+    avatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
   },
   {
     text: 'New training partners every week',
-    avatar: cropThumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-3']),
+    avatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-3'],
   },
 ];
 

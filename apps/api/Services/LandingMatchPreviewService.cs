@@ -289,18 +289,30 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         };
     }
 
+    /// <summary>
+    /// Picks the first usable cover URL: presigned S3 for our bucket, then HTTPS URLs that work without
+    /// signing (Unsplash, CloudFront, etc.). Avoids returning a raw virtual-hosted S3 URL when the bucket
+    /// is private (would 403 in the browser). Tries every entry in <see cref="UserProfile.PhotoUrls"/>.
+    /// </summary>
     private string? ResolvePrimaryPhotoUrl(UserProfile p)
     {
-        var raw = p.PhotoUrls ?? new List<string>();
-        var list = raw.Where(u => !string.IsNullOrWhiteSpace(u)).Select(u => u.Trim()).ToList();
-        for (var i = 0; i < list.Count; i++)
+        var urls = (p.PhotoUrls ?? new List<string>())
+            .Where(u => !string.IsNullOrWhiteSpace(u))
+            .Select(u => u.Trim())
+            .ToList();
+
+        foreach (var url in urls)
         {
-            var signed = _storage.TryPresignCanonicalMediaUrl(list[i], TimeSpan.FromHours(1));
+            var signed = _storage.TryPresignCanonicalMediaUrl(url, TimeSpan.FromHours(1));
             if (!string.IsNullOrEmpty(signed))
-                list[i] = signed!;
+                return signed;
         }
-        if (list.Count > 0)
-            return list[0];
+
+        foreach (var url in urls)
+        {
+            if (ShouldPassThroughUnmodifiedHttpsImageUrl(url))
+                return url;
+        }
 
         var keyForCover = p.PhotoKeys is { Count: > 0 } ? p.PhotoKeys[0] : p.PhotoKey;
         if (string.IsNullOrEmpty(keyForCover))
@@ -314,6 +326,24 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             _logger.LogDebug(ex, "Presign showcase photo for {UserId}", p.UserId);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Public HTTPS images (stock fallbacks, CloudFront, etc.). Excludes *.amazonaws.com because those
+    /// typically need a presigned URL when the bucket is not public.
+    /// </summary>
+    private static bool ShouldPassThroughUnmodifiedHttpsImageUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return false;
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            return false;
+        var host = uri.IdnHost;
+        if (string.IsNullOrEmpty(host))
+            return false;
+        if (host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase))
+            return false;
+        return true;
     }
 
     private async Task<List<UserProfile>> ScanCompleteProfilesAsync(CancellationToken ct)

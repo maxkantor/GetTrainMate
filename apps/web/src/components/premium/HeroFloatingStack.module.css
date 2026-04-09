@@ -190,7 +190,7 @@
 
 .layer1 .cardInner {
   opacity: 0.82;
-  filter: blur(1px);
+  filter: none;
 }
 
 .layer2 {
@@ -203,7 +203,7 @@
 
 .layer2 .cardInner {
   opacity: 0.58;
-  filter: blur(2px);
+  filter: none;
 }
 
 .cardOuterFocus {
