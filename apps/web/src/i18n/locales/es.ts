@@ -144,6 +144,7 @@ export const es = {
     platform: 'Plataforma',
     privacy: 'Privacidad',
     terms: 'Términos',
+    all_rights_reserved: 'Todos los derechos reservados.',
   },
   admin: {
     dashboard: 'Panel de Admin',

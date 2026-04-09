@@ -142,6 +142,7 @@ export const zh = {
     platform: '平台',
     privacy: '隐私',
     terms: '条款',
+    all_rights_reserved: '保留所有权利。',
   },
   admin: {
     dashboard: '管理仪表盘',

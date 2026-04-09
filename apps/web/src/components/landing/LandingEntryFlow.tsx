@@ -462,7 +462,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
             <footer className={styles.modalFooter} aria-label={t('footer.legal')}>
               <FooterLegalLinksRow variant="modal" onLinkClick={handleClose} />
               <p className={styles.modalFooterCopyright}>
-                © {new Date().getFullYear()} {t('common.appName')}
+                © {new Date().getFullYear()} {t('common.appName')}. {t('footer.all_rights_reserved')}
               </p>
             </footer>
           </motion.div>

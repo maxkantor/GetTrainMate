@@ -173,6 +173,7 @@ export const en = {
     platform: 'Platform',
     privacy: 'Privacy',
     terms: 'Terms',
+    all_rights_reserved: 'All rights reserved.',
   },
   admin: {
     dashboard: 'Admin Dashboard',

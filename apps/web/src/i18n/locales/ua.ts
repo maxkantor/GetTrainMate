@@ -168,6 +168,7 @@ export const ua = {
     platform: 'Платформа',
     privacy: 'Конфіденційність',
     terms: 'Умови',
+    all_rights_reserved: 'Усі права захищені.',
   },
   admin: {
     dashboard: 'Адмін-панель',

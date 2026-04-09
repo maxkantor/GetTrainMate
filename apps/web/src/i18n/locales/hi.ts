@@ -144,6 +144,7 @@ export const hi = {
     platform: 'प्लेटफ़ॉर्म',
     privacy: 'गोपनीयता',
     terms: 'नियम और शर्तें',
+    all_rights_reserved: 'सर्वाधिकार सुरक्षित।',
   },
   admin: {
     dashboard: 'एडमिन डैशबोर्ड',

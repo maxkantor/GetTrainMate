@@ -29,7 +29,7 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
         <div className={styles.footerCompactInner}>
           <FooterLegalLinksRow variant="compact" />
           <p className={styles.footerCompactCopyright}>
-            © {new Date().getFullYear()} {t('common.appName')}
+            © {new Date().getFullYear()} {t('common.appName')}. {t('footer.all_rights_reserved')}
           </p>
         </div>
       </footer>
@@ -116,7 +116,7 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
         {/* Bottom Bar */}
         <div className={styles.bottomBar}>
           <p className={styles.copyright}>
-            © {new Date().getFullYear()} {t('common.appName')}
+            © {new Date().getFullYear()} {t('common.appName')}. {t('footer.all_rights_reserved')}
           </p>
         </div>
       </Container>

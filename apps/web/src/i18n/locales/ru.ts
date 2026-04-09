@@ -144,6 +144,7 @@ export const ru = {
     platform: 'Платформа',
     privacy: 'Конфиденциальность',
     terms: 'Условия',
+    all_rights_reserved: 'Все права защищены.',
   },
   admin: {
     dashboard: 'Админ-панель',
