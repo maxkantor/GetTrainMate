@@ -44,6 +44,9 @@ public class LandingShowcaseResponse
     /// <summary>live = at least one image from DB; empty = no usable profiles.</summary>
     public string Kind { get; set; } = "empty";
 
+    /// <summary>Marketing: premium match preview price (USD) shown next to hero / matching demo.</summary>
+    public decimal PremiumMatchPreviewUsd { get; set; } = 10m;
+
     public IReadOnlyList<LandingShowcaseActivityDto> Activity { get; set; } = Array.Empty<LandingShowcaseActivityDto>();
 
     public IReadOnlyList<LandingShowcaseDeckCardDto> Deck { get; set; } = Array.Empty<LandingShowcaseDeckCardDto>();
@@ -53,6 +56,9 @@ public class LandingShowcaseActivityDto
 {
     public string Line { get; set; } = "";
     public string? AvatarUrl { get; set; }
+
+    /// <summary>Second face for &quot;A matched with B&quot; rows (mutual matches).</summary>
+    public string? SecondaryAvatarUrl { get; set; }
 }
 
 public class LandingShowcaseDeckCardDto

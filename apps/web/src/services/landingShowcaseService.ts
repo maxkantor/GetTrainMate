@@ -1,11 +1,13 @@
 import { API_BASE_URL } from '@/config/api';
 
-const CACHE_KEY = 'gtmLandingShowcaseV1';
+const CACHE_KEY = 'gtmLandingShowcaseV2';
 const TTL_MS = 10 * 60 * 1000;
 
 export type LandingShowcaseActivity = {
   line: string;
   avatarUrl?: string | null;
+  /** Second avatar for “A matched with B” when both photos exist. */
+  secondaryAvatarUrl?: string | null;
 };
 
 export type LandingShowcaseDeckCard = {
@@ -18,6 +20,8 @@ export type LandingShowcaseDeckCard = {
 
 export type LandingShowcaseResult = {
   kind: string;
+  /** Premium match preview price in USD (hero + swipe demo). */
+  premiumMatchPreviewUsd?: number;
   activity: LandingShowcaseActivity[];
   deck: LandingShowcaseDeckCard[];
 };

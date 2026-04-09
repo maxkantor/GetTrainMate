@@ -10,11 +10,18 @@ function cropThumb(url: string): string {
   return u.includes('?') ? `${u}&w=120&h=120&fit=crop&crop=faces` : `${u}?w=120&h=120&fit=crop&crop=faces`;
 }
 
+export type LandingStackFallbackItem = {
+  text: string;
+  avatar: string;
+  secondaryAvatar?: string;
+};
+
 /** Matches copy patterns in LandingMatchPreviewService.BuildShowcaseActivityAsync fallback lines. */
-export const LANDING_SHOWCASE_STACK_FALLBACK: { text: string; avatar: string }[] = [
+export const LANDING_SHOWCASE_STACK_FALLBACK: LandingStackFallbackItem[] = [
   {
     text: 'Sarah matched with Mike',
     avatar: cropThumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-1']),
+    secondaryAvatar: cropThumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-2']),
   },
   {
     text: 'Mike found a training partner',

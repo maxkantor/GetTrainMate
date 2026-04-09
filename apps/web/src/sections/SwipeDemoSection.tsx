@@ -4,6 +4,7 @@ import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
+import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
 import { LANDING_SHOWCASE_DECK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase } from '@/services/landingShowcaseService';
@@ -71,12 +72,20 @@ function MatchBadge({ percent }: { percent: number }) {
 type FaceProps = {
   profile: DeckProfile;
   depth: 0 | 1 | 2;
+  /** Shown on the interactive top card — premium match preview. */
+  previewPriceLabel?: string;
 };
 
-function DeckFace({ profile, depth }: FaceProps) {
+function DeckFace({ profile, depth, previewPriceLabel }: FaceProps) {
   if (depth === 0) {
     return (
       <div className={styles.faceTop}>
+        {previewPriceLabel ? (
+          <div className={styles.cardPreviewRibbon}>
+            <span className={styles.cardPreviewRibbonLabel}>Match preview</span>
+            <span className={styles.cardPreviewRibbonPrice}>{previewPriceLabel}</span>
+          </div>
+        ) : null}
         <div className={styles.photoShell}>
           <div className={styles.photoParallax} data-parallax="1">
             <img src={profile.photo} alt="" className={styles.photo} width={400} height={500} loading="lazy" />
@@ -134,6 +143,7 @@ export const SwipeDemoSection: React.FC = () => {
   const { isAuthenticated } = useAuthContext();
   const { openEntryFlow } = useLandingConversion();
   const [profiles, setProfiles] = useState<DeckProfile[]>(() => [...FALLBACK_PROFILES]);
+  const [premiumUsd, setPremiumUsd] = useState(LANDING_MATCH_PREVIEW_USD_FALLBACK);
   const [phase, setPhase] = useState<Phase>('idle');
   const [deckIndex, setDeckIndex] = useState(0);
   const timersRef = useRef<number[]>([]);
@@ -144,6 +154,9 @@ export const SwipeDemoSection: React.FC = () => {
     let cancelled = false;
     fetchLandingShowcase().then((data) => {
       if (cancelled || !data || data.kind !== 'live' || data.deck.length < 3) return;
+      if (typeof data.premiumMatchPreviewUsd === 'number' && data.premiumMatchPreviewUsd > 0) {
+        setPremiumUsd(data.premiumMatchPreviewUsd);
+      }
       const mapped: DeckProfile[] = data.deck.map((card, i) => {
         const fallback = FALLBACK_PROFILES[i % FALLBACK_PROFILES.length];
         const photo = (card.photoUrl || '').trim() || fallback.photo;
@@ -163,6 +176,8 @@ export const SwipeDemoSection: React.FC = () => {
       cancelled = true;
     };
   }, []);
+
+  const priceLabel = Number.isInteger(premiumUsd) ? `$${premiumUsd}` : `$${premiumUsd.toFixed(2)}`;
 
   const len = profiles.length;
   const iFront = deckIndex % len;
@@ -258,10 +273,18 @@ export const SwipeDemoSection: React.FC = () => {
   return (
     <section className={styles.section} id="how-it-works" aria-labelledby="swipe-demo-heading">
       <Container size="wide">
-        <h2 id="swipe-demo-heading" className={styles.title}>
-          See How Matching Works
-        </h2>
-        <p className={styles.subtitle}>Swipe right → match. Watch the loop.</p>
+        <div className={styles.sectionHead}>
+          <div className={styles.titleRow}>
+            <h2 id="swipe-demo-heading" className={styles.title}>
+              See How Matching Works
+            </h2>
+            <Link to="/pricing" className={styles.matchingPremiumPill}>
+              Full matching · {priceLabel}
+            </Link>
+          </div>
+          <p className={styles.subtitle}>Swipe right → match. Watch the loop.</p>
+          <p className={styles.crmLine}>Profiles from your CRM test users when seeded (dummy-user-*).</p>
+        </div>
 
         <div
           className={styles.deckZone}
@@ -316,7 +339,7 @@ export const SwipeDemoSection: React.FC = () => {
                   onMouseMove={onPhotoParallax}
                   onMouseLeave={onPhotoParallaxLeave}
                 >
-                  <DeckFace profile={profiles[iFront]} depth={0} />
+                  <DeckFace profile={profiles[iFront]} depth={0} previewPriceLabel={priceLabel} />
                 </div>
               </motion.div>
             </motion.div>

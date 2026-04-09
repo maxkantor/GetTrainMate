@@ -102,34 +102,63 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         if (withPhotos.Count == 0)
             return new LandingShowcaseResponse { Kind = "empty" };
 
-        var deckProfiles = withPhotos.Select(x => x.Profile).DistinctBy(p => p.UserId).Take(24).ToList();
+        // Prefer CRM test accounts (dummy-user-*) for hero + swipe demo — same directory as Admin → Test Users.
+        var distinctProfiles = OrderCrmDummyProfilesFirst(withPhotos.Select(x => x.Profile).DistinctBy(p => p.UserId))
+            .ToList();
+
         const int deckTarget = 6;
         var deck = new List<LandingShowcaseDeckCardDto>();
-        for (var i = 0; i < deckTarget && deckProfiles.Count > 0; i++)
+        for (var i = 0; i < deckTarget && distinctProfiles.Count > 0; i++)
         {
-            var p = deckProfiles[i % deckProfiles.Count];
+            var p = distinctProfiles[i % distinctProfiles.Count];
             deck.Add(MapToDeckCard(p));
         }
 
-        var activity = await BuildShowcaseActivityAsync(withPhotos.Select(x => x.Profile).DistinctBy(p => p.UserId).ToList(), cancellationToken)
+        var activity = await BuildShowcaseActivityAsync(distinctProfiles, cancellationToken)
             .ConfigureAwait(false);
 
         return new LandingShowcaseResponse
         {
             Kind = "live",
+            PremiumMatchPreviewUsd = 10m,
             Activity = activity,
             Deck = deck,
         };
     }
+
+    private static bool IsCrmTestUser(string? userId) =>
+        !string.IsNullOrEmpty(userId) && userId.StartsWith("dummy-user-", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>dummy-user-2 sorts before dummy-user-10 (numeric tail).</summary>
+    private static int DummyUserSortKey(string? userId)
+    {
+        if (!IsCrmTestUser(userId) || userId == null)
+            return int.MaxValue;
+        var tail = userId["dummy-user-".Length..];
+        return int.TryParse(tail, System.Globalization.NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
+            ? n
+            : int.MaxValue - 1;
+    }
+
+    private static IEnumerable<UserProfile> OrderCrmDummyProfilesFirst(IEnumerable<UserProfile> profiles) =>
+        profiles
+            .OrderByDescending(p => IsCrmTestUser(p.UserId))
+            .ThenBy(p => DummyUserSortKey(p.UserId))
+            .ThenByDescending(p => p.UpdatedAt);
 
     private async Task<IReadOnlyList<LandingShowcaseActivityDto>> BuildShowcaseActivityAsync(
         IReadOnlyList<UserProfile> profilePool,
         CancellationToken ct)
     {
         var rows = await ScanRecentMutualMatchesAsync(ct, maxRows: 60).ConfigureAwait(false);
+        var orderedRows = rows
+            .OrderByDescending(x => IsCrmTestUser(x.Item1) && IsCrmTestUser(x.Item2))
+            .ThenByDescending(x => IsCrmTestUser(x.Item1) || IsCrmTestUser(x.Item2))
+            .ThenByDescending(x => x.Item3)
+            .ToList();
         var activity = new List<LandingShowcaseActivityDto>();
 
-        foreach (var (u1, u2, _) in rows)
+        foreach (var (u1, u2, _) in orderedRows)
         {
             if (activity.Count >= 2)
                 break;
@@ -137,13 +166,15 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             var b = await _profiles.GetProfileAsync(u2).ConfigureAwait(false);
             if (a == null || b == null || string.IsNullOrWhiteSpace(a.Name) || string.IsNullOrWhiteSpace(b.Name))
                 continue;
-            var av = ResolvePrimaryPhotoUrl(a) ?? ResolvePrimaryPhotoUrl(b);
-            if (string.IsNullOrEmpty(av))
+            var urlA = ResolvePrimaryPhotoUrl(a);
+            var urlB = ResolvePrimaryPhotoUrl(b);
+            if (string.IsNullOrEmpty(urlA) && string.IsNullOrEmpty(urlB))
                 continue;
             activity.Add(new LandingShowcaseActivityDto
             {
                 Line = $"{FirstName(a.Name)} matched with {FirstName(b.Name)}",
-                AvatarUrl = av,
+                AvatarUrl = urlA ?? urlB,
+                SecondaryAvatarUrl = !string.IsNullOrEmpty(urlA) && !string.IsNullOrEmpty(urlB) ? urlB : null,
             });
         }
 
