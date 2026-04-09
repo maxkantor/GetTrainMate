@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '@/config/api';
 
-const CACHE_KEY = 'gtmLandingShowcaseV3';
+const CACHE_KEY = 'gtmLandingShowcaseV4';
 const TTL_MS = 10 * 60 * 1000;
 
 export type LandingShowcaseActivity = {

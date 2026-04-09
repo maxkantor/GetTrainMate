@@ -283,7 +283,9 @@ export const SwipeDemoSection: React.FC = () => {
             </Link>
           </div>
           <p className={styles.subtitle}>Swipe right → match. Watch the loop.</p>
-          <p className={styles.crmLine}>Profiles from your CRM test users when seeded (dummy-user-*).</p>
+          <p className={styles.crmLine}>
+            Photos match Admin → Test Users: your uploaded S3 images replace seed stock once saved on the profile.
+          </p>
         </div>
 
         <div

@@ -290,12 +290,14 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
     }
 
     /// <summary>
-    /// Picks the first usable cover URL: presigned S3 for our bucket, then HTTPS URLs that work without
-    /// signing (Unsplash, CloudFront, etc.). Avoids returning a raw virtual-hosted S3 URL when the bucket
-    /// is private (would 403 in the browser). Tries every entry in <see cref="UserProfile.PhotoUrls"/>.
+    /// Picks the cover URL the same way Admin → Test Users previews work: canonical S3 URLs under
+    /// <c>profiles/{userId}/</c> are presigned. Seed stock URLs (Unsplash) must not win when a CRM photo exists.
+    /// Order: virtual-host presign → path-based key presign (matches <see cref="Controllers.AdminUsersController"/>)
+    /// → pass-through (stock last).
     /// </summary>
     private string? ResolvePrimaryPhotoUrl(UserProfile p)
     {
+        var userId = (p.UserId ?? string.Empty).Trim();
         var urls = (p.PhotoUrls ?? new List<string>())
             .Where(u => !string.IsNullOrWhiteSpace(u))
             .Select(u => u.Trim())
@@ -308,7 +310,23 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
                 return signed;
         }
 
+        // Same key rule as POST .../test-users/{id}/photos/preview-urls when virtual-host presign fails
+        // (e.g. bucket name mismatch) but path is profiles/{userId}/...
         foreach (var url in urls)
+        {
+            if (!TryGetProfilePhotoStorageKey(url, userId, out var key))
+                continue;
+            try
+            {
+                return _storage.GetPresignedDownloadUrl(key, TimeSpan.FromHours(1));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Presign showcase by object key for {UserId}", userId);
+            }
+        }
+
+        foreach (var url in urls.OrderBy(u => IsStockOrPlaceholderImageUrl(u) ? 1 : 0))
         {
             if (ShouldPassThroughUnmodifiedHttpsImageUrl(url))
                 return url;
@@ -326,6 +344,27 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             _logger.LogDebug(ex, "Presign showcase photo for {UserId}", p.UserId);
             return null;
         }
+    }
+
+    /// <summary>HTTPS URL whose path is <c>profiles/{userId}/…</c> (same rule as admin test-user photo preview).</summary>
+    private static bool TryGetProfilePhotoStorageKey(string url, string expectedUserId, out string key)
+    {
+        key = string.Empty;
+        if (string.IsNullOrEmpty(expectedUserId)) return false;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
+        if (!string.Equals(u.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return false;
+        var path = u.AbsolutePath.TrimStart('/');
+        if (!path.StartsWith($"profiles/{expectedUserId}/", StringComparison.Ordinal)) return false;
+        key = path;
+        return true;
+    }
+
+    private static bool IsStockOrPlaceholderImageUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
+        var h = u.IdnHost;
+        return h.Contains("unsplash.com", StringComparison.OrdinalIgnoreCase)
+               || h.Contains("picsum.photos", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
