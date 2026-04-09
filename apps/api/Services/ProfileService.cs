@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
+using Amazon.DynamoDBv2.Model;
 using GetTrainMate.Api.Models;
 using System.Linq;
 using System.Text.Json;
@@ -22,6 +23,22 @@ public class ProfileService : IProfileService
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _tableName = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
         _logger = logger;
+    }
+
+    public UserProfile? TryMapDynamoItemToProfile(Dictionary<string, AttributeValue>? item)
+    {
+        if (item == null || item.Count == 0)
+            return null;
+        try
+        {
+            var doc = Document.FromAttributeMap(item);
+            return DocumentToProfile(doc);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to map Dynamo item to profile");
+            return null;
+        }
     }
 
     public async Task<UserProfile?> GetProfileAsync(string userId)

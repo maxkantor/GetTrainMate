@@ -1,7 +1,11 @@
 import type { AvailabilitySlot } from '@/services/profileService';
 import { landingTrainingLabelToSportTag } from '@/config/landingTrainingOptions';
 
-/** Session-only prefs from landing quick setup → signup / onboarding prefill */
+/**
+ * Session-only prefs from landing quick setup → signup / onboarding prefill.
+ * Distance, “near you”, and availability are shown only after signup in Discover
+ * when the member profile (and match feed) include real location / schedule data.
+ */
 export const LANDING_PREFS_KEY = 'gtm_landing_prefs';
 
 export type LandingPrefs = {

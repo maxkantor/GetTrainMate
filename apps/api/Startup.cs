@@ -69,6 +69,7 @@ public class Startup
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IAdminNotificationService, AdminNotificationService>();
         services.AddScoped<ICognitoRegistrationCheckService, CognitoRegistrationCheckService>();
+        services.AddScoped<ILandingMatchPreviewService, LandingMatchPreviewService>();
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<ICreditsService, CreditsService>();
 

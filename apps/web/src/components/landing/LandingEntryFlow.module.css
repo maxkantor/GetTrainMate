@@ -205,6 +205,93 @@
   color: rgba(248, 113, 113, 0.88);
 }
 
+.paywallTrust {
+  margin: -4px 0 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(167, 243, 208, 0.88);
+}
+
+.exampleLabel {
+  margin: -6px 0 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(251, 191, 36, 0.95);
+}
+
+.loadWarning {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgba(252, 211, 77, 0.85);
+}
+
+.moreMatchesHint {
+  margin: -6px 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(167, 139, 250, 0.9);
+}
+
+.lockedDataLine {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.deckGhost {
+  position: relative;
+  background: linear-gradient(145deg, rgba(30, 27, 60, 0.9), rgba(12, 10, 28, 0.95)) !important;
+  box-shadow: inset 0 0 24px rgba(99, 102, 241, 0.08);
+}
+
+.deckGhost.deckBack {
+  filter: none;
+  opacity: 0.62;
+}
+
+.deckGhost::after {
+  content: '';
+  position: absolute;
+  inset: 28%;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  opacity: 0.6;
+}
+
+.deckAvatarPlaceholder {
+  width: 96px;
+  height: 96px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(30, 27, 55, 0.9));
+}
+
+.primaryBtnPulse {
+  animation: ctaGlowPulse 2.6s ease-in-out infinite;
+}
+
+@keyframes ctaGlowPulse {
+  0%,
+  100% {
+    box-shadow: 0 8px 28px rgba(99, 102, 241, 0.45);
+  }
+  50% {
+    box-shadow:
+      0 10px 36px rgba(99, 102, 241, 0.55),
+      0 0 32px rgba(167, 139, 250, 0.3);
+  }
+}
+
 .analyzeVisual {
   position: relative;
   height: 112px;

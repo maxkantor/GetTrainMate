@@ -7,6 +7,11 @@ import { saveLandingPrefs } from '@/utils/landingPrefs';
 import { useI18n } from '@/hooks/useI18n';
 import { FooterLegalLinksRow } from '@/components/layout/FooterLegalLinksRow';
 import { LANDING_TRAINING_OPTIONS } from '@/config/landingTrainingOptions';
+import {
+  fetchLandingMatchPreview,
+  type LandingMatchPreviewResult,
+  type LandingMatchPreviewUser,
+} from '@/services/matchPreviewService';
 import styles from './LandingEntryFlow.module.css';
 
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'] as const;
@@ -17,20 +22,44 @@ const DEFAULT_LEVEL: (typeof LEVELS)[number] = 'Intermediate';
 const DEFAULT_TIME: (typeof TIMES)[number] = 'Evening';
 
 const ANALYZE_MESSAGES = [
-  'Analyzing your training level…',
-  'Finding athletes near you…',
-  'Matching schedules…',
+  'Analyzing your training style…',
+  'Finding compatible athletes…',
+  'Building your matches…',
 ] as const;
 
-const ANALYZE_MS = 1750;
+const MIN_ANALYZE_MS = 1650;
 
-const PREVIEW_GOAL_FALLBACK = 'Strength & conditioning';
+/** Labeled demo when API fails (same persona as server fallback). */
+const OFFLINE_DEMO: LandingMatchPreviewResult = {
+  kind: 'demo',
+  matchCount: 1,
+  exampleLabel: 'Example match based on your preferences',
+  users: [
+    {
+      name: 'Alex Drogba',
+      age: 29,
+      trainingSummary: 'Gym / Cross-training',
+      goalLine: 'Strength & conditioning',
+      photoUrl:
+        'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=400&fit=crop&crop=faces',
+    },
+  ],
+};
 
-const PREVIEW_AVATARS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces',
-  'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&h=120&fit=crop&crop=faces',
-  'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=120&h=120&fit=crop&crop=faces',
-] as const;
+function previewHeadline(preview: LandingMatchPreviewResult | null): string {
+  if (!preview) return '';
+  if (preview.kind === 'empty') return 'No athletes available yet';
+  if (preview.kind === 'demo') return '🔥 Example athlete based on your preferences';
+  const n = preview.matchCount;
+  if (n <= 0) return '🔥 Example athlete based on your preferences';
+  if (n === 1) return '🔥 1 athlete matches your training preferences';
+  return `🔥 ${n} athletes match your training preferences`;
+}
+
+function formatCardName(u: LandingMatchPreviewUser): string {
+  const agePart = u.age != null && u.age > 0 ? `, ${u.age}` : '';
+  return `${u.name.trim()}${agePart}`;
+}
 
 type Props = {
   open: boolean;
@@ -46,6 +75,8 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
   const [timePref, setTimePref] = useState<string>(DEFAULT_TIME);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeMsgIndex, setAnalyzeMsgIndex] = useState(0);
+  const [preview, setPreview] = useState<LandingMatchPreviewResult | null>(null);
+  const [previewLoadFailed, setPreviewLoadFailed] = useState(false);
 
   const reset = useCallback(() => {
     setStep(1);
@@ -54,6 +85,8 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
     setTimePref(DEFAULT_TIME);
     setIsAnalyzing(false);
     setAnalyzeMsgIndex(0);
+    setPreview(null);
+    setPreviewLoadFailed(false);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -62,8 +95,6 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
   }, [onClose, reset]);
 
   const step1Valid = Boolean(training && level && timePref);
-
-  const previewGoalLabel = training === 'Gym' ? PREVIEW_GOAL_FALLBACK : training || PREVIEW_GOAL_FALLBACK;
 
   const persistPrefsAndGoSignup = useCallback(() => {
     saveLandingPrefs({ training, level, timePref });
@@ -81,6 +112,12 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
     }
   }, [training, level, timePref, handleClose, navigate]);
 
+  const goEmptySignup = useCallback(() => {
+    saveLandingPrefs({ training, level, timePref });
+    handleClose();
+    navigate('/signup');
+  }, [training, level, timePref, handleClose, navigate]);
+
   useEffect(() => {
     if (open) {
       setStep(1);
@@ -89,6 +126,8 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
       setTimePref(DEFAULT_TIME);
       setIsAnalyzing(false);
       setAnalyzeMsgIndex(0);
+      setPreview(null);
+      setPreviewLoadFailed(false);
     }
   }, [open]);
 
@@ -102,27 +141,48 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
     const tMsg1 = window.setTimeout(() => {
       if (!cancelled) setAnalyzeMsgIndex(2);
     }, 1040);
-    const tDone = window.setTimeout(() => {
-      if (!cancelled) {
-        setIsAnalyzing(false);
-        setAnalyzeMsgIndex(0);
-        setStep(2);
-      }
-    }, ANALYZE_MS);
 
     return () => {
       cancelled = true;
       window.clearTimeout(tMsg0);
       window.clearTimeout(tMsg1);
-      window.clearTimeout(tDone);
     };
   }, [isAnalyzing]);
 
-  const runAnalyze = () => {
+  const runAnalyze = async () => {
     if (!step1Valid) return;
     setAnalyzeMsgIndex(0);
     setIsAnalyzing(true);
+    setPreviewLoadFailed(false);
+
+    const minDelay = new Promise<void>((r) => window.setTimeout(r, MIN_ANALYZE_MS));
+    const apiResult = fetchLandingMatchPreview({
+      trainingLabel: training,
+      level,
+      timePref,
+    });
+
+    const [, fetched] = await Promise.all([minDelay, apiResult]);
+
+    let next: LandingMatchPreviewResult;
+    let loadFailed = false;
+    if (fetched) {
+      next = fetched;
+    } else {
+      loadFailed = true;
+      next = OFFLINE_DEMO;
+    }
+
+    setPreview(next);
+    setPreviewLoadFailed(loadFailed);
+    setIsAnalyzing(false);
+    setAnalyzeMsgIndex(0);
+    setStep(2);
   };
+
+  const primaryPreviewUser = preview?.users?.[0];
+  const showMoreCount =
+    preview && preview.kind === 'real' && preview.matchCount > 1 ? preview.matchCount - 1 : 0;
 
   if (typeof document === 'undefined') return null;
 
@@ -139,7 +199,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.28 }}
+          transition={{ duration: 0.2 }}
         >
           <button type="button" className={styles.backdropHit} aria-label="Close" onClick={handleClose} />
           <motion.div
@@ -161,7 +221,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                   <div className={styles.shimmerRing} />
                   <div className={styles.pulseCore} />
                 </div>
-                <p className={styles.analyzeKicker}>AI matching</p>
+                <p className={styles.analyzeKicker}>Compatibility matching</p>
                 <AnimatePresence mode="wait">
                   <motion.p
                     key={analyzeMsgIndex}
@@ -189,7 +249,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                   </span>
                 </div>
                 <p className={styles.lead}>
-                  Tell us how you train — we&apos;ll surface serious partners who match your rhythm.
+                  Tell us how you train — we&apos;ll show compatible athletes from the network.
                 </p>
 
                 <div className={styles.field}>
@@ -197,7 +257,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     <span className={styles.labelIcon} aria-hidden>
                       🏋️
                     </span>{' '}
-                    Training
+                    Training type
                   </span>
                   <div className={styles.selectWrap}>
                     <select
@@ -213,7 +273,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                       ))}
                     </select>
                   </div>
-                  <p className={styles.fieldHint}>Used to match you with serious athletes nearby</p>
+                  <p className={styles.fieldHint}>Used to match you with compatible athletes</p>
                 </div>
 
                 <div className={styles.field}>
@@ -237,7 +297,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                       ))}
                     </select>
                   </div>
-                  <p className={styles.fieldHint}>We pair you with people who push at your pace</p>
+                  <p className={styles.fieldHint}>Used to match you with compatible athletes</p>
                 </div>
 
                 <div className={styles.field}>
@@ -245,7 +305,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     <span className={styles.labelIcon} aria-hidden>
                       ⏰
                     </span>{' '}
-                    Time
+                    Preferred time
                   </span>
                   <div className={styles.selectWrap}>
                     <select
@@ -261,47 +321,81 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                       ))}
                     </select>
                   </div>
-                  <p className={styles.fieldHint}>So your sessions actually line up in real life</p>
+                  <p className={styles.fieldHint}>Used to match you with compatible athletes</p>
                 </div>
 
                 <button
                   type="button"
-                  className={styles.primaryBtn}
+                  className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`}
                   disabled={!step1Valid}
-                  onClick={runAnalyze}
+                  onClick={() => void runAnalyze()}
                 >
                   Find My Training Partners
                 </button>
-                <p className={styles.ctaMicro}>Takes 10 seconds • No signup yet</p>
+                <p className={styles.ctaMicro}>Takes 10 seconds • No signup required</p>
               </div>
             )}
 
-            {step === 2 && (
+            {step === 2 && preview?.kind === 'empty' && (
               <div className={styles.step}>
-                <h2 className={styles.title}>🔥 3 serious athletes ready to train with you</h2>
-                <p className={styles.lead}>Matched to your level and schedule</p>
-                <p className={styles.urgencyLine}>⚡ 1 is available tomorrow morning</p>
+                <h2 className={styles.title}>{previewHeadline(preview)}</h2>
+                <p className={styles.lead}>Be the first to join or invite others</p>
+                <button type="button" className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`} onClick={goEmptySignup}>
+                  Create your account
+                </button>
+              </div>
+            )}
+
+            {step === 2 && preview && preview.kind !== 'empty' && primaryPreviewUser && (
+              <div className={styles.step}>
+                <h2 className={styles.title}>{previewHeadline(preview)}</h2>
+                {preview.exampleLabel && (
+                  <p className={styles.exampleLabel}>{preview.exampleLabel}</p>
+                )}
+                {previewLoadFailed && (
+                  <p className={styles.loadWarning}>Couldn&apos;t load live data — showing a labeled example.</p>
+                )}
+                <p className={styles.lead}>Based on your training type, level, and schedule</p>
+                {showMoreCount > 0 && (
+                  <p className={styles.moreMatchesHint}>
+                    +{showMoreCount} more compatible {showMoreCount === 1 ? 'profile' : 'profiles'} after signup
+                  </p>
+                )}
                 <div className={styles.deck}>
-                  <div className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft}`} aria-hidden>
-                    <img src={PREVIEW_AVATARS[0]} alt="" className={styles.deckAvatar} width={88} height={88} />
-                  </div>
-                  <div className={`${styles.deckCard} ${styles.deckBack} ${styles.deckRight}`} aria-hidden>
-                    <img src={PREVIEW_AVATARS[2]} alt="" className={styles.deckAvatar} width={88} height={88} />
-                  </div>
+                  <div
+                    className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft} ${styles.deckGhost}`}
+                    aria-hidden
+                  />
+                  <div
+                    className={`${styles.deckCard} ${styles.deckBack} ${styles.deckRight} ${styles.deckGhost}`}
+                    aria-hidden
+                  />
                   <div className={`${styles.deckCard} ${styles.deckFront}`}>
-                    <img src={PREVIEW_AVATARS[1]} alt="" className={styles.deckAvatar} width={96} height={96} />
-                    <span className={styles.deckName}>Jordan, 27</span>
-                    <span className={styles.deckMeta}>Near you · {training || 'Your sport'}</span>
+                    {primaryPreviewUser.photoUrl ? (
+                      <img
+                        src={primaryPreviewUser.photoUrl}
+                        alt=""
+                        className={styles.deckAvatar}
+                        width={96}
+                        height={96}
+                      />
+                    ) : (
+                      <div className={styles.deckAvatarPlaceholder} aria-hidden />
+                    )}
+                    <span className={styles.deckName}>{formatCardName(primaryPreviewUser)}</span>
+                    <span className={styles.deckMeta}>{primaryPreviewUser.trainingSummary}</span>
                     <ul className={styles.deckStats}>
-                      <li>📍 0.8 miles away</li>
-                      <li>⚡ Trains 4–5x/week</li>
-                      <li>🎯 {previewGoalLabel}</li>
+                      <li>⚡ {preview.kind === 'demo' ? 'Trains 4–5x/week' : 'Trains regularly'}</li>
+                      <li>🎯 {primaryPreviewUser.goalLine}</li>
                     </ul>
+                    <p className={styles.lockedDataLine}>
+                      🔒 Distance, location, and availability unlock after signup
+                    </p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  className={styles.primaryBtn}
+                  className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`}
                   onClick={() => {
                     saveLandingPrefs({ training, level, timePref });
                     setStep(3);
@@ -315,27 +409,42 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
             {step === 3 && (
               <div className={styles.step}>
                 <h2 className={styles.title}>Unlock your matches</h2>
-                <p className={styles.lead}>You already have 3 athletes waiting</p>
-                <p className={styles.paywallUrgency}>⏳ Matches refresh every 24 hours</p>
+                <p className={styles.lead}>You already have compatible athletes waiting</p>
+                <p className={styles.paywallTrust}>We&apos;ll show distance and availability after signup</p>
+                <p className={styles.paywallUrgency}>⏳ Matches update daily</p>
                 <p className={styles.paywallSocial}>🔥 12,000+ athletes matched this week</p>
                 <div className={`${styles.deck} ${styles.deckPaywall}`}>
-                  <div className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft} ${styles.deckLockedHeavy}`} aria-hidden>
+                  <div
+                    className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft} ${styles.deckLockedHeavy} ${styles.deckGhost}`}
+                    aria-hidden
+                  >
                     <div className={styles.lockBadge}>
                       <span aria-hidden>🔒</span> Locked
                     </div>
-                    <img src={PREVIEW_AVATARS[0]} alt="" className={styles.deckAvatar} width={88} height={88} />
                   </div>
-                  <div className={`${styles.deckCard} ${styles.deckBack} ${styles.deckRight} ${styles.deckLockedHeavy}`} aria-hidden>
+                  <div
+                    className={`${styles.deckCard} ${styles.deckBack} ${styles.deckRight} ${styles.deckLockedHeavy} ${styles.deckGhost}`}
+                    aria-hidden
+                  >
                     <div className={styles.lockBadge}>
                       <span aria-hidden>🔒</span> Locked
                     </div>
-                    <img src={PREVIEW_AVATARS[2]} alt="" className={styles.deckAvatar} width={88} height={88} />
                   </div>
                   <div className={`${styles.deckCard} ${styles.deckFront} ${styles.deckDim} ${styles.deckPaywallFront}`}>
                     <div className={styles.lockOverlay} aria-hidden>
                       <span className={styles.lockIcon}>🔒</span>
                     </div>
-                    <img src={PREVIEW_AVATARS[1]} alt="" className={styles.deckAvatar} width={96} height={96} />
+                    {primaryPreviewUser?.photoUrl ? (
+                      <img
+                        src={primaryPreviewUser.photoUrl}
+                        alt=""
+                        className={styles.deckAvatar}
+                        width={96}
+                        height={96}
+                      />
+                    ) : (
+                      <div className={styles.deckAvatarPlaceholder} aria-hidden />
+                    )}
                     <span className={styles.deckName}>Sign up to view</span>
                   </div>
                 </div>
@@ -343,7 +452,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                   <span className={styles.googleMark} aria-hidden />
                   Continue with Google
                 </button>
-                <button type="button" className={styles.primaryBtn} onClick={persistPrefsAndGoSignup}>
+                <button type="button" className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`} onClick={persistPrefsAndGoSignup}>
                   Continue with email
                 </button>
                 <p className={styles.ctaMicro}>Free to start • Takes 10 seconds</p>

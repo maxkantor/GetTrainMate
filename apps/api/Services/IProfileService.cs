@@ -1,9 +1,13 @@
+using Amazon.DynamoDBv2.Model;
 using GetTrainMate.Api.Models;
 
 namespace GetTrainMate.Api.Services;
 
 public interface IProfileService
 {
+    /// <summary>Deserialize a DynamoDB item from Scan into <see cref="UserProfile"/> (for public preview, etc.).</summary>
+    UserProfile? TryMapDynamoItemToProfile(Dictionary<string, AttributeValue>? item);
+
     Task<UserProfile?> GetProfileAsync(string userId);
     Task<UserProfile> CreateProfileAsync(UserProfile profile);
     /// <summary>If the profile exists and <see cref="UserProfile.Email"/> is empty, set it and persist (idempotent).</summary>
