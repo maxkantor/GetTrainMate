@@ -161,12 +161,22 @@ public class Startup
         services.AddSingleton(new StripeWebhookSecret(stripeWebhookSecret ?? string.Empty));
 
         // SES: appsettings / Lambda env → SSM /gettrainmate/ses-from-email (matches Stripe/Bedrock pattern)
-        var sesFromEmail = (Configuration["SES:FromEmail"]
-            ?? Environment.GetEnvironmentVariable("SES_FROM_EMAIL")
-            ?? "").Trim();
-        var sesAdminEmail = (Configuration["SES:AdminEmail"]
-            ?? Environment.GetEnvironmentVariable("SES_ADMIN_EMAIL")
-            ?? "").Trim();
+        static string? EnvNonEmpty(string name)
+        {
+            var v = Environment.GetEnvironmentVariable(name);
+            return string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+        }
+
+        static string FirstNonEmpty(params string?[] candidates)
+        {
+            foreach (var c in candidates)
+                if (!string.IsNullOrWhiteSpace(c))
+                    return c!.Trim();
+            return "";
+        }
+
+        var sesFromEmail = FirstNonEmpty(Configuration["SES:FromEmail"], EnvNonEmpty("SES_FROM_EMAIL"));
+        var sesAdminEmail = FirstNonEmpty(Configuration["SES:AdminEmail"], EnvNonEmpty("SES_ADMIN_EMAIL"));
         const string ssmSesFrom = "/gettrainmate/ses-from-email";
         const string ssmSesAdmin = "/gettrainmate/ses-admin-email";
         if (string.IsNullOrEmpty(sesFromEmail) || string.IsNullOrEmpty(sesAdminEmail))

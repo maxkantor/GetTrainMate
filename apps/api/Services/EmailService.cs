@@ -16,7 +16,6 @@ public class EmailService : IEmailService
     private readonly IAmazonSimpleEmailService _ses;
     private readonly IConfiguration _configuration;
     private readonly ILogger<EmailService> _logger;
-    private readonly string _fromEmail;
     private readonly string? _configurationSet;
 
     public EmailService(
@@ -30,16 +29,25 @@ public class EmailService : IEmailService
 
         // Do not throw here: Match/Chat/DI would fail with 500 before any request runs.
         // Validate in SendEmailAsync when mail is actually sent.
-        _fromEmail = (Environment.GetEnvironmentVariable("SES_FROM_EMAIL")
-            ?? configuration["SES:FromEmail"]
-            ?? "").Trim();
-
-        if (string.IsNullOrEmpty(_fromEmail))
+        if (string.IsNullOrWhiteSpace(ResolveConfiguredFromAddress()))
             _logger.LogWarning(
                 "SES_FROM_EMAIL not set (env SES_FROM_EMAIL or SES:FromEmail). Outbound email is disabled until configured.");
 
         _configurationSet = Environment.GetEnvironmentVariable("SES_CONFIGURATION_SET")
             ?? configuration["SES:ConfigurationSet"];
+    }
+
+    /// <summary>
+    /// Lambda often defines <c>SES_FROM_EMAIL</c> as an empty string; treat whitespace-only as unset so
+    /// <see cref="Startup"/> SSM hydration still applies.
+    /// </summary>
+    private string? ResolveConfiguredFromAddress()
+    {
+        var env = Environment.GetEnvironmentVariable("SES_FROM_EMAIL");
+        if (!string.IsNullOrWhiteSpace(env))
+            return env.Trim();
+        var cfg = _configuration["SES:FromEmail"];
+        return string.IsNullOrWhiteSpace(cfg) ? null : cfg.Trim();
     }
 
     public async Task<string> SendEmailAsync(
@@ -52,7 +60,8 @@ public class EmailService : IEmailService
         List<EmailAttachment>? attachments = null,
         string? threadId = null)
     {
-        if (string.IsNullOrWhiteSpace(_fromEmail))
+        var from = ResolveConfiguredFromAddress();
+        if (string.IsNullOrWhiteSpace(from))
         {
             _logger.LogWarning("SendEmailAsync skipped: SES_FROM_EMAIL not configured (to={To})", to);
             throw new InvalidOperationException(
@@ -63,7 +72,7 @@ public class EmailService : IEmailService
         {
             var request = new SendEmailRequest
             {
-                Source = _fromEmail,
+                Source = from,
                 Destination = new Destination
                 {
                     ToAddresses = new List<string> { to },
