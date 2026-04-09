@@ -358,7 +358,13 @@ public class AdminContactsController : ControllerBase
                 };
             }
 
-            // Send email via SES
+            var adminMail = (admin.Email ?? "").Trim();
+            IReadOnlyList<string>? replyTo =
+                string.IsNullOrEmpty(adminMail) || !adminMail.Contains('@', StringComparison.Ordinal)
+                    ? null
+                    : new[] { adminMail };
+
+            // Send email via SES (Reply-To admin so the contact can reply in a normal mail client)
             var messageId = await _emailService.SendEmailAsync(
                 to: request.To,
                 subject: request.Subject,
@@ -372,7 +378,8 @@ public class AdminContactsController : ControllerBase
                     ContentType = a.ContentType,
                     Content = Convert.FromBase64String(a.ContentBase64)
                 }).ToList(),
-                threadId: thread.ThreadId);
+                threadId: thread.ThreadId,
+                replyToAddresses: replyTo);
 
             // Store message in database
             var message = new ContactEmailMessage

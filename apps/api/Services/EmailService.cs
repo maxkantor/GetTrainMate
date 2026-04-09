@@ -58,7 +58,8 @@ public class EmailService : IEmailService
         List<string>? cc = null,
         List<string>? bcc = null,
         List<EmailAttachment>? attachments = null,
-        string? threadId = null)
+        string? threadId = null,
+        IReadOnlyList<string>? replyToAddresses = null)
     {
         var from = ResolveConfiguredFromAddress();
         if (string.IsNullOrWhiteSpace(from))
@@ -89,6 +90,17 @@ public class EmailService : IEmailService
                     }
                 }
             };
+
+            if (replyToAddresses is { Count: > 0 })
+            {
+                var rt = replyToAddresses
+                    .Where(static s => !string.IsNullOrWhiteSpace(s))
+                    .Select(static s => s.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (rt.Count > 0)
+                    request.ReplyToAddresses = rt;
+            }
 
             // Add configuration set if configured
             if (!string.IsNullOrEmpty(_configurationSet))

@@ -37,3 +37,29 @@ public class LandingMatchPreviewUserDto
     public string GoalLine { get; set; } = "";
     public string? PhotoUrl { get; set; }
 }
+
+/// <summary>Anonymous landing hero activity cards + swipe demo deck (real profile photos; no distance/city).</summary>
+public class LandingShowcaseResponse
+{
+    /// <summary>live = at least one image from DB; empty = no usable profiles.</summary>
+    public string Kind { get; set; } = "empty";
+
+    public IReadOnlyList<LandingShowcaseActivityDto> Activity { get; set; } = Array.Empty<LandingShowcaseActivityDto>();
+
+    public IReadOnlyList<LandingShowcaseDeckCardDto> Deck { get; set; } = Array.Empty<LandingShowcaseDeckCardDto>();
+}
+
+public class LandingShowcaseActivityDto
+{
+    public string Line { get; set; } = "";
+    public string? AvatarUrl { get; set; }
+}
+
+public class LandingShowcaseDeckCardDto
+{
+    public string Name { get; set; } = "";
+    public int? Age { get; set; }
+    public string? PhotoUrl { get; set; }
+    public IReadOnlyList<string> Tags { get; set; } = Array.Empty<string>();
+    public int MatchPct { get; set; }
+}

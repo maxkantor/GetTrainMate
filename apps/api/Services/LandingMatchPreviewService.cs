@@ -1,3 +1,4 @@
+using System.Globalization;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using GetTrainMate.Api.Models;
@@ -18,6 +19,7 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
     private readonly IProfileService _profiles;
     private readonly IStorageService _storage;
     private readonly string _tableName;
+    private readonly string _matchesTable;
     private readonly ILogger<LandingMatchPreviewService> _logger;
 
     public LandingMatchPreviewService(
@@ -32,6 +34,7 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         _storage = storage;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _tableName = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
+        _matchesTable = configuration["DYNAMODB_TABLE_MATCHES"] ?? $"{prefix}matches";
         _logger = logger;
     }
 
@@ -84,6 +87,201 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             ExampleLabel = "Example match based on your preferences",
             Users = new[] { BuildDemoUser() },
         };
+    }
+
+    public async Task<LandingShowcaseResponse> GetShowcaseAsync(CancellationToken cancellationToken = default)
+    {
+        var pool = await ScanCompleteProfilesAsync(cancellationToken).ConfigureAwait(false);
+        var withPhotos = pool
+            .Select(p => (Profile: p, Url: ResolvePrimaryPhotoUrl(p)))
+            .Where(x => !string.IsNullOrEmpty(x.Url))
+            .OrderByDescending(x => x.Profile.UpdatedAt)
+            .ToList();
+
+        if (withPhotos.Count == 0)
+            return new LandingShowcaseResponse { Kind = "empty" };
+
+        var deckProfiles = withPhotos.Select(x => x.Profile).DistinctBy(p => p.UserId).Take(24).ToList();
+        const int deckTarget = 6;
+        var deck = new List<LandingShowcaseDeckCardDto>();
+        for (var i = 0; i < deckTarget && deckProfiles.Count > 0; i++)
+        {
+            var p = deckProfiles[i % deckProfiles.Count];
+            deck.Add(MapToDeckCard(p));
+        }
+
+        var activity = await BuildShowcaseActivityAsync(withPhotos.Select(x => x.Profile).DistinctBy(p => p.UserId).ToList(), cancellationToken)
+            .ConfigureAwait(false);
+
+        return new LandingShowcaseResponse
+        {
+            Kind = "live",
+            Activity = activity,
+            Deck = deck,
+        };
+    }
+
+    private async Task<IReadOnlyList<LandingShowcaseActivityDto>> BuildShowcaseActivityAsync(
+        IReadOnlyList<UserProfile> profilePool,
+        CancellationToken ct)
+    {
+        var rows = await ScanRecentMutualMatchesAsync(ct, maxRows: 60).ConfigureAwait(false);
+        var activity = new List<LandingShowcaseActivityDto>();
+
+        foreach (var (u1, u2, _) in rows)
+        {
+            if (activity.Count >= 2)
+                break;
+            var a = await _profiles.GetProfileAsync(u1).ConfigureAwait(false);
+            var b = await _profiles.GetProfileAsync(u2).ConfigureAwait(false);
+            if (a == null || b == null || string.IsNullOrWhiteSpace(a.Name) || string.IsNullOrWhiteSpace(b.Name))
+                continue;
+            var av = ResolvePrimaryPhotoUrl(a) ?? ResolvePrimaryPhotoUrl(b);
+            if (string.IsNullOrEmpty(av))
+                continue;
+            activity.Add(new LandingShowcaseActivityDto
+            {
+                Line = $"{FirstName(a.Name)} matched with {FirstName(b.Name)}",
+                AvatarUrl = av,
+            });
+        }
+
+        if (profilePool.Count > 0)
+        {
+            while (activity.Count < 3)
+            {
+                var p = profilePool[activity.Count % profilePool.Count];
+                var url = ResolvePrimaryPhotoUrl(p);
+                if (string.IsNullOrEmpty(url))
+                    break;
+                var line = activity.Count switch
+                {
+                    0 => $"{FirstName(p.Name)} found a training partner",
+                    1 => $"{FirstName(p.Name)} matched recently",
+                    _ => "New training partners every week",
+                };
+                activity.Add(new LandingShowcaseActivityDto { Line = line, AvatarUrl = url });
+                if (profilePool.Count == 1 && activity.Count >= 2)
+                    break;
+            }
+        }
+
+        return activity.Count > 0 ? activity : Array.Empty<LandingShowcaseActivityDto>();
+    }
+
+    private async Task<List<(string U1, string U2, DateTime Updated)>> ScanRecentMutualMatchesAsync(CancellationToken ct, int maxRows)
+    {
+        var parsed = new List<(string, string, DateTime)>();
+        Dictionary<string, AttributeValue>? startKey = null;
+        var pages = 0;
+        const int pageLimit = 80;
+
+        while (!ct.IsCancellationRequested && pages < 8 && parsed.Count < maxRows)
+        {
+            var req = new ScanRequest
+            {
+                TableName = _matchesTable,
+                Limit = pageLimit,
+                ExclusiveStartKey = startKey,
+                FilterExpression = "isMatched = :m",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":m"] = new AttributeValue { BOOL = true },
+                },
+            };
+
+            var resp = await _ddb.ScanAsync(req, ct).ConfigureAwait(false);
+            pages++;
+
+            foreach (var item in resp.Items)
+            {
+                if (!item.TryGetValue("userId1", out var id1) || string.IsNullOrWhiteSpace(id1.S))
+                    continue;
+                if (!item.TryGetValue("userId2", out var id2) || string.IsNullOrWhiteSpace(id2.S))
+                    continue;
+                var updated = DateTime.UtcNow.AddDays(-7);
+                if (item.TryGetValue("updatedAt", out var uAt) && !string.IsNullOrWhiteSpace(uAt.S))
+                {
+                    if (DateTime.TryParse(uAt.S, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+                        updated = dt.ToUniversalTime();
+                }
+                parsed.Add((id1.S!, id2.S!, updated));
+            }
+
+            if (resp.LastEvaluatedKey == null || resp.LastEvaluatedKey.Count == 0)
+                break;
+            startKey = resp.LastEvaluatedKey;
+        }
+
+        return parsed
+            .OrderByDescending(x => x.Item3)
+            .Take(maxRows)
+            .ToList();
+    }
+
+    private static string FirstName(string fullName)
+    {
+        var t = fullName.Trim();
+        var sp = t.IndexOf(' ');
+        return sp > 0 ? t[..sp] : t;
+    }
+
+    private LandingShowcaseDeckCardDto MapToDeckCard(UserProfile p)
+    {
+        var tags = p.SportTags
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.Trim().ToUpperInvariant())
+            .Distinct()
+            .ToList();
+        foreach (var g in p.Goals.Where(x => !string.IsNullOrWhiteSpace(x)))
+        {
+            if (tags.Count >= 3)
+                break;
+            var up = g.Trim().ToUpperInvariant();
+            if (!tags.Contains(up))
+                tags.Add(up);
+        }
+        while (tags.Count < 3)
+            tags.Add(tags.Count > 0 ? tags[0] : "TRAINING");
+
+        var hash = StringComparer.Ordinal.GetHashCode(p.UserId);
+        var matchPct = 85 + (Math.Abs(hash) % 10);
+
+        return new LandingShowcaseDeckCardDto
+        {
+            Name = p.Name.Trim(),
+            Age = ComputeAge(p.BirthDate),
+            PhotoUrl = ResolvePrimaryPhotoUrl(p),
+            Tags = tags,
+            MatchPct = matchPct,
+        };
+    }
+
+    private string? ResolvePrimaryPhotoUrl(UserProfile p)
+    {
+        var raw = p.PhotoUrls ?? new List<string>();
+        var list = raw.Where(u => !string.IsNullOrWhiteSpace(u)).Select(u => u.Trim()).ToList();
+        for (var i = 0; i < list.Count; i++)
+        {
+            var signed = _storage.TryPresignCanonicalMediaUrl(list[i], TimeSpan.FromHours(1));
+            if (!string.IsNullOrEmpty(signed))
+                list[i] = signed!;
+        }
+        if (list.Count > 0)
+            return list[0];
+
+        var keyForCover = p.PhotoKeys is { Count: > 0 } ? p.PhotoKeys[0] : p.PhotoKey;
+        if (string.IsNullOrEmpty(keyForCover))
+            return null;
+        try
+        {
+            return _storage.GetPresignedDownloadUrl(keyForCover, TimeSpan.FromHours(1));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Presign showcase photo for {UserId}", p.UserId);
+            return null;
+        }
     }
 
     private async Task<List<UserProfile>> ScanCompleteProfilesAsync(CancellationToken ct)
@@ -165,27 +363,13 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
 
     private Task<LandingMatchPreviewUserDto> MapToDtoAsync(UserProfile p, CancellationToken ct)
     {
-        var key = p.PhotoKeys.FirstOrDefault() ?? p.PhotoKey;
-        string? photoUrl = null;
-        if (!string.IsNullOrEmpty(key))
-        {
-            try
-            {
-                photoUrl = _storage.GetPresignedDownloadUrl(key, TimeSpan.FromHours(1));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Presign preview photo for {UserId}", p.UserId);
-            }
-        }
-
         return Task.FromResult(new LandingMatchPreviewUserDto
         {
             Name = p.Name.Trim(),
             Age = ComputeAge(p.BirthDate),
             TrainingSummary = BuildTrainingSummary(p),
             GoalLine = BuildGoalLine(p),
-            PhotoUrl = photoUrl,
+            PhotoUrl = ResolvePrimaryPhotoUrl(p),
         });
     }
 

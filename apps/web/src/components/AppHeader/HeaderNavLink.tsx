@@ -11,6 +11,7 @@ interface HeaderNavLinkProps {
   alsoActiveOnPaths?: string[];
   /** Unread count badge (e.g. chat). */
   badgeCount?: number;
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>;
 }
 
 export const HeaderNavLink: React.FC<HeaderNavLinkProps> = ({
@@ -20,6 +21,7 @@ export const HeaderNavLink: React.FC<HeaderNavLinkProps> = ({
   exact = false,
   alsoActiveOnPaths,
   badgeCount,
+  onClick,
 }) => {
   const location = useLocation();
   const extraActive =
@@ -29,6 +31,7 @@ export const HeaderNavLink: React.FC<HeaderNavLinkProps> = ({
     <NavLink
       to={to}
       end={exact}
+      onClick={onClick}
       className={({ isActive }) =>
         `${styles.headerNavLink} ${isActive || extraActive ? styles.headerNavLinkActive : ''}`
       }

@@ -5,11 +5,20 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
 import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
+import { fetchLandingShowcase } from '@/services/landingShowcaseService';
 import styles from './SwipeDemoSection.module.css';
 
 type Phase = 'idle' | 'swipe' | 'match';
 
-const PROFILES = [
+type DeckProfile = {
+  name: string;
+  age: number;
+  photo: string;
+  tags: string[];
+  matchPct: number;
+};
+
+const FALLBACK_PROFILES: DeckProfile[] = [
   {
     name: 'Jordan',
     age: 28,
@@ -45,7 +54,7 @@ const PROFILES = [
     tags: ['HYROX', 'Strength', '5AM'],
     matchPct: 89,
   },
-] as const;
+];
 
 const IDLE_MS = 3000;
 const SWIPE_MS = 580;
@@ -89,7 +98,7 @@ function MatchBadge({ percent }: { percent: number }) {
 }
 
 type FaceProps = {
-  profile: (typeof PROFILES)[number];
+  profile: DeckProfile;
   depth: 0 | 1 | 2;
 };
 
@@ -153,13 +162,38 @@ export const SwipeDemoSection: React.FC = () => {
   const reduceMotion = useReducedMotion();
   const { isAuthenticated } = useAuthContext();
   const { openEntryFlow } = useLandingConversion();
+  const [profiles, setProfiles] = useState<DeckProfile[]>(() => [...FALLBACK_PROFILES]);
   const [phase, setPhase] = useState<Phase>('idle');
   const [deckIndex, setDeckIndex] = useState(0);
   const timersRef = useRef<number[]>([]);
   const deckRef = useRef<HTMLDivElement>(null);
   const photoShellRef = useRef<HTMLDivElement>(null);
 
-  const len = PROFILES.length;
+  useEffect(() => {
+    let cancelled = false;
+    fetchLandingShowcase().then((data) => {
+      if (cancelled || !data || data.kind !== 'live' || data.deck.length < 3) return;
+      const mapped: DeckProfile[] = data.deck.map((card, i) => {
+        const fallback = FALLBACK_PROFILES[i % FALLBACK_PROFILES.length];
+        const photo = (card.photoUrl || '').trim() || fallback.photo;
+        const tags =
+          card.tags?.filter((t) => t && t.trim().length > 0).map((t) => t.trim()) ?? fallback.tags;
+        return {
+          name: card.name?.trim() || fallback.name,
+          age: card.age ?? fallback.age,
+          photo,
+          tags: tags.length > 0 ? tags : fallback.tags,
+          matchPct: typeof card.matchPct === 'number' ? card.matchPct : fallback.matchPct,
+        };
+      });
+      setProfiles(mapped);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const len = profiles.length;
   const iFront = deckIndex % len;
   const iMid = (deckIndex + 1) % len;
   const iBack = (deckIndex + 2) % len;
@@ -267,8 +301,8 @@ export const SwipeDemoSection: React.FC = () => {
           <div className={styles.deckParallax}>
             <div className={styles.deckFloat}>
             <div className={styles.stackBehind}>
-              <DeckFace profile={PROFILES[iBack]} depth={2} />
-              <DeckFace profile={PROFILES[iMid]} depth={1} />
+              <DeckFace profile={profiles[iBack]} depth={2} />
+              <DeckFace profile={profiles[iMid]} depth={1} />
             </div>
 
             <motion.div
@@ -311,7 +345,7 @@ export const SwipeDemoSection: React.FC = () => {
                   onMouseMove={onPhotoParallax}
                   onMouseLeave={onPhotoParallaxLeave}
                 >
-                  <DeckFace profile={PROFILES[iFront]} depth={0} />
+                  <DeckFace profile={profiles[iFront]} depth={0} />
                 </div>
               </motion.div>
             </motion.div>

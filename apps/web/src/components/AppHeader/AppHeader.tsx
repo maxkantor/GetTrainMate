@@ -11,6 +11,7 @@ import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { useMatchStatusForHeader } from '@/hooks/useMatchStatusForHeader';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
+import { requestChatNavScrollTop } from '@/utils/chatNav';
 import styles from './AppHeader.module.css';
 
 export const AppHeader: React.FC = () => {
@@ -263,6 +264,7 @@ export const AppHeader: React.FC = () => {
                     exact={item.exact ?? false}
                     alsoActiveOnPaths={item.alsoActiveOnPaths}
                     badgeCount={item.href === '/app/chat' ? chatUnread : undefined}
+                    onClick={item.href === '/app/chat' ? () => requestChatNavScrollTop() : undefined}
                   />
                 ))}
               </nav>
@@ -383,7 +385,10 @@ export const AppHeader: React.FC = () => {
                         key={href}
                         to={href}
                         className={`${styles.mobileLink} ${navActive ? styles.mobileLinkActive : ''}`}
-                        onClick={() => setMobileOpen(false)}
+                        onClick={() => {
+                          setMobileOpen(false);
+                          if (href === '/app/chat') requestChatNavScrollTop();
+                        }}
                       >
                         {label}
                       </RouterLink>

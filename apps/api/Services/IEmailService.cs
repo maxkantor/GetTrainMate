@@ -11,7 +11,8 @@ public interface IEmailService
         List<string>? cc = null,
         List<string>? bcc = null,
         List<EmailAttachment>? attachments = null,
-        string? threadId = null);
+        string? threadId = null,
+        IReadOnlyList<string>? replyToAddresses = null);
 }
 
 public class EmailAttachment

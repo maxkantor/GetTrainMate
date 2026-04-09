@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useSearchParams, Link, useLocation } from 'react-router-dom';
 import { Button, CircularProgress, Alert, Snackbar } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import LockIcon from '@mui/icons-material/Lock';
@@ -23,6 +23,7 @@ import { profileService } from '@/services/profileService';
 import { IMAGE_BUCKET_BASE } from '@/config/media';
 import { setChatUnreadTotal } from '@/utils/chatUnreadStore';
 import { useChatPresence } from '@/contexts/ChatPresenceContext';
+import { CHAT_NAV_SCROLL_TOP_EVENT } from '@/utils/chatNav';
 import chatStyles from './Chat.module.css';
 
 /** Keep a single row per peer when the API returns duplicate thread docs for the same pair. */
@@ -57,6 +58,7 @@ export const ChatPage: React.FC = () => {
   const { user } = useAuthContext();
   const { me, refreshMe } = useMe();
   const { setActiveChatThreadId } = useChatPresence();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const threadIdFromUrl = searchParams.get('thread');
 
@@ -77,7 +79,25 @@ export const ChatPage: React.FC = () => {
   const [msgToast, setMsgToast] = useState<{ name: string } | null>(null);
   const [highlightedThreadId, setHighlightedThreadId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const threadItemsRef = useRef<HTMLDivElement>(null);
+  const chatTitleRef = useRef<HTMLHeadingElement>(null);
   const selectedThreadIdRef = useRef<string | null>(null);
+
+  const scrollChatChromeToTop = useCallback((focusHeading: boolean) => {
+    threadItemsRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    if (focusHeading) chatTitleRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
+    const onNavChat = () => scrollChatChromeToTop(true);
+    window.addEventListener(CHAT_NAV_SCROLL_TOP_EVENT, onNavChat);
+    return () => window.removeEventListener(CHAT_NAV_SCROLL_TOP_EVENT, onNavChat);
+  }, [scrollChatChromeToTop]);
+
+  useEffect(() => {
+    if (location.pathname !== '/app/chat') return;
+    scrollChatChromeToTop(false);
+  }, [location.pathname, location.search, scrollChatChromeToTop]);
 
   useEffect(() => {
     selectedThreadIdRef.current = selectedThreadId;
@@ -509,8 +529,10 @@ export const ChatPage: React.FC = () => {
       <div className={chatStyles.layout}>
         {/* Thread List */}
         <aside className={chatStyles.threadList}>
-          <h2 className={chatStyles.threadListTitle}>{t('nav.chat')}</h2>
-          <div className={chatStyles.threadItems}>
+          <h2 ref={chatTitleRef} className={chatStyles.threadListTitle} tabIndex={-1}>
+            {t('nav.chat')}
+          </h2>
+          <div ref={threadItemsRef} className={chatStyles.threadItems}>
             {threads.map((thread) => (
               <button
                 key={thread.threadId}

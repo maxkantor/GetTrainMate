@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import styles from './HeroFloatingStack.module.css';
+import { fetchLandingShowcase } from '@/services/landingShowcaseService';
 
-const STACK = [
+type StackItem = { text: string; avatar: string };
+
+const FALLBACK: StackItem[] = [
   {
     text: 'Sofia matched with Marcus',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=faces',
@@ -11,28 +14,44 @@ const STACK = [
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=faces',
   },
   {
-    text: '3 matches near Atlanta',
+    text: 'New matches every day',
     avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&h=120&fit=crop&crop=faces',
   },
-] as const;
+];
 
 const ROTATE_MS = 4000;
 
 export const HeroFloatingStack: React.FC = () => {
+  const [stack, setStack] = useState<StackItem[]>(FALLBACK);
   const [focusIdx, setFocusIdx] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+    fetchLandingShowcase().then((data) => {
+      if (cancelled || !data || data.kind !== 'live' || !data.activity?.length) return;
+      const next: StackItem[] = data.activity.slice(0, 3).map((row, i) => ({
+        text: row.line,
+        avatar: (row.avatarUrl || '').trim() || FALLBACK[i % FALLBACK.length].avatar,
+      }));
+      if (next.length === 3) setStack(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const id = window.setInterval(() => {
-      setFocusIdx((i) => (i + 1) % STACK.length);
+      setFocusIdx((i) => (i + 1) % stack.length);
     }, ROTATE_MS);
     return () => clearInterval(id);
-  }, []);
+  }, [stack.length]);
 
   return (
     <div className={styles.wrap} aria-hidden>
-      {STACK.map((item, i) => (
+      {stack.map((item, i) => (
         <div
-          key={item.text}
+          key={`${item.text}-${i}`}
           className={`${styles.cardOuter} ${styles[`layer${i}`]} ${focusIdx === i ? styles.cardOuterFocus : ''}`}
         >
           <div className={`${styles.cardInner} ${focusIdx === i ? styles.cardInnerFocus : ''}`}>

@@ -38,7 +38,12 @@ public class AdminNotificationService : IAdminNotificationService
             .ToList();
     }
 
-    private async Task SendToAllAsync(string subject, string text, string? html, CancellationToken cancellationToken)
+    private async Task SendToAllAsync(
+        string subject,
+        string text,
+        string? html,
+        CancellationToken cancellationToken,
+        IReadOnlyList<string>? replyToAddresses = null)
     {
         var to = AdminRecipients();
         if (to.Count == 0)
@@ -49,7 +54,7 @@ public class AdminNotificationService : IAdminNotificationService
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await _email.SendEmailAsync(address, subject, text, html);
+                await _email.SendEmailAsync(address, subject, text, html, replyToAddresses: replyToAddresses);
             }
             catch (Exception ex)
             {
@@ -71,7 +76,11 @@ public class AdminNotificationService : IAdminNotificationService
         lines.Add($"Time (UTC): {DateTime.UtcNow:O}");
         var text = string.Join(Environment.NewLine, lines);
         var html = $"<p>{string.Join("</p><p>", lines.Select(System.Net.WebUtility.HtmlEncode))}</p>";
-        return SendToAllAsync(subject, text, html, cancellationToken);
+        var signupReplyTrim = (userEmail ?? "").Trim();
+        IReadOnlyList<string>? signupReplyTo = string.IsNullOrEmpty(signupReplyTrim) || !signupReplyTrim.Contains('@', StringComparison.Ordinal)
+            ? null
+            : new[] { signupReplyTrim };
+        return SendToAllAsync(subject, text, html, cancellationToken, signupReplyTo);
     }
 
     public Task NotifyCreditsPurchaseAsync(
@@ -102,7 +111,7 @@ public class AdminNotificationService : IAdminNotificationService
         lines.Add($"Time (UTC): {DateTime.UtcNow:O}");
         var text = string.Join(Environment.NewLine, lines);
         var html = $"<p>{string.Join("</p><p>", lines.Select(System.Net.WebUtility.HtmlEncode))}</p>";
-        return SendToAllAsync(subject, text, html, cancellationToken);
+        return SendToAllAsync(subject, text, html, cancellationToken, replyToAddresses: null);
     }
 
     public Task NotifyContactFormAsync(
@@ -134,6 +143,10 @@ public class AdminNotificationService : IAdminNotificationService
         var html = "<pre style=\"font-family:sans-serif;white-space:pre-wrap\">"
             + System.Net.WebUtility.HtmlEncode(text)
             + "</pre>";
-        return SendToAllAsync(mailSubject, text, html, cancellationToken);
+        var trimmed = (email ?? "").Trim();
+        IReadOnlyList<string>? replyTo = string.IsNullOrEmpty(trimmed) || !trimmed.Contains('@', StringComparison.Ordinal)
+            ? null
+            : new[] { trimmed };
+        return SendToAllAsync(mailSubject, text, html, cancellationToken, replyTo);
     }
 }

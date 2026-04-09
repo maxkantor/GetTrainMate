@@ -48,4 +48,20 @@ public class PublicMatchPreviewController : ControllerBase
             return StatusCode(503, new { error = "Preview temporarily unavailable." });
         }
     }
+
+    [HttpGet("landing-showcase")]
+    [AllowAnonymous]
+    public async Task<ActionResult<LandingShowcaseResponse>> LandingShowcase(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _preview.GetShowcaseAsync(cancellationToken).ConfigureAwait(false);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "landing-showcase failed");
+            return StatusCode(503, new { error = "Showcase temporarily unavailable." });
+        }
+    }
 }
