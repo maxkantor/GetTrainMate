@@ -22,8 +22,13 @@ import { useI18n } from '@/hooks/useI18n';
 import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import { GraphQLApiError } from '@/services/graphqlService';
 import { matchQueryKeys } from '@/lib/queryKeys';
-import { fetchSentRequestsForUser, cancelSentInviteForUser } from '@/services/matchExploreQueries';
+import {
+  fetchSentRequestsForUser,
+  fetchIncomingLikesForUser,
+  cancelSentInviteForUser,
+} from '@/services/matchExploreQueries';
 import type { SentRequestItem } from '@/services/matchService';
+import { creditPhrase } from '@/config/premiumCatalog';
 import styles from './ConnectionsList.module.css';
 
 function SentCard({
@@ -120,6 +125,15 @@ export const SentRequestsPage: React.FC = () => {
     enabled: !!userSub,
   });
 
+  const {
+    data: incomingPayload,
+    isLoading: incomingLoading,
+  } = useQuery({
+    queryKey: matchQueryKeys.incomingLikes(userSub),
+    queryFn: () => fetchIncomingLikesForUser(userSub),
+    enabled: !!userSub,
+  });
+
   const cancelMutation = useMutation({
     mutationFn: (targetUserId: string) => cancelSentInviteForUser(targetUserId),
     onSuccess: () => {
@@ -193,6 +207,52 @@ export const SentRequestsPage: React.FC = () => {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('sentRequests.subtitle')}
       </Typography>
+
+      {incomingLoading ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+          <CircularProgress size={22} />
+          <Typography variant="body2" color="text.secondary">
+            Checking incoming interests…
+          </Typography>
+        </Box>
+      ) : incomingPayload && !incomingPayload.unlocked ? (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button component={Link} to="/app/profile" size="small" variant="outlined" color="inherit">
+              Unlock on Profile
+            </Button>
+          }
+        >
+          Reveal who liked you ({creditPhrase(incomingPayload.requiredCredits ?? 3)}) to see athletes who sent
+          interest before you matched. One-time unlock.
+        </Alert>
+      ) : null}
+
+      {incomingPayload?.unlocked && (incomingPayload.items?.length ?? 0) > 0 ? (
+        <>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, letterSpacing: '0.06em' }}>
+            Liked you first
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Open a profile and like back to match.
+          </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+              gap: 2,
+              mb: 3,
+            }}
+          >
+            {incomingPayload.items!.map((row) => (
+              <SentCard key={`in-${row.matchId}-${row.userId}`} row={row} showCancelButton={false} />
+            ))}
+          </Box>
+        </>
+      ) : null}
+
       {error ? (
         <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => refetch()}>Retry</Button>}>
           {error}

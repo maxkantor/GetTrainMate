@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Box,
@@ -42,6 +43,10 @@ import { authService } from '@/services/authService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
 import { getProfileOptimize, getAiErrorMessage } from '@/services/aiService';
 import type { ProfileOptimizeResponse } from '@/types/ai';
+import { loadPremiumCatalog, PREMIUM_ACTION, creditPhrase } from '@/config/premiumCatalog';
+import { activateProfileBoost24h, unlockRevealLikes } from '@/services/premiumService';
+import { matchQueryKeys } from '@/lib/queryKeys';
+import { trackPremiumAction } from '@/utils/analytics';
 
 const TRAINING_GOALS = [
   'Lose fat',
@@ -92,9 +97,25 @@ function snapshotProfile(form: UpdateProfileRequest, photoKeys: string[]): strin
 
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { t } = useI18n();
   const { me, refreshMe } = useMe();
   const uploadLimits = useMemo(() => getUploadLimits(me?.credits ?? 0), [me?.credits]);
+
+  const [profileAiCost, setProfileAiCost] = useState(2);
+  const [boostCost, setBoostCost] = useState(2);
+  const [revealCost, setRevealCost] = useState(3);
+  const [premiumBoostLoading, setPremiumBoostLoading] = useState(false);
+  const [premiumRevealLoading, setPremiumRevealLoading] = useState(false);
+  const [premiumToast, setPremiumToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    void loadPremiumCatalog().then((cat) => {
+      setProfileAiCost(cat.costs[PREMIUM_ACTION.aiProfileRewrite] ?? 2);
+      setBoostCost(cat.costs[PREMIUM_ACTION.profileBoost24h] ?? 2);
+      setRevealCost(cat.costs[PREMIUM_ACTION.revealLikes] ?? 3);
+    });
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -222,6 +243,12 @@ export const ProfilePage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const boostActive = useMemo(() => {
+    if (!me?.boostExpiresAtUtc) return false;
+    const ms = Date.parse(me.boostExpiresAtUtc);
+    return !Number.isNaN(ms) && ms > Date.now();
+  }, [me?.boostExpiresAtUtc]);
 
   const isDirty = useMemo(() => {
     if (!baseline) return false;
@@ -434,6 +461,8 @@ export const ProfilePage: React.FC = () => {
                 scheduleSummary,
               });
               setAiSuggestions(res);
+              await refreshMe();
+              trackPremiumAction('ai_profile_rewrite', 'success');
             } catch (err) {
               setAiSuggestionsError(getAiErrorMessage(err));
             } finally {
@@ -443,9 +472,88 @@ export const ProfilePage: React.FC = () => {
           disabled={aiSuggestionsLoading}
           title="Get AI suggestions to improve your bio, goals, and preferences"
         >
-          {aiSuggestionsLoading ? 'Generating…' : 'Improve with AI'}
+          {aiSuggestionsLoading ? 'Generating…' : `Improve with AI (${creditPhrase(profileAiCost)})`}
         </Button>
       </Box>
+
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 2 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+          Premium:
+        </Typography>
+        <Button
+          size="small"
+          variant="outlined"
+          disabled={premiumBoostLoading}
+          onClick={async () => {
+            const token = await authService.getJWT();
+            if (!token) return;
+            setPremiumBoostLoading(true);
+            try {
+              await activateProfileBoost24h(token);
+              await refreshMe();
+              trackPremiumAction('profile_boost_24h', 'success');
+              if (me?.user?.id) {
+                void queryClient.invalidateQueries({ queryKey: matchQueryKeys.incomingLikes(me.user.id) });
+              }
+              setPremiumToast('Boost activated');
+            } catch (err: unknown) {
+              const st = (err as Error & { status?: number }).status;
+              trackPremiumAction('profile_boost_24h', st === 402 ? 'insufficient_credits' : 'fail');
+              setPremiumToast(err instanceof Error ? err.message : handleApiError(err).message);
+            } finally {
+              setPremiumBoostLoading(false);
+            }
+          }}
+        >
+          {premiumBoostLoading
+            ? '…'
+            : boostActive
+              ? `Profile Boost active — tap to add 24h (${creditPhrase(boostCost)})`
+              : `Profile Boost (24h) (${creditPhrase(boostCost)})`}
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          disabled={premiumRevealLoading || me?.revealLikesUnlocked}
+          onClick={async () => {
+            const token = await authService.getJWT();
+            if (!token) return;
+            setPremiumRevealLoading(true);
+            try {
+              await unlockRevealLikes(token);
+              await refreshMe();
+              trackPremiumAction('reveal_likes', 'success');
+              if (me?.user?.id) {
+                void queryClient.invalidateQueries({ queryKey: matchQueryKeys.incomingLikes(me.user.id) });
+              }
+              setPremiumToast('You can see who liked you under Sent requests.');
+            } catch (err: unknown) {
+              const st = (err as Error & { status?: number }).status;
+              trackPremiumAction('reveal_likes', st === 402 ? 'insufficient_credits' : 'fail');
+              setPremiumToast(err instanceof Error ? err.message : handleApiError(err).message);
+            } finally {
+              setPremiumRevealLoading(false);
+            }
+          }}
+        >
+          {me?.revealLikesUnlocked
+            ? 'Reveal Likes (unlocked)'
+            : premiumRevealLoading
+              ? '…'
+              : `Reveal Likes (${creditPhrase(revealCost)})`}
+        </Button>
+        <Button size="small" component={Link} to="/pricing" variant="text">
+          Get Credits
+        </Button>
+      </Box>
+
+      <Snackbar
+        open={!!premiumToast}
+        autoHideDuration={4500}
+        onClose={() => setPremiumToast(null)}
+        message={premiumToast ?? ''}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

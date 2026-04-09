@@ -44,7 +44,7 @@ public class CreditsService : ICreditsService
     private static void CopyPreservedUserCreditFields(Document? src, Document dest)
     {
         if (src == null) return;
-        foreach (var key in new[] { "UnlimitedDiscovery", "DailyFreeLikesUtcDate", "DailyFreeLikesUsed" })
+        foreach (var key in new[] { "UnlimitedDiscovery", "DailyFreeLikesUtcDate", "DailyFreeLikesUsed", "BoostExpiresAtUtc", "RevealLikesUnlockedAt" })
         {
             if (src.Contains(key))
                 dest[key] = src[key]!;
@@ -458,12 +458,20 @@ public class CreditsService : ICreditsService
             var table = Table.LoadTable(_dynamoDb, UserCreditsTable);
             var doc = await table.GetItemAsync(userId);
             if (doc != null)
+            {
+                DateTime? boostEnd = null;
+                if (doc.Contains("BoostExpiresAtUtc") && DateTime.TryParse(doc["BoostExpiresAtUtc"].AsString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var be))
+                    boostEnd = be.ToUniversalTime();
+                var reveal = doc.Contains("RevealLikesUnlockedAt") && !string.IsNullOrWhiteSpace(doc["RevealLikesUnlockedAt"].AsString());
                 return new CreditsBalanceDto
                 {
                     Balance = doc.Contains("Balance") ? doc["Balance"].AsInt() : 0,
                     LifetimeEarned = doc.Contains("LifetimeEarned") ? doc["LifetimeEarned"].AsInt() : 0,
                     UnlimitedDiscovery = doc.Contains("UnlimitedDiscovery") && doc["UnlimitedDiscovery"].AsBoolean(),
+                    BoostExpiresAtUtc = boostEnd,
+                    RevealLikesUnlocked = reveal,
                 };
+            }
         }
         catch (ResourceNotFoundException) { }
         catch (Exception ex) { _logger.LogWarning(ex, "GetCreditsBalance {UserId}", userId); }
@@ -888,5 +896,112 @@ public class CreditsService : ICreditsService
             StripePriceId = doc.Contains("StripePriceId") ? doc["StripePriceId"].AsString() : null,
             UpdatedAt = doc.Contains("UpdatedAt") && DateTime.TryParse(doc["UpdatedAt"].AsString(), out var u) ? u : DateTime.UtcNow,
         };
+    }
+
+    public async Task<IReadOnlyList<CreditTransactionAuditDto>> ListRecentTransactionsForUserAsync(string userId, int limit = 50)
+    {
+        limit = Math.Clamp(limit, 1, 200);
+        var rows = new List<CreditTransactionAuditDto>();
+        Dictionary<string, AttributeValue>? startKey = null;
+        try
+        {
+            do
+            {
+                var resp = await _dynamoDb.ScanAsync(new ScanRequest
+                {
+                    TableName = CreditTransactionsTable,
+                    ExclusiveStartKey = startKey,
+                    Limit = 80,
+                });
+                foreach (var item in resp.Items)
+                {
+                    if (!item.TryGetValue("UserId", out var uid) || uid.S != userId)
+                        continue;
+                    rows.Add(MapTxAudit(item));
+                }
+                startKey = resp.LastEvaluatedKey is { Count: > 0 } ? resp.LastEvaluatedKey : null;
+            } while (startKey != null && rows.Count < limit * 4);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ListRecentTransactionsForUser {UserId}", userId);
+        }
+
+        return rows
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(limit)
+            .ToList();
+    }
+
+    private static CreditTransactionAuditDto MapTxAudit(Dictionary<string, AttributeValue> item)
+    {
+        static int? TryInt(AttributeValue? v)
+        {
+            if (v == null) return null;
+            if (v.N != null && int.TryParse(v.N, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i)) return i;
+            return null;
+        }
+        var id = item.TryGetValue("Id", out var idv) ? idv.S ?? "" : "";
+        var type = item.TryGetValue("Type", out var tv) ? tv.S ?? "" : "";
+        var reason = item.TryGetValue("Reason", out var rv) ? rv.S ?? "" : "";
+        var delta = item.TryGetValue("CreditsDelta", out var dv) && dv.N != null && int.TryParse(dv.N, NumberStyles.Integer, CultureInfo.InvariantCulture, out var di) ? di : 0;
+        var refId = item.TryGetValue("RefId", out var refv) ? refv.S : null;
+        var created = DateTime.UtcNow;
+        if (item.TryGetValue("CreatedAt", out var cv) && DateTime.TryParse(cv.S, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed))
+            created = parsed.ToUniversalTime();
+        item.TryGetValue("BalanceBefore", out var bb);
+        item.TryGetValue("BalanceAfter", out var ba);
+        return new CreditTransactionAuditDto
+        {
+            Id = id,
+            Type = type,
+            CreditsDelta = delta,
+            Reason = reason,
+            RefId = refId,
+            CreatedAt = created,
+            BalanceBefore = TryInt(bb),
+            BalanceAfter = TryInt(ba),
+        };
+    }
+
+    public async Task<CreditsBalanceDto> ActivateProfileBoost24hAsync(string userId)
+    {
+        await SpendCreditsAsync(userId, CreditRules.ProfileBoost24h, CreditLedgerReason.ProfileBoost24h, null, idempotent: false);
+        var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
+        var doc = await userTable.GetItemAsync(userId) ?? throw new InvalidOperationException("User credits row missing after spend.");
+        var balance = doc.Contains("Balance") ? doc["Balance"].AsInt() : 0;
+        var lifetimeEarned = doc.Contains("LifetimeEarned") ? doc["LifetimeEarned"].AsInt() : 0;
+        var now = DateTime.UtcNow;
+        DateTime end;
+        if (doc.Contains("BoostExpiresAtUtc") && DateTime.TryParse(doc["BoostExpiresAtUtc"].AsString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var existing) && existing.ToUniversalTime() > now)
+            end = existing.ToUniversalTime().AddHours(24);
+        else
+            end = now.AddHours(24);
+        var next = BuildUserCreditsPutDocument(userId, balance, lifetimeEarned, doc);
+        next["BoostExpiresAtUtc"] = end.ToString("O");
+        await userTable.PutItemAsync(next);
+        _logger.LogInformation("[PremiumAction] profile_boost_24h user={UserId} until {End}", userId, end);
+        return await GetCreditsBalanceAsync(userId);
+    }
+
+    public async Task<CreditsBalanceDto> UnlockRevealLikesAsync(string userId)
+    {
+        var cur = await GetCreditsBalanceAsync(userId);
+        if (cur.RevealLikesUnlocked)
+        {
+            _logger.LogInformation("Reveal likes already unlocked for {UserId}", userId);
+            return cur;
+        }
+
+        await SpendCreditsAsync(userId, CreditRules.RevealLikes, CreditLedgerReason.RevealLikes, $"reveal_likes:{userId}", idempotent: true);
+        var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
+        var doc = await userTable.GetItemAsync(userId) ?? throw new InvalidOperationException("User credits row missing after spend.");
+        var balance = doc.Contains("Balance") ? doc["Balance"].AsInt() : 0;
+        var lifetimeEarned = doc.Contains("LifetimeEarned") ? doc["LifetimeEarned"].AsInt() : 0;
+        var next = BuildUserCreditsPutDocument(userId, balance, lifetimeEarned, doc);
+        next["RevealLikesUnlockedAt"] = DateTime.UtcNow.ToString("O");
+        await userTable.PutItemAsync(next);
+        _logger.LogInformation("[PremiumAction] reveal_likes user={UserId}", userId);
+        return await GetCreditsBalanceAsync(userId);
     }
 }

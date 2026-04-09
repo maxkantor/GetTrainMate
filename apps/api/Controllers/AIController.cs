@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
 using GetTrainMate.Api.Configuration;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
@@ -49,7 +51,7 @@ public class AIController : ControllerBase
 
     private string? UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
 
-    /// <summary>Streaming AI Coach chat. No credit charge by default (configurable).</summary>
+    /// <summary>Streaming AI Coach chat. Charges <see cref="AiCreditCostsOptions.CoachPremiumAction"/> after a non-empty reply when &gt; 0.</summary>
     [HttpPost("chat/stream")]
     public async Task StreamChat([FromBody] AiChatStreamRequest request, CancellationToken cancellationToken)
     {
@@ -60,16 +62,39 @@ public class AIController : ControllerBase
             await Response.WriteAsync("Unauthorized", cancellationToken);
             return;
         }
+        var cost = _costs.Value.CoachPremiumAction;
+        if (cost > 0)
+        {
+            var balance = await _credits.GetCreditsBalanceAsync(userId);
+            if (balance.Balance < cost)
+            {
+                Response.StatusCode = 402;
+                Response.ContentType = "application/json";
+                await Response.WriteAsync(
+                    JsonSerializer.Serialize(new { code = "INSUFFICIENT_CREDITS", message = "Not enough credits for AI Coach. Get Credits to continue.", balance = balance.Balance, required = cost }),
+                    cancellationToken);
+                return;
+            }
+        }
+
         Response.ContentType = "text/event-stream";
         Response.Headers.CacheControl = "no-cache";
         var history = (request.History ?? Array.Empty<AiChatMessageDto>())
             .Select(m => new BedrockChatMessage(m.Role, m.Content ?? "")).ToList();
+        var acc = new StringBuilder();
         try
         {
             await foreach (var token in _chat.SendStreamAsync(AiPrompts.CoachSystemPrompt, history, request.Message ?? "", cancellationToken))
             {
-                await Response.WriteAsync($"data: {System.Text.Json.JsonSerializer.Serialize(new { text = token })}\n\n", cancellationToken);
+                acc.Append(token);
+                await Response.WriteAsync($"data: {JsonSerializer.Serialize(new { text = token })}\n\n", cancellationToken);
                 await Response.Body.FlushAsync(cancellationToken);
+            }
+
+            if (cost > 0 && acc.Length > 0)
+            {
+                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiCoachMessage, $"coach:{userId}:{Guid.NewGuid():N}", idempotent: false);
+                _logger.LogInformation("[PremiumAction] ai_coach_message stream user={UserId} cost={Cost}", userId, cost);
             }
         }
         catch (OperationCanceledException) { }
@@ -87,9 +112,21 @@ public class AIController : ControllerBase
         var userId = UserId;
         if (string.IsNullOrEmpty(userId))
             return Unauthorized(new { message = "Invalid token" });
+        var cost = _costs.Value.CoachPremiumAction;
+        if (cost > 0)
+        {
+            var balance = await _credits.GetCreditsBalanceAsync(userId);
+            if (balance.Balance < cost)
+                return StatusCode(402, new { code = "INSUFFICIENT_CREDITS", message = "Not enough credits for AI Coach.", balance = balance.Balance, required = cost });
+        }
         var history = (request.History ?? Array.Empty<AiChatMessageDto>())
             .Select(m => new BedrockChatMessage(m.Role, m.Content ?? "")).ToList();
         var response = await _chat.SendAsync(AiPrompts.CoachSystemPrompt, history, request.Message ?? "", cancellationToken);
+        if (cost > 0 && !string.IsNullOrWhiteSpace(response.Content))
+        {
+            await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiCoachMessage, $"coach:{userId}:{Guid.NewGuid():N}", idempotent: false);
+            _logger.LogInformation("[PremiumAction] ai_coach_message user={UserId} cost={Cost}", userId, cost);
+        }
         return Ok(new AiChatResponseDto { Content = response.Content });
     }
 
@@ -110,8 +147,13 @@ public class AIController : ControllerBase
         try
         {
             var result = await _matchInsight.GenerateAsync(request, cancellationToken);
-            if (cost > 0)
-                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiInsight, request.TargetUserId);
+            var meaningful = !string.IsNullOrWhiteSpace(result.Summary) || result.Reasons.Count > 0;
+            if (cost > 0 && meaningful)
+            {
+                var insightRef = $"insight:{userId}:{request.TargetUserId}";
+                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiInsight, insightRef, idempotent: true);
+                _logger.LogInformation("[PremiumAction] deeper_match_insight user={UserId} target={Target}", userId, request.TargetUserId);
+            }
             return Ok(result);
         }
         catch (Exception ex)
@@ -138,8 +180,14 @@ public class AIController : ControllerBase
         try
         {
             var result = await _icebreaker.GenerateAsync(request, cancellationToken);
-            if (cost > 0)
-                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiIcebreaker, null);
+            if (cost > 0 && result.Suggestions.Count > 0)
+            {
+                var iceRef = string.IsNullOrWhiteSpace(request.ThreadId)
+                    ? null
+                    : $"icebreaker:{userId}:{request.ThreadId.Trim()}";
+                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiIcebreaker, iceRef, idempotent: iceRef != null);
+                _logger.LogInformation("[PremiumAction] ai_icebreaker user={UserId} thread={Thread}", userId, request.ThreadId);
+            }
             return Ok(result);
         }
         catch (Exception ex)
@@ -166,8 +214,14 @@ public class AIController : ControllerBase
         try
         {
             var result = await _profileOptimizer.SuggestAsync(request, cancellationToken);
-            if (cost > 0)
-                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiProfileOptimize, null);
+            var hasContent = !string.IsNullOrWhiteSpace(result.SuggestedBio)
+                || result.SuggestedGoals.Count > 0
+                || !string.IsNullOrWhiteSpace(result.SuggestedScheduleSummary);
+            if (cost > 0 && hasContent)
+            {
+                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiProfileOptimize, $"profile_ai:{userId}:{Guid.NewGuid():N}", idempotent: false);
+                _logger.LogInformation("[PremiumAction] ai_profile_rewrite user={UserId}", userId);
+            }
             return Ok(result);
         }
         catch (Exception ex)
@@ -194,8 +248,12 @@ public class AIController : ControllerBase
         try
         {
             var result = await _workoutPlanner.GenerateAsync(request, cancellationToken);
-            if (cost > 0)
-                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiWorkoutPlan, null);
+            var ok = !string.IsNullOrWhiteSpace(result.Title) || result.Sessions.Count > 0;
+            if (cost > 0 && ok)
+            {
+                await _credits.SpendCreditsAsync(userId, cost, CreditLedgerReason.AiWorkoutPlan, $"workout:{userId}:{Guid.NewGuid():N}", idempotent: false);
+                _logger.LogInformation("[PremiumAction] ai_workout_plan user={UserId}", userId);
+            }
             return Ok(result);
         }
         catch (Exception ex)
@@ -235,6 +293,7 @@ public class AIController : ControllerBase
             Icebreakers = c.Icebreakers,
             WorkoutPlan = c.WorkoutPlan,
             ProfileOptimize = c.ProfileOptimize,
+            CoachPremiumAction = c.CoachPremiumAction,
         });
     }
 }
@@ -290,4 +349,5 @@ public class AiCreditCostsDto
     public int Icebreakers { get; set; }
     public int WorkoutPlan { get; set; }
     public int ProfileOptimize { get; set; }
+    public int CoachPremiumAction { get; set; }
 }

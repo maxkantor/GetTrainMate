@@ -13,6 +13,7 @@ import {
 import SendIcon from '@mui/icons-material/Send';
 import { PageShell } from '@/components/layout/PageShell';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { useMe } from '@/hooks/useMe';
 import { authService } from '@/services/authService';
 import {
   streamAiChat,
@@ -23,9 +24,14 @@ import {
 import type { AiChatMessage } from '@/types/ai';
 import styles from './AICoachPage.module.css';
 import { trackGeneratePlan } from '@/utils/analytics';
+import { loadPremiumCatalog, PREMIUM_ACTION, creditPhrase } from '@/config/premiumCatalog';
+import { trackPremiumAction } from '@/utils/analytics';
 
 export const AICoachPage: React.FC = () => {
   const { user } = useAuthContext();
+  const { refreshMe } = useMe();
+  const [coachCost, setCoachCost] = useState(1);
+  const [workoutCost, setWorkoutCost] = useState(3);
   const [history, setHistory] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [streamingContent, setStreamingContent] = useState('');
@@ -40,6 +46,13 @@ export const AICoachPage: React.FC = () => {
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     messagesRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  }, []);
+
+  useEffect(() => {
+    void loadPremiumCatalog().then((cat) => {
+      setCoachCost(cat.costs[PREMIUM_ACTION.aiCoachMessage] ?? 1);
+      setWorkoutCost(cat.costs[PREMIUM_ACTION.aiWorkoutPlan] ?? 3);
+    });
   }, []);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -62,11 +75,13 @@ export const AICoachPage: React.FC = () => {
     setLoading(true);
     setStreamingContent('');
     let fullReply = '';
+    let streamErr: string | undefined;
     try {
       for await (const chunk of streamAiChat(token, msg, history)) {
         if (chunk.error) {
+          streamErr = chunk.error;
           setError(chunk.error);
-          if (isInsufficientCreditsError({ response: { status: 402, data: { message: chunk.error } } })) {
+          if (chunk.code === 'INSUFFICIENT_CREDITS' || isInsufficientCreditsError({ response: { status: 402, data: { message: chunk.error } } })) {
             setHistory((prev) => prev.slice(0, -1));
           }
           break;
@@ -76,9 +91,11 @@ export const AICoachPage: React.FC = () => {
           setStreamingContent(fullReply);
         }
       }
-      if (fullReply && !error) {
+      if (fullReply && !streamErr) {
         setHistory((prev) => [...prev, { role: 'assistant', content: fullReply }]);
         setStreamingContent('');
+        void refreshMe();
+        trackPremiumAction('ai_coach_message', 'success');
       }
     } catch (err) {
       setError(getAiErrorMessage(err));
@@ -103,6 +120,8 @@ export const AICoachPage: React.FC = () => {
       });
       setWorkoutResult(res);
       trackGeneratePlan('workout');
+      await refreshMe();
+      trackPremiumAction('ai_workout_plan', 'success');
     } catch (err) {
       setWorkoutError(getAiErrorMessage(err));
     } finally {
@@ -158,6 +177,11 @@ export const AICoachPage: React.FC = () => {
           )}
 
           <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
+              {coachCost === 1
+                ? 'Each AI answer costs 1 credit.'
+                : `Each AI answer costs ${creditPhrase(coachCost)}.`}
+            </Typography>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
               <TextField
                 fullWidth
@@ -205,7 +229,7 @@ export const AICoachPage: React.FC = () => {
         )}
         <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <Button variant="outlined" size="small" onClick={handleGetWorkoutPlan} disabled={workoutLoading}>
-            {workoutLoading ? 'Generating…' : 'Generate workout idea'}
+            {workoutLoading ? 'Generating…' : `Generate workout idea (${creditPhrase(workoutCost)})`}
           </Button>
           <Button variant="outlined" size="small" component={Link} to="/app/chat">
             Back to Chat

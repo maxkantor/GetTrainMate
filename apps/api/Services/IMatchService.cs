@@ -8,6 +8,8 @@ public interface IMatchService
     Task<CompatibilityInfo?> GetCompatibilityAsync(string userId, string targetUserId);
     Task<List<MatchFeedItem>> GetDiscoveryFeedAsync(string userId, int limit = 20, bool ignoreSkippedForAdmin = false);
     Task<List<SentRequestItem>> ListSentRequestsAsync(string userId);
+    /// <summary>Pending one-way interests where <paramref name="viewerUserId"/> is the target (someone liked you, not yet mutual).</summary>
+    Task<List<SentRequestItem>> ListIncomingPendingLikesAsync(string viewerUserId);
     Task<List<SkippedProfileItem>> ListSkippedProfilesAsync(string userId);
     Task<MatchResponse> LikeUserAsync(string userId, string targetUserId);
     Task<MatchResponse> PassUserAsync(string userId, string targetUserId);

@@ -31,6 +31,9 @@ public class MatchInsightResponse
 /// <summary>Request for AI icebreakers (two profiles for a match).</summary>
 public class IcebreakerRequest
 {
+    /// <summary>Optional chat thread / match id for idempotent billing on retry.</summary>
+    public string? ThreadId { get; set; }
+
     public string MyName { get; set; } = string.Empty;
     public string? MyBio { get; set; }
     public List<string> MySports { get; set; } = new();

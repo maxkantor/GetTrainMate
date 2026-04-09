@@ -44,6 +44,14 @@ public class SentRequestItem
     public DateTime UpdatedAt { get; set; }
 }
 
+/// <summary>People who sent interest to the current user (pending one-way); requires reveal-likes entitlement to view.</summary>
+public class IncomingLikesResponse
+{
+    public bool Unlocked { get; set; }
+    public int? RequiredCredits { get; set; }
+    public List<SentRequestItem>? Items { get; set; }
+}
+
 public class SkippedProfileItem
 {
     public string UserId { get; set; } = string.Empty;

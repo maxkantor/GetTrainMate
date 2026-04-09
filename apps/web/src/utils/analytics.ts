@@ -78,6 +78,15 @@ export function trackTrialStart(context?: string): void {
   gaEvent('trial_start', { context: context ?? 'app' });
 }
 
+/** Premium monetization funnel — no PII; use hashed ids where needed. */
+export function trackPremiumAction(
+  action: string,
+  outcome: 'attempt' | 'success' | 'fail' | 'insufficient_credits',
+  extra?: Record<string, unknown>
+): void {
+  gaEvent('premium_action', { action, outcome, ...extra });
+}
+
 /** Legacy helpers — map to GA4 + keep names stable for dashboards. */
 export const analytics = {
   ctaClick: (cta: string, location?: string) => trackCTA(cta, location),

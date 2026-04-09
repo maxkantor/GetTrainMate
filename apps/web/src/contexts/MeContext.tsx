@@ -129,6 +129,8 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
             mapped = {
               ...mapped,
               profile: mergeEventsProfileFields(mapped.profile, rest.profile),
+              boostExpiresAtUtc: rest.boostExpiresAtUtc ?? mapped.boostExpiresAtUtc,
+              revealLikesUnlocked: rest.revealLikesUnlocked ?? mapped.revealLikesUnlocked,
             };
           } catch {
             /* REST /me optional merge */

@@ -1,5 +1,10 @@
 import { authService } from '@/services/authService';
-import { matchService, type SentRequestItem, type SkippedProfileItem } from '@/services/matchService';
+import {
+  matchService,
+  type SentRequestItem,
+  type SkippedProfileItem,
+  type IncomingLikesResponse,
+} from '@/services/matchService';
 import { profileService } from '@/services/profileService';
 import { getMultiplePhotoUrls, isLikelyStockDiscoverPhoto } from '@/utils/profilePhotos';
 import { chatService } from '@/services/chatService';
@@ -157,6 +162,13 @@ export async function fetchSentRequestsForUser(_userSub: string): Promise<SentRe
     list = await matchService.getSentRequests(token);
   }
   return list.slice(0, RELATIONSHIP_LIST_LIMIT);
+}
+
+/** Reveal-likes + pending one-way interests; REST-only until AppSync exposes the same contract. */
+export async function fetchIncomingLikesForUser(_userSub: string): Promise<IncomingLikesResponse> {
+  const token = await authService.getJWT(true);
+  if (!token) throw new Error('Not authenticated');
+  return matchService.getIncomingLikes(token);
 }
 
 export async function cancelSentInviteForUser(targetUserId: string): Promise<void> {

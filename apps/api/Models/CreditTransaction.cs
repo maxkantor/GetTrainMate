@@ -21,6 +21,10 @@ public static class CreditLedgerReason
     public const string AiIcebreaker = "AI_ICEBREAKER";
     public const string AiWorkoutPlan = "AI_WORKOUT_PLAN";
     public const string AiProfileOptimize = "AI_PROFILE_OPTIMIZE";
+    /// <summary>AI Coach general message (streaming or single).</summary>
+    public const string AiCoachMessage = "AI_COACH_MESSAGE";
+    public const string ProfileBoost24h = "PROFILE_BOOST_24H";
+    public const string RevealLikes = "REVEAL_LIKES";
     public const string AdminAdjust = "ADMIN_ADJUST";
     public const string FreeDailyDiscoverLike = "FREE_DAILY_DISCOVER_LIKE";
     public const string EventCreate = "EVENT_CREATE";

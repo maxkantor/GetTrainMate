@@ -472,3 +472,30 @@
   text-transform: none;
   letter-spacing: normal;
 }
+
+.creditTxWrap {
+  overflow-x: auto;
+  max-width: min(100%, 520px);
+  margin-top: var(--space-2);
+}
+
+.creditTxTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.creditTxTable th,
+.creditTxTable td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 8px 6px 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.creditTxTable th {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  white-space: nowrap;
+}

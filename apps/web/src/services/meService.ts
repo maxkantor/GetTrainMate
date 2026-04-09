@@ -16,6 +16,8 @@ export interface MeResponse {
   lifetimeEarned?: number;
   /** Browse/deck entitlement; does not waive per-interest credit when balance &gt; 0. */
   unlimitedDiscovery?: boolean;
+  boostExpiresAtUtc?: string | null;
+  revealLikesUnlocked?: boolean;
   isProfileComplete: boolean;
   isAdmin: boolean;
 }

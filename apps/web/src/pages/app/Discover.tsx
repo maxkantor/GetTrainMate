@@ -41,7 +41,9 @@ import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 import { getDiscoverPrimaryCta } from '@/config/modes';
 import { MatchCelebrationOverlay, MatchCelebrationState } from '@/components/discover/MatchCelebrationOverlay';
 import { Modal } from '@/components/ui/Modal';
-import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
+import { getMatchInsight, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
+import { loadPremiumCatalog, PREMIUM_ACTION } from '@/config/premiumCatalog';
+import { trackPremiumAction } from '@/utils/analytics';
 import type { MatchInsightResponse } from '@/types/ai';
 import styles from './Discover.module.css';
 import { matchQueryKeys } from '@/lib/queryKeys';
@@ -232,14 +234,12 @@ export const DiscoverPage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const token = await authService.getJWT();
-      if (!token) return;
+    void (async () => {
       try {
-        const costs = await getAiCreditCosts(token);
-        if (!cancelled) setAiInsightCost(costs.matchInsight);
+        const cat = await loadPremiumCatalog();
+        if (!cancelled) setAiInsightCost(cat.costs[PREMIUM_ACTION.deeperMatchInsight] ?? 2);
       } catch {
-        /* use default 2 */
+        if (!cancelled) setAiInsightCost(2);
       }
     })();
     return () => { cancelled = true; };
@@ -712,7 +712,8 @@ export const DiscoverPage: React.FC = () => {
       return;
     }
     if ((me?.credits ?? 0) < aiInsightCost) {
-      setToast('Not enough credits to unlock AI match insight. Get more on the Pricing page.');
+      const need = aiInsightCost - (me?.credits ?? 0);
+      setToast(`You need ${need} more credit${need === 1 ? '' : 's'} for this action. Get Credits on the Pricing page.`);
       return;
     }
     setLoadingInsightFor(card.userId);
@@ -738,6 +739,8 @@ export const DiscoverPage: React.FC = () => {
       const result = await getMatchInsight(authToken, request);
       setInsightMap((prev) => ({ ...prev, [card.userId]: result }));
       await refreshMe();
+      setToast('Insight unlocked');
+      trackPremiumAction('deeper_match_insight', 'success');
     };
     try {
       await tryRequest(token);
@@ -758,6 +761,7 @@ export const DiscoverPage: React.FC = () => {
         return;
       }
       if (isInsufficientCreditsError(err)) {
+        trackPremiumAction('deeper_match_insight', 'insufficient_credits');
         setToast('Not enough credits. Get more on the Pricing page.');
       } else {
         setToast(getAiErrorMessage(err));

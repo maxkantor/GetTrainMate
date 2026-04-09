@@ -18,12 +18,14 @@ import {
   graphqlListMyMatches,
 } from '@/services/graphqlService';
 import { handleApiError, isNetworkError } from '@/utils/apiErrorHandler';
-import { getIcebreakers, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
+import { getIcebreakers, getAiErrorMessage } from '@/services/aiService';
 import { profileService } from '@/services/profileService';
 import { IMAGE_BUCKET_BASE } from '@/config/media';
 import { setChatUnreadTotal } from '@/utils/chatUnreadStore';
+import { analytics, trackPremiumAction } from '@/utils/analytics';
 import { useChatPresence } from '@/contexts/ChatPresenceContext';
 import { CHAT_NAV_SCROLL_TOP_EVENT } from '@/utils/chatNav';
+import { loadPremiumCatalog, PREMIUM_ACTION, creditPhrase } from '@/config/premiumCatalog';
 import chatStyles from './Chat.module.css';
 
 /** Keep a single row per peer when the API returns duplicate thread docs for the same pair. */
@@ -77,7 +79,10 @@ export const ChatPage: React.FC = () => {
   const [icebreakerLoading, setIcebreakerLoading] = useState(false);
   const [icebreakerError, setIcebreakerError] = useState('');
   const [msgToast, setMsgToast] = useState<{ name: string } | null>(null);
+  const [actionToast, setActionToast] = useState<string | null>(null);
   const [highlightedThreadId, setHighlightedThreadId] = useState<string | null>(null);
+  const [unlockChatCost, setUnlockChatCost] = useState(1);
+  const [icebreakerCost, setIcebreakerCost] = useState(1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const threadItemsRef = useRef<HTMLDivElement>(null);
   const chatTitleRef = useRef<HTMLHeadingElement>(null);
@@ -102,6 +107,19 @@ export const ChatPage: React.FC = () => {
   useEffect(() => {
     selectedThreadIdRef.current = selectedThreadId;
   }, [selectedThreadId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const cat = await loadPremiumCatalog();
+      if (cancelled) return;
+      setUnlockChatCost(cat.costs[PREMIUM_ACTION.unlockChat] ?? 1);
+      setIcebreakerCost(cat.costs[PREMIUM_ACTION.aiIcebreaker] ?? 1);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setActiveChatThreadId(selectedThreadId);
@@ -171,42 +189,44 @@ export const ChatPage: React.FC = () => {
   }, [isGraphQLEnabled, user?.sub, threadIdsKey]);
 
   useEffect(() => {
-    if (threadIdFromUrl) {
-      const checkLock = async () => {
+    if (threadIdFromUrl) setSelectedThreadId(threadIdFromUrl);
+  }, [threadIdFromUrl]);
+
+  useEffect(() => {
+    if (!selectedThreadId || !user?.sub) {
+      setThreadLocked(null);
+      return;
+    }
+    let cancelled = false;
+    setThreadLocked(null);
+    void (async () => {
+      try {
         if (isGraphQLEnabled) {
-          try {
-            const data = await graphqlGetThreadByMatch(threadIdFromUrl) as { unlockedByCurrentUser?: boolean; otherUserProfile?: { displayName?: string; avatarUrl?: string } } | null;
-            if (data) {
-              setThreadLocked(!data.unlockedByCurrentUser);
-              if (data.otherUserProfile?.displayName) setOtherName(data.otherUserProfile.displayName);
-              setOtherAvatarUrl(toAvatarUrl(data.otherUserProfile?.avatarUrl));
-            } else setThreadLocked(true);
-            setSelectedThreadId(threadIdFromUrl);
-          } catch {
-            setThreadLocked(true);
-            setSelectedThreadId(threadIdFromUrl);
-          }
+          const data = (await graphqlGetThreadByMatch(selectedThreadId)) as {
+            unlockedByCurrentUser?: boolean;
+            otherUserProfile?: { displayName?: string; avatarUrl?: string };
+          } | null;
+          if (cancelled) return;
+          if (data) {
+            setThreadLocked(!data.unlockedByCurrentUser);
+            if (data.otherUserProfile?.displayName) setOtherName(data.otherUserProfile.displayName);
+            setOtherAvatarUrl(toAvatarUrl(data.otherUserProfile?.avatarUrl));
+          } else setThreadLocked(true);
         } else {
           const token = await authService.getJWT();
-          if (!token) return;
-          try {
-            const status = await chatService.getThreadByMatch(token, threadIdFromUrl);
-            setThreadLocked(!status.unlockedByCurrentUser);
-            setSelectedThreadId(threadIdFromUrl);
-            const threadPreview = threads.find((t) => t.threadId === threadIdFromUrl);
-            if (threadPreview) setOtherName(threadPreview.otherUserName);
-          } catch {
-            setThreadLocked(true);
-            setSelectedThreadId(threadIdFromUrl);
-          }
+          if (!token || cancelled) return;
+          const status = await chatService.getThreadByMatch(token, selectedThreadId);
+          if (cancelled) return;
+          setThreadLocked(!status.unlockedByCurrentUser);
         }
-      };
-      checkLock();
-    } else {
-      setThreadLocked(null);
-      setOtherAvatarUrl(undefined);
-    }
-  }, [threadIdFromUrl, threads.length]);
+      } catch {
+        if (!cancelled) setThreadLocked(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedThreadId, user?.sub]);
 
   useEffect(() => {
     if (!selectedThreadId) return;
@@ -309,22 +329,25 @@ export const ChatPage: React.FC = () => {
   }, [user?.sub]);
 
   const handleUnlockChat = async () => {
-    if (!threadIdFromUrl || unlocking || (me?.credits ?? 0) < 1) return;
+    const matchId = selectedThreadId;
+    if (!matchId || unlocking || (me?.credits ?? 0) < unlockChatCost) return;
     try {
       setUnlocking(true);
       setError('');
       if (isGraphQLEnabled) {
-        await graphqlUnlockChat(threadIdFromUrl);
+        await graphqlUnlockChat(matchId);
       } else {
         const token = await authService.getJWT();
         if (!token) return;
-        await chatService.unlockChat(token, threadIdFromUrl);
+        await chatService.unlockChat(token, matchId);
       }
       await refreshMe();
+      setActionToast('Chat unlocked');
+      analytics.chatUnlocked(matchId);
       setThreadLocked(false);
       await loadThreads();
-      setSelectedThreadId(threadIdFromUrl);
-      await loadMessages(threadIdFromUrl);
+      setSelectedThreadId(matchId);
+      await loadMessages(matchId);
     } catch (err: unknown) {
       const apiError = handleApiError(err);
       setError(apiError.message || 'Failed to unlock chat');
@@ -423,7 +446,8 @@ export const ChatPage: React.FC = () => {
       console.error('Error sending message:', err);
       const msg = err?.message || err?.errors?.[0]?.message || '';
       if (String(msg).includes('CHAT_LOCKED') || String(msg).includes('locked')) {
-        setError('Unlock chat to send more messages (1 credit). Your first message was free.');
+        setError(`Unlock chat to start messaging — ${creditPhrase(unlockChatCost)}.`);
+        setThreadLocked(true);
       } else {
         setError('Failed to send message');
       }
@@ -431,11 +455,6 @@ export const ChatPage: React.FC = () => {
       setSending(false);
     }
   };
-
-  const myOutgoingCount = useMemo(
-    () => messages.filter((m) => m.senderId === user?.sub).length,
-    [messages, user?.sub]
-  );
 
   if (loading) {
     return (
@@ -474,36 +493,6 @@ export const ChatPage: React.FC = () => {
     );
   }
 
-  if (threadIdFromUrl && threadLocked === true && myOutgoingCount > 0) {
-    const credits = me?.credits ?? 0;
-    return (
-      <div className={chatStyles.container}>
-        <div className={chatStyles.lockedPanel}>
-          <div className={chatStyles.lockedIcon}>
-            <LockIcon sx={{ fontSize: 48, color: 'inherit' }} />
-          </div>
-          <h2 className={chatStyles.lockedTitle}>Unlock chat</h2>
-          <p className={chatStyles.lockedDesc}>
-            You used your free first message. Unlock to keep messaging (1 credit). Your credits: {credits}
-          </p>
-          <button
-            type="button"
-            className={chatStyles.unlockBtn}
-            onClick={handleUnlockChat}
-            disabled={unlocking || credits < 1}
-          >
-            <LockIcon sx={{ fontSize: 20 }} />
-            {unlocking ? 'Unlocking…' : 'Unlock chat (1 credit)'}
-          </button>
-          <Link to="/pricing" className={chatStyles.upgradeLink}>
-            Get more credits →
-          </Link>
-          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-        </div>
-      </div>
-    );
-  }
-
   const selectedThread = threads.find(t => t.threadId === selectedThreadId);
   const displayName = selectedThread?.otherUserName || otherName || 'Chat';
   const headerAvatarUrl = selectedThread?.otherUserAvatarUrl ?? otherAvatarUrl;
@@ -523,6 +512,14 @@ export const ChatPage: React.FC = () => {
         autoHideDuration={4500}
         onClose={() => setMsgToast(null)}
         message={msgToast ? `New message from ${msgToast.name}` : ''}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ bottom: { xs: 88, sm: 96 } }}
+      />
+      <Snackbar
+        open={!!actionToast}
+        autoHideDuration={3200}
+        onClose={() => setActionToast(null)}
+        message={actionToast ?? ''}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         sx={{ bottom: { xs: 88, sm: 96 } }}
       />
@@ -571,137 +568,168 @@ export const ChatPage: React.FC = () => {
                 </Alert>
               )}
 
-              {threadIdFromUrl && threadLocked === true && myOutgoingCount === 0 && (
-                <Alert severity="info" sx={{ mx: 2, mt: 2 }}>
-                  First message is free. After that, unlock chat (1 credit) to keep the conversation going.
-                </Alert>
-              )}
-
-              <div className={chatStyles.messagesScroll}>
-                {messages.map((msg) => (
-                  <div
-                    key={msg.messageId}
-                    className={`${chatStyles.bubble} ${msg.senderId === user?.sub ? chatStyles.bubbleSent : chatStyles.bubbleReceived}`}
-                  >
-                    <span>{msg.content}</span>
-                    <div className={chatStyles.bubbleTime}>
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                    </div>
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
-
-              <div className={chatStyles.aiToolsRow}>
-                <button
-                  type="button"
-                  className={chatStyles.aiIcebreakerBtn}
-                  onClick={async () => {
-                    const thread = threads.find((t) => t.threadId === selectedThreadId);
-                    const token = await authService.getJWT();
-                    if (!token || !thread) return;
-                    const cost = 1;
-                    if ((me?.credits ?? 0) < cost) {
-                      setIcebreakerError('Not enough credits. Get more on the Pricing page.');
-                      return;
-                    }
-                    setIcebreakerError('');
-                    setIcebreakerLoading(true);
-                    setIcebreakerSuggestions([]);
-                    try {
-                      const myProfile = me?.profile;
-                      let otherBio: string | undefined;
-                      let otherSports: string[] = [];
-                      let otherLevel: string | undefined;
-                      let otherGoals: string[] = [];
-                      if (thread.otherUserId) {
-                        try {
-                          const other = await profileService.getProfile(token, thread.otherUserId);
-                          otherBio = other.bio;
-                          otherSports = other.sportTags ?? [];
-                          otherLevel = other.level;
-                          otherGoals = other.goals ?? [];
-                        } catch {
-                          /* use name only */
-                        }
-                      }
-                      const res = await getIcebreakers(token, {
-                        myName: myProfile?.name ?? 'Me',
-                        myBio: myProfile?.bio,
-                        mySports: myProfile?.sportTags ?? [],
-                        myLevel: myProfile?.level,
-                        myGoals: myProfile?.goals ?? [],
-                        otherName: thread.otherUserName,
-                        otherBio,
-                        otherSports,
-                        otherLevel,
-                        otherGoals,
-                      });
-                      setIcebreakerSuggestions(res.suggestions ?? []);
-                      if (res.suggestions?.length) await refreshMe();
-                    } catch (err) {
-                      if (isInsufficientCreditsError(err)) setIcebreakerError(getAiErrorMessage(err));
-                      else setIcebreakerError(getAiErrorMessage(err));
-                    } finally {
-                      setIcebreakerLoading(false);
-                    }
-                  }}
-                  disabled={icebreakerLoading}
-                  title="Get smart first-message suggestions (1 credit)"
-                >
-                  {icebreakerLoading ? 'Generating…' : 'AI Icebreaker (1 credit)'}
-                </button>
-                <Link to="/app/ai-coach" className={chatStyles.askAiLink}>
-                  Ask AI
-                </Link>
-              </div>
-              {icebreakerError && (
-                <Alert severity="error" onClose={() => setIcebreakerError('')} sx={{ mx: 2, mb: 1 }}>
-                  {icebreakerError}
-                </Alert>
-              )}
-              {icebreakerSuggestions.length > 0 && (
-                <div className={chatStyles.icebreakerChips}>
-                  {icebreakerSuggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className={chatStyles.icebreakerChip}
-                      onClick={() => {
-                        setMessageContent(s);
-                        setIcebreakerSuggestions([]);
-                      }}
-                    >
-                      {s.length > 50 ? s.slice(0, 47) + '…' : s}
-                    </button>
-                  ))}
+              {threadLocked === null ? (
+                <div className={chatStyles.messagesLockWrap}>
+                  <CircularProgress sx={{ color: 'rgba(99, 102, 241, 0.8)' }} />
                 </div>
+              ) : threadLocked === true ? (
+                <div className={chatStyles.messagesLockWrap}>
+                  <div className={chatStyles.lockedPanel}>
+                    <div className={chatStyles.lockedIcon}>
+                      <LockIcon sx={{ fontSize: 48, color: 'inherit' }} />
+                    </div>
+                    <h2 className={chatStyles.lockedTitle}>Unlock chat</h2>
+                    <p className={chatStyles.lockedDesc}>
+                      Unlock chat to start messaging — {creditPhrase(unlockChatCost)}. Your credits: {me?.credits ?? 0}
+                    </p>
+                    <button
+                      type="button"
+                      className={chatStyles.unlockBtn}
+                      onClick={handleUnlockChat}
+                      disabled={unlocking || (me?.credits ?? 0) < unlockChatCost}
+                    >
+                      <LockIcon sx={{ fontSize: 20 }} />
+                      {unlocking ? 'Unlocking…' : `Unlock chat — ${creditPhrase(unlockChatCost)}`}
+                    </button>
+                    <Link to="/pricing" className={chatStyles.upgradeLink}>
+                      Get Credits
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className={chatStyles.messagesScroll}>
+                    {messages.map((msg) => (
+                      <div
+                        key={msg.messageId}
+                        className={`${chatStyles.bubble} ${msg.senderId === user?.sub ? chatStyles.bubbleSent : chatStyles.bubbleReceived}`}
+                      >
+                        <span>{msg.content}</span>
+                        <div className={chatStyles.bubbleTime}>
+                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  <div className={chatStyles.aiToolsRow}>
+                    <button
+                      type="button"
+                      className={chatStyles.aiIcebreakerBtn}
+                      onClick={async () => {
+                        const thread = threads.find((t) => t.threadId === selectedThreadId);
+                        const token = await authService.getJWT();
+                        if (!token || !thread || !selectedThreadId) return;
+                        if ((me?.credits ?? 0) < icebreakerCost) {
+                          const short = icebreakerCost - (me?.credits ?? 0);
+                          setIcebreakerError(
+                            `You need ${short} more credit${short === 1 ? '' : 's'} for this action. Get Credits on the Pricing page.`
+                          );
+                          return;
+                        }
+                        setIcebreakerError('');
+                        setIcebreakerLoading(true);
+                        setIcebreakerSuggestions([]);
+                        try {
+                          const myProfile = me?.profile;
+                          let otherBio: string | undefined;
+                          let otherSports: string[] = [];
+                          let otherLevel: string | undefined;
+                          let otherGoals: string[] = [];
+                          if (thread.otherUserId) {
+                            try {
+                              const other = await profileService.getProfile(token, thread.otherUserId);
+                              otherBio = other.bio;
+                              otherSports = other.sportTags ?? [];
+                              otherLevel = other.level;
+                              otherGoals = other.goals ?? [];
+                            } catch {
+                              /* use name only */
+                            }
+                          }
+                          const res = await getIcebreakers(token, {
+                            threadId: selectedThreadId,
+                            myName: myProfile?.name ?? 'Me',
+                            myBio: myProfile?.bio,
+                            mySports: myProfile?.sportTags ?? [],
+                            myLevel: myProfile?.level,
+                            myGoals: myProfile?.goals ?? [],
+                            otherName: thread.otherUserName,
+                            otherBio,
+                            otherSports,
+                            otherLevel,
+                            otherGoals,
+                          });
+                          setIcebreakerSuggestions(res.suggestions ?? []);
+                          if (res.suggestions?.length) {
+                            await refreshMe();
+                            trackPremiumAction('ai_icebreaker', 'success');
+                          }
+                        } catch (err) {
+                          setIcebreakerError(getAiErrorMessage(err));
+                        } finally {
+                          setIcebreakerLoading(false);
+                        }
+                      }}
+                      disabled={icebreakerLoading}
+                      title={`AI Icebreaker (${creditPhrase(icebreakerCost)})`}
+                    >
+                      {icebreakerLoading ? 'Generating…' : `AI Icebreaker (${creditPhrase(icebreakerCost)})`}
+                    </button>
+                    <Link to="/app/ai-coach" className={chatStyles.askAiLink}>
+                      Ask AI
+                    </Link>
+                  </div>
+                  {icebreakerError && (
+                    <Alert severity="error" onClose={() => setIcebreakerError('')} sx={{ mx: 2, mb: 1 }}>
+                      {icebreakerError}
+                    </Alert>
+                  )}
+                  {icebreakerSuggestions.length > 0 && (
+                    <div className={chatStyles.icebreakerChips}>
+                      {icebreakerSuggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className={chatStyles.icebreakerChip}
+                          onClick={() => {
+                            setMessageContent(s);
+                            setIcebreakerSuggestions([]);
+                          }}
+                        >
+                          {s.length > 50 ? s.slice(0, 47) + '…' : s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className={chatStyles.inputRow}>
+                    <textarea
+                      className={chatStyles.input}
+                      placeholder="Type a message..."
+                      value={messageContent}
+                      onChange={(e) => setMessageContent(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      disabled={sending}
+                      rows={2}
+                    />
+                    <button
+                      type="button"
+                      className={chatStyles.sendBtn}
+                      onClick={handleSendMessage}
+                      disabled={sending || !messageContent.trim()}
+                    >
+                      <SendIcon sx={{ fontSize: 20 }} />
+                      Send
+                    </button>
+                  </div>
+                </>
               )}
-              <div className={chatStyles.inputRow}>
-                <textarea
-                  className={chatStyles.input}
-                  placeholder="Type a message..."
-                  value={messageContent}
-                  onChange={(e) => setMessageContent(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  disabled={sending}
-                  rows={2}
-                />
-                <button
-                  type="button"
-                  className={chatStyles.sendBtn}
-                  onClick={handleSendMessage}
-                  disabled={sending || !messageContent.trim()}
-                >
-                  <SendIcon sx={{ fontSize: 20 }} />
-                  Send
-                </button>
-              </div>
             </>
           )}
         </div>

@@ -412,7 +412,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                 <p className={styles.lead}>You already have compatible athletes waiting</p>
                 <p className={styles.paywallTrust}>We&apos;ll show distance and availability after signup</p>
                 <p className={styles.paywallUrgency}>⏳ Matches update daily</p>
-                <p className={styles.paywallSocial}>🔥 12,000+ athletes matched this week</p>
+                <p className={styles.paywallSocial}>New athletes join every day — your matches update as the network grows.</p>
                 <div className={`${styles.deck} ${styles.deckPaywall}`}>
                   <div
                     className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft} ${styles.deckLockedHeavy} ${styles.deckGhost}`}

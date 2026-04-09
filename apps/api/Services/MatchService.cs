@@ -1096,6 +1096,82 @@ public class MatchService : IMatchService
         return list;
     }
 
+    /// <summary>
+    /// Lists users who sent interest to <paramref name="viewerUserId"/> (interaction row other→viewer = Sent).
+    /// Uses a filtered table scan; consider a GSI on <c>targetUserId</c> at high scale.
+    /// </summary>
+    public async Task<List<SentRequestItem>> ListIncomingPendingLikesAsync(string viewerUserId)
+    {
+        if (string.IsNullOrEmpty(viewerUserId))
+            return new List<SentRequestItem>();
+
+        await EnsureLegacyInteractionsSyncedForUserAsync(viewerUserId);
+
+        var rows = new List<(string FromUserId, DateTime UpdatedAt)>();
+        Dictionary<string, AttributeValue>? scanStartKey = null;
+        do
+        {
+            var request = new ScanRequest
+            {
+                TableName = _userInteractionsTable,
+                FilterExpression = "targetUserId = :me AND #st = :sent",
+                ExpressionAttributeNames = new Dictionary<string, string> { ["#st"] = "state" },
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":me"] = new AttributeValue { S = viewerUserId },
+                    [":sent"] = new AttributeValue { S = UserInteractionState.Sent }
+                },
+                ExclusiveStartKey = scanStartKey
+            };
+            var response = await _dynamoDb.ScanAsync(request);
+            foreach (var item in response.Items)
+            {
+                if (!item.TryGetValue("userId", out var uid) || string.IsNullOrWhiteSpace(uid.S))
+                    continue;
+                if (string.Equals(uid.S, viewerUserId, StringComparison.Ordinal))
+                    continue;
+                var iaUpdated = DateTime.UtcNow;
+                if (item.TryGetValue("updatedAt", out var uAt) &&
+                    DateTime.TryParse(uAt.S, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed))
+                    iaUpdated = parsed.ToUniversalTime();
+                rows.Add((uid.S!, iaUpdated));
+            }
+
+            scanStartKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        } while (scanStartKey != null);
+
+        var list = new List<SentRequestItem>();
+        foreach (var (fromUserId, _) in rows.OrderByDescending(x => x.UpdatedAt).Take(RelationshipListLimit))
+        {
+            var m = await GetMatchAsync(fromUserId, viewerUserId);
+            if (m == null)
+            {
+                _logger.LogWarning(
+                    "Incoming likes: Sent interaction from {From} to {Viewer} but no match row",
+                    fromUserId,
+                    viewerUserId);
+                continue;
+            }
+
+            var tp = await _profileService.GetProfileAsync(fromUserId);
+            var name = tp?.Name ?? "User";
+            var photos = ResolvePhotoUrlsForProfile(tp);
+            list.Add(new SentRequestItem
+            {
+                UserId = fromUserId,
+                Name = name,
+                City = tp?.City,
+                PhotoUrls = photos,
+                Status = "Pending",
+                MatchId = m.MatchId,
+                CompatibilityScore = m.CompatibilityScore,
+                UpdatedAt = m.UpdatedAt
+            });
+        }
+
+        return list;
+    }
+
     public async Task<List<SkippedProfileItem>> ListSkippedProfilesAsync(string userId)
     {
         await EnsureLegacyInteractionsSyncedForUserAsync(userId);

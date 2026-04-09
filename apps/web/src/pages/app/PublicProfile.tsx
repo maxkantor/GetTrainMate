@@ -23,7 +23,9 @@ import { useMe } from '@/hooks/useMe';
 import { authService } from '@/services/authService';
 import { profileService } from '@/services/profileService';
 import { matchService } from '@/services/matchService';
-import { getMatchInsight, getAiCreditCosts, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
+import { getMatchInsight, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
+import { loadPremiumCatalog, PREMIUM_ACTION } from '@/config/premiumCatalog';
+import { trackPremiumAction } from '@/utils/analytics';
 import { isGraphQLEnabled, graphqlGetProfile, graphqlLikeUser, graphqlPassUser } from '@/services/graphqlService';
 import { MatchPanel } from './discover/MatchPanel';
 import { handleApiError } from '@/utils/apiErrorHandler';
@@ -124,17 +126,14 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
   }, [profile?.userId]);
 
   useEffect(() => {
-    const load = async () => {
-      const token = await authService.getJWT();
-      if (!token) return;
+    void (async () => {
       try {
-        const costs = await getAiCreditCosts(token);
-        setAiInsightCost(costs.matchInsight ?? 2);
+        const cat = await loadPremiumCatalog();
+        setAiInsightCost(cat.costs[PREMIUM_ACTION.deeperMatchInsight] ?? 2);
       } catch {
-        /* keep default 2 */
+        setAiInsightCost(2);
       }
-    };
-    load();
+    })();
   }, []);
 
   const handleUnlockAiInsight = async () => {
@@ -146,7 +145,8 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
       return;
     }
     if ((me?.credits ?? 0) < aiInsightCost) {
-      setToast('Not enough credits to unlock AI match insight. Get more on the Pricing page.');
+      const need = aiInsightCost - (me?.credits ?? 0);
+      setToast(`You need ${need} more credit${need === 1 ? '' : 's'} for this action. Get Credits on the Pricing page.`);
       return;
     }
     setLoadingInsightFor(profile.userId);
@@ -172,6 +172,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
       const result = await getMatchInsight(token, request);
       setInsightMap((prev) => ({ ...prev, [profile.userId]: result }));
       await refreshMe();
+      trackPremiumAction('deeper_match_insight', 'success');
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 401) {
@@ -179,6 +180,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
         return;
       }
       if (isInsufficientCreditsError(err)) {
+        trackPremiumAction('deeper_match_insight', 'insufficient_credits');
         setToast('Not enough credits. Get more on the Pricing page.');
       } else {
         setToast(getAiErrorMessage(err));

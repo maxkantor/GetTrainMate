@@ -41,12 +41,12 @@ export function getAiErrorMessage(err: unknown): string {
   return ax.message || 'Something went wrong. Please try again.';
 }
 
-/** Stream AI Coach chat (SSE). Yields { text } or { error }. */
+/** Stream AI Coach chat (SSE). Yields { text } or { error } (402 returns JSON body, not SSE). */
 export async function* streamAiChat(
   token: string,
   message: string,
   history: AiChatMessage[] = []
-): AsyncGenerator<{ text?: string; error?: string }> {
+): AsyncGenerator<{ text?: string; error?: string; code?: string }> {
   const res = await fetch(`${API_BASE}/api/ai/chat/stream`, {
     method: 'POST',
     headers: {
@@ -59,8 +59,11 @@ export async function* streamAiChat(
     }),
   });
   if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    yield { error: data.message || 'Failed to start chat.' };
+    const data = (await res.json().catch(() => ({}))) as AiErrorShape;
+    yield {
+      error: data.message || 'Failed to start chat.',
+      code: data.code,
+    };
     return;
   }
   const reader = res.body?.getReader();

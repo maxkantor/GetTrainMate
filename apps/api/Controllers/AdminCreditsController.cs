@@ -70,6 +70,26 @@ public class AdminCreditsController : ControllerBase
         }
     }
 
+    /// <summary>Recent credit transactions for a user (audit).</summary>
+    [HttpGet("users/{userId}/transactions")]
+    public async Task<ActionResult<IReadOnlyList<CreditTransactionAuditDto>>> ListUserTransactions(string userId, [FromQuery] int limit = 50)
+    {
+        try
+        {
+            await ValidateAdminAsync();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+
+        if (string.IsNullOrWhiteSpace(userId))
+            return BadRequest(new { error = "userId required" });
+
+        var rows = await _creditsService.ListRecentTransactionsForUserAsync(userId.Trim(), limit);
+        return Ok(rows);
+    }
+
     /// <summary>Admin: toggle unlimited discovery browsing (stored on user-credits row).</summary>
     [HttpPut("users/{userId}/unlimited-discovery")]
     public async Task<ActionResult<object>> SetUnlimitedDiscovery(string userId, [FromBody] SetUnlimitedDiscoveryRequest? body)

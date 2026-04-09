@@ -14,17 +14,20 @@ public class MatchController : ControllerBase
     private readonly IMatchService _matchService;
     private readonly IChatService _chatService;
     private readonly IProfileService _profileService;
+    private readonly ICreditsService _creditsService;
     private readonly ILogger<MatchController> _logger;
 
     public MatchController(
         IMatchService matchService,
         IChatService chatService,
         IProfileService profileService,
+        ICreditsService creditsService,
         ILogger<MatchController> logger)
     {
         _matchService = matchService;
         _chatService = chatService;
         _profileService = profileService;
+        _creditsService = creditsService;
         _logger = logger;
     }
 
@@ -87,6 +90,45 @@ public class MatchController : ControllerBase
         {
             _logger.LogError(ex, "Error listing sent requests");
             return StatusCode(500, new { message = "Error listing sent requests" });
+        }
+    }
+
+    /// <summary>People who liked you (pending one-way). Requires reveal-likes entitlement; otherwise returns locked payload.</summary>
+    [HttpGet("incoming-likes")]
+    public async Task<ActionResult<IncomingLikesResponse>> GetIncomingLikes()
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "Invalid token" });
+
+            var profile = await _profileService.GetProfileAsync(userId);
+            if (profile != null && !profile.DiscoverCanReviewLikedProfiles)
+                return StatusCode(403, new { code = "FEATURE_DISABLED", message = "This list is not enabled for this account." });
+
+            var credits = await _creditsService.GetCreditsBalanceAsync(userId);
+            if (!credits.RevealLikesUnlocked)
+            {
+                return Ok(new IncomingLikesResponse
+                {
+                    Unlocked = false,
+                    RequiredCredits = CreditRules.RevealLikes,
+                    Items = new List<SentRequestItem>()
+                });
+            }
+
+            var items = await _matchService.ListIncomingPendingLikesAsync(userId);
+            return Ok(new IncomingLikesResponse
+            {
+                Unlocked = true,
+                Items = items
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing incoming likes");
+            return StatusCode(500, new { message = "Error listing incoming likes" });
         }
     }
 

@@ -37,6 +37,15 @@ public interface ICreditsService
     Task<List<CreditPackConfig>> GetAllCreditPacksForAdminAsync();
     Task SaveCreditPackAsync(CreditPackConfig pack);
     Task SeedDefaultCreditPacksIfEmptyAsync();
+
+    /// <summary>Recent spend/grant/purchase rows for CRM (scan; capped).</summary>
+    Task<IReadOnlyList<CreditTransactionAuditDto>> ListRecentTransactionsForUserAsync(string userId, int limit = 50);
+
+    /// <summary>24h profile boost. If an active boost exists, extends end time by 24h from previous end.</summary>
+    Task<CreditsBalanceDto> ActivateProfileBoost24hAsync(string userId);
+
+    /// <summary>One-time reveal-likes entitlement (idempotent).</summary>
+    Task<CreditsBalanceDto> UnlockRevealLikesAsync(string userId);
 }
 
 public class CreditPackDto
@@ -56,4 +65,20 @@ public class CreditsBalanceDto
     public int LifetimeEarned { get; set; }
     /// <summary>When true, product may lift daily discover deck/browse caps (likes still follow balance/free-daily rules).</summary>
     public bool UnlimitedDiscovery { get; set; }
+    /// <summary>UTC when profile boost ends, if any.</summary>
+    public DateTime? BoostExpiresAtUtc { get; set; }
+    /// <summary>User purchased permanent-style reveal-likes unlock (product uses flag for future UI).</summary>
+    public bool RevealLikesUnlocked { get; set; }
+}
+
+public class CreditTransactionAuditDto
+{
+    public string Id { get; set; } = "";
+    public string Type { get; set; } = "";
+    public int CreditsDelta { get; set; }
+    public string Reason { get; set; } = "";
+    public string? RefId { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public int? BalanceBefore { get; set; }
+    public int? BalanceAfter { get; set; }
 }

@@ -28,6 +28,32 @@ interface User {
   unlimitedDiscovery?: boolean;
 }
 
+/** GET /api/admin/credits/users/{id}/transactions (camelCase JSON). */
+interface CreditAuditRow {
+  id: string;
+  type: string;
+  creditsDelta: number;
+  reason: string;
+  refId?: string | null;
+  createdAt: string;
+  balanceBefore?: number | null;
+  balanceAfter?: number | null;
+}
+
+function normalizeCreditTx(raw: Record<string, unknown>): CreditAuditRow {
+  const n = (k: string) => raw[k];
+  return {
+    id: String(n('id') ?? ''),
+    type: String(n('type') ?? ''),
+    creditsDelta: Number(n('creditsDelta') ?? 0),
+    reason: String(n('reason') ?? ''),
+    refId: (n('refId') as string | null | undefined) ?? null,
+    createdAt: String(n('createdAt') ?? ''),
+    balanceBefore: n('balanceBefore') != null ? Number(n('balanceBefore')) : null,
+    balanceAfter: n('balanceAfter') != null ? Number(n('balanceAfter')) : null,
+  };
+}
+
 /** Mirrors API DiscoverLifecycleDto (camelCase JSON). */
 interface DiscoverLifecycleFlags {
   canReviewSkippedProfiles: boolean;
@@ -61,6 +87,8 @@ export const UsersPage: React.FC = () => {
   const [resetBusy, setResetBusy] = useState(false);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [deleteUserLoading, setDeleteUserLoading] = useState(false);
+  const [creditTx, setCreditTx] = useState<CreditAuditRow[]>([]);
+  const [creditTxLoading, setCreditTxLoading] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -101,6 +129,8 @@ export const UsersPage: React.FC = () => {
     setDetailLoading(true);
     setResetSuccess(null);
     setDiscoverLifecycle(null);
+    setCreditTx([]);
+    setCreditTxLoading(true);
     try {
       const user = await adminApiService.get(`/api/admin/users/${row.userId}`);
       setDetailUser({ ...row, ...normalizeAdminUserDetail(user) });
@@ -108,6 +138,17 @@ export const UsersPage: React.FC = () => {
       setDetailUser(row);
     } finally {
       setDetailLoading(false);
+    }
+    try {
+      const rows = await adminApiService.get(
+        `/api/admin/credits/users/${encodeURIComponent(row.userId)}/transactions?limit=40`
+      );
+      const list = Array.isArray(rows) ? rows : [];
+      setCreditTx(list.map((r) => normalizeCreditTx(r as Record<string, unknown>)));
+    } catch {
+      setCreditTx([]);
+    } finally {
+      setCreditTxLoading(false);
     }
     setDiscoverLifecycleLoading(true);
     try {
@@ -411,6 +452,39 @@ export const UsersPage: React.FC = () => {
                 {detailUser.credits ?? '—'}
                 {detailUser.lifetimeEarned != null ? ` (lifetime ${detailUser.lifetimeEarned})` : ''}
                 {detailUser.unlimitedDiscovery ? ' · Unlimited discovery' : ''}
+              </dd>
+              <dt>Recent credit transactions</dt>
+              <dd style={{ margin: 0, maxWidth: '100%' }}>
+                {creditTxLoading ? (
+                  <span className={styles.detailLoading}>Loading…</span>
+                ) : creditTx.length === 0 ? (
+                  <span className={styles.lifecycleHint}>No rows (or not available).</span>
+                ) : (
+                  <div className={styles.creditTxWrap}>
+                    <table className={styles.creditTxTable}>
+                      <thead>
+                        <tr>
+                          <th>When</th>
+                          <th>Δ</th>
+                          <th>After</th>
+                          <th>Reason</th>
+                          <th>Ref</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {creditTx.map((tx) => (
+                          <tr key={tx.id || `${tx.createdAt}-${tx.reason}`}>
+                            <td>{tx.createdAt ? new Date(tx.createdAt).toLocaleString() : '—'}</td>
+                            <td>{tx.creditsDelta}</td>
+                            <td>{tx.balanceAfter ?? '—'}</td>
+                            <td>{tx.reason || tx.type || '—'}</td>
+                            <td className={styles.mono}>{tx.refId || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </dd>
               <dt>Created</dt>
               <dd>{new Date(detailUser.createdAt).toLocaleString()}</dd>

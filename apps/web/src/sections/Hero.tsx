@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
@@ -16,29 +16,6 @@ import {
 import styles from './sections.module.css';
 
 const ease = [0.16, 1, 0.3, 1] as const;
-
-function HeroFomoLine() {
-  const [n, setN] = useState(27);
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setN((v) => {
-        const delta = Math.floor(Math.random() * 3) - 1;
-        return Math.min(34, Math.max(21, v + delta));
-      });
-    }, 4200);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <motion.p
-      className={styles.heroFomoLine}
-      initial={{ opacity: 0.85 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
-    >
-      🔥 {n} athletes matching near you right now
-    </motion.p>
-  );
-}
 
 export const Hero: React.FC = () => {
   const { isAuthenticated } = useAuthContext();
@@ -130,20 +107,27 @@ export const Hero: React.FC = () => {
               transition={{ duration: 0.45, ease, delay: 0.14 }}
             >
               <span className={styles.heroExclusivityBadge}>🔥 Serious athletes only</span>
-              <p className={styles.heroExclusivityLine}>Join 12,000+ committed athletes</p>
+              <p className={styles.heroExclusivityLine}>Train with people who take it seriously</p>
             </motion.div>
             <motion.ul
               className={styles.socialProof}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease, delay: 0.18 }}
-              aria-label="Social proof"
+              aria-label="Why athletes use GetTrainMate"
             >
-              <li>🔥 2,184 matches this week</li>
-              <li>⭐ 4.9 average rating</li>
-              <li>💪 12,000+ athletes</li>
+              <li>New athletes join every day</li>
+              <li>Find partners by level, schedule, and mindset</li>
+              <li>Active athletes in your area</li>
             </motion.ul>
-            <HeroFomoLine />
+            <motion.p
+              className={styles.heroFomoLine}
+              initial={{ opacity: 0.85 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
+            >
+              Built for people who show up — not fake live counts.
+            </motion.p>
           </div>
 
           <motion.div

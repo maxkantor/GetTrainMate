@@ -67,15 +67,15 @@ export const AppHeader: React.FC = () => {
 
   const creditTooltip = useMemo(
     () => (
-      <Box component="div" role="presentation" sx={{ py: 0.5, px: 0.25, maxWidth: 280 }}>
+      <Box component="div" role="presentation" sx={{ py: 0.5, px: 0.25, maxWidth: 300 }}>
         <Typography variant="caption" component="div" sx={{ display: 'block', fontWeight: 700, mb: 0.75 }}>
           {credits} remaining out of {creditCap} total credits
         </Typography>
         <Typography variant="caption" component="div" sx={{ display: 'block', opacity: 0.92, lineHeight: 1.45 }}>
-          1 credit per send-interest
+          Credits are used for chat unlocks, AI actions, boosts, and insights.
         </Typography>
         <Typography variant="caption" component="div" sx={{ display: 'block', opacity: 0.92, lineHeight: 1.45, mt: 0.5 }}>
-          AI Icebreaker: 1 credit
+          1 credit per send-interest when you use credits for likes.
         </Typography>
       </Box>
     ),

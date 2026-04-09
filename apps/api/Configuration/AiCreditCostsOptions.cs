@@ -10,6 +10,7 @@ public class AiCreditCostsOptions
     public int MatchInsight { get; set; } = 2;
     public int Icebreakers { get; set; } = 1;
     public int WorkoutPlan { get; set; } = 3;
-    public int CoachPremiumAction { get; set; } = 0; // 0 = free
-    public int ProfileOptimize { get; set; } = 0;    // 0 = free
+    /// <summary>Per AI Coach user message (1 = charge after successful reply).</summary>
+    public int CoachPremiumAction { get; set; } = 1;
+    public int ProfileOptimize { get; set; } = 2;
 }

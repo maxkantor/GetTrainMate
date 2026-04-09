@@ -33,6 +33,13 @@ export interface SentRequestItem {
   updatedAt: string;
 }
 
+/** GET /api/match/incoming-likes */
+export interface IncomingLikesResponse {
+  unlocked: boolean;
+  requiredCredits?: number;
+  items?: SentRequestItem[];
+}
+
 export interface SkippedProfileItem {
   userId: string;
   name: string;
@@ -157,6 +164,14 @@ class MatchService {
   async getSentRequests(token: string): Promise<SentRequestItem[]> {
     const response = await axios.get<SentRequestItem[]>(
       `${API_BASE_URL}/api/match/sent-requests`,
+      this.getHeaders(token)
+    );
+    return response.data;
+  }
+
+  async getIncomingLikes(token: string): Promise<IncomingLikesResponse> {
+    const response = await axios.get<IncomingLikesResponse>(
+      `${API_BASE_URL}/api/match/incoming-likes`,
       this.getHeaders(token)
     );
     return response.data;

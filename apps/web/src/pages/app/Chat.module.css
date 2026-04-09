@@ -186,6 +186,16 @@
   background: none;
 }
 
+.messagesLockWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  min-height: 220px;
+  overflow-y: auto;
+}
+
 .messagesScroll {
   flex: 1;
   overflow-y: auto;

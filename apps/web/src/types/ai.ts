@@ -32,6 +32,8 @@ export interface MatchInsightResponse {
 }
 
 export interface IcebreakerRequest {
+  /** When set, server bills at most once per thread for icebreaker (idempotency). */
+  threadId?: string;
   myName: string;
   myBio?: string;
   mySports: string[];
@@ -90,6 +92,7 @@ export interface AiCreditCosts {
   icebreakers: number;
   workoutPlan: number;
   profileOptimize: number;
+  coachPremiumAction: number;
 }
 
 export interface AiErrorShape {
