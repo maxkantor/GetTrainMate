@@ -4,6 +4,7 @@
 export type LandingTrainingOption = { label: string; sportTag: string };
 
 export const LANDING_TRAINING_OPTIONS: readonly LandingTrainingOption[] = [
+  { label: 'Gym', sportTag: 'Gym' },
   { label: 'HYROX / hybrid racing', sportTag: 'Hyrox' },
   { label: 'CrossFit / functional fitness', sportTag: 'CrossFit' },
   { label: 'Strength & conditioning', sportTag: 'Gym' },

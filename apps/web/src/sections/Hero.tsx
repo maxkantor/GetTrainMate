@@ -7,7 +7,12 @@ import { useI18n } from '@/hooks/useI18n';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
 import { HeroFloatingStack } from '@/components/premium/HeroFloatingStack';
-import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
+import {
+  LANDING_PRIMARY_CTA,
+  LANDING_CTA_SUB,
+  LANDING_HERO_SUB_GUEST,
+  LANDING_SCARCITY,
+} from '@/constants/landingCopy';
 import styles from './sections.module.css';
 
 const ease = [0.16, 1, 0.3, 1] as const;
@@ -96,7 +101,10 @@ export const Hero: React.FC = () => {
                     {ctaPrimaryLabel}
                   </Link>
                 )}
-                {showCtaSubtext && (
+                {primaryOpensFlow && (
+                  <span className={styles.heroCtaSub}>{LANDING_HERO_SUB_GUEST}</span>
+                )}
+                {!primaryOpensFlow && showCtaSubtext && (
                   <>
                     <span className={styles.heroCtaSub}>{LANDING_CTA_SUB}</span>
                     <span className={styles.heroScarcityLine}>{LANDING_SCARCITY}</span>
@@ -131,9 +139,9 @@ export const Hero: React.FC = () => {
               transition={{ duration: 0.5, ease, delay: 0.18 }}
               aria-label="Social proof"
             >
-              <li>🔥 2,184 matches made this week</li>
+              <li>🔥 2,184 matches this week</li>
               <li>⭐ 4.9 average rating</li>
-              <li>💬 Active in 40+ cities</li>
+              <li>💪 12,000+ athletes</li>
             </motion.ul>
             <HeroFomoLine />
           </div>

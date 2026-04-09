@@ -12,6 +12,7 @@ import {
   updateUserAttributes,
   updatePassword,
   signInWithRedirect,
+  resendSignUpCode,
 } from 'aws-amplify/auth';
 import { isGraphQLEnabled, APPSYNC_GRAPHQL_URL } from '@/config/appsync';
 
@@ -85,19 +86,36 @@ export const authService = {
   async signup(email: string, password: string, fullName: string): Promise<{ username: string }> {
     const username = crypto.randomUUID();
     const trimmedName = fullName.trim();
-    await signUp({
-      username,
-      password,
-      options: {
-        userAttributes: {
-          email: email.trim(),
-          name: trimmedName,
-          given_name: trimmedName,
-          updated_at: String(Math.floor(Date.now() / 1000)),
+    try {
+      await signUp({
+        username,
+        password,
+        options: {
+          userAttributes: {
+            email: email.trim(),
+            name: trimmedName,
+            given_name: trimmedName,
+            updated_at: String(Math.floor(Date.now() / 1000)),
+          },
         },
-      },
-    });
+      });
+    } catch (e: unknown) {
+      const name = e && typeof e === 'object' && 'name' in e ? String((e as { name: string }).name) : '';
+      const msg = e instanceof Error ? e.message : String(e);
+      if (
+        name === 'UsernameExistsException' ||
+        name === 'AliasExistsException' ||
+        /already exists|An account with the given email already exists/i.test(msg)
+      ) {
+        throw new Error('An account with this email already exists. Sign in instead.');
+      }
+      throw e;
+    }
     return { username };
+  },
+
+  async resendSignupVerificationCode(username: string): Promise<void> {
+    await resendSignUpCode({ username });
   },
 
   async confirmSignUp(username: string, code: string) {

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { authService } from '@/services/authService';
+import { checkRegistrationEmail } from '@/services/registrationCheckService';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { clearAuthScopeTracking } from '@/utils/authScopeReset';
 
@@ -17,9 +18,19 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; requiresNewPassword?: boolean }>;
   confirmSignInWithNewPassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string; username?: string }>;
+  signup: (email: string, password: string, name: string) => Promise<SignupResult>;
   confirmSignUp: (username: string, code: string) => Promise<{ success: boolean; error?: string }>;
+  resendSignupCode: (username: string) => Promise<{ success: boolean; error?: string }>;
 }
+
+export type SignupResult = {
+  success: boolean;
+  error?: string;
+  username?: string;
+  /** Cognito username for resendSignUpCode when email is already registered but unconfirmed */
+  resendUsername?: string;
+  registrationStatus?: string;
+};
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -30,6 +41,7 @@ export const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   signup: async () => ({ success: false }),
   confirmSignUp: async () => ({ success: false }),
+  resendSignupCode: async () => ({ success: false }),
 });
 
 interface AuthProviderProps {
@@ -178,13 +190,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signup = async (email: string, password: string, name: string) => {
+  const signup = async (email: string, password: string, name: string): Promise<SignupResult> => {
     try {
       setIsLoading(true);
+      const check = await checkRegistrationEmail(email);
+      if (!check.available) {
+        return {
+          success: false,
+          error:
+            check.message?.trim() ||
+            'This email is already associated with an account. Try signing in instead.',
+          resendUsername: check.resendUsername ?? undefined,
+          registrationStatus: check.status,
+        };
+      }
       const { username } = await authService.signup(email, password, name);
       return { success: true, username };
-    } catch (error: any) {
-      const message = error.message || 'Signup failed';
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Signup failed';
+      return { success: false, error: message };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resendSignupCode = async (username: string) => {
+    try {
+      setIsLoading(true);
+      await authService.resendSignupVerificationCode(username);
+      return { success: true };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Could not resend code';
       return { success: false, error: message };
     } finally {
       setIsLoading(false);
@@ -242,6 +278,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         logout,
         signup,
         confirmSignUp,
+        resendSignupCode,
       }}
     >
       {children}
