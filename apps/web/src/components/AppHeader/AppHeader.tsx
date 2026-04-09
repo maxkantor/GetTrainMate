@@ -39,12 +39,9 @@ export const AppHeader: React.FC = () => {
   const blockedOnDiscover = outOfFreeSwipes && credits < 1;
   const pressureCredits = lowCredits || blockedOnDiscover;
 
-  /** Status between nav and credits — never repeat balance (shown in credit pill + tooltip). */
+  /** Status between nav and credits — actionable discover limits only (match counts stay on /app). */
   const centerStatus = useMemo(() => {
     if (matchStatus.loading) return '';
-    if (matchStatus.waitingForAction > 0) {
-      return `${matchStatus.waitingForAction} match${matchStatus.waitingForAction === 1 ? '' : 'es'} waiting`;
-    }
     if (blockedOnDiscover) {
       return 'No free likes left today — add credits or try after midnight UTC.';
     }
@@ -56,14 +53,7 @@ export const AppHeader: React.FC = () => {
       return 'Unlimited browsing';
     }
     return '';
-  }, [
-    matchStatus.loading,
-    matchStatus.waitingForAction,
-    blockedOnDiscover,
-    likesToday,
-    credits,
-    me?.unlimitedDiscovery,
-  ]);
+  }, [matchStatus.loading, blockedOnDiscover, likesToday, credits, me?.unlimitedDiscovery]);
 
   const creditTooltip = useMemo(
     () => (

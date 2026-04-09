@@ -6,9 +6,7 @@ import { matchQueryKeys } from '@/lib/queryKeys';
 import { fetchMutualMatchRows } from '@/services/matchExploreQueries';
 
 export interface MatchStatusForHeader {
-  /** Mutual matches where chat is not unlocked yet (best signal when API provides it). */
-  waitingForAction: number;
-  /** Total mutual matches (REST fallback when unlock flags unavailable). */
+  /** Total mutual matches (for dashboard tiles, etc.). */
   totalMatches: number;
   /** Likes/swipes recorded today (client). */
   likesToday: number;
@@ -42,10 +40,8 @@ export function useMatchStatusForHeader(enabled: boolean): MatchStatusForHeader 
   }, [enabled, refreshLikes]);
 
   const totalMatches = rows.length;
-  const waitingForAction = rows.filter((m) => !m.unlockedByMe).length;
 
   return {
-    waitingForAction,
     totalMatches,
     likesToday,
     loading: isLoading,
