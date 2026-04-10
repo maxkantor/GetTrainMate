@@ -73,12 +73,12 @@
   font-size: 1rem;
 }
 
-/* Glass/elevated card container - 4 cards equal height */
+/* Glass/elevated card container — 5 plans, responsive wrap */
 .cards {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-6);
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
   align-items: stretch;
 }
@@ -89,9 +89,16 @@
   }
 }
 
-@media (min-width: 960px) {
+@media (min-width: 900px) {
   .cards {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-5);
+  }
+}
+
+@media (min-width: 1200px) {
+  .cards {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: var(--space-5);
   }
 }

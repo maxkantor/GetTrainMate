@@ -1,6 +1,6 @@
 /**
- * Photo and video upload limits by subscription tier.
- * Free: 1 image. $3.99: 3 images. $7.99: 10 images. $19.99: 10 images + intro video.
+ * Photo and video upload limits by subscription tier (credits as proxy for purchased packs).
+ * Free / starter: 1 photo. Go (10+ cr): 3 photos. Best Value+ (30+ cr): 10 photos. Power/Elite (80+ cr): 10 photos + video.
  */
 
 export interface UploadLimits {
@@ -16,16 +16,12 @@ export const DEFAULT_LIMITS: UploadLimits = {
 
 /**
  * Get upload limits based on user's credits (as proxy for purchased pack).
- * FREE_3 / no purchase: 1 photo
- * PACK_10 ($3.99): 3 photos
- * PACK_25 ($7.99): 10 photos
- * PACK_100 ($19.99): 10 photos + 30s video
  */
 export function getUploadLimits(credits: number, plan?: string): UploadLimits {
-  if (plan === 'elite' || plan === 'premium' || credits >= 100) {
+  if (plan === 'elite' || plan === 'premium' || credits >= 80) {
     return { maxPhotos: 10, maxVideoSeconds: 30 };
   }
-  if (plan === 'pro' || credits >= 25) {
+  if (plan === 'pro' || credits >= 30) {
     return { maxPhotos: 10, maxVideoSeconds: 0 };
   }
   if (credits >= 10) {

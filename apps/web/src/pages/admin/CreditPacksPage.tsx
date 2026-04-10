@@ -61,6 +61,16 @@ export const CreditPacksPage: React.FC = () => {
     }
   };
 
+  const handleSyncCanonical = async () => {
+    try {
+      await adminApiService.post('/api/admin/credit-packs/sync-canonical', {});
+      setToast({ message: 'Canonical pricing synced (legacy keys deactivated if present)', severity: 'success' });
+      loadPacks();
+    } catch (e: unknown) {
+      setToast({ message: e instanceof Error ? e.message : 'Sync failed', severity: 'error' });
+    }
+  };
+
   const updateEdit = (key: string, field: keyof CreditPackAdmin, value: unknown) => {
     setEdits((prev) => ({
       ...prev,
@@ -116,9 +126,14 @@ export const CreditPacksPage: React.FC = () => {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Configure credit packs shown on the pricing page. Prices are sent at checkout (no Stripe Price IDs required).
       </Typography>
-      <Button variant="outlined" onClick={handleSeed} sx={{ mb: 2 }}>
-        Seed default packs
-      </Button>
+      <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Button variant="outlined" onClick={handleSeed}>
+          Seed default packs
+        </Button>
+        <Button variant="outlined" onClick={handleSyncCanonical}>
+          Sync canonical pricing
+        </Button>
+      </Box>
 
       <Table component={Paper} sx={{ mt: 2 }}>
         <TableHead>

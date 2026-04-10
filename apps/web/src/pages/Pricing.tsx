@@ -11,14 +11,12 @@ import { useMe } from '@/hooks/useMe';
 import { useI18n } from '@/hooks/useI18n';
 import { formatI18n, getPricingPackFeatures, getPricingPackTitle } from '@/i18n';
 import { CreditPack, FALLBACK_CREDIT_PACKS, CreditPackKey } from '@/data/creditPacks';
+import { CANONICAL_PACK_KEYS, normalizeCreditPackKey } from '@/config/pricingPlans';
 import styles from '@/pages/Pricing.module.css';
 
-const KNOWN_KEYS: CreditPackKey[] = ['FREE_3', 'PACK_10', 'PACK_25', 'PACK_100'];
-
-function mapApiToCreditPack(dto: CreditPackDto): CreditPack {
-  const key: CreditPackKey = KNOWN_KEYS.includes(dto.key as CreditPackKey)
-    ? (dto.key as CreditPackKey)
-    : 'FREE_3';
+function mapApiToCreditPack(dto: CreditPackDto): CreditPack | null {
+  const key = normalizeCreditPackKey(dto.key);
+  if (!key) return null;
   const fallback = FALLBACK_CREDIT_PACKS.find((p) => p.key === key);
   return {
     key,
@@ -27,31 +25,65 @@ function mapApiToCreditPack(dto: CreditPackDto): CreditPack {
     credits: dto.credits ?? fallback?.credits ?? 0,
     sortOrder: dto.sortOrder ?? fallback?.sortOrder ?? 0,
     isBestValue: dto.isBestValue ?? fallback?.isBestValue ?? false,
-    isFree: key === 'FREE_3',
+    isFree: key === 'starter',
   };
 }
 
 function toCreditPacks(dtos: CreditPackDto[]): CreditPack[] {
   if (!dtos?.length) return FALLBACK_CREDIT_PACKS;
-  return dtos
-    .filter((d) => KNOWN_KEYS.includes(d.key as CreditPackKey) && (d.isActive !== false))
+  const mapped = dtos
+    .filter((d) => d.isActive !== false)
     .map(mapApiToCreditPack)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .filter((p): p is CreditPack => p != null);
+  const byKey = new Map<CreditPackKey, CreditPack>();
+  for (const p of mapped) {
+    const existing = byKey.get(p.key);
+    if (!existing || p.sortOrder < existing.sortOrder) byKey.set(p.key, p);
+  }
+  const list = [...byKey.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+  if (!list.length) return FALLBACK_CREDIT_PACKS;
+  const keys = new Set(list.map((p) => p.key));
+  const missing = CANONICAL_PACK_KEYS.filter((k) => !keys.has(k));
+  if (missing.length === 0) return list;
+  const extras = FALLBACK_CREDIT_PACKS.filter((p) => missing.includes(p.key));
+  return [...list, ...extras].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export const PricingPage: React.FC = () => {
   const { t, locale } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuthContext();
-  const { me } = useMe();
+  const { me, refreshMe } = useMe();
   const [packs, setPacks] = useState<CreditPack[]>(FALLBACK_CREDIT_PACKS);
   const [error, setError] = useState<string | null>(null);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [starterClaimed, setStarterClaimed] = useState(false);
 
   useEffect(() => {
     analytics.pricingOpened();
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      setStarterClaimed(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await authService.getJWT();
+        if (!token || cancelled) return;
+        const claimed = await billingService.getFreeSignupStatus(token);
+        if (!cancelled) setStarterClaimed(claimed);
+      } catch {
+        if (!cancelled) setStarterClaimed(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     billingService
@@ -107,26 +139,28 @@ export const PricingPage: React.FC = () => {
       return;
     }
     setError(null);
-    setLoadingPack('FREE_3');
+    setLoadingPack('starter');
     try {
       const token = await authService.getJWT();
       if (!token) {
         window.location.href = '/signup';
         return;
       }
-      await billingService.grantFreeSignup(token);
+      const { alreadyGranted } = await billingService.grantFreeSignup(token);
       trackTrialStart('free_pack');
-      setToast(t('pricing.toast_free_credits'));
+      setStarterClaimed(true);
+      await refreshMe();
+      setToast(alreadyGranted ? t('pricing.toast_free_credits_claimed') : t('pricing.toast_free_credits'));
     } catch {
       setError(t('pricing.grant_free_error'));
     } finally {
       setLoadingPack(null);
     }
-  }, [isAuthenticated, user, t]);
+  }, [isAuthenticated, user, t, refreshMe]);
 
   const handleCta = useCallback(
     (pack: CreditPack) => {
-      if (pack.key === 'FREE_3') {
+      if (pack.key === 'starter') {
         handleFree();
         return;
       }
@@ -144,9 +178,13 @@ export const PricingPage: React.FC = () => {
   const credits = me?.credits ?? 0;
 
   const ctaLabel = (pack: CreditPack) => {
-    if (pack.isFree) return t('pricing.cta_free');
-    if (pack.key === 'PACK_25') return t('pricing.cta_best_value');
-    if (pack.key === 'PACK_100') return t('pricing.cta_power');
+    if (pack.isFree) {
+      if (starterClaimed) return t('pricing.cta_starter_claimed');
+      return t('pricing.cta_free');
+    }
+    if (pack.key === 'best_value') return t('pricing.cta_best_value');
+    if (pack.key === 'power') return t('pricing.cta_power');
+    if (pack.key === 'elite') return t('pricing.cta_elite');
     return t('pricing.cta_buy');
   };
 
@@ -225,7 +263,7 @@ export const PricingPage: React.FC = () => {
                       type="button"
                       className={isBestValue ? styles.btnPrimary : styles.btnSecondary}
                       onClick={() => handleCta(pack)}
-                      disabled={!!loadingPack}
+                      disabled={!!loadingPack || (isFree && starterClaimed)}
                     >
                       {isLoading ? t('pricing.redirecting') : ctaLabel(pack)}
                     </button>

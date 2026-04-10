@@ -3,7 +3,7 @@ namespace GetTrainMate.Api.Models;
 /// <summary>Credit pack config stored in DynamoDB (gettrainmate-credit-pack-config).</summary>
 public class CreditPackConfig
 {
-    public string Key { get; set; } = string.Empty; // FREE_3, PACK_10, PACK_25, PACK_100
+    public string Key { get; set; } = string.Empty; // starter, go, best_value, power, elite (legacy: FREE_3, PACK_*)
     public string Title { get; set; } = string.Empty;
     public decimal PriceUsd { get; set; }
     public int Credits { get; set; }

@@ -2,7 +2,7 @@ import axios from 'axios';
 import { API_BASE_URL } from '@/config/api';
 
 const PLANS_CACHE_KEY = 'billing_plans_cache';
-const CREDIT_PACKS_CACHE_KEY = 'credit_packs_cache';
+const CREDIT_PACKS_CACHE_KEY = 'credit_packs_cache_v2';
 const PLANS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 
 export interface BillingPlanDto {
@@ -161,8 +161,22 @@ export const billingService = {
     }
   },
 
-  async grantFreeSignup(token: string): Promise<void> {
-    await axios.post(
+  async getFreeSignupStatus(token: string): Promise<boolean> {
+    try {
+      const response = await axios.get<{ claimed?: boolean }>(
+        `${API_BASE_URL}/api/billing/free-signup-status`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      return !!response.data?.claimed;
+    } catch {
+      return false;
+    }
+  },
+
+  async grantFreeSignup(token: string): Promise<{ alreadyGranted: boolean }> {
+    const response = await axios.post<{ alreadyGranted?: boolean }>(
       `${API_BASE_URL}/api/billing/grant-free-signup`,
       {},
       {
@@ -172,6 +186,7 @@ export const billingService = {
         },
       }
     );
+    return { alreadyGranted: !!response.data?.alreadyGranted };
   },
 
   async createCheckoutSession(

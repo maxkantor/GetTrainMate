@@ -118,6 +118,26 @@ public class AdminCreditPacksController : ControllerBase
             return StatusCode(500, new { error = ex.Message });
         }
     }
+
+    [HttpPost("sync-canonical")]
+    public async Task<ActionResult> SyncCanonicalPacks()
+    {
+        try
+        {
+            await ValidateAdminAsync();
+            var upserted = await _creditsService.SyncCanonicalCreditPacksAsync();
+            return Ok(new { message = "Canonical credit packs synced. Legacy keys marked inactive if present.", upserted });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error syncing canonical credit packs");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
 }
 
 public class CreditPackAdminDto

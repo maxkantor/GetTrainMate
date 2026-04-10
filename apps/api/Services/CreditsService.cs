@@ -135,13 +135,30 @@ public class CreditsService : ICreditsService
 
     private async Task<CreditPackConfig?> GetPackConfigByKeyAsync(string packKey)
     {
+        if (string.IsNullOrWhiteSpace(packKey)) return null;
+        var normalized = PricingPlanCatalog.NormalizePackKey(packKey);
+
         try
         {
             var table = Table.LoadTable(_dynamoDb, CreditPackConfigTable);
-            var doc = await table.GetItemAsync(packKey);
-            if (doc != null) return ToCreditPackConfig(doc);
+            Document? doc = await table.GetItemAsync(normalized);
+            if (doc != null)
+            {
+                var cfg = ToCreditPackConfig(doc);
+                if (cfg != null) return cfg;
+            }
 
-            var fallback = CreditPacksFallback.Packs.FirstOrDefault(p => string.Equals(p.Key, packKey, StringComparison.OrdinalIgnoreCase));
+            if (!string.Equals(normalized, packKey, StringComparison.OrdinalIgnoreCase))
+            {
+                doc = await table.GetItemAsync(packKey);
+                if (doc != null)
+                {
+                    var cfg = ToCreditPackConfig(doc);
+                    if (cfg != null) return cfg;
+                }
+            }
+
+            var fallback = PricingPlanCatalog.TryGetFallbackPack(packKey);
             if (fallback != null)
                 return new CreditPackConfig
                 {
@@ -162,7 +179,7 @@ public class CreditsService : ICreditsService
 
     public async Task<string> CreateCreditsCheckoutSessionAsync(string userId, string packKey, string baseUrl)
     {
-        if (string.Equals(packKey, "FREE_3", StringComparison.OrdinalIgnoreCase))
+        if (PricingPlanCatalog.IsFreePackKey(packKey))
             throw new ArgumentException("Free pack does not require checkout. Use grant-free-signup.");
 
         var pack = await GetPackConfigByKeyAsync(packKey);
@@ -170,6 +187,8 @@ public class CreditsService : ICreditsService
             throw new InvalidOperationException($"Pack {packKey} not found or inactive.");
         if (pack.PriceUsd <= 0)
             throw new InvalidOperationException($"Pack {packKey} has invalid price. Configure in Admin CRM → Credit Packs.");
+
+        var canonicalPackKey = PricingPlanCatalog.NormalizePackKey(pack.Key);
 
         var baseUrlClean = baseUrl.TrimEnd('/');
         var successUrl = $"{baseUrlClean}/billing/success?session_id={{CHECKOUT_SESSION_ID}}";
@@ -203,7 +222,7 @@ public class CreditsService : ICreditsService
             Metadata = new Dictionary<string, string>
             {
                 { "userId", userId },
-                { "packKey", packKey },
+                { "packKey", canonicalPackKey },
                 { "credits", pack.Credits.ToString() },
                 { "priceUsd", pack.PriceUsd.ToString("F2") },
             },
@@ -215,7 +234,7 @@ public class CreditsService : ICreditsService
         if (string.IsNullOrEmpty(session.Url))
             throw new InvalidOperationException("Stripe did not return a checkout URL.");
 
-        _logger.LogInformation("Credits checkout session created for user {UserId}, pack {PackKey}", userId, packKey);
+        _logger.LogInformation("Credits checkout session created for user {UserId}, pack {PackKey}", userId, canonicalPackKey);
         return session.Url;
     }
 
@@ -479,20 +498,28 @@ public class CreditsService : ICreditsService
         return new CreditsBalanceDto { Balance = 0, LifetimeEarned = 0, UnlimitedDiscovery = false };
     }
 
-    public async Task<bool> GrantFreeSignupCreditsAsync(string userId, string? signupEmail = null)
+    public async Task<bool> HasReceivedFreeSignupCreditsAsync(string userId) =>
+        await HasFreeSignupGrantInLedgerAsync(userId);
+
+    private async Task<bool> HasFreeSignupGrantInLedgerAsync(string userId)
     {
         var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
-        var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
-
         var userIdFilter = new ScanFilter();
         userIdFilter.AddCondition("UserId", ScanOperator.Equal, userId);
         var userIdSearch = txTable.Scan(userIdFilter);
         var existing = await userIdSearch.GetNextSetAsync();
-        var alreadyGranted = existing.Any(d => d.Contains("Reason") && d["Reason"].AsString() == FreeSignupReason);
-        if (alreadyGranted)
+        return existing.Any(d => d.Contains("Reason") && d["Reason"].AsString() == FreeSignupReason);
+    }
+
+    public async Task<GrantFreeSignupCreditsResult> GrantFreeSignupCreditsAsync(string userId, string? signupEmail = null)
+    {
+        var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
+        var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
+
+        if (await HasFreeSignupGrantInLedgerAsync(userId))
         {
             _logger.LogInformation("Free signup credits already granted for user {UserId}.", userId);
-            return true;
+            return new GrantFreeSignupCreditsResult { Success = true, AlreadyGranted = true };
         }
 
         try
@@ -526,12 +553,12 @@ public class CreditsService : ICreditsService
 
             _logger.LogInformation("Granted {Credits} free signup credits to user {UserId}.", FreeSignupCredits, userId);
             _ = _adminNotify.NotifyNewSignupAsync(userId, signupEmail, CancellationToken.None);
-            return true;
+            return new GrantFreeSignupCreditsResult { Success = true, AlreadyGranted = false };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to grant free signup credits to user {UserId}", userId);
-            return false;
+            return new GrantFreeSignupCreditsResult { Success = false, AlreadyGranted = false };
         }
     }
 
@@ -878,7 +905,56 @@ public class CreditsService : ICreditsService
                 UpdatedAt = DateTime.UtcNow,
             });
         }
-        _logger.LogInformation("Credit packs seeded (FREE_3, PACK_10, PACK_25, PACK_100).");
+        _logger.LogInformation("Credit packs seeded (starter, go, best_value, power, elite).");
+    }
+
+    public async Task<int> SyncCanonicalCreditPacksAsync()
+    {
+        var upserted = 0;
+        foreach (var p in PricingPlanCatalog.CanonicalPacks)
+        {
+            await SaveCreditPackAsync(new CreditPackConfig
+            {
+                Key = p.Key,
+                Title = p.Title,
+                PriceUsd = p.PriceUsd,
+                Credits = p.Credits,
+                IsActive = true,
+                SortOrder = p.SortOrder,
+                IsBestValue = p.IsBestValue,
+                UpdatedAt = DateTime.UtcNow,
+            });
+            upserted++;
+        }
+
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, CreditPackConfigTable);
+            foreach (var legacyKey in PricingPlanCatalog.LegacyPackKeys)
+            {
+                Document? doc;
+                try
+                {
+                    doc = await table.GetItemAsync(legacyKey);
+                }
+                catch (ResourceNotFoundException)
+                {
+                    continue;
+                }
+
+                if (doc == null) continue;
+                var cfg = ToCreditPackConfig(doc);
+                if (cfg == null) continue;
+                cfg.IsActive = false;
+                await SaveCreditPackAsync(cfg);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not deactivate legacy credit pack rows.");
+        }
+
+        return upserted;
     }
 
     private static CreditPackConfig? ToCreditPackConfig(Document doc)

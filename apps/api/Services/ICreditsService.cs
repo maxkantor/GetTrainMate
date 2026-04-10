@@ -19,7 +19,9 @@ public interface ICreditsService
     Task<bool> ProcessCheckoutSessionCompletedAsync(string stripeEventId, Stripe.Checkout.Session session);
     Task<CreditsBalanceDto> GetCreditsBalanceAsync(string userId);
     /// <param name="signupEmail">Cognito email claim when available (for admin notification).</param>
-    Task<bool> GrantFreeSignupCreditsAsync(string userId, string? signupEmail = null);
+    Task<GrantFreeSignupCreditsResult> GrantFreeSignupCreditsAsync(string userId, string? signupEmail = null);
+    /// <summary>True if the user already has a FREE_SIGNUP grant in the credit transaction ledger.</summary>
+    Task<bool> HasReceivedFreeSignupCreditsAsync(string userId);
     /// <summary>Admin: grant credits to a user (e.g. refund for failed AI).</summary>
     Task GrantCreditsAsync(string userId, int amount, string reason);
     /// <summary>
@@ -37,6 +39,8 @@ public interface ICreditsService
     Task<List<CreditPackConfig>> GetAllCreditPacksForAdminAsync();
     Task SaveCreditPackAsync(CreditPackConfig pack);
     Task SeedDefaultCreditPacksIfEmptyAsync();
+    /// <summary>Upsert canonical plans in DynamoDB and mark legacy pack keys inactive (admin migration).</summary>
+    Task<int> SyncCanonicalCreditPacksAsync();
 
     /// <summary>Recent spend/grant/purchase rows for CRM (scan; capped).</summary>
     Task<IReadOnlyList<CreditTransactionAuditDto>> ListRecentTransactionsForUserAsync(string userId, int limit = 50);

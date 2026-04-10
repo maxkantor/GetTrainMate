@@ -5,11 +5,13 @@ export const pricingEs = {
   checkout_failed_short: 'Error en el pago',
   grant_free_error: 'No se pudieron añadir créditos gratis. Inténtalo de nuevo.',
   toast_free_credits: 'Se añadieron 3 créditos',
+  toast_free_credits_claimed: 'Los créditos de inicio ya están en tu cuenta.',
   your_credits_label: 'Tus créditos:',
   hero_title: 'Consigue créditos. Más matches.',
   hero_sub:
-    'Usa créditos para desbloquear chats, impulsar tu perfil, ver likes y obtener compatibilidad con IA solo cuando lo necesites.',
-  support_line: 'Sin suscripción. Sin compromiso. Solo paquetes de una vez.',
+    'Usa créditos para chats, funciones IA e impulsos. Compra única. Sin suscripción. Los créditos no caducan.',
+  support_line:
+    'Los créditos desbloquean chats, IA e impulsos. Compra única. Sin suscripción. No caducan.',
   credit_1: '1 crédito',
   credit_2: '2 créditos',
   credit_3: '3 créditos',
@@ -24,8 +26,10 @@ export const pricingEs = {
   credits_count: '{n} créditos',
   redirecting: 'Redirigiendo…',
   cta_free: 'Empezar gratis',
+  cta_starter_claimed: 'Inicio reclamado',
   cta_best_value: 'Mejor oferta',
   cta_power: 'Potencia',
+  cta_elite: 'Pasarse a Elite',
   cta_buy: 'Comprar créditos',
   trust_secure: 'Pagos seguros',
   trust_never_expire: 'Los créditos no caducan',
@@ -62,37 +66,45 @@ export const pricingEs = {
   faq_a3:
     'Si no has usado los créditos, contacta con soporte en 7 días. Los créditos usados no son reembolsables.',
   packTitles: {
-    FREE_3: 'Inicio',
-    PACK_10: 'Go',
-    PACK_25: 'Mejor valor',
-    PACK_100: 'Power',
+    starter: 'Inicio',
+    go: 'Go',
+    best_value: 'Mejor valor',
+    power: 'Power',
+    elite: 'Elite',
   },
   packFeatures: {
-    FREE_3: [
+    starter: [
       'Explora compañeros locales',
       'Ve perfiles y matches',
       'Prueba con créditos iniciales',
       'Filtros básicos de descubrimiento',
     ],
-    PACK_10: [
+    go: [
       'Más chats desbloqueados',
       'Más visibilidad del perfil',
       'Compatibilidad con IA',
       'Filtra por distancia y actividad',
     ],
-    PACK_25: [
+    best_value: [
       'Equilibrio entre visibilidad y conexiones',
       'Desbloquea chats más rápido',
       'Incluye impulsos e insights IA',
       'Muestra likes recientes',
       'Ideal para usuarios activos',
     ],
-    PACK_100: [
+    power: [
       'Máxima visibilidad',
       'Más impulsos y chats',
       'Filtros avanzados',
       'Prioridad en descubrimiento',
       'Para usuarios intensivos',
+    ],
+    elite: [
+      'Mejor valor en créditos para uso intenso',
+      'Para los miembros más activos',
+      'Más chats, impulsos e IA',
+      'Uso sostenido',
+      'Máxima flexibilidad a largo plazo',
     ],
   },
 } as const;

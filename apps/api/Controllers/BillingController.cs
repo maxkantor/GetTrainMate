@@ -72,6 +72,17 @@ public class BillingController : ControllerBase
         return Ok(balance);
     }
 
+    [HttpGet("free-signup-status")]
+    [AllowAnonymous]
+    public async Task<ActionResult> GetFreeSignupStatus()
+    {
+        var userId = GetUserIdFromToken();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized(new { error = "Valid authentication required." });
+        var claimed = await _creditsService.HasReceivedFreeSignupCreditsAsync(userId);
+        return Ok(new { claimed });
+    }
+
     [HttpPost("grant-free-signup")]
     [AllowAnonymous]
     public async Task<ActionResult> GrantFreeSignup()
@@ -80,8 +91,15 @@ public class BillingController : ControllerBase
         if (string.IsNullOrEmpty(userId))
             return Unauthorized(new { error = "Valid authentication required." });
         var email = GetEmailFromToken();
-        var ok = await _creditsService.GrantFreeSignupCreditsAsync(userId, email);
-        return ok ? Ok(new { message = "Free credits granted.", credits = 3 }) : BadRequest(new { error = "Could not grant free credits." });
+        var result = await _creditsService.GrantFreeSignupCreditsAsync(userId, email);
+        if (!result.Success)
+            return BadRequest(new { error = "Could not grant free credits." });
+        return Ok(new
+        {
+            message = result.AlreadyGranted ? "Free credits were already granted." : "Free credits granted.",
+            credits = 3,
+            alreadyGranted = result.AlreadyGranted,
+        });
     }
 
     [HttpPost("seed")]
@@ -154,7 +172,7 @@ public class BillingController : ControllerBase
     {
         if (request == null || string.IsNullOrWhiteSpace(request.PackKey))
         {
-            return BadRequest(new { error = "packKey is required. Use FREE_3, PACK_10, PACK_25, or PACK_100." });
+            return BadRequest(new { error = "packKey is required (e.g. go, best_value, power, elite)." });
         }
 
         var userId = GetUserIdFromToken();

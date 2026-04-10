@@ -5,11 +5,13 @@ export const pricingEn = {
   checkout_failed_short: 'Checkout failed',
   grant_free_error: 'Could not grant free credits. Try again.',
   toast_free_credits: '3 credits added',
+  toast_free_credits_claimed: 'Starter credits are already on your account.',
   your_credits_label: 'Your credits:',
   hero_title: 'Get Credits. Make More Matches.',
   hero_sub:
-    'Use credits to unlock chats, boost your profile, reveal likes, and get AI-powered compatibility insights — only when you need them.',
-  support_line: 'No subscription. No commitment. Just one-time credit packs.',
+    'Use credits to unlock chats, AI features, and profile boosts. One-time purchase. No subscription. Credits never expire.',
+  support_line:
+    'Credits are used to unlock chats, AI features, and boosts. One-time purchase. No subscription. Credits never expire.',
   credit_1: '1 credit',
   credit_2: '2 credits',
   credit_3: '3 credits',
@@ -24,8 +26,10 @@ export const pricingEn = {
   credits_count: '{n} credits',
   redirecting: 'Redirecting…',
   cta_free: 'Get Started Free',
+  cta_starter_claimed: 'Starter claimed',
   cta_best_value: 'Get Best Value',
   cta_power: 'Power Up',
+  cta_elite: 'Go Elite',
   cta_buy: 'Buy Credits',
   trust_secure: 'Secure payments',
   trust_never_expire: 'Credits never expire',
@@ -62,37 +66,45 @@ export const pricingEn = {
   faq_a3:
     "If you haven't used the credits, contact support within 7 days for a refund. Used credits are non-refundable.",
   packTitles: {
-    FREE_3: 'Starter',
-    PACK_10: 'Go',
-    PACK_25: 'Best Value',
-    PACK_100: 'Power',
+    starter: 'Starter',
+    go: 'Go',
+    best_value: 'Best Value',
+    power: 'Power',
+    elite: 'Elite',
   },
   packFeatures: {
-    FREE_3: [
+    starter: [
       'Browse local training partners',
       'View profiles and explore matches',
       'Try the experience with starter credits',
       'Use basic discovery filters',
     ],
-    PACK_10: [
+    go: [
       'Unlock chats with more matches',
       'Increase profile visibility',
       'Use AI compatibility insights',
       'Filter partners by distance and activity',
     ],
-    PACK_25: [
+    best_value: [
       'Best balance of visibility and connections',
       'Unlock more chats faster',
       'Includes boosts and AI insights',
       'Reveal recent likes',
       'Ideal for active users',
     ],
-    PACK_100: [
+    power: [
       'Maximum profile visibility',
       'More boosts and unlocked chats',
       'Advanced filters for better matches',
       'Priority placement in discovery',
       'Perfect for power users',
+    ],
+    elite: [
+      'Best credit value for heavy use',
+      'Built for the most active members',
+      'More chat unlocks, boosts, and AI actions',
+      'Great for sustained usage',
+      'Best long-term flexibility',
     ],
   },
 } as const;
