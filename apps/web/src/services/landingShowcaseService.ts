@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '@/config/api';
+import { landingShowcaseDebugEnabled, logLandingShowcase, redactUrlForLog } from '@/utils/landingShowcaseDebug';
 
-const CACHE_KEY = 'gtmLandingShowcaseV8';
+const CACHE_KEY = 'gtmLandingShowcaseV9';
 const TTL_MS = 10 * 60 * 1000;
 
 /** Lambda / some hosts may emit PascalCase; admin pages already use `x ?? X` — same here. */
@@ -124,11 +125,39 @@ export async function fetchLandingShowcase(): Promise<LandingShowcaseResult | nu
     /* ignore */
   }
 
-  const res = await fetch(`${API_BASE_URL}/api/public/landing-showcase`);
-  if (!res.ok) return null;
+  const url = `${API_BASE_URL}/api/public/landing-showcase`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    logLandingShowcase('fetch failed', res.status, res.statusText, url);
+    return null;
+  }
   const raw = await res.json();
   const data = normalizeLandingShowcasePayload(raw);
-  if (!data) return null;
+  if (!data) {
+    logLandingShowcase('normalize returned null', raw);
+    return null;
+  }
+  if (landingShowcaseDebugEnabled()) {
+    const act = data.activity ?? [];
+    const deck = data.deck ?? [];
+    logLandingShowcase('response', {
+      kind: data.kind,
+      activityCount: act.length,
+      deckCount: deck.length,
+      activityHasAvatar: act.map((a, i) => ({
+        i,
+        hasPrimary: Boolean((a.avatarUrl || '').trim()),
+        hasSecondary: Boolean((a.secondaryAvatarUrl || '').trim()),
+        primary: redactUrlForLog(a.avatarUrl ?? undefined),
+      })),
+      deckPhotoHints: deck.map((c, i) => ({
+        i,
+        name: c.name,
+        hasPhotoUrl: Boolean((c.photoUrl || '').trim()),
+        photo: redactUrlForLog(c.photoUrl ?? undefined),
+      })),
+    });
+  }
   try {
     sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data }));
   } catch {

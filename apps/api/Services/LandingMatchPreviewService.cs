@@ -102,6 +102,13 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             .Concat(dummySupplement.Where(p => !completeIds.Contains(p.UserId)))
             .ToList();
 
+        _logger.LogInformation(
+            "landing-showcase scan: table={Table} complete={Complete} dummyAccepted={Dummy} merged={Merged}",
+            _tableName,
+            completePool.Count,
+            dummySupplement.Count,
+            pool.Count);
+
         var withPhotos = pool
             .Select(p => (Profile: p, Url: ResolvePrimaryPhotoUrl(p)))
             .Where(x => !string.IsNullOrEmpty(x.Url))
@@ -110,10 +117,27 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
 
         if (withPhotos.Count == 0)
         {
-            _logger.LogWarning(
-                "landing-showcase: no profiles with resolvable photos (completeScan={CompleteCount}, dummyScan={DummyCount})",
-                completePool.Count,
-                dummySupplement.Count);
+            if (pool.Count == 0)
+            {
+                _logger.LogWarning(
+                    "landing-showcase empty: mergedPool=0 (no Dynamo rows passed filters). completeScan={Complete} dummyScanRows={Dummy}. Check profiles table and dummy-user-* data.",
+                    completePool.Count,
+                    dummySupplement.Count);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "landing-showcase empty: merged={Merged} but zero presigned photo URLs. See per-profile diagnostics.",
+                    pool.Count);
+                foreach (var p in pool.Take(8))
+                {
+                    _logger.LogWarning(
+                        "landing-showcase unresolved photo UserId={UserId} Detail={Detail}",
+                        p.UserId,
+                        SummarizeShowcasePhotoFailure(p));
+                }
+            }
+
             return new LandingShowcaseResponse { Kind = "empty" };
         }
 
@@ -131,6 +155,13 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
 
         var activity = await BuildShowcaseActivityAsync(distinctProfiles, cancellationToken)
             .ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "landing-showcase live: withPhotos={WithPhotos} deck={Deck} activity={Activity} sampleUserIds={Sample}",
+            withPhotos.Count,
+            deck.Count,
+            activity.Count,
+            string.Join(',', distinctProfiles.Take(5).Select(p => p.UserId)));
 
         return new LandingShowcaseResponse
         {
@@ -373,6 +404,62 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         }
     }
 
+    /// <summary>
+    /// Explains why <see cref="ResolvePrimaryPhotoUrl"/> returned null — log only, no secrets (no query strings / sigs).
+    /// </summary>
+    private string SummarizeShowcasePhotoFailure(UserProfile p)
+    {
+        var userId = (p.UserId ?? string.Empty).Trim();
+        var urls = (p.PhotoUrls ?? new List<string>())
+            .Where(u => !string.IsNullOrWhiteSpace(u))
+            .Select(u => u.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (urls.Count == 0)
+        {
+            var leg = p.PhotoKeys is { Count: > 0 } ? p.PhotoKeys[0] : p.PhotoKey;
+            if (string.IsNullOrEmpty(leg))
+                return "no_photoUrls_no_legacy_photoKey";
+            try
+            {
+                _ = _storage.GetPresignedDownloadUrl(leg, TimeSpan.FromHours(1));
+                return "legacy_key_presign_ok_but_resolve_failed_elsewhere";
+            }
+            catch (Exception ex)
+            {
+                return $"legacy_presign_{ex.GetType().Name}";
+            }
+        }
+
+        if (urls.All(IsStockOrPlaceholderImageUrl))
+            return $"only_stock_or_placeholder_urls_count={urls.Count}";
+
+        var ordered = urls.OrderBy(u => LandingShowcasePhotoRank(u, userId)).ToList();
+        var first = ordered[0];
+        if (!Uri.TryCreate(first, UriKind.Absolute, out var fu))
+            return "invalid_first_photo_url";
+
+        var canon = _storage.TryPresignCanonicalMediaUrl(first, TimeSpan.FromHours(1));
+        var pathMatch = TryGetProfilePhotoStorageKey(first, userId, out var pathKey);
+        var pathPresign = "no_path";
+        if (pathMatch && !string.IsNullOrEmpty(pathKey))
+        {
+            try
+            {
+                _ = _storage.GetPresignedDownloadUrl(pathKey, TimeSpan.FromHours(1));
+                pathPresign = "path_presign_ok";
+            }
+            catch (Exception ex)
+            {
+                pathPresign = ex.GetType().Name;
+            }
+        }
+
+        return
+            $"urlCount={urls.Count};firstHost={fu.IdnHost};vhPresignOk={canon != null};profilesPathMatch={pathMatch};pathTry={pathPresign}";
+    }
+
     private static int LandingShowcasePhotoRank(string url, string userId)
     {
         if (string.IsNullOrEmpty(userId)) return 50;
@@ -441,6 +528,9 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         const int maxPages = 25;
         var result = new List<UserProfile>();
         Dictionary<string, AttributeValue>? startKey = null;
+        var itemsSeen = 0;
+        var skippedNoProfileOrName = 0;
+        var skippedResolveFailed = 0;
 
         for (var page = 0; !ct.IsCancellationRequested && page < maxPages && result.Count < maxProfiles; page++)
         {
@@ -460,11 +550,28 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
 
             foreach (var item in resp.Items)
             {
+                itemsSeen++;
                 var p = _profiles.TryMapDynamoItemToProfile(item);
                 if (p == null || string.IsNullOrWhiteSpace(p.Name))
+                {
+                    skippedNoProfileOrName++;
                     continue;
+                }
+
                 if (string.IsNullOrEmpty(ResolvePrimaryPhotoUrl(p)))
+                {
+                    skippedResolveFailed++;
+                    if (skippedResolveFailed <= 5)
+                    {
+                        _logger.LogWarning(
+                            "landing-showcase dummy scan: skipped UserId={UserId} Detail={Detail}",
+                            p.UserId,
+                            SummarizeShowcasePhotoFailure(p));
+                    }
+
                     continue;
+                }
+
                 result.Add(p);
                 if (result.Count >= maxProfiles)
                     break;
@@ -475,6 +582,14 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
 
             startKey = resp.LastEvaluatedKey;
         }
+
+        _logger.LogInformation(
+            "landing-showcase dummy scan: accepted={Accepted} dynamoItemsSeen={Seen} skippedMapOrName={SkipName} skippedResolve={SkipRes} pagesCap={MaxPages}",
+            result.Count,
+            itemsSeen,
+            skippedNoProfileOrName,
+            skippedResolveFailed,
+            maxPages);
 
         return result;
     }

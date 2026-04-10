@@ -8,6 +8,7 @@ import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
 import { LANDING_SHOWCASE_DECK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase, isLandingShowcaseLive } from '@/services/landingShowcaseService';
+import { logLandingShowcase, redactUrlForLog } from '@/utils/landingShowcaseDebug';
 import { landingShowcaseImageProps, pickLandingShowcasePhotoUrl } from '@/utils/landingShowcaseImages';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import styles from './SwipeDemoSection.module.css';
@@ -78,9 +79,10 @@ type FaceProps = {
   previewPriceLabel?: string;
   /** Hide name/tags during match overlay so mid-stack copy does not bleed through. */
   hideMeta?: boolean;
+  onPhotoError?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 };
 
-function DeckFace({ profile, depth, previewPriceLabel, hideMeta }: FaceProps) {
+function DeckFace({ profile, depth, previewPriceLabel, hideMeta, onPhotoError }: FaceProps) {
   const imgExtras = landingShowcaseImageProps(profile.photo);
   if (depth === 0) {
     return (
@@ -101,6 +103,7 @@ function DeckFace({ profile, depth, previewPriceLabel, hideMeta }: FaceProps) {
               height={500}
               loading="lazy"
               {...imgExtras}
+              onError={onPhotoError}
             />
           </div>
           <div className={styles.photoScrim} aria-hidden />
@@ -138,6 +141,7 @@ function DeckFace({ profile, depth, previewPriceLabel, hideMeta }: FaceProps) {
             height={500}
             loading="lazy"
             {...imgExtras}
+            onError={onPhotoError}
           />
         </div>
         <div className={styles.photoScrim} aria-hidden />
@@ -175,10 +179,23 @@ export const SwipeDemoSection: React.FC = () => {
   const deckRef = useRef<HTMLDivElement>(null);
   const photoShellRef = useRef<HTMLDivElement>(null);
 
+  const onDeckPhotoError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    logLandingShowcase('SwipeDemoSection: deck img onError', {
+      src: redactUrlForLog(e.currentTarget.currentSrc || e.currentTarget.src),
+    });
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     fetchLandingShowcase().then((data) => {
-      if (cancelled || !data || !isLandingShowcaseLive(data) || data.deck.length < 3) return;
+      if (cancelled || !data) return;
+      if (!isLandingShowcaseLive(data) || data.deck.length < 3) {
+        logLandingShowcase('SwipeDemoSection: keeping fallback deck', {
+          kind: data?.kind,
+          deckLen: data?.deck?.length ?? 0,
+        });
+        return;
+      }
       if (typeof data.premiumMatchPreviewUsd === 'number' && data.premiumMatchPreviewUsd > 0) {
         setPremiumUsd(data.premiumMatchPreviewUsd);
       }
@@ -195,6 +212,10 @@ export const SwipeDemoSection: React.FC = () => {
           tags: tags.length > 0 ? tags : fallback.tags,
           matchPct: typeof card.matchPct === 'number' ? card.matchPct : fallback.matchPct,
         };
+      });
+      logLandingShowcase('SwipeDemoSection: applied live deck', {
+        names: mapped.map((m) => m.name),
+        photos: mapped.map((m) => redactUrlForLog(m.photo)),
       });
       setProfiles(mapped);
     });
@@ -323,8 +344,8 @@ export const SwipeDemoSection: React.FC = () => {
           <div className={styles.deckParallax}>
             <div className={styles.deckFloat}>
             <div className={styles.stackBehind}>
-              <DeckFace profile={profiles[iBack]} depth={2} hideMeta={showMatch} />
-              <DeckFace profile={profiles[iMid]} depth={1} hideMeta={showMatch} />
+              <DeckFace profile={profiles[iBack]} depth={2} hideMeta={showMatch} onPhotoError={onDeckPhotoError} />
+              <DeckFace profile={profiles[iMid]} depth={1} hideMeta={showMatch} onPhotoError={onDeckPhotoError} />
             </div>
 
             <motion.div
@@ -372,6 +393,7 @@ export const SwipeDemoSection: React.FC = () => {
                     depth={0}
                     previewPriceLabel={priceLabel}
                     hideMeta={showMatch}
+                    onPhotoError={onDeckPhotoError}
                   />
                 </div>
               </motion.div>

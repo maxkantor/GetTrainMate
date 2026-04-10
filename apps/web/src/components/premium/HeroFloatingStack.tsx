@@ -4,6 +4,7 @@ import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_SHOWCASE_STACK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase, isLandingShowcaseLive } from '@/services/landingShowcaseService';
 import { landingShowcaseImageProps, pickLandingShowcasePhotoUrl } from '@/utils/landingShowcaseImages';
+import { logLandingShowcase, redactUrlForLog } from '@/utils/landingShowcaseDebug';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import styles from './HeroFloatingStack.module.css';
 
@@ -25,7 +26,14 @@ export const HeroFloatingStack: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     fetchLandingShowcase().then((data) => {
-      if (cancelled || !data || !isLandingShowcaseLive(data) || !data.activity?.length) return;
+      if (cancelled || !data) return;
+      if (!isLandingShowcaseLive(data) || !data.activity?.length) {
+        logLandingShowcase('HeroFloatingStack: keeping fallback', {
+          kind: data?.kind,
+          activityLen: data?.activity?.length ?? 0,
+        });
+        return;
+      }
       const usd =
         typeof data.premiumMatchPreviewUsd === 'number' && data.premiumMatchPreviewUsd > 0
           ? data.premiumMatchPreviewUsd
@@ -46,7 +54,15 @@ export const HeroFloatingStack: React.FC = () => {
           secondaryAvatar: secondary,
         };
       });
-      if (next.length === 3) setStack(next);
+      if (next.length === 3) {
+        logLandingShowcase('HeroFloatingStack: applied live stack', {
+          lines: next.map((n) => n.text),
+          avatars: next.map((n) => redactUrlForLog(n.avatar)),
+        });
+        setStack(next);
+      } else {
+        logLandingShowcase('HeroFloatingStack: expected 3 activity rows', { got: next.length });
+      }
     });
     return () => {
       cancelled = true;
@@ -65,6 +81,9 @@ export const HeroFloatingStack: React.FC = () => {
   const onAvatarError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const el = e.currentTarget;
     if (el.dataset.fallback === '1') return;
+    logLandingShowcase('HeroFloatingStack: img onError → placeholder', {
+      src: redactUrlForLog(el.currentSrc || el.src),
+    });
     el.dataset.fallback = '1';
     el.src = NO_PHOTO_PLACEHOLDER;
   }, []);
