@@ -4,6 +4,7 @@ import { Button, CircularProgress, Alert, Snackbar } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import LockIcon from '@mui/icons-material/Lock';
 import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { chatService, ThreadPreviewResponse, ChatMessage } from '@/services/chatService';
@@ -273,7 +274,7 @@ export const ChatPage: React.FC = () => {
       } else {
         const token = await authService.getJWT();
         if (!token) {
-          setError('Not authenticated');
+          setError(t('app_messages.not_authenticated'));
           return;
         }
         const data = await chatService.getThreads(token);
@@ -306,9 +307,9 @@ export const ChatPage: React.FC = () => {
       console.error('Error loading threads:', err);
       const apiError = handleApiError(err);
       if (isNetworkError(err) || apiError.isCorsError) {
-        setError('Unable to connect to the API. Please check your connection and try again.');
+        setError(t('app_messages.api_connect_error'));
       } else {
-        setError(apiError.message || 'Failed to load chats');
+        setError(apiError.message || t('app_messages.failed_load_chats'));
       }
     } finally {
       setLoading(false);
@@ -350,7 +351,7 @@ export const ChatPage: React.FC = () => {
       await loadMessages(matchId);
     } catch (err: unknown) {
       const apiError = handleApiError(err);
-      setError(apiError.message || 'Failed to unlock chat');
+      setError(apiError.message || t('app_messages.failed_unlock_chat'));
     } finally {
       setUnlocking(false);
     }
@@ -446,10 +447,15 @@ export const ChatPage: React.FC = () => {
       console.error('Error sending message:', err);
       const msg = err?.message || err?.errors?.[0]?.message || '';
       if (String(msg).includes('CHAT_LOCKED') || String(msg).includes('locked')) {
-        setError(`Unlock chat to start messaging — ${creditPhrase(unlockChatCost)}.`);
+        setError(
+          formatI18n(t('chat_ui.unlock_desc'), {
+            cost: creditPhrase(unlockChatCost),
+            credits: me?.credits ?? 0,
+          })
+        );
         setThreadLocked(true);
       } else {
-        setError('Failed to send message');
+        setError(t('app_messages.failed_send_message'));
       }
     } finally {
       setSending(false);
@@ -471,7 +477,7 @@ export const ChatPage: React.FC = () => {
       <div className={chatStyles.root}>
         <div className={chatStyles.emptyState}>
           <p style={{ fontSize: 'var(--font-lg)', color: 'var(--color-neutral-300)', marginBottom: 'var(--space-4)' }}>
-            No chats yet. Like someone on Discover — when you both like each other, you match.
+            {t('chat_ui.empty_state')}
           </p>
           <Button
             variant="contained"
@@ -486,7 +492,7 @@ export const ChatPage: React.FC = () => {
               fontWeight: 600,
             }}
           >
-            Go to Discover
+            {t('chat_ui.go_discover')}
           </Button>
         </div>
       </div>
@@ -511,7 +517,7 @@ export const ChatPage: React.FC = () => {
         open={!!msgToast}
         autoHideDuration={4500}
         onClose={() => setMsgToast(null)}
-        message={msgToast ? `New message from ${msgToast.name}` : ''}
+        message={msgToast ? formatI18n(t('chat_ui.new_message_from'), { name: msgToast.name }) : ''}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         sx={{ bottom: { xs: 88, sm: 96 } }}
       />
@@ -578,9 +584,12 @@ export const ChatPage: React.FC = () => {
                     <div className={chatStyles.lockedIcon}>
                       <LockIcon sx={{ fontSize: 48, color: 'inherit' }} />
                     </div>
-                    <h2 className={chatStyles.lockedTitle}>Unlock chat</h2>
+                    <h2 className={chatStyles.lockedTitle}>{t('chat_ui.unlock_title')}</h2>
                     <p className={chatStyles.lockedDesc}>
-                      Unlock chat to start messaging — {creditPhrase(unlockChatCost)}. Your credits: {me?.credits ?? 0}
+                      {formatI18n(t('chat_ui.unlock_desc'), {
+                        cost: creditPhrase(unlockChatCost),
+                        credits: me?.credits ?? 0,
+                      })}
                     </p>
                     <button
                       type="button"
@@ -589,10 +598,12 @@ export const ChatPage: React.FC = () => {
                       disabled={unlocking || (me?.credits ?? 0) < unlockChatCost}
                     >
                       <LockIcon sx={{ fontSize: 20 }} />
-                      {unlocking ? 'Unlocking…' : `Unlock chat — ${creditPhrase(unlockChatCost)}`}
+                      {unlocking
+                        ? t('chat_ui.unlocking')
+                        : formatI18n(t('chat_ui.unlock_cta'), { cost: creditPhrase(unlockChatCost) })}
                     </button>
                     <Link to="/pricing" className={chatStyles.upgradeLink}>
-                      Get Credits
+                      {t('header.get_credits')}
                     </Link>
                   </div>
                 </div>
@@ -624,7 +635,9 @@ export const ChatPage: React.FC = () => {
                         if ((me?.credits ?? 0) < icebreakerCost) {
                           const short = icebreakerCost - (me?.credits ?? 0);
                           setIcebreakerError(
-                            `You need ${short} more credit${short === 1 ? '' : 's'} for this action. Get Credits on the Pricing page.`
+                            short === 1
+                              ? t('credits.need_more_credits_one')
+                              : formatI18n(t('credits.need_more_credits_many'), { need: short })
                           );
                           return;
                         }
@@ -673,12 +686,14 @@ export const ChatPage: React.FC = () => {
                         }
                       }}
                       disabled={icebreakerLoading}
-                      title={`AI Icebreaker (${creditPhrase(icebreakerCost)})`}
+                      title={formatI18n(t('chat_ui.ai_icebreaker_cta'), { cost: creditPhrase(icebreakerCost) })}
                     >
-                      {icebreakerLoading ? 'Generating…' : `AI Icebreaker (${creditPhrase(icebreakerCost)})`}
+                      {icebreakerLoading
+                        ? t('chat_ui.generating')
+                        : formatI18n(t('chat_ui.ai_icebreaker_cta'), { cost: creditPhrase(icebreakerCost) })}
                     </button>
                     <Link to="/app/ai-coach" className={chatStyles.askAiLink}>
-                      Ask AI
+                      {t('chat_ui.ask_ai')}
                     </Link>
                   </div>
                   {icebreakerError && (

@@ -1,3 +1,10 @@
+import {
+  pricingUa,
+  discoverExpandedUa,
+  appMessagesUa,
+  chatUiUa,
+} from './partials/localeBundle.ua';
+
 export const ua = {
   common: {
     appName: 'GetTrainMate',
@@ -28,6 +35,12 @@ export const ua = {
     profile: 'Профіль',
     settings: 'Налаштування',
     billing: 'Оплата',
+    product: 'Продукт',
+    get_credits: 'Купити кредити',
+    menu: 'Меню',
+    language_tooltip: 'Мова',
+    complete_profile: 'Завершити профіль',
+    profile_incomplete: 'Профіль не завершено',
   },
   nav: {
     dashboard: 'Головна',
@@ -37,6 +50,9 @@ export const ua = {
     events: 'Події',
     profile: 'Профіль',
     settings: 'Налаштування',
+    sent: 'Надіслані',
+    skipped: 'Пропущені',
+    ai_coach: 'ІІ-коуч',
   },
   landing: {
     hero_title: 'Знайди ідеального партнера для тренувань',
@@ -125,7 +141,7 @@ export const ua = {
     notFound: 'Сторінку не знайдено',
   },
   discover: {
-    no_photo: 'Немає фото',
+    ...discoverExpandedUa,
   },
   sentRequests: {
     title: 'Надіслані запити',
@@ -170,6 +186,9 @@ export const ua = {
     terms: 'Умови',
     all_rights_reserved: 'Усі права захищені.',
   },
+  pricing: pricingUa,
+  app_messages: appMessagesUa,
+  chat_ui: chatUiUa,
   admin: {
     dashboard: 'Адмін-панель',
     content: 'Контент',

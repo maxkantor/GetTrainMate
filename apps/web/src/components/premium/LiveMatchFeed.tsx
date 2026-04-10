@@ -1,32 +1,42 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useI18n } from '@/hooks/useI18n';
 import styles from './LiveMatchFeed.module.css';
 
-const FEED_ITEMS = [
-  { id: '1', text: 'Sarah and Mike — both training for a century ride' },
-  { id: '2', text: 'Mike found a weekend cycling partner' },
-  { id: '3', text: 'Emma matched with a morning yoga buddy' },
-  { id: '4', text: 'New training partners in San Francisco' },
-  { id: '5', text: 'Runners and lifters connecting on GetTrainMate' },
-];
+const FEED_KEYS = [
+  'landing.live_feed_1',
+  'landing.live_feed_2',
+  'landing.live_feed_3',
+  'landing.live_feed_4',
+  'landing.live_feed_5',
+] as const;
 
 export const LiveMatchFeed: React.FC = () => {
+  const { t } = useI18n();
+  const feedItems = useMemo(
+    () =>
+      FEED_KEYS.map((key, i) => ({
+        id: String(i + 1),
+        text: t(key),
+      })),
+    [t]
+  );
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    const t = window.setInterval(() => {
-      setIndex((i) => (i + 1) % FEED_ITEMS.length);
+    const timer = window.setInterval(() => {
+      setIndex((i) => (i + 1) % feedItems.length);
     }, 4200);
-    return () => window.clearInterval(t);
-  }, []);
+    return () => window.clearInterval(timer);
+  }, [feedItems.length]);
 
-  const item = FEED_ITEMS[index];
+  const item = feedItems[index];
 
   return (
     <div className={styles.wrap} aria-live="polite" aria-atomic="true">
       <div className={styles.label}>
         <span className={styles.pulse} aria-hidden />
-        Live activity
+        {t('landing.showcase_live')}
       </div>
       <div className={styles.stack}>
         <AnimatePresence mode="wait">

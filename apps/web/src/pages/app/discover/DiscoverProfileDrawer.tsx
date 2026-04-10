@@ -19,7 +19,7 @@ import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhoto
 import { MatchFeedItem } from '@/services/matchService';
 import type { MatchInsightResponse } from '@/types/ai';
 import { MatchPanel } from './MatchPanel';
-import { DISCOVER_STRINGS } from './constants';
+import { useI18n } from '@/hooks/useI18n';
 import { formatLookingForLine } from '@/config/modes';
 import styles from './DiscoverProfileDrawer.module.css';
 
@@ -65,6 +65,7 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
   primaryCtaLabel,
   primaryCtaIcon,
 }) => {
+  const { t } = useI18n();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [loading, setLoading] = useState(false);
@@ -84,14 +85,14 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
       try {
         const token = await authService.getJWT(true);
         if (!token) {
-          setError('Sign in to view this profile');
+          setError(t('discover.sign_in_to_view_profile'));
           setLoading(false);
           return;
         }
         const data = await profileService.getProfile(token, userId);
         if (!cancelled) setDetail(data);
       } catch (e) {
-        if (!cancelled) setError(handleApiError(e).message || 'Could not load profile');
+        if (!cancelled) setError(handleApiError(e).message || t('discover.could_not_load_profile'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -99,7 +100,7 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [open, userId]);
+  }, [open, userId, t]);
 
   const name = detail?.name ?? previewCard?.name ?? 'Member';
   const city = detail?.city ?? previewCard?.city;
@@ -264,7 +265,7 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
           }}
           disabled={!canAct || interestLoading}
         >
-          {DISCOVER_STRINGS.skip}
+          {t('discover.skip')}
         </Button>
         <Button
           variant="contained"

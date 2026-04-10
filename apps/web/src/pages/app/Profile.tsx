@@ -543,7 +543,7 @@ export const ProfilePage: React.FC = () => {
               : `Reveal Likes (${creditPhrase(revealCost)})`}
         </Button>
         <Button size="small" component={Link} to="/pricing" variant="text">
-          Get Credits
+          {t('header.get_credits')}
         </Button>
       </Box>
 

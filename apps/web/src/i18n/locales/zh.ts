@@ -1,3 +1,10 @@
+import {
+  pricingZh,
+  discoverExpandedZh,
+  appMessagesZh,
+  chatUiZh,
+} from './partials/localeBundle.zh';
+
 export const zh = {
   common: {
     appName: 'GetTrainMate',
@@ -27,6 +34,13 @@ export const zh = {
     admin: '管理员',
     profile: '个人资料',
     settings: '设置',
+    product: '产品',
+    billing: '账单',
+    get_credits: '获取积分',
+    menu: '菜单',
+    language_tooltip: '语言',
+    complete_profile: '完善资料',
+    profile_incomplete: '资料未完成',
   },
   nav: {
     dashboard: '仪表盘',
@@ -36,6 +50,9 @@ export const zh = {
     events: '事件',
     profile: '个人资料',
     settings: '设置',
+    sent: '已发送',
+    skipped: '已跳过',
+    ai_coach: 'AI 教练',
   },
   landing: {
     hero_title: '找到完美的训练伙伴',
@@ -101,7 +118,7 @@ export const zh = {
     verify_code: '验证码',
   },
   discover: {
-    no_photo: '无照片',
+    ...discoverExpandedZh,
   },
   sentRequests: {
     title: '已发送请求',
@@ -144,6 +161,9 @@ export const zh = {
     terms: '条款',
     all_rights_reserved: '保留所有权利。',
   },
+  pricing: pricingZh,
+  app_messages: appMessagesZh,
+  chat_ui: chatUiZh,
   admin: {
     dashboard: '管理仪表盘',
     content: '内容',

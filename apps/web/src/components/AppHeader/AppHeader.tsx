@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link as RouterLink, useNavigate, useLocation, matchPath } from 'react-router-dom';
 import { Tooltip, Box, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { analytics } from '@/utils/analytics';
@@ -43,33 +44,36 @@ export const AppHeader: React.FC = () => {
   const centerStatus = useMemo(() => {
     if (matchStatus.loading) return '';
     if (blockedOnDiscover) {
-      return 'No free likes left today — add credits or try after midnight UTC.';
+      return t('discover_limits.no_likes_today');
     }
     const used = Math.min(likesToday, DAILY_LIKE_LIMIT);
     if (credits === 0) {
-      return `${used}/${DAILY_LIKE_LIMIT} free send-interests left today`;
+      return formatI18n(t('discover_limits.free_send_interests'), {
+        used,
+        limit: DAILY_LIKE_LIMIT,
+      });
     }
     if (me?.unlimitedDiscovery) {
-      return 'Unlimited browsing';
+      return t('discover_limits.unlimited_browsing');
     }
     return '';
-  }, [matchStatus.loading, blockedOnDiscover, likesToday, credits, me?.unlimitedDiscovery]);
+  }, [matchStatus.loading, blockedOnDiscover, likesToday, credits, me?.unlimitedDiscovery, t]);
 
   const creditTooltip = useMemo(
     () => (
       <Box component="div" role="presentation" sx={{ py: 0.5, px: 0.25, maxWidth: 300 }}>
         <Typography variant="caption" component="div" sx={{ display: 'block', fontWeight: 700, mb: 0.75 }}>
-          {credits} remaining out of {creditCap} total credits
+          {formatI18n(t('credits.remaining_of_total'), { credits, cap: creditCap })}
         </Typography>
         <Typography variant="caption" component="div" sx={{ display: 'block', opacity: 0.92, lineHeight: 1.45 }}>
-          Credits are used for chat unlocks, AI actions, boosts, and insights.
+          {t('credits.tooltip_uses')}
         </Typography>
         <Typography variant="caption" component="div" sx={{ display: 'block', opacity: 0.92, lineHeight: 1.45, mt: 0.5 }}>
-          1 credit per send-interest when you use credits for likes.
+          {t('credits.tooltip_per_like')}
         </Typography>
       </Box>
     ),
-    [credits, creditCap]
+    [credits, creditCap, t]
   );
 
   const avatarLetter =
@@ -123,16 +127,16 @@ export const AppHeader: React.FC = () => {
       { label: t('nav.match'), href: '/app/matches' },
     ];
     if (me?.profile?.discoverCanReviewLikedProfiles !== false) {
-      items.push({ label: 'Sent', href: '/app/sent-requests' });
+      items.push({ label: t('nav.sent'), href: '/app/sent-requests' });
     }
     if (me?.profile?.discoverCanReviewSkippedProfiles !== false) {
-      items.push({ label: 'Skipped', href: '/app/skipped' });
+      items.push({ label: t('nav.skipped'), href: '/app/skipped' });
     }
     items.push(
       { label: t('nav.chat'), href: '/app/chat' },
       { label: t('nav.events'), href: '/app/events' },
       { label: t('nav.profile'), href: '/app/profile' },
-      { label: 'AI Coach', href: '/app/ai-coach' }
+      { label: t('nav.ai_coach'), href: '/app/ai-coach' }
     );
     return items;
   }, [me?.profile, t]);
@@ -195,7 +199,7 @@ export const AppHeader: React.FC = () => {
                 className={styles.headerNavLink}
                 onClick={handleProductNav}
               >
-                Product
+                {t('header.product')}
               </a>
               <HeaderNavLink to="/pricing" label={t('header.pricing')} icon="💰" exact />
             </nav>
@@ -226,7 +230,7 @@ export const AppHeader: React.FC = () => {
               className={styles.mobileBtn}
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-expanded={mobileOpen}
-              aria-label="Menu"
+              aria-label={t('header.menu')}
             >
               <span className={`${styles.ham} ${mobileOpen ? styles.hamOpen : ''}`}>
                 <span /><span /><span />
@@ -269,22 +273,22 @@ export const AppHeader: React.FC = () => {
             )}
 
             <div className={styles.signedRight}>
-              <div className={styles.langWrap} title="Language">
+              <div className={styles.langWrap} title={t('header.language_tooltip')}>
                 <LanguageDropdown />
               </div>
               <Tooltip title={creditTooltip} arrow enterTouchDelay={0} placement="bottom">
                 <span
                   className={styles.headerCredits}
-                  aria-label={`${credits} remaining out of ${creditCap} total credits. 1 credit per send-interest. AI Icebreaker 1 credit.`}
+                  aria-label={formatI18n(t('credits.aria_summary'), { credits, cap: creditCap })}
                 >
                   <span className={styles.headerCreditsVerbose}>
                     <span className={styles.headerCreditsVal}>{credits}</span>
                     <span className={styles.headerCreditsSep}> / </span>
                     <span className={styles.headerCreditsMax}>{creditCap}</span>
-                    <span className={styles.headerCreditsWord}> credits</span>
+                    <span className={styles.headerCreditsWord}> {t('credits.word_credits')}</span>
                   </span>
                   <span className={styles.headerCreditsTight} aria-hidden>
-                    {credits}/{creditCap} credits
+                    {credits}/{creditCap} {t('credits.word_credits')}
                   </span>
                 </span>
               </Tooltip>
@@ -293,7 +297,7 @@ export const AppHeader: React.FC = () => {
                 className={`${styles.upgradeBtn} ${pressureCredits ? styles.upgradeBtnUrgent : ''}`}
                 onClick={() => analytics.pricingOpened('header')}
               >
-                Get Credits
+                {t('header.get_credits')}
               </RouterLink>
               <div className={`${styles.userWrap} ${userOpen ? styles.userOpen : ''}`} ref={userRef}>
                 <button
@@ -305,13 +309,17 @@ export const AppHeader: React.FC = () => {
                   aria-label={`${me?.profile?.name || user?.email || 'User'} menu`}
                 >
                   <span className={styles.avatarCircle}>{avatarLetter}</span>
-                  {!profileComplete && <span className={styles.badge} aria-label="Profile incomplete">!</span>}
+                  {!profileComplete && (
+                    <span className={styles.badge} aria-label={t('header.profile_incomplete')}>
+                      !
+                    </span>
+                  )}
                 </button>
                 {userOpen && (
                   <div className={styles.dropdown}>
                     {!profileComplete && (
                       <RouterLink to="/onboarding/profile" className={styles.dropItem} onClick={() => setUserOpen(false)}>
-                        Complete Profile
+                        {t('header.complete_profile')}
                       </RouterLink>
                     )}
                     <RouterLink to="/app/profile" className={styles.dropItem} onClick={() => setUserOpen(false)}>
@@ -339,7 +347,7 @@ export const AppHeader: React.FC = () => {
               className={styles.mobileBtn}
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-expanded={mobileOpen}
-              aria-label="Menu"
+              aria-label={t('header.menu')}
             >
               <span className={`${styles.ham} ${mobileOpen ? styles.hamOpen : ''}`}>
                 <span /><span /><span />
@@ -357,7 +365,7 @@ export const AppHeader: React.FC = () => {
               {!isLoggedIn ? (
                 <>
                   <a href="/#how-it-works" className={styles.mobileLink} onClick={handleProductNav}>
-                    Product
+                    {t('header.product')}
                   </a>
                   <RouterLink to="/pricing" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
                     💰 {t('header.pricing')}
@@ -399,16 +407,16 @@ export const AppHeader: React.FC = () => {
                   <Tooltip title={creditTooltip} arrow enterTouchDelay={0}>
                     <span
                       className={styles.mobileCredits}
-                      aria-label={`${credits} remaining out of ${creditCap} total credits`}
+                      aria-label={formatI18n(t('credits.mobile_aria'), { credits, cap: creditCap })}
                     >
                       <span className={styles.headerCreditsVerbose}>
                         <span className={styles.headerCreditsVal}>{credits}</span>
                         <span className={styles.headerCreditsSep}> / </span>
                         <span className={styles.headerCreditsMax}>{creditCap}</span>
-                        <span className={styles.headerCreditsWord}> credits</span>
+                        <span className={styles.headerCreditsWord}> {t('credits.word_credits')}</span>
                       </span>
                       <span className={styles.headerCreditsTight} aria-hidden>
-                        {credits}/{creditCap} credits
+                        {credits}/{creditCap} {t('credits.word_credits')}
                       </span>
                     </span>
                   </Tooltip>
@@ -420,7 +428,7 @@ export const AppHeader: React.FC = () => {
                       analytics.pricingOpened('mobile');
                     }}
                   >
-                    Get Credits
+                    {t('header.get_credits')}
                   </RouterLink>
                   <RouterLink to="/app/profile" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
                     {t('header.profile')}

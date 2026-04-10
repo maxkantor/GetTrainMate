@@ -26,8 +26,10 @@ import styles from './AICoachPage.module.css';
 import { trackGeneratePlan } from '@/utils/analytics';
 import { loadPremiumCatalog, PREMIUM_ACTION, creditPhrase } from '@/config/premiumCatalog';
 import { trackPremiumAction } from '@/utils/analytics';
+import { useI18n } from '@/hooks/useI18n';
 
 export const AICoachPage: React.FC = () => {
+  const { t } = useI18n();
   const { user } = useAuthContext();
   const { refreshMe } = useMe();
   const [coachCost, setCoachCost] = useState(1);
@@ -235,7 +237,7 @@ export const AICoachPage: React.FC = () => {
             Back to Chat
           </Button>
           <Button variant="outlined" size="small" component={Link} to="/pricing">
-            Get Credits
+            {t('header.get_credits')}
           </Button>
         </Box>
       </Container>

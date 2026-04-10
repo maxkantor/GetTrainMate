@@ -1,6 +1,6 @@
 import React from 'react';
 import { CircularProgress } from '@mui/material';
-import { DISCOVER_STRINGS } from './constants';
+import { useI18n } from '@/hooks/useI18n';
 import styles from './ActionBar.module.css';
 
 interface ActionBarProps {
@@ -25,6 +25,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
   primaryCtaLabel,
   primaryCtaIcon,
 }) => {
+  const { t } = useI18n();
   return (
     <div className={styles.wrapper}>
       <div className={styles.bar}>
@@ -33,24 +34,24 @@ export const ActionBar: React.FC<ActionBarProps> = ({
           className={`${styles.btn} ${styles.btnPass}`}
           onClick={onPass}
           disabled={interestLoading}
-          aria-label={`${DISCOVER_STRINGS.skip} this profile`}
+          aria-label={t('discover.skip_this_profile')}
         >
           <span className={styles.emoji} aria-hidden>
             ❌
           </span>
-          {DISCOVER_STRINGS.skip}
+          {t('discover.skip')}
         </button>
         <button
           type="button"
           className={`${styles.btn} ${styles.btnView}`}
           onClick={onViewProfile}
           disabled={interestLoading}
-          aria-label={DISCOVER_STRINGS.viewProfile}
+          aria-label={t('discover.view_profile')}
         >
           <span className={styles.emoji} aria-hidden>
             👁
           </span>
-          <span className={styles.viewLabel}>{DISCOVER_STRINGS.viewProfile}</span>
+          <span className={styles.viewLabel}>{t('discover.view_profile')}</span>
         </button>
         <button
           type="button"
@@ -70,8 +71,8 @@ export const ActionBar: React.FC<ActionBarProps> = ({
         </button>
       </div>
       {canRewind && onRewind && (
-        <button type="button" className={styles.rewindBtn} onClick={onRewind} aria-label="Restore last skipped profile">
-          Rewind last skip
+        <button type="button" className={styles.rewindBtn} onClick={onRewind} aria-label={t('discover.rewind_aria')}>
+          {t('discover.rewind_label')}
         </button>
       )}
     </div>

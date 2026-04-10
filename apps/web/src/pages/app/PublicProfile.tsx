@@ -18,6 +18,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { authService } from '@/services/authService';
@@ -32,7 +33,6 @@ import { handleApiError } from '@/utils/apiErrorHandler';
 import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import { getDiscoverDemoCard, isDummyNearbyProfile } from '@/data/nearbyDummyProfiles';
 import { getLandingProfile, isLandingProfileUserId } from '@/data/landingProfiles';
-import { DISCOVER_STRINGS } from '@/pages/app/discover/constants';
 import { incrementDailyLike, canSendLikeWithDailyCap } from '@/utils/dailySwipeTracker';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 import { formatLookingForLine, getDiscoverPrimaryCta } from '@/config/modes';
@@ -146,7 +146,11 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
     }
     if ((me?.credits ?? 0) < aiInsightCost) {
       const need = aiInsightCost - (me?.credits ?? 0);
-      setToast(`You need ${need} more credit${need === 1 ? '' : 's'} for this action. Get Credits on the Pricing page.`);
+      setToast(
+        need === 1
+          ? t('credits.need_more_credits_one')
+          : formatI18n(t('credits.need_more_credits_many'), { need })
+      );
       return;
     }
     setLoadingInsightFor(profile.userId);
@@ -176,12 +180,12 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 401) {
-        setToast('Session expired. Please sign in again.');
+        setToast(t('app_messages.session_expired'));
         return;
       }
       if (isInsufficientCreditsError(err)) {
         trackPremiumAction('deeper_match_insight', 'insufficient_credits');
-        setToast('Not enough credits. Get more on the Pricing page.');
+        setToast(t('app_messages.not_enough_credits'));
       } else {
         setToast(getAiErrorMessage(err));
       }
@@ -292,10 +296,10 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
         }
         await matchService.passUser(token, userId);
       }
-      setToast(DISCOVER_STRINGS.skippedToast);
+      setToast(t('discover.skipped_toast'));
       navigate('/app/discover');
     } catch {
-      setToast('Could not skip. Try again.');
+      setToast(t('discover.could_not_skip'));
     }
   };
 
@@ -306,7 +310,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
       return;
     }
     if (!canSendLikeWithDailyCap(me?.credits ?? 0, dailyLikeUserId)) {
-      setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
+      setToast(formatI18n(t('app_messages.daily_limit'), { limit: DAILY_LIKE_LIMIT }));
       return;
     }
     const creditBefore = me?.credits ?? 0;
@@ -319,7 +323,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
         if (result.isMatched) {
           setMatched(true);
         } else {
-          setToast(DISCOVER_STRINGS.interestSent);
+          setToast(t('discover.interest_sent'));
         }
       } else {
         const token = await authService.getJWT(true);
@@ -333,12 +337,12 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
         if (result.isMatched) {
           setMatched(true);
         } else {
-          setToast(DISCOVER_STRINGS.interestSent);
+          setToast(t('discover.interest_sent'));
         }
       }
     } catch (err: unknown) {
       const apiError = handleApiError(err);
-      setToast(apiError.message || 'Could not send interest');
+      setToast(apiError.message || t('app_messages.could_not_send_interest'));
     } finally {
       setLiking(false);
     }
@@ -579,7 +583,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
               onClick={handleSkipPass}
               disabled={isDemoProfile}
             >
-              {DISCOVER_STRINGS.skip}
+              {t('discover.skip')}
             </Button>
             <Button
               fullWidth

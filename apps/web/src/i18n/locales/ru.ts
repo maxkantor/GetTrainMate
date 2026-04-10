@@ -1,3 +1,6 @@
+import { pricingRu } from './partials/pricing.ru';
+import { discoverExpandedRu, appMessagesRu, chatUiRu } from './partials/discover.expanded.ru';
+
 export const ru = {
   common: {
     appName: 'GetTrainMate',
@@ -19,6 +22,7 @@ export const ru = {
   header: {
     home: 'Главная',
     pricing: 'Цены',
+    product: 'Продукт',
     about: 'О нас',
     faq: 'Часто задаваемые вопросы',
     contact: 'Контакты',
@@ -27,6 +31,12 @@ export const ru = {
     admin: 'Админ',
     profile: 'Профиль',
     settings: 'Настройки',
+    billing: 'Оплата',
+    get_credits: 'Купить кредиты',
+    menu: 'Меню',
+    language_tooltip: 'Язык',
+    complete_profile: 'Завершить профиль',
+    profile_incomplete: 'Профиль не завершён',
   },
   nav: {
     dashboard: 'Панель управления',
@@ -36,6 +46,9 @@ export const ru = {
     events: 'События',
     profile: 'Профиль',
     settings: 'Настройки',
+    sent: 'Отправленные',
+    skipped: 'Пропущенные',
+    ai_coach: 'ИИ-коуч',
   },
   landing: {
     hero_title: 'Найди своего идеального партнера по тренировкам',
@@ -82,6 +95,61 @@ export const ru = {
     feature_2_desc: 'Общайтесь с реальными партнерами по тренировкам в вашем районе',
     feature_3_title: 'Гибкие режимы',
     feature_3_desc: 'TRAIN для партнеров по фитнесу, VIBE для друзей, DATE если заинтересованы',
+    hero_support_ai_insights: 'ИИ-инсайты для подбора',
+    hero_support_ai_icebreakers: 'ИИ для первых сообщений',
+    hero_support_ai_workout: 'ИИ-планирование тренировок',
+    hero_support_safer: 'Безопаснее и умнее подбор',
+    powered_by_ai_title: 'На базе ИИ',
+    powered_by_ai_desc:
+      'Персональная совместимость, умные диалоги и тренировки с поддержкой ИИ.',
+    hero_premium_title: 'Тренируйся с теми, кто реально мотивирует',
+    hero_premium_sub:
+      'ИИ подберёт партнёра по уровню, расписанию и настрою — за секунды.',
+    hero_see_how: 'Как это работает',
+    hero_hook: 'Хватит тренироваться в одиночку. Найди свой уровень.',
+    hero_badge_serious: '🔥 Только для серьёзных атлетов',
+    hero_exclusivity_line: 'Тренируйся с теми, кто относится к этому серьёзно',
+    hero_proof_1: 'Каждый день присоединяются новые атлеты',
+    hero_proof_2: 'Партнёры по уровню, расписанию и целям',
+    hero_proof_3: 'Активные атлеты рядом с вами',
+    hero_fomo: 'Для тех, кто реально приходит — без фальшивых «лайв» счётчиков.',
+    hero_proof_aria: 'Почему атлеты выбирают GetTrainMate',
+    landing_primary_cta: 'Найти партнёра для тренировок',
+    landing_hero_sub_guest: 'Бесплатный предпросмотр • Регистрация не нужна',
+    landing_cta_sub: 'Около 30 секунд • Без обязательств',
+    landing_scarcity: 'На бесплатном плане показываем только 5 новых совпадений в день',
+    showcase_live: 'Живая лента',
+    live_feed_1: 'Сара и Майк — оба готовятся к веломарафону',
+    live_feed_2: 'Майк нашёл партнёра на выходные заезды',
+    live_feed_3: 'Эмма нашла утреннюю подругу по йоге',
+    live_feed_4: 'Новые партнёры в Сан-Франциско',
+    live_feed_5: 'Бегуны и силовики на GetTrainMate',
+    showcase_matching_preview: 'Предпросмотр подбора · {price}',
+    showcase_full_matching: 'Полный подбор · {price}',
+    showcase_crm_hint:
+      'Фото из тестовых профилей CRM (S3), а не стоковые картинки.',
+    swipe_demo_title: 'Как работает подбор',
+    swipe_demo_subtitle: 'Свайп вправо → совпадение. Смотрите цикл.',
+    swipe_demo_crm_line:
+      'Те же фото, что в админке → тестовые пользователи: загруженные в S3 изображения подставляются после сохранения профиля.',
+    swipe_match_title: 'Это совпадение!',
+    swipe_match_hint: 'Следующая карточка поднимается — так же в приложении.',
+    swipe_ribbon_match_preview: 'Предпросмотр подбора',
+    final_cta_card_title: 'Следующий партнёр — в одно касание',
+    final_cta_card_sub:
+      'Тысячи атлетов уже подбирают пару по расписанию, уровню и целям.',
+    features_bento_kicker: 'Продукт',
+    features_bento_title: 'Для атлетов, которые не сливаются',
+    features_bento_subtitle: 'Подбор, чат, события и прогресс — в одном месте.',
+    features_bento_ai_title: 'ИИ-подбор',
+    features_bento_ai_desc:
+      'Совместимость по целям, уровню и расписанию — не только «рядом на карте».',
+    features_bento_chat_title: 'Живой чат',
+    features_bento_chat_desc: 'Переписка, когда обе стороны готовы.',
+    features_bento_events_title: 'Встречи на событиях',
+    features_bento_events_desc: 'Тренируйтесь вместе на ивентах и групповых занятиях.',
+    features_bento_progress_title: 'Прогресс',
+    features_bento_progress_desc: 'Стрики и история тренировок для дисциплины.',
   },
   auth: {
     login_title: 'Вход',
@@ -101,7 +169,7 @@ export const ru = {
     verify_code: 'Код проверки',
   },
   discover: {
-    no_photo: 'Нет фото',
+    ...discoverExpandedRu,
   },
   sentRequests: {
     title: 'Отправленные запросы',
@@ -146,6 +214,51 @@ export const ru = {
     terms: 'Условия',
     all_rights_reserved: 'Все права защищены.',
   },
+  credits: {
+    remaining_of_total: '{credits} из {cap} кредитов осталось',
+    tooltip_uses: 'Кредиты тратятся на открытие чата, ИИ-действия, бусты и инсайты.',
+    tooltip_per_like: '1 кредит за интерес (лайк), если используете кредиты.',
+    word_credits: 'кредитов',
+    aria_summary:
+      '{credits} из {cap} кредитов. 1 кредит за интерес. ИИ-айсбрейкер — 1 кредит.',
+    mobile_aria: '{credits} из {cap} кредитов осталось',
+    upgrade_banner_default:
+      'Нужно больше кредитов, чтобы продолжать лайкать и общаться.',
+    need_more_credits_one:
+      'Нужен ещё 1 кредит для этого действия. Купите кредиты на странице «Цены».',
+    need_more_credits_many:
+      'Нужно ещё {need} кредитов для этого действия. Купите кредиты на странице «Цены».',
+  },
+  discover_limits: {
+    no_likes_today:
+      'Бесплатные лайки на сегодня закончились — купите кредиты или попробуйте после полуночи UTC.',
+    free_send_interests: '{used}/{limit} бесплатных «интересов» на сегодня',
+    unlimited_browsing: 'Неограниченный просмотр',
+  },
+  logged_in_hero: {
+    aria: 'Ваша активность',
+    kicker: 'Вы внутри',
+    title: 'Совпадения сегодня',
+    usage_credits: '{credits} / {cap} кредитов',
+    unlimited_suffix: ' · неограниченный просмотр',
+    rates_hint: ' · тарифы в шапке',
+    usage_free: '{used} / {limit} бесплатных совпадений использовано',
+    usage_free_extra: ' ({likes} сегодня)',
+    sub_with_credits:
+      'Поиск бесплатный; каждый «интерес» стоит 1 кредит, пока баланс > 0.',
+    sub_no_credits:
+      'При нулевом балансе — {limit} бесплатных «интересов» в сутки (UTC). Купите кредиты, чтобы отправлять больше.',
+    reset_in: 'Бесплатные совпадения обновятся через {time}.',
+    complete_hint: 'Завершите профиль — подбор станет точнее.',
+    limit_message: 'На сегодня нет бесплатных совпадений и кредитов',
+    modal_title: 'Дневной лимит совпадений',
+    modal_body:
+      'Вы использовали {limit} бесплатных совпадений на сегодня (UTC), кредитов нет. Купите кредиты для безлимита или зайдите после полуночи UTC.',
+    close: 'Закрыть',
+  },
+  pricing: pricingRu,
+  app_messages: appMessagesRu,
+  chat_ui: chatUiRu,
   admin: {
     dashboard: 'Админ-панель',
     content: 'Содержание',

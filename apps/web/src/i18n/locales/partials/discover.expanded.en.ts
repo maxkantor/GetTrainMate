@@ -1,0 +1,66 @@
+/** Discover screen + toasts (English) */
+export const discoverExpandedEn = {
+  no_photo: 'No photo',
+  skip: 'Skip',
+  skip_this_profile: 'Skip this profile',
+  view_profile: 'View Profile',
+  interest_sent: "Interest sent. We'll notify you if they respond.",
+  skipped_toast: 'Skipped',
+  preview_profile_hint:
+    'Preview profile — open Discover to send interest to real members.',
+  match: "It's a match! You can now chat with",
+  filters: 'Filters',
+  no_matches: 'No matches nearby. Adjust filters.',
+  no_matches_sub: 'Try expanding your distance or goals.',
+  caught_up_title: "You're all caught up. No new profiles match your preferences.",
+  caught_up_sub:
+    'Expand distance, change mode, adjust filters, or check Sent requests and come back later.',
+  retry: 'Retry',
+  load_demo: 'Load demo profiles',
+  edit_profile: 'Edit profile',
+  refresh: 'Refresh',
+  loading: 'Loading…',
+  rewind_aria: 'Restore last skipped profile',
+  rewind_label: 'Rewind last skip',
+  sign_in_to_view_profile: 'Sign in to view this profile',
+  could_not_load_profile: 'Could not load profile',
+  could_not_skip: 'Could not skip. Try again.',
+} as const;
+
+export const appMessagesEn = {
+  sign_in_again: 'Please sign in again.',
+  session_expired: 'Session expired. Please sign in again.',
+  daily_limit_midnight:
+    "You've used today's {limit} free matches. Add credits for unlimited discovery, or try again after midnight UTC.",
+  daily_limit: "You've used today's {limit} free matches. Add credits for unlimited discovery.",
+  not_enough_credits: 'Not enough credits. Get more on the Pricing page.',
+  could_not_send_interest: 'Could not send interest',
+  could_not_save_pass: 'Could not save pass. Try again.',
+  could_not_undo_skip: 'Could not undo skip.',
+  demo_dev_only: 'Demo profiles are only available in development or for admins.',
+  insight_unlocked: 'Insight unlocked',
+  chat_unlocked: 'Chat unlocked',
+  not_authenticated: 'Not authenticated',
+  api_connect_error: 'Unable to connect to the API. Please check your connection and try again.',
+  failed_load_chats: 'Failed to load chats',
+  failed_unlock_chat: 'Failed to unlock chat',
+  failed_send_message: 'Failed to send message',
+  auth_required: 'Authentication required. Please sign in again.',
+  api_backend_unreachable:
+    'Unable to connect to the API. The backend may not be deployed or CORS is not configured.',
+  failed_load_demo: 'Failed to load demo profiles',
+} as const;
+
+export const chatUiEn = {
+  unlock_title: 'Unlock chat',
+  unlock_desc: 'Unlock chat to start messaging — {cost}. Your credits: {credits}',
+  unlocking: 'Unlocking…',
+  unlock_cta: 'Unlock chat — {cost}',
+  generating: 'Generating…',
+  ai_icebreaker_cta: 'AI Icebreaker ({cost})',
+  empty_state:
+    'No chats yet. Like someone on Discover — when you both like each other, you match.',
+  go_discover: 'Go to Discover',
+  new_message_from: 'New message from {name}',
+  ask_ai: 'Ask AI',
+} as const;

@@ -7,12 +7,6 @@ import { useI18n } from '@/hooks/useI18n';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
 import { HeroFloatingStack } from '@/components/premium/HeroFloatingStack';
-import {
-  LANDING_PRIMARY_CTA,
-  LANDING_CTA_SUB,
-  LANDING_HERO_SUB_GUEST,
-  LANDING_SCARCITY,
-} from '@/constants/landingCopy';
 import styles from './sections.module.css';
 
 const ease = [0.16, 1, 0.3, 1] as const;
@@ -29,13 +23,14 @@ export const Hero: React.FC = () => {
     : !profileComplete
       ? '/onboarding/profile'
       : '/app';
+  const primaryCta = t('landing.landing_primary_cta');
   const ctaPrimaryLabel = !isAuthenticated
-    ? LANDING_PRIMARY_CTA
+    ? primaryCta
     : !profileComplete
-      ? 'Finish profile'
+      ? t('landing.cta_finish_profile')
       : t('nav.dashboard');
   const showCtaSubtext = profileComplete;
-  const primaryOpensFlow = !isAuthenticated && ctaPrimaryLabel === LANDING_PRIMARY_CTA;
+  const primaryOpensFlow = !isAuthenticated && ctaPrimaryLabel === primaryCta;
 
   return (
     <section className={styles.heroPremium}>
@@ -52,7 +47,7 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, ease }}
             >
-              Train With People Who Actually Push You
+              {t('landing.hero_premium_title')}
             </motion.h1>
             <motion.p
               className={styles.heroPremiumSub}
@@ -60,7 +55,7 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, ease, delay: 0.06 }}
             >
-              AI finds your perfect training partner based on your level, schedule, and mindset — in seconds.
+              {t('landing.hero_premium_sub')}
             </motion.p>
             <motion.div
               className={styles.heroPremiumCtas}
@@ -79,17 +74,17 @@ export const Hero: React.FC = () => {
                   </Link>
                 )}
                 {primaryOpensFlow && (
-                  <span className={styles.heroCtaSub}>{LANDING_HERO_SUB_GUEST}</span>
+                  <span className={styles.heroCtaSub}>{t('landing.landing_hero_sub_guest')}</span>
                 )}
                 {!primaryOpensFlow && showCtaSubtext && (
                   <>
-                    <span className={styles.heroCtaSub}>{LANDING_CTA_SUB}</span>
-                    <span className={styles.heroScarcityLine}>{LANDING_SCARCITY}</span>
+                    <span className={styles.heroCtaSub}>{t('landing.landing_cta_sub')}</span>
+                    <span className={styles.heroScarcityLine}>{t('landing.landing_scarcity')}</span>
                   </>
                 )}
               </div>
               <a href="#how-it-works" className={`${styles.heroBtnGhost} ${styles.landingLinkUnderline}`}>
-                See How It Works
+                {t('landing.hero_see_how')}
               </a>
             </motion.div>
             <motion.p
@@ -98,7 +93,7 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, ease, delay: 0.14 }}
             >
-              Stop training alone. Find your level.
+              {t('landing.hero_hook')}
             </motion.p>
             <motion.div
               className={styles.heroExclusivity}
@@ -106,19 +101,19 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, ease, delay: 0.14 }}
             >
-              <span className={styles.heroExclusivityBadge}>🔥 Serious athletes only</span>
-              <p className={styles.heroExclusivityLine}>Train with people who take it seriously</p>
+              <span className={styles.heroExclusivityBadge}>{t('landing.hero_badge_serious')}</span>
+              <p className={styles.heroExclusivityLine}>{t('landing.hero_exclusivity_line')}</p>
             </motion.div>
             <motion.ul
               className={styles.socialProof}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease, delay: 0.18 }}
-              aria-label="Why athletes use GetTrainMate"
+              aria-label={t('landing.hero_proof_aria')}
             >
-              <li>New athletes join every day</li>
-              <li>Find partners by level, schedule, and mindset</li>
-              <li>Active athletes in your area</li>
+              <li>{t('landing.hero_proof_1')}</li>
+              <li>{t('landing.hero_proof_2')}</li>
+              <li>{t('landing.hero_proof_3')}</li>
             </motion.ul>
             <motion.p
               className={styles.heroFomoLine}
@@ -126,7 +121,7 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4 }}
             >
-              Built for people who show up — not fake live counts.
+              {t('landing.hero_fomo')}
             </motion.p>
           </div>
 

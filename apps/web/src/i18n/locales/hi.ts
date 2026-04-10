@@ -1,3 +1,10 @@
+import {
+  pricingHi,
+  discoverExpandedHi,
+  appMessagesHi,
+  chatUiHi,
+} from './partials/localeBundle.hi';
+
 export const hi = {
   common: {
     appName: 'GetTrainMate',
@@ -27,6 +34,13 @@ export const hi = {
     admin: 'एडमिन',
     profile: 'प्रोफाइल',
     settings: 'सेटिंग्स',
+    product: 'उत्पाद',
+    billing: 'बिलिंग',
+    get_credits: 'क्रेडिट लें',
+    menu: 'मेनू',
+    language_tooltip: 'भाषा',
+    complete_profile: 'प्रोफाइल पूरी करें',
+    profile_incomplete: 'प्रोफाइल अधूरी',
   },
   nav: {
     dashboard: 'डैशबोर्ड',
@@ -36,6 +50,9 @@ export const hi = {
     events: 'इवेंट्स',
     profile: 'प्रोफाइल',
     settings: 'सेटिंग्स',
+    sent: 'भेजे गए',
+    skipped: 'छोड़े गए',
+    ai_coach: 'AI कोच',
   },
   landing: {
     hero_title: 'अपना सही प्रशिक्षण साथी खोजें',
@@ -101,7 +118,7 @@ export const hi = {
     verify_code: 'सत्यापन कोड',
   },
   discover: {
-    no_photo: 'कोई फोटो नहीं',
+    ...discoverExpandedHi,
   },
   sentRequests: {
     title: 'भेजे गए अनुरोध',
@@ -146,6 +163,9 @@ export const hi = {
     terms: 'नियम और शर्तें',
     all_rights_reserved: 'सर्वाधिकार सुरक्षित।',
   },
+  pricing: pricingHi,
+  app_messages: appMessagesHi,
+  chat_ui: chatUiHi,
   admin: {
     dashboard: 'एडमिन डैशबोर्ड',
     content: 'सामग्री',

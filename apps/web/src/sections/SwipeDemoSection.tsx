@@ -5,7 +5,8 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
 import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
-import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
+import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
 import { LANDING_SHOWCASE_DECK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase, isLandingShowcaseLive } from '@/services/landingShowcaseService';
 import { logLandingShowcase, redactUrlForLog } from '@/utils/landingShowcaseDebug';
@@ -75,21 +76,23 @@ function MatchBadge({ percent }: { percent: number }) {
 type FaceProps = {
   profile: DeckProfile;
   depth: 0 | 1 | 2;
-  /** Shown on the interactive top card — premium match preview. */
+  /** Shown on the interactive top card — premium match preview (e.g. "$10"). */
   previewPriceLabel?: string;
+  /** Label next to price on the top card ribbon (i18n). */
+  previewRibbonLabel?: string;
   /** Hide name/tags during match overlay so mid-stack copy does not bleed through. */
   hideMeta?: boolean;
   onPhotoError?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 };
 
-function DeckFace({ profile, depth, previewPriceLabel, hideMeta, onPhotoError }: FaceProps) {
+function DeckFace({ profile, depth, previewPriceLabel, previewRibbonLabel, hideMeta, onPhotoError }: FaceProps) {
   const imgExtras = landingShowcaseImageProps(profile.photo);
   if (depth === 0) {
     return (
       <div className={styles.faceTop}>
         {previewPriceLabel ? (
           <div className={styles.cardPreviewRibbon}>
-            <span className={styles.cardPreviewRibbonLabel}>Match preview</span>
+            <span className={styles.cardPreviewRibbonLabel}>{previewRibbonLabel ?? ''}</span>
             <span className={styles.cardPreviewRibbonPrice}>{previewPriceLabel}</span>
           </div>
         ) : null}
@@ -168,6 +171,7 @@ function DeckFace({ profile, depth, previewPriceLabel, hideMeta, onPhotoError }:
 }
 
 export const SwipeDemoSection: React.FC = () => {
+  const { t } = useI18n();
   const reduceMotion = useReducedMotion();
   const { isAuthenticated } = useAuthContext();
   const { openEntryFlow } = useLandingConversion();
@@ -225,6 +229,8 @@ export const SwipeDemoSection: React.FC = () => {
   }, []);
 
   const priceLabel = Number.isInteger(premiumUsd) ? `$${premiumUsd}` : `$${premiumUsd.toFixed(2)}`;
+  const fullMatchingLabel = formatI18n(t('landing.showcase_full_matching'), { price: priceLabel });
+  const ribbonLabel = t('landing.swipe_ribbon_match_preview');
 
   const len = profiles.length;
   const iFront = deckIndex % len;
@@ -323,16 +329,14 @@ export const SwipeDemoSection: React.FC = () => {
         <div className={styles.sectionHead}>
           <div className={styles.titleRow}>
             <h2 id="swipe-demo-heading" className={styles.title}>
-              See How Matching Works
+              {t('landing.swipe_demo_title')}
             </h2>
             <Link to="/pricing" className={styles.matchingPremiumPill}>
-              Full matching · {priceLabel}
+              {fullMatchingLabel}
             </Link>
           </div>
-          <p className={styles.subtitle}>Swipe right → match. Watch the loop.</p>
-          <p className={styles.crmLine}>
-            Photos match Admin → Test Users: your uploaded S3 images replace seed stock once saved on the profile.
-          </p>
+          <p className={styles.subtitle}>{t('landing.swipe_demo_subtitle')}</p>
+          <p className={styles.crmLine}>{t('landing.swipe_demo_crm_line')}</p>
         </div>
 
         <div
@@ -392,6 +396,7 @@ export const SwipeDemoSection: React.FC = () => {
                     profile={profiles[iFront]}
                     depth={0}
                     previewPriceLabel={priceLabel}
+                    previewRibbonLabel={ribbonLabel}
                     hideMeta={showMatch}
                     onPhotoError={onDeckPhotoError}
                   />
@@ -415,8 +420,8 @@ export const SwipeDemoSection: React.FC = () => {
                     <span className={styles.matchEmoji} aria-hidden>
                       🔥
                     </span>
-                    <span className={styles.matchTitle}>It&apos;s a Match</span>
-                    <span className={styles.matchHint}>Next card slides up — same in the app</span>
+                    <span className={styles.matchTitle}>{t('landing.swipe_match_title')}</span>
+                    <span className={styles.matchHint}>{t('landing.swipe_match_hint')}</span>
                   </div>
                 </motion.div>
               )}
@@ -428,15 +433,15 @@ export const SwipeDemoSection: React.FC = () => {
         <div className={styles.ctaColumn}>
           {!isAuthenticated ? (
             <button type="button" className={styles.cta} onClick={openEntryFlow}>
-              {LANDING_PRIMARY_CTA}
+              {t('landing.landing_primary_cta')}
             </button>
           ) : (
             <Link to="/app/discover" className={styles.cta}>
-              {LANDING_PRIMARY_CTA}
+              {t('landing.landing_primary_cta')}
             </Link>
           )}
-          <p className={styles.ctaSub}>{LANDING_CTA_SUB}</p>
-          <p className={styles.scarcityLine}>{LANDING_SCARCITY}</p>
+          <p className={styles.ctaSub}>{t('landing.landing_cta_sub')}</p>
+          <p className={styles.scarcityLine}>{t('landing.landing_scarcity')}</p>
         </div>
       </Container>
     </section>

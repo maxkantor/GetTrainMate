@@ -8,19 +8,9 @@ import { authService } from '@/services/authService';
 import { billingService, CreditPackDto } from '@/services/billingService';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
-import {
-  CreditPack,
-  FALLBACK_CREDIT_PACKS,
-  CREDIT_PACK_FEATURES,
-  CreditPackKey,
-} from '@/data/creditPacks';
-
-const PACK_DISPLAY_TITLES: Record<CreditPackKey, string> = {
-  FREE_3: 'Starter',
-  PACK_10: 'Go',
-  PACK_25: 'Best Value',
-  PACK_100: 'Power',
-};
+import { useI18n } from '@/hooks/useI18n';
+import { formatI18n, getPricingPackFeatures, getPricingPackTitle } from '@/i18n';
+import { CreditPack, FALLBACK_CREDIT_PACKS, CreditPackKey } from '@/data/creditPacks';
 import styles from '@/pages/Pricing.module.css';
 
 const KNOWN_KEYS: CreditPackKey[] = ['FREE_3', 'PACK_10', 'PACK_25', 'PACK_100'];
@@ -50,6 +40,7 @@ function toCreditPacks(dtos: CreditPackDto[]): CreditPack[] {
 }
 
 export const PricingPage: React.FC = () => {
+  const { t, locale } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuthContext();
   const { me } = useMe();
@@ -75,10 +66,10 @@ export const PricingPage: React.FC = () => {
   useEffect(() => {
     const canceled = searchParams.get('canceled');
     if (canceled === '1') {
-      setError('Checkout was canceled.');
+      setError(t('pricing.checkout_canceled'));
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, t]);
 
   const startCheckout = useCallback(async (pack: CreditPack) => {
     setError(null);
@@ -89,7 +80,7 @@ export const PricingPage: React.FC = () => {
         window.location.href = '/signup';
         return;
       }
-      const itemName = PACK_DISPLAY_TITLES[pack.key] ?? pack.title;
+      const itemName = getPricingPackTitle(locale, pack.key);
       trackBeginCheckout({
         packKey: pack.key,
         itemName,
@@ -103,12 +94,12 @@ export const PricingPage: React.FC = () => {
           ? (err as { response?: { data?: { error?: string } } }).response
           : null;
       const msg =
-        res?.data?.error ?? (err instanceof Error ? err.message : 'Checkout failed');
-      setError(typeof msg === 'string' ? msg : 'Checkout failed. Try again later.');
+        res?.data?.error ?? (err instanceof Error ? err.message : t('pricing.checkout_failed_short'));
+      setError(typeof msg === 'string' ? msg : t('pricing.checkout_failed'));
     } finally {
       setLoadingPack(null);
     }
-  }, []);
+  }, [locale, t]);
 
   const handleFree = useCallback(async () => {
     if (!isAuthenticated || !user) {
@@ -125,13 +116,13 @@ export const PricingPage: React.FC = () => {
       }
       await billingService.grantFreeSignup(token);
       trackTrialStart('free_pack');
-      setToast('3 credits added');
+      setToast(t('pricing.toast_free_credits'));
     } catch {
-      setError('Could not grant free credits. Try again.');
+      setError(t('pricing.grant_free_error'));
     } finally {
       setLoadingPack(null);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, t]);
 
   const handleCta = useCallback(
     (pack: CreditPack) => {
@@ -152,6 +143,13 @@ export const PricingPage: React.FC = () => {
 
   const credits = me?.credits ?? 0;
 
+  const ctaLabel = (pack: CreditPack) => {
+    if (pack.isFree) return t('pricing.cta_free');
+    if (pack.key === 'PACK_25') return t('pricing.cta_best_value');
+    if (pack.key === 'PACK_100') return t('pricing.cta_power');
+    return t('pricing.cta_buy');
+  };
+
   return (
     <>
       <PageShell variant="pricing" showBackLink>
@@ -159,23 +157,31 @@ export const PricingPage: React.FC = () => {
           <Container>
             {isAuthenticated && (
               <p className={styles.yourCredits} data-testid="pricing-your-credits">
-                Your credits: <strong>{credits}</strong>
+                {t('pricing.your_credits_label')} <strong>{credits}</strong>
               </p>
             )}
-            <h1 className={styles.title}>Get Credits. Make More Matches.</h1>
-            <p className={styles.subtext}>
-              Use credits to unlock chats, boost your profile, reveal likes, and get AI-powered compatibility insights — only when you need them.
-            </p>
-            <p className={styles.supportLine}>
-              No subscription. No commitment. Just one-time credit packs.
-            </p>
+            <h1 className={styles.title}>{t('pricing.hero_title')}</h1>
+            <p className={styles.subtext}>{t('pricing.hero_sub')}</p>
+            <p className={styles.supportLine}>{t('pricing.support_line')}</p>
             <div className={styles.explanationRow}>
-              <span><strong>1 credit</strong> → unlock chat</span>
-              <span><strong>1 credit</strong> → AI icebreaker</span>
-              <span><strong>2 credits</strong> → profile boost (24h)</span>
-              <span><strong>2 credits</strong> → AI match insight</span>
-              <span><strong>3 credits</strong> → reveal likes</span>
-              <span><strong>3 credits</strong> → AI workout plan</span>
+              <span>
+                <strong>{t('pricing.credit_1')}</strong> {t('pricing.explain_unlock_chat')}
+              </span>
+              <span>
+                <strong>{t('pricing.credit_1')}</strong> {t('pricing.explain_ai_icebreaker')}
+              </span>
+              <span>
+                <strong>{t('pricing.credit_2')}</strong> {t('pricing.explain_boost')}
+              </span>
+              <span>
+                <strong>{t('pricing.credit_2')}</strong> {t('pricing.explain_insight')}
+              </span>
+              <span>
+                <strong>{t('pricing.credit_3')}</strong> {t('pricing.explain_reveal')}
+              </span>
+              <span>
+                <strong>{t('pricing.credit_3')}</strong> {t('pricing.explain_workout')}
+              </span>
             </div>
           </Container>
         </section>
@@ -187,145 +193,158 @@ export const PricingPage: React.FC = () => {
         )}
 
         <section id="pricing-plans" className={styles.section}>
-        <Container size="xl">
-          <div className={styles.cards}>
-            {sortedPacks.map((pack) => {
-              const isFree = pack.isFree;
-              const isBestValue = pack.isBestValue;
-              const isLoading = loadingPack === pack.key;
-              const features = CREDIT_PACK_FEATURES[pack.key] ?? [];
-              const ctaLabel = isFree ? 'Get Started Free' : pack.key === 'PACK_25' ? 'Get Best Value' : pack.key === 'PACK_100' ? 'Power Up' : 'Buy Credits';
+          <Container size="xl">
+            <div className={styles.cards}>
+              {sortedPacks.map((pack) => {
+                const isFree = pack.isFree;
+                const isBestValue = pack.isBestValue;
+                const isLoading = loadingPack === pack.key;
+                const features = getPricingPackFeatures(locale, pack.key);
 
-              return (
-                <div
-                  key={pack.key}
-                  className={`${styles.card} ${isBestValue ? styles.cardBestValue : ''}`}
-                >
-                  {isBestValue && <span className={styles.badge}>Best Value</span>}
-                  <h3 className={styles.planName}>{PACK_DISPLAY_TITLES[pack.key] ?? pack.title}</h3>
-                  <div className={styles.price}>
-                    <span className={styles.currency}>$</span>
-                    <span className={styles.amount}>{pack.priceUsd.toFixed(2)}</span>
-                    {!isFree && <span className={styles.period}> one-time</span>}
-                  </div>
-                  <p className={styles.creditsLabel}>{pack.credits} credits</p>
-                  <ul className={styles.features}>
-                    {features.map((f, i) => (
-                      <li key={i}>{f}</li>
-                    ))}
-                  </ul>
-                  <button
-                    type="button"
-                    className={isBestValue ? styles.btnPrimary : styles.btnSecondary}
-                    onClick={() => handleCta(pack)}
-                    disabled={!!loadingPack}
+                return (
+                  <div
+                    key={pack.key}
+                    className={`${styles.card} ${isBestValue ? styles.cardBestValue : ''}`}
                   >
-                    {isLoading ? 'Redirecting…' : ctaLabel}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-          <div className={styles.trustRow}>
-            <span className={styles.trustItem}>
-              <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-              Secure payments
-            </span>
-            <span className={styles.trustItem}>
-              <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0110 0v4" />
-              </svg>
-              Credits never expire
-            </span>
-            <span className={styles.trustItem}>
-              <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="23 4 23 10 17 10" />
-                <polyline points="1 20 1 14 7 14" />
-                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-              </svg>
-              Instant delivery
-            </span>
-            <span className={styles.trustItem}>
-              <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
-              One-time purchase, no subscription
-            </span>
-          </div>
-
-          <section className={styles.featureSection}>
-            <h2 className={styles.featureSectionTitle}>What You Can Do With Credits</h2>
-            <div className={styles.featureTiles}>
-              <div className={styles.featureTile}>
-                <div className={styles.featureTileIcon} aria-hidden>💬</div>
-                <h3 className={styles.featureTileTitle}>Unlock Chat</h3>
-                <p className={styles.featureTileDesc}>Start a conversation with a training partner.</p>
-                <span className={styles.featureTileBadge}>Cost: 1 credit</span>
-              </div>
-              <div className={styles.featureTile}>
-                <div className={styles.featureTileIcon} aria-hidden>💡</div>
-                <h3 className={styles.featureTileTitle}>AI Icebreaker</h3>
-                <p className={styles.featureTileDesc}>Get smart first-message suggestions based on both profiles.</p>
-                <span className={styles.featureTileBadge}>Cost: 1 credit</span>
-              </div>
-              <div className={styles.featureTile}>
-                <div className={styles.featureTileIcon} aria-hidden>📈</div>
-                <h3 className={styles.featureTileTitle}>Boost Profile</h3>
-                <p className={styles.featureTileDesc}>Get more profile views for 24 hours.</p>
-                <span className={styles.featureTileBadge}>Cost: 2 credits</span>
-              </div>
-              <div className={styles.featureTile}>
-                <div className={styles.featureTileIcon} aria-hidden>✨</div>
-                <h3 className={styles.featureTileTitle}>AI Match Insight</h3>
-                <p className={styles.featureTileDesc}>See compatibility based on sport, schedule, goals, and experience.</p>
-                <span className={styles.featureTileBadge}>Cost: 2 credits</span>
-              </div>
-              <div className={styles.featureTile}>
-                <div className={styles.featureTileIcon} aria-hidden>❤️</div>
-                <h3 className={styles.featureTileTitle}>Reveal Likes</h3>
-                <p className={styles.featureTileDesc}>See who already liked your profile.</p>
-                <span className={styles.featureTileBadge}>Cost: 3 credits</span>
-              </div>
-              <div className={styles.featureTile}>
-                <div className={styles.featureTileIcon} aria-hidden>📋</div>
-                <h3 className={styles.featureTileTitle}>AI Workout Plan</h3>
-                <p className={styles.featureTileDesc}>Generate a workout or meetup plan from sport, level, goals, and schedule.</p>
-                <span className={styles.featureTileBadge}>Cost: 3 credits</span>
-              </div>
+                    {isBestValue && <span className={styles.badge}>{t('pricing.best_value_badge')}</span>}
+                    <h3 className={styles.planName}>{getPricingPackTitle(locale, pack.key)}</h3>
+                    <div className={styles.price}>
+                      <span className={styles.currency}>$</span>
+                      <span className={styles.amount}>{pack.priceUsd.toFixed(2)}</span>
+                      {!isFree && <span className={styles.period}>{t('pricing.one_time')}</span>}
+                    </div>
+                    <p className={styles.creditsLabel}>
+                      {formatI18n(t('pricing.credits_count'), { n: pack.credits })}
+                    </p>
+                    <ul className={styles.features}>
+                      {features.map((f, i) => (
+                        <li key={i}>{f}</li>
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      className={isBestValue ? styles.btnPrimary : styles.btnSecondary}
+                      onClick={() => handleCta(pack)}
+                      disabled={!!loadingPack}
+                    >
+                      {isLoading ? t('pricing.redirecting') : ctaLabel(pack)}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-          </section>
+            <div className={styles.trustRow}>
+              <span className={styles.trustItem}>
+                <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                {t('pricing.trust_secure')}
+              </span>
+              <span className={styles.trustItem}>
+                <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0110 0v4" />
+                </svg>
+                {t('pricing.trust_never_expire')}
+              </span>
+              <span className={styles.trustItem}>
+                <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                </svg>
+                {t('pricing.trust_instant')}
+              </span>
+              <span className={styles.trustItem}>
+                <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                {t('pricing.trust_one_time')}
+              </span>
+            </div>
 
-          <section className={styles.whyCreditsSection}>
-            <h2 className={styles.whyCreditsTitle}>Why credits work better</h2>
-            <ul className={styles.whyCreditsList}>
-              <li>Pay only when you use features</li>
-              <li>No recurring payments</li>
-              <li>Flexible for casual or active users</li>
-              <li>Built for real-world training partners</li>
-            </ul>
-          </section>
+            <section className={styles.featureSection}>
+              <h2 className={styles.featureSectionTitle}>{t('pricing.section_what_title')}</h2>
+              <div className={styles.featureTiles}>
+                <div className={styles.featureTile}>
+                  <div className={styles.featureTileIcon} aria-hidden>
+                    💬
+                  </div>
+                  <h3 className={styles.featureTileTitle}>{t('pricing.tile_unlock_title')}</h3>
+                  <p className={styles.featureTileDesc}>{t('pricing.tile_unlock_desc')}</p>
+                  <span className={styles.featureTileBadge}>{t('pricing.cost_1')}</span>
+                </div>
+                <div className={styles.featureTile}>
+                  <div className={styles.featureTileIcon} aria-hidden>
+                    💡
+                  </div>
+                  <h3 className={styles.featureTileTitle}>{t('pricing.tile_icebreaker_title')}</h3>
+                  <p className={styles.featureTileDesc}>{t('pricing.tile_icebreaker_desc')}</p>
+                  <span className={styles.featureTileBadge}>{t('pricing.cost_1')}</span>
+                </div>
+                <div className={styles.featureTile}>
+                  <div className={styles.featureTileIcon} aria-hidden>
+                    📈
+                  </div>
+                  <h3 className={styles.featureTileTitle}>{t('pricing.tile_boost_title')}</h3>
+                  <p className={styles.featureTileDesc}>{t('pricing.tile_boost_desc')}</p>
+                  <span className={styles.featureTileBadge}>{t('pricing.cost_2')}</span>
+                </div>
+                <div className={styles.featureTile}>
+                  <div className={styles.featureTileIcon} aria-hidden>
+                    ✨
+                  </div>
+                  <h3 className={styles.featureTileTitle}>{t('pricing.tile_insight_title')}</h3>
+                  <p className={styles.featureTileDesc}>{t('pricing.tile_insight_desc')}</p>
+                  <span className={styles.featureTileBadge}>{t('pricing.cost_2')}</span>
+                </div>
+                <div className={styles.featureTile}>
+                  <div className={styles.featureTileIcon} aria-hidden>
+                    ❤️
+                  </div>
+                  <h3 className={styles.featureTileTitle}>{t('pricing.tile_reveal_title')}</h3>
+                  <p className={styles.featureTileDesc}>{t('pricing.tile_reveal_desc')}</p>
+                  <span className={styles.featureTileBadge}>{t('pricing.cost_3')}</span>
+                </div>
+                <div className={styles.featureTile}>
+                  <div className={styles.featureTileIcon} aria-hidden>
+                    📋
+                  </div>
+                  <h3 className={styles.featureTileTitle}>{t('pricing.tile_workout_title')}</h3>
+                  <p className={styles.featureTileDesc}>{t('pricing.tile_workout_desc')}</p>
+                  <span className={styles.featureTileBadge}>{t('pricing.cost_3')}</span>
+                </div>
+              </div>
+            </section>
 
-          <div className={styles.faq}>
-            <h3 className={styles.faqTitle}>Frequently asked</h3>
-            <details className={styles.faqItem}>
-              <summary>What can I do with credits?</summary>
-              <p>Credits unlock chat (1), AI icebreakers (1), profile boost (2), AI match insight (2), reveal likes (3), and AI workout plan (3). No subscription — use only what you need.</p>
-            </details>
-            <details className={styles.faqItem}>
-              <summary>Do credits expire?</summary>
-              <p>No. Your credits never expire. Use them whenever you want.</p>
-            </details>
-            <details className={styles.faqItem}>
-              <summary>Can I get a refund?</summary>
-              <p>If you haven&apos;t used the credits, contact support within 7 days for a refund. Used credits are non-refundable.</p>
-            </details>
-          </div>
-        </Container>
-      </section>
+            <section className={styles.whyCreditsSection}>
+              <h2 className={styles.whyCreditsTitle}>{t('pricing.why_title')}</h2>
+              <ul className={styles.whyCreditsList}>
+                <li>{t('pricing.why_1')}</li>
+                <li>{t('pricing.why_2')}</li>
+                <li>{t('pricing.why_3')}</li>
+                <li>{t('pricing.why_4')}</li>
+              </ul>
+            </section>
+
+            <div className={styles.faq}>
+              <h3 className={styles.faqTitle}>{t('pricing.faq_title')}</h3>
+              <details className={styles.faqItem}>
+                <summary>{t('pricing.faq_q1')}</summary>
+                <p>{t('pricing.faq_a1')}</p>
+              </details>
+              <details className={styles.faqItem}>
+                <summary>{t('pricing.faq_q2')}</summary>
+                <p>{t('pricing.faq_a2')}</p>
+              </details>
+              <details className={styles.faqItem}>
+                <summary>{t('pricing.faq_q3')}</summary>
+                <p>{t('pricing.faq_a3')}</p>
+              </details>
+            </div>
+          </Container>
+        </section>
       </PageShell>
 
       <Snackbar

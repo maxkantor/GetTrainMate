@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useI18n } from '@/hooks/useI18n';
 import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
 import styles from './BentoFeatures.module.css';
@@ -7,33 +8,33 @@ import styles from './BentoFeatures.module.css';
 const bento = [
   {
     key: 'ai',
-    title: 'AI Matching',
-    desc: 'Compatibility scores from your goals, level, and schedule — not just proximity.',
+    titleKey: 'landing.features_bento_ai_title',
+    descKey: 'landing.features_bento_ai_desc',
     icon: '✨',
     size: 'large',
   },
   {
     key: 'chat',
-    title: 'Live Chat',
-    desc: 'Unlock real conversations when both sides are ready.',
+    titleKey: 'landing.features_bento_chat_title',
+    descKey: 'landing.features_bento_chat_desc',
     icon: '💬',
     size: 'small',
   },
   {
     key: 'events',
-    title: 'Event Meetups',
-    desc: 'Train together at events and group sessions.',
+    titleKey: 'landing.features_bento_events_title',
+    descKey: 'landing.features_bento_events_desc',
     icon: '📍',
     size: 'small',
   },
   {
     key: 'progress',
-    title: 'Progress Tracking',
-    desc: 'Stay accountable with streaks and session history.',
+    titleKey: 'landing.features_bento_progress_title',
+    descKey: 'landing.features_bento_progress_desc',
     icon: '📈',
     size: 'medium',
   },
-];
+] as const;
 
 const container = {
   hidden: { opacity: 0 },
@@ -49,6 +50,7 @@ const item = {
 };
 
 export const Features: React.FC = () => {
+  const { t } = useI18n();
   return (
     <Section id="features" background="subtle" paddingSize="xl" className={styles.section}>
       <Container>
@@ -59,9 +61,9 @@ export const Features: React.FC = () => {
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.45 }}
         >
-          <span className={styles.kicker}>The product</span>
-          <h2 className={styles.title}>Built for athletes who show up</h2>
-          <p className={styles.subtitle}>Everything in one place — matching, chat, events, and momentum.</p>
+          <span className={styles.kicker}>{t('landing.features_bento_kicker')}</span>
+          <h2 className={styles.title}>{t('landing.features_bento_title')}</h2>
+          <p className={styles.subtitle}>{t('landing.features_bento_subtitle')}</p>
         </motion.div>
 
         <motion.div
@@ -96,8 +98,8 @@ export const Features: React.FC = () => {
             >
               <div className={styles.cardGlow} aria-hidden />
               <span className={styles.cardIcon}>{card.icon}</span>
-              <h3 className={styles.cardTitle}>{card.title}</h3>
-              <p className={styles.cardDesc}>{card.desc}</p>
+              <h3 className={styles.cardTitle}>{t(card.titleKey)}</h3>
+              <p className={styles.cardDesc}>{t(card.descKey)}</p>
             </motion.article>
           ))}
         </motion.div>

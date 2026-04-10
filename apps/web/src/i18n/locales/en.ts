@@ -1,3 +1,6 @@
+import { pricingEn } from './partials/pricing.en';
+import { discoverExpandedEn, appMessagesEn, chatUiEn } from './partials/discover.expanded.en';
+
 export const en = {
   common: {
     appName: 'GetTrainMate',
@@ -19,6 +22,7 @@ export const en = {
   header: {
     home: 'Home',
     pricing: 'Pricing',
+    product: 'Product',
     about: 'About',
     faq: 'FAQ',
     contact: 'Contact',
@@ -28,6 +32,11 @@ export const en = {
     profile: 'Profile',
     settings: 'Settings',
     billing: 'Billing',
+    get_credits: 'Get Credits',
+    menu: 'Menu',
+    language_tooltip: 'Language',
+    complete_profile: 'Complete Profile',
+    profile_incomplete: 'Profile incomplete',
   },
   nav: {
     dashboard: 'Dashboard',
@@ -37,6 +46,9 @@ export const en = {
     events: 'Events',
     profile: 'Profile',
     settings: 'Settings',
+    sent: 'Sent',
+    skipped: 'Skipped',
+    ai_coach: 'AI Coach',
   },
   landing: {
     hero_title: 'Find Your Perfect Training Partner',
@@ -89,6 +101,52 @@ export const en = {
     feature_2_desc: 'Connect with real training partners in your area',
     feature_3_title: 'Flexible Modes',
     feature_3_desc: 'TRAIN for fitness partners, VIBE for buddies, DATE if interested',
+    hero_premium_title: 'Train With People Who Actually Push You',
+    hero_premium_sub:
+      'AI finds your perfect training partner based on your level, schedule, and mindset — in seconds.',
+    hero_see_how: 'See How It Works',
+    hero_hook: 'Stop training alone. Find your level.',
+    hero_badge_serious: '🔥 Serious athletes only',
+    hero_exclusivity_line: 'Train with people who take it seriously',
+    hero_proof_1: 'New athletes join every day',
+    hero_proof_2: 'Find partners by level, schedule, and mindset',
+    hero_proof_3: 'Active athletes in your area',
+    hero_fomo: 'Built for people who show up — not fake live counts.',
+    hero_proof_aria: 'Why athletes use GetTrainMate',
+    landing_primary_cta: 'Find My Training Partner',
+    landing_hero_sub_guest: 'Free preview • No signup required',
+    landing_cta_sub: 'Takes 30 seconds • No commitment',
+    landing_scarcity: 'Only 5 new matches shown per day on free plan',
+    showcase_live: 'Live activity',
+    live_feed_1: 'Sarah and Mike — both training for a century ride',
+    live_feed_2: 'Mike found a weekend cycling partner',
+    live_feed_3: 'Emma matched with a morning yoga buddy',
+    live_feed_4: 'New training partners in San Francisco',
+    live_feed_5: 'Runners and lifters connecting on GetTrainMate',
+    showcase_matching_preview: 'Matching preview · {price}',
+    showcase_full_matching: 'Full matching · {price}',
+    showcase_crm_hint: 'Photos load from CRM test-user profiles (S3) — not stock overlays.',
+    swipe_demo_title: 'See How Matching Works',
+    swipe_demo_subtitle: 'Swipe right → match. Watch the loop.',
+    swipe_demo_crm_line:
+      'Photos match Admin → Test Users: your uploaded S3 images replace seed stock once saved on the profile.',
+    swipe_match_title: "It's a Match",
+    swipe_match_hint: 'Next card slides up — same in the app.',
+    swipe_ribbon_match_preview: 'Match preview',
+    final_cta_card_title: 'Your Next Training Partner Is One Click Away',
+    final_cta_card_sub: 'Join thousands of athletes matching on schedule, level, and mindset.',
+    features_bento_kicker: 'The product',
+    features_bento_title: 'Built for athletes who show up',
+    features_bento_subtitle: 'Everything in one place — matching, chat, events, and momentum.',
+    features_bento_ai_title: 'AI Matching',
+    features_bento_ai_desc:
+      'Compatibility scores from your goals, level, and schedule — not just proximity.',
+    features_bento_chat_title: 'Live Chat',
+    features_bento_chat_desc: 'Unlock real conversations when both sides are ready.',
+    features_bento_events_title: 'Event Meetups',
+    features_bento_events_desc: 'Train together at events and group sessions.',
+    features_bento_progress_title: 'Progress Tracking',
+    features_bento_progress_desc: 'Stay accountable with streaks and session history.',
   },
   auth: {
     login_title: 'Sign In',
@@ -131,7 +189,7 @@ export const en = {
     notFound: 'Page not found',
   },
   discover: {
-    no_photo: 'No photo',
+    ...discoverExpandedEn,
   },
   sentRequests: {
     title: 'Sent requests',
@@ -175,6 +233,50 @@ export const en = {
     terms: 'Terms',
     all_rights_reserved: 'All rights reserved.',
   },
+  credits: {
+    remaining_of_total: '{credits} remaining out of {cap} total credits',
+    tooltip_uses: 'Credits are used for chat unlocks, AI actions, boosts, and insights.',
+    tooltip_per_like: '1 credit per send-interest when you use credits for likes.',
+    word_credits: 'credits',
+    aria_summary:
+      '{credits} remaining out of {cap} total credits. 1 credit per send-interest. AI Icebreaker 1 credit.',
+    mobile_aria: '{credits} remaining out of {cap} total credits',
+    upgrade_banner_default:
+      'Get more credits to keep liking and connecting.',
+    need_more_credits_one:
+      'You need 1 more credit for this action. Get credits on the Pricing page.',
+    need_more_credits_many:
+      'You need {need} more credits for this action. Get credits on the Pricing page.',
+  },
+  discover_limits: {
+    no_likes_today: 'No free likes left today — add credits or try after midnight UTC.',
+    free_send_interests: '{used}/{limit} free send-interests left today',
+    unlimited_browsing: 'Unlimited browsing',
+  },
+  logged_in_hero: {
+    aria: 'Your activity',
+    kicker: "You're in",
+    title: "Today's Matches",
+    usage_credits: '{credits} / {cap} credits',
+    unlimited_suffix: ' · unlimited discovery (browse)',
+    rates_hint: ' · rates in app header',
+    usage_free: '{used} / {limit} free matches used',
+    usage_free_extra: ' ({likes} today)',
+    sub_with_credits:
+      'Browse Discover for free; each send-interest uses 1 credit while your balance is above zero.',
+    sub_no_credits:
+      'At 0 balance you get {limit} free send-interests per day (UTC). Add credits to send more.',
+    reset_in: 'Daily free matches reset in {time}.',
+    complete_hint: 'Complete your profile to get better matches.',
+    limit_message: 'No free matches or credits left today',
+    modal_title: 'Daily match limit reached',
+    modal_body:
+      "You've used your {limit} free matches for today (UTC) and don't have credits left. Add credits for unlimited discovery, or come back after midnight UTC.",
+    close: 'Close',
+  },
+  pricing: pricingEn,
+  app_messages: appMessagesEn,
+  chat_ui: chatUiEn,
   admin: {
     dashboard: 'Admin Dashboard',
     content: 'Content',

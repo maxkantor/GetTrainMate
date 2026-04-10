@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
 import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_SHOWCASE_STACK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase, isLandingShowcaseLive } from '@/services/landingShowcaseService';
@@ -19,6 +21,7 @@ const FALLBACK: StackItem[] = LANDING_SHOWCASE_STACK_FALLBACK.map((row) => ({
 const ROTATE_MS = 4000;
 
 export const HeroFloatingStack: React.FC = () => {
+  const { t } = useI18n();
   const [stack, setStack] = useState<StackItem[]>(FALLBACK);
   const [focusIdx, setFocusIdx] = useState(0);
   const [premiumUsd, setPremiumUsd] = useState(LANDING_MATCH_PREVIEW_USD_FALLBACK);
@@ -77,6 +80,7 @@ export const HeroFloatingStack: React.FC = () => {
   }, [stack.length]);
 
   const priceLabel = Number.isInteger(premiumUsd) ? `$${premiumUsd}` : `$${premiumUsd.toFixed(2)}`;
+  const matchingPreviewLine = formatI18n(t('landing.showcase_matching_preview'), { price: priceLabel });
 
   const onAvatarError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const el = e.currentTarget;
@@ -93,13 +97,13 @@ export const HeroFloatingStack: React.FC = () => {
       <div className={styles.premiumHeader}>
         <span className={styles.livePill}>
           <span className={styles.liveDot} />
-          Live activity
+          {t('landing.showcase_live')}
         </span>
         <Link to="/pricing" className={styles.premiumPill}>
-          Matching preview · {priceLabel}
+          {matchingPreviewLine}
         </Link>
       </div>
-      <p className={styles.crmHint}>Photos load from CRM test-user profiles (S3) — not stock overlays.</p>
+      <p className={styles.crmHint}>{t('landing.showcase_crm_hint')}</p>
       <div className={styles.wrap} aria-hidden>
         {stack.map((item, i) => (
           <div

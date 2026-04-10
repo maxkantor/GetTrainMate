@@ -1,3 +1,10 @@
+import {
+  pricingEs,
+  discoverExpandedEs,
+  appMessagesEs,
+  chatUiEs,
+} from './partials/localeBundle.es';
+
 export const es = {
   common: {
     appName: 'GetTrainMate',
@@ -27,6 +34,13 @@ export const es = {
     admin: 'Admin',
     profile: 'Perfil',
     settings: 'Configuración',
+    product: 'Producto',
+    billing: 'Facturación',
+    get_credits: 'Obtener créditos',
+    menu: 'Menú',
+    language_tooltip: 'Idioma',
+    complete_profile: 'Completar perfil',
+    profile_incomplete: 'Perfil incompleto',
   },
   nav: {
     dashboard: 'Panel de Control',
@@ -36,6 +50,9 @@ export const es = {
     events: 'Eventos',
     profile: 'Perfil',
     settings: 'Configuración',
+    sent: 'Enviados',
+    skipped: 'Omitidos',
+    ai_coach: 'Coach IA',
   },
   landing: {
     hero_title: 'Encuentra tu Compañero de Entrenamiento Perfecto',
@@ -101,7 +118,7 @@ export const es = {
     verify_code: 'Código de Verificación',
   },
   discover: {
-    no_photo: 'Sin foto',
+    ...discoverExpandedEs,
   },
   sentRequests: {
     title: 'Solicitudes enviadas',
@@ -146,6 +163,9 @@ export const es = {
     terms: 'Términos',
     all_rights_reserved: 'Todos los derechos reservados.',
   },
+  pricing: pricingEs,
+  app_messages: appMessagesEs,
+  chat_ui: chatUiEs,
   admin: {
     dashboard: 'Panel de Admin',
     content: 'Contenido',

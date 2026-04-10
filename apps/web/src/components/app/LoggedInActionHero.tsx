@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Button } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
 import { useMe } from '@/hooks/useMe';
 import { useMatchStatusForHeader } from '@/hooks/useMatchStatusForHeader';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
@@ -51,21 +52,26 @@ export const LoggedInActionHero: React.FC = () => {
   }, [hardLimitReached]);
 
   return (
-    <section className={styles.wrap} aria-label="Your activity">
+    <section className={styles.wrap} aria-label={t('logged_in_hero.aria')}>
       <div className={styles.inner}>
-        <p className={styles.kicker}>You’re in</p>
-        <h1 className={styles.title}>Today's Matches</h1>
+        <p className={styles.kicker}>{t('logged_in_hero.kicker')}</p>
+        <h1 className={styles.title}>{t('logged_in_hero.title')}</h1>
         {hasCredits ? (
           <p className={styles.usage}>
-            {credits} / {creditCap} credits
-            {me?.unlimitedDiscovery ? ' · unlimited discovery (browse)' : ''}
-            <span className={styles.usageHint}> · rates in app header</span>
+            {formatI18n(t('logged_in_hero.usage_credits'), { credits, cap: creditCap })}
+            {me?.unlimitedDiscovery ? t('logged_in_hero.unlimited_suffix') : ''}
+            <span className={styles.usageHint}>{t('logged_in_hero.rates_hint')}</span>
           </p>
         ) : (
           <>
             <p className={styles.usage}>
-              {Math.min(likesToday, DAILY_LIKE_LIMIT)} / {DAILY_LIKE_LIMIT} free matches used
-              {likesToday > DAILY_LIKE_LIMIT ? ` (${likesToday} today)` : ''}
+              {formatI18n(t('logged_in_hero.usage_free'), {
+                used: Math.min(likesToday, DAILY_LIKE_LIMIT),
+                limit: DAILY_LIKE_LIMIT,
+              })}
+              {likesToday > DAILY_LIKE_LIMIT
+                ? formatI18n(t('logged_in_hero.usage_free_extra'), { likes: likesToday })
+                : ''}
             </p>
             <div className={styles.progressWrap} aria-hidden>
               <div className={styles.progressTrack}>
@@ -79,13 +85,13 @@ export const LoggedInActionHero: React.FC = () => {
         )}
         <p className={styles.sub}>
           {hasCredits
-            ? 'Browse Discover for free; each send-interest uses 1 credit while your balance is above zero.'
-            : `At 0 balance you get ${DAILY_LIKE_LIMIT} free send-interests per day (UTC). Add credits to send more.`}
+            ? t('logged_in_hero.sub_with_credits')
+            : formatI18n(t('logged_in_hero.sub_no_credits'), { limit: DAILY_LIKE_LIMIT })}
           <br />
-          {!hasCredits ? <>Daily free matches reset in {resetCountdownLabel}.</> : null}
+          {!hasCredits ? formatI18n(t('logged_in_hero.reset_in'), { time: resetCountdownLabel }) : null}
         </p>
 
-        {!complete && <p className={styles.completeHint}>Complete your profile to get better matches.</p>}
+        {!complete && <p className={styles.completeHint}>{t('logged_in_hero.complete_hint')}</p>}
 
         {(!atOrPastFreeCap || hasCredits) && (
           <>
@@ -114,7 +120,7 @@ export const LoggedInActionHero: React.FC = () => {
 
         {hardLimitReached && (
           <div className={styles.limitState}>
-            <p className={styles.limitMessage}>No free matches or credits left today</p>
+            <p className={styles.limitMessage}>{t('logged_in_hero.limit_message')}</p>
             <Button
               component={RouterLink}
               to="/pricing"
@@ -122,7 +128,7 @@ export const LoggedInActionHero: React.FC = () => {
               size="large"
               className={styles.cta}
             >
-              Get Credits
+              {t('header.get_credits')}
             </Button>
           </div>
         )}
@@ -131,19 +137,18 @@ export const LoggedInActionHero: React.FC = () => {
       <Modal
         open={limitModalOpen}
         onClose={() => setLimitModalOpen(false)}
-        title="Daily match limit reached"
+        title={t('logged_in_hero.modal_title')}
       >
         <div className={styles.limitModalContent}>
           <p className={styles.limitModalText}>
-            You&apos;ve used your {DAILY_LIKE_LIMIT} free matches for today (UTC) and don&apos;t have credits left.
-            Add credits for unlimited discovery, or come back after midnight UTC.
+            {formatI18n(t('logged_in_hero.modal_body'), { limit: DAILY_LIKE_LIMIT })}
           </p>
           <div className={styles.limitModalActions}>
             <Button type="button" variant="outlined" onClick={() => setLimitModalOpen(false)}>
-              Close
+              {t('logged_in_hero.close')}
             </Button>
             <Button component={RouterLink} to="/pricing" variant="contained" onClick={() => setLimitModalOpen(false)}>
-              Get credits
+              {t('header.get_credits')}
             </Button>
           </div>
         </div>

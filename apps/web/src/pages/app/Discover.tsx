@@ -34,7 +34,6 @@ import { ProfileCard } from './discover/ProfileCard';
 import { MatchPanel } from './discover/MatchPanel';
 import { ActionBar } from './discover/ActionBar';
 import { FiltersButton } from './discover/FiltersButton';
-import { DISCOVER_STRINGS } from './discover/constants';
 import { DiscoverProfileDrawer } from './discover/DiscoverProfileDrawer';
 import { incrementDailyLike, getDailyLikeCount, canSendLikeWithDailyCap } from '@/utils/dailySwipeTracker';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
@@ -45,6 +44,8 @@ import { getMatchInsight, isInsufficientCreditsError, getAiErrorMessage } from '
 import { loadPremiumCatalog, PREMIUM_ACTION } from '@/config/premiumCatalog';
 import { trackPremiumAction } from '@/utils/analytics';
 import type { MatchInsightResponse } from '@/types/ai';
+import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
 import styles from './Discover.module.css';
 import { matchQueryKeys } from '@/lib/queryKeys';
 
@@ -165,6 +166,7 @@ function countActiveFilters(f: DiscoverFilters): number {
 }
 
 export const DiscoverPage: React.FC = () => {
+  const { t } = useI18n();
   const { user, logout } = useAuthContext();
   const { me, refreshMe } = useMe();
   const navigate = useNavigate();
@@ -272,7 +274,7 @@ export const DiscoverPage: React.FC = () => {
         const token = await authService.getJWT(isRetryAfter401);
         if (!token) {
           if (!stale()) {
-            setError('Not authenticated');
+            setError(t('app_messages.not_authenticated'));
             setLoading(false);
           }
           return;
@@ -341,7 +343,7 @@ export const DiscoverPage: React.FC = () => {
           }
         }
         if (!stale()) {
-          setError('Session expired. Please sign in again.');
+          setError(t('app_messages.session_expired'));
           setLoading(false);
           await logout();
           navigate('/login', { state: { from: '/app/discover' }, replace: true });
@@ -355,7 +357,7 @@ export const DiscoverPage: React.FC = () => {
             'Unable to connect to the API. The backend may not be deployed or CORS is not configured.'
           );
         } else if (status === 401) {
-          setError('Authentication required. Please sign in again.');
+          setError(t('app_messages.auth_required'));
         } else {
           setError(getErrorMessage(err));
         }
@@ -393,7 +395,7 @@ export const DiscoverPage: React.FC = () => {
 
     const currentCard = feed[currentIndex];
     if (isDummyNearbyProfile(currentCard.userId)) {
-      setToast(DISCOVER_STRINGS.previewProfileHint);
+      setToast(t('discover.preview_profile_hint'));
       if (interestAdvanceTimerRef.current) clearTimeout(interestAdvanceTimerRef.current);
       interestAdvanceTimerRef.current = setTimeout(() => {
         advanceToNextCard();
@@ -404,7 +406,7 @@ export const DiscoverPage: React.FC = () => {
 
     const creditBefore = me?.credits ?? 0;
     if (!canSendLikeWithDailyCap(creditBefore, user?.sub)) {
-      setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery, or try again after midnight UTC.`);
+      setToast(formatI18n(t('app_messages.daily_limit_midnight'), { limit: DAILY_LIKE_LIMIT }));
       openDailyLimitModal();
       return;
     }
@@ -417,7 +419,7 @@ export const DiscoverPage: React.FC = () => {
 
     const finishInterestSent = () => {
       setProfileDrawerOpen(false);
-      setToast(DISCOVER_STRINGS.interestSent);
+      setToast(t('discover.interest_sent'));
       if (interestAdvanceTimerRef.current) clearTimeout(interestAdvanceTimerRef.current);
       interestAdvanceTimerRef.current = setTimeout(() => {
         advanceToNextCard();
@@ -444,7 +446,7 @@ export const DiscoverPage: React.FC = () => {
           return;
         }
         if (getDailyLikeCount(user?.sub) >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0), user?.sub)) {
-          setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
+          setToast(formatI18n(t('app_messages.daily_limit'), { limit: DAILY_LIKE_LIMIT }));
           openDailyLimitModal();
         } else {
           finishInterestSent();
@@ -452,7 +454,7 @@ export const DiscoverPage: React.FC = () => {
       } else {
         let token = await authService.getJWT(true);
         if (!token) {
-          setToast('Please sign in again.');
+          setToast(t('app_messages.sign_in_again'));
           return;
         }
         try {
@@ -472,7 +474,7 @@ export const DiscoverPage: React.FC = () => {
             return;
           }
           if (getDailyLikeCount(user?.sub) >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0), user?.sub)) {
-            setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
+            setToast(formatI18n(t('app_messages.daily_limit'), { limit: DAILY_LIKE_LIMIT }));
             openDailyLimitModal();
           } else {
             finishInterestSent();
@@ -499,7 +501,7 @@ export const DiscoverPage: React.FC = () => {
                   return;
                 }
                 if (getDailyLikeCount(user?.sub) >= DAILY_LIKE_LIMIT && !canSendLikeWithDailyCap(Math.max(0, me?.credits ?? 0), user?.sub)) {
-                  setToast(`You've used today's ${DAILY_LIKE_LIMIT} free matches. Add credits for unlimited discovery.`);
+                  setToast(formatI18n(t('app_messages.daily_limit'), { limit: DAILY_LIKE_LIMIT }));
                   openDailyLimitModal();
                 } else {
                   finishInterestSent();
@@ -509,7 +511,7 @@ export const DiscoverPage: React.FC = () => {
                 /* fall through */
               }
             }
-            setToast('Session expired. Please sign in again.');
+            setToast(t('app_messages.session_expired'));
             setLikeLoading(false);
             return;
           }
@@ -519,24 +521,36 @@ export const DiscoverPage: React.FC = () => {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('INSUFFICIENT_CREDITS') || msg.includes('Insufficient')) {
-        setToast('Not enough credits. Get more on the Pricing page.');
+        setToast(t('app_messages.not_enough_credits'));
       } else {
         const apiError = handleApiError(err);
         if (
           apiError.code === 'INSUFFICIENT_CREDITS' ||
           (err as { response?: { status?: number } })?.response?.status === 402
         ) {
-          setToast(apiError.message || 'Not enough credits. Get more on the Pricing page.');
+          setToast(apiError.message || t('app_messages.not_enough_credits'));
         } else if (apiError.status === 401 || apiError.isAuthError) {
-          setToast('Session expired. Please sign in again.');
+          setToast(t('app_messages.session_expired'));
         } else {
-          setToast(apiError.message || 'Could not send interest');
+          setToast(apiError.message || t('app_messages.could_not_send_interest'));
         }
       }
     } finally {
       setLikeLoading(false);
     }
-  }, [advanceToNextCard, currentIndex, feed, me?.credits, openDailyLimitModal, refreshMe, me, user?.sub, queryClient]);
+  }, [
+    advanceToNextCard,
+    currentIndex,
+    feed,
+    me?.credits,
+    openDailyLimitModal,
+    refreshMe,
+    me,
+    user?.sub,
+    queryClient,
+    t,
+    formatI18n,
+  ]);
 
   const handlePass = async () => {
     if (currentIndex >= feed.length) return;
@@ -558,7 +572,7 @@ export const DiscoverPage: React.FC = () => {
       } else {
         let token = await authService.getJWT(true);
         if (!token) {
-          setToast('Please sign in again.');
+          setToast(t('app_messages.sign_in_again'));
           return;
         }
         try {
@@ -582,7 +596,7 @@ export const DiscoverPage: React.FC = () => {
       setCurrentIndex((prev) => Math.max(0, Math.min(prev, nextFeed.length - 1)));
       if (nextFeed.length === 0) setError('');
     } catch {
-      setToast('Could not save pass. Try again.');
+      setToast(t('app_messages.could_not_save_pass'));
     }
   };
 
@@ -597,12 +611,12 @@ export const DiscoverPage: React.FC = () => {
     if (!isGraphQLEnabled) {
       const token = await authService.getJWT(true);
       if (!token) {
-        setToast('Please sign in again.');
+        setToast(t('app_messages.sign_in_again'));
         return;
       }
       const result = await matchService.undoPass(token, lastSkippedProfile.userId);
       if (!result.restored) {
-        setToast('Could not undo skip.');
+        setToast(t('app_messages.could_not_undo_skip'));
         return;
       }
     }
@@ -659,7 +673,7 @@ export const DiscoverPage: React.FC = () => {
 
   const handleSeedDemo = async () => {
     if (!allowDemoProfileSeed) {
-      setToast('Demo profiles are only available in development or for admins.');
+      setToast(t('app_messages.demo_dev_only'));
       return;
     }
     try {
@@ -675,7 +689,7 @@ export const DiscoverPage: React.FC = () => {
       } else {
         const token = await authService.getJWT();
         if (!token) {
-          setError('Not authenticated');
+          setError(t('app_messages.not_authenticated'));
           return;
         }
         try {
@@ -687,7 +701,7 @@ export const DiscoverPage: React.FC = () => {
       }
     } catch (err: unknown) {
       const apiError = handleApiError(err as Error);
-      setError(apiError.message || 'Failed to load demo profiles');
+      setError(apiError.message || t('app_messages.failed_load_demo'));
     } finally {
       setSeeding(false);
     }
@@ -708,12 +722,16 @@ export const DiscoverPage: React.FC = () => {
     // Use refreshed token to avoid 401 from expired token
     const token = await authService.getJWT(true);
     if (!token) {
-      setToast('Please sign in again.');
+      setToast(t('app_messages.sign_in_again'));
       return;
     }
     if ((me?.credits ?? 0) < aiInsightCost) {
       const need = aiInsightCost - (me?.credits ?? 0);
-      setToast(`You need ${need} more credit${need === 1 ? '' : 's'} for this action. Get Credits on the Pricing page.`);
+      setToast(
+        need === 1
+          ? t('credits.need_more_credits_one')
+          : formatI18n(t('credits.need_more_credits_many'), { need })
+      );
       return;
     }
     setLoadingInsightFor(card.userId);
@@ -739,7 +757,7 @@ export const DiscoverPage: React.FC = () => {
       const result = await getMatchInsight(authToken, request);
       setInsightMap((prev) => ({ ...prev, [card.userId]: result }));
       await refreshMe();
-      setToast('Insight unlocked');
+      setToast(t('app_messages.insight_unlocked'));
       trackPremiumAction('deeper_match_insight', 'success');
     };
     try {
@@ -756,20 +774,20 @@ export const DiscoverPage: React.FC = () => {
             /* fall through to auth message */
           }
         }
-        setToast('Session expired. Please sign in again.');
+        setToast(t('app_messages.session_expired'));
         setLoadingInsightFor(null);
         return;
       }
       if (isInsufficientCreditsError(err)) {
         trackPremiumAction('deeper_match_insight', 'insufficient_credits');
-        setToast('Not enough credits. Get more on the Pricing page.');
+        setToast(t('app_messages.not_enough_credits'));
       } else {
         setToast(getAiErrorMessage(err));
       }
     } finally {
       setLoadingInsightFor(null);
     }
-  }, [currentIndex, feed, me, aiInsightCost, refreshMe]);
+  }, [currentIndex, feed, me, aiInsightCost, refreshMe, t]);
 
   const handlePhotoError = useCallback(() => {
     const currentCard = feed[currentIndex];
@@ -816,7 +834,7 @@ export const DiscoverPage: React.FC = () => {
               </Button>
             ) : (
               <Button fullWidth variant="contained" color="primary" onClick={() => loadFeed()}>
-                {DISCOVER_STRINGS.retry}
+                {t('discover.retry')}
               </Button>
             )}
           </Box>
@@ -831,10 +849,10 @@ export const DiscoverPage: React.FC = () => {
         <div className={styles.container}>
           <div className={styles.emptyState}>
             <Typography variant="h6" gutterBottom>
-              {DISCOVER_STRINGS.caughtUpTitle}
+              {t('discover.caught_up_title')}
             </Typography>
             <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-              {DISCOVER_STRINGS.caughtUpSub}
+              {t('discover.caught_up_sub')}
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
               <Button variant="outlined" onClick={() => navigate('/app/profile')}>
@@ -850,13 +868,13 @@ export const DiscoverPage: React.FC = () => {
                 Matches
               </Button>
               <Button variant="contained" onClick={() => loadFeed()}>
-                {DISCOVER_STRINGS.retry}
+                {t('discover.retry')}
               </Button>
             </Box>
             {allowDemoProfileSeed ? (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center', mt: 2 }}>
                 <Button variant="text" size="small" onClick={handleSeedDemo} disabled={seeding}>
-                  {seeding ? 'Loading…' : DISCOVER_STRINGS.loadDemo}
+                  {seeding ? t('discover.loading') : t('discover.load_demo')}
                 </Button>
               </Box>
             ) : null}
@@ -1070,7 +1088,7 @@ export const DiscoverPage: React.FC = () => {
         open={skipUndoOpen}
         autoHideDuration={4500}
         onClose={() => setSkipUndoOpen(false)}
-        message={DISCOVER_STRINGS.skippedToast}
+        message={t('discover.skipped_toast')}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         action={
           me?.profile?.discoverCanRewindLastSkip !== false ? (
