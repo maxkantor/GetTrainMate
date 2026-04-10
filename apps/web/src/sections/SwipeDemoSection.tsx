@@ -7,7 +7,7 @@ import { Container } from '@/components/layout/Container';
 import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_PRIMARY_CTA, LANDING_CTA_SUB, LANDING_SCARCITY } from '@/constants/landingCopy';
 import { LANDING_SHOWCASE_DECK_FALLBACK } from '@/data/landingShowcaseFallback';
-import { fetchLandingShowcase } from '@/services/landingShowcaseService';
+import { fetchLandingShowcase, isLandingShowcaseLive } from '@/services/landingShowcaseService';
 import { landingShowcaseImageProps, pickLandingShowcasePhotoUrl } from '@/utils/landingShowcaseImages';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import styles from './SwipeDemoSection.module.css';
@@ -178,7 +178,7 @@ export const SwipeDemoSection: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     fetchLandingShowcase().then((data) => {
-      if (cancelled || !data || data.kind !== 'live' || data.deck.length < 3) return;
+      if (cancelled || !data || !isLandingShowcaseLive(data) || data.deck.length < 3) return;
       if (typeof data.premiumMatchPreviewUsd === 'number' && data.premiumMatchPreviewUsd > 0) {
         setPremiumUsd(data.premiumMatchPreviewUsd);
       }

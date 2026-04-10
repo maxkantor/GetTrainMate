@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_SHOWCASE_STACK_FALLBACK } from '@/data/landingShowcaseFallback';
-import { fetchLandingShowcase } from '@/services/landingShowcaseService';
+import { fetchLandingShowcase, isLandingShowcaseLive } from '@/services/landingShowcaseService';
 import { landingShowcaseImageProps, pickLandingShowcasePhotoUrl } from '@/utils/landingShowcaseImages';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import styles from './HeroFloatingStack.module.css';
@@ -25,7 +25,7 @@ export const HeroFloatingStack: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     fetchLandingShowcase().then((data) => {
-      if (cancelled || !data || data.kind !== 'live' || !data.activity?.length) return;
+      if (cancelled || !data || !isLandingShowcaseLive(data) || !data.activity?.length) return;
       const usd =
         typeof data.premiumMatchPreviewUsd === 'number' && data.premiumMatchPreviewUsd > 0
           ? data.premiumMatchPreviewUsd

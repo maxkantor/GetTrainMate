@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '@/config/api';
 
-const CACHE_KEY = 'gtmLandingShowcaseV7';
+const CACHE_KEY = 'gtmLandingShowcaseV8';
 const TTL_MS = 10 * 60 * 1000;
 
 /** Lambda / some hosts may emit PascalCase; admin pages already use `x ?? X` — same here. */
@@ -18,7 +18,7 @@ function str(
 function normalizeLandingShowcasePayload(raw: unknown): LandingShowcaseResult | null {
   if (!raw || typeof raw !== 'object') return null;
   const d = raw as Record<string, unknown>;
-  const kind = String(d.kind ?? d.Kind ?? 'empty');
+  const kind = String(d.kind ?? d.Kind ?? 'empty').trim().toLowerCase();
 
   const premiumRaw = d.premiumMatchPreviewUsd ?? d.PremiumMatchPreviewUsd;
   let premiumMatchPreviewUsd: number | undefined;
@@ -102,6 +102,12 @@ export type LandingShowcaseResult = {
   activity: LandingShowcaseActivity[];
   deck: LandingShowcaseDeckCard[];
 };
+
+/** API may vary casing; treat any "live" variant as usable showcase data. */
+export function isLandingShowcaseLive(data: LandingShowcaseResult | null | undefined): boolean {
+  const k = (data?.kind ?? '').trim().toLowerCase();
+  return k === 'live';
+}
 
 /**
  * Hero + swipe demo: real profile photos from the API (complete profiles with photos in Dynamo).

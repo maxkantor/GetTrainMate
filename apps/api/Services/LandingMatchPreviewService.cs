@@ -92,7 +92,16 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
 
     public async Task<LandingShowcaseResponse> GetShowcaseAsync(CancellationToken cancellationToken = default)
     {
-        var pool = await ScanCompleteProfilesAsync(cancellationToken).ConfigureAwait(false);
+        // "Complete" scan matches match-preview rules (schedule, level, etc.). CRM test users often omit
+        // availability or isComplete — Admin still shows their S3 photos. Merge dummy-user-* rows that
+        // have resolvable photos so the public landing hero matches CRM.
+        var completePool = await ScanCompleteProfilesAsync(cancellationToken).ConfigureAwait(false);
+        var dummySupplement = await ScanDummyTestUsersForShowcaseAsync(cancellationToken).ConfigureAwait(false);
+        var completeIds = completePool.Select(p => p.UserId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var pool = completePool
+            .Concat(dummySupplement.Where(p => !completeIds.Contains(p.UserId)))
+            .ToList();
+
         var withPhotos = pool
             .Select(p => (Profile: p, Url: ResolvePrimaryPhotoUrl(p)))
             .Where(x => !string.IsNullOrEmpty(x.Url))
@@ -100,7 +109,13 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             .ToList();
 
         if (withPhotos.Count == 0)
+        {
+            _logger.LogWarning(
+                "landing-showcase: no profiles with resolvable photos (completeScan={CompleteCount}, dummyScan={DummyCount})",
+                completePool.Count,
+                dummySupplement.Count);
             return new LandingShowcaseResponse { Kind = "empty" };
+        }
 
         // Prefer CRM test accounts (dummy-user-*) for hero + swipe demo — same directory as Admin → Test Users.
         var distinctProfiles = OrderCrmDummyProfilesFirst(withPhotos.Select(x => x.Profile).DistinctBy(p => p.UserId))
@@ -413,6 +428,55 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         if (host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase))
             return false;
         return true;
+    }
+
+    /// <summary>
+    /// Admin CRM test accounts (dummy-user-*) may be incomplete vs match-preview rules but still have S3 photos.
+    /// Scan them by id prefix so landing showcase can show the same faces as Test Users.
+    /// </summary>
+    private async Task<List<UserProfile>> ScanDummyTestUsersForShowcaseAsync(CancellationToken ct)
+    {
+        const string prefix = "dummy-user-";
+        const int maxProfiles = 60;
+        const int maxPages = 25;
+        var result = new List<UserProfile>();
+        Dictionary<string, AttributeValue>? startKey = null;
+
+        for (var page = 0; !ct.IsCancellationRequested && page < maxPages && result.Count < maxProfiles; page++)
+        {
+            var req = new ScanRequest
+            {
+                TableName = _tableName,
+                Limit = ScanPageSize,
+                ExclusiveStartKey = startKey,
+                FilterExpression = "begins_with(userId, :p)",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":p"] = new AttributeValue { S = prefix },
+                },
+            };
+
+            var resp = await _ddb.ScanAsync(req, ct).ConfigureAwait(false);
+
+            foreach (var item in resp.Items)
+            {
+                var p = _profiles.TryMapDynamoItemToProfile(item);
+                if (p == null || string.IsNullOrWhiteSpace(p.Name))
+                    continue;
+                if (string.IsNullOrEmpty(ResolvePrimaryPhotoUrl(p)))
+                    continue;
+                result.Add(p);
+                if (result.Count >= maxProfiles)
+                    break;
+            }
+
+            if (resp.LastEvaluatedKey == null || resp.LastEvaluatedKey.Count == 0)
+                break;
+
+            startKey = resp.LastEvaluatedKey;
+        }
+
+        return result;
     }
 
     private async Task<List<UserProfile>> ScanCompleteProfilesAsync(CancellationToken ct)
