@@ -66,19 +66,43 @@ public class S3StorageService : IStorageService
 
         // Virtual-hosted: {bucket}.s3.amazonaws.com or {bucket}.s3.<region>.amazonaws.com
         var bucketPrefix = $"{_bucket}.s3.";
-        if (!host.StartsWith(bucketPrefix, StringComparison.OrdinalIgnoreCase)) return null;
-        if (!host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase)) return null;
-
-        var key = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
-        if (string.IsNullOrEmpty(key)) return null;
-
-        try
+        if (host.StartsWith(bucketPrefix, StringComparison.OrdinalIgnoreCase)
+            && host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase))
         {
-            return GetPresignedDownloadUrl(key, expiresIn);
+            var vhKey = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
+            if (string.IsNullOrEmpty(vhKey)) return null;
+            try
+            {
+                return GetPresignedDownloadUrl(vhKey, expiresIn);
+            }
+            catch
+            {
+                return null;
+            }
         }
-        catch
+
+        // Path-style: https://s3.<region>.amazonaws.com/<bucket>/<key> (stored URLs differ from GetPublicUrl)
+        if (host.StartsWith("s3.", StringComparison.OrdinalIgnoreCase)
+            && host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase)
+            && !host.StartsWith(bucketPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            return null;
+            var segments = uri.AbsolutePath.TrimStart('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length >= 2
+                && string.Equals(segments[0], _bucket, StringComparison.OrdinalIgnoreCase))
+            {
+                var pathKey = Uri.UnescapeDataString(string.Join("/", segments.Skip(1)));
+                if (string.IsNullOrEmpty(pathKey)) return null;
+                try
+                {
+                    return GetPresignedDownloadUrl(pathKey, expiresIn);
+                }
+                catch
+                {
+                    return null;
+                }
+            }
         }
+
+        return null;
     }
 }
