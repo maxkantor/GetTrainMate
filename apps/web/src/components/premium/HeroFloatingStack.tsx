@@ -1,13 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useI18n } from '@/hooks/useI18n';
-import { formatI18n } from '@/i18n';
-import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { LANDING_SHOWCASE_STACK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase, isLandingShowcaseLive } from '@/services/landingShowcaseService';
 import { landingShowcaseImageProps, pickLandingShowcasePhotoUrl } from '@/utils/landingShowcaseImages';
 import { logLandingShowcase, redactUrlForLog } from '@/utils/landingShowcaseDebug';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
+import { useI18n } from '@/hooks/useI18n';
 import styles from './HeroFloatingStack.module.css';
 
 type StackItem = { text: string; avatar: string; secondaryAvatar?: string };
@@ -24,7 +21,6 @@ export const HeroFloatingStack: React.FC = () => {
   const { t } = useI18n();
   const [stack, setStack] = useState<StackItem[]>(FALLBACK);
   const [focusIdx, setFocusIdx] = useState(0);
-  const [premiumUsd, setPremiumUsd] = useState(LANDING_MATCH_PREVIEW_USD_FALLBACK);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,11 +33,6 @@ export const HeroFloatingStack: React.FC = () => {
         });
         return;
       }
-      const usd =
-        typeof data.premiumMatchPreviewUsd === 'number' && data.premiumMatchPreviewUsd > 0
-          ? data.premiumMatchPreviewUsd
-          : LANDING_MATCH_PREVIEW_USD_FALLBACK;
-      setPremiumUsd(usd);
       const next: StackItem[] = data.activity.slice(0, 3).map((row, i) => {
         const fb = FALLBACK[i % FALLBACK.length];
         const primaryPick = pickLandingShowcasePhotoUrl(row.avatarUrl);
@@ -79,9 +70,6 @@ export const HeroFloatingStack: React.FC = () => {
     return () => clearInterval(id);
   }, [stack.length]);
 
-  const priceLabel = Number.isInteger(premiumUsd) ? `$${premiumUsd}` : `$${premiumUsd.toFixed(2)}`;
-  const matchingPreviewLine = formatI18n(t('landing.showcase_matching_preview'), { price: priceLabel });
-
   const onAvatarError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const el = e.currentTarget;
     if (el.dataset.fallback === '1') return;
@@ -94,17 +82,10 @@ export const HeroFloatingStack: React.FC = () => {
 
   return (
     <div className={styles.column}>
-      <div className={styles.premiumHeader}>
-        <span className={styles.livePill}>
-          <span className={styles.liveDot} />
-          {t('landing.showcase_live')}
-        </span>
-        <Link to="/pricing" className={styles.premiumPill}>
-          {matchingPreviewLine}
-        </Link>
+      <div className={styles.activityHeader}>
+        <span className={styles.activityLabel}>{t('landing.showcase_activity_label')}</span>
       </div>
-      <p className={styles.crmHint}>{t('landing.showcase_crm_hint')}</p>
-      <div className={styles.wrap} aria-hidden>
+      <div className={styles.wrap}>
         {stack.map((item, i) => (
           <div
             key={`${item.text}-${i}`}

@@ -1,6 +1,5 @@
 /**
  * Offline fallbacks when /api/public/landing-showcase is unavailable.
- * Do not use Unsplash here — it shows the wrong person vs Admin → Test Users (CRM S3).
  */
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 
@@ -12,16 +11,16 @@ export type LandingStackFallbackItem = {
 
 export const LANDING_SHOWCASE_STACK_FALLBACK: LandingStackFallbackItem[] = [
   {
-    text: 'Sarah matched with Mike',
+    text: 'Sarah found a training partner',
     avatar: NO_PHOTO_PLACEHOLDER,
     secondaryAvatar: NO_PHOTO_PLACEHOLDER,
   },
   {
-    text: 'Mike found a training partner',
+    text: 'Mike matched this week',
     avatar: NO_PHOTO_PLACEHOLDER,
   },
   {
-    text: 'New training partners every week',
+    text: 'New training partners added regularly',
     avatar: NO_PHOTO_PLACEHOLDER,
   },
 ];

@@ -7,20 +7,20 @@ import styles from './WhoIsThisFor.module.css';
 const CARDS = [
   {
     key: 'early',
-    title: '5AM grinders',
-    body: 'Alarm-setters who want someone who shows up before the sun.',
+    title: 'Early-morning grinders',
+    body: 'People who want a partner who shows up when the alarm goes off.',
     icon: '🌅',
   },
   {
     key: 'lifters',
-    title: 'Competitive lifters',
-    body: 'Same intensity, same standards — spotters who actually count reps.',
+    title: 'Lifters who want consistency',
+    body: 'Same intensity and standards — without the ghosting between sessions.',
     icon: '🏋️',
   },
   {
     key: 'tired',
-    title: 'Done with flaky partners',
-    body: 'If you’re tired of last-minute bailouts, you’re in the right place.',
+    title: 'Done with flaky training partners',
+    body: 'If you train like it matters, you are in the right place.',
     icon: '🎯',
   },
 ] as const;
@@ -36,9 +36,9 @@ export const WhoIsThisFor: React.FC = () => {
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.4 }}
         >
-          <span className={styles.kicker}>Exclusive fit</span>
+          <span className={styles.kicker}>Built for you if</span>
           <h2 className={styles.title}>Who this is for</h2>
-          <p className={styles.sub}>Not everyone — just people who train like it matters.</p>
+          <p className={styles.sub}>People who care, show up, and want real accountability.</p>
         </motion.div>
 
         <div className={styles.grid}>

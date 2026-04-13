@@ -15,24 +15,24 @@ type T = {
 
 const thumb = (url: string) => (url.includes('?') ? `${url}&w=96&h=96&fit=crop&crop=faces` : `${url}?w=96&h=96&fit=crop&crop=faces`);
 
-/** First names match seeded dummy users (Sarah Runner, Mike Cyclist, Emma Yoga). */
+/** Avatars align with seeded demo users for visual continuity. */
 const items: T[] = [
   {
-    quote: 'Found my partner in 2 days. Same goals, same grind.',
+    quote: 'Found my training partner in two days. Same goals, same grind.',
     name: 'Mike',
     place: 'San Francisco',
     sport: '🚴',
     avatar: thumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-2']),
   },
   {
-    quote: 'Hit PRs this month — we hold each other accountable.',
+    quote: 'We actually keep each other accountable now. Morning lifts are locked in.',
     name: 'Sarah',
     place: 'San Francisco',
     sport: '🏃‍♀️',
     avatar: thumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-1']),
   },
   {
-    quote: 'Morning sessions finally stick — found someone who shows up.',
+    quote: 'Finally matched with someone who texts back and shows up. Game changer.',
     name: 'Emma',
     place: 'San Francisco',
     sport: '🧘',
@@ -51,9 +51,9 @@ export const Testimonials: React.FC = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.4 }}
         >
-          <span className={styles.sectionLabel}>Real outcomes</span>
-          <h2 className={styles.sectionTitle}>Results, not hype</h2>
-          <p className={styles.sectionSubtitle}>Specific wins from athletes who actually matched.</p>
+          <span className={styles.sectionLabel}>From the community</span>
+          <h2 className={styles.sectionTitle}>What matching unlocked</h2>
+          <p className={styles.sectionSubtitle}>Short stories from athletes who wanted a real partner.</p>
         </motion.div>
 
         <div className={styles.testimonialsGrid}>

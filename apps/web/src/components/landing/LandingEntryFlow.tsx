@@ -49,11 +49,11 @@ const OFFLINE_DEMO: LandingMatchPreviewResult = {
 function previewHeadline(preview: LandingMatchPreviewResult | null): string {
   if (!preview) return '';
   if (preview.kind === 'empty') return 'No athletes available yet';
-  if (preview.kind === 'demo') return '🔥 Example athlete based on your preferences';
+  if (preview.kind === 'demo') return 'Example profile based on your preferences';
   const n = preview.matchCount;
-  if (n <= 0) return '🔥 Example athlete based on your preferences';
-  if (n === 1) return '🔥 1 athlete matches your training preferences';
-  return `🔥 ${n} athletes match your training preferences`;
+  if (n <= 0) return 'Example profile based on your preferences';
+  if (n === 1) return '1 athlete matches your training preferences';
+  return `${n} athletes match your training preferences`;
 }
 
 function formatCardName(u: LandingMatchPreviewUser): string {
@@ -240,14 +240,9 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
 
             {step === 1 && !isAnalyzing && (
               <div className={styles.step}>
-                <div className={styles.titleRow}>
-                  <h2 id="entry-flow-title" className={styles.title}>
-                    Quick setup
-                  </h2>
-                  <span className={styles.premiumBadge} title="Premium athlete matching">
-                    $10M premium
-                  </span>
-                </div>
+                <h2 id="entry-flow-title" className={styles.title}>
+                  Quick setup
+                </h2>
                 <p className={styles.lead}>
                   Tell us how you train — we&apos;ll show compatible athletes from the network.
                 </p>
@@ -330,9 +325,9 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                   disabled={!step1Valid}
                   onClick={() => void runAnalyze()}
                 >
-                  Find My Training Partners
+                  {t('landing.landing_primary_cta')}
                 </button>
-                <p className={styles.ctaMicro}>Takes 10 seconds • No signup required</p>
+                <p className={styles.ctaMicro}>{t('landing.landing_cta_sub')}</p>
               </div>
             )}
 
@@ -411,8 +406,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                 <h2 className={styles.title}>Unlock your matches</h2>
                 <p className={styles.lead}>You already have compatible athletes waiting</p>
                 <p className={styles.paywallTrust}>We&apos;ll show distance and availability after signup</p>
-                <p className={styles.paywallUrgency}>⏳ Matches update daily</p>
-                <p className={styles.paywallSocial}>New athletes join every day — your matches update as the network grows.</p>
+                <p className={styles.paywallSocial}>New athletes join regularly — your matches refresh as the network grows.</p>
                 <div className={`${styles.deck} ${styles.deckPaywall}`}>
                   <div
                     className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft} ${styles.deckLockedHeavy} ${styles.deckGhost}`}
@@ -455,7 +449,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                 <button type="button" className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`} onClick={persistPrefsAndGoSignup}>
                   Continue with email
                 </button>
-                <p className={styles.ctaMicro}>Free to start • Takes 10 seconds</p>
+                <p className={styles.ctaMicro}>Free to start • Takes about 30 seconds</p>
               </div>
             )}
 

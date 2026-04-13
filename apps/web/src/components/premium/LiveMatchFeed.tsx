@@ -34,10 +34,7 @@ export const LiveMatchFeed: React.FC = () => {
 
   return (
     <div className={styles.wrap} aria-live="polite" aria-atomic="true">
-      <div className={styles.label}>
-        <span className={styles.pulse} aria-hidden />
-        {t('landing.showcase_live')}
-      </div>
+      <div className={styles.label}>{t('landing.showcase_activity_label')}</div>
       <div className={styles.stack}>
         <AnimatePresence mode="wait">
           <motion.div

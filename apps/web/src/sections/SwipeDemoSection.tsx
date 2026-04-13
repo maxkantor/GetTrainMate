@@ -4,9 +4,7 @@ import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
-import { LANDING_MATCH_PREVIEW_USD_FALLBACK } from '@/constants/landingPremium';
 import { useI18n } from '@/hooks/useI18n';
-import { formatI18n } from '@/i18n';
 import { LANDING_SHOWCASE_DECK_FALLBACK } from '@/data/landingShowcaseFallback';
 import { fetchLandingShowcase, isLandingShowcaseLive } from '@/services/landingShowcaseService';
 import { logLandingShowcase, redactUrlForLog } from '@/utils/landingShowcaseDebug';
@@ -76,26 +74,16 @@ function MatchBadge({ percent }: { percent: number }) {
 type FaceProps = {
   profile: DeckProfile;
   depth: 0 | 1 | 2;
-  /** Shown on the interactive top card — premium match preview (e.g. "$10"). */
-  previewPriceLabel?: string;
-  /** Label next to price on the top card ribbon (i18n). */
-  previewRibbonLabel?: string;
   /** Hide name/tags during match overlay so mid-stack copy does not bleed through. */
   hideMeta?: boolean;
   onPhotoError?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 };
 
-function DeckFace({ profile, depth, previewPriceLabel, previewRibbonLabel, hideMeta, onPhotoError }: FaceProps) {
+function DeckFace({ profile, depth, hideMeta, onPhotoError }: FaceProps) {
   const imgExtras = landingShowcaseImageProps(profile.photo);
   if (depth === 0) {
     return (
       <div className={styles.faceTop}>
-        {previewPriceLabel ? (
-          <div className={styles.cardPreviewRibbon}>
-            <span className={styles.cardPreviewRibbonLabel}>{previewRibbonLabel ?? ''}</span>
-            <span className={styles.cardPreviewRibbonPrice}>{previewPriceLabel}</span>
-          </div>
-        ) : null}
         <div className={styles.photoShell}>
           <div className={styles.photoParallax} data-parallax="1">
             <img
@@ -176,7 +164,6 @@ export const SwipeDemoSection: React.FC = () => {
   const { isAuthenticated } = useAuthContext();
   const { openEntryFlow } = useLandingConversion();
   const [profiles, setProfiles] = useState<DeckProfile[]>(() => [...FALLBACK_PROFILES]);
-  const [premiumUsd, setPremiumUsd] = useState(LANDING_MATCH_PREVIEW_USD_FALLBACK);
   const [phase, setPhase] = useState<Phase>('idle');
   const [deckIndex, setDeckIndex] = useState(0);
   const timersRef = useRef<number[]>([]);
@@ -199,9 +186,6 @@ export const SwipeDemoSection: React.FC = () => {
           deckLen: data?.deck?.length ?? 0,
         });
         return;
-      }
-      if (typeof data.premiumMatchPreviewUsd === 'number' && data.premiumMatchPreviewUsd > 0) {
-        setPremiumUsd(data.premiumMatchPreviewUsd);
       }
       const mapped: DeckProfile[] = data.deck.map((card, i) => {
         const fallback = FALLBACK_PROFILES[i % FALLBACK_PROFILES.length];
@@ -227,10 +211,6 @@ export const SwipeDemoSection: React.FC = () => {
       cancelled = true;
     };
   }, []);
-
-  const priceLabel = Number.isInteger(premiumUsd) ? `$${premiumUsd}` : `$${premiumUsd.toFixed(2)}`;
-  const fullMatchingLabel = formatI18n(t('landing.showcase_full_matching'), { price: priceLabel });
-  const ribbonLabel = t('landing.swipe_ribbon_match_preview');
 
   const len = profiles.length;
   const iFront = deckIndex % len;
@@ -327,16 +307,11 @@ export const SwipeDemoSection: React.FC = () => {
     <section className={styles.section} id="how-it-works" aria-labelledby="swipe-demo-heading">
       <Container size="wide">
         <div className={styles.sectionHead}>
-          <div className={styles.titleRow}>
-            <h2 id="swipe-demo-heading" className={styles.title}>
-              {t('landing.swipe_demo_title')}
-            </h2>
-            <Link to="/pricing" className={styles.matchingPremiumPill}>
-              {fullMatchingLabel}
-            </Link>
-          </div>
+          <h2 id="swipe-demo-heading" className={styles.title}>
+            {t('landing.swipe_demo_title')}
+          </h2>
           <p className={styles.subtitle}>{t('landing.swipe_demo_subtitle')}</p>
-          <p className={styles.crmLine}>{t('landing.swipe_demo_crm_line')}</p>
+          <p className={styles.trustLine}>{t('landing.swipe_demo_trust')}</p>
         </div>
 
         <div
@@ -395,8 +370,6 @@ export const SwipeDemoSection: React.FC = () => {
                   <DeckFace
                     profile={profiles[iFront]}
                     depth={0}
-                    previewPriceLabel={priceLabel}
-                    previewRibbonLabel={ribbonLabel}
                     hideMeta={showMatch}
                     onPhotoError={onDeckPhotoError}
                   />
