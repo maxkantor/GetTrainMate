@@ -142,20 +142,16 @@ public class CreditsService : ICreditsService
         {
             var table = Table.LoadTable(_dynamoDb, CreditPackConfigTable);
             Document? doc = await table.GetItemAsync(normalized);
-            if (doc != null)
-            {
-                var cfg = ToCreditPackConfig(doc);
-                if (cfg != null) return cfg;
-            }
+            var resolved = TryResolvePackConfigFromDocument(doc, normalized);
+            if (resolved != null)
+                return resolved;
 
             if (!string.Equals(normalized, packKey, StringComparison.OrdinalIgnoreCase))
             {
                 doc = await table.GetItemAsync(packKey);
-                if (doc != null)
-                {
-                    var cfg = ToCreditPackConfig(doc);
-                    if (cfg != null) return cfg;
-                }
+                resolved = TryResolvePackConfigFromDocument(doc, normalized);
+                if (resolved != null)
+                    return resolved;
             }
 
             var fallback = PricingPlanCatalog.TryGetFallbackPack(packKey);
@@ -173,6 +169,35 @@ public class CreditsService : ICreditsService
         }
         catch (ResourceNotFoundException) { }
         catch (Exception ex) { _logger.LogWarning(ex, "GetPackConfigByKey {Key}", packKey); }
+
+        return null;
+    }
+
+    /// <summary>
+    /// If Dynamo has an inactive row for a canonical key, the web client may still show that pack (it merges catalog fallbacks).
+    /// Checkout must use the same canonical catalog for those keys; otherwise users see a pack they cannot buy.
+    /// </summary>
+    private static CreditPackConfig? TryResolvePackConfigFromDocument(Document? doc, string normalizedPackKey)
+    {
+        if (doc == null) return null;
+        var cfg = ToCreditPackConfig(doc);
+        if (cfg == null) return null;
+        if (cfg.IsActive) return cfg;
+
+        var fb = PricingPlanCatalog.TryGetFallbackPack(normalizedPackKey);
+        if (fb != null && string.Equals(fb.Key, cfg.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            return new CreditPackConfig
+            {
+                Key = fb.Key,
+                Title = fb.Title,
+                PriceUsd = fb.PriceUsd,
+                Credits = fb.Credits,
+                IsActive = true,
+                SortOrder = fb.SortOrder,
+                IsBestValue = fb.IsBestValue,
+            };
+        }
 
         return null;
     }
