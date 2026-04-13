@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { analytics, trackBeginCheckout, trackTrialStart } from '@/utils/analytics';
+import { analytics, trackBeginCheckout } from '@/utils/analytics';
 import { useSearchParams } from 'react-router-dom';
-import { Snackbar } from '@mui/material';
 import { Container } from '@/components/layout/Container';
 import { PageShell } from '@/components/layout/PageShell';
 import { authService } from '@/services/authService';
@@ -13,6 +12,8 @@ import { formatI18n, getPricingPackFeatures, getPricingPackTitle } from '@/i18n'
 import { CreditPack, FALLBACK_CREDIT_PACKS, CreditPackKey } from '@/data/creditPacks';
 import { CANONICAL_PACK_KEYS, normalizeCreditPackKey } from '@/config/pricingPlans';
 import styles from '@/pages/Pricing.module.css';
+
+const MAX_BULLETS = 5;
 
 function mapApiToCreditPack(dto: CreditPackDto): CreditPack | null {
   const key = normalizeCreditPackKey(dto.key);
@@ -49,41 +50,24 @@ function toCreditPacks(dtos: CreditPackDto[]): CreditPack[] {
   return [...list, ...extras].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+function pricePerCreditLine(t: (k: string) => string, priceUsd: number, credits: number): string | null {
+  if (credits <= 0 || priceUsd <= 0) return null;
+  const per = (priceUsd / credits).toFixed(2);
+  return formatI18n(t('pricing.price_per_credit'), { price: per });
+}
+
 export const PricingPage: React.FC = () => {
   const { t, locale } = useI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuthContext();
-  const { me, refreshMe } = useMe();
+  const { me } = useMe();
   const [packs, setPacks] = useState<CreditPack[]>(FALLBACK_CREDIT_PACKS);
   const [error, setError] = useState<string | null>(null);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const [starterClaimed, setStarterClaimed] = useState(false);
 
   useEffect(() => {
     analytics.pricingOpened();
   }, []);
-
-  useEffect(() => {
-    if (!isAuthenticated || !user) {
-      setStarterClaimed(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const token = await authService.getJWT();
-        if (!token || cancelled) return;
-        const claimed = await billingService.getFreeSignupStatus(token);
-        if (!cancelled) setStarterClaimed(claimed);
-      } catch {
-        if (!cancelled) setStarterClaimed(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated, user]);
 
   useEffect(() => {
     billingService
@@ -103,87 +87,53 @@ export const PricingPage: React.FC = () => {
     }
   }, [searchParams, setSearchParams, t]);
 
-  const startCheckout = useCallback(async (pack: CreditPack) => {
-    setError(null);
-    setLoadingPack(pack.key);
-    try {
-      const token = await authService.getJWT();
-      if (!token) {
-        window.location.href = '/signup';
-        return;
+  const startCheckout = useCallback(
+    async (pack: CreditPack) => {
+      setError(null);
+      setLoadingPack(pack.key);
+      try {
+        const token = await authService.getJWT();
+        if (!token) {
+          window.location.href = '/signup';
+          return;
+        }
+        const itemName = getPricingPackTitle(locale, pack.key);
+        trackBeginCheckout({
+          packKey: pack.key,
+          itemName,
+          valueUsd: pack.priceUsd,
+        });
+        const url = await billingService.createCheckoutSession(token, pack.key);
+        window.location.assign(url);
+      } catch (err: unknown) {
+        const res =
+          err && typeof err === 'object' && 'response' in err
+            ? (err as { response?: { data?: { error?: string } } }).response
+            : null;
+        const msg =
+          res?.data?.error ?? (err instanceof Error ? err.message : t('pricing.checkout_failed_short'));
+        setError(typeof msg === 'string' ? msg : t('pricing.checkout_failed'));
+      } finally {
+        setLoadingPack(null);
       }
-      const itemName = getPricingPackTitle(locale, pack.key);
-      trackBeginCheckout({
-        packKey: pack.key,
-        itemName,
-        valueUsd: pack.priceUsd,
-      });
-      const url = await billingService.createCheckoutSession(token, pack.key);
-      window.location.assign(url);
-    } catch (err: unknown) {
-      const res =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { error?: string } } }).response
-          : null;
-      const msg =
-        res?.data?.error ?? (err instanceof Error ? err.message : t('pricing.checkout_failed_short'));
-      setError(typeof msg === 'string' ? msg : t('pricing.checkout_failed'));
-    } finally {
-      setLoadingPack(null);
-    }
-  }, [locale, t]);
+    },
+    [locale, t]
+  );
 
-  const handleFree = useCallback(async () => {
-    if (!isAuthenticated || !user) {
-      window.location.href = '/signup';
-      return;
-    }
-    setError(null);
-    setLoadingPack('starter');
-    try {
-      const token = await authService.getJWT();
-      if (!token) {
-        window.location.href = '/signup';
-        return;
-      }
-      const { alreadyGranted } = await billingService.grantFreeSignup(token);
-      trackTrialStart('free_pack');
-      setStarterClaimed(true);
-      await refreshMe();
-      setToast(alreadyGranted ? t('pricing.toast_free_credits_claimed') : t('pricing.toast_free_credits'));
-    } catch {
-      setError(t('pricing.grant_free_error'));
-    } finally {
-      setLoadingPack(null);
-    }
-  }, [isAuthenticated, user, t, refreshMe]);
-
-  const handleCta = useCallback(
+  const handlePaidCta = useCallback(
     (pack: CreditPack) => {
-      if (pack.key === 'starter') {
-        handleFree();
-        return;
-      }
       if (!isAuthenticated || !user) {
         window.location.href = '/signup';
         return;
       }
       startCheckout(pack);
     },
-    [isAuthenticated, user, handleFree, startCheckout]
+    [isAuthenticated, user, startCheckout]
   );
 
   const sortedPacks = [...packs].sort((a, b) => a.sortOrder - b.sortOrder);
 
   const credits = me?.credits ?? 0;
-
-  const ctaLabel = (pack: CreditPack) => {
-    if (pack.isFree) {
-      if (starterClaimed) return t('pricing.cta_starter_claimed');
-      return t('pricing.cta_free');
-    }
-    return t('pricing.cta_purchase');
-  };
 
   return (
     <>
@@ -197,27 +147,8 @@ export const PricingPage: React.FC = () => {
             )}
             <h1 className={styles.title}>{t('pricing.hero_title')}</h1>
             <p className={styles.subtext}>{t('pricing.hero_sub')}</p>
-            <p className={styles.heroTrust}>{t('pricing.hero_trust')}</p>
-            <div className={styles.explanationRow}>
-              <span>
-                <strong>{t('pricing.credit_1')}</strong> {t('pricing.explain_unlock_chat')}
-              </span>
-              <span>
-                <strong>{t('pricing.credit_1')}</strong> {t('pricing.explain_ai_icebreaker')}
-              </span>
-              <span>
-                <strong>{t('pricing.credit_2')}</strong> {t('pricing.explain_boost')}
-              </span>
-              <span>
-                <strong>{t('pricing.credit_2')}</strong> {t('pricing.explain_insight')}
-              </span>
-              <span>
-                <strong>{t('pricing.credit_3')}</strong> {t('pricing.explain_reveal')}
-              </span>
-              <span>
-                <strong>{t('pricing.credit_3')}</strong> {t('pricing.explain_workout')}
-              </span>
-            </div>
+            <p className={styles.heroTrustRow}>{t('pricing.hero_trust_row')}</p>
+            <p className={styles.heroFeaturePills}>{t('pricing.hero_feature_pills')}</p>
           </Container>
         </section>
 
@@ -233,69 +164,69 @@ export const PricingPage: React.FC = () => {
               {sortedPacks.map((pack) => {
                 const isFree = pack.isFree;
                 const isBestValue = pack.isBestValue;
+                const isPaid = !isFree;
                 const isLoading = loadingPack === pack.key;
-                const features = getPricingPackFeatures(locale, pack.key);
+                const features = getPricingPackFeatures(locale, pack.key).slice(0, MAX_BULLETS);
+                const perCredit = pricePerCreditLine(t, pack.priceUsd, pack.credits);
 
                 return (
                   <div
                     key={pack.key}
-                    className={`${styles.card} ${isBestValue ? styles.cardBestValue : ''}`}
+                    className={`${styles.cardColumn} ${isBestValue ? styles.cardColumnFeatured : ''}`}
                   >
-                    <div className={styles.cardTop}>
-                      <div className={styles.badgeRow} aria-hidden={isBestValue ? undefined : true}>
-                        {isBestValue ? <span className={styles.badge}>{t('pricing.best_value_badge')}</span> : null}
-                      </div>
-                      <h3 className={styles.planName}>{getPricingPackTitle(locale, pack.key)}</h3>
+                    <div className={styles.badgeAboveSlot} aria-hidden={!isBestValue}>
+                      {isBestValue ? (
+                        <span className={styles.badgeAbove}>{t('pricing.best_value_badge')}</span>
+                      ) : null}
                     </div>
-                    <div className={styles.priceBlock}>
-                      <div className={styles.priceRow}>
-                        <span className={styles.currency}>$</span>
-                        <span className={styles.amount}>{pack.priceUsd.toFixed(2)}</span>
-                      </div>
-                      <p className={styles.creditsLabel}>
-                        {formatI18n(t('pricing.credits_count'), { n: pack.credits })}
-                      </p>
-                    </div>
-                    <ul className={styles.features}>
-                      {features.map((f, i) => (
-                        <li key={i}>{f}</li>
-                      ))}
-                    </ul>
-                    <button
-                      type="button"
-                      className={isBestValue ? styles.btnPrimary : styles.btnSecondary}
-                      onClick={() => handleCta(pack)}
-                      disabled={!!loadingPack || (isFree && starterClaimed)}
+                    <div
+                      className={[
+                        styles.card,
+                        isBestValue ? styles.cardBestValue : '',
+                        isFree ? styles.cardStarter : '',
+                        isPaid && !isBestValue ? styles.cardDimmed : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                     >
-                      {isLoading ? t('pricing.redirecting') : ctaLabel(pack)}
-                    </button>
+                      <h3 className={styles.planName}>{getPricingPackTitle(locale, pack.key)}</h3>
+                      <div className={styles.priceBlock}>
+                        <div className={styles.priceRow}>
+                          <span className={styles.currency}>$</span>
+                          <span className={styles.amount}>{pack.priceUsd.toFixed(2)}</span>
+                        </div>
+                        <p className={styles.creditsLabel}>
+                          {formatI18n(t('pricing.credits_count'), { n: pack.credits })}
+                        </p>
+                        {isBestValue && (
+                          <p className={styles.mostPopular}>{t('pricing.best_value_popular')}</p>
+                        )}
+                        {perCredit && <p className={styles.pricePerCredit}>{perCredit}</p>}
+                      </div>
+                      <hr className={styles.cardDivider} />
+                      <ul className={styles.features}>
+                        {features.map((f, i) => (
+                          <li key={i}>{f}</li>
+                        ))}
+                      </ul>
+                      <div className={styles.cardCtaSlot}>
+                        {isFree ? (
+                          <p className={styles.starterIncluded}>{t('pricing.starter_included')}</p>
+                        ) : (
+                          <button
+                            type="button"
+                            className={isBestValue ? styles.btnBestValue : styles.btnPaid}
+                            onClick={() => handlePaidCta(pack)}
+                            disabled={!!loadingPack}
+                          >
+                            {isLoading ? t('pricing.redirecting') : t('pricing.cta_get_credits')}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
-            </div>
-            <p className={styles.cardsFootnote}>{t('pricing.cards_pay_hint')}</p>
-            <div className={styles.trustRow}>
-              <span className={styles.trustItem}>
-                <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-                {t('pricing.trust_secure')}
-              </span>
-              <span className={styles.trustItem}>
-                <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="23 4 23 10 17 10" />
-                  <polyline points="1 20 1 14 7 14" />
-                  <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-                </svg>
-                {t('pricing.trust_instant')}
-              </span>
-              <span className={styles.trustItem}>
-                <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M5 5l14 14" strokeLinecap="round" />
-                </svg>
-                {t('pricing.trust_no_subscription')}
-              </span>
             </div>
 
             <section className={styles.featureSection}>
@@ -380,14 +311,6 @@ export const PricingPage: React.FC = () => {
           </Container>
         </section>
       </PageShell>
-
-      <Snackbar
-        open={!!toast}
-        autoHideDuration={4000}
-        onClose={() => setToast(null)}
-        message={toast}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      />
     </>
   );
 };
