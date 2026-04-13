@@ -182,10 +182,7 @@ export const PricingPage: React.FC = () => {
       if (starterClaimed) return t('pricing.cta_starter_claimed');
       return t('pricing.cta_free');
     }
-    if (pack.key === 'best_value') return t('pricing.cta_best_value');
-    if (pack.key === 'power') return t('pricing.cta_power');
-    if (pack.key === 'elite') return t('pricing.cta_elite');
-    return t('pricing.cta_buy');
+    return t('pricing.cta_purchase');
   };
 
   return (
@@ -194,13 +191,13 @@ export const PricingPage: React.FC = () => {
         <section className={styles.hero}>
           <Container>
             {isAuthenticated && (
-              <p className={styles.yourCredits} data-testid="pricing-your-credits">
-                {t('pricing.your_credits_label')} <strong>{credits}</strong>
+              <p className={styles.creditBalanceLabel} data-testid="pricing-your-credits">
+                {formatI18n(t('pricing.you_have_credits'), { n: credits })}
               </p>
             )}
             <h1 className={styles.title}>{t('pricing.hero_title')}</h1>
             <p className={styles.subtext}>{t('pricing.hero_sub')}</p>
-            <p className={styles.supportLine}>{t('pricing.support_line')}</p>
+            <p className={styles.heroTrust}>{t('pricing.hero_trust')}</p>
             <div className={styles.explanationRow}>
               <span>
                 <strong>{t('pricing.credit_1')}</strong> {t('pricing.explain_unlock_chat')}
@@ -244,16 +241,21 @@ export const PricingPage: React.FC = () => {
                     key={pack.key}
                     className={`${styles.card} ${isBestValue ? styles.cardBestValue : ''}`}
                   >
-                    {isBestValue && <span className={styles.badge}>{t('pricing.best_value_badge')}</span>}
-                    <h3 className={styles.planName}>{getPricingPackTitle(locale, pack.key)}</h3>
-                    <div className={styles.price}>
-                      <span className={styles.currency}>$</span>
-                      <span className={styles.amount}>{pack.priceUsd.toFixed(2)}</span>
-                      {!isFree && <span className={styles.period}>{t('pricing.one_time')}</span>}
+                    <div className={styles.cardTop}>
+                      <div className={styles.badgeRow} aria-hidden={isBestValue ? undefined : true}>
+                        {isBestValue ? <span className={styles.badge}>{t('pricing.best_value_badge')}</span> : null}
+                      </div>
+                      <h3 className={styles.planName}>{getPricingPackTitle(locale, pack.key)}</h3>
                     </div>
-                    <p className={styles.creditsLabel}>
-                      {formatI18n(t('pricing.credits_count'), { n: pack.credits })}
-                    </p>
+                    <div className={styles.priceBlock}>
+                      <div className={styles.priceRow}>
+                        <span className={styles.currency}>$</span>
+                        <span className={styles.amount}>{pack.priceUsd.toFixed(2)}</span>
+                      </div>
+                      <p className={styles.creditsLabel}>
+                        {formatI18n(t('pricing.credits_count'), { n: pack.credits })}
+                      </p>
+                    </div>
                     <ul className={styles.features}>
                       {features.map((f, i) => (
                         <li key={i}>{f}</li>
@@ -271,19 +273,13 @@ export const PricingPage: React.FC = () => {
                 );
               })}
             </div>
+            <p className={styles.cardsFootnote}>{t('pricing.cards_pay_hint')}</p>
             <div className={styles.trustRow}>
               <span className={styles.trustItem}>
                 <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
                 {t('pricing.trust_secure')}
-              </span>
-              <span className={styles.trustItem}>
-                <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0110 0v4" />
-                </svg>
-                {t('pricing.trust_never_expire')}
               </span>
               <span className={styles.trustItem}>
                 <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -295,10 +291,10 @@ export const PricingPage: React.FC = () => {
               </span>
               <span className={styles.trustItem}>
                 <svg className={styles.trustIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-                  <polyline points="22 4 12 14.01 9 11.01" />
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M5 5l14 14" strokeLinecap="round" />
                 </svg>
-                {t('pricing.trust_one_time')}
+                {t('pricing.trust_no_subscription')}
               </span>
             </div>
 
