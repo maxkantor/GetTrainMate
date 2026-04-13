@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { SamePathScrollLink } from '@/components/SamePathScrollLink';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useI18n } from '@/hooks/useI18n';
 import { FOOTER_SECTIONS } from '@/config/footerLinks';
@@ -42,10 +42,10 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
         <div className={styles.footerContent}>
           {/* Brand: marketing home when logged out; app dashboard when logged in */}
           <div className={styles.brandColumn}>
-            <RouterLink to={brandHref} className={`${styles.logo} ${styles.brandLogoLink}`}>
+            <SamePathScrollLink to={brandHref} className={`${styles.logo} ${styles.brandLogoLink}`}>
               <span className={styles.logoIcon}>⚡</span>
               <span className={styles.logoText}>{t('common.appName')}</span>
-            </RouterLink>
+            </SamePathScrollLink>
             <p className={styles.tagline}>
               {t('footer.tagline')}
             </p>
@@ -76,9 +76,9 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
             <ul className={styles.linksList}>
               {footerSections.product.map((link) => (
                 <li key={link.href}>
-                  <RouterLink to={link.href} className={styles.link}>
+                  <SamePathScrollLink to={link.href} className={styles.link}>
                     {link.label}
-                  </RouterLink>
+                  </SamePathScrollLink>
                 </li>
               ))}
             </ul>
@@ -90,9 +90,9 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
             <ul className={styles.linksList}>
               {footerSections.company.map((link) => (
                 <li key={link.href}>
-                  <RouterLink to={link.href} className={styles.link}>
+                  <SamePathScrollLink to={link.href} className={styles.link}>
                     {link.label}
-                  </RouterLink>
+                  </SamePathScrollLink>
                 </li>
               ))}
             </ul>
@@ -104,9 +104,9 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
             <ul className={styles.linksList}>
               {footerSections.legal.map((link) => (
                 <li key={link.href}>
-                  <RouterLink to={link.href} className={styles.link}>
+                  <SamePathScrollLink to={link.href} className={styles.link}>
                     {link.label}
-                  </RouterLink>
+                  </SamePathScrollLink>
                 </li>
               ))}
             </ul>

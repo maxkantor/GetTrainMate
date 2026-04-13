@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link as RouterLink, useNavigate, useLocation, matchPath } from 'react-router-dom';
+import { SamePathScrollLink } from '@/components/SamePathScrollLink';
 import { Tooltip, Box, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { formatI18n } from '@/i18n';
@@ -292,13 +293,13 @@ export const AppHeader: React.FC = () => {
                   </span>
                 </span>
               </Tooltip>
-              <RouterLink
+              <SamePathScrollLink
                 to="/pricing"
                 className={`${styles.upgradeBtn} ${pressureCredits ? styles.upgradeBtnUrgent : ''}`}
                 onClick={() => analytics.pricingOpened('header')}
               >
                 {t('header.get_credits')}
-              </RouterLink>
+              </SamePathScrollLink>
               <div className={`${styles.userWrap} ${userOpen ? styles.userOpen : ''}`} ref={userRef}>
                 <button
                   type="button"
@@ -367,9 +368,9 @@ export const AppHeader: React.FC = () => {
                   <a href="/#how-it-works" className={styles.mobileLink} onClick={handleProductNav}>
                     {t('header.product')}
                   </a>
-                  <RouterLink to="/pricing" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
+                  <SamePathScrollLink to="/pricing" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
                     💰 {t('header.pricing')}
-                  </RouterLink>
+                  </SamePathScrollLink>
                 </>
               ) : (
                 <>
@@ -420,7 +421,7 @@ export const AppHeader: React.FC = () => {
                       </span>
                     </span>
                   </Tooltip>
-                  <RouterLink
+                  <SamePathScrollLink
                     to="/pricing"
                     className={`${styles.mobileUpgrade} ${pressureCredits ? styles.mobileUpgradeUrgent : ''}`}
                     onClick={() => {
@@ -429,7 +430,7 @@ export const AppHeader: React.FC = () => {
                     }}
                   >
                     {t('header.get_credits')}
-                  </RouterLink>
+                  </SamePathScrollLink>
                   <RouterLink to="/app/profile" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
                     {t('header.profile')}
                   </RouterLink>

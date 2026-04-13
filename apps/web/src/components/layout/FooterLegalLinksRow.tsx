@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { SamePathScrollLink } from '@/components/SamePathScrollLink';
 import { useI18n } from '@/hooks/useI18n';
 import { FOOTER_LINKS_COMPACT } from '@/config/footerLinks';
 import styles from './Footer.module.css';
@@ -23,14 +23,9 @@ export const FooterLegalLinksRow: React.FC<Props> = ({ onLinkClick, variant = 'c
       }
     >
       {FOOTER_LINKS_COMPACT.map((link) => (
-        <RouterLink
-          key={link.to}
-          to={link.to}
-          className={linkClass}
-          onClick={onLinkClick}
-        >
+        <SamePathScrollLink key={link.to} to={link.to} className={linkClass} onClick={onLinkClick}>
           {t(link.labelKey)}
-        </RouterLink>
+        </SamePathScrollLink>
       ))}
     </div>
   );
