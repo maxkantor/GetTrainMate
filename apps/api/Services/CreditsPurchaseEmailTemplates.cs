@@ -1,5 +1,5 @@
-using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net;
 using System.Text;
 
@@ -28,17 +28,66 @@ public static class CreditsPurchaseEmailTemplates
         return string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string StripeAccountComparisonLine(string? stripePayerEmail, string? accountEmail)
+    /// <summary>Yes / No / Unknown — for admin ops scanning.</summary>
+    private static string AccountMatchYesNoUnknown(string? stripePayerEmail, string? accountEmail)
     {
         var hasStripe = !string.IsNullOrWhiteSpace(stripePayerEmail);
         var hasAcct = !string.IsNullOrWhiteSpace(accountEmail);
-        if (!hasStripe && !hasAcct)
-            return "Stripe vs account: (no emails to compare)";
-        if (hasStripe && hasAcct)
-            return EmailsAreEquivalent(stripePayerEmail, accountEmail)
-                ? "Stripe vs account: same address"
-                : "Stripe vs account: different addresses";
-        return "Stripe vs account: partial (one side missing)";
+        if (!hasStripe || !hasAcct)
+            return "Unknown";
+        return EmailsAreEquivalent(stripePayerEmail, accountEmail) ? "Yes" : "No";
+    }
+
+    /// <summary>Human-readable UTC time for admin emails (e.g. Apr 14, 2026, 6:03 PM UTC).</summary>
+    private static string FormatAdminPurchaseTimestampUtc(DateTime utc)
+    {
+        return utc.ToString("MMM d, yyyy, h:mm tt 'UTC'", CultureInfo.GetCultureInfo("en-US"));
+    }
+
+    /// <summary>Compact Stripe ids for ops: show start + ellipsis + last 8 chars (lookup-friendly, not a wall of text).</summary>
+    private static string FormatCompactStripeId(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return "—";
+        var s = id.Trim();
+        if (s.Length <= 22)
+            return s;
+        const int headLen = 12;
+        const int tailLen = 8;
+        return $"{s[..headLen]}…{s[^tailLen..]}";
+    }
+
+    private static string TruncateUserIdForFooter(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            return "—";
+        var s = userId.Trim();
+        if (s.Length <= 24)
+            return s;
+        return $"{s[..8]}…{s[^8..]}";
+    }
+
+    private static string HumanizePackKeyForPlan(string? packKey)
+    {
+        if (string.IsNullOrWhiteSpace(packKey))
+            return "Credit pack";
+        var parts = packKey.Split(new[] { '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return "Credit pack";
+        var ti = CultureInfo.InvariantCulture.TextInfo;
+        return string.Join(" ", parts.Select(p => ti.ToTitleCase(p.ToLowerInvariant())));
+    }
+
+    private static string AdminTextRow(string label, string value) =>
+        $"<p style=\"margin:0 0 6px;font-size:14px;line-height:1.5;color:#334155;\"><span style=\"color:#64748b;\">{WebUtility.HtmlEncode(label)}:</span> {WebUtility.HtmlEncode(value)}</p>";
+
+    /// <summary>Buyer / app email row with mailto when an address is present.</summary>
+    private static string AdminEmailRow(string label, string? email, string placeholder)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return AdminTextRow(label, placeholder);
+        var e = email.Trim();
+        return $"<p style=\"margin:0 0 6px;font-size:14px;line-height:1.5;color:#334155;\"><span style=\"color:#64748b;\">{WebUtility.HtmlEncode(label)}:</span> <a href=\"mailto:{WebUtility.HtmlEncode(e)}\" style=\"color:#2563eb;text-decoration:none;\">{WebUtility.HtmlEncode(e)}</a></p>";
     }
 
     /// <param name="stripeCheckoutEmail">Email used at Stripe (receipt recipient). Never the Cognito/profile email unless they match.</param>
@@ -192,46 +241,112 @@ public static class CreditsPurchaseEmailTemplates
         string? currency)
     {
         var subject = "[GetTrainMate Admin] Credit purchase completed";
-        var when = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+        var nowUtc = DateTime.UtcNow;
+        var timeLine = FormatAdminPurchaseTimestampUtc(nowUtc);
         var amountHuman = FormatMoney(amountTotalCents, currency);
+        var planLabel = !string.IsNullOrWhiteSpace(packDisplayTitle)
+            ? packDisplayTitle.Trim()
+            : HumanizePackKeyForPlan(packKey);
+        var buyerPlain = string.IsNullOrWhiteSpace(stripePayerEmail) ? "Not captured" : stripePayerEmail.Trim();
+        var appPlain = string.IsNullOrWhiteSpace(accountEmail) ? "Not on file" : accountEmail.Trim();
+        var match = AccountMatchYesNoUnknown(stripePayerEmail, accountEmail);
+        var mismatch = match == "No";
 
-        var lines = new List<string>
+        var checkoutRef = FormatCompactStripeId(stripeSessionId);
+        var paymentRef = string.IsNullOrWhiteSpace(paymentIntentId) ? null : FormatCompactStripeId(paymentIntentId);
+        var userRef = TruncateUserIdForFooter(userId);
+
+        var text = new StringBuilder();
+        text.AppendLine("GetTrainMate Admin");
+        text.AppendLine();
+        text.AppendLine("Credit purchase completed");
+        text.AppendLine();
+        text.AppendLine("A credit purchase was completed successfully.");
+        text.AppendLine();
+        text.AppendLine("Summary");
+        text.AppendLine($"- Time: {timeLine}");
+        text.AppendLine($"- Buyer email: {buyerPlain}");
+        text.AppendLine($"- App account email: {appPlain}");
+        text.AppendLine($"- Account match: {match}");
+        if (mismatch)
         {
-            "A credit purchase was completed.",
-            "",
-            $"Time (UTC): {when}",
-            $"Payer email (Stripe checkout): {(string.IsNullOrWhiteSpace(stripePayerEmail) ? "(not captured on session)" : stripePayerEmail.Trim())}",
-            $"Account email (app profile / sign-in): {(string.IsNullOrWhiteSpace(accountEmail) ? "(not on profile)" : accountEmail.Trim())}",
-            StripeAccountComparisonLine(stripePayerEmail, accountEmail),
-            $"User ID (internal): {userId}",
-            $"Pack key: {packKey}",
-            $"Pack title: {packDisplayTitle}",
-            $"Credits: {credits}",
-            $"Amount: {amountHuman}",
-            $"Stripe Checkout session: {stripeSessionId}",
-        };
-        if (!string.IsNullOrWhiteSpace(paymentIntentId))
-            lines.Add($"Stripe PaymentIntent: {paymentIntentId}");
-
-        var text = string.Join(Environment.NewLine, lines);
-
-        var html = new StringBuilder();
-        html.Append("<!DOCTYPE html><html><head><meta charset=\"utf-8\"/></head><body style=\"font-family:system-ui,sans-serif;background:#f8fafc;padding:16px;\">");
-        html.Append("<table role=\"presentation\" style=\"max-width:640px;margin:0 auto;background:#fff;border:1px solid #e2e8f8;border-radius:8px;padding:20px;\">");
-        html.Append($"<tr><td><h2 style=\"margin:0 0 12px;font-size:18px;color:#0f172a;\">{WebUtility.HtmlEncode(subject)}</h2></td></tr>");
-        foreach (var line in lines)
-        {
-            if (string.IsNullOrEmpty(line))
-            {
-                html.Append("<tr><td style=\"height:8px;\"></td></tr>");
-                continue;
-            }
-            html.Append("<tr><td style=\"font-size:14px;line-height:1.5;color:#334155;padding:2px 0;\">");
-            html.Append(WebUtility.HtmlEncode(line));
-            html.Append("</td></tr>");
+            text.AppendLine();
+            text.AppendLine("Warning: Stripe checkout email and app account email are different.");
         }
-        html.Append("</table></body></html>");
 
-        return (subject, text, html.ToString());
+        text.AppendLine();
+        text.AppendLine("Purchase");
+        text.AppendLine($"- Plan: {planLabel}");
+        text.AppendLine($"- Credits: {credits}");
+        text.AppendLine($"- Amount: {amountHuman}");
+        text.AppendLine();
+        text.AppendLine("Product note: Each AI Coach chat reply uses 1 credit; some other actions use more (e.g. workout ideas).");
+        text.AppendLine();
+        text.AppendLine("Technical references");
+        text.AppendLine($"- Checkout reference: {checkoutRef}");
+        if (paymentRef != null)
+            text.AppendLine($"- Payment reference: {paymentRef}");
+        text.AppendLine($"- User ref: {userRef}");
+
+        var sb = new StringBuilder();
+        sb.Append("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/><title>");
+        sb.Append(WebUtility.HtmlEncode(subject));
+        sb.Append("</title></head>");
+        sb.Append("<body style=\"margin:0;padding:0;background:#f1f5f9;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;\">");
+        sb.Append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"padding:20px 12px;\"><tr><td align=\"center\">");
+        sb.Append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;\">");
+
+        sb.Append("<tr><td style=\"padding:16px 22px;background:linear-gradient(90deg,#1e293b 0%,#334155 100%);\">");
+        sb.Append("<p style=\"margin:0;font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#e2e8f0;\">GetTrainMate Admin</p></td></tr>");
+
+        sb.Append("<tr><td style=\"padding:22px 22px 8px;\">");
+        sb.Append("<h1 style=\"margin:0 0 8px;font-size:22px;font-weight:800;color:#0f172a;line-height:1.2;\">Credit purchase completed</h1>");
+        sb.Append("<p style=\"margin:0;font-size:15px;color:#475569;line-height:1.5;\">A credit purchase was completed successfully.</p>");
+        sb.Append("</td></tr>");
+
+        sb.Append("<tr><td style=\"padding:0 22px 16px;\">");
+        sb.Append("<p style=\"margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;\">Summary</p>");
+        sb.Append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;\"><tr><td style=\"padding:14px 16px;\">");
+        sb.Append(AdminTextRow("Time", timeLine));
+        sb.Append(AdminEmailRow("Buyer email", stripePayerEmail, "Not captured"));
+        sb.Append(AdminEmailRow("App account email", accountEmail, "Not on file"));
+        var matchColor = match == "Yes" ? "#15803d" : match == "No" ? "#b45309" : "#64748b";
+        sb.Append("<p style=\"margin:8px 0 0;font-size:14px;line-height:1.5;color:#334155;\"><span style=\"color:#64748b;\">Account match:</span> ");
+        sb.Append($"<strong style=\"color:{matchColor};\">{WebUtility.HtmlEncode(match)}</strong></p>");
+        sb.Append("</td></tr></table></td></tr>");
+
+        if (mismatch)
+        {
+            sb.Append("<tr><td style=\"padding:0 22px 16px;\">");
+            sb.Append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;\"><tr><td style=\"padding:12px 14px;\">");
+            sb.Append("<p style=\"margin:0;font-size:14px;line-height:1.5;color:#92400e;\"><strong>Warning:</strong> Stripe checkout email and app account email are different.</p>");
+            sb.Append("</td></tr></table></td></tr>");
+        }
+
+        sb.Append("<tr><td style=\"padding:0 22px 16px;\">");
+        sb.Append("<p style=\"margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;\">Purchase</p>");
+        sb.Append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;\"><tr><td style=\"padding:14px 16px;\">");
+        sb.Append(AdminTextRow("Plan", planLabel));
+        sb.Append(AdminTextRow("Credits", credits.ToString(CultureInfo.InvariantCulture)));
+        sb.Append(AdminTextRow("Amount", amountHuman));
+        sb.Append("</td></tr></table></td></tr>");
+
+        sb.Append("<tr><td style=\"padding:0 22px 18px;\">");
+        sb.Append("<p style=\"margin:0;font-size:13px;line-height:1.55;color:#64748b;border-left:3px solid #cbd5e1;padding-left:12px;\"><strong style=\"color:#475569;\">Product note:</strong> ");
+        sb.Append("Each <strong>AI Coach</strong> chat reply uses <strong>1 credit</strong>; other actions may use more (e.g. workout ideas).</p>");
+        sb.Append("</td></tr>");
+
+        sb.Append("<tr><td style=\"padding:0 22px 22px;background:#fafafa;border-top:1px solid #e2e8f0;\">");
+        sb.Append("<p style=\"margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#94a3b8;\">Technical references</p>");
+        sb.Append("<p style=\"margin:0;font-size:11px;line-height:1.65;color:#94a3b8;font-family:ui-monospace,Consolas,monospace;\">");
+        sb.Append($"Checkout: {WebUtility.HtmlEncode(checkoutRef)}");
+        if (paymentRef != null)
+            sb.Append($"<br/>Payment: {WebUtility.HtmlEncode(paymentRef)}");
+        sb.Append($"<br/>User ref: {WebUtility.HtmlEncode(userRef)}");
+        sb.Append("</p></td></tr>");
+
+        sb.Append("</table></td></tr></table></body></html>");
+
+        return (subject, text.ToString(), sb.ToString());
     }
 }
