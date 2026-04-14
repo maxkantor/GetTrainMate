@@ -7,6 +7,8 @@ public static class CreditTransactionType
     public const string Purchase = "PURCHASE";
     public const string Spend = "SPEND";
     public const string Adjustment = "ADJUSTMENT";
+    /// <summary>Ledger row used only to dedupe purchase notification emails (success-page + webhook can race).</summary>
+    public const string PurchaseEmailNotificationLock = "PURCHASE_EMAIL_LOCK";
 }
 
 /// <summary>Ledger reason for audit (align with product actions).</summary>

@@ -17,6 +17,7 @@ namespace GetTrainMate.Api.Services;
 /// Credits for all users: single source of truth is the user-credits table (Balance per UserId).
 /// Balance = stored value; grants (free signup, purchase) and spends (like, chat unlock) update it.
 /// Purchases are applied either when the user hits the success page (ConfirmCreditsPurchaseAsync) or when the Stripe webhook runs (ProcessCheckoutSessionCompletedAsync); both are idempotent. No webhook timing dependency.
+/// Purchase notification emails are deduped with a conditional DynamoDB row per Stripe Checkout session so the success path and webhook cannot each send a full customer+admin pair when they race.
 /// </summary>
 public class CreditsService : ICreditsService
 {
@@ -86,6 +87,50 @@ public class CreditsService : ICreditsService
         return string.Join(" ", parts.Select(p => ti.ToTitleCase(p.ToLowerInvariant())));
     }
 
+    /// <summary>
+    /// Ensures customer + admin purchase emails are sent at most once per checkout session.
+    /// Without this, ConfirmCreditsPurchaseAsync and ProcessCheckoutSessionCompletedAsync can both pass the
+    /// "existing transaction" scan before either write completes, crediting twice and sending duplicate emails.
+    /// </summary>
+    private async Task<bool> TryAcquirePurchaseEmailNotificationLockAsync(string stripeCheckoutSessionId)
+    {
+        if (string.IsNullOrWhiteSpace(stripeCheckoutSessionId))
+        {
+            _logger.LogWarning("Purchase email dedupe skipped: empty Stripe Checkout session id.");
+            return true;
+        }
+
+        var lockId = "purchase_email_lock_" + stripeCheckoutSessionId.Trim();
+        try
+        {
+            await _dynamoDb.PutItemAsync(new PutItemRequest
+            {
+                TableName = CreditTransactionsTable,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["Id"] = new AttributeValue { S = lockId },
+                    ["UserId"] = new AttributeValue { S = "_system" },
+                    ["Type"] = new AttributeValue { S = CreditTransactionType.PurchaseEmailNotificationLock },
+                    ["CreditsDelta"] = new AttributeValue { N = "0" },
+                    ["Reason"] = new AttributeValue { S = "purchase_email_dedupe" },
+                    ["StripeCheckoutSessionId"] = new AttributeValue { S = stripeCheckoutSessionId.Trim() },
+                    ["CreatedAt"] = new AttributeValue { S = DateTime.UtcNow.ToString("O") },
+                },
+                ConditionExpression = "attribute_not_exists(Id)",
+            });
+            return true;
+        }
+        catch (ConditionalCheckFailedException)
+        {
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not write purchase email lock for session {SessionId}; sending notifications anyway.", stripeCheckoutSessionId);
+            return true;
+        }
+    }
+
     private async Task NotifyPurchaseEmailsAsync(
         Session session,
         string userId,
@@ -103,6 +148,14 @@ public class CreditsService : ICreditsService
         {
             _logger.LogDebug(ex, "Could not load pack title for email; using humanized key.");
             packTitle = HumanizePackKey(packKey);
+        }
+
+        if (!await TryAcquirePurchaseEmailNotificationLockAsync(session.Id))
+        {
+            _logger.LogInformation(
+                "Skipping purchase notification emails for session {SessionId} (already sent or lock held).",
+                session.Id);
+            return;
         }
 
         string? accountEmail = null;
