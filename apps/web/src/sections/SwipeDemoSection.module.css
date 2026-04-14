@@ -2,12 +2,12 @@
 
 .section {
   position: relative;
-  padding: clamp(48px, 8vw, 96px) 0 clamp(40px, 6vw, 72px);
+  padding: clamp(38px, 6.4vw, 78px) 0 clamp(30px, 5vw, 58px);
   overflow: hidden;
 }
 
 .sectionHead {
-  margin-bottom: clamp(28px, 5vw, 44px);
+  margin-bottom: clamp(18px, 3.4vw, 32px);
 }
 
 .title {
@@ -15,30 +15,32 @@
   z-index: 1;
   width: 100%;
   text-align: center;
-  font-size: clamp(1.85rem, 4.5vw, 2.65rem);
+  font-size: clamp(1.7rem, 3.7vw, 2.45rem);
   font-weight: 800;
   letter-spacing: -0.035em;
   line-height: 1.15;
   color: rgba(255, 255, 255, 0.98);
-  margin: 0 0 12px;
+  margin: 0 0 10px;
+  text-wrap: balance;
   text-shadow: 0 4px 32px rgba(0, 0, 0, 0.35);
 }
 
 .subtitle {
   text-align: center;
-  margin: 0 auto 10px;
-  max-width: 36rem;
-  font-size: 1rem;
+  margin: 0 auto 8px;
+  max-width: 39rem;
+  font-size: clamp(0.94rem, 1.4vw, 1rem);
   font-weight: 500;
   color: rgba(255, 255, 255, 0.58);
   letter-spacing: 0.01em;
+  text-wrap: pretty;
 }
 
 .trustLine {
   text-align: center;
-  margin: 0 auto 6px;
-  max-width: 32rem;
-  font-size: 0.88rem;
+  margin: 0 auto 2px;
+  max-width: 36rem;
+  font-size: clamp(0.82rem, 1.2vw, 0.88rem);
   font-weight: 500;
   color: rgba(255, 255, 255, 0.42);
   letter-spacing: 0.01em;
@@ -51,7 +53,7 @@
   position: relative;
   z-index: 1;
   max-width: 400px;
-  margin: 0 auto clamp(28px, 5vw, 44px);
+  margin: 0 auto clamp(20px, 4vw, 30px);
   perspective: 1200px;
 }
 
@@ -342,9 +344,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 54px;
-  padding: 0 40px;
-  font-size: 1.05rem;
+  min-height: 50px;
+  padding: 0 30px;
+  font-size: 0.97rem;
+  white-space: nowrap;
   font-weight: 700;
   font-family: inherit;
   color: #fff;
@@ -380,7 +383,7 @@
 
 .ctaSub {
   margin: 0;
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.72);
   letter-spacing: 0.02em;
@@ -388,11 +391,11 @@
 
 .scarcityLine {
   margin: 4px 0 0;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: rgba(255, 210, 150, 0.92);
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
+  font-size: 0.76rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.38);
+  text-shadow: none;
 }
 
 .cta:focus-visible {
@@ -406,6 +409,18 @@
 @media (max-width: 480px) {
   .matchTitle {
     font-size: 1.45rem;
+  }
+
+  .section {
+    padding: 28px 0 24px;
+  }
+
+  .deckZone {
+    max-width: 350px;
+  }
+
+  .cta {
+    width: 100%;
   }
 }
 

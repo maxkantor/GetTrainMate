@@ -110,10 +110,10 @@
   align-items: center;
   height: 60px;
   width: 100%;
-  max-width: 1280px;
+  max-width: 1240px;
   margin: 0 auto;
-  padding: 0 22px;
-  gap: 0.8rem;
+  padding: 0 16px;
+  gap: 0.55rem;
   overflow: visible;
 }
 
@@ -169,12 +169,13 @@
 .navApp .headerNavLink {
   background: transparent !important;
   border: none !important;
-  padding: 6px 11px !important;
-  font-size: 0.875rem !important;
+  padding: 5px 9px !important;
+  font-size: 0.8125rem !important;
   font-weight: 600 !important;
   display: inline-flex !important;
   align-items: center !important;
-  gap: 6px !important;
+  gap: 4px !important;
+  white-space: nowrap;
 }
 
 .navBadge {
@@ -233,19 +234,20 @@
 }
 
 .statusText {
-  font-size: 0.8125rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: rgba(226, 232, 240, 0.78);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  letter-spacing: 0.005em;
 }
 
 .signedRight {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 6px;
   flex-shrink: 0;
   margin-left: auto;
 }
@@ -953,7 +955,7 @@
 /* ========== RESPONSIVE ========== */
 @media (min-width: 768px) {
   .root { height: 60px; min-height: 60px; }
-  .inner { height: 60px; padding: 0 24px; }
+  .inner { height: 60px; padding: 0 16px; }
   .nav { display: flex; }
   .authWrap, .userWrap { display: flex; }
   .langWrap { display: block; }

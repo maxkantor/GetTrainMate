@@ -24,10 +24,10 @@
 .panel {
   position: relative;
   z-index: 1;
-  width: min(100%, 440px);
-  max-height: min(90vh, 640px);
+  width: min(100%, 432px);
+  max-height: min(88vh, 620px);
   overflow: auto;
-  padding: 28px 24px 24px;
+  padding: 22px 20px 18px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: linear-gradient(165deg, rgba(14, 10, 32, 0.98), rgba(36, 20, 64, 0.92));
@@ -40,8 +40,8 @@
   position: absolute;
   top: 12px;
   right: 14px;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.06);
@@ -64,29 +64,30 @@
 .step {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: clamp(1.12rem, 3.8vw, 1.28rem);
   font-weight: 800;
   letter-spacing: -0.03em;
   color: rgba(255, 255, 255, 0.98);
   min-width: 0;
+  text-wrap: balance;
 }
 
 .lead {
-  margin: -4px 0 4px;
-  font-size: 0.92rem;
-  line-height: 1.45;
+  margin: -2px 0 2px;
+  font-size: 0.88rem;
+  line-height: 1.4;
   color: rgba(255, 255, 255, 0.65);
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .label {
@@ -108,7 +109,7 @@
 
 .fieldHint {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.48);
 }
@@ -135,13 +136,13 @@
 .select {
   flex: 1;
   min-width: 0;
-  min-height: 52px;
-  padding: 0 16px;
+  min-height: 48px;
+  padding: 0 14px;
   border-radius: 14px;
   border: none;
   background: transparent;
   color: rgba(255, 255, 255, 0.95);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   cursor: pointer;
 }
 
@@ -152,7 +153,7 @@
 .ctaMicro {
   margin: -2px 0 0;
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 500;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.5);
@@ -176,9 +177,9 @@
 
 .paywallSocial {
   margin: 0;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: rgba(248, 113, 113, 0.88);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.58);
 }
 
 .paywallTrust {
@@ -383,11 +384,11 @@
 }
 
 .primaryBtn {
-  margin-top: 8px;
-  min-height: 52px;
+  margin-top: 6px;
+  min-height: 48px;
   border: none;
   border-radius: 999px;
-  font-size: 1rem;
+  font-size: 0.94rem;
   font-weight: 700;
   color: #fff;
   cursor: pointer;
@@ -491,14 +492,15 @@
   padding: 4px 8px;
   border-radius: 999px;
   white-space: nowrap;
+  white-space: nowrap;
 }
 
 /* Stacked deck: front clear, sides blurred */
 .deck {
   position: relative;
-  min-height: 248px;
-  height: 248px;
-  margin: 12px 0 8px;
+  min-height: 226px;
+  height: 226px;
+  margin: 8px 0 4px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -554,7 +556,7 @@
 }
 
 .deckPaywall {
-  height: 210px;
+  height: 194px;
 }
 
 .deckLockedHeavy {
@@ -624,14 +626,14 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 52px;
+  min-height: 48px;
   width: 100%;
   margin-top: 4px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.96);
   color: #1f2937;
-  font-size: 0.98rem;
+  font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -652,14 +654,34 @@
 }
 
 .modalFooter {
-  margin-top: 20px;
-  padding-top: 16px;
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .modalFooterCopyright {
-  margin: 12px 0 0;
+  margin: 8px 0 0;
   font-size: 0.68rem;
   color: rgba(255, 255, 255, 0.45);
   text-align: center;
+}
+
+@media (max-width: 480px) {
+  .backdrop {
+    padding: 14px;
+  }
+
+  .panel {
+    border-radius: 20px;
+    padding: 18px 14px 14px;
+    max-height: min(92vh, 620px);
+  }
+
+  .deckFront {
+    width: 188px;
+  }
+
+  .deckBack {
+    width: 118px;
+  }
 }
