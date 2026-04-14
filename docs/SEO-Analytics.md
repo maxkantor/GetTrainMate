@@ -38,7 +38,9 @@ Custom events (e.g. `sign_up`, `login`, `begin_checkout`, `purchase`) appear und
 
 ## Open Graph image
 
-Place a **1200×630** PNG at `apps/web/public/images/og-image.png`. Until it exists, crawlers still receive an absolute image URL that may 404 — add the asset before launch marketing.
+Place a **1200×630** PNG at `apps/web/public/images/og-image.png`. At build time, `vite.config.ts` injects `og:image` and `twitter:image` with an **absolute** URL (`https://gettrainmate.com/images/og-image.png?v=1` by default). Facebook and other scrapers require absolute URLs; if `VITE_PUBLIC_SITE_URL` was missing, older builds used a relative path and previews showed no image.
+
+After deploy, use [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) → **Scrape Again** to refresh the cache.
 
 ## Robots
 

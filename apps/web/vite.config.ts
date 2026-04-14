@@ -5,13 +5,16 @@ import path from 'path'
 const ogTitle = 'GetTrainMate | Find Your Perfect Training Partner'
 const ogDescription = 'Match, train, and connect with people who fit your goals and vibe.'
 
+/** Must be absolute HTTPS for Facebook/LinkedIn og:image (relative URLs break link previews). */
+const DEFAULT_PUBLIC_SITE_URL = 'https://gettrainmate.com'
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, path.resolve(__dirname), '')
-  const siteUrl = (env.VITE_PUBLIC_SITE_URL || '').trim().replace(/\/$/, '')
+  const siteUrl = (env.VITE_PUBLIC_SITE_URL || DEFAULT_PUBLIC_SITE_URL).trim().replace(/\/$/, '')
   const ogImagePath = '/images/og-image.png?v=1'
-  const ogImageUrl = siteUrl ? `${siteUrl}${ogImagePath}` : ogImagePath
-  const canonicalLine = siteUrl ? `<link rel="canonical" href="${siteUrl}/" />` : ''
-  const ogUrlLine = siteUrl ? `<meta property="og:url" content="${siteUrl}/" />` : ''
+  const ogImageUrl = `${siteUrl}${ogImagePath}`
+  const canonicalLine = `<link rel="canonical" href="${siteUrl}/" />`
+  const ogUrlLine = `<meta property="og:url" content="${siteUrl}/" />`
   const gsc = (env.VITE_GSC_VERIFICATION || '').trim()
   const gscMetaLine = gsc
     ? `<meta name="google-site-verification" content="${gsc.replace(/"/g, '')}" />`
