@@ -195,7 +195,7 @@ public class ChatNotificationService : IChatNotificationService
         return Environment.GetEnvironmentVariable("FRONTEND_URL")
             ?? _configuration["FRONTEND_URL"]
             ?? _configuration["Frontend:BaseUrl"]
-            ?? "https://localhost:5173";
+            ?? "https://gettrainmate.com";
     }
 
     private static string BuildSubject(int count, string senderName)

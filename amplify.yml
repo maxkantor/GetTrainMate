@@ -1,6 +1,12 @@
 version: 1
 # AWS Amplify config for GetTrainMate web app
 # Auto-deployed on every push to main branch
+#
+# Production (https://gettrainmate.com): set branch environment variables in Amplify Console, e.g.:
+#   VITE_PUBLIC_SITE_URL=https://gettrainmate.com
+#   VITE_API_URL=https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com
+#   VITE_COGNITO_USER_POOL_ID / VITE_COGNITO_CLIENT_ID (same pool as production users)
+# See docs/PRODUCTION_DOMAIN.md for Cognito callbacks, Stripe, and www→apex redirect.
 frontend:
   phases:
     preBuild:

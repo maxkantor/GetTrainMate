@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using GetTrainMate.Api.Services;
@@ -15,17 +16,20 @@ public class BillingController : ControllerBase
     private readonly ICreditsService _creditsService;
     private readonly StripeWebhookSecret _webhookSecret;
     private readonly ILogger<BillingController> _logger;
+    private readonly IConfiguration _configuration;
 
     public BillingController(
         IBillingService billingService,
         ICreditsService creditsService,
         StripeWebhookSecret webhookSecret,
-        ILogger<BillingController> logger)
+        ILogger<BillingController> logger,
+        IConfiguration configuration)
     {
         _billingService = billingService;
         _creditsService = creditsService;
         _webhookSecret = webhookSecret;
         _logger = logger;
+        _configuration = configuration;
     }
 
     [HttpGet("credit-packs")]
@@ -408,14 +412,26 @@ public class BillingController : ControllerBase
     private string? GetBaseUrl()
     {
         var origin = Request.Headers["Origin"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(origin)) return origin;
+        if (!string.IsNullOrEmpty(origin))
+            return origin.TrimEnd('/');
+
+        // Lambda/API Gateway: Host is often the API host — prefer configured public app URL for Stripe return URLs.
+        var configured =
+            Environment.GetEnvironmentVariable("FRONTEND_URL")?.Trim().TrimEnd('/')
+            ?? _configuration["FRONTEND_URL"]?.Trim().TrimEnd('/')
+            ?? _configuration["Frontend:BaseUrl"]?.Trim().TrimEnd('/');
+        if (!string.IsNullOrEmpty(configured))
+            return configured;
 
         var host = Request.Headers["Host"].FirstOrDefault();
         var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
-        if (!string.IsNullOrEmpty(host))
-            return $"{scheme}://{host}";
+        if (string.IsNullOrEmpty(host))
+            return null;
+        if (host.Contains("execute-api", StringComparison.OrdinalIgnoreCase)
+            || host.Contains("amazonaws.com", StringComparison.OrdinalIgnoreCase))
+            return null;
 
-        return null;
+        return $"{scheme}://{host}".TrimEnd('/');
     }
 }
 

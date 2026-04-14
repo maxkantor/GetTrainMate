@@ -1,6 +1,7 @@
 /**
  * API base URL used by REST services.
- * Auto-corrects common env typos from Amplify (wrong region string, wrong API id).
+ * Production: set VITE_API_URL in Amplify (or .env) to your deployed API Gateway URL.
+ * Fallback below is for CI / local convenience only — not a substitute for env in new environments.
  */
 const RAW = import.meta.env.VITE_API_URL || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
 

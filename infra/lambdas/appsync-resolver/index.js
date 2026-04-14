@@ -969,7 +969,7 @@ async function countMessagesFromSender(threadId, senderId) {
   return items.filter((m) => m.senderId === senderId).length;
 }
 
-const FRONTEND_URL_NOTIFY = process.env.FRONTEND_URL || 'https://localhost:5173';
+const FRONTEND_URL_NOTIFY = process.env.FRONTEND_URL || 'https://gettrainmate.com';
 const SES_FROM_EMAIL_NOTIFY = process.env.SES_FROM_EMAIL || '';
 /** Optional comma-separated substrings; if any appear in preview text, redact (align with API ChatNotifications:PreviewBlocklistWords). */
 const CHAT_PREVIEW_BLOCKLIST = (process.env.CHAT_NOTIFICATION_BLOCKLIST || '')

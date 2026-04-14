@@ -1,4 +1,4 @@
-# GetTrainMate — production robots (https://www.gettrainmate.com)
+# GetTrainMate — production robots (https://gettrainmate.com)
 User-agent: *
 Allow: /
 
@@ -12,4 +12,4 @@ Disallow: /signup
 Disallow: /verify-email
 Disallow: /api
 
-Sitemap: https://www.gettrainmate.com/sitemap.xml
+Sitemap: https://gettrainmate.com/sitemap.xml

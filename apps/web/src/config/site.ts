@@ -1,11 +1,11 @@
 /**
  * Production site origin — canonical host for SEO, OG URLs, sitemap, and JSON-LD.
- * Set VITE_PUBLIC_SITE_URL in Amplify / env (no trailing slash).
+ * Set VITE_PUBLIC_SITE_URL in Amplify / env (no trailing slash), e.g. https://gettrainmate.com
  */
 export const SITE_ORIGIN = (
   typeof import.meta !== 'undefined' && import.meta.env?.VITE_PUBLIC_SITE_URL
     ? String(import.meta.env.VITE_PUBLIC_SITE_URL).trim().replace(/\/$/, '')
-    : 'https://www.gettrainmate.com'
+    : 'https://gettrainmate.com'
 );
 
 /** OG / Twitter default image path (place 1200×630 PNG at public/images/og-image.png). */

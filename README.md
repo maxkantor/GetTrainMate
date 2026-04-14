@@ -13,6 +13,8 @@ Training-first partner matching for gym, CrossFit, HYROX, running, and more.
 - **Infrastructure:** AWS CDK (TypeScript)
 - **CI/CD:** GitHub Actions
 
+**Production domain:** `https://gettrainmate.com` — see [docs/PRODUCTION_DOMAIN.md](docs/PRODUCTION_DOMAIN.md) for Amplify env vars, Cognito/Stripe callbacks, DNS, and a deploy verification checklist.
+
 ## Project Structure
 
 ```

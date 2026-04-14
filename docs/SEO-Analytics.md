@@ -1,19 +1,19 @@
 # SEO, Google Search Console, and Google Analytics 4
 
-Production domain: **https://www.gettrainmate.com**
+Production domain (canonical): **https://gettrainmate.com**
 
 ## Environment variables (`apps/web`)
 
 | Variable | Purpose |
 |----------|---------|
-| `VITE_PUBLIC_SITE_URL` | Canonical origin (no trailing slash). Used for OG URLs, JSON-LD, and SPA `page_location` in GA4. Default in code: `https://www.gettrainmate.com`. |
+| `VITE_PUBLIC_SITE_URL` | Canonical origin (no trailing slash). Used for OG URLs, JSON-LD, and SPA `page_location` in GA4. Default in code: `https://gettrainmate.com`. |
 | `VITE_GA_MEASUREMENT_ID` | GA4 Measurement ID (e.g. `G-Z4RSKMHPQQ`). Omit in dev to disable gtag. |
 | `VITE_GSC_VERIFICATION` | **Google Search Console** HTML tag verification: paste the **content** value only (not the full meta tag). Injected at build into `index.html` via `vite.config.ts`. |
 | `VITE_THEME_COLOR` | Browser UI theme color (default `#070b1a`). |
 
 ## Google Search Console verification
 
-1. In [Search Console](https://search.google.com/search-console), add the **URL prefix** property `https://www.gettrainmate.com/`.
+1. In [Search Console](https://search.google.com/search-console), add the **URL prefix** property `https://gettrainmate.com/`.
 2. Choose **HTML tag** verification.
 3. Copy the **content** attribute value from the meta tag Google shows.
 4. Set `VITE_GSC_VERIFICATION` to that string in Amplify (or `.env` for local build) and redeploy the web app.
@@ -22,11 +22,11 @@ Production domain: **https://www.gettrainmate.com**
 ## Sitemap
 
 - Static file: `apps/web/public/sitemap.xml` (deployed as `/sitemap.xml`).
-- In Search Console: **Sitemaps** → submit `https://www.gettrainmate.com/sitemap.xml`.
+- In Search Console: **Sitemaps** → submit `https://gettrainmate.com/sitemap.xml`.
 
 ## Request indexing for priority URLs
 
-In Search Console → **URL inspection**, enter a public URL (e.g. `https://www.gettrainmate.com/pricing`), then **Request indexing** if offered. Use for key landing pages after major content changes.
+In Search Console → **URL inspection**, enter a public URL (e.g. `https://gettrainmate.com/pricing`), then **Request indexing** if offered. Use for key landing pages after major content changes.
 
 ## Google Analytics 4 — Realtime
 
