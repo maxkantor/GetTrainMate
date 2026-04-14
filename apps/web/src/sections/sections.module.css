@@ -340,6 +340,11 @@
     justify-content: center;
   }
 
+  .heroBtnPrimary {
+    font-size: clamp(0.78rem, 3.8vw, 0.96rem);
+    padding: 0 14px;
+  }
+
   .heroExclusivity {
     margin-bottom: 12px;
   }

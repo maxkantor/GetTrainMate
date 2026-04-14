@@ -12,12 +12,12 @@ public class LandingMatchPreviewRequest
     public string TimePref { get; set; } = "";
 }
 
-/// <summary>real = DB matches; demo = labeled example when pool has users but no filter match; empty = no complete profiles in DB.</summary>
+/// <summary>real = at least one DB-backed profile in deck; demo = curated preview only (never empty).</summary>
 public class LandingMatchPreviewResponse
 {
     public string Kind { get; set; } = "demo";
 
-    /// <summary>Number of real matches (0–3) when Kind is real; 1 for demo; 0 for empty.</summary>
+    /// <summary>Deck size (4–6): mix of real + curated previews.</summary>
     public int MatchCount { get; set; }
 
     public IReadOnlyList<LandingMatchPreviewUserDto> Users { get; set; } = Array.Empty<LandingMatchPreviewUserDto>();
@@ -36,6 +36,15 @@ public class LandingMatchPreviewUserDto
 
     public string GoalLine { get; set; } = "";
     public string? PhotoUrl { get; set; }
+
+    /// <summary>Level shown on landing card (visitor-aligned or profile).</summary>
+    public string LevelLabel { get; set; } = "";
+
+    /// <summary>Typical training time (from visitor pick or profile schedule).</summary>
+    public string TimePrefLabel { get; set; } = "";
+
+    /// <summary>Approximate distance for preview only (not exact location).</summary>
+    public string DistanceLabel { get; set; } = "";
 }
 
 /// <summary>Anonymous landing hero activity cards + swipe demo deck (real profile photos; no distance/city).</summary>

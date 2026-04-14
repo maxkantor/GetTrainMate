@@ -14,6 +14,7 @@ import {
   type LandingMatchPreviewUser,
 } from '@/services/matchPreviewService';
 import { DUMMY_USER_PRIMARY_PHOTO } from '@/utils/profilePhotos';
+import { analytics } from '@/utils/analytics';
 import styles from './LandingEntryFlow.module.css';
 
 const LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
@@ -27,28 +28,57 @@ const ANALYZE_MESSAGES = ['entry_analyze_1', 'entry_analyze_2', 'entry_analyze_3
 
 const MIN_ANALYZE_MS = 1650;
 
-/** Labeled demo when API fails (aligned with seeded dummy-user-1 / server BuildDemoUser). */
-const OFFLINE_DEMO: LandingMatchPreviewResult = {
-  kind: 'demo',
-  matchCount: 1,
-  exampleLabel: '',
-  users: [
-    {
-      name: 'Sarah Runner',
-      age: 28,
-      trainingSummary: 'Running · Yoga · Hiking',
-      goalLine: 'Complete a sub-4 hour marathon',
-      photoUrl: DUMMY_USER_PRIMARY_PHOTO['dummy-user-1'],
-    },
-  ],
-};
+function stableMilesKey(key: string): number {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return 4 + (h % 14);
+}
+
+function humanizeTimePref(timePref: string): string {
+  const s = timePref.toLowerCase();
+  if (s.includes('morning')) return 'Morning';
+  if (s.includes('mid')) return 'Midday';
+  if (s.includes('evening')) return 'Evening';
+  return 'Evening';
+}
+
+/** Offline deck when the preview API is unreachable (mirrors server padding shape). */
+function buildOfflinePreviewDeck(training: string, level: string, timePref: string): LandingMatchPreviewResult {
+  const sport = training.trim() || 'Gym';
+  const levelTitle = level ? level.charAt(0).toUpperCase() + level.slice(1).toLowerCase() : 'Intermediate';
+  const timeDisplay = humanizeTimePref(timePref);
+  const row = (
+    name: string,
+    photoKey: keyof typeof DUMMY_USER_PRIMARY_PHOTO,
+    trainingSummary: string,
+    goalLine: string,
+    age: number
+  ): LandingMatchPreviewUser => ({
+    name,
+    age,
+    trainingSummary,
+    goalLine,
+    photoUrl: DUMMY_USER_PRIMARY_PHOTO[photoKey],
+    levelLabel: levelTitle,
+    timePrefLabel: timeDisplay,
+    distanceLabel: `~${stableMilesKey(name)} mi`,
+  });
+
+  const users: LandingMatchPreviewUser[] = [
+    row('Alex Drogba', 'dummy-user-7', `${sport} · Soccer · Conditioning`, 'Stay match-fit year round', 29),
+    row('Sarah Runner', 'dummy-user-1', 'Running · Yoga · Hiking', 'Complete a sub-4 hour marathon', 28),
+    row('Maria Chen', 'dummy-user-2', `${sport} · Strength · Mobility`, 'Build consistent gym habits', 27),
+    row('Jordan Blake', 'dummy-user-5', `${sport} · HIIT · Core`, 'Improve work capacity for events', 26),
+    row('Ken Okada', 'dummy-user-6', 'Swimming · Core · Recovery', 'Open-water confidence', 31),
+  ];
+
+  return { kind: 'demo', matchCount: users.length, exampleLabel: '', users };
+}
 
 function previewHeadline(preview: LandingMatchPreviewResult | null): string {
   if (!preview) return '';
-  if (preview.kind === 'empty') return 'entry_headline_empty';
-  if (preview.kind === 'demo') return 'entry_headline_demo';
+  if (preview.kind === 'demo') return 'entry_headline_preview_deck';
   const n = preview.matchCount;
-  if (n <= 0) return 'entry_headline_demo';
   if (n === 1) return 'entry_headline_one';
   return 'entry_headline_many';
 }
@@ -99,6 +129,15 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
     navigate('/signup');
   }, [training, level, timePref, handleClose, navigate]);
 
+  const goToPaywall = useCallback(
+    (surface: 'overlay' | 'match_card') => {
+      analytics.landingEntryUnlockClick(surface);
+      saveLandingPrefs({ training, level, timePref });
+      setStep(3);
+    },
+    [training, level, timePref]
+  );
+
   const handleGoogle = useCallback(async () => {
     saveLandingPrefs({ training, level, timePref });
     const { started, error } = await authService.signInWithGoogle();
@@ -107,12 +146,6 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
       handleClose();
       navigate('/login', { state: { fromLanding: true, hint: error } });
     }
-  }, [training, level, timePref, handleClose, navigate]);
-
-  const goEmptySignup = useCallback(() => {
-    saveLandingPrefs({ training, level, timePref });
-    handleClose();
-    navigate('/signup');
   }, [training, level, timePref, handleClose, navigate]);
 
   useEffect(() => {
@@ -167,7 +200,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
       next = fetched;
     } else {
       loadFailed = true;
-      next = OFFLINE_DEMO;
+      next = buildOfflinePreviewDeck(training, level, timePref);
     }
 
     setPreview(next);
@@ -175,11 +208,14 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
     setIsAnalyzing(false);
     setAnalyzeMsgIndex(0);
     setStep(2);
+    analytics.landingEntrySetupComplete({ kind: next.kind });
   };
 
   const primaryPreviewUser = preview?.users?.[0];
-  const showMoreCount =
-    preview && preview.kind === 'real' && preview.matchCount > 1 ? preview.matchCount - 1 : 0;
+  const previewUsers = preview?.users ?? [];
+  const unlockedCardCount = previewUsers.length >= 4 ? 2 : 1;
+  const unlockedUsers = previewUsers.slice(0, unlockedCardCount);
+  const lockedUsers = previewUsers.slice(unlockedCardCount);
 
   if (typeof document === 'undefined') return null;
 
@@ -236,7 +272,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
             )}
 
             {step === 1 && !isAnalyzing && (
-              <div className={styles.step}>
+              <div className={`${styles.step} ${styles.stepCompact}`}>
                 <h2 id="entry-flow-title" className={styles.title}>
                   {t('landing.entry_quick_setup')}
                 </h2>
@@ -318,9 +354,12 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
 
                 <button
                   type="button"
-                  className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`}
+                  className={`${styles.primaryBtn} ${styles.primaryBtnPulse} ${styles.primaryBtnEntry}`}
                   disabled={!step1Valid}
-                  onClick={() => void runAnalyze()}
+                  onClick={() => {
+                    analytics.landingEntryCtaClick();
+                    void runAnalyze();
+                  }}
                 >
                   {t('landing.landing_primary_cta')}
                 </button>
@@ -328,18 +367,8 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
               </div>
             )}
 
-            {step === 2 && preview?.kind === 'empty' && (
-              <div className={styles.step}>
-                <h2 className={styles.title}>{t(`landing.${previewHeadline(preview)}`)}</h2>
-                <p className={styles.lead}>{t('landing.entry_empty_lead')}</p>
-                <button type="button" className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`} onClick={goEmptySignup}>
-                  {t('landing.entry_create_account')}
-                </button>
-              </div>
-            )}
-
-            {step === 2 && preview && preview.kind !== 'empty' && primaryPreviewUser && (
-              <div className={styles.step}>
+            {step === 2 && preview && previewUsers.length > 0 && (
+              <div className={`${styles.step} ${styles.stepPreview}`}>
                 <h2 className={styles.title}>
                   {previewHeadline(preview) === 'entry_headline_many'
                     ? formatI18n(t('landing.entry_headline_many'), { count: preview.matchCount })
@@ -352,53 +381,70 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                   <p className={styles.loadWarning}>{t('landing.entry_load_warning')}</p>
                 )}
                 <p className={styles.lead}>{t('landing.entry_based_on')}</p>
-                {showMoreCount > 0 && (
-                  <p className={styles.moreMatchesHint}>
-                    +{showMoreCount} {t(showMoreCount === 1 ? 'landing.entry_more_profile_one' : 'landing.entry_more_profile_many')}
-                  </p>
-                )}
-                <div className={styles.deck}>
-                  <div
-                    className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft} ${styles.deckGhost}`}
-                    aria-hidden
-                  />
-                  <div
-                    className={`${styles.deckCard} ${styles.deckBack} ${styles.deckRight} ${styles.deckGhost}`}
-                    aria-hidden
-                  />
-                  <div className={`${styles.deckCard} ${styles.deckFront}`}>
-                    {primaryPreviewUser.photoUrl ? (
-                      <img
-                        src={primaryPreviewUser.photoUrl}
-                        alt=""
-                        className={styles.deckAvatar}
-                        width={96}
-                        height={96}
-                      />
-                    ) : (
-                      <div className={styles.deckAvatarPlaceholder} aria-hidden />
-                    )}
-                    <span className={styles.deckName}>{formatCardName(primaryPreviewUser)}</span>
-                    <span className={styles.deckMeta}>{primaryPreviewUser.trainingSummary}</span>
-                    <ul className={styles.deckStats}>
-                      <li>⚡ {preview.kind === 'demo' ? t('landing.entry_trains_4_5') : t('landing.entry_trains_regularly')}</li>
-                      <li>🎯 {primaryPreviewUser.goalLine}</li>
-                    </ul>
-                    <p className={styles.lockedDataLine}>
-                      {t('landing.entry_locked_data_line')}
-                    </p>
-                  </div>
+
+                <div className={styles.previewList}>
+                  {unlockedUsers.map((u) => (
+                    <button
+                      key={u.name}
+                      type="button"
+                      className={`${styles.previewCard} ${styles.previewCardUnlocked}`}
+                      onClick={() => goToPaywall('match_card')}
+                    >
+                      {u.photoUrl ? (
+                        <img src={u.photoUrl} alt="" className={styles.previewAvatar} width={56} height={56} />
+                      ) : (
+                        <div className={styles.previewAvatarPh} aria-hidden />
+                      )}
+                      <div className={styles.previewCardBody}>
+                        <span className={styles.previewName}>{formatCardName(u)}</span>
+                        <span className={styles.previewTraining}>{u.trainingSummary}</span>
+                        <div className={styles.previewMetaRow}>
+                          <span>{u.levelLabel || '—'}</span>
+                          <span aria-hidden> · </span>
+                          <span>{u.timePrefLabel || '—'}</span>
+                          <span aria-hidden> · </span>
+                          <span>{u.distanceLabel || '—'}</span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+
+                  {lockedUsers.length > 0 && (
+                    <div className={styles.lockedStack}>
+                      <div className={styles.lockedStackBlur} aria-hidden>
+                        {lockedUsers.map((u) => (
+                          <div key={u.name} className={styles.previewCardGhost}>
+                            {u.photoUrl ? (
+                              <img src={u.photoUrl} alt="" className={styles.previewAvatar} width={56} height={56} />
+                            ) : (
+                              <div className={styles.previewAvatarPh} aria-hidden />
+                            )}
+                            <div className={styles.previewCardBody}>
+                              <span className={styles.previewName}>{formatCardName(u)}</span>
+                              <span className={styles.previewTraining}>{u.trainingSummary}</span>
+                              <div className={styles.previewMetaRow}>
+                                <span>{u.levelLabel || '—'}</span>
+                                <span aria-hidden> · </span>
+                                <span>{u.timePrefLabel || '—'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className={styles.unlockOverlay}>
+                        <p className={styles.unlockTitle}>{t('landing.entry_unlock_overlay_title')}</p>
+                        <p className={styles.unlockSub}>{t('landing.entry_unlock_overlay_sub')}</p>
+                        <button
+                          type="button"
+                          className={`${styles.primaryBtn} ${styles.primaryBtnPulse} ${styles.unlockOverlayBtn}`}
+                          onClick={() => goToPaywall('overlay')}
+                        >
+                          {t('landing.entry_unlock_overlay_cta')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`}
-                  onClick={() => {
-                    saveLandingPrefs({ training, level, timePref });
-                    setStep(3);
-                  }}
-                >
-                  {t('landing.entry_continue')}
-                </button>
               </div>
             )}
 

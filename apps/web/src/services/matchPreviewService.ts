@@ -7,10 +7,13 @@ export type LandingMatchPreviewUser = {
   trainingSummary: string;
   goalLine: string;
   photoUrl?: string | null;
+  levelLabel?: string | null;
+  timePrefLabel?: string | null;
+  distanceLabel?: string | null;
 };
 
 export type LandingMatchPreviewResult = {
-  kind: 'real' | 'demo' | 'empty';
+  kind: 'real' | 'demo';
   matchCount: number;
   users: LandingMatchPreviewUser[];
   exampleLabel?: string | null;

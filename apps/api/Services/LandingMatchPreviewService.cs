@@ -8,7 +8,7 @@ namespace GetTrainMate.Api.Services;
 
 /// <summary>
 /// Pre-signup match preview: scans complete profiles, filters by sport/level/schedule overlap.
-/// Never returns distance or city. Demo/empty states per product rules.
+/// Never returns an empty deck; pads with curated demo profiles. Approximate distance on cards is illustrative only.
 /// </summary>
 public class LandingMatchPreviewService : ILandingMatchPreviewService
 {
@@ -51,42 +51,54 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             ?? throw new ArgumentException("Invalid level", nameof(request));
 
         var visitorWindow = VisitorWindow.FromLandingTimePref(timePref);
+        var timeDisplay = HumanizeTimePref(timePref);
+        var levelTitle = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(levelLabel.ToLowerInvariant());
 
         var completePool = await ScanCompleteProfilesAsync(cancellationToken).ConfigureAwait(false);
 
-        if (completePool.Count == 0)
+        var filteredMatches = completePool.Count == 0
+            ? new List<UserProfile>()
+            : completePool
+                .Where(p => SportMatches(p, sportTag))
+                .Where(p => LevelMatches(p, visitorLevel))
+                .Where(p => ScheduleOverlaps(p, visitorWindow))
+                .OrderByDescending(p => p.UpdatedAt)
+                .Take(6)
+                .ToList();
+
+        var deck = new List<LandingMatchPreviewUserDto>();
+        foreach (var p in filteredMatches)
+            deck.Add(await MapToDtoAsync(p, timeDisplay, cancellationToken).ConfigureAwait(false));
+
+        var n = filteredMatches.Count;
+        var targetSize = n == 0 ? 5 : Math.Min(6, Math.Max(4, n));
+
+        var templates = CuratedDemoTemplates(sportTag, levelTitle, timeDisplay);
+        var takenNames = deck.Select(u => u.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var ti = 0;
+        while (deck.Count < targetSize && ti < templates.Count * 4)
         {
-            return new LandingMatchPreviewResponse { Kind = "empty", MatchCount = 0, Users = Array.Empty<LandingMatchPreviewUserDto>() };
+            var cand = templates[ti++ % templates.Count];
+            if (takenNames.Contains(cand.Name))
+                continue;
+            deck.Add(cand);
+            takenNames.Add(cand.Name);
         }
 
-        var matches = completePool
-            .Where(p => SportMatches(p, sportTag))
-            .Where(p => LevelMatches(p, visitorLevel))
-            .Where(p => ScheduleOverlaps(p, visitorWindow))
-            .OrderByDescending(p => p.UpdatedAt)
-            .Take(3)
-            .ToList();
+        if (deck.Count > 6)
+            deck = deck.Take(6).ToList();
 
-        if (matches.Count > 0)
-        {
-            var dtos = new List<LandingMatchPreviewUserDto>();
-            foreach (var p in matches)
-                dtos.Add(await MapToDtoAsync(p, cancellationToken).ConfigureAwait(false));
-
-            return new LandingMatchPreviewResponse
-            {
-                Kind = "real",
-                MatchCount = dtos.Count,
-                Users = dtos,
-            };
-        }
+        var kind = n > 0 ? "real" : "demo";
+        string? exampleLabel = n == 0
+            ? "Preview profiles — create a free account to unlock real matches nearby."
+            : null;
 
         return new LandingMatchPreviewResponse
         {
-            Kind = "demo",
-            MatchCount = 1,
-            ExampleLabel = "Example match based on your preferences",
-            Users = new[] { BuildDemoUser() },
+            Kind = kind,
+            MatchCount = deck.Count,
+            Users = deck,
+            ExampleLabel = exampleLabel,
         };
     }
 
@@ -671,8 +683,9 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         return false;
     }
 
-    private Task<LandingMatchPreviewUserDto> MapToDtoAsync(UserProfile p, CancellationToken ct)
+    private Task<LandingMatchPreviewUserDto> MapToDtoAsync(UserProfile p, string visitorTimeDisplay, CancellationToken ct)
     {
+        var miles = StableMilesFromKey(p.UserId);
         return Task.FromResult(new LandingMatchPreviewUserDto
         {
             Name = p.Name.Trim(),
@@ -680,17 +693,75 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             TrainingSummary = BuildTrainingSummary(p),
             GoalLine = BuildGoalLine(p),
             PhotoUrl = ResolvePrimaryPhotoUrl(p),
+            LevelLabel = TitleCaseLevelFromProfile(p.Level),
+            TimePrefLabel = visitorTimeDisplay,
+            DistanceLabel = $"~{miles} mi",
         });
     }
 
-    private static LandingMatchPreviewUserDto BuildDemoUser() => new()
+    private static string TitleCaseLevelFromProfile(string? level)
     {
-        Name = "Sarah Runner",
-        Age = 28,
-        TrainingSummary = "Running · Yoga · Hiking",
-        GoalLine = "Complete a sub-4 hour marathon",
-        PhotoUrl = DummyProfilePhotos.PrimaryPhotoByUserId["dummy-user-1"],
-    };
+        var n = NormalizeLevelFromProfile(level);
+        if (n == null)
+            return "Intermediate";
+        return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(n);
+    }
+
+    private static string HumanizeTimePref(string timePref)
+    {
+        var s = timePref.Trim();
+        if (s.Contains("morning", StringComparison.OrdinalIgnoreCase))
+            return "Morning";
+        if (s.Contains("mid", StringComparison.OrdinalIgnoreCase))
+            return "Midday";
+        if (s.Contains("evening", StringComparison.OrdinalIgnoreCase))
+            return "Evening";
+        if (string.IsNullOrEmpty(s))
+            return "Evening";
+        return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(s.ToLowerInvariant());
+    }
+
+    private static int StableMilesFromKey(string key)
+    {
+        unchecked
+        {
+            var h = 0;
+            foreach (var c in key)
+                h = (h * 31 + c) & 0x7FFFFFFF;
+            return 4 + (h % 14);
+        }
+    }
+
+    /// <summary>Curated demo athletes (synthetic). Names/photos align with product examples; not real users.</summary>
+    private static IReadOnlyList<LandingMatchPreviewUserDto> CuratedDemoTemplates(string sportTag, string levelTitle, string timeDisplay)
+    {
+        var sport = string.IsNullOrWhiteSpace(sportTag) ? "Gym" : sportTag.Trim();
+
+        LandingMatchPreviewUserDto Row(string name, string userIdKey, string training, string goal, int age) =>
+            new()
+            {
+                Name = name,
+                Age = age,
+                TrainingSummary = training,
+                GoalLine = goal,
+                PhotoUrl = DummyProfilePhotos.PrimaryPhotoByUserId[userIdKey],
+                LevelLabel = levelTitle,
+                TimePrefLabel = timeDisplay,
+                DistanceLabel = $"~{StableMilesFromKey(name)} mi",
+            };
+
+        return new[]
+        {
+            Row("Alex Drogba", "dummy-user-7", $"{sport} · Soccer · Conditioning", "Stay match-fit year round", 29),
+            Row("Sarah Runner", "dummy-user-1", "Running · Yoga · Hiking", "Complete a sub-4 hour marathon", 28),
+            Row("Maria Chen", "dummy-user-2", $"{sport} · Strength · Mobility", "Build consistent gym habits", 27),
+            Row("Jordan Blake", "dummy-user-5", $"{sport} · HIIT · Core", "Improve work capacity for events", 26),
+            Row("Ken Okada", "dummy-user-6", "Swimming · Core · Recovery", "Open-water confidence", 31),
+            Row("Priya Singh", "dummy-user-3", "Yoga · Pilates · Breathwork", "Move pain-free every week", 30),
+            Row("Taylor Brooks", "dummy-user-4", $"{sport} · Endurance", "Train smarter, not longer", 25),
+            Row("Sam Rivera", "dummy-user-8", "Tennis · Agility · Footwork", "Sharpen match play", 24),
+        };
+    }
 
     private static string BuildTrainingSummary(UserProfile p)
     {
