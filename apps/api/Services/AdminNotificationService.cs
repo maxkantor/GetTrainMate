@@ -83,34 +83,71 @@ public class AdminNotificationService : IAdminNotificationService
         return SendToAllAsync(subject, text, html, cancellationToken, signupReplyTo);
     }
 
-    public Task NotifyCreditsPurchaseAsync(
+    private string? PurchaseSupportEmail()
+    {
+        var s = (_configuration["PurchaseEmail:SupportEmail"] ?? Environment.GetEnvironmentVariable("PURCHASE_EMAIL_SUPPORT") ?? "").Trim();
+        return string.IsNullOrEmpty(s) || !s.Contains('@', StringComparison.Ordinal) ? null : s;
+    }
+
+    public async Task SendCreditsPurchaseConfirmationToCustomerAsync(
+        string? buyerEmail,
+        int credits,
+        string packDisplayTitle,
+        long? amountTotalCents,
+        string? currency,
+        string appBaseUrl,
+        CancellationToken cancellationToken = default)
+    {
+        var to = (buyerEmail ?? "").Trim();
+        if (string.IsNullOrEmpty(to) || !to.Contains('@', StringComparison.Ordinal))
+        {
+            _logger.LogDebug("Customer purchase confirmation skipped: no buyer email from Stripe checkout.");
+            return;
+        }
+
+        var amountFormatted = CreditsPurchaseEmailTemplates.FormatMoney(amountTotalCents, currency);
+        var support = PurchaseSupportEmail();
+        var (subject, text, html) = CreditsPurchaseEmailTemplates.BuildCustomerPurchaseEmail(
+            credits,
+            packDisplayTitle,
+            amountFormatted,
+            appBaseUrl,
+            support);
+
+        IReadOnlyList<string>? replyTo = support != null ? new[] { support } : null;
+
+        try
+        {
+            await _email.SendEmailAsync(to, subject, text, html, replyToAddresses: replyTo);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Customer purchase confirmation email failed for {To}", to);
+        }
+    }
+
+    public Task NotifyCreditsPurchaseAdminAsync(
         string userId,
+        string? buyerEmail,
         int credits,
         string packKey,
-        string sessionId,
+        string packDisplayTitle,
+        string stripeSessionId,
         string? paymentIntentId,
         long? amountTotalCents,
         string? currency,
         CancellationToken cancellationToken = default)
     {
-        var subject = "[GetTrainMate] Credit purchase";
-        var amountLine = amountTotalCents.HasValue
-            ? $"Amount: {(amountTotalCents.Value / 100m):F2} {currency ?? "usd"}"
-            : "Amount: (see Stripe)";
-        var lines = new List<string>
-        {
-            "A user purchased credits.",
-            $"User ID: {userId}",
-            $"Pack: {packKey}",
-            $"Credits: {credits}",
-            amountLine,
-            $"Stripe session: {sessionId}",
-        };
-        if (!string.IsNullOrWhiteSpace(paymentIntentId))
-            lines.Add($"Payment intent: {paymentIntentId}");
-        lines.Add($"Time (UTC): {DateTime.UtcNow:O}");
-        var text = string.Join(Environment.NewLine, lines);
-        var html = $"<p>{string.Join("</p><p>", lines.Select(System.Net.WebUtility.HtmlEncode))}</p>";
+        var (subject, text, html) = CreditsPurchaseEmailTemplates.BuildAdminCreditsPurchaseEmail(
+            userId,
+            buyerEmail,
+            credits,
+            packKey,
+            packDisplayTitle,
+            stripeSessionId,
+            paymentIntentId,
+            amountTotalCents,
+            currency);
         return SendToAllAsync(subject, text, html, cancellationToken, replyToAddresses: null);
     }
 

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Configuration;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
@@ -29,15 +30,86 @@ public class CreditsService : ICreditsService
     private readonly IAmazonDynamoDB _dynamoDb;
     private readonly ILogger<CreditsService> _logger;
     private readonly IAdminNotificationService _adminNotify;
+    private readonly IConfiguration _configuration;
 
     public CreditsService(
         IAmazonDynamoDB dynamoDb,
         ILogger<CreditsService> logger,
-        IAdminNotificationService adminNotify)
+        IAdminNotificationService adminNotify,
+        IConfiguration configuration)
     {
         _dynamoDb = dynamoDb;
         _logger = logger;
         _adminNotify = adminNotify;
+        _configuration = configuration;
+    }
+
+    private string ResolveAppMarketingBaseUrl()
+    {
+        var u = (_configuration["Frontend:BaseUrl"] ?? "https://gettrainmate.com").Trim();
+        return u.TrimEnd('/');
+    }
+
+    private static string? ResolveCheckoutBuyerEmail(Session session)
+    {
+        var fromDetails = session.CustomerDetails?.Email;
+        if (!string.IsNullOrWhiteSpace(fromDetails))
+            return fromDetails.Trim();
+        if (!string.IsNullOrWhiteSpace(session.CustomerEmail))
+            return session.CustomerEmail.Trim();
+        return null;
+    }
+
+    private static string HumanizePackKey(string packKey)
+    {
+        if (string.IsNullOrWhiteSpace(packKey))
+            return "Credit pack";
+        var parts = packKey.Split(new[] { '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            return "Credit pack";
+        var ti = CultureInfo.InvariantCulture.TextInfo;
+        return string.Join(" ", parts.Select(p => ti.ToTitleCase(p.ToLowerInvariant())));
+    }
+
+    private async Task NotifyPurchaseEmailsAsync(
+        Session session,
+        string userId,
+        string packKey,
+        int credits)
+    {
+        var appBase = ResolveAppMarketingBaseUrl();
+        string packTitle;
+        try
+        {
+            var packDto = await GetPackByKeyAsync(packKey);
+            packTitle = !string.IsNullOrWhiteSpace(packDto?.Title) ? packDto!.Title.Trim() : HumanizePackKey(packKey);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not load pack title for email; using humanized key.");
+            packTitle = HumanizePackKey(packKey);
+        }
+
+        var buyerEmail = ResolveCheckoutBuyerEmail(session);
+        _ = _adminNotify.SendCreditsPurchaseConfirmationToCustomerAsync(
+            buyerEmail,
+            credits,
+            packTitle,
+            session.AmountTotal,
+            session.Currency,
+            appBase,
+            CancellationToken.None);
+        _ = _adminNotify.NotifyCreditsPurchaseAdminAsync(
+            userId,
+            buyerEmail,
+            credits,
+            packKey,
+            packTitle,
+            session.Id,
+            session.PaymentIntentId,
+            session.AmountTotal,
+            session.Currency,
+            CancellationToken.None);
     }
 
     /// <summary>Preserves entitlement and daily-free-like counters when rewriting the user-credits item (full PutItem).</summary>
@@ -360,15 +432,7 @@ public class CreditsService : ICreditsService
             await txTable.PutItemAsync(txDoc);
 
             _logger.LogInformation("ConfirmCreditsPurchase: credited user {UserId} with {Credits} credits (session {SessionId}).", userId, credits, session.Id);
-            _ = _adminNotify.NotifyCreditsPurchaseAsync(
-                userId,
-                credits,
-                packKey,
-                session.Id,
-                session.PaymentIntentId,
-                session.AmountTotal,
-                session.Currency,
-                CancellationToken.None);
+            await NotifyPurchaseEmailsAsync(session, userId, packKey, credits);
             return await GetCreditsBalanceAsync(userId);
         }
         catch (Exception ex)
@@ -476,15 +540,7 @@ public class CreditsService : ICreditsService
 
             await MarkWebhookEventProcessedAsync(eventsTable, stripeEventId, null);
             _logger.LogInformation("Credited user {UserId} with {Credits} credits (session {SessionId}).", userId, credits, session.Id);
-            _ = _adminNotify.NotifyCreditsPurchaseAsync(
-                userId,
-                credits,
-                packKey,
-                session.Id,
-                session.PaymentIntentId,
-                session.AmountTotal,
-                session.Currency,
-                CancellationToken.None);
+            await NotifyPurchaseEmailsAsync(session, userId, packKey, credits);
             return true;
         }
         catch (Exception ex)

@@ -35,6 +35,25 @@
   line-height: 1.5;
 }
 
+.creditsUsageLink {
+  display: inline-block;
+  margin: var(--space-4) auto 0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgba(196, 181, 253, 0.98);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.creditsUsageLink:hover {
+  color: #e9d5ff;
+}
+
 .heroTrustRow {
   font-size: 0.8125rem;
   color: rgba(255, 255, 255, 0.52);

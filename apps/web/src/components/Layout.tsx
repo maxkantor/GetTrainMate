@@ -5,6 +5,7 @@ import { Footer } from './layout/Footer';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useActivityHeartbeat } from '@/hooks/useActivityHeartbeat';
 import { ChatPresenceProvider } from '@/contexts/ChatPresenceContext';
+import { CreditsUsageModalProvider } from '@/contexts/CreditsUsageModalContext';
 import styles from './Layout.module.css';
 
 function AppActivityHeartbeat() {
@@ -36,11 +37,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className={styles.wrapper}>
       <ChatPresenceProvider>
-        {user && isApp && !isAdmin && <AppActivityHeartbeat />}
-        {!isAdmin && <AppHeader />}
-        <main className={isApp && !isAdmin ? styles.mainApp : styles.main}>
-          {isApp && !isAdmin ? <div className={styles.appContainer}>{children}</div> : children}
-        </main>
+        <CreditsUsageModalProvider>
+          {user && isApp && !isAdmin && <AppActivityHeartbeat />}
+          {!isAdmin && <AppHeader />}
+          <main className={isApp && !isAdmin ? styles.mainApp : styles.main}>
+            {isApp && !isAdmin ? <div className={styles.appContainer}>{children}</div> : children}
+          </main>
+        </CreditsUsageModalProvider>
       </ChatPresenceProvider>
       {!isAdmin && <Footer />}
     </div>

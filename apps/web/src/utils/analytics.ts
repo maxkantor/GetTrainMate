@@ -90,6 +90,8 @@ export function trackPremiumAction(
 /** Legacy helpers — map to GA4 + keep names stable for dashboards. */
 export const analytics = {
   ctaClick: (cta: string, location?: string) => trackCTA(cta, location),
+  /** Full credits usage breakdown modal (from header, pricing, etc.). */
+  creditsUsageOpened: (source?: string) => gaEvent('view_credits_usage', { source: source ?? 'unknown' }),
   pricingOpened: (source?: string) => gaEvent('view_pricing', { source: source ?? 'direct' }),
   purchaseStarted: (packKey: string) => gaEvent('begin_checkout', { pack_key: packKey }),
   purchaseSuccess: (packKey: string, amount: number) =>

@@ -11,6 +11,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { formatI18n, getPricingPackFeatures, getPricingPackTitle } from '@/i18n';
 import { CreditPack, FALLBACK_CREDIT_PACKS, CreditPackKey } from '@/data/creditPacks';
 import { CANONICAL_PACK_KEYS, normalizeCreditPackKey } from '@/config/pricingPlans';
+import { useCreditsUsageModal } from '@/contexts/CreditsUsageModalContext';
 import styles from '@/pages/Pricing.module.css';
 
 const MAX_BULLETS = 5;
@@ -61,6 +62,7 @@ export const PricingPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuthContext();
   const { me } = useMe();
+  const { openModal: openCreditsUsageModal } = useCreditsUsageModal();
   const [packs, setPacks] = useState<CreditPack[]>(FALLBACK_CREDIT_PACKS);
   const [error, setError] = useState<string | null>(null);
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
@@ -147,6 +149,13 @@ export const PricingPage: React.FC = () => {
             )}
             <h1 className={styles.title}>{t('pricing.hero_title')}</h1>
             <p className={styles.subtext}>{t('pricing.hero_sub')}</p>
+            <button
+              type="button"
+              className={styles.creditsUsageLink}
+              onClick={() => openCreditsUsageModal('pricing')}
+            >
+              {t('credits_usage.pricing_link')}
+            </button>
             <p className={styles.heroTrustRow}>{t('pricing.hero_trust_row')}</p>
             <p className={styles.heroFeaturePills}>{t('pricing.hero_feature_pills')}</p>
           </Container>

@@ -14,6 +14,7 @@ import { useMatchStatusForHeader } from '@/hooks/useMatchStatusForHeader';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import { requestChatNavScrollTop } from '@/utils/chatNav';
+import { useCreditsUsageModal } from '@/contexts/CreditsUsageModalContext';
 import styles from './AppHeader.module.css';
 
 export const AppHeader: React.FC = () => {
@@ -32,6 +33,7 @@ export const AppHeader: React.FC = () => {
   const isAdmin = me?.isAdmin ?? user?.groups?.includes('Admin') ?? false;
   const matchStatus = useMatchStatusForHeader(isLoggedIn);
   const chatUnread = useChatUnreadCount();
+  const { openModal: openCreditsUsageModal } = useCreditsUsageModal();
 
   const credits = me?.credits ?? 0;
   const creditCap = Math.max(me?.lifetimeEarned ?? 0, credits);
@@ -278,19 +280,23 @@ export const AppHeader: React.FC = () => {
                 <LanguageDropdown />
               </div>
               <Tooltip title={creditTooltip} arrow enterTouchDelay={0} placement="bottom">
-                <span
-                  className={styles.headerCredits}
-                  aria-label={formatI18n(t('credits.aria_summary'), { credits, cap: creditCap })}
-                >
-                  <span className={styles.headerCreditsVerbose}>
-                    <span className={styles.headerCreditsVal}>{credits}</span>
-                    <span className={styles.headerCreditsSep}> / </span>
-                    <span className={styles.headerCreditsMax}>{creditCap}</span>
-                    <span className={styles.headerCreditsWord}> {t('credits.word_credits')}</span>
-                  </span>
-                  <span className={styles.headerCreditsTight} aria-hidden>
-                    {credits}/{creditCap} {t('credits.word_credits')}
-                  </span>
+                <span className={styles.creditsTooltipAnchor}>
+                  <button
+                    type="button"
+                    className={styles.headerCredits}
+                    onClick={() => openCreditsUsageModal('header_credits_pill')}
+                    aria-label={`${formatI18n(t('credits.aria_summary'), { credits, cap: creditCap })} — ${t('credits_usage.open_help_aria')}`}
+                  >
+                    <span className={styles.headerCreditsVerbose}>
+                      <span className={styles.headerCreditsVal}>{credits}</span>
+                      <span className={styles.headerCreditsSep}> / </span>
+                      <span className={styles.headerCreditsMax}>{creditCap}</span>
+                      <span className={styles.headerCreditsWord}> {t('credits.word_credits')}</span>
+                    </span>
+                    <span className={styles.headerCreditsTight} aria-hidden>
+                      {credits}/{creditCap} {t('credits.word_credits')}
+                    </span>
+                  </button>
                 </span>
               </Tooltip>
               <SamePathScrollLink
@@ -329,6 +335,16 @@ export const AppHeader: React.FC = () => {
                     <RouterLink to="/app/subscription" className={styles.dropItem} onClick={() => setUserOpen(false)}>
                       {t('header.billing')}
                     </RouterLink>
+                    <button
+                      type="button"
+                      className={styles.dropItem}
+                      onClick={() => {
+                        setUserOpen(false);
+                        openCreditsUsageModal('header_menu');
+                      }}
+                    >
+                      {t('credits_usage.pricing_link')}
+                    </button>
                     {isAdmin && (
                       <RouterLink to="/admin" className={styles.dropItem} onClick={() => setUserOpen(false)}>
                         {t('header.admin')}
@@ -406,19 +422,26 @@ export const AppHeader: React.FC = () => {
                     {me?.profile?.name?.trim() || user?.email?.split('@')[0] || 'Profile'}
                   </div>
                   <Tooltip title={creditTooltip} arrow enterTouchDelay={0}>
-                    <span
-                      className={styles.mobileCredits}
-                      aria-label={formatI18n(t('credits.mobile_aria'), { credits, cap: creditCap })}
-                    >
-                      <span className={styles.headerCreditsVerbose}>
-                        <span className={styles.headerCreditsVal}>{credits}</span>
-                        <span className={styles.headerCreditsSep}> / </span>
-                        <span className={styles.headerCreditsMax}>{creditCap}</span>
-                        <span className={styles.headerCreditsWord}> {t('credits.word_credits')}</span>
-                      </span>
-                      <span className={styles.headerCreditsTight} aria-hidden>
-                        {credits}/{creditCap} {t('credits.word_credits')}
-                      </span>
+                    <span className={styles.creditsTooltipAnchor}>
+                      <button
+                        type="button"
+                        className={styles.mobileCredits}
+                        onClick={() => {
+                          setMobileOpen(false);
+                          openCreditsUsageModal('header_mobile_credits_pill');
+                        }}
+                        aria-label={`${formatI18n(t('credits.mobile_aria'), { credits, cap: creditCap })} — ${t('credits_usage.open_help_aria')}`}
+                      >
+                        <span className={styles.headerCreditsVerbose}>
+                          <span className={styles.headerCreditsVal}>{credits}</span>
+                          <span className={styles.headerCreditsSep}> / </span>
+                          <span className={styles.headerCreditsMax}>{creditCap}</span>
+                          <span className={styles.headerCreditsWord}> {t('credits.word_credits')}</span>
+                        </span>
+                        <span className={styles.headerCreditsTight} aria-hidden>
+                          {credits}/{creditCap} {t('credits.word_credits')}
+                        </span>
+                      </button>
                     </span>
                   </Tooltip>
                   <SamePathScrollLink

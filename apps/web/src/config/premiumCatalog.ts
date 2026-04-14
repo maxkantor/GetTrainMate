@@ -63,3 +63,9 @@ export async function loadPremiumCatalog(): Promise<PremiumCatalog> {
 export function creditPhrase(n: number): string {
   return n === 1 ? '1 credit' : `${n} credits`;
 }
+
+/** Fallback cost when catalog fetch fails (matches server CreditRules). */
+export function getFallbackPremiumCost(actionKey: string): number {
+  const costs = FALLBACK.costs as Record<string, number>;
+  return costs[actionKey] ?? 0;
+}
