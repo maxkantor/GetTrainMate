@@ -62,6 +62,11 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
     description: 'Terms of use for the GetTrainMate service.',
     noindex: false,
   },
+  '/forgot-password': {
+    title: `Reset Password | ${BRAND}`,
+    description: 'Reset your GetTrainMate password using the verification code sent to your email.',
+    noindex: false,
+  },
 };
 
 const AUTH_PATHS = new Set(['/login', '/signup', '/verify-email', '/admin/login']);

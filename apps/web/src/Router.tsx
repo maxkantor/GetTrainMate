@@ -19,6 +19,7 @@ import { TermsPage } from '@/pages/Terms';
 import { GearPage } from '@/pages/Gear';
 import { PlatformPage } from '@/pages/Platform';
 import { LoginPage } from '@/pages/Login';
+import { ForgotPasswordPage } from '@/pages/ForgotPassword';
 import { SignupPage } from '@/pages/Signup';
 import { VerifyEmailPage } from '@/pages/VerifyEmail';
 import { DashboardPage as AppDashboardPage } from '@/pages/app/Dashboard';
@@ -121,6 +122,7 @@ export const Router: React.FC = () => {
 
             {/* Auth routes */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />

@@ -51,7 +51,9 @@ function persistLoginEmail(emailTrimmed: string, remember: boolean) {
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const oauthHint = (location.state as { hint?: string } | null)?.hint;
+  const locationState = location.state as { hint?: string; infoMessage?: string } | null;
+  const oauthHint = locationState?.hint;
+  const infoMessage = locationState?.infoMessage;
   const [searchParams] = useSearchParams();
   const { t } = useI18n();
 
@@ -256,7 +258,13 @@ export const LoginPage: React.FC = () => {
           </Alert>
         )}
 
-        {oauthHint && (
+        {infoMessage && (
+          <Alert severity="success" sx={{ marginBottom: 2 }}>
+            {infoMessage}
+          </Alert>
+        )}
+
+        {oauthHint && !infoMessage && (
           <Alert severity="info" sx={{ marginBottom: 2 }}>
             Google sign-in did not start ({oauthHint}). Continue with email, or configure Cognito Hosted UI with Google
             for your user pool.
