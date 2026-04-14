@@ -1,9 +1,12 @@
 /**
  * Google Analytics 4 (gtag.js) — single init, SPA-safe page_view, typed events.
- * Measurement ID: VITE_GA_MEASUREMENT_ID (e.g. G-Z4RSKMHPQQ).
+ * Set VITE_GA_MEASUREMENT_ID to override; production builds default to the live GetTrainMate property.
  */
 
 import { SITE_ORIGIN } from '@/config/site';
+
+/** Public GA4 measurement ID for https://gettrainmate.com (same as gtag.js install snippet in GA). */
+const DEFAULT_PRODUCTION_MEASUREMENT_ID = 'G-VRYT23K2D4';
 
 declare global {
   interface Window {
@@ -15,8 +18,15 @@ declare global {
 const INIT_FLAG = '__GTM_GA4_INITIALIZED__';
 
 export function getMeasurementId(): string | undefined {
-  const id = typeof import.meta !== 'undefined' && import.meta.env?.VITE_GA_MEASUREMENT_ID;
-  return id ? String(id).trim() : undefined;
+  const fromEnv =
+    typeof import.meta !== 'undefined' && import.meta.env?.VITE_GA_MEASUREMENT_ID;
+  const trimmed = fromEnv ? String(fromEnv).trim() : '';
+  if (trimmed) return trimmed;
+  // Production bundle: always load gtag unless explicitly disabled via empty env in a custom setup.
+  if (typeof import.meta !== 'undefined' && import.meta.env.PROD) {
+    return DEFAULT_PRODUCTION_MEASUREMENT_ID;
+  }
+  return undefined;
 }
 
 export function isGa4Enabled(): boolean {

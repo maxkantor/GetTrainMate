@@ -7,7 +7,7 @@ Production domain (canonical): **https://gettrainmate.com**
 | Variable | Purpose |
 |----------|---------|
 | `VITE_PUBLIC_SITE_URL` | Canonical origin (no trailing slash). Used for OG URLs, JSON-LD, and SPA `page_location` in GA4. Default in code: `https://gettrainmate.com`. |
-| `VITE_GA_MEASUREMENT_ID` | GA4 Measurement ID (e.g. `G-Z4RSKMHPQQ`). Omit in dev to disable gtag. |
+| `VITE_GA_MEASUREMENT_ID` | GA4 Measurement ID. **Production builds** default to `G-VRYT23K2D4` if unset. In local dev, gtag stays off unless you set this in `.env`. |
 | `VITE_GSC_VERIFICATION` | **Google Search Console** HTML tag verification: paste the **content** value only (not the full meta tag). Injected at build into `index.html` via `vite.config.ts`. |
 | `VITE_THEME_COLOR` | Browser UI theme color (default `#070b1a`). |
 
@@ -30,7 +30,7 @@ In Search Console → **URL inspection**, enter a public URL (e.g. `https://gett
 
 ## Google Analytics 4 — Realtime
 
-1. Deploy with `VITE_GA_MEASUREMENT_ID` set.
+1. Deploy the production web build (measurement ID `G-VRYT23K2D4` is baked in unless you override `VITE_GA_MEASUREMENT_ID`).
 2. Open GA4 → **Reports** → **Realtime**.
 3. Visit the site in another window; you should see active users and `page_view` events for SPA navigations.
 
