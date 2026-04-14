@@ -6,7 +6,7 @@
 import { SITE_ORIGIN } from '@/config/site';
 
 /** Public GA4 measurement ID for https://gettrainmate.com (same as gtag.js install snippet in GA). */
-const DEFAULT_PRODUCTION_MEASUREMENT_ID = 'G-VRYT23K2D4';
+const DEFAULT_PRODUCTION_MEASUREMENT_ID = 'G-C29M8NWNY4';
 
 declare global {
   interface Window {
