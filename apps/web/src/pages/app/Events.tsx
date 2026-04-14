@@ -224,7 +224,7 @@ export const EventsPage: React.FC = () => {
       await loadEvents();
     } catch (err) {
       const apiError = handleApiError(err);
-      setError(apiError.message || 'Failed to RSVP');
+      setError(apiError.message || t('app_pages.events.failed_rsvp'));
     } finally {
       setJoiningId(null);
     }
@@ -527,11 +527,13 @@ export const EventsPage: React.FC = () => {
                 ) : (
                   <>
                     <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-                      {editPreferences ? 'Update your Events preferences' : 'Get notified for your city'}
+                      {editPreferences
+                        ? t('app_pages.events.update_preferences')
+                        : t('app_pages.events.get_notified_city')}
                     </Typography>
                     {!editPreferences ? (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Published events are below — tell us where to launch meetups next.
+                        {t('app_pages.events.published_events_hint')}
                       </Typography>
                     ) : null}
                     <WaitlistForm compact />
@@ -542,7 +544,7 @@ export const EventsPage: React.FC = () => {
               {viewMode === 'calendar' && (
                 <div className={styles.calendarPlaceholder}>
                   <CalendarMonthIcon sx={{ fontSize: 48, color: 'rgba(167, 139, 250, 0.5)' }} />
-                  <p>Calendar view coming soon</p>
+                  <p>{t('app_pages.events.calendar_coming')}</p>
                 </div>
               )}
 
@@ -553,7 +555,7 @@ export const EventsPage: React.FC = () => {
                       <h3 className={styles.eventTitle}>{evt.title}</h3>
                       <span className={styles.eventSport}>{evt.sport}</span>
                     </div>
-                    <p className={styles.eventDesc}>{evt.description || 'No description'}</p>
+                    <p className={styles.eventDesc}>{evt.description || t('app_pages.events.no_description')}</p>
                     <div className={styles.eventMeta}>
                       <span>📍 {evt.city}</span>
                       <span>📅 {new Date(evt.eventDate).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
@@ -567,7 +569,11 @@ export const EventsPage: React.FC = () => {
                       onClick={() => handleRSVP(evt.eventId)}
                       disabled={evt.isJoined || joiningId === evt.eventId}
                     >
-                      {evt.isJoined ? 'Joined' : joiningId === evt.eventId ? 'Joining…' : 'RSVP'}
+                      {evt.isJoined
+                        ? t('app_pages.events.joined')
+                        : joiningId === evt.eventId
+                          ? t('app_pages.events.joining')
+                          : t('app_pages.events.rsvp')}
                     </button>
                   </article>
                 ))}
@@ -595,17 +601,16 @@ export const EventsPage: React.FC = () => {
                     <NotificationsActiveIcon sx={{ fontSize: 40, color: 'primary.light' }} />
                   </Box>
                   <Typography variant="overline" sx={{ letterSpacing: '0.2em', color: 'text.secondary', fontWeight: 700 }}>
-                    Coming online
+                    {t('app_pages.events.coming_online')}
                   </Typography>
                   <Typography variant="h4" component="h1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                    Train together IRL
+                    {t('app_pages.events.train_together_irl')}
                   </Typography>
                   <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 520 }}>
-                    Local workout meetups, partner sessions, and community events are coming soon.
+                    {t('app_pages.events.launch_subtitle')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 540, lineHeight: 1.65 }}>
-                    We&apos;re preparing city-based fitness meetups and RSVP flows. Join the waitlist to get notified when
-                    Events launch in your area.
+                    {t('app_pages.events.launch_body')}
                   </Typography>
 
                   {renderWaitlistBlock()}

@@ -47,9 +47,9 @@ export const MatchesPage: React.FC = () => {
     if (!isError || !queryError) return '';
     const apiError = handleApiError(queryError);
     if (isNetworkError(queryError) || apiError.isCorsError) {
-      return 'Unable to connect to the API. The backend may not be deployed or CORS is not configured.';
+      return t('app_messages.api_backend_unreachable');
     }
-    return apiError.message || 'Failed to load matches';
+    return apiError.message || t('app_pages.matches.failed_load');
   })();
 
   const [unlockingMatchId, setUnlockingMatchId] = useState<string | null>(null);
@@ -104,7 +104,7 @@ export const MatchesPage: React.FC = () => {
       navigate(`/app/chat?thread=${m.matchId}`);
     } catch (err) {
       const apiError = handleApiError(err);
-      setUnlockError(apiError.message || 'Failed to unlock chat');
+      setUnlockError(apiError.message || t('app_messages.failed_unlock_chat'));
     } finally {
       setUnlockingMatchId(null);
     }
@@ -127,7 +127,7 @@ export const MatchesPage: React.FC = () => {
           {error}
         </Alert>
         <MuiButton fullWidth variant="contained" onClick={() => void refetchMatches()}>
-          Retry
+          {t('discover.retry')}
         </MuiButton>
       </div>
     );
@@ -137,12 +137,12 @@ export const MatchesPage: React.FC = () => {
     return (
       <div className={styles.container}>
         <div className={styles.empty}>
-          <h2 className={styles.emptyTitle}>No matches yet</h2>
+          <h2 className={styles.emptyTitle}>{t('app_pages.matches.empty_title')}</h2>
           <p className={styles.emptyDesc}>
-            Matches happen when both users like each other. Unlock chat when you match (1 credit).
+            {t('app_pages.matches.empty_desc')}
           </p>
           <Link to="/app/discover" className={styles.emptyBtn}>
-            Start Discovering
+            {t('app_pages.home.start_discovering')}
           </Link>
         </div>
       </div>
@@ -151,7 +151,7 @@ export const MatchesPage: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>Your Matches</h1>
+      <h1 className={styles.title}>{t('app_pages.matches.title')}</h1>
       {unlockError ? (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setUnlockError('')}>
           {unlockError}
@@ -159,25 +159,25 @@ export const MatchesPage: React.FC = () => {
       ) : null}
       <div className={styles.subNav}>
         {me?.profile?.discoverCanReviewLikedProfiles !== false ? (
-          <Link to="/app/sent-requests">Sent requests</Link>
+          <Link to="/app/sent-requests">{t('app_pages.matches.sent_requests')}</Link>
         ) : null}
         {me?.profile?.discoverCanReviewSkippedProfiles !== false ? (
-          <Link to="/app/skipped">Skipped</Link>
+          <Link to="/app/skipped">{t('nav.skipped')}</Link>
         ) : null}
-        <Link to="/app/discover">Discover</Link>
+        <Link to="/app/discover">{t('nav.discover')}</Link>
       </div>
 
-      {credits < 1 && <UpgradeBanner message="Get credits to unlock chat with your matches." />}
+      {credits < 1 && <UpgradeBanner message={t('app_pages.matches.upgrade_banner')} />}
 
       <div className={styles.toolbar}>
         <div className={styles.searchWrap}>
           <input
             type="search"
-            placeholder="Search by name, city, sports..."
+            placeholder={t('app_pages.matches.search_placeholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={styles.searchInput}
-            aria-label="Search matches"
+            aria-label={t('app_pages.matches.search_aria')}
           />
         </div>
         <select
@@ -185,9 +185,9 @@ export const MatchesPage: React.FC = () => {
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as SortBy)}
         >
-          <option value="newest">Newest first</option>
-          <option value="best_match">Best match</option>
-          <option value="closest">Closest</option>
+          <option value="newest">{t('app_pages.matches.sort_newest')}</option>
+          <option value="best_match">{t('app_pages.matches.sort_best')}</option>
+          <option value="closest">{t('app_pages.matches.sort_closest')}</option>
         </select>
       </div>
 
@@ -217,7 +217,9 @@ export const MatchesPage: React.FC = () => {
               </h2>
               <p className={styles.cardMeta}>
                 {match.city && `${match.city} · `}
-                {match.compatibilityScore ? `${match.compatibilityScore}% match` : 'Mutual match'}
+                {match.compatibilityScore
+                  ? `${match.compatibilityScore}% ${t('app_pages.matches.percent_match_suffix')}`
+                  : t('app_pages.matches.mutual_match')}
               </p>
               {match.modes && match.modes.length > 0 ? (
                 <p className={styles.cardModes}>{formatLookingForLine(match.modes)}</p>
@@ -244,7 +246,7 @@ export const MatchesPage: React.FC = () => {
                   className={styles.chatBtn}
                 >
                   <ChatIcon sx={{ fontSize: 20 }} />
-                  Open chat
+                  {t('app_pages.matches.open_chat')}
                 </Link>
               ) : (
                 <button
@@ -254,7 +256,9 @@ export const MatchesPage: React.FC = () => {
                   disabled={unlockingMatchId === match.matchId || credits < 1}
                 >
                   <LockIcon sx={{ fontSize: 20 }} />
-                  {unlockingMatchId === match.matchId ? 'Unlocking…' : 'Unlock chat (1 credit)'}
+                  {unlockingMatchId === match.matchId
+                    ? t('app_pages.matches.unlocking')
+                    : t('app_pages.matches.unlock_chat_one_credit')}
                 </button>
               )}
             </div>
@@ -264,7 +268,7 @@ export const MatchesPage: React.FC = () => {
       {hasMore ? (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
           <MuiButton variant="outlined" onClick={() => setVisibleCount((c) => c + MATCHES_PAGE_SIZE)}>
-            Load more ({filteredAndSorted.length - visibleCount} remaining)
+            {t('app_pages.matches.load_more')} ({filteredAndSorted.length - visibleCount} {t('app_pages.matches.remaining')})
           </MuiButton>
         </div>
       ) : null}

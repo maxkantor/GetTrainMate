@@ -68,7 +68,7 @@ export const AICoachPage: React.FC = () => {
     if (!msg || loading) return;
     const token = await authService.getJWT();
     if (!token) {
-      setError('Please sign in again.');
+      setError(t('app_pages.ai.sign_in_again'));
       return;
     }
     setError('');
@@ -135,23 +135,23 @@ export const AICoachPage: React.FC = () => {
     <PageShell variant="content" showBackLink>
       <Container maxWidth="sm" sx={{ py: 2, height: '80vh', display: 'flex', flexDirection: 'column' }}>
         <Typography variant="h5" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-          AI Coach
+          {t('app_pages.ai.title')}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Get help with your profile, match quality, first messages, and workout ideas. Answers are powered by AI.
+          {t('app_pages.ai.subtitle')}
         </Typography>
 
         <Paper className={styles.chatPanel} elevation={0}>
           <div ref={messagesRef} className={styles.messages}>
             {history.length === 0 && !streamingContent && (
               <div className={styles.placeholder}>
-                <p>Ask anything about:</p>
+                <p>{t('app_pages.ai.ask_anything')}</p>
                 <ul>
-                  <li>Improving your profile or bio</li>
-                  <li>Why you match with someone</li>
-                  <li>First message ideas</li>
-                  <li>Simple workout or session ideas</li>
-                  <li>How credits and the app work</li>
+                  <li>{t('app_pages.ai.tip_1')}</li>
+                  <li>{t('app_pages.ai.tip_2')}</li>
+                  <li>{t('app_pages.ai.tip_3')}</li>
+                  <li>{t('app_pages.ai.tip_4')}</li>
+                  <li>{t('app_pages.ai.tip_5')}</li>
                 </ul>
               </div>
             )}
@@ -181,14 +181,14 @@ export const AICoachPage: React.FC = () => {
           <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
               {coachCost === 1
-                ? 'Each AI answer costs 1 credit.'
-                : `Each AI answer costs ${creditPhrase(coachCost)}.`}
+                ? t('app_pages.ai.cost_one')
+                : `${t('app_pages.ai.cost_many_prefix')} ${creditPhrase(coachCost)}.`}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
               <TextField
                 fullWidth
                 size="small"
-                placeholder="Ask the AI Coach..."
+                placeholder={t('app_pages.ai.input_placeholder')}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -207,7 +207,7 @@ export const AICoachPage: React.FC = () => {
                 disabled={loading || !input.trim()}
                 endIcon={loading ? <CircularProgress size={18} color="inherit" /> : <SendIcon />}
               >
-                {loading ? '…' : 'Send'}
+                {loading ? '…' : t('app_pages.common.send')}
               </Button>
             </Box>
           </Box>
@@ -231,10 +231,12 @@ export const AICoachPage: React.FC = () => {
         )}
         <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <Button variant="outlined" size="small" onClick={handleGetWorkoutPlan} disabled={workoutLoading}>
-            {workoutLoading ? 'Generating…' : `Generate workout idea (${creditPhrase(workoutCost)})`}
+            {workoutLoading
+              ? t('app_pages.common.generating')
+              : `${t('app_pages.ai.generate_workout')} (${creditPhrase(workoutCost)})`}
           </Button>
           <Button variant="outlined" size="small" component={Link} to="/app/chat">
-            Back to Chat
+            {t('app_pages.ai.back_to_chat')}
           </Button>
           <Button variant="outlined" size="small" component={Link} to="/pricing">
             {t('header.get_credits')}

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { authService } from '@/services/authService';
 import { saveLandingPrefs } from '@/utils/landingPrefs';
 import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
 import { FooterLegalLinksRow } from '@/components/layout/FooterLegalLinksRow';
 import { LANDING_TRAINING_OPTIONS } from '@/config/landingTrainingOptions';
 import {
@@ -15,18 +16,14 @@ import {
 import { DUMMY_USER_PRIMARY_PHOTO } from '@/utils/profilePhotos';
 import styles from './LandingEntryFlow.module.css';
 
-const LEVELS = ['Beginner', 'Intermediate', 'Advanced'] as const;
-const TIMES = ['Morning (5–9am)', 'Mid-day', 'Evening'] as const;
+const LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
+const TIMES = ['morning', 'midday', 'evening'] as const;
 
 const DEFAULT_TRAINING = 'Gym';
-const DEFAULT_LEVEL: (typeof LEVELS)[number] = 'Intermediate';
-const DEFAULT_TIME: (typeof TIMES)[number] = 'Evening';
+const DEFAULT_LEVEL: (typeof LEVELS)[number] = 'intermediate';
+const DEFAULT_TIME: (typeof TIMES)[number] = 'evening';
 
-const ANALYZE_MESSAGES = [
-  'Analyzing your training style…',
-  'Finding compatible athletes…',
-  'Building your matches…',
-] as const;
+const ANALYZE_MESSAGES = ['entry_analyze_1', 'entry_analyze_2', 'entry_analyze_3'] as const;
 
 const MIN_ANALYZE_MS = 1650;
 
@@ -34,7 +31,7 @@ const MIN_ANALYZE_MS = 1650;
 const OFFLINE_DEMO: LandingMatchPreviewResult = {
   kind: 'demo',
   matchCount: 1,
-  exampleLabel: 'Example match based on your preferences',
+  exampleLabel: '',
   users: [
     {
       name: 'Sarah Runner',
@@ -48,12 +45,12 @@ const OFFLINE_DEMO: LandingMatchPreviewResult = {
 
 function previewHeadline(preview: LandingMatchPreviewResult | null): string {
   if (!preview) return '';
-  if (preview.kind === 'empty') return 'No athletes available yet';
-  if (preview.kind === 'demo') return 'Example profile based on your preferences';
+  if (preview.kind === 'empty') return 'entry_headline_empty';
+  if (preview.kind === 'demo') return 'entry_headline_demo';
   const n = preview.matchCount;
-  if (n <= 0) return 'Example profile based on your preferences';
-  if (n === 1) return '1 athlete matches your training preferences';
-  return `${n} athletes match your training preferences`;
+  if (n <= 0) return 'entry_headline_demo';
+  if (n === 1) return 'entry_headline_one';
+  return 'entry_headline_many';
 }
 
 function formatCardName(u: LandingMatchPreviewUser): string {
@@ -201,7 +198,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
         >
-          <button type="button" className={styles.backdropHit} aria-label="Close" onClick={handleClose} />
+          <button type="button" className={styles.backdropHit} aria-label={t('common.close')} onClick={handleClose} />
           <motion.div
             className={styles.panel}
             initial={{ opacity: 0, y: 20, scale: 0.98 }}
@@ -210,7 +207,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
           >
             {(step === 2 || step === 3 || (step === 1 && !isAnalyzing)) && (
-              <button type="button" className={styles.closeX} onClick={handleClose} aria-label="Close dialog">
+              <button type="button" className={styles.closeX} onClick={handleClose} aria-label={t('landing.entry_close_dialog')}>
                 ×
               </button>
             )}
@@ -231,7 +228,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.25 }}
                   >
-                    {ANALYZE_MESSAGES[analyzeMsgIndex]}
+                    {t(`landing.${ANALYZE_MESSAGES[analyzeMsgIndex]}`)}
                   </motion.p>
                 </AnimatePresence>
                 <div className={styles.shimmerBar} aria-hidden />
@@ -241,10 +238,10 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
             {step === 1 && !isAnalyzing && (
               <div className={styles.step}>
                 <h2 id="entry-flow-title" className={styles.title}>
-                  Quick setup
+                  {t('landing.entry_quick_setup')}
                 </h2>
                 <p className={styles.lead}>
-                  Tell us how you train — we&apos;ll show compatible athletes from the network.
+                  {t('landing.entry_lead')}
                 </p>
 
                 <div className={styles.field}>
@@ -252,14 +249,14 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     <span className={styles.labelIcon} aria-hidden>
                       🏋️
                     </span>{' '}
-                    Training type
+                    {t('landing.entry_training_type')}
                   </span>
                   <div className={styles.selectWrap}>
                     <select
                       className={styles.select}
                       value={training}
                       onChange={(e) => setTraining(e.target.value)}
-                      aria-label="Training type"
+                      aria-label={t('landing.entry_training_type')}
                     >
                       {LANDING_TRAINING_OPTIONS.map((o) => (
                         <option key={o.label} value={o.label}>
@@ -268,7 +265,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                       ))}
                     </select>
                   </div>
-                  <p className={styles.fieldHint}>Used to match you with compatible athletes</p>
+                  <p className={styles.fieldHint}>{t('landing.entry_field_hint')}</p>
                 </div>
 
                 <div className={styles.field}>
@@ -276,23 +273,23 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     <span className={styles.labelIcon} aria-hidden>
                       📊
                     </span>{' '}
-                    Level
+                    {t('landing.entry_level_label')}
                   </span>
                   <div className={styles.selectWrap}>
                     <select
                       className={styles.select}
                       value={level}
                       onChange={(e) => setLevel(e.target.value)}
-                      aria-label="Training level"
+                      aria-label={t('landing.entry_level_label')}
                     >
                       {LEVELS.map((l) => (
                         <option key={l} value={l}>
-                          {l}
+                          {t(`landing.entry_level_${l}`)}
                         </option>
                       ))}
                     </select>
                   </div>
-                  <p className={styles.fieldHint}>Used to match you with compatible athletes</p>
+                  <p className={styles.fieldHint}>{t('landing.entry_field_hint')}</p>
                 </div>
 
                 <div className={styles.field}>
@@ -300,23 +297,23 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     <span className={styles.labelIcon} aria-hidden>
                       ⏰
                     </span>{' '}
-                    Preferred time
+                    {t('landing.entry_time_label')}
                   </span>
                   <div className={styles.selectWrap}>
                     <select
                       className={styles.select}
                       value={timePref}
                       onChange={(e) => setTimePref(e.target.value)}
-                      aria-label="Preferred training time"
+                      aria-label={t('landing.entry_time_label')}
                     >
                       {TIMES.map((tOpt) => (
                         <option key={tOpt} value={tOpt}>
-                          {tOpt}
+                          {t(`landing.entry_time_${tOpt}`)}
                         </option>
                       ))}
                     </select>
                   </div>
-                  <p className={styles.fieldHint}>Used to match you with compatible athletes</p>
+                  <p className={styles.fieldHint}>{t('landing.entry_field_hint')}</p>
                 </div>
 
                 <button
@@ -333,27 +330,31 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
 
             {step === 2 && preview?.kind === 'empty' && (
               <div className={styles.step}>
-                <h2 className={styles.title}>{previewHeadline(preview)}</h2>
-                <p className={styles.lead}>Be the first to join or invite others</p>
+                <h2 className={styles.title}>{t(`landing.${previewHeadline(preview)}`)}</h2>
+                <p className={styles.lead}>{t('landing.entry_empty_lead')}</p>
                 <button type="button" className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`} onClick={goEmptySignup}>
-                  Create your account
+                  {t('landing.entry_create_account')}
                 </button>
               </div>
             )}
 
             {step === 2 && preview && preview.kind !== 'empty' && primaryPreviewUser && (
               <div className={styles.step}>
-                <h2 className={styles.title}>{previewHeadline(preview)}</h2>
+                <h2 className={styles.title}>
+                  {previewHeadline(preview) === 'entry_headline_many'
+                    ? formatI18n(t('landing.entry_headline_many'), { count: preview.matchCount })
+                    : t(`landing.${previewHeadline(preview)}`)}
+                </h2>
                 {preview.exampleLabel && (
                   <p className={styles.exampleLabel}>{preview.exampleLabel}</p>
                 )}
                 {previewLoadFailed && (
-                  <p className={styles.loadWarning}>Couldn&apos;t load live data — showing a labeled example.</p>
+                  <p className={styles.loadWarning}>{t('landing.entry_load_warning')}</p>
                 )}
-                <p className={styles.lead}>Based on your training type, level, and schedule</p>
+                <p className={styles.lead}>{t('landing.entry_based_on')}</p>
                 {showMoreCount > 0 && (
                   <p className={styles.moreMatchesHint}>
-                    +{showMoreCount} more compatible {showMoreCount === 1 ? 'profile' : 'profiles'} after signup
+                    +{showMoreCount} {t(showMoreCount === 1 ? 'landing.entry_more_profile_one' : 'landing.entry_more_profile_many')}
                   </p>
                 )}
                 <div className={styles.deck}>
@@ -380,11 +381,11 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     <span className={styles.deckName}>{formatCardName(primaryPreviewUser)}</span>
                     <span className={styles.deckMeta}>{primaryPreviewUser.trainingSummary}</span>
                     <ul className={styles.deckStats}>
-                      <li>⚡ {preview.kind === 'demo' ? 'Trains 4–5x/week' : 'Trains regularly'}</li>
+                      <li>⚡ {preview.kind === 'demo' ? t('landing.entry_trains_4_5') : t('landing.entry_trains_regularly')}</li>
                       <li>🎯 {primaryPreviewUser.goalLine}</li>
                     </ul>
                     <p className={styles.lockedDataLine}>
-                      🔒 Distance, location, and availability unlock after signup
+                      {t('landing.entry_locked_data_line')}
                     </p>
                   </div>
                 </div>
@@ -396,24 +397,24 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     setStep(3);
                   }}
                 >
-                  Continue
+                  {t('landing.entry_continue')}
                 </button>
               </div>
             )}
 
             {step === 3 && (
               <div className={styles.step}>
-                <h2 className={styles.title}>Unlock your matches</h2>
-                <p className={styles.lead}>You already have compatible athletes waiting</p>
-                <p className={styles.paywallTrust}>We&apos;ll show distance and availability after signup</p>
-                <p className={styles.paywallSocial}>New athletes join regularly — your matches refresh as the network grows.</p>
+                <h2 className={styles.title}>{t('landing.entry_unlock_matches')}</h2>
+                <p className={styles.lead}>{t('landing.entry_paywall_lead')}</p>
+                <p className={styles.paywallTrust}>{t('landing.entry_paywall_trust')}</p>
+                <p className={styles.paywallSocial}>{t('landing.entry_paywall_social')}</p>
                 <div className={`${styles.deck} ${styles.deckPaywall}`}>
                   <div
                     className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft} ${styles.deckLockedHeavy} ${styles.deckGhost}`}
                     aria-hidden
                   >
                     <div className={styles.lockBadge}>
-                      <span aria-hidden>🔒</span> Locked
+                      <span aria-hidden>🔒</span> {t('landing.entry_locked')}
                     </div>
                   </div>
                   <div
@@ -421,7 +422,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     aria-hidden
                   >
                     <div className={styles.lockBadge}>
-                      <span aria-hidden>🔒</span> Locked
+                      <span aria-hidden>🔒</span> {t('landing.entry_locked')}
                     </div>
                   </div>
                   <div className={`${styles.deckCard} ${styles.deckFront} ${styles.deckDim} ${styles.deckPaywallFront}`}>
@@ -439,17 +440,17 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     ) : (
                       <div className={styles.deckAvatarPlaceholder} aria-hidden />
                     )}
-                    <span className={styles.deckName}>Sign up to view</span>
+                    <span className={styles.deckName}>{t('landing.entry_sign_up_to_view')}</span>
                   </div>
                 </div>
                 <button type="button" className={styles.googleBtn} onClick={handleGoogle}>
                   <span className={styles.googleMark} aria-hidden />
-                  Continue with Google
+                  {t('landing.entry_continue_google')}
                 </button>
                 <button type="button" className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`} onClick={persistPrefsAndGoSignup}>
-                  Continue with email
+                  {t('landing.entry_continue_email')}
                 </button>
-                <p className={styles.ctaMicro}>Free to start • Takes about 30 seconds</p>
+                <p className={styles.ctaMicro}>{t('landing.landing_cta_sub')}</p>
               </div>
             )}
 

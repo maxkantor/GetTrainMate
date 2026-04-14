@@ -3,6 +3,7 @@ import { Box, Typography, Alert, CircularProgress, Button, Card, CardContent } f
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { useI18n } from '@/hooks/useI18n';
 import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER, fallbackPlaceholderPhotoUrl } from '@/utils/profilePhotos';
 import { GraphQLApiError } from '@/services/graphqlService';
 import { matchQueryKeys } from '@/lib/queryKeys';
@@ -10,6 +11,7 @@ import { fetchSkippedProfilesForUser } from '@/services/matchExploreQueries';
 import styles from './ConnectionsList.module.css';
 
 export const SkippedProfilesPage: React.FC = () => {
+  const { t } = useI18n();
   const { user } = useAuthContext();
   const userSub = user?.sub ?? '';
 
@@ -28,19 +30,19 @@ export const SkippedProfilesPage: React.FC = () => {
   const error = (() => {
     if (!isError || queryError == null) return '';
     if (queryError instanceof GraphQLApiError && queryError.status === 403) {
-      return 'Reviewing skipped profiles is not enabled for your account.';
+      return t('app_pages.skipped.review_not_enabled');
     }
     const status = (queryError as { response?: { status?: number; data?: { message?: string } } })?.response?.status;
     const msg = (queryError as { response?: { data?: { message?: string } } })?.response?.data?.message;
-    if (status === 403) return msg || 'Reviewing skipped profiles is not enabled for your account.';
+    if (status === 403) return msg || t('app_pages.skipped.review_not_enabled');
     if (queryError instanceof Error) return queryError.message;
-    return 'Could not load skipped profiles';
+    return t('app_pages.skipped.could_not_load');
   })();
 
   if (!userSub) {
     return (
       <Box className={styles.rootWide} py={4}>
-        <Typography color="text.secondary">Sign in to view skipped profiles.</Typography>
+        <Typography color="text.secondary">{t('app_pages.skipped.sign_in_to_view')}</Typography>
       </Box>
     );
   }
@@ -56,19 +58,18 @@ export const SkippedProfilesPage: React.FC = () => {
   return (
     <div className={styles.rootWide}>
       <Typography variant="h5" component="h1" gutterBottom>
-        Skipped
+        {t('nav.skipped')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Last 30 profiles you passed in Discover, newest first. They stay out of your deck unless an admin enables
-        recycling (then they can appear with a &quot;Seen before&quot; label).
+        {t('app_pages.skipped.subtitle')}
       </Typography>
       {error ? (
-        <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => refetch()}>Retry</Button>}>
+        <Alert severity="warning" sx={{ mb: 2 }} action={<Button onClick={() => refetch()}>{t('discover.retry')}</Button>}>
           {error}
         </Alert>
       ) : null}
       {!error && items.length === 0 ? (
-        <Typography color="text.secondary">You have not skipped anyone yet.</Typography>
+        <Typography color="text.secondary">{t('app_pages.skipped.empty')}</Typography>
       ) : !error ? (
         <Box
           sx={{

@@ -78,23 +78,29 @@ export const AppHomePage: React.FC = () => {
   const skippedCount = skippedItems != null ? skippedItems.length : null;
 
   const first = me?.profile?.name?.trim()?.split(/\s+/)[0];
-  const greeting = first || 'there';
+  const greeting = first || t('app_pages.home.greeting_fallback_name');
   const credits = me?.credits ?? 0;
 
   const tiles: Tile[] = useMemo(() => {
     const matchesSub = matchStatus.loading
-      ? 'Loading…'
-      : `${matchStatus.totalMatches} mutual match${matchStatus.totalMatches === 1 ? '' : 'es'}`;
+      ? t('app_pages.common.loading')
+      : `${matchStatus.totalMatches} ${t(
+          matchStatus.totalMatches === 1
+            ? 'app_pages.home.mutual_match_one'
+            : 'app_pages.home.mutual_match_many'
+        )}`;
     const chatSub =
-      chatUnread > 0 ? `${chatUnread} unread message${chatUnread === 1 ? '' : 's'}` : 'Messages with mutual matches';
+      chatUnread > 0
+        ? `${chatUnread} ${t(chatUnread === 1 ? 'app_pages.home.unread_one' : 'app_pages.home.unread_many')}`
+        : t('app_pages.home.chat_with_mutuals');
     const eventsCity = me?.profile?.eventsCityInterest || me?.profile?.city;
     const eventsSub = me?.profile?.eventsWaitlistEnabled
       ? eventsCity
-        ? `Waitlist joined for ${eventsCity}`
-        : "We'll notify you when local meetups launch"
-      : 'Get notified when local fitness meetups launch';
-    const profileSub = 'Photos, bio, modes, schedule';
-    const aiSub = 'Workouts and training guidance';
+        ? `${t('app_pages.home.waitlist_joined_for')} ${eventsCity}`
+        : t('app_pages.home.waitlist_notify_local')
+      : t('app_pages.home.waitlist_get_notified');
+    const profileSub = t('app_pages.home.profile_sub');
+    const aiSub = t('app_pages.home.ai_sub');
 
     const list: Tile[] = [
       {
@@ -108,11 +114,13 @@ export const AppHomePage: React.FC = () => {
     if (me?.profile?.discoverCanReviewLikedProfiles !== false) {
       const sentSub =
         sentPending != null && sentPending > 0
-          ? `${sentPending} pending invite${sentPending === 1 ? '' : 's'}`
-          : 'Outgoing likes and responses';
+          ? `${sentPending} ${t(
+              sentPending === 1 ? 'app_pages.home.pending_invite_one' : 'app_pages.home.pending_invite_many'
+            )}`
+          : t('app_pages.home.outgoing_likes_responses');
       list.push({
         to: '/app/sent-requests',
-        title: 'Sent',
+        title: t('nav.sent'),
         subtitle: sentSub,
         icon: <ForwardToInboxOutlinedIcon sx={{ fontSize: 32, opacity: 0.9 }} />,
       });
@@ -121,8 +129,8 @@ export const AppHomePage: React.FC = () => {
     if (me?.profile?.discoverCanReviewSkippedProfiles !== false) {
       list.push({
         to: '/app/skipped',
-        title: 'Skipped',
-        subtitle: 'Profiles you passed — stay out of Discover unless recycled by policy',
+        title: t('nav.skipped'),
+        subtitle: t('app_pages.home.skipped_subtitle'),
         icon: <SkipNextOutlinedIcon sx={{ fontSize: 32, opacity: 0.9 }} />,
       });
     }
@@ -149,7 +157,7 @@ export const AppHomePage: React.FC = () => {
       },
       {
         to: '/app/ai-coach',
-        title: 'AI Coach',
+        title: t('nav.ai_coach'),
         subtitle: aiSub,
         icon: <PsychologyOutlinedIcon sx={{ fontSize: 32, opacity: 0.9 }} />,
       }
@@ -172,19 +180,19 @@ export const AppHomePage: React.FC = () => {
   return (
     <Container maxWidth="md" sx={{ py: { xs: 3, sm: 5 } }}>
       <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: '0.12em' }}>
-        Dashboard
+        {t('app_pages.home.dashboard_label')}
       </Typography>
       <Typography variant="h4" component="h1" sx={{ fontWeight: 800, mt: 0.5, mb: 1 }}>
-        Welcome back, {greeting}
+        {t('app_pages.home.welcome_back')}, {greeting}
       </Typography>
-      <Tooltip title="1 credit per send" placement="top" arrow>
+      <Tooltip title={t('app_pages.home.credit_hint')} placement="top" arrow>
         <Typography
           component="span"
           variant="body2"
           color="text.secondary"
           sx={{ display: 'inline-block', mb: 2, cursor: 'default', borderBottom: '1px dotted', borderColor: 'divider' }}
         >
-          {credits} credits left
+          {credits} {t('app_pages.home.credits_left')}
         </Typography>
       </Tooltip>
       <Typography
@@ -198,7 +206,7 @@ export const AppHomePage: React.FC = () => {
           textOverflow: { xs: 'clip', sm: 'ellipsis' },
         }}
       >
-        Quick access to Discover, matches, and messages. Use the logo anytime to return here.
+        {t('app_pages.home.quick_access')}
       </Typography>
 
       <Box
@@ -212,7 +220,7 @@ export const AppHomePage: React.FC = () => {
         }}
       >
         <Box component="span">
-          Matches:{' '}
+          {t('app_pages.home.matches_label')}:{' '}
           <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
             {matchesCount == null ? '…' : matchesCount}
           </Box>
@@ -221,7 +229,7 @@ export const AppHomePage: React.FC = () => {
           ·
         </Box>
         <Box component="span">
-          Pending sent:{' '}
+          {t('app_pages.home.pending_sent_label')}:{' '}
           <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
             {sentPending == null ? '…' : sentPending}
           </Box>
@@ -232,7 +240,7 @@ export const AppHomePage: React.FC = () => {
               ·
             </Box>
             <Box component="span">
-              Skipped:{' '}
+              {t('nav.skipped')}:{' '}
               <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
                 {skippedCount == null ? '…' : skippedCount}
               </Box>
@@ -243,7 +251,7 @@ export const AppHomePage: React.FC = () => {
           ·
         </Box>
         <Box component="span">
-          Unread chats:{' '}
+          {t('app_pages.home.unread_chats_label')}:{' '}
           <Box component="span" sx={{ color: chatUnread > 0 ? 'primary.main' : 'text.primary', fontWeight: 700 }}>
             {chatUnread}
           </Box>
@@ -259,7 +267,7 @@ export const AppHomePage: React.FC = () => {
         startIcon={<ExploreOutlinedIcon />}
         sx={{ mb: 3, py: 1.5, fontWeight: 600 }}
       >
-        Start Discovering
+        {t('app_pages.home.start_discovering')}
       </Button>
 
       <Box
