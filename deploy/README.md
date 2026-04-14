@@ -2,6 +2,15 @@
 
 This folder contains the Lambda deployment package for the GetTrainMate API.
 
+## Important: two different zip types
+
+| File | What it is | Upload to Lambda? |
+|------|------------|---------------------|
+| **`gettrainmate-api-lambda.zip`** (~4–6 MB) | Published .NET API + dependencies (`dotnet publish` → zip) | **Yes — this is the API backend.** |
+| **`GetTrainMate-*-source.zip`** (~3 MB) | **Git source snapshot only** (`git archive`), no `node_modules`, no compiled DLLs | **No.** Using this as Lambda code will break the API (e.g. profile won’t load). |
+
+Rebuild the Lambda package from repo root: `npm run zip` (or `npm run zip:publish` if `apps/api/publish` is already fresh).
+
 ## Files
 
 - `gettrainmate-api-lambda.zip` — .NET API Lambda deployment package (from `npm run zip`).
