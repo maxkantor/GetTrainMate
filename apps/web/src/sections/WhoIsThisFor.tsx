@@ -2,30 +2,27 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
+import { useI18n } from '@/hooks/useI18n';
 import styles from './WhoIsThisFor.module.css';
 
 const CARDS = [
   {
     key: 'early',
-    title: 'Early-morning grinders',
-    body: 'People who want a partner who shows up when the alarm goes off.',
     icon: '🌅',
   },
   {
     key: 'lifters',
-    title: 'Lifters who want consistency',
-    body: 'Same intensity and standards — without the ghosting between sessions.',
     icon: '🏋️',
   },
   {
     key: 'tired',
-    title: 'Done with flaky training partners',
-    body: 'If you train like it matters, you are in the right place.',
     icon: '🎯',
   },
 ] as const;
 
 export const WhoIsThisFor: React.FC = () => {
+  const { t } = useI18n();
+
   return (
     <Section id="who-its-for" background="subtle" paddingSize="xl" className={styles.section}>
       <Container>
@@ -36,9 +33,9 @@ export const WhoIsThisFor: React.FC = () => {
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.4 }}
         >
-          <span className={styles.kicker}>Built for you if</span>
-          <h2 className={styles.title}>Who this is for</h2>
-          <p className={styles.sub}>People who care, show up, and want real accountability.</p>
+          <span className={styles.kicker}>{t('landing.who_for_kicker')}</span>
+          <h2 className={styles.title}>{t('landing.who_for_title')}</h2>
+          <p className={styles.sub}>{t('landing.who_for_sub')}</p>
         </motion.div>
 
         <div className={styles.grid}>
@@ -54,8 +51,8 @@ export const WhoIsThisFor: React.FC = () => {
               <span className={styles.icon} aria-hidden>
                 {c.icon}
               </span>
-              <h3 className={styles.cardTitle}>{c.title}</h3>
-              <p className={styles.cardBody}>{c.body}</p>
+              <h3 className={styles.cardTitle}>{t(`landing.who_for_${c.key}_title`)}</h3>
+              <p className={styles.cardBody}>{t(`landing.who_for_${c.key}_body`)}</p>
             </motion.article>
           ))}
         </div>

@@ -2,11 +2,11 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
+import { useI18n } from '@/hooks/useI18n';
 import { DUMMY_USER_PRIMARY_PHOTO } from '@/utils/profilePhotos';
 import styles from './sections.module.css';
 
 type T = {
-  quote: string;
   name: string;
   place: string;
   sport: string;
@@ -18,21 +18,18 @@ const thumb = (url: string) => (url.includes('?') ? `${url}&w=96&h=96&fit=crop&c
 /** Avatars align with seeded demo users for visual continuity. */
 const items: T[] = [
   {
-    quote: 'Found my training partner in two days. Same goals, same grind.',
     name: 'Mike',
     place: 'San Francisco',
     sport: '🚴',
     avatar: thumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-2']),
   },
   {
-    quote: 'We actually keep each other accountable now. Morning lifts are locked in.',
     name: 'Sarah',
     place: 'San Francisco',
     sport: '🏃‍♀️',
     avatar: thumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-1']),
   },
   {
-    quote: 'Finally matched with someone who texts back and shows up. Game changer.',
     name: 'Emma',
     place: 'San Francisco',
     sport: '🧘',
@@ -41,6 +38,8 @@ const items: T[] = [
 ];
 
 export const Testimonials: React.FC = () => {
+  const { t } = useI18n();
+
   return (
     <Section id="testimonials" background="subtle" paddingSize="xl" className={styles.testimonials}>
       <Container>
@@ -51,15 +50,15 @@ export const Testimonials: React.FC = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.4 }}
         >
-          <span className={styles.sectionLabel}>From the community</span>
-          <h2 className={styles.sectionTitle}>What matching unlocked</h2>
-          <p className={styles.sectionSubtitle}>Short stories from athletes who wanted a real partner.</p>
+          <span className={styles.sectionLabel}>{t('landing.testimonials_section_label')}</span>
+          <h2 className={styles.sectionTitle}>{t('landing.testimonials_section_title')}</h2>
+          <p className={styles.sectionSubtitle}>{t('landing.testimonials_section_sub')}</p>
         </motion.div>
 
         <div className={styles.testimonialsGrid}>
-          {items.map((t, i) => (
+          {items.map((item, i) => (
             <motion.article
-              key={t.name}
+              key={item.name}
               className={styles.testimonialCard}
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
@@ -79,10 +78,10 @@ export const Testimonials: React.FC = () => {
                 el.style.setProperty('--ry', '0deg');
               }}
             >
-              <p className={styles.testimonialText}>&ldquo;{t.quote}&rdquo;</p>
+              <p className={styles.testimonialText}>&ldquo;{t(`landing.testimonial_${i + 1}_quote`)}&rdquo;</p>
               <div className={styles.testimonialAuthor}>
                 <img
-                  src={t.avatar}
+                  src={item.avatar}
                   alt=""
                   className={styles.testimonialPhoto}
                   width={48}
@@ -92,10 +91,10 @@ export const Testimonials: React.FC = () => {
                 />
                 <div className={styles.testimonialAuthorInfo}>
                   <div className={styles.testimonialName}>
-                    {t.name} <span className={styles.testimonialPlace}>· {t.place}</span>
+                    {item.name} <span className={styles.testimonialPlace}>· {item.place}</span>
                   </div>
                   <div className={styles.testimonialBadges}>
-                    <span className={styles.sportBadge}>{t.sport}</span>
+                    <span className={styles.sportBadge}>{item.sport}</span>
                   </div>
                 </div>
               </div>
