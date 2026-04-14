@@ -22,7 +22,7 @@ public class LandingMatchPreviewResponse
 
     public IReadOnlyList<LandingMatchPreviewUserDto> Users { get; set; } = Array.Empty<LandingMatchPreviewUserDto>();
 
-    /// <summary>Shown under headline for demo only.</summary>
+    /// <summary>Optional server-side note (guest preview does not use loud promo labels).</summary>
     public string? ExampleLabel { get; set; }
 }
 
@@ -43,7 +43,7 @@ public class LandingMatchPreviewUserDto
     /// <summary>Typical training time (from visitor pick or profile schedule).</summary>
     public string TimePrefLabel { get; set; } = "";
 
-    /// <summary>Approximate distance for preview only (not exact location).</summary>
+    /// <summary>Unused for anonymous guest preview (kept for JSON compatibility; always empty).</summary>
     public string DistanceLabel { get; set; } = "";
 }
 

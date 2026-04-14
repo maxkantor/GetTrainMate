@@ -81,7 +81,7 @@ public class LandingMatchPreviewServiceTests
                 Assert.False(string.IsNullOrWhiteSpace(u.Name));
                 Assert.False(string.IsNullOrWhiteSpace(u.LevelLabel));
                 Assert.False(string.IsNullOrWhiteSpace(u.TimePrefLabel));
-                Assert.False(string.IsNullOrWhiteSpace(u.DistanceLabel));
+                Assert.True(string.IsNullOrEmpty(u.DistanceLabel));
                 Assert.False(string.IsNullOrWhiteSpace(u.TrainingSummary));
             });
     }

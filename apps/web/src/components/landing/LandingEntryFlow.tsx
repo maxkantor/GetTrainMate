@@ -5,8 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { authService } from '@/services/authService';
 import { saveLandingPrefs } from '@/utils/landingPrefs';
 import { useI18n } from '@/hooks/useI18n';
-import { formatI18n } from '@/i18n';
-import { FooterLegalLinksRow } from '@/components/layout/FooterLegalLinksRow';
 import { LANDING_TRAINING_OPTIONS } from '@/config/landingTrainingOptions';
 import {
   fetchLandingMatchPreview,
@@ -28,18 +26,25 @@ const ANALYZE_MESSAGES = ['entry_analyze_1', 'entry_analyze_2', 'entry_analyze_3
 
 const MIN_ANALYZE_MS = 1650;
 
-function stableMilesKey(key: string): number {
-  let h = 0;
-  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
-  return 4 + (h % 14);
-}
-
 function humanizeTimePref(timePref: string): string {
   const s = timePref.toLowerCase();
   if (s.includes('morning')) return 'Morning';
   if (s.includes('mid')) return 'Midday';
   if (s.includes('evening')) return 'Evening';
   return 'Evening';
+}
+
+/** Honest guest line: visitor’s training + level + time only (no location). */
+function guestPreferenceLine(training: string, level: string, timePref: string, t: (key: string) => string): string {
+  const levelText =
+    level === 'beginner' || level === 'intermediate' || level === 'advanced'
+      ? t(`landing.entry_level_${level}`)
+      : `${level.charAt(0).toUpperCase()}${level.slice(1).toLowerCase()}`;
+  const timeText =
+    timePref === 'morning' || timePref === 'midday' || timePref === 'evening'
+      ? t(`landing.entry_pref_time_${timePref}`)
+      : humanizeTimePref(timePref);
+  return `${training.trim()} • ${levelText} • ${timeText}`;
 }
 
 /** Offline deck when the preview API is unreachable (mirrors server padding shape). */
@@ -61,7 +66,6 @@ function buildOfflinePreviewDeck(training: string, level: string, timePref: stri
     photoUrl: DUMMY_USER_PRIMARY_PHOTO[photoKey],
     levelLabel: levelTitle,
     timePrefLabel: timeDisplay,
-    distanceLabel: `~${stableMilesKey(name)} mi`,
   });
 
   const users: LandingMatchPreviewUser[] = [
@@ -73,14 +77,6 @@ function buildOfflinePreviewDeck(training: string, level: string, timePref: stri
   ];
 
   return { kind: 'demo', matchCount: users.length, exampleLabel: '', users };
-}
-
-function previewHeadline(preview: LandingMatchPreviewResult | null): string {
-  if (!preview) return '';
-  if (preview.kind === 'demo') return 'entry_headline_preview_deck';
-  const n = preview.matchCount;
-  if (n === 1) return 'entry_headline_one';
-  return 'entry_headline_many';
 }
 
 function formatCardName(u: LandingMatchPreviewUser): string {
@@ -130,7 +126,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
   }, [training, level, timePref, handleClose, navigate]);
 
   const goToPaywall = useCallback(
-    (surface: 'overlay' | 'match_card') => {
+    (surface: 'overlay' | 'match_card' | 'sticky') => {
       analytics.landingEntryUnlockClick(surface);
       saveLandingPrefs({ training, level, timePref });
       setStep(3);
@@ -213,9 +209,10 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
 
   const primaryPreviewUser = preview?.users?.[0];
   const previewUsers = preview?.users ?? [];
-  const unlockedCardCount = previewUsers.length >= 4 ? 2 : 1;
+  const unlockedCardCount = Math.min(2, Math.max(1, previewUsers.length));
   const unlockedUsers = previewUsers.slice(0, unlockedCardCount);
   const lockedUsers = previewUsers.slice(unlockedCardCount);
+  const prefLine = guestPreferenceLine(training, level, timePref, t);
 
   if (typeof document === 'undefined') return null;
 
@@ -248,264 +245,255 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
               </button>
             )}
 
-            {step === 1 && isAnalyzing && (
-              <div className={styles.step}>
-                <div className={styles.analyzeVisual} aria-hidden>
-                  <div className={styles.shimmerRing} />
-                  <div className={styles.pulseCore} />
-                </div>
-                <p className={styles.analyzeKicker}>Compatibility matching</p>
-                <AnimatePresence mode="wait">
-                  <motion.p
-                    key={analyzeMsgIndex}
-                    className={styles.analyzeText}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.25 }}
-                  >
-                    {t(`landing.${ANALYZE_MESSAGES[analyzeMsgIndex]}`)}
-                  </motion.p>
-                </AnimatePresence>
-                <div className={styles.shimmerBar} aria-hidden />
-              </div>
-            )}
-
-            {step === 1 && !isAnalyzing && (
-              <div className={`${styles.step} ${styles.stepCompact}`}>
-                <h2 id="entry-flow-title" className={styles.title}>
-                  {t('landing.entry_quick_setup')}
-                </h2>
-                <p className={styles.lead}>
-                  {t('landing.entry_lead')}
-                </p>
-
-                <div className={styles.field}>
-                  <span className={styles.label}>
-                    <span className={styles.labelIcon} aria-hidden>
-                      🏋️
-                    </span>{' '}
-                    {t('landing.entry_training_type')}
-                  </span>
-                  <div className={styles.selectWrap}>
-                    <select
-                      className={styles.select}
-                      value={training}
-                      onChange={(e) => setTraining(e.target.value)}
-                      aria-label={t('landing.entry_training_type')}
-                    >
-                      {LANDING_TRAINING_OPTIONS.map((o) => (
-                        <option key={o.label} value={o.label}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
+            <div className={styles.panelFlex}>
+              <div className={styles.panelBody}>
+                {step === 1 && isAnalyzing && (
+                  <div className={styles.step}>
+                    <div className={styles.analyzeVisual} aria-hidden>
+                      <div className={styles.shimmerRing} />
+                      <div className={styles.pulseCore} />
+                    </div>
+                    <p className={styles.analyzeKicker}>Compatibility matching</p>
+                    <AnimatePresence mode="wait">
+                      <motion.p
+                        key={analyzeMsgIndex}
+                        className={styles.analyzeText}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.25 }}
+                      >
+                        {t(`landing.${ANALYZE_MESSAGES[analyzeMsgIndex]}`)}
+                      </motion.p>
+                    </AnimatePresence>
+                    <div className={styles.shimmerBar} aria-hidden />
                   </div>
-                  <p className={styles.fieldHint}>{t('landing.entry_field_hint')}</p>
-                </div>
-
-                <div className={styles.field}>
-                  <span className={styles.label}>
-                    <span className={styles.labelIcon} aria-hidden>
-                      📊
-                    </span>{' '}
-                    {t('landing.entry_level_label')}
-                  </span>
-                  <div className={styles.selectWrap}>
-                    <select
-                      className={styles.select}
-                      value={level}
-                      onChange={(e) => setLevel(e.target.value)}
-                      aria-label={t('landing.entry_level_label')}
-                    >
-                      {LEVELS.map((l) => (
-                        <option key={l} value={l}>
-                          {t(`landing.entry_level_${l}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className={styles.fieldHint}>{t('landing.entry_field_hint')}</p>
-                </div>
-
-                <div className={styles.field}>
-                  <span className={styles.label}>
-                    <span className={styles.labelIcon} aria-hidden>
-                      ⏰
-                    </span>{' '}
-                    {t('landing.entry_time_label')}
-                  </span>
-                  <div className={styles.selectWrap}>
-                    <select
-                      className={styles.select}
-                      value={timePref}
-                      onChange={(e) => setTimePref(e.target.value)}
-                      aria-label={t('landing.entry_time_label')}
-                    >
-                      {TIMES.map((tOpt) => (
-                        <option key={tOpt} value={tOpt}>
-                          {t(`landing.entry_time_${tOpt}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className={styles.fieldHint}>{t('landing.entry_field_hint')}</p>
-                </div>
-
-                <button
-                  type="button"
-                  className={`${styles.primaryBtn} ${styles.primaryBtnPulse} ${styles.primaryBtnEntry}`}
-                  disabled={!step1Valid}
-                  onClick={() => {
-                    analytics.landingEntryCtaClick();
-                    void runAnalyze();
-                  }}
-                >
-                  {t('landing.landing_primary_cta')}
-                </button>
-                <p className={styles.ctaMicro}>{t('landing.landing_cta_sub')}</p>
-              </div>
-            )}
-
-            {step === 2 && preview && previewUsers.length > 0 && (
-              <div className={`${styles.step} ${styles.stepPreview}`}>
-                <h2 className={styles.title}>
-                  {previewHeadline(preview) === 'entry_headline_many'
-                    ? formatI18n(t('landing.entry_headline_many'), { count: preview.matchCount })
-                    : t(`landing.${previewHeadline(preview)}`)}
-                </h2>
-                {preview.exampleLabel && (
-                  <p className={styles.exampleLabel}>{preview.exampleLabel}</p>
                 )}
-                {previewLoadFailed && (
-                  <p className={styles.loadWarning}>{t('landing.entry_load_warning')}</p>
-                )}
-                <p className={styles.lead}>{t('landing.entry_based_on')}</p>
 
-                <div className={styles.previewList}>
-                  {unlockedUsers.map((u) => (
+                {step === 1 && !isAnalyzing && (
+                  <div className={`${styles.step} ${styles.stepCompact}`}>
+                    <h2 id="entry-flow-title" className={styles.title}>
+                      {t('landing.entry_quick_setup')}
+                    </h2>
+                    <p className={styles.lead}>{t('landing.entry_lead')}</p>
+
+                    <div className={styles.field}>
+                      <span className={styles.label}>
+                        <span className={styles.labelIcon} aria-hidden>
+                          🏋️
+                        </span>{' '}
+                        {t('landing.entry_training_type')}
+                      </span>
+                      <div className={styles.selectWrap}>
+                        <select
+                          className={styles.select}
+                          value={training}
+                          onChange={(e) => setTraining(e.target.value)}
+                          aria-label={t('landing.entry_training_type')}
+                        >
+                          {LANDING_TRAINING_OPTIONS.map((o) => (
+                            <option key={o.label} value={o.label}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <p className={styles.fieldHint}>{t('landing.entry_field_hint')}</p>
+                    </div>
+
+                    <div className={styles.field}>
+                      <span className={styles.label}>
+                        <span className={styles.labelIcon} aria-hidden>
+                          📊
+                        </span>{' '}
+                        {t('landing.entry_level_label')}
+                      </span>
+                      <div className={styles.selectWrap}>
+                        <select
+                          className={styles.select}
+                          value={level}
+                          onChange={(e) => setLevel(e.target.value)}
+                          aria-label={t('landing.entry_level_label')}
+                        >
+                          {LEVELS.map((l) => (
+                            <option key={l} value={l}>
+                              {t(`landing.entry_level_${l}`)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <p className={styles.fieldHint}>{t('landing.entry_field_hint')}</p>
+                    </div>
+
+                    <div className={styles.field}>
+                      <span className={styles.label}>
+                        <span className={styles.labelIcon} aria-hidden>
+                          ⏰
+                        </span>{' '}
+                        {t('landing.entry_time_label')}
+                      </span>
+                      <div className={styles.selectWrap}>
+                        <select
+                          className={styles.select}
+                          value={timePref}
+                          onChange={(e) => setTimePref(e.target.value)}
+                          aria-label={t('landing.entry_time_label')}
+                        >
+                          {TIMES.map((tOpt) => (
+                            <option key={tOpt} value={tOpt}>
+                              {t(`landing.entry_time_${tOpt}`)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <p className={styles.fieldHint}>{t('landing.entry_field_hint')}</p>
+                    </div>
+
                     <button
-                      key={u.name}
                       type="button"
-                      className={`${styles.previewCard} ${styles.previewCardUnlocked}`}
-                      onClick={() => goToPaywall('match_card')}
+                      className={`${styles.primaryBtn} ${styles.primaryBtnPulse} ${styles.primaryBtnEntry}`}
+                      disabled={!step1Valid}
+                      onClick={() => {
+                        analytics.landingEntryCtaClick();
+                        void runAnalyze();
+                      }}
                     >
-                      {u.photoUrl ? (
-                        <img src={u.photoUrl} alt="" className={styles.previewAvatar} width={56} height={56} />
-                      ) : (
-                        <div className={styles.previewAvatarPh} aria-hidden />
+                      {t('landing.landing_primary_cta')}
+                    </button>
+                    <p className={styles.ctaMicro}>{t('landing.landing_cta_sub')}</p>
+                  </div>
+                )}
+
+                {step === 2 && preview && previewUsers.length > 0 && (
+                  <div className={`${styles.step} ${styles.stepPreview}`}>
+                    <header className={styles.previewHeader}>
+                      <h2 id="entry-flow-title" className={styles.previewTitle}>
+                        {t('landing.entry_preview_title')}
+                      </h2>
+                      <p className={styles.previewSub}>{t('landing.entry_preview_sub')}</p>
+                      <p className={styles.previewMicro}>{t('landing.entry_preview_micro')}</p>
+                      {previewLoadFailed && <p className={styles.previewHint}>{t('landing.entry_load_warning')}</p>}
+                    </header>
+
+                    <div className={styles.previewCards}>
+                      {unlockedUsers.map((u) => (
+                        <button
+                          key={u.name}
+                          type="button"
+                          className={`${styles.previewCard} ${styles.previewCardUnlocked}`}
+                          onClick={() => goToPaywall('match_card')}
+                        >
+                          {u.photoUrl ? (
+                            <img src={u.photoUrl} alt="" className={styles.previewAvatar} width={52} height={52} />
+                          ) : (
+                            <div className={styles.previewAvatarPh} aria-hidden />
+                          )}
+                          <div className={styles.previewCardBody}>
+                            <span className={styles.previewName}>{formatCardName(u)}</span>
+                            <span className={styles.previewTraining}>{u.trainingSummary}</span>
+                            <span className={styles.previewPrefLine}>{prefLine}</span>
+                          </div>
+                        </button>
+                      ))}
+
+                      {lockedUsers.length > 0 && (
+                        <>
+                          <div className={styles.lockedStack}>
+                            <div className={styles.lockedStackBlur} aria-hidden>
+                              {lockedUsers.map((u) => (
+                                <div key={u.name} className={styles.previewCardGhost}>
+                                  {u.photoUrl ? (
+                                    <img src={u.photoUrl} alt="" className={styles.previewAvatar} width={52} height={52} />
+                                  ) : (
+                                    <div className={styles.previewAvatarPh} aria-hidden />
+                                  )}
+                                  <div className={styles.previewCardBody}>
+                                    <span className={styles.previewName}>{formatCardName(u)}</span>
+                                    <span className={styles.previewTraining}>{u.trainingSummary}</span>
+                                    <span className={styles.previewPrefLineMuted}>{prefLine}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className={styles.lockedVeil} aria-hidden />
+                          </div>
+
+                          <div className={styles.unlockInline}>
+                            <p className={styles.unlockInlineTitle}>{t('landing.entry_unlock_overlay_title')}</p>
+                            <p className={styles.unlockInlineSub}>{t('landing.entry_unlock_overlay_sub')}</p>
+                          </div>
+                        </>
                       )}
-                      <div className={styles.previewCardBody}>
-                        <span className={styles.previewName}>{formatCardName(u)}</span>
-                        <span className={styles.previewTraining}>{u.trainingSummary}</span>
-                        <div className={styles.previewMetaRow}>
-                          <span>{u.levelLabel || '—'}</span>
-                          <span aria-hidden> · </span>
-                          <span>{u.timePrefLabel || '—'}</span>
-                          <span aria-hidden> · </span>
-                          <span>{u.distanceLabel || '—'}</span>
+                    </div>
+                  </div>
+                )}
+
+                {step === 3 && (
+                  <div className={styles.step}>
+                    <h2 className={styles.title}>{t('landing.entry_unlock_matches')}</h2>
+                    <p className={styles.lead}>{t('landing.entry_paywall_lead')}</p>
+                    <p className={styles.paywallTrust}>{t('landing.entry_paywall_trust')}</p>
+                    <p className={styles.paywallSocial}>{t('landing.entry_paywall_social')}</p>
+                    <div className={`${styles.deck} ${styles.deckPaywall}`}>
+                      <div
+                        className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft} ${styles.deckLockedHeavy} ${styles.deckGhost}`}
+                        aria-hidden
+                      >
+                        <div className={styles.lockBadge}>
+                          <span aria-hidden>🔒</span> {t('landing.entry_locked')}
                         </div>
                       </div>
+                      <div
+                        className={`${styles.deckCard} ${styles.deckBack} ${styles.deckRight} ${styles.deckLockedHeavy} ${styles.deckGhost}`}
+                        aria-hidden
+                      >
+                        <div className={styles.lockBadge}>
+                          <span aria-hidden>🔒</span> {t('landing.entry_locked')}
+                        </div>
+                      </div>
+                      <div className={`${styles.deckCard} ${styles.deckFront} ${styles.deckDim} ${styles.deckPaywallFront}`}>
+                        <div className={styles.lockOverlay} aria-hidden>
+                          <span className={styles.lockIcon}>🔒</span>
+                        </div>
+                        {primaryPreviewUser?.photoUrl ? (
+                          <img
+                            src={primaryPreviewUser.photoUrl}
+                            alt=""
+                            className={styles.deckAvatar}
+                            width={96}
+                            height={96}
+                          />
+                        ) : (
+                          <div className={styles.deckAvatarPlaceholder} aria-hidden />
+                        )}
+                        <span className={styles.deckName}>{t('landing.entry_sign_up_to_view')}</span>
+                      </div>
+                    </div>
+                    <button type="button" className={styles.googleBtn} onClick={handleGoogle}>
+                      <span className={styles.googleMark} aria-hidden />
+                      {t('landing.entry_continue_google')}
                     </button>
-                  ))}
-
-                  {lockedUsers.length > 0 && (
-                    <div className={styles.lockedStack}>
-                      <div className={styles.lockedStackBlur} aria-hidden>
-                        {lockedUsers.map((u) => (
-                          <div key={u.name} className={styles.previewCardGhost}>
-                            {u.photoUrl ? (
-                              <img src={u.photoUrl} alt="" className={styles.previewAvatar} width={56} height={56} />
-                            ) : (
-                              <div className={styles.previewAvatarPh} aria-hidden />
-                            )}
-                            <div className={styles.previewCardBody}>
-                              <span className={styles.previewName}>{formatCardName(u)}</span>
-                              <span className={styles.previewTraining}>{u.trainingSummary}</span>
-                              <div className={styles.previewMetaRow}>
-                                <span>{u.levelLabel || '—'}</span>
-                                <span aria-hidden> · </span>
-                                <span>{u.timePrefLabel || '—'}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className={styles.unlockOverlay}>
-                        <p className={styles.unlockTitle}>{t('landing.entry_unlock_overlay_title')}</p>
-                        <p className={styles.unlockSub}>{t('landing.entry_unlock_overlay_sub')}</p>
-                        <button
-                          type="button"
-                          className={`${styles.primaryBtn} ${styles.primaryBtnPulse} ${styles.unlockOverlayBtn}`}
-                          onClick={() => goToPaywall('overlay')}
-                        >
-                          {t('landing.entry_unlock_overlay_cta')}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                    <button type="button" className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`} onClick={persistPrefsAndGoSignup}>
+                      {t('landing.entry_continue_email')}
+                    </button>
+                    <p className={styles.ctaMicro}>{t('landing.landing_cta_sub')}</p>
+                  </div>
+                )}
               </div>
-            )}
 
-            {step === 3 && (
-              <div className={styles.step}>
-                <h2 className={styles.title}>{t('landing.entry_unlock_matches')}</h2>
-                <p className={styles.lead}>{t('landing.entry_paywall_lead')}</p>
-                <p className={styles.paywallTrust}>{t('landing.entry_paywall_trust')}</p>
-                <p className={styles.paywallSocial}>{t('landing.entry_paywall_social')}</p>
-                <div className={`${styles.deck} ${styles.deckPaywall}`}>
-                  <div
-                    className={`${styles.deckCard} ${styles.deckBack} ${styles.deckLeft} ${styles.deckLockedHeavy} ${styles.deckGhost}`}
-                    aria-hidden
+              {step === 2 && preview && previewUsers.length > 0 && (
+                <div className={styles.previewStickyBar}>
+                  <button
+                    type="button"
+                    className={`${styles.primaryBtn} ${styles.primaryBtnPulse} ${styles.stickyContinueBtn}`}
+                    onClick={() => goToPaywall('sticky')}
                   >
-                    <div className={styles.lockBadge}>
-                      <span aria-hidden>🔒</span> {t('landing.entry_locked')}
-                    </div>
-                  </div>
-                  <div
-                    className={`${styles.deckCard} ${styles.deckBack} ${styles.deckRight} ${styles.deckLockedHeavy} ${styles.deckGhost}`}
-                    aria-hidden
-                  >
-                    <div className={styles.lockBadge}>
-                      <span aria-hidden>🔒</span> {t('landing.entry_locked')}
-                    </div>
-                  </div>
-                  <div className={`${styles.deckCard} ${styles.deckFront} ${styles.deckDim} ${styles.deckPaywallFront}`}>
-                    <div className={styles.lockOverlay} aria-hidden>
-                      <span className={styles.lockIcon}>🔒</span>
-                    </div>
-                    {primaryPreviewUser?.photoUrl ? (
-                      <img
-                        src={primaryPreviewUser.photoUrl}
-                        alt=""
-                        className={styles.deckAvatar}
-                        width={96}
-                        height={96}
-                      />
-                    ) : (
-                      <div className={styles.deckAvatarPlaceholder} aria-hidden />
-                    )}
-                    <span className={styles.deckName}>{t('landing.entry_sign_up_to_view')}</span>
-                  </div>
+                    {t('landing.entry_continue')}
+                  </button>
+                  <p className={styles.previewStickyMicro}>{t('landing.entry_preview_sticky_micro')}</p>
                 </div>
-                <button type="button" className={styles.googleBtn} onClick={handleGoogle}>
-                  <span className={styles.googleMark} aria-hidden />
-                  {t('landing.entry_continue_google')}
-                </button>
-                <button type="button" className={`${styles.primaryBtn} ${styles.primaryBtnPulse}`} onClick={persistPrefsAndGoSignup}>
-                  {t('landing.entry_continue_email')}
-                </button>
-                <p className={styles.ctaMicro}>{t('landing.landing_cta_sub')}</p>
-              </div>
-            )}
-
-            <footer className={styles.modalFooter} aria-label={t('footer.legal')}>
-              <FooterLegalLinksRow variant="modal" onLinkClick={handleClose} />
-              <p className={styles.modalFooterCopyright}>
-                © {new Date().getFullYear()} {t('common.appName')}. {t('footer.all_rights_reserved')}
-              </p>
-            </footer>
+              )}
+            </div>
           </motion.div>
         </motion.div>
       )}

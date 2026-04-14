@@ -24,10 +24,12 @@
 .panel {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
   width: min(100%, 432px);
-  max-height: min(88vh, 620px);
-  overflow: auto;
-  padding: 22px 20px 18px;
+  max-height: min(90vh, 640px);
+  overflow: hidden;
+  padding: 18px 18px 0;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: linear-gradient(165deg, rgba(14, 10, 32, 0.98), rgba(36, 20, 64, 0.92));
@@ -36,17 +38,35 @@
     0 24px 64px rgba(0, 0, 0, 0.55);
 }
 
+.panelFlex {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.panelBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 2px 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
 .closeX {
   position: absolute;
-  top: 12px;
-  right: 14px;
-  width: 36px;
-  height: 36px;
+  top: 10px;
+  right: 12px;
+  z-index: 5;
+  width: 40px;
+  height: 40px;
   border: none;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 1.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1.45rem;
+  font-weight: 500;
   line-height: 1;
   cursor: pointer;
   transition:
@@ -72,7 +92,102 @@
 }
 
 .stepPreview {
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.previewHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 36px;
+}
+
+.previewTitle {
+  margin: 0;
+  font-size: clamp(1.18rem, 4vw, 1.35rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.98);
+}
+
+.previewSub {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.previewMicro {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.48);
+  max-width: 34ch;
+}
+
+.previewHint {
+  margin: 2px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: rgba(196, 181, 253, 0.75);
+}
+
+.previewCards {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+  margin-top: 4px;
+}
+
+.previewStickyBar {
+  flex-shrink: 0;
+  margin: 0 -18px 0;
+  padding: 12px 18px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(14, 10, 28, 0.55), rgba(14, 10, 32, 0.98));
+  backdrop-filter: blur(12px);
+}
+
+.stickyContinueBtn {
+  margin-top: 0;
+  width: 100%;
+}
+
+.previewStickyMicro {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.unlockInline {
+  margin-top: 4px;
+  padding: 12px 14px 2px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.unlockInlineTitle {
+  margin: 0 0 4px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.unlockInlineSub {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .title {
@@ -174,53 +289,48 @@
   padding-right: 14px;
 }
 
-.previewList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 2px 0 0;
-  max-height: min(38vh, 260px);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 .previewCard {
   display: grid;
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: 52px 1fr;
   gap: 10px;
   align-items: center;
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.28);
+  padding: 9px 11px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.32);
   text-align: left;
   cursor: default;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .previewCardUnlocked {
   cursor: pointer;
-  border-color: rgba(167, 139, 250, 0.4);
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.18);
+  border-color: rgba(167, 139, 250, 0.42);
+  box-shadow:
+    0 0 0 1px rgba(99, 102, 241, 0.12),
+    0 8px 28px rgba(99, 102, 241, 0.15);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .previewCardUnlocked:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 28px rgba(99, 102, 241, 0.28);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(167, 139, 250, 0.2),
+    0 10px 32px rgba(99, 102, 241, 0.22);
 }
 
 .previewAvatar {
-  border-radius: 14px;
+  border-radius: 12px;
   object-fit: cover;
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
 }
 
 .previewAvatarPh {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(30, 27, 55, 0.9));
 }
 
@@ -228,92 +338,69 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .previewName {
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.98);
 }
 
 .previewTraining {
-  font-size: 0.72rem;
+  font-size: 0.71rem;
   font-weight: 600;
-  color: rgba(167, 139, 250, 0.95);
-  line-height: 1.25;
+  color: rgba(196, 181, 253, 0.92);
+  line-height: 1.28;
 }
 
-.previewMetaRow {
+.previewPrefLine {
   font-size: 0.68rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(255, 255, 255, 0.58);
+  line-height: 1.3;
+}
+
+.previewPrefLineMuted {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.42);
   line-height: 1.3;
 }
 
 .lockedStack {
   position: relative;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  min-height: 120px;
+  min-height: 72px;
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .lockedStackBlur {
-  filter: blur(7px);
-  opacity: 0.48;
-  transform: scale(0.98);
-  padding: 8px 10px 10px;
+  filter: blur(8px) saturate(0.75);
+  opacity: 0.42;
+  transform: scale(0.99);
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   pointer-events: none;
 }
 
-.previewCardGhost {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 10px;
-  align-items: center;
-}
-
-.unlockOverlay {
+.lockedVeil {
   position: absolute;
   inset: 0;
-  display: flex;
-  flex-direction: column;
+  background: linear-gradient(180deg, transparent 0%, rgba(8, 6, 20, 0.65) 100%);
+  pointer-events: none;
+}
+
+.previewCardGhost {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 10px;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px 14px;
-  text-align: center;
-  background: rgba(6, 4, 18, 0.72);
-  backdrop-filter: blur(2px);
-}
-
-.unlockTitle {
-  margin: 0;
-  font-size: 0.92rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: rgba(255, 255, 255, 0.96);
-}
-
-.unlockSub {
-  margin: 0;
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.35;
-  color: rgba(255, 255, 255, 0.62);
-  max-width: 280px;
-}
-
-.unlockOverlayBtn {
-  margin-top: 4px;
-  min-height: 44px;
-  padding-left: 28px;
-  padding-right: 28px;
-  font-size: 0.88rem;
 }
 
 .urgencyLine {
@@ -810,19 +897,6 @@
     center/contain no-repeat;
 }
 
-.modalFooter {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.modalFooterCopyright {
-  margin: 8px 0 0;
-  font-size: 0.68rem;
-  color: rgba(255, 255, 255, 0.45);
-  text-align: center;
-}
-
 @media (max-width: 480px) {
   .backdrop {
     padding: 14px;
@@ -830,8 +904,8 @@
 
   .panel {
     border-radius: 20px;
-    padding: 18px 14px 14px;
-    max-height: min(92vh, 620px);
+    padding: 16px 14px 0;
+    max-height: min(92vh, 640px);
   }
 
   .deckFront {

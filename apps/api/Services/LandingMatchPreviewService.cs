@@ -89,16 +89,13 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             deck = deck.Take(6).ToList();
 
         var kind = n > 0 ? "real" : "demo";
-        string? exampleLabel = n == 0
-            ? "Preview profiles — create a free account to unlock real matches nearby."
-            : null;
 
         return new LandingMatchPreviewResponse
         {
             Kind = kind,
             MatchCount = deck.Count,
             Users = deck,
-            ExampleLabel = exampleLabel,
+            ExampleLabel = null,
         };
     }
 
@@ -685,7 +682,6 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
 
     private Task<LandingMatchPreviewUserDto> MapToDtoAsync(UserProfile p, string visitorTimeDisplay, CancellationToken ct)
     {
-        var miles = StableMilesFromKey(p.UserId);
         return Task.FromResult(new LandingMatchPreviewUserDto
         {
             Name = p.Name.Trim(),
@@ -695,7 +691,7 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             PhotoUrl = ResolvePrimaryPhotoUrl(p),
             LevelLabel = TitleCaseLevelFromProfile(p.Level),
             TimePrefLabel = visitorTimeDisplay,
-            DistanceLabel = $"~{miles} mi",
+            DistanceLabel = "",
         });
     }
 
@@ -721,17 +717,6 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
         return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(s.ToLowerInvariant());
     }
 
-    private static int StableMilesFromKey(string key)
-    {
-        unchecked
-        {
-            var h = 0;
-            foreach (var c in key)
-                h = (h * 31 + c) & 0x7FFFFFFF;
-            return 4 + (h % 14);
-        }
-    }
-
     /// <summary>Curated demo athletes (synthetic). Names/photos align with product examples; not real users.</summary>
     private static IReadOnlyList<LandingMatchPreviewUserDto> CuratedDemoTemplates(string sportTag, string levelTitle, string timeDisplay)
     {
@@ -747,7 +732,7 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
                 PhotoUrl = DummyProfilePhotos.PrimaryPhotoByUserId[userIdKey],
                 LevelLabel = levelTitle,
                 TimePrefLabel = timeDisplay,
-                DistanceLabel = $"~{StableMilesFromKey(name)} mi",
+                DistanceLabel = "",
             };
 
         return new[]

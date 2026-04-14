@@ -92,7 +92,7 @@ export const analytics = {
   ctaClick: (cta: string, location?: string) => trackCTA(cta, location),
   landingEntryCtaClick: () => gaEvent('cta_click', { funnel: 'landing_entry' }),
   landingEntrySetupComplete: (params?: { kind?: string }) => gaEvent('setup_complete', { funnel: 'landing_entry', ...params }),
-  landingEntryUnlockClick: (surface: 'overlay' | 'match_card') =>
+  landingEntryUnlockClick: (surface: 'overlay' | 'match_card' | 'sticky') =>
     gaEvent('unlock_click', { funnel: 'landing_entry', surface }),
   /** Full credits usage breakdown modal (from header, pricing, etc.). */
   creditsUsageOpened: (source?: string) => gaEvent('view_credits_usage', { source: source ?? 'unknown' }),
