@@ -26,6 +26,12 @@ const ANALYZE_MESSAGES = ['entry_analyze_1', 'entry_analyze_2', 'entry_analyze_3
 
 const MIN_ANALYZE_MS = 1650;
 
+const CARD_STATUS_KEYS = ['entry_card_status_active', 'entry_card_status_trains', 'entry_card_status_partner'] as const;
+
+function previewCardStatusTKey(globalIndex: number): `landing.${(typeof CARD_STATUS_KEYS)[number]}` {
+  return `landing.${CARD_STATUS_KEYS[globalIndex % 3]}`;
+}
+
 function humanizeTimePref(timePref: string): string {
   const s = timePref.toLowerCase();
   if (s.includes('morning')) return 'Morning';
@@ -376,7 +382,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                     </header>
 
                     <div className={styles.previewCards}>
-                      {unlockedUsers.map((u) => (
+                      {unlockedUsers.map((u, i) => (
                         <button
                           key={u.name}
                           type="button"
@@ -392,6 +398,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                             <span className={styles.previewName}>{formatCardName(u)}</span>
                             <span className={styles.previewTraining}>{u.trainingSummary}</span>
                             <span className={styles.previewPrefLine}>{prefLine}</span>
+                            <span className={styles.previewStatus}>{t(previewCardStatusTKey(i))}</span>
                           </div>
                         </button>
                       ))}
@@ -400,7 +407,7 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                         <>
                           <div className={styles.lockedStack}>
                             <div className={styles.lockedStackBlur} aria-hidden>
-                              {lockedUsers.map((u) => (
+                              {lockedUsers.map((u, li) => (
                                 <div key={u.name} className={styles.previewCardGhost}>
                                   {u.photoUrl ? (
                                     <img src={u.photoUrl} alt="" className={styles.previewAvatar} width={52} height={52} />
@@ -411,6 +418,9 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                                     <span className={styles.previewName}>{formatCardName(u)}</span>
                                     <span className={styles.previewTraining}>{u.trainingSummary}</span>
                                     <span className={styles.previewPrefLineMuted}>{prefLine}</span>
+                                    <span className={styles.previewStatusMuted}>
+                                      {t(previewCardStatusTKey(unlockedCardCount + li))}
+                                    </span>
                                   </div>
                                 </div>
                               ))}
@@ -485,10 +495,10 @@ export const LandingEntryFlow: React.FC<Props> = ({ open, onClose }) => {
                 <div className={styles.previewStickyBar}>
                   <button
                     type="button"
-                    className={`${styles.primaryBtn} ${styles.primaryBtnPulse} ${styles.stickyContinueBtn}`}
+                    className={`${styles.primaryBtn} ${styles.primaryBtnPulse} ${styles.stickyContinueBtn} ${styles.stickyPrimaryBtn}`}
                     onClick={() => goToPaywall('sticky')}
                   >
-                    {t('landing.entry_continue')}
+                    {t('landing.entry_preview_sticky_cta')}
                   </button>
                   <p className={styles.previewStickyMicro}>{t('landing.entry_preview_sticky_micro')}</p>
                 </div>
