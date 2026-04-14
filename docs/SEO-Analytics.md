@@ -42,4 +42,4 @@ Place a **1200×630** PNG at `apps/web/public/images/og-image.png`. Until it exi
 
 ## Robots
 
-`apps/web/public/robots.txt` references the sitemap and disallows private areas (`/app`, `/admin`, auth, `/billing`, etc.). Adjust if you add new public marketing routes and regenerate `sitemap.xml` to match.
+`apps/web/public/robots.txt` allows all crawlers (`Allow: /`) and references the sitemap. Admin routes still use `noindex` in `seoRoutes.ts` (meta only). Regenerate or extend `sitemap.xml` when you add new public marketing routes.

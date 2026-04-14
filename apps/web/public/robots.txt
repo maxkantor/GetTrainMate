@@ -1,15 +1,4 @@
-# GetTrainMate — production robots (https://gettrainmate.com)
 User-agent: *
 Allow: /
-
-# Authenticated app, admin, onboarding, billing callbacks, auth flows
-Disallow: /admin
-Disallow: /app
-Disallow: /onboarding
-Disallow: /billing
-Disallow: /login
-Disallow: /signup
-Disallow: /verify-email
-Disallow: /api
 
 Sitemap: https://gettrainmate.com/sitemap.xml
