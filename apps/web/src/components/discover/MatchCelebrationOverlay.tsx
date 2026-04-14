@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import styles from './MatchCelebrationOverlay.module.css';
 
 export type MatchCelebrationState = {
+  userId: string;
   name: string;
   photoUrl: string;
   matchId: string;

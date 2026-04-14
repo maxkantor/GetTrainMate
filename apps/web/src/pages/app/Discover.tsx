@@ -72,6 +72,33 @@ function excludeDiscoverSelf<T extends { userId: string }>(items: T[], selfId?: 
   return items.filter((c) => c.userId !== selfId);
 }
 
+/** API may return the same candidate twice; keep first occurrence (order preserved). */
+function dedupeDiscoverFeedByUserId<T extends { userId: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.userId)) return false;
+    seen.add(item.userId);
+    return true;
+  });
+}
+
+/** After interest/match, drop that user everywhere and point at the next card in stack order. */
+function nextFeedAndIndexAfterRemovingUserId<T extends { userId: string }>(
+  feed: T[],
+  currentIndex: number,
+  userId: string
+): { nextFeed: T[]; nextIndex: number } {
+  const nextFeed = feed.filter((p) => p.userId !== userId);
+  const safeIdx = Math.min(Math.max(0, currentIndex), Math.max(0, feed.length - 1));
+  for (let i = safeIdx + 1; i < feed.length; i++) {
+    if (feed[i].userId !== userId) {
+      const nextIndex = feed.slice(0, i).filter((p) => p.userId !== userId).length;
+      return { nextFeed, nextIndex };
+    }
+  }
+  return { nextFeed, nextIndex: nextFeed.length > 0 ? 0 : 0 };
+}
+
 function toPhotoUrl(
   avatarUrl: string | undefined,
   userId: string,
@@ -204,6 +231,11 @@ export const DiscoverPage: React.FC = () => {
   const [skipUndoOpen, setSkipUndoOpen] = useState(false);
   const [lastSkippedProfile, setLastSkippedProfile] = useState<MatchFeedItem | null>(null);
 
+  const feedRef = useRef<MatchFeedItem[]>([]);
+  const currentIndexRef = useRef(0);
+  feedRef.current = feed;
+  currentIndexRef.current = currentIndex;
+
   /** Demo seed must not appear for normal production users (isolates fake profiles from real flows). */
   const allowDemoProfileSeed = import.meta.env.DEV || Boolean(me?.isAdmin);
 
@@ -261,7 +293,9 @@ export const DiscoverPage: React.FC = () => {
         ]);
         const items = (result.items || []) as GraphqlDiscoverCandidate[];
         const feedFromApi = mapGraphqlDiscoverToFeedItems(items);
-        const sorted = sortDiscoverFeed(excludeDiscoverSelf(feedFromApi, user?.sub));
+        const sorted = dedupeDiscoverFeedByUserId(
+          sortDiscoverFeed(excludeDiscoverSelf(feedFromApi, user?.sub))
+        );
         const hydrated = await hydrateDiscoverFeedFromRest(sorted, token);
         if (stale()) return;
         const location = locationRaw ?? FALLBACK_LOCATION;
@@ -289,7 +323,7 @@ export const DiscoverPage: React.FC = () => {
         }));
         if (stale()) return;
         const location = locationRaw ?? FALLBACK_LOCATION;
-        setFeed(sortDiscoverFeed(feedWithPhotos));
+        setFeed(dedupeDiscoverFeedByUserId(sortDiscoverFeed(excludeDiscoverSelf(feedWithPhotos, user?.sub))));
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
@@ -311,7 +345,9 @@ export const DiscoverPage: React.FC = () => {
               const jwt = freshToken ?? (await authService.getJWT(true));
               const items = (result.items || []) as GraphqlDiscoverCandidate[];
               const feedFromApi = mapGraphqlDiscoverToFeedItems(items);
-              const sorted = sortDiscoverFeed(excludeDiscoverSelf(feedFromApi, user?.sub));
+              const sorted = dedupeDiscoverFeedByUserId(
+                sortDiscoverFeed(excludeDiscoverSelf(feedFromApi, user?.sub))
+              );
               const hydrated = await hydrateDiscoverFeedFromRest(sorted, jwt);
               if (stale()) return;
               const location = locationRaw ?? FALLBACK_LOCATION;
@@ -330,7 +366,9 @@ export const DiscoverPage: React.FC = () => {
               }));
               if (stale()) return;
               const location = locationRaw ?? FALLBACK_LOCATION;
-              setFeed(sortDiscoverFeed(excludeDiscoverSelf(feedWithPhotos, user?.sub)));
+              setFeed(
+                dedupeDiscoverFeedByUserId(sortDiscoverFeed(excludeDiscoverSelf(feedWithPhotos, user?.sub)))
+              );
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoErrorForIndex(null);
@@ -381,15 +419,6 @@ export const DiscoverPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload discover when the signed-in user changes
   }, [user?.sub]);
 
-  const advanceToNextCard = useCallback(() => {
-    if (currentIndex < feed.length - 1) {
-      setCurrentIndex((i) => i + 1);
-    } else {
-      setFeed([]);
-      setError('');
-    }
-  }, [currentIndex, feed.length]);
-
   const handleWantToTrain = useCallback(async () => {
     if (currentIndex >= feed.length) return;
 
@@ -398,7 +427,12 @@ export const DiscoverPage: React.FC = () => {
       setToast(t('discover.preview_profile_hint'));
       if (interestAdvanceTimerRef.current) clearTimeout(interestAdvanceTimerRef.current);
       interestAdvanceTimerRef.current = setTimeout(() => {
-        advanceToNextCard();
+        const prev = feedRef.current;
+        const idx = currentIndexRef.current;
+        const { nextFeed, nextIndex } = nextFeedAndIndexAfterRemovingUserId(prev, idx, currentCard.userId);
+        setFeed(nextFeed);
+        setCurrentIndex(nextIndex);
+        if (nextFeed.length === 0) setError('');
         interestAdvanceTimerRef.current = null;
       }, 1000);
       return;
@@ -417,12 +451,19 @@ export const DiscoverPage: React.FC = () => {
       return urls[0] || placeholderPhotoUrl(currentCard.userId, 0, g);
     })();
 
+    const likedUserId = currentCard.userId;
+    const likedAtIndex = currentIndex;
+
     const finishInterestSent = () => {
       setProfileDrawerOpen(false);
       setToast(t('discover.interest_sent'));
       if (interestAdvanceTimerRef.current) clearTimeout(interestAdvanceTimerRef.current);
       interestAdvanceTimerRef.current = setTimeout(() => {
-        advanceToNextCard();
+        const prev = feedRef.current;
+        const { nextFeed, nextIndex } = nextFeedAndIndexAfterRemovingUserId(prev, likedAtIndex, likedUserId);
+        setFeed(nextFeed);
+        setCurrentIndex(nextIndex);
+        if (nextFeed.length === 0) setError('');
         interestAdvanceTimerRef.current = null;
       }, 1000);
     };
@@ -439,6 +480,7 @@ export const DiscoverPage: React.FC = () => {
         }
         if (result.isMatched) {
           setMatchCelebration({
+            userId: currentCard.userId,
             name: currentCard.name,
             photoUrl: celebrationPhoto,
             matchId: result.matchId,
@@ -467,6 +509,7 @@ export const DiscoverPage: React.FC = () => {
           }
           if (result.isMatched) {
             setMatchCelebration({
+              userId: currentCard.userId,
               name: currentCard.name,
               photoUrl: celebrationPhoto,
               matchId: result.matchId,
@@ -494,6 +537,7 @@ export const DiscoverPage: React.FC = () => {
                 }
                 if (result.isMatched) {
                   setMatchCelebration({
+                    userId: currentCard.userId,
                     name: currentCard.name,
                     photoUrl: celebrationPhoto,
                     matchId: result.matchId,
@@ -539,7 +583,6 @@ export const DiscoverPage: React.FC = () => {
       setLikeLoading(false);
     }
   }, [
-    advanceToNextCard,
     currentIndex,
     feed,
     me?.credits,
@@ -709,10 +752,18 @@ export const DiscoverPage: React.FC = () => {
 
   const closeMatchCelebration = useCallback(
     (advance: boolean) => {
+      const celebr = matchCelebration;
       setMatchCelebration(null);
-      if (advance) advanceToNextCard();
+      if (advance && celebr?.userId) {
+        const prevFeed = feedRef.current;
+        const idx = currentIndexRef.current;
+        const { nextFeed, nextIndex } = nextFeedAndIndexAfterRemovingUserId(prevFeed, idx, celebr.userId);
+        setFeed(nextFeed);
+        setCurrentIndex(nextIndex);
+        if (nextFeed.length === 0) setError('');
+      }
     },
-    [advanceToNextCard]
+    [matchCelebration]
   );
 
   const handleUnlockAiInsight = useCallback(async () => {
