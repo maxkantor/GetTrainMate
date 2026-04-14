@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Text;
@@ -20,18 +21,43 @@ public static class CreditsPurchaseEmailTemplates
         return $"{amount.ToString("F2", CultureInfo.InvariantCulture)} {cur}";
     }
 
+    private static bool EmailsAreEquivalent(string? a, string? b)
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
+            return false;
+        return string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string StripeAccountComparisonLine(string? stripePayerEmail, string? accountEmail)
+    {
+        var hasStripe = !string.IsNullOrWhiteSpace(stripePayerEmail);
+        var hasAcct = !string.IsNullOrWhiteSpace(accountEmail);
+        if (!hasStripe && !hasAcct)
+            return "Stripe vs account: (no emails to compare)";
+        if (hasStripe && hasAcct)
+            return EmailsAreEquivalent(stripePayerEmail, accountEmail)
+                ? "Stripe vs account: same address"
+                : "Stripe vs account: different addresses";
+        return "Stripe vs account: partial (one side missing)";
+    }
+
+    /// <param name="stripeCheckoutEmail">Email used at Stripe (receipt recipient). Never the Cognito/profile email unless they match.</param>
+    /// <param name="accountEmail">Sign-in / profile email from the app, when known.</param>
     public static (string Subject, string Text, string Html) BuildCustomerPurchaseEmail(
         int credits,
         string packDisplayTitle,
         string amountPaidFormatted,
         string appBaseUrl,
-        string? supportEmail)
+        string? supportEmail,
+        string stripeCheckoutEmail,
+        string? accountEmail)
     {
         var subject = "Your GetTrainMate credits are ready";
         var safePack = WebUtility.HtmlEncode(packDisplayTitle);
         var safeAmount = WebUtility.HtmlEncode(amountPaidFormatted);
         var safeApp = appBaseUrl.Trim().TrimEnd('/');
         var safeAppEnc = WebUtility.HtmlEncode(safeApp);
+        var safeStripe = WebUtility.HtmlEncode(stripeCheckoutEmail.Trim());
 
         var text = new StringBuilder();
         text.AppendLine("Thanks for your purchase — your credits have been added to your account and are ready to use.");
@@ -40,6 +66,25 @@ public static class CreditsPurchaseEmailTemplates
         text.AppendLine($"Plan: {packDisplayTitle}");
         text.AppendLine($"Amount paid: {amountPaidFormatted}");
         text.AppendLine();
+        if (!string.IsNullOrWhiteSpace(accountEmail) && !EmailsAreEquivalent(stripeCheckoutEmail, accountEmail))
+        {
+            text.AppendLine("About this email:");
+            text.AppendLine($"- Receipt sent to: {stripeCheckoutEmail.Trim()} (the address used at Stripe checkout).");
+            text.AppendLine($"- Your GetTrainMate sign-in / profile email: {accountEmail.Trim()} (credits are on this account).");
+            text.AppendLine("These can differ — your payment receipt goes to Stripe; credits apply to your signed-in app account.");
+            text.AppendLine();
+        }
+        else if (!string.IsNullOrWhiteSpace(accountEmail) && EmailsAreEquivalent(stripeCheckoutEmail, accountEmail))
+        {
+            text.AppendLine($"This receipt was sent to {stripeCheckoutEmail.Trim()} — the same address as your GetTrainMate account.");
+            text.AppendLine();
+        }
+        else
+        {
+            text.AppendLine($"This receipt was sent to {stripeCheckoutEmail.Trim()} (Stripe checkout). Sign in to the app with your usual GetTrainMate account to use your credits.");
+            text.AppendLine();
+        }
+
         text.AppendLine("Use your credits to:");
         text.AppendLine("- Unlock chats with matches");
         text.AppendLine("- Boost your profile");
@@ -68,6 +113,27 @@ public static class CreditsPurchaseEmailTemplates
             ? $"<p style=\"margin:16px 0 0;font-size:14px;line-height:1.55;color:#94a3b8;\">Questions? Email us at <a href=\"mailto:{WebUtility.HtmlEncode(supportEmail.Trim())}\" style=\"color:#c4b5fd;text-decoration:none;\">{WebUtility.HtmlEncode(supportEmail.Trim())}</a>.</p>"
             : "<p style=\"margin:16px 0 0;font-size:14px;line-height:1.55;color:#94a3b8;\">If you need help, reply to this email.</p>";
 
+        string emailContextHtml;
+        if (!string.IsNullOrWhiteSpace(accountEmail) && !EmailsAreEquivalent(stripeCheckoutEmail, accountEmail))
+        {
+            var safeAcct = WebUtility.HtmlEncode(accountEmail.Trim());
+            emailContextHtml = $@"<table role=""presentation"" width=""100%"" cellspacing=""0"" cellpadding=""0"" style=""margin:0 0 20px;background:rgba(30,41,59,0.5);border-radius:12px;border:1px solid rgba(129,140,248,0.25);"">
+<tr><td style=""padding:16px 18px;"">
+<p style=""margin:0 0 8px;font-size:13px;font-weight:700;color:#e2e8f0;text-transform:uppercase;letter-spacing:0.06em;"">Checkout vs account email</p>
+<p style=""margin:0;font-size:14px;line-height:1.55;color:#cbd5e1;""><strong style=""color:#fef3c7;"">Stripe checkout:</strong> {safeStripe}</p>
+<p style=""margin:10px 0 0;font-size:14px;line-height:1.55;color:#cbd5e1;""><strong style=""color:#a5b4fc;"">Your app sign-in:</strong> {safeAcct}</p>
+<p style=""margin:12px 0 0;font-size:13px;line-height:1.5;color:#94a3b8;"">Credits are on your GetTrainMate account. This receipt is sent to the email used to pay in Stripe — they can differ, and that&apos;s expected.</p>
+</td></tr></table>";
+        }
+        else if (!string.IsNullOrWhiteSpace(accountEmail) && EmailsAreEquivalent(stripeCheckoutEmail, accountEmail))
+        {
+            emailContextHtml = $@"<p style=""margin:0 0 20px;font-size:14px;line-height:1.55;color:#94a3b8;"">Receipt for <strong style=""color:#e2e8f0;"">{safeStripe}</strong> — same as your GetTrainMate account email.</p>";
+        }
+        else
+        {
+            emailContextHtml = $@"<p style=""margin:0 0 20px;font-size:14px;line-height:1.55;color:#94a3b8;"">Receipt sent to <strong style=""color:#e2e8f0;"">{safeStripe}</strong> (Stripe). Sign in with your GetTrainMate account to use credits.</p>";
+        }
+
         var html = $@"<!DOCTYPE html>
 <html lang=""en"">
 <head><meta charset=""utf-8""/><meta name=""viewport"" content=""width=device-width,initial-scale=1""/>
@@ -82,6 +148,7 @@ public static class CreditsPurchaseEmailTemplates
 <tr><td style=""padding:28px 28px 8px;"">
 <h1 style=""margin:0 0 12px;font-family:Georgia,'Segoe UI',system-ui,sans-serif;font-size:26px;line-height:1.2;font-weight:800;color:#f8fafc;"">Your credits are ready</h1>
 <p style=""margin:0 0 20px;font-size:16px;line-height:1.55;color:#cbd5e1;"">Thanks for your purchase — your credits have been added to your account and are ready to use.</p>
+{emailContextHtml}
 <table role=""presentation"" width=""100%"" cellspacing=""0"" cellpadding=""0"" style=""background:rgba(30,41,59,0.65);border-radius:12px;border:1px solid rgba(148,163,184,0.2);"">
 <tr><td style=""padding:18px 20px;"">
 <p style=""margin:0 0 10px;font-size:14px;color:#94a3b8;""><span style=""display:inline-block;min-width:120px;"">Credits added</span> <strong style=""color:#fef3c7;font-size:16px;"">{credits}</strong></p>
@@ -114,7 +181,8 @@ public static class CreditsPurchaseEmailTemplates
 
     public static (string Subject, string Text, string Html) BuildAdminCreditsPurchaseEmail(
         string userId,
-        string? buyerEmail,
+        string? stripePayerEmail,
+        string? accountEmail,
         int credits,
         string packKey,
         string packDisplayTitle,
@@ -132,7 +200,9 @@ public static class CreditsPurchaseEmailTemplates
             "A credit purchase was completed.",
             "",
             $"Time (UTC): {when}",
-            $"Buyer email: {(string.IsNullOrWhiteSpace(buyerEmail) ? "(not captured on checkout)" : buyerEmail.Trim())}",
+            $"Payer email (Stripe checkout): {(string.IsNullOrWhiteSpace(stripePayerEmail) ? "(not captured on session)" : stripePayerEmail.Trim())}",
+            $"Account email (app profile / sign-in): {(string.IsNullOrWhiteSpace(accountEmail) ? "(not on profile)" : accountEmail.Trim())}",
+            StripeAccountComparisonLine(stripePayerEmail, accountEmail),
             $"User ID (internal): {userId}",
             $"Pack key: {packKey}",
             $"Pack title: {packDisplayTitle}",

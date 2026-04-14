@@ -9,20 +9,25 @@ public interface IAdminNotificationService
 {
     Task NotifyNewSignupAsync(string userId, string? userEmail = null, CancellationToken cancellationToken = default);
 
-    /// <summary>Branded confirmation to the buyer (no internal IDs). Skipped when <paramref name="buyerEmail"/> is null/empty.</summary>
+    /// <summary>
+    /// Branded confirmation sent only to the <b>Stripe checkout / payer</b> address (never the account email when they differ).
+    /// Skipped when <paramref name="stripePayerEmail"/> is null/empty.
+    /// </summary>
     Task SendCreditsPurchaseConfirmationToCustomerAsync(
-        string? buyerEmail,
+        string? stripePayerEmail,
         int credits,
         string packDisplayTitle,
         long? amountTotalCents,
         string? currency,
         string appBaseUrl,
+        string? accountEmail,
         CancellationToken cancellationToken = default);
 
     /// <summary>Operational alert to SES admin inbox (Stripe references, internal user id).</summary>
     Task NotifyCreditsPurchaseAdminAsync(
         string userId,
-        string? buyerEmail,
+        string? stripePayerEmail,
+        string? accountEmail,
         int credits,
         string packKey,
         string packDisplayTitle,

@@ -90,18 +90,19 @@ public class AdminNotificationService : IAdminNotificationService
     }
 
     public async Task SendCreditsPurchaseConfirmationToCustomerAsync(
-        string? buyerEmail,
+        string? stripePayerEmail,
         int credits,
         string packDisplayTitle,
         long? amountTotalCents,
         string? currency,
         string appBaseUrl,
+        string? accountEmail,
         CancellationToken cancellationToken = default)
     {
-        var to = (buyerEmail ?? "").Trim();
+        var to = (stripePayerEmail ?? "").Trim();
         if (string.IsNullOrEmpty(to) || !to.Contains('@', StringComparison.Ordinal))
         {
-            _logger.LogDebug("Customer purchase confirmation skipped: no buyer email from Stripe checkout.");
+            _logger.LogDebug("Customer purchase confirmation skipped: no payer email from Stripe checkout.");
             return;
         }
 
@@ -112,7 +113,9 @@ public class AdminNotificationService : IAdminNotificationService
             packDisplayTitle,
             amountFormatted,
             appBaseUrl,
-            support);
+            support,
+            to,
+            accountEmail);
 
         IReadOnlyList<string>? replyTo = support != null ? new[] { support } : null;
 
@@ -128,7 +131,8 @@ public class AdminNotificationService : IAdminNotificationService
 
     public Task NotifyCreditsPurchaseAdminAsync(
         string userId,
-        string? buyerEmail,
+        string? stripePayerEmail,
+        string? accountEmail,
         int credits,
         string packKey,
         string packDisplayTitle,
@@ -140,7 +144,8 @@ public class AdminNotificationService : IAdminNotificationService
     {
         var (subject, text, html) = CreditsPurchaseEmailTemplates.BuildAdminCreditsPurchaseEmail(
             userId,
-            buyerEmail,
+            stripePayerEmail,
+            accountEmail,
             credits,
             packKey,
             packDisplayTitle,

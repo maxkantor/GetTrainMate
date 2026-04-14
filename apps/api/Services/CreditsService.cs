@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -31,18 +32,28 @@ public class CreditsService : ICreditsService
     private readonly ILogger<CreditsService> _logger;
     private readonly IAdminNotificationService _adminNotify;
     private readonly IConfiguration _configuration;
+    private readonly IProfileService _profileService;
 
     public CreditsService(
         IAmazonDynamoDB dynamoDb,
         ILogger<CreditsService> logger,
         IAdminNotificationService adminNotify,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IProfileService profileService)
     {
         _dynamoDb = dynamoDb;
         _logger = logger;
         _adminNotify = adminNotify;
         _configuration = configuration;
+        _profileService = profileService;
     }
+
+    /// <summary>Load payer email fields Stripe may omit unless expanded.</summary>
+    private static SessionGetOptions StripeSessionGetWithReceiptFields() =>
+        new()
+        {
+            Expand = new List<string> { "customer_details" },
+        };
 
     private string ResolveAppMarketingBaseUrl()
     {
@@ -50,7 +61,11 @@ public class CreditsService : ICreditsService
         return u.TrimEnd('/');
     }
 
-    private static string? ResolveCheckoutBuyerEmail(Session session)
+    /// <summary>
+    /// Email from Stripe Checkout only (receipt / payer). Never use Cognito or profile email here —
+    /// those are resolved separately for comparison and admin alerts.
+    /// </summary>
+    private static string? ResolveStripePayerEmail(Session session)
     {
         var fromDetails = session.CustomerDetails?.Email;
         if (!string.IsNullOrWhiteSpace(fromDetails))
@@ -90,18 +105,41 @@ public class CreditsService : ICreditsService
             packTitle = HumanizePackKey(packKey);
         }
 
-        var buyerEmail = ResolveCheckoutBuyerEmail(session);
-        _ = _adminNotify.SendCreditsPurchaseConfirmationToCustomerAsync(
-            buyerEmail,
+        string? accountEmail = null;
+        try
+        {
+            var profile = await _profileService.GetProfileAsync(userId);
+            var raw = profile?.Email?.Trim();
+            accountEmail = string.IsNullOrWhiteSpace(raw) ? null : raw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not load profile email for purchase notification context.");
+        }
+
+        var stripePayerEmail = ResolveStripePayerEmail(session);
+        if (!string.IsNullOrWhiteSpace(accountEmail) &&
+            !string.IsNullOrWhiteSpace(stripePayerEmail) &&
+            !string.Equals(accountEmail, stripePayerEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation(
+                "Credit purchase: Stripe payer email differs from app profile email (user {UserId}). Receipt uses Stripe only.",
+                userId);
+        }
+
+        await _adminNotify.SendCreditsPurchaseConfirmationToCustomerAsync(
+            stripePayerEmail,
             credits,
             packTitle,
             session.AmountTotal,
             session.Currency,
             appBase,
+            accountEmail,
             CancellationToken.None);
-        _ = _adminNotify.NotifyCreditsPurchaseAdminAsync(
+        await _adminNotify.NotifyCreditsPurchaseAdminAsync(
             userId,
-            buyerEmail,
+            stripePayerEmail,
+            accountEmail,
             credits,
             packKey,
             packTitle,
@@ -345,7 +383,7 @@ public class CreditsService : ICreditsService
         try
         {
             var sessionService = new SessionService();
-            session = await sessionService.GetAsync(sessionId);
+            session = await sessionService.GetAsync(sessionId, StripeSessionGetWithReceiptFields());
         }
         catch (Exception ex)
         {
@@ -361,7 +399,7 @@ public class CreditsService : ICreditsService
             try
             {
                 var sessionService = new SessionService();
-                session = await sessionService.GetAsync(session.Id);
+                session = await sessionService.GetAsync(session.Id, StripeSessionGetWithReceiptFields());
             }
             catch (Exception ex)
             {
@@ -453,7 +491,7 @@ public class CreditsService : ICreditsService
             try
             {
                 var sessionService = new SessionService();
-                session = await sessionService.GetAsync(session.Id);
+                session = await sessionService.GetAsync(session.Id, StripeSessionGetWithReceiptFields());
             }
             catch (Exception ex)
             {
@@ -540,6 +578,19 @@ public class CreditsService : ICreditsService
 
             await MarkWebhookEventProcessedAsync(eventsTable, stripeEventId, null);
             _logger.LogInformation("Credited user {UserId} with {Credits} credits (session {SessionId}).", userId, credits, session.Id);
+            if (string.IsNullOrWhiteSpace(ResolveStripePayerEmail(session)))
+            {
+                try
+                {
+                    var ss = new SessionService();
+                    session = await ss.GetAsync(session.Id, StripeSessionGetWithReceiptFields());
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Webhook: could not reload session with expanded customer_details for payer email.");
+                }
+            }
+
             await NotifyPurchaseEmailsAsync(session, userId, packKey, credits);
             return true;
         }
