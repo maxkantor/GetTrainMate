@@ -8,8 +8,8 @@ export const SITE_ORIGIN = (
     : 'https://gettrainmate.com'
 );
 
-/** OG / Twitter default image path (place 1200×630 PNG at public/images/og-image.png). */
-export const OG_IMAGE_PATH = '/images/og-image.png?v=1';
+/** OG / Twitter default image path (1200x630 JPG kept lightweight for chat link previews). */
+export const OG_IMAGE_PATH = '/images/og-image.jpg?v=2';
 
 export function absoluteUrl(pathname: string): string {
   const p = pathname.startsWith('/') ? pathname : `/${pathname}`;

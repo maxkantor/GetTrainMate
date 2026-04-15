@@ -11,7 +11,7 @@ const DEFAULT_PUBLIC_SITE_URL = 'https://gettrainmate.com'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, path.resolve(__dirname), '')
   const siteUrl = (env.VITE_PUBLIC_SITE_URL || DEFAULT_PUBLIC_SITE_URL).trim().replace(/\/$/, '')
-  const ogImagePath = '/images/og-image.png?v=1'
+  const ogImagePath = '/images/og-image.jpg?v=2'
   const ogImageUrl = `${siteUrl}${ogImagePath}`
   const canonicalLine = `<link rel="canonical" href="${siteUrl}/" />`
   const ogUrlLine = `<meta property="og:url" content="${siteUrl}/" />`
