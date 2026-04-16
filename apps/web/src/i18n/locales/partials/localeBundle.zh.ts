@@ -108,6 +108,21 @@ export const discoverExpandedZh = {
   sign_in_to_view_profile: '登录后查看此资料',
   could_not_load_profile: '无法加载资料',
   could_not_skip: '无法跳过，请重试。',
+  near_place: '{place} 附近',
+  new_people_today: '今日 {count} 位新用户',
+  progress_count: '{current} / {total}',
+  progress_demo_suffix: '（演示）',
+  reason_shared_activities: '{count} 个共同运动',
+  reason_similar_level: '相近水平（{level}）',
+  reason_within_filters: '在您的筛选范围内',
+  daily_limit_modal_title: '已达每日匹配上限',
+  daily_limit_modal_body:
+    '您今日（UTC）的 {limit} 次免费匹配已用完。购买积分可无限浏览；付费会员不设每日上限。',
+  get_credits: '获取积分',
+  undo_skip: '撤销',
+  sign_in_again_cta: '重新登录',
+  caught_up_btn_expand: '距离 / 模式',
+  caught_up_btn_filters: '调整筛选',
 } as const;
 
 export const appMessagesZh = {

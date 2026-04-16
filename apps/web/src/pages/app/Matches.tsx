@@ -222,7 +222,7 @@ export const MatchesPage: React.FC = () => {
                   : t('app_pages.matches.mutual_match')}
               </p>
               {match.modes && match.modes.length > 0 ? (
-                <p className={styles.cardModes}>{formatLookingForLine(match.modes)}</p>
+                <p className={styles.cardModes}>{formatLookingForLine(t, match.modes)}</p>
               ) : null}
               {match.bio && (
                 <p className={styles.cardBio}>

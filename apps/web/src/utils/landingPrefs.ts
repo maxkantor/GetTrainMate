@@ -69,5 +69,5 @@ export function buildDefaultBio(tags: string[], level: string): string {
   const clean = tags.filter((t) => t && t !== 'Other').slice(0, 3);
   const tagStr = clean.length ? clean.join(', ') : 'fitness';
   const lvl = (level || 'intermediate').toLowerCase();
-  return `Looking for a training partner for ${tagStr}. I'm at ${lvl} level—consistent sessions, accountability, and good energy. Message me to schedule a workout together.`;
+  return `Looking to meet active people for ${tagStr}. I'm ${lvl} level — consistent sessions, good energy, and real connection. Message me to plan a workout or hangout.`;
 }

@@ -26,9 +26,10 @@ export const TermsPage: React.FC = () => {
           2. Description of Service
         </Typography>
         <Typography variant="body1" paragraph>
-          GetTrainMate is a platform that connects people with compatible training partners based
-          on fitness goals, sports, location, and availability. We provide matching, chat, and
-          event features to help you find and coordinate with training partners.
+          GetTrainMate is a platform that connects people for fitness-first social discovery: workout
+          partners, social connection, and dating where offered — based on sports, goals, location,
+          availability, and the modes you choose. We provide matching, chat, and event features to
+          help you find and coordinate with other members.
         </Typography>
       </Box>
       <Box component="section" sx={{ mt: 3 }}>
@@ -69,7 +70,7 @@ export const TermsPage: React.FC = () => {
         <Typography variant="body1" paragraph>
           GetTrainMate facilitates connections between users. We do not guarantee the accuracy,
           safety, or conduct of other users. You are responsible for your own safety when meeting
-          training partners. Exercise caution and meet in public places.
+          other members in person. Exercise caution and meet in public places.
         </Typography>
       </Box>
       <Box component="section" sx={{ mt: 3 }}>

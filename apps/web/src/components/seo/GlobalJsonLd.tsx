@@ -8,7 +8,7 @@ const organization = {
   name: 'GetTrainMate',
   url: SITE_ORIGIN,
   description:
-    'Find compatible training partners for gym, HYROX, running, and more. TRAIN, VIBE, and DATE modes with AI-powered matching.',
+    'Train, vibe, or date with active people worldwide. TRAIN, VIBE, and DATE modes with modern matching and chat.',
   logo: `${SITE_ORIGIN}/vite.svg`,
 };
 

@@ -11,7 +11,7 @@ export type LandingStackFallbackItem = {
 
 export const LANDING_SHOWCASE_STACK_FALLBACK: LandingStackFallbackItem[] = [
   {
-    text: 'Sarah found a training partner',
+    text: 'Sarah found someone to train and vibe with',
     avatar: NO_PHOTO_PLACEHOLDER,
     secondaryAvatar: NO_PHOTO_PLACEHOLDER,
   },
@@ -20,7 +20,7 @@ export const LANDING_SHOWCASE_STACK_FALLBACK: LandingStackFallbackItem[] = [
     avatar: NO_PHOTO_PLACEHOLDER,
   },
   {
-    text: 'New training partners added regularly',
+    text: 'New matches daily for training, vibes, or dating',
     avatar: NO_PHOTO_PLACEHOLDER,
   },
 ];

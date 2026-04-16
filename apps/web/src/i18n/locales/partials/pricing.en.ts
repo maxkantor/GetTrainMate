@@ -41,7 +41,7 @@ export const pricingEn = {
   trust_no_subscription: 'No subscriptions',
   section_what_title: 'What You Can Do With Credits',
   tile_unlock_title: 'Unlock Chat',
-  tile_unlock_desc: 'Start a conversation with a training partner.',
+  tile_unlock_desc: 'Start a conversation with a new connection.',
   tile_icebreaker_title: 'AI Icebreaker',
   tile_icebreaker_desc: 'Get smart first-message suggestions based on both profiles.',
   tile_boost_title: 'Boost Profile',
@@ -59,7 +59,7 @@ export const pricingEn = {
   why_1: 'Pay only when you use features',
   why_2: 'No recurring payments',
   why_3: 'Flexible for casual or active users',
-  why_4: 'Built for real-world training partners',
+  why_4: 'Built for real-world connections',
   faq_title: 'Frequently asked',
   faq_q1: 'What can I do with credits?',
   faq_a1:

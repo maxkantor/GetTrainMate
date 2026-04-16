@@ -20,7 +20,6 @@ import { MatchFeedItem } from '@/services/matchService';
 import type { MatchInsightResponse } from '@/types/ai';
 import { MatchPanel } from './MatchPanel';
 import { useI18n } from '@/hooks/useI18n';
-import { formatLookingForLine } from '@/config/modes';
 import styles from './DiscoverProfileDrawer.module.css';
 
 function scheduleSummary(schedule: { days?: string[]; timeStart?: string; timeEnd?: string }[] | undefined): string {
@@ -132,9 +131,9 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
     >
       <Box className={styles.header}>
         <Typography variant="h6" component="h2" className={styles.headerTitle}>
-          Profile
+          {t('discover_drawer.title')}
         </Typography>
-        <IconButton onClick={onClose} aria-label="Close" size="small">
+        <IconButton onClick={onClose} aria-label={t('common.close')} size="small">
           <CloseIcon />
         </IconButton>
       </Box>
@@ -177,7 +176,7 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
             </Typography>
             {level && (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Level: {level.charAt(0).toUpperCase() + level.slice(1)}
+                {t('discover_drawer.level')}: {level.charAt(0).toUpperCase() + level.slice(1)}
               </Typography>
             )}
             {city && (
@@ -193,7 +192,7 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
             )}
             {goals.length > 0 && (
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                Goals
+                {t('discover_drawer.goals')}
               </Typography>
             )}
             {goals.length > 0 && (
@@ -214,12 +213,12 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
               <Box sx={{ mb: 2 }}>
                 {detail?.workoutStyle && (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    <strong>Workout style:</strong> {detail.workoutStyle}
+                    <strong>{t('discover_drawer.workout_style')}:</strong> {detail.workoutStyle}
                   </Typography>
                 )}
                 {detail?.personalityTag && (
                   <Typography variant="body2" color="text.secondary">
-                    <strong>Personality:</strong> {detail.personalityTag}
+                    <strong>{t('discover_drawer.personality')}:</strong> {detail.personalityTag}
                   </Typography>
                 )}
               </Box>
@@ -227,7 +226,7 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
             {availability.length > 0 && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                  Availability
+                  {t('discover_drawer.availability')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {scheduleSummary(availability as { days?: string[]; timeStart?: string; timeEnd?: string }[])}
@@ -253,8 +252,8 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
       </Box>
 
       <Box className={styles.footer}>
-        <Button variant="outlined" fullWidth onClick={onClose} aria-label="Back to Discover">
-          Back to Discover
+        <Button variant="outlined" fullWidth onClick={onClose} aria-label={t('discover_drawer.back_aria')}>
+          {t('discover_drawer.back')}
         </Button>
         <Button
           variant="outlined"

@@ -108,6 +108,21 @@ export const discoverExpandedUa = {
   sign_in_to_view_profile: 'Увійдіть, щоб переглянути профіль',
   could_not_load_profile: 'Не вдалося завантажити профіль',
   could_not_skip: 'Не вдалося пропустити. Спробуйте знову.',
+  near_place: 'Поблизу {place}',
+  new_people_today: '{count} нових людей сьогодні',
+  progress_count: '{current} з {total}',
+  progress_demo_suffix: ' (демо)',
+  reason_shared_activities: '{count} спільних активностей',
+  reason_similar_level: 'Схожий рівень ({level})',
+  reason_within_filters: 'У межах ваших фільтрів',
+  daily_limit_modal_title: 'Денний ліміт досягнуто',
+  daily_limit_modal_body:
+    'Використано {limit} безкоштовних збігів на сьогодні (UTC). Купіть кредити для безліміту — у платних учасників немає денного обмеження.',
+  get_credits: 'Купити кредити',
+  undo_skip: 'Скасувати',
+  sign_in_again_cta: 'Увійти знову',
+  caught_up_btn_expand: 'Дистанція / режим',
+  caught_up_btn_filters: 'Фільтри',
 } as const;
 
 export const appMessagesUa = {

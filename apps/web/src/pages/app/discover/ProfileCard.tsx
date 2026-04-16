@@ -4,6 +4,7 @@ import styles from './ProfileCard.module.css';
 import { ProfileDetailsModal } from './ProfileDetailsModal';
 import type { MatchFeedItem } from '@/services/matchService';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
+import { useI18n } from '@/hooks/useI18n';
 import { formatLookingForLine } from '@/config/modes';
 
 interface ProfileCardProps {
@@ -31,6 +32,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
   onSwipeRight,
   matched = false,
 }) => {
+  const { t } = useI18n();
   const [bioExpanded, setBioExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -90,7 +92,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
               {levelLabel && <span className={styles.chipOverlay}>{levelLabel}</span>}
               {distanceLabel && <span className={styles.chipOverlay}>{distanceLabel}</span>}
             </div>
-            <p className={styles.lookingFor}>{formatLookingForLine(profile.modes)}</p>
+            <p className={styles.lookingFor}>{formatLookingForLine(t, profile.modes)}</p>
             {overlayBio && <p className={styles.overlayBio}>{overlayBio}</p>}
             <p className={styles.scheduleHint}>
               Swipe: skip ← · → connect

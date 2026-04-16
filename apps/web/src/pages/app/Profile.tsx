@@ -836,10 +836,9 @@ export const ProfilePage: React.FC = () => {
         </FormControl>
 
         <FormControl fullWidth margin="normal">
-          <FormLabel>{t('profile.mode')}</FormLabel>
+          <FormLabel>{t('profile.intent_title')}</FormLabel>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-            Pick one or more — we only show people you share intent with in Discover. Use{' '}
-            <strong>Save Profile</strong> to apply (availability below still auto-saves).
+            {t('profile.intent_helper')}
           </Typography>
           {sectionHint.mode && (
             <Typography variant="caption" color="success.main" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
@@ -854,16 +853,67 @@ export const ProfilePage: React.FC = () => {
               setFormData({ ...formData, modes: next, mode: next[0] });
             }}
             aria-label="Intent modes"
-            sx={{ flexWrap: 'wrap', gap: 1 }}
+            sx={{
+              flexWrap: 'wrap',
+              gap: 1,
+              '& .MuiToggleButton-root': {
+                borderRadius: '12px !important',
+                px: 1.5,
+                py: 1,
+                textTransform: 'none',
+                fontWeight: 700,
+                lineHeight: 1.35,
+                transition: 'background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+              },
+            }}
           >
-            <ToggleButton value="TRAIN" sx={{ textTransform: 'none', fontWeight: 700 }}>
-              🏋️ Train
+            <ToggleButton
+              value="TRAIN"
+              sx={{
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(16, 185, 129, 0.16) !important',
+                  color: '#0f766e',
+                  borderColor: 'rgba(16, 185, 129, 0.45) !important',
+                  boxShadow: 'inset 0 0 0 1px rgba(16, 185, 129, 0.2)',
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'rgba(16, 185, 129, 0.22) !important',
+                },
+              }}
+            >
+              🏋️ Train <span style={{ opacity: 0.78, fontWeight: 600 }}>· {t('profile.intent_train_label')}</span>
             </ToggleButton>
-            <ToggleButton value="VIBE" sx={{ textTransform: 'none', fontWeight: 700 }}>
-              🧑‍🤝‍🧑 Vibe
+            <ToggleButton
+              value="VIBE"
+              sx={{
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(99, 102, 241, 0.16) !important',
+                  color: '#3730a3',
+                  borderColor: 'rgba(99, 102, 241, 0.42) !important',
+                  boxShadow: 'inset 0 0 0 1px rgba(99, 102, 241, 0.22)',
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'rgba(99, 102, 241, 0.22) !important',
+                },
+              }}
+            >
+              🧑‍🤝‍🧑 Vibe <span style={{ opacity: 0.78, fontWeight: 600 }}>· {t('profile.intent_vibe_label')}</span>
             </ToggleButton>
-            <ToggleButton value="DATE" sx={{ textTransform: 'none', fontWeight: 700 }}>
-              ❤️ Date
+            <ToggleButton
+              value="DATE"
+              sx={{
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(244, 63, 94, 0.12) !important',
+                  color: '#9f1239',
+                  borderColor: 'rgba(244, 63, 94, 0.38) !important',
+                  boxShadow: 'inset 0 0 0 1px rgba(244, 63, 94, 0.18)',
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'rgba(244, 63, 94, 0.18) !important',
+                },
+              }}
+            >
+              ❤️ Date <span style={{ opacity: 0.78, fontWeight: 600 }}>· {t('profile.intent_date_label')}</span>
             </ToggleButton>
           </ToggleButtonGroup>
         </FormControl>

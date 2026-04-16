@@ -1,6 +1,6 @@
 .section {
   position: relative;
-  padding: 44px 0 50px;
+  padding: clamp(40px, 6vw, 56px) 0 clamp(48px, 7vw, 64px);
   overflow: hidden;
 }
 
@@ -76,7 +76,7 @@
   align-items: center;
   justify-content: center;
   min-height: 50px;
-  padding: 0 30px;
+  padding: 0 32px;
   font-size: 0.95rem;
   font-weight: 700;
   font-family: inherit;
@@ -86,10 +86,13 @@
   cursor: pointer;
   border-radius: 999px;
   white-space: nowrap;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6 50%, #3b82f6);
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.25;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6 50%, #4f46e5);
   box-shadow:
-    0 4px 24px rgba(99, 102, 241, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    0 6px 28px rgba(99, 102, 241, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -148,11 +151,16 @@
   }
 
   .section {
-    padding: 32px 0 34px;
+    padding: 32px 0 40px;
   }
 
   .btn {
     width: 100%;
+    white-space: normal;
+    min-height: 48px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    font-size: clamp(0.85rem, 3.5vw, 0.95rem);
   }
 }
 

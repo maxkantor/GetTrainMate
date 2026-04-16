@@ -19,19 +19,19 @@ const thumb = (url: string) => (url.includes('?') ? `${url}&w=96&h=96&fit=crop&c
 const items: T[] = [
   {
     name: 'Mike',
-    place: 'San Francisco',
+    place: 'London',
     sport: '🚴',
     avatar: thumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-2']),
   },
   {
     name: 'Sarah',
-    place: 'San Francisco',
+    place: 'Toronto',
     sport: '🏃‍♀️',
     avatar: thumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-1']),
   },
   {
     name: 'Emma',
-    place: 'San Francisco',
+    place: 'Barcelona',
     sport: '🧘',
     avatar: thumb(DUMMY_USER_PRIMARY_PHOTO['dummy-user-3']),
   },

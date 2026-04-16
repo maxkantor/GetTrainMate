@@ -1,4 +1,5 @@
 import React from 'react';
+import { useI18n } from '@/hooks/useI18n';
 import styles from './ConfirmConnectModal.module.css';
 
 interface ConfirmConnectModalProps {
@@ -16,11 +17,16 @@ export const ConfirmConnectModal: React.FC<ConfirmConnectModalProps> = ({
   onClose,
   onConfirm,
   loading,
-  title = 'Priority Connect',
-  body = 'View their full profile and start a conversation. Unlocking chat costs 1 credit when you match.',
-  confirmLabel = 'View Profile',
+  title,
+  body,
+  confirmLabel,
 }) => {
   if (!open) return null;
+  const { t } = useI18n();
+
+  const resolvedTitle = title ?? t('connect_modal.title');
+  const resolvedBody = body ?? t('connect_modal.body');
+  const resolvedConfirm = confirmLabel ?? t('connect_modal.confirm');
 
   return (
     <div
@@ -37,9 +43,9 @@ export const ConfirmConnectModal: React.FC<ConfirmConnectModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="connect-modal-title" className={styles.title}>
-          {title}
+          {resolvedTitle}
         </h2>
-        <p className={styles.body}>{body}</p>
+        <p className={styles.body}>{resolvedBody}</p>
         <div className={styles.actions}>
           <button
             type="button"
@@ -47,7 +53,7 @@ export const ConfirmConnectModal: React.FC<ConfirmConnectModalProps> = ({
             onClick={onClose}
             disabled={loading}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -56,7 +62,7 @@ export const ConfirmConnectModal: React.FC<ConfirmConnectModalProps> = ({
             disabled={loading}
             aria-busy={loading}
           >
-            {loading ? 'Loading…' : confirmLabel}
+            {loading ? t('common.loading') : resolvedConfirm}
           </button>
         </div>
       </div>

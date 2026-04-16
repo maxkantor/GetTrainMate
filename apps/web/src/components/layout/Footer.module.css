@@ -1,8 +1,8 @@
 .footer {
   background: #070b1a;
   color: rgba(255, 255, 255, 0.8);
-  padding: 36px 0 28px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 44px 0 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Compact footer for /app/* – minimal links, no giant marketing section */
@@ -60,9 +60,9 @@
 .footerContent {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: var(--space-6);
-  padding-bottom: var(--space-6);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  gap: var(--space-8);
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Brand Column */
@@ -104,9 +104,9 @@
 
 .tagline {
   font-size: 0.875rem;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.6);
-  max-width: 260px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.62);
+  max-width: 280px;
 }
 
 .social {
@@ -143,10 +143,10 @@
 .columnTitle {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.75);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: var(--space-1);
+  letter-spacing: 0.1em;
+  margin-bottom: var(--space-2);
 }
 
 .linksList {
@@ -171,7 +171,7 @@
 
 /* Bottom Bar */
 .bottomBar {
-  padding-top: var(--space-5);
+  padding-top: var(--space-6);
   text-align: center;
 }
 

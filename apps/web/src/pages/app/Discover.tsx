@@ -391,9 +391,7 @@ export const DiscoverPage: React.FC = () => {
 
       if (!stale()) {
         if (isNetworkError(err)) {
-          setError(
-            'Unable to connect to the API. The backend may not be deployed or CORS is not configured.'
-          );
+          setError(t('app_messages.api_backend_unreachable'));
         } else if (status === 401) {
           setError(t('app_messages.auth_required'));
         } else {
@@ -863,11 +861,20 @@ export const DiscoverPage: React.FC = () => {
   }
 
   if (error && feed.length === 0) {
-    const isAuthError = error.includes('sign in') || error.includes('Session expired') || error.includes('Authentication');
+    const authErrorTexts = [
+      t('app_messages.session_expired'),
+      t('app_messages.auth_required'),
+      t('app_messages.not_authenticated'),
+      t('app_messages.sign_in_again'),
+    ];
+    const isAuthError =
+      authErrorTexts.includes(error) ||
+      /sign in|Session expired|Authentication/i.test(error);
+    const isApiReachabilityError = error === t('app_messages.api_backend_unreachable');
     return (
       <div className={styles.container}>
         <div className={styles.emptyState}>
-          <Alert severity={error.includes('API') ? 'warning' : 'info'} sx={{ mb: 2 }}>
+          <Alert severity={isApiReachabilityError ? 'warning' : 'info'} sx={{ mb: 2 }}>
             {error}
           </Alert>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -881,7 +888,7 @@ export const DiscoverPage: React.FC = () => {
                   navigate('/login', { state: { from: '/app/discover' }, replace: true });
                 }}
               >
-                Sign in again
+                {t('discover.sign_in_again_cta')}
               </Button>
             ) : (
               <Button fullWidth variant="contained" color="primary" onClick={() => loadFeed()}>
@@ -907,16 +914,16 @@ export const DiscoverPage: React.FC = () => {
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
               <Button variant="outlined" onClick={() => navigate('/app/profile')}>
-                Expand distance / change mode
+                {t('discover.caught_up_btn_expand')}
               </Button>
               <Button variant="outlined" onClick={() => setFiltersOpen(true)}>
-                Adjust filters
+                {t('discover.caught_up_btn_filters')}
               </Button>
               <Button variant="outlined" onClick={() => navigate('/app/sent-requests')}>
-                Sent requests
+                {t('sentRequests.title')}
               </Button>
               <Button variant="outlined" onClick={() => navigate('/app/matches')}>
-                Matches
+                {t('app_pages.matches.title')}
               </Button>
               <Button variant="contained" onClick={() => loadFeed()}>
                 {t('discover.retry')}
@@ -961,17 +968,23 @@ export const DiscoverPage: React.FC = () => {
       : me?.profile?.mode
         ? [me.profile.mode]
         : undefined;
-  const { label: primaryCta, icon: primaryCtaIcon } = getDiscoverPrimaryCta(viewerModeList, currentCard.modes);
+  const { label: primaryCta, icon: primaryCtaIcon } = getDiscoverPrimaryCta(t, viewerModeList, currentCard.modes);
 
   const matchReasons = (
     currentCard.matchPreviewReasons?.length
       ? currentCard.matchPreviewReasons
       : [
           ...(currentCard.commonSports?.length
-            ? [`${currentCard.commonSports.length} shared activities`]
+            ? [
+                formatI18n(t('discover.reason_shared_activities'), {
+                  count: currentCard.commonSports.length,
+                }),
+              ]
             : []),
-          currentCard.level ? `Similar level (${currentCard.level})` : null,
-          currentCard.city ? 'Location in range' : null,
+          currentCard.level
+            ? formatI18n(t('discover.reason_similar_level'), { level: currentCard.level })
+            : null,
+          currentCard.city ? t('discover.reason_within_filters') : null,
         ].filter(Boolean)
   ) as string[];
 
@@ -985,10 +998,12 @@ export const DiscoverPage: React.FC = () => {
           <>
             <div className={styles.discoverTopCenter}>
               {userLocationLabel && (
-                <span className={styles.locationLabel}>Near {userLocationLabel}</span>
+                <span className={styles.locationLabel}>
+                  {formatI18n(t('discover.near_place'), { place: userLocationLabel })}
+                </span>
               )}
               <span className={styles.newAthletesLine}>
-                🔥 {newAthletesToday} new athletes today
+                🔥 {formatI18n(t('discover.new_people_today'), { count: newAthletesToday })}
               </span>
             </div>
             <FiltersButton
@@ -1003,8 +1018,11 @@ export const DiscoverPage: React.FC = () => {
           <div className={styles.progressSection}>
             <div className={styles.progressMetaRow}>
               <span className={styles.headerCount}>
-                {currentIndex + 1} of {feed.length}
-                {isDummy ? ' (near you)' : ''}
+                {formatI18n(t('discover.progress_count'), {
+                  current: currentIndex + 1,
+                  total: feed.length,
+                })}
+                {isDummy ? t('discover.progress_demo_suffix') : ''}
               </span>
             </div>
             <div className={styles.progressTrack}>
@@ -1110,7 +1128,11 @@ export const DiscoverPage: React.FC = () => {
 
       <Snackbar
         open={!!toast}
-        autoHideDuration={toast?.includes('sign in') || toast?.includes('Session expired') ? 10000 : 5200}
+        autoHideDuration={
+          toast === t('app_messages.sign_in_again') || toast === t('app_messages.session_expired')
+            ? 10000
+            : 5200
+        }
         onClose={() => setToast(null)}
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
@@ -1119,7 +1141,8 @@ export const DiscoverPage: React.FC = () => {
           '& .MuiSnackbarContent-root': { maxWidth: 420 },
         }}
         action={
-          toast && (toast.includes('sign in') || toast.includes('Session expired')) ? (
+          toast &&
+          (toast === t('app_messages.sign_in_again') || toast === t('app_messages.session_expired')) ? (
             <Button
               color="inherit"
               size="small"
@@ -1129,7 +1152,7 @@ export const DiscoverPage: React.FC = () => {
                 navigate('/login', { state: { from: '/app/discover' }, replace: true });
               }}
             >
-              Sign in
+              {t('common.signIn')}
             </Button>
           ) : undefined
         }
@@ -1150,7 +1173,7 @@ export const DiscoverPage: React.FC = () => {
                 void handleUndoSkip();
               }}
             >
-              Undo
+              {t('discover.undo_skip')}
             </Button>
           ) : undefined
         }
@@ -1161,19 +1184,18 @@ export const DiscoverPage: React.FC = () => {
       <Modal
         open={dailyLimitModalOpen}
         onClose={() => setDailyLimitModalOpen(false)}
-        title="Daily match limit reached"
+        title={t('discover.daily_limit_modal_title')}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <Typography variant="body2" color="text.secondary">
-            You&apos;ve used your {DAILY_LIKE_LIMIT} free matches for today (UTC). Add credits to unlock unlimited
-            discovery — paying members keep swiping without a daily cap.
+            {formatI18n(t('discover.daily_limit_modal_body'), { limit: DAILY_LIKE_LIMIT })}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button variant="outlined" onClick={() => setDailyLimitModalOpen(false)}>
-              Close
+              {t('common.close')}
             </Button>
             <Button variant="contained" onClick={() => { setDailyLimitModalOpen(false); navigate('/pricing'); }}>
-              Get credits
+              {t('discover.get_credits')}
             </Button>
           </Box>
         </Box>

@@ -9,7 +9,7 @@ export const PRICING_VIBE_IMAGES = [
   {
     src: `${IMAGE_BUCKET_BASE}/pricing/vibe/strength.jpg`,
     alt: 'Strength training',
-    caption: 'Real training partners',
+    caption: 'Real connection',
     width: 600,
     height: 400,
     fallback: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80',

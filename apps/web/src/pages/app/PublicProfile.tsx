@@ -209,7 +209,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
         setProfile({
           userId: landing.userId,
           name: `${landing.name}, ${landing.age}`,
-          city: `${landing.location} · ${landing.distance} away`,
+          city: landing.location,
           bio: landing.bio,
           sportTags: landing.tags,
           photoUrls,
@@ -396,7 +396,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
       : profile.mode
         ? [profile.mode]
         : undefined;
-  const primaryInterestLabel = getDiscoverPrimaryCta(viewerModeList, cardModesForCta).label;
+  const primaryInterestLabel = getDiscoverPrimaryCta(t, viewerModeList, cardModesForCta).label;
 
   return (
     <Container maxWidth="sm" sx={{ py: 4, pb: 10 }}>
@@ -508,8 +508,8 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userIdFrom
           {(profile.modes && profile.modes.length > 0) || profile.mode ? (
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
               {profile.modes && profile.modes.length > 0
-                ? formatLookingForLine(profile.modes)
-                : `Looking for: ${profile.mode}`}
+                ? formatLookingForLine(t, profile.modes)
+                : `${t('modes.looking_for')}: ${profile.mode}`}
             </Typography>
           ) : null}
           {profile.goals && profile.goals.length > 0 && (

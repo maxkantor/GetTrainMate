@@ -14,9 +14,9 @@ const BRAND = 'GetTrainMate';
 
 const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?: string }> = {
   '/': {
-    title: `${BRAND} | Find Your Perfect Training Partner`,
+    title: `${BRAND} | Train, Vibe, or Date`,
     description:
-      'Match, train, and connect with people who fit your goals and vibe. TRAIN, VIBE, and DATE modes for gym, HYROX, running, CrossFit, and more.',
+      'Train, vibe, or date with active people worldwide. Choose your intent, swipe to match, then chat and meet — fitness-first, modern, and safe.',
     noindex: false,
   },
   '/pricing': {
@@ -28,7 +28,7 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
   '/about': {
     title: `About Us | ${BRAND}`,
     description:
-      'GetTrainMate helps you find compatible training partners with AI-powered matching, safety tools, and flexible modes.',
+      'GetTrainMate helps active people connect worldwide — for training, social vibes, or dating — with flexible modes and safety-first design.',
     noindex: false,
   },
   '/faq': {
@@ -49,7 +49,7 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
   },
   '/platform': {
     title: `Platform | ${BRAND}`,
-    description: 'How the GetTrainMate platform works — matching, credits, chat, and events.',
+    description: 'How GetTrainMate works — matching, credits, chat, events, and intent (Train/Vibe/Date).',
     noindex: false,
   },
   '/privacy': {

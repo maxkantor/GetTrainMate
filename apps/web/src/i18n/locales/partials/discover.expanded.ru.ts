@@ -24,6 +24,21 @@ export const discoverExpandedRu = {
   sign_in_to_view_profile: 'Войдите, чтобы посмотреть профиль',
   could_not_load_profile: 'Не удалось загрузить профиль',
   could_not_skip: 'Не удалось пропустить. Попробуйте снова.',
+  near_place: 'Рядом с {place}',
+  new_people_today: '{count} новых людей сегодня',
+  progress_count: '{current} из {total}',
+  progress_demo_suffix: ' (демо)',
+  reason_shared_activities: '{count} общих активностей',
+  reason_similar_level: 'Похожий уровень ({level})',
+  reason_within_filters: 'В пределах ваших фильтров',
+  daily_limit_modal_title: 'Достигнут дневной лимит',
+  daily_limit_modal_body:
+    'Использованы {limit} бесплатных совпадений на сегодня (UTC). Купите кредиты для безлимита — у платных участников нет дневного лимита.',
+  get_credits: 'Купить кредиты',
+  undo_skip: 'Отменить',
+  sign_in_again_cta: 'Войти снова',
+  caught_up_btn_expand: 'Дистанция / режим',
+  caught_up_btn_filters: 'Настроить фильтры',
 } as const;
 
 export const appMessagesRu = {

@@ -122,6 +122,21 @@ export const discoverExpandedEs = {
   sign_in_to_view_profile: 'Inicia sesión para ver este perfil',
   could_not_load_profile: 'No se pudo cargar el perfil',
   could_not_skip: 'No se pudo omitir. Inténtalo de nuevo.',
+  near_place: 'Cerca de {place}',
+  new_people_today: '{count} personas nuevas hoy',
+  progress_count: '{current} de {total}',
+  progress_demo_suffix: ' (demo)',
+  reason_shared_activities: '{count} actividades en común',
+  reason_similar_level: 'Nivel parecido ({level})',
+  reason_within_filters: 'Dentro de tus filtros',
+  daily_limit_modal_title: 'Límite diario de matches',
+  daily_limit_modal_body:
+    'Has usado tus {limit} matches gratis de hoy (UTC). Añade créditos para descubrimiento ilimitado: los miembros de pago siguen sin tope diario.',
+  get_credits: 'Conseguir créditos',
+  undo_skip: 'Deshacer',
+  sign_in_again_cta: 'Iniciar sesión de nuevo',
+  caught_up_btn_expand: 'Distancia / modo',
+  caught_up_btn_filters: 'Ajustar filtros',
 } as const;
 
 export const appMessagesEs = {

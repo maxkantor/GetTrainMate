@@ -25,6 +25,21 @@ export const discoverExpandedEn = {
   sign_in_to_view_profile: 'Sign in to view this profile',
   could_not_load_profile: 'Could not load profile',
   could_not_skip: 'Could not skip. Try again.',
+  near_place: 'Near {place}',
+  new_people_today: '{count} new people today',
+  progress_count: '{current} of {total}',
+  progress_demo_suffix: ' (demo)',
+  reason_shared_activities: '{count} shared activities',
+  reason_similar_level: 'Similar level ({level})',
+  reason_within_filters: 'Within your filters',
+  daily_limit_modal_title: 'Daily match limit reached',
+  daily_limit_modal_body:
+    "You've used your {limit} free matches for today (UTC). Add credits to unlock unlimited discovery — paying members keep swiping without a daily cap.",
+  get_credits: 'Get credits',
+  undo_skip: 'Undo',
+  sign_in_again_cta: 'Sign in again',
+  caught_up_btn_expand: 'Expand distance / change mode',
+  caught_up_btn_filters: 'Adjust filters',
 } as const;
 
 export const appMessagesEn = {

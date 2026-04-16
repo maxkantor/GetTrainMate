@@ -108,6 +108,21 @@ export const discoverExpandedHi = {
   sign_in_to_view_profile: 'इस प्रोफाइल को देखने के लिए साइन इन करें',
   could_not_load_profile: 'प्रोफाइल लोड नहीं हो सका',
   could_not_skip: 'छोड़ नहीं सके। पुनः प्रयास करें।',
+  near_place: '{place} के पास',
+  new_people_today: 'आज {count} नए लोग',
+  progress_count: '{current} / {total}',
+  progress_demo_suffix: ' (डेमो)',
+  reason_shared_activities: '{count} साझा गतिविधियाँ',
+  reason_similar_level: 'मिलता स्तर ({level})',
+  reason_within_filters: 'आपके फ़िल्टर के अंदर',
+  daily_limit_modal_title: 'दैनिक मैच सीमा पूरी',
+  daily_limit_modal_body:
+    'आज (UTC) के {limit} मुफ्त मैच खत्म। असीमित डिस्कवरी के लिए क्रेडिट लें — भुगतान सदस्यों की दैनिक सीमा नहीं होती।',
+  get_credits: 'क्रेडिट लें',
+  undo_skip: 'पूर्ववत',
+  sign_in_again_cta: 'फिर साइन इन करें',
+  caught_up_btn_expand: 'दूरी / मोड',
+  caught_up_btn_filters: 'फ़िल्टर समायोजित करें',
 } as const;
 
 export const appMessagesHi = {

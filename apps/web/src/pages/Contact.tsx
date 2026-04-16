@@ -15,7 +15,7 @@ import { trackContactSubmit, trackLead } from '@/utils/analytics';
 import { API_BASE_URL } from '@/config/api';
 
 export const ContactPage: React.FC = () => {
-  const { t: _t } = useI18n();
+  const { t } = useI18n();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -31,14 +31,14 @@ export const ContactPage: React.FC = () => {
     setError('');
 
     if (!formData.name || !formData.email || !formData.message) {
-      setError('Please fill in all required fields');
+      setError(t('contact.error_required'));
       return;
     }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setError('Please enter a valid email address');
+      setError(t('contact.error_invalid_email'));
       return;
     }
 
@@ -56,7 +56,7 @@ export const ContactPage: React.FC = () => {
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
       if (!res.ok) {
-        setError(typeof data.error === 'string' ? data.error : 'Could not send your message. Please try again.');
+        setError(typeof data.error === 'string' ? data.error : t('contact.error_send_failed'));
         return;
       }
       trackContactSubmit(formData.subject);
@@ -67,19 +67,19 @@ export const ContactPage: React.FC = () => {
         setSubmitted(false);
       }, 5000);
     } catch {
-      setError('Network error. Please check your connection and try again.');
+      setError(t('contact.error_network'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const subjects = [
-    { value: 'general', label: 'General Inquiry' },
-    { value: 'support', label: 'Technical Support' },
-    { value: 'billing', label: 'Billing & Subscriptions' },
-    { value: 'partnership', label: 'Partnership Opportunities' },
-    { value: 'feedback', label: 'Feedback & Suggestions' },
-    { value: 'report', label: 'Report an Issue' },
+    { value: 'general', label: t('contact.subject_general') },
+    { value: 'support', label: t('contact.subject_support') },
+    { value: 'billing', label: t('contact.subject_billing') },
+    { value: 'partnership', label: t('contact.subject_partnership') },
+    { value: 'feedback', label: t('contact.subject_feedback') },
+    { value: 'report', label: t('contact.subject_report') },
   ];
 
   return (
@@ -87,17 +87,17 @@ export const ContactPage: React.FC = () => {
       <Container maxWidth="md" disableGutters sx={{ maxWidth: '100%' }}>
         <Box sx={{ textAlign: 'center', mb: 2.5 }}>
           <Typography variant="h2" component="h1" gutterBottom sx={{ fontSize: '1.75rem', color: 'rgba(255,255,255,0.95)' }}>
-            Get in Touch
+            {t('contact.title')}
           </Typography>
           <Typography variant="body1" sx={{ mt: 0.5, color: 'rgba(255,255,255,0.75)' }}>
-            Have a question or feedback? Send us a message and we'll respond as soon as possible.
+            {t('contact.subtitle')}
           </Typography>
         </Box>
 
         <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 520, mx: 'auto' }}>
           {submitted && (
             <Alert severity="success" sx={{ mb: 2 }}>
-              Thank you for your message! We'll get back to you soon.
+              {t('contact.success')}
             </Alert>
           )}
 
@@ -110,7 +110,7 @@ export const ContactPage: React.FC = () => {
           <TextField
             fullWidth
             required
-            label="Your Name"
+            label={t('contact.field_name')}
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             disabled={submitted || submitting}
@@ -119,7 +119,7 @@ export const ContactPage: React.FC = () => {
           <TextField
             fullWidth
             required
-            label="Email Address"
+            label={t('contact.field_email')}
             type="email"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -129,7 +129,7 @@ export const ContactPage: React.FC = () => {
           <TextField
             fullWidth
             select
-            label="Subject"
+            label={t('contact.field_subject')}
             value={formData.subject}
             onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
             disabled={submitted || submitting}
@@ -144,12 +144,12 @@ export const ContactPage: React.FC = () => {
           <TextField
             fullWidth
             required
-            label="Message"
+            label={t('contact.field_message')}
             multiline
             rows={4}
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-            placeholder="Tell us how we can help you..."
+            placeholder={t('contact.message_placeholder')}
             disabled={submitted || submitting}
             sx={{ mb: 2 }}
           />
@@ -161,19 +161,19 @@ export const ContactPage: React.FC = () => {
             disabled={submitted || submitting}
             sx={{ py: 1.25 }}
           >
-            {submitted ? 'Message Sent!' : submitting ? 'Sending…' : 'Send Message'}
+            {submitted ? t('contact.btn_sent') : submitting ? t('contact.btn_sending') : t('contact.btn_send')}
           </Button>
         </Box>
 
         <Box sx={{ mt: 3, textAlign: 'center' }}>
           <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.9)', mb: 0.5 }}>
-            Looking for quick answers?
+            {t('contact.quick_answers_title')}
           </Typography>
           <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.65)', mb: 1.5 }}>
-            Check out our FAQ page for immediate answers to common questions.
+            {t('contact.quick_answers_sub')}
           </Typography>
           <Button variant="outlined" size="medium" component={Link} to="/faq" sx={{ borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.9)' }}>
-            Visit FAQ
+            {t('contact.btn_visit_faq')}
           </Button>
         </Box>
       </Container>

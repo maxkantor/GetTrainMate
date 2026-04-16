@@ -71,16 +71,17 @@
 
 .card {
   background: #fff;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
   overflow: hidden;
   box-shadow: var(--shadow-md);
-  border: 1px solid var(--color-neutral-200);
-  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-xl);
+  border-color: rgba(199, 210, 254, 0.9);
 }
 
 .cardImage {
@@ -104,14 +105,16 @@
 }
 
 .cardContent {
-  padding: var(--space-5);
+  padding: var(--space-5) var(--space-5) var(--space-6);
 }
 
 .cardName {
-  font-size: var(--font-lg);
+  font-size: var(--font-xl);
   font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--color-neutral-900);
   margin: 0 0 var(--space-1);
+  line-height: 1.25;
 }
 
 .cardMeta {

@@ -15,19 +15,38 @@
   color: rgba(255, 255, 255, 0.95);
 }
 
-/* Section padding: desktop 40px, tablet 32px, mobile 24px */
-.sm, .md, .lg, .xl {
-  padding: var(--section-py-desktop, 40px) 0;
+/* Default sections */
+.sm,
+.md,
+.lg {
+  padding: var(--section-py-desktop, 56px) 0;
+}
+
+/* Marketing sections: slightly more vertical rhythm */
+.xl {
+  padding: var(--section-py-xl-desktop, 72px) 0;
 }
 
 @media (max-width: 1024px) {
-  .sm, .md, .lg, .xl {
-    padding: var(--section-py-tablet, 32px) 0;
+  .sm,
+  .md,
+  .lg {
+    padding: var(--section-py-tablet, 40px) 0;
+  }
+
+  .xl {
+    padding: var(--section-py-xl-tablet, 48px) 0;
   }
 }
 
 @media (max-width: 768px) {
-  .sm, .md, .lg, .xl {
-    padding: var(--section-py-mobile, 24px) 0;
+  .sm,
+  .md,
+  .lg {
+    padding: var(--section-py-mobile, 32px) 0;
+  }
+
+  .xl {
+    padding: var(--section-py-xl-mobile, 36px) 0;
   }
 }
