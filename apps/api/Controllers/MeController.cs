@@ -37,14 +37,34 @@ public class MeController : ControllerBase
 
         try
         {
+            var principalAuthenticated = User?.Identity?.IsAuthenticated == true;
             var profile = await _profileService.GetProfileAsync(userId);
-            if (profile == null && await _profileService.IsAccountClosedAsync(userId))
+            var accountClosed = await _profileService.IsAccountClosedAsync(userId);
+
+            _logger.LogInformation(
+                "GetMe trace: user={User} principalAuthenticated={PrincipalAuth} profilePresent={ProfilePresent} accountClosed={AccountClosed}",
+                ShortUserIdForMeLog(userId),
+                principalAuthenticated,
+                profile != null,
+                accountClosed);
+
+            if (profile == null && accountClosed)
             {
+                _logger.LogWarning(
+                    "GetMe outcome: 410 ACCOUNT_CLOSED user={User}",
+                    ShortUserIdForMeLog(userId));
                 return StatusCode(StatusCodes.Status410Gone, new
                 {
                     code = "ACCOUNT_CLOSED",
                     message = "This account is no longer available.",
                 });
+            }
+
+            if (profile == null && !accountClosed)
+            {
+                _logger.LogWarning(
+                    "GetMe outcome: 200 with null profile user={User} (new signup, Dynamo row missing/hard-deleted, or wrong profiles table/env)",
+                    ShortUserIdForMeLog(userId));
             }
 
             var credits = await _creditsService.GetCreditsBalanceAsync(userId);
@@ -56,6 +76,12 @@ public class MeController : ControllerBase
                 if (!string.IsNullOrWhiteSpace(nameFromToken))
                     profile.Name = nameFromToken;
             }
+
+            _logger.LogDebug(
+                "GetMe outcome: 200 OK user={User} credits={Credits} profileComplete={Complete}",
+                ShortUserIdForMeLog(userId),
+                credits.Balance,
+                profile?.IsComplete ?? false);
 
             return Ok(new MeResponse
             {
@@ -149,6 +175,12 @@ public class MeController : ControllerBase
             return string.IsNullOrWhiteSpace(name) ? null : name.Trim();
         }
         catch { return null; }
+    }
+
+    private static string ShortUserIdForMeLog(string? userId)
+    {
+        if (string.IsNullOrEmpty(userId)) return "(empty)";
+        return userId.Length <= 14 ? userId : $"{userId[..8]}…{userId[^4..]}";
     }
 
     private bool IsAdminEmail(string email)

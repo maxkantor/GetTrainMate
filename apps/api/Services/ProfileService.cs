@@ -53,13 +53,30 @@ public class ProfileService : IProfileService
 
             if (document == null)
             {
-                _logger.LogDebug("No profile found for user {UserId}", userId);
+                _logger.LogDebug(
+                    "Profile trace GetProfileAsync: no Dynamo item user={User} table={Table}",
+                    ShortUserIdForLog(userId),
+                    _tableName);
                 return null;
+            }
+
+            if (document.ContainsKey("accountClosed"))
+            {
+                _logger.LogInformation(
+                    "Profile trace GetProfileAsync: accountClosed attribute user={User} raw={Raw} interpretedClosed={Closed} table={Table} attrKeys={KeyCount}",
+                    ShortUserIdForLog(userId),
+                    DescribeAccountClosedAttribute(document),
+                    DynamoProfileDocumentFlags.IsAccountClosed(document),
+                    _tableName,
+                    document.Count);
             }
 
             if (DynamoProfileDocumentFlags.IsAccountClosed(document))
             {
-                _logger.LogDebug("Account closed tombstone for user {UserId}", userId);
+                _logger.LogWarning(
+                    "Profile trace GetProfileAsync: suppressing closed account user={User} table={Table}",
+                    ShortUserIdForLog(userId),
+                    _tableName);
                 return null;
             }
 
@@ -368,7 +385,17 @@ public class ProfileService : IProfileService
         {
             var table = Table.LoadTable(_dynamoDb, _tableName);
             var document = await table.GetItemAsync(userId);
-            return DynamoProfileDocumentFlags.IsAccountClosed(document);
+            var closed = DynamoProfileDocumentFlags.IsAccountClosed(document);
+            _logger.LogDebug(
+                "Profile trace IsAccountClosedAsync: user={User} hasItem={HasItem} closed={Closed} rawAttr={Raw} table={Table}",
+                ShortUserIdForLog(userId),
+                document is { Count: > 0 },
+                closed,
+                document != null && document.ContainsKey("accountClosed")
+                    ? DescribeAccountClosedAttribute(document)
+                    : "(no key)",
+                _tableName);
+            return closed;
         }
         catch (Exception ex)
         {
@@ -632,5 +659,22 @@ public class ProfileService : IProfileService
         }
         
         return true;
+    }
+
+    private static string ShortUserIdForLog(string? userId)
+    {
+        if (string.IsNullOrEmpty(userId)) return "(empty)";
+        return userId.Length <= 14 ? userId : $"{userId[..8]}…{userId[^4..]}";
+    }
+
+    /// <summary>For CloudWatch: how <c>accountClosed</c> is stored (BOOL vs N vs S) affects gate logic.</summary>
+    private static string DescribeAccountClosedAttribute(Document document)
+    {
+        if (!document.ContainsKey("accountClosed")) return "(missing)";
+        var v = document["accountClosed"];
+        if (v == null) return "null-entry";
+        if (v is DynamoDBBool b) return $"BOOL:{b.Value}";
+        if (v is Primitive p) return $"{p.Type}:{p}";
+        return v.GetType().Name;
     }
 }

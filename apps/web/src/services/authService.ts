@@ -216,6 +216,9 @@ export const authService = {
         credentials: 'omit',
         cache: 'no-store',
       });
+      if (import.meta.env.DEV && !res.ok) {
+        console.warn('[auth] validateSessionWithApi /api/me', res.status, res.statusText, API_BASE_URL);
+      }
       return res.ok;
     } catch {
       return false;

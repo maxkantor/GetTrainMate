@@ -66,7 +66,10 @@ public class CognitoAuthMiddleware
             }
             catch (NotAuthorizedException)
             {
-                _logger.LogDebug("Cognito GetUser rejected token (expired/invalid or user removed)");
+                _logger.LogInformation(
+                    "CognitoAuth trace: GetUser NotAuthorized (token invalid/expired or user removed) {Method} {Path}",
+                    context.Request.Method,
+                    context.Request.Path.Value ?? "");
                 if (!context.Response.HasStarted)
                 {
                     context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -80,8 +83,19 @@ public class CognitoAuthMiddleware
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Cognito GetUser failed");
+                _logger.LogWarning(
+                    ex,
+                    "CognitoAuth trace: GetUser threw; continuing without claims (downstream may parse JWT) {Method} {Path}",
+                    context.Request.Method,
+                    context.Request.Path.Value ?? "");
             }
+        }
+        else if (context.Request.Path.StartsWithSegments("/api/me"))
+        {
+            _logger.LogInformation(
+                "CognitoAuth trace: no Bearer token on {Method} {Path}",
+                context.Request.Method,
+                context.Request.Path.Value ?? "");
         }
 
         await _next(context);
