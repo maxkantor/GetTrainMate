@@ -292,6 +292,12 @@ export const ProfilePage: React.FC = () => {
           ) {
             showSectionHint('mode');
           }
+        } else {
+          setSnack({
+            open: true,
+            message: 'Schedule saved — your profile is up to date.',
+            severity: 'success',
+          });
         }
         return true;
       } catch (err: unknown) {
@@ -347,7 +353,15 @@ export const ProfilePage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!isDirty) return;
+    if (!isDirty) {
+      setSnack({
+        open: true,
+        message:
+          'Everything is already saved. Schedule changes save automatically a moment after you edit them.',
+        severity: 'info',
+      });
+      return;
+    }
 
     const fd = formDataRef.current;
     if (!fd) return;
@@ -1228,10 +1242,10 @@ export const ProfilePage: React.FC = () => {
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
             <Button
               fullWidth
-              variant="contained"
-              color="primary"
+              variant={isDirty ? 'contained' : 'outlined'}
+              color={isDirty ? 'primary' : 'success'}
               type="submit"
-              disabled={!isDirty || saving || loading}
+              disabled={saving || loading}
               sx={{
                 flex: 1,
                 minWidth: 160,
@@ -1247,6 +1261,8 @@ export const ProfilePage: React.FC = () => {
                   <CircularProgress size={18} sx={{ mr: 1 }} color="inherit" />
                   Saving…
                 </>
+              ) : !isDirty ? (
+                'Saved · up to date'
               ) : (
                 t('profile.save_profile')
               )}
