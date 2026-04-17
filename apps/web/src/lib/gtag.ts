@@ -1,12 +1,10 @@
 /**
  * Google Analytics 4 (gtag.js) — single init, SPA-safe page_view, typed events.
- * Set VITE_GA_MEASUREMENT_ID to override; production builds default to the live GetTrainMate property.
+ * Measurement ID must come from `VITE_GA_MEASUREMENT_ID` (set in AWS Amplify env for production builds, or `apps/web/.env` locally).
+ * Vite inlines it at build time — there is no hardcoded GA ID in the bundle.
  */
 
 import { SITE_ORIGIN } from '@/config/site';
-
-/** Public GA4 measurement ID for https://gettrainmate.com (same as gtag.js install snippet in GA). */
-const DEFAULT_PRODUCTION_MEASUREMENT_ID = 'G-C29M8NWNY4';
 
 declare global {
   interface Window {
@@ -18,15 +16,11 @@ declare global {
 const INIT_FLAG = '__GTM_GA4_INITIALIZED__';
 
 export function getMeasurementId(): string | undefined {
-  const fromEnv =
-    typeof import.meta !== 'undefined' && import.meta.env?.VITE_GA_MEASUREMENT_ID;
-  const trimmed = fromEnv ? String(fromEnv).trim() : '';
-  if (trimmed) return trimmed;
-  // Production bundle: always load gtag unless explicitly disabled via empty env in a custom setup.
-  if (typeof import.meta !== 'undefined' && import.meta.env.PROD) {
-    return DEFAULT_PRODUCTION_MEASUREMENT_ID;
-  }
-  return undefined;
+  const raw =
+    typeof import.meta !== 'undefined' && import.meta.env?.VITE_GA_MEASUREMENT_ID != null
+      ? String(import.meta.env.VITE_GA_MEASUREMENT_ID).trim()
+      : '';
+  return raw || undefined;
 }
 
 export function isGa4Enabled(): boolean {
@@ -61,10 +55,15 @@ export function gaPageView(path: string, title?: string): void {
   if (typeof window === 'undefined' || !window.gtag) return;
   const mid = getMeasurementId();
   if (!mid) return;
+  const pagePath = path.startsWith('/') ? path : `/${path}`;
+  const pageLocation =
+    typeof window !== 'undefined' && window.location?.href
+      ? window.location.href
+      : `${SITE_ORIGIN}${pagePath}`;
   window.gtag('event', 'page_view', {
-    page_path: path,
-    page_title: title ?? document.title,
-    page_location: `${SITE_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`,
+    page_path: pagePath,
+    page_title: title ?? (typeof document !== 'undefined' ? document.title : ''),
+    page_location: pageLocation,
   });
 }
 

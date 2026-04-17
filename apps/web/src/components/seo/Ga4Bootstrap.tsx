@@ -1,24 +1,11 @@
-import React, { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import { trackSpaPageView } from '@/utils/analytics';
-import { getMeasurementId, initGa4 } from '@/lib/gtag';
-import { getRouteSeo } from '@/config/seoRoutes';
+import React from 'react';
+import { usePageTracking } from '@/hooks/usePageTracking';
 
 /**
- * One-time GA4 script load + SPA page_view on route changes (no double-count with send_page_view: false).
+ * Mount once under `<BrowserRouter>`: loads gtag.js once, disables auto page_view, sends manual
+ * `page_view` on each navigation (pathname + search). See {@link usePageTracking}.
  */
 export const Ga4Bootstrap: React.FC = () => {
-  const { pathname } = useLocation();
-
-  useEffect(() => {
-    initGa4();
-  }, []);
-
-  useEffect(() => {
-    if (!getMeasurementId()) return;
-    const seo = getRouteSeo(pathname);
-    trackSpaPageView(pathname, seo.title);
-  }, [pathname]);
-
+  usePageTracking();
   return null;
 };

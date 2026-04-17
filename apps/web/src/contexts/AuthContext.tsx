@@ -78,12 +78,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Initialize auth on mount
+  // Initialize auth on mount — refresh with Cognito so deleted/revoked users are not left "signed in" from cache
   useEffect(() => {
     const initAuth = async () => {
       try {
         const currentUser = await authService.getCurrentUser();
         if (currentUser) {
+          const stillValid = await authService.isRefreshSessionValid();
+          if (!stillValid) {
+            try {
+              await authService.logout();
+            } catch {
+              /* ignore */
+            }
+            clearPendingSignup();
+            clearAuthScopeTracking();
+            setUser(null);
+            return;
+          }
           const userData = await extractUserData(currentUser);
           setUser(userData);
         }

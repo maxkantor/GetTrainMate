@@ -314,6 +314,11 @@ export const AppHeader: React.FC = () => {
                   aria-expanded={userOpen}
                   aria-haspopup="true"
                   aria-label={`${me?.profile?.name || user?.email || 'User'} menu`}
+                  title={
+                    me?.profile?.name?.trim()
+                      ? `${me.profile.name} — ${user?.email ?? ''}`.trim()
+                      : user?.email || undefined
+                  }
                 >
                   <span className={styles.avatarCircle}>{avatarLetter}</span>
                   {!profileComplete && (

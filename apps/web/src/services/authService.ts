@@ -198,6 +198,32 @@ export const authService = {
   },
 
   /**
+   * Forces a Cognito token refresh. If the user was deleted, disabled, or refresh tokens were revoked,
+   * this fails and returns false — use on app bootstrap so the UI does not stay "logged in" from cache alone.
+   * Returns true on transient/network errors so we do not sign everyone out when offline.
+   */
+  async isRefreshSessionValid(): Promise<boolean> {
+    try {
+      const session = await fetchAuthSession({ forceRefresh: true });
+      return Boolean(session.tokens?.accessToken);
+    } catch (e: unknown) {
+      const name = e && typeof e === 'object' && 'name' in e ? String((e as { name: string }).name) : '';
+      if (
+        name === 'NotAuthorizedException' ||
+        name === 'UserUnAuthenticatedException' ||
+        name === 'InvalidRefreshTokenException' ||
+        name === 'UserNotFoundException'
+      ) {
+        return false;
+      }
+      if (import.meta.env.DEV) {
+        console.warn('[auth] fetchAuthSession(forceRefresh) failed (treating as transient):', name || e);
+      }
+      return true;
+    }
+  },
+
+  /**
    * Get token for API calls. Use forceRefresh when retrying after 401.
    * Returns ACCESS token - backend validates via Cognito GetUser API.
    */

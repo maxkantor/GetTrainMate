@@ -3,15 +3,38 @@
  * Do not send PII (email, name, phone, exact address).
  */
 
-import { gaEvent, gaPageView } from '@/lib/gtag';
+import { gaEvent, gaPageView, getMeasurementId, initGa4 } from '@/lib/gtag';
+
+/** Re-export for app bootstrap (same as {@link initGa4}). */
+export { getMeasurementId, initGa4 };
+export const initAnalytics = initGa4;
 
 export function trackEvent(eventName: string, params?: Record<string, unknown>): void {
   gaEvent(eventName, params);
 }
 
-export function trackSpaPageView(pathname: string, title?: string): void {
-  gaPageView(pathname, title);
+/** Manual SPA page_view (pathname + optional `?query`; uses `document.title` / real URL on the client). */
+export function trackPageView(path: string, title?: string): void {
+  gaPageView(path, title);
 }
+
+/** @deprecated Prefer {@link trackPageView} — identical. */
+export function trackSpaPageView(pathname: string, title?: string): void {
+  trackPageView(pathname, title);
+}
+
+/** Funnel / product events — wire from flows when ready; names are GA4-safe (snake_case). */
+export const gaFunnelEvents = {
+  signupStarted: (extra?: Record<string, unknown>) => gaEvent('signup_started', extra),
+  signupCompleted: (extra?: Record<string, unknown>) => gaEvent('signup_completed', extra),
+  emailVerificationSent: (extra?: Record<string, unknown>) => gaEvent('email_verification_sent', extra),
+  emailVerified: (extra?: Record<string, unknown>) => gaEvent('email_verified', extra),
+  onboardingStarted: (extra?: Record<string, unknown>) => gaEvent('onboarding_started', extra),
+  onboardingCompleted: (extra?: Record<string, unknown>) => gaEvent('onboarding_completed', extra),
+  findMyMatchesClicked: (extra?: Record<string, unknown>) => gaEvent('find_my_matches_clicked', extra),
+  discoverViewed: (extra?: Record<string, unknown>) => gaEvent('discover_viewed', extra),
+  getCreditsClicked: (extra?: Record<string, unknown>) => gaEvent('get_credits_clicked', extra),
+};
 
 /** Major CTA clicks — use button_name + location, no PII. */
 export function trackCTA(buttonName: string, location?: string): void {
