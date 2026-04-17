@@ -103,6 +103,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initAuth();
   }, []);
 
+  // After admin deletes a user, force another server check when the tab becomes visible (covers long-lived tabs).
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void (async () => {
+        try {
+          const cu = await authService.getCurrentUser();
+          if (!cu) return;
+          const ok = await authService.validateSessionWithApi();
+          if (!ok) await handleSessionInvalid();
+        } catch {
+          await handleSessionInvalid();
+        }
+      })();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);

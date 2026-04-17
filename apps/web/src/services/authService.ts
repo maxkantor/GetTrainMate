@@ -199,10 +199,9 @@ export const authService = {
   },
 
   /**
-   * Validates the session against the GetTrainMate API, which runs Cognito GetUser on every request.
-   * Client-side token refresh alone is not enough: access tokens can remain valid briefly after admin deletes
-   * the Cognito user, but GetUser rejects deleted users immediately.
-   * Returns false if there is no token or the API responds 401. On network failure, returns true (do not sign out offline users).
+   * Validates the session against the GetTrainMate API (Cognito GetUser on each request).
+   * Only HTTP **200** from `/api/me` counts as valid. Any other status or thrown error ⇒ session is not trusted
+   * (fixes false "logged in" after admin delete when we previously treated non-401 errors / fetch failures as success).
    */
   async validateSessionWithApi(): Promise<boolean> {
     const token = await this.getJWT(true);
@@ -215,11 +214,11 @@ export const authService = {
           Accept: 'application/json',
         },
         credentials: 'omit',
+        cache: 'no-store',
       });
-      if (res.status === 401) return false;
-      return true;
+      return res.ok;
     } catch {
-      return true;
+      return false;
     }
   },
 

@@ -1,9 +1,9 @@
-using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using GetTrainMate.Api.Infrastructure;
 using GetTrainMate.Api.Services;
 using Stripe;
 
@@ -223,40 +223,34 @@ public class BillingController : ControllerBase
     [Route("~/stripe/webhook")]
     [Route("~/api/billing/webhook")]
     [AllowAnonymous]
-    public async Task<ActionResult> HandleWebhook()
+    public async Task<ActionResult> HandleWebhook(CancellationToken cancellationToken)
     {
-        Request.EnableBuffering();
-        Request.Body.Position = 0;
-        string json;
-        using (var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true))
-        {
-            json = await reader.ReadToEndAsync();
-        }
-
+        var json = await StripeWebhookVerification.ReadRawBodyUtf8Async(Request, cancellationToken);
         var signature = Request.Headers["Stripe-Signature"].FirstOrDefault();
-        var secret = _webhookSecret.Value;
 
         Stripe.Event stripeEvent;
-        if (!string.IsNullOrEmpty(secret) && !string.IsNullOrEmpty(signature))
+        if (_webhookSecret.HasSigningSecrets && !string.IsNullOrEmpty(signature))
         {
-            try
-            {
-                stripeEvent = EventUtility.ConstructEvent(json, signature, secret);
-            }
-            catch (StripeException ex)
+            if (!StripeWebhookVerification.TryConstructEvent(json, signature, _webhookSecret.SigningSecrets, out var verified, out var verifyErr))
             {
                 _logger.LogWarning(
-                    ex,
-                    "Stripe webhook signature verification failed; payloadBytes={Len}. " +
-                    "Update SSM /gettrainmate/stripe/webhook-secret to the Signing secret (whsec_...) for this endpoint in Stripe Dashboard.",
-                    Encoding.UTF8.GetByteCount(json));
+                    verifyErr,
+                    "Stripe webhook signature verification failed (tried {Count} secret(s); payload length {Len}). " +
+                    "Ensure SSM /gettrainmate/stripe/webhook-secret matches Signing secret(s) for this endpoint in Stripe.",
+                    _webhookSecret.SigningSecrets.Count,
+                    json.Length);
                 return BadRequest(new { error = "Invalid signature" });
             }
+            stripeEvent = verified!;
         }
-        else
+        else if (!_webhookSecret.HasSigningSecrets)
         {
             _logger.LogWarning("Webhook secret not configured; skipping verification");
             stripeEvent = EventUtility.ParseEvent(json);
+        }
+        else
+        {
+            return BadRequest(new { error = "Missing Stripe-Signature header" });
         }
 
         _logger.LogInformation("Stripe webhook: {Type}", stripeEvent.Type);

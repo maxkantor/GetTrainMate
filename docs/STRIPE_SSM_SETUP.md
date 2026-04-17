@@ -7,7 +7,7 @@ The API loads Stripe keys from AWS Systems Manager Parameter Store at startup. I
 | Parameter | Description |
 |-----------|-------------|
 | `/gettrainmate/stripe/secret-key` | Stripe secret key (`sk_live_...` or `sk_test_...`) |
-| `/gettrainmate/stripe/webhook-secret` | Stripe webhook signing secret (`whsec_...`) |
+| `/gettrainmate/stripe/webhook-secret` | Stripe webhook signing secret (`whsec_...`). You may store **multiple** secrets separated by comma or newline (e.g. old + new during rotation). |
 
 ## Create/Update Parameters
 

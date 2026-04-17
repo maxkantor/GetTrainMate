@@ -1,17 +1,18 @@
 import { authService } from '@/services/authService';
 import { clearAuthScopeTracking } from '@/utils/authScopeReset';
+import { clearAmplifyAuthStorageKeys } from '@/utils/clearAmplifyWebKeys';
 
-let handling = false;
+let redirectScheduled = false;
 
 /** Clears Cognito session and sends the user to sign-in (e.g. after admin deletes the account or token is revoked). */
 export async function handleSessionInvalid(): Promise<void> {
-  if (handling || typeof window === 'undefined') return;
-  handling = true;
+  if (typeof window === 'undefined') return;
   try {
     await authService.logout();
   } catch {
     /* signOut may fail if session already cleared */
   }
+  clearAmplifyAuthStorageKeys();
   clearAuthScopeTracking();
   const path = window.location.pathname;
   const search = window.location.search;
@@ -21,11 +22,16 @@ export async function handleSessionInvalid(): Promise<void> {
   if (path === loginPath || path.startsWith(`${loginPath}/`)) {
     const q = new URLSearchParams(search);
     if (q.get('reason') === 'session') return;
-    window.location.assign(`${loginPath}?reason=session`);
+  }
+  if (redirectScheduled) return;
+  redirectScheduled = true;
+
+  if (path === loginPath || path.startsWith(`${loginPath}/`)) {
+    window.location.replace(`${loginPath}?reason=session`);
     return;
   }
   const qs = new URLSearchParams();
   qs.set('reason', 'session');
   if (current.startsWith('/') && current !== '/') qs.set('next', current);
-  window.location.assign(`${loginPath}?${qs.toString()}`);
+  window.location.replace(`${loginPath}?${qs.toString()}`);
 }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Stripe;
+using GetTrainMate.Api.Infrastructure;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
 
@@ -129,22 +130,28 @@ public class PaymentController : ControllerBase
 
     [HttpPost("webhook")]
     [AllowAnonymous]
-    public async Task<ActionResult> HandleWebhook()
+    public async Task<ActionResult> HandleWebhook(CancellationToken cancellationToken)
     {
         try
         {
-            var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
+            var json = await StripeWebhookVerification.ReadRawBodyUtf8Async(Request, cancellationToken);
             var signature = Request.Headers["Stripe-Signature"].FirstOrDefault();
 
             Stripe.Event stripeEvent;
-            if (!string.IsNullOrEmpty(_webhookSecret.Value) && !string.IsNullOrEmpty(signature))
+            if (_webhookSecret.HasSigningSecrets && !string.IsNullOrEmpty(signature))
             {
-                stripeEvent = EventUtility.ConstructEvent(json, signature, _webhookSecret.Value);
+                if (!StripeWebhookVerification.TryConstructEvent(json, signature, _webhookSecret.SigningSecrets, out var verified, out _))
+                    return BadRequest(new { error = "Invalid signature" });
+                stripeEvent = verified!;
             }
-            else
+            else if (!_webhookSecret.HasSigningSecrets)
             {
                 _logger.LogWarning("Webhook secret not configured; skipping signature verification");
                 stripeEvent = EventUtility.ParseEvent(json);
+            }
+            else
+            {
+                return BadRequest(new { error = "Missing Stripe-Signature header" });
             }
 
             _logger.LogInformation("Received Stripe webhook: {Type}", stripeEvent.Type);
