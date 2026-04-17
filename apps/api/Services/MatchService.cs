@@ -181,7 +181,7 @@ public class MatchService : IMatchService
                     if (string.IsNullOrEmpty(profileUserId))
                         continue;
 
-                    if (doc.ContainsKey("accountClosed") && doc["accountClosed"].AsBoolean())
+                    if (DynamoProfileDocumentFlags.IsAccountClosed(doc))
                         continue;
 
                     // Skip only self so Discover shows all other profiles (Max sees Alex, Sasha, etc.)

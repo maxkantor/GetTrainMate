@@ -32,7 +32,7 @@ public class ProfileService : IProfileService
         try
         {
             var doc = Document.FromAttributeMap(item);
-            if (doc.ContainsKey("accountClosed") && doc["accountClosed"].AsBoolean())
+            if (DynamoProfileDocumentFlags.IsAccountClosed(doc))
                 return null;
             return DocumentToProfile(doc);
         }
@@ -57,7 +57,7 @@ public class ProfileService : IProfileService
                 return null;
             }
 
-            if (document.ContainsKey("accountClosed") && document["accountClosed"].AsBoolean())
+            if (DynamoProfileDocumentFlags.IsAccountClosed(document))
             {
                 _logger.LogDebug("Account closed tombstone for user {UserId}", userId);
                 return null;
@@ -300,7 +300,7 @@ public class ProfileService : IProfileService
         var raw = await table.GetItemAsync(userId);
         if (raw == null || raw.Count == 0) return null;
 
-        var preserveClosed = raw.ContainsKey("accountClosed") && raw["accountClosed"].AsBoolean();
+        var preserveClosed = DynamoProfileDocumentFlags.IsAccountClosed(raw);
         var existing = await GetProfileForAdminAsync(userId);
         if (existing == null) return null;
 
@@ -333,7 +333,7 @@ public class ProfileService : IProfileService
         {
             var table = Table.LoadTable(_dynamoDb, _tableName);
             var doc = await table.GetItemAsync(userId);
-            if (doc != null && doc.ContainsKey("accountClosed") && doc["accountClosed"].AsBoolean())
+            if (DynamoProfileDocumentFlags.IsAccountClosed(doc))
                 return true;
 
             if (doc == null || doc.Count == 0)
@@ -368,7 +368,7 @@ public class ProfileService : IProfileService
         {
             var table = Table.LoadTable(_dynamoDb, _tableName);
             var document = await table.GetItemAsync(userId);
-            return document != null && document.ContainsKey("accountClosed") && document["accountClosed"].AsBoolean();
+            return DynamoProfileDocumentFlags.IsAccountClosed(document);
         }
         catch (Exception ex)
         {
