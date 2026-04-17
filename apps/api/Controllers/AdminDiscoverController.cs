@@ -48,7 +48,9 @@ public class AdminDiscoverController : ControllerBase
     [HttpGet("users/{userId}/discover-lifecycle")]
     public async Task<ActionResult<DiscoverLifecycleDto>> GetUserDiscoverLifecycle(string userId)
     {
-        var profile = await _profileService.GetProfileAsync(userId);
+        var profile = await _profileService.GetProfileForAdminAsync(userId);
+        if (profile == null)
+            return NotFound(new { message = "Profile not found for user" });
         return Ok(DiscoverLifecycleDto.FromProfile(profile));
     }
 

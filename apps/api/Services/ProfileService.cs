@@ -32,6 +32,8 @@ public class ProfileService : IProfileService
         try
         {
             var doc = Document.FromAttributeMap(item);
+            if (doc.ContainsKey("accountClosed") && doc["accountClosed"].AsBoolean())
+                return null;
             return DocumentToProfile(doc);
         }
         catch (Exception ex)
@@ -75,6 +77,24 @@ public class ProfileService : IProfileService
             _logger.LogError(ex, "Error getting profile for user {UserId}. Table: {TableName}, Error: {Error}", 
                 userId, _tableName, ex.Message);
             throw;
+        }
+    }
+
+    public async Task<UserProfile?> GetProfileForAdminAsync(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId)) return null;
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, _tableName);
+            var document = await table.GetItemAsync(userId);
+            if (document == null || document.Count == 0)
+                return null;
+            return DocumentToProfile(document);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GetProfileForAdminAsync failed for {UserId}", userId);
+            return null;
         }
     }
 
@@ -276,8 +296,14 @@ public class ProfileService : IProfileService
 
     public async Task<UserProfile?> PatchDiscoverLifecycleAsync(string userId, DiscoverLifecycleFlagsPatch patch)
     {
-        var existing = await GetProfileAsync(userId);
+        var table = Table.LoadTable(_dynamoDb, _tableName);
+        var raw = await table.GetItemAsync(userId);
+        if (raw == null || raw.Count == 0) return null;
+
+        var preserveClosed = raw.ContainsKey("accountClosed") && raw["accountClosed"].AsBoolean();
+        var existing = await GetProfileForAdminAsync(userId);
         if (existing == null) return null;
+
         if (patch.CanReviewSkippedProfiles.HasValue)
             existing.DiscoverCanReviewSkippedProfiles = patch.CanReviewSkippedProfiles.Value;
         if (patch.CanReviewLikedProfiles.HasValue)
@@ -290,8 +316,14 @@ public class ProfileService : IProfileService
             existing.DiscoverCanRecycleSkippedProfiles = patch.CanRecycleSkippedProfiles.Value;
         existing.UpdatedAt = DateTime.UtcNow;
         EnsureModesArraySynced(existing);
-        var table = Table.LoadTable(_dynamoDb, _tableName);
-        await table.PutItemAsync(ProfileToDocument(existing));
+        var doc = ProfileToDocument(existing);
+        if (preserveClosed)
+        {
+            doc["accountClosed"] = true;
+            if (raw.ContainsKey("accountClosedAt"))
+                doc["accountClosedAt"] = raw["accountClosedAt"];
+        }
+        await table.PutItemAsync(doc);
         return existing;
     }
 
@@ -300,19 +332,31 @@ public class ProfileService : IProfileService
         try
         {
             var table = Table.LoadTable(_dynamoDb, _tableName);
-            await table.DeleteItemAsync(userId);
-            // Tombstone so /api/me and AppSync can reject the session even if Cognito delete failed or tokens still exist.
-            await table.PutItemAsync(new Document
+            var doc = await table.GetItemAsync(userId);
+            if (doc != null && doc.ContainsKey("accountClosed") && doc["accountClosed"].AsBoolean())
+                return true;
+
+            if (doc == null || doc.Count == 0)
             {
-                ["userId"] = userId,
-                ["accountClosed"] = true,
-                ["accountClosedAt"] = DateTime.UtcNow.ToString("O"),
-            });
+                await table.PutItemAsync(new Document
+                {
+                    ["userId"] = userId,
+                    ["accountClosed"] = true,
+                    ["accountClosedAt"] = DateTime.UtcNow.ToString("O"),
+                });
+                return true;
+            }
+
+            doc["accountClosed"] = true;
+            doc["accountClosedAt"] = DateTime.UtcNow.ToString("O");
+            if (!doc.ContainsKey("userId") || string.IsNullOrWhiteSpace(doc["userId"].AsString()))
+                doc["userId"] = userId;
+            await table.PutItemAsync(doc);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting profile for user {UserId}", userId);
+            _logger.LogError(ex, "Error soft-deleting profile for user {UserId}", userId);
             return false;
         }
     }

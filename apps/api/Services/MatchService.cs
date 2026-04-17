@@ -181,6 +181,9 @@ public class MatchService : IMatchService
                     if (string.IsNullOrEmpty(profileUserId))
                         continue;
 
+                    if (doc.ContainsKey("accountClosed") && doc["accountClosed"].AsBoolean())
+                        continue;
+
                     // Skip only self so Discover shows all other profiles (Max sees Alex, Sasha, etc.)
                     if (profileUserId == userId)
                         continue;

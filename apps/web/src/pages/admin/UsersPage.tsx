@@ -63,6 +63,14 @@ interface DiscoverLifecycleFlags {
   canRecycleSkippedProfiles: boolean;
 }
 
+function userStatusBadgeVariant(status: string): 'success' | 'error' | 'warning' | 'neutral' {
+  const s = (status || '').toLowerCase();
+  if (s === 'active') return 'success';
+  if (s === 'banned') return 'error';
+  if (s === 'deleted') return 'warning';
+  return 'neutral';
+}
+
 export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,8 +171,10 @@ export const UsersPage: React.FC = () => {
     }
   };
 
+  const detailIsDeleted = (detailUser?.status ?? '').toLowerCase() === 'deleted';
+
   const patchDiscoverLifecycle = async (patch: Partial<DiscoverLifecycleFlags>) => {
-    if (!detailUser) return;
+    if (!detailUser || detailIsDeleted) return;
     setDiscoverLifecycleLoading(true);
     setError(null);
     try {
@@ -213,7 +223,7 @@ export const UsersPage: React.FC = () => {
   const handleDeleteUser = async (userId: string, displayName: string) => {
     if (
       !window.confirm(
-        `Permanently delete ${displayName || userId}? Profile data will be removed; Cognito user deleted when present. Cannot be undone.`
+        `Close account for ${displayName || userId}? They are signed out and cannot use the app; this row stays in CRM with status deleted (Cognito removed when possible).`
       )
     ) {
       return;
@@ -222,10 +232,16 @@ export const UsersPage: React.FC = () => {
     setError(null);
     try {
       await adminApiService.delete(`/api/admin/users/${encodeURIComponent(userId)}`);
-      setDetailOpen(false);
-      setDetailUser(null);
-      setSelectedUser(null);
       await loadUsers();
+      try {
+        const user = await adminApiService.get(`/api/admin/users/${encodeURIComponent(userId)}`);
+        const merged = normalizeAdminUserDetail(user as Record<string, unknown>);
+        setDetailUser((prev) =>
+          prev?.userId === userId ? { ...prev, ...merged, status: merged.status || 'deleted' } : prev
+        );
+      } catch {
+        setDetailUser((prev) => (prev?.userId === userId ? { ...prev, status: 'deleted' } : prev));
+      }
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Failed to delete user');
     } finally {
@@ -279,7 +295,7 @@ export const UsersPage: React.FC = () => {
   };
 
   const runReset = async (path: string, body?: Record<string, unknown>) => {
-    if (!detailUser) return;
+    if (!detailUser || detailIsDeleted) return;
     setResetBusy(true);
     setError(null);
     setResetSuccess(null);
@@ -337,7 +353,7 @@ export const UsersPage: React.FC = () => {
     {
       key: 'status',
       header: 'Status',
-      render: (r) => <Badge variant={r.status === 'active' ? 'success' : r.status === 'banned' ? 'error' : 'neutral'}>{r.status}</Badge>,
+      render: (r) => <Badge variant={userStatusBadgeVariant(r.status)}>{r.status}</Badge>,
     },
     { key: 'plan', header: 'Plan', render: (r) => r.plan || '—' },
     { key: 'credits', header: 'Credits', render: (r) => (r.credits != null ? String(r.credits) : '—') },
@@ -383,6 +399,7 @@ export const UsersPage: React.FC = () => {
           <option value="active">Active</option>
           <option value="banned">Banned</option>
           <option value="inactive">Inactive</option>
+          <option value="deleted">Deleted</option>
         </select>
         <select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)} className={styles.select}>
           <option value="">All plans</option>
@@ -442,7 +459,7 @@ export const UsersPage: React.FC = () => {
               <dt>Name</dt>
               <dd>{detailUser.name}</dd>
               <dt>Status</dt>
-              <dd><Badge variant={detailUser.status === 'active' ? 'success' : detailUser.status === 'banned' ? 'error' : 'neutral'}>{detailUser.status}</Badge></dd>
+              <dd><Badge variant={userStatusBadgeVariant(detailUser.status)}>{detailUser.status}</Badge></dd>
               <dt>Plan</dt>
               <dd>{detailUser.plan || '—'}</dd>
               <dt>City / State</dt>
@@ -494,6 +511,7 @@ export const UsersPage: React.FC = () => {
               <p className={styles.lifecycleHint}>
                 Per-user overrides. Liked and matched profiles never appear as new in Discover; recycled skips show
                 &quot;Seen before&quot; when enabled.
+                {detailIsDeleted ? ' Closed accounts: view only.' : ''}
               </p>
               {discoverLifecycleLoading && !discoverLifecycle ? (
                 <p className={styles.detailLoading}>Loading flags…</p>
@@ -513,7 +531,7 @@ export const UsersPage: React.FC = () => {
                         <input
                           type="checkbox"
                           checked={discoverLifecycle[key]}
-                          disabled={discoverLifecycleLoading}
+                          disabled={discoverLifecycleLoading || detailIsDeleted}
                           onChange={(e) => void patchDiscoverLifecycle({ [key]: e.target.checked })}
                         />
                         <span>{label}</span>
@@ -531,12 +549,13 @@ export const UsersPage: React.FC = () => {
               <p className={styles.lifecycleHint}>
                 Clears stored interaction state for this user. Does not remove profile or credits unless you use the
                 advanced option (matches/chats).
+                {detailIsDeleted ? ' Not available for closed accounts.' : ''}
               </p>
               <div className={styles.resetActions}>
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={!detailUser || resetBusy}
+                  disabled={!detailUser || resetBusy || detailIsDeleted}
                   onClick={() => setConfirmReset('skipped')}
                 >
                   Reset skipped
@@ -544,7 +563,7 @@ export const UsersPage: React.FC = () => {
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={!detailUser || resetBusy}
+                  disabled={!detailUser || resetBusy || detailIsDeleted}
                   onClick={() => setConfirmReset('sent')}
                 >
                   Reset sent / liked
@@ -552,7 +571,7 @@ export const UsersPage: React.FC = () => {
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={!detailUser || resetBusy}
+                  disabled={!detailUser || resetBusy || detailIsDeleted}
                   onClick={() => setConfirmReset('discover')}
                 >
                   Reset discover state
@@ -560,7 +579,7 @@ export const UsersPage: React.FC = () => {
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={!detailUser || resetBusy}
+                  disabled={!detailUser || resetBusy || detailIsDeleted}
                   onClick={() => setConfirmReset('discoverMatches')}
                 >
                   Reset discover + matches/chats
@@ -569,54 +588,62 @@ export const UsersPage: React.FC = () => {
             </div>
 
             <div className={styles.detailActions}>
-              <div className={styles.grantRow}>
-                <label className={styles.grantLabel} htmlFor="grant-credits">
-                  Grant credits
-                </label>
-                <input
-                  id="grant-credits"
-                  type="number"
-                  min={1}
-                  className={styles.grantInput}
-                  value={grantAmount}
-                  onChange={(e) => setGrantAmount(e.target.value)}
-                />
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => handleGrantCredits(detailUser.userId)}
-                  disabled={grantLoading}
-                >
-                  {grantLoading ? 'Granting…' : 'Apply'}
-                </Button>
-              </div>
-              {detailUser.status === 'banned' ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => handleUnban(detailUser.userId)}
-                  disabled={actionLoading === detailUser.userId}
-                >
-                  Unban user
-                </Button>
+              {detailIsDeleted ? (
+                <p className={styles.lifecycleHint} style={{ margin: 0 }}>
+                  Account closed — row kept for CRM. Ban, credits, delete, and discover resets are disabled.
+                </p>
               ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleBan(detailUser.userId)}
-                  disabled={actionLoading === detailUser.userId}
-                >
-                  Deactivate (ban)
-                </Button>
+                <>
+                  <div className={styles.grantRow}>
+                    <label className={styles.grantLabel} htmlFor="grant-credits">
+                      Grant credits
+                    </label>
+                    <input
+                      id="grant-credits"
+                      type="number"
+                      min={1}
+                      className={styles.grantInput}
+                      value={grantAmount}
+                      onChange={(e) => setGrantAmount(e.target.value)}
+                    />
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleGrantCredits(detailUser.userId)}
+                      disabled={grantLoading}
+                    >
+                      {grantLoading ? 'Granting…' : 'Apply'}
+                    </Button>
+                  </div>
+                  {detailUser.status === 'banned' ? (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleUnban(detailUser.userId)}
+                      disabled={actionLoading === detailUser.userId}
+                    >
+                      Unban user
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleBan(detailUser.userId)}
+                      disabled={actionLoading === detailUser.userId}
+                    >
+                      Deactivate (ban)
+                    </Button>
+                  )}
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => void handleDeleteUser(detailUser.userId, detailUser.name)}
+                    loading={deleteUserLoading}
+                  >
+                    Delete user
+                  </Button>
+                </>
               )}
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => void handleDeleteUser(detailUser.userId, detailUser.name)}
-                loading={deleteUserLoading}
-              >
-                Delete user
-              </Button>
             </div>
           </div>
         ) : (

@@ -631,12 +631,13 @@ public class AdminUsersController : ControllerBase
             : doc.ContainsKey("Email") ? doc["Email"].AsString() : "";
         var name = doc.ContainsKey("name") ? doc["name"].AsString()
             : doc.ContainsKey("Name") ? doc["Name"].AsString() : "";
+        var accountClosed = doc.ContainsKey("accountClosed") && doc["accountClosed"].AsBoolean();
         return new UserListItem
         {
             UserId = uid,
             Email = email,
             Name = name,
-            Status = "active",
+            Status = accountClosed ? "deleted" : "active",
             Plan = "free",
             City = doc.ContainsKey("city") ? doc["city"].AsString()
                 : doc.ContainsKey("City") ? doc["City"].AsString() : null,
@@ -655,11 +656,12 @@ public class AdminUsersController : ControllerBase
     {
         try
         {
-            var profile = await _profileService.GetProfileAsync(userId);
+            var profile = await _profileService.GetProfileForAdminAsync(userId);
             if (profile == null)
                 return NotFound(new { error = "User not found" });
 
             var credits = await _creditsService.GetCreditsBalanceAsync(userId);
+            var isDeleted = await _profileService.IsAccountClosedAsync(userId);
 
             var email = profile.Email;
             if (string.IsNullOrWhiteSpace(email))
@@ -674,7 +676,7 @@ public class AdminUsersController : ControllerBase
                 UserId = profile.UserId,
                 Email = email ?? string.Empty,
                 Name = profile.Name,
-                Status = "active",
+                Status = isDeleted ? "deleted" : "active",
                 Plan = "free",
                 City = profile.City,
                 State = profile.State,
@@ -699,7 +701,7 @@ public class AdminUsersController : ControllerBase
 
     /// <summary>
     /// DELETE /api/admin/users/{userId}
-    /// Removes the user's profile from DynamoDB and attempts Cognito <c>AdminDeleteUser</c>. Irreversible.
+    /// Soft-deletes the profile (row kept with <c>accountClosed</c> for CRM); attempts Cognito <c>AdminDeleteUser</c>.
     /// </summary>
     [HttpDelete("{userId}")]
     public async Task<ActionResult> DeleteUser(string userId)
@@ -716,7 +718,10 @@ public class AdminUsersController : ControllerBase
                 string.Equals(userId.Trim(), selfSub.Trim(), StringComparison.OrdinalIgnoreCase))
                 return BadRequest(new { error = "You cannot delete your own account from the admin CRM." });
 
-            var profile = await _profileService.GetProfileAsync(userId);
+            if (await _profileService.IsAccountClosedAsync(userId))
+                return BadRequest(new { error = "This account is already marked deleted." });
+
+            var profile = await _profileService.GetProfileForAdminAsync(userId);
             if (profile == null)
                 return NotFound(new { error = "User not found" });
 
@@ -732,7 +737,7 @@ public class AdminUsersController : ControllerBase
                 userId,
                 after: new { cognitoDeleted, email = profile.Email, name = profile.Name });
 
-            return Ok(new { message = "User profile deleted", cognitoDeleted });
+            return Ok(new { message = "User marked deleted (CRM retains row); Cognito removed when possible.", cognitoDeleted });
         }
         catch (Exception ex)
         {

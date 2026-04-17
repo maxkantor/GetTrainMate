@@ -9,12 +9,14 @@ public interface IProfileService
     UserProfile? TryMapDynamoItemToProfile(Dictionary<string, AttributeValue>? item);
 
     Task<UserProfile?> GetProfileAsync(string userId);
+    /// <summary>CRM/admin: load profile row even when <see cref="IsAccountClosedAsync"/> is true (app <see cref="GetProfileAsync"/> returns null).</summary>
+    Task<UserProfile?> GetProfileForAdminAsync(string userId);
     Task<UserProfile> CreateProfileAsync(UserProfile profile);
     /// <summary>If the profile exists and <see cref="UserProfile.Email"/> is empty, set it and persist (idempotent).</summary>
     Task<UserProfile?> SetProfileEmailIfEmptyAsync(string userId, string email);
     Task<UserProfile> UpdateProfileAsync(string userId, UpdateProfileRequest request);
     Task<bool> DeleteProfileAsync(string userId);
-    /// <summary>True when a minimal tombstone row exists (account was removed; Cognito may still exist briefly).</summary>
+    /// <summary>True when the profile row is marked <c>accountClosed</c> (soft-deleted CRM row or legacy tombstone).</summary>
     Task<bool> IsAccountClosedAsync(string userId);
     Task<UserProfile> AddPhotoUrlAsync(string userId, string url);
     Task<UserProfile?> PatchDiscoverLifecycleAsync(string userId, DiscoverLifecycleFlagsPatch patch);
