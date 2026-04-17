@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -25,6 +25,8 @@ import { useMatchStatusForHeader } from '@/hooks/useMatchStatusForHeader';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import { matchQueryKeys } from '@/lib/queryKeys';
 import { fetchSentRequestsForUser, fetchSkippedProfilesForUser } from '@/services/matchExploreQueries';
+import { DashboardQuickSetup } from '@/components/dashboard/DashboardQuickSetup';
+import { consumePostVerifyWelcome } from '@/utils/pendingSignupStorage';
 
 const cardSx = {
   borderRadius: 2,
@@ -50,6 +52,13 @@ export const AppHomePage: React.FC = () => {
   const { t } = useI18n();
   const { me } = useMe();
   const { user } = useAuthContext();
+  const [firstSessionWelcome, setFirstSessionWelcome] = useState(false);
+
+  useEffect(() => {
+    if (consumePostVerifyWelcome()) {
+      setFirstSessionWelcome(true);
+    }
+  }, []);
   const userSub = user?.sub ?? '';
   const matchStatus = useMatchStatusForHeader(!!me?.user?.id);
   const chatUnread = useChatUnreadCount();
@@ -80,6 +89,7 @@ export const AppHomePage: React.FC = () => {
   const first = me?.profile?.name?.trim()?.split(/\s+/)[0];
   const greeting = first || t('app_pages.home.greeting_fallback_name');
   const credits = me?.credits ?? 0;
+  const needsQuickSetup = Boolean(me && !me.isProfileComplete);
 
   const tiles: Tile[] = useMemo(() => {
     const matchesSub = matchStatus.loading
@@ -182,9 +192,20 @@ export const AppHomePage: React.FC = () => {
       <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: '0.12em' }}>
         {t('app_pages.home.dashboard_label')}
       </Typography>
-      <Typography variant="h4" component="h1" sx={{ fontWeight: 800, mt: 0.5, mb: 1 }}>
-        {t('app_pages.home.welcome_back')}, {greeting}
-      </Typography>
+      {firstSessionWelcome ? (
+        <>
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 800, mt: 0.5, mb: 1 }}>
+            You&apos;re in. Let&apos;s get you matched.
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2, maxWidth: 560 }}>
+            Let&apos;s set up your training preferences and find your people.
+          </Typography>
+        </>
+      ) : (
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 800, mt: 0.5, mb: 1 }}>
+          {t('app_pages.home.welcome_back')}, {greeting}
+        </Typography>
+      )}
       <Tooltip title={t('app_pages.home.credit_hint')} placement="top" arrow>
         <Typography
           component="span"
@@ -195,19 +216,23 @@ export const AppHomePage: React.FC = () => {
           {credits} {t('app_pages.home.credits_left')}
         </Typography>
       </Tooltip>
-      <Typography
-        variant="body1"
-        color="text.secondary"
-        sx={{
-          mb: 2,
-          maxWidth: { xs: '100%', sm: 'fit-content' },
-          whiteSpace: { xs: 'normal', sm: 'nowrap' },
-          overflow: { xs: 'visible', sm: 'hidden' },
-          textOverflow: { xs: 'clip', sm: 'ellipsis' },
-        }}
-      >
-        {t('app_pages.home.quick_access')}
-      </Typography>
+      {!needsQuickSetup ? (
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{
+            mb: 2,
+            maxWidth: { xs: '100%', sm: 'fit-content' },
+            whiteSpace: { xs: 'normal', sm: 'nowrap' },
+            overflow: { xs: 'visible', sm: 'hidden' },
+            textOverflow: { xs: 'clip', sm: 'ellipsis' },
+          }}
+        >
+          {t('app_pages.home.quick_access')}
+        </Typography>
+      ) : null}
+
+      {needsQuickSetup ? <DashboardQuickSetup /> : null}
 
       <Box
         sx={{

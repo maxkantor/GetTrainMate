@@ -13,6 +13,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { PageShell } from '@/components/layout/PageShell';
 import { trackSignUp } from '@/utils/analytics';
+import { savePendingSignup } from '@/utils/pendingSignupStorage';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -94,7 +95,13 @@ export const SignupPage: React.FC = () => {
       const result = await signup(email, password, name);
       if (result.success && result.username) {
         trackSignUp('email');
-        navigate('/verify-email', { state: { email, username: result.username } });
+        savePendingSignup({
+          email: email.trim(),
+          username: result.username,
+          password,
+          fullName: name.trim(),
+        });
+        navigate('/verify-email', { state: { email: email.trim(), username: result.username } });
       } else if (!result.success) {
         setError(result.error ?? t('errors.signupFailed'));
         if (result.resendUsername) setSubmitResendUsername(result.resendUsername);

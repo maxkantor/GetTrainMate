@@ -44,16 +44,15 @@ function renderRoute(initialPath = '/app') {
   render(
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
-        <Route path="/app" element={<ProtectedRoute requireProfileComplete />}>
+        <Route path="/app" element={<ProtectedRoute requireProfileComplete={false} />}>
           <Route index element={<div data-testid="outlet">Discover</div>} />
         </Route>
-        <Route path="/onboarding/profile" element={<div data-testid="onboarding">Onboarding</div>} />
       </Routes>
     </MemoryRouter>
   );
 }
 
-describe('ProtectedRoute onboarding redirect', () => {
+describe('ProtectedRoute app shell', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     meState.me = null;
@@ -61,14 +60,14 @@ describe('ProtectedRoute onboarding redirect', () => {
     meState.error = null;
   });
 
-  it('redirects to onboarding when profile is not complete (no profile / isProfileComplete false)', () => {
+  it('allows /app when profile is not complete (dashboard handles quick setup)', () => {
     meState.me = { isProfileComplete: false, user: { id: 'u1' } };
     renderRoute();
-    expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
-    expect(screen.getByTestId('onboarding')).toBeInTheDocument();
+    expect(screen.getByTestId('outlet')).toBeInTheDocument();
+    expect(screen.getByText('Discover')).toBeInTheDocument();
   });
 
-  it('does not redirect when onboardingCompleted (isProfileComplete) is true', () => {
+  it('allows /app when profile is complete', () => {
     meState.me = { isProfileComplete: true, user: { id: 'u1' } };
     renderRoute();
     expect(screen.getByTestId('outlet')).toBeInTheDocument();

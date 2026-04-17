@@ -35,20 +35,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ open, onClose 
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title="Complete your profile">
+    <Modal open={open} onClose={handleClose} title="Finish your setup">
       <div className={styles.content}>
         <p className={styles.desc}>
-          Set up your training goals, schedule, and experience level to get better matches.
+          Add your training type, level, and schedule from the home dashboard so we can match you better.
         </p>
-        <ul className={styles.list}>
-          <li>Training goals</li>
-          <li>Schedule availability</li>
-          <li>Location radius</li>
-          <li>Experience level</li>
-        </ul>
         <div className={styles.actions}>
-          <Button as="link" to="/onboarding/profile" variant="primary" fullWidth onClick={handleClose}>
-            Complete profile
+          <Button as="link" to="/app" variant="primary" fullWidth onClick={handleClose}>
+            Go to dashboard
           </Button>
           <button type="button" className={styles.skipBtn} onClick={handleClose}>
             Maybe later

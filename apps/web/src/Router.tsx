@@ -133,7 +133,7 @@ export const Router: React.FC = () => {
             </Route>
 
             {/* Protected app routes - require profile completion */}
-            <Route path="/app" element={<ProtectedRoute requireProfileComplete={true} />}>
+            <Route path="/app" element={<ProtectedRoute requireProfileComplete={false} />}>
               <Route index element={<AppHomePage />} />
               <Route path="dashboard" element={<AppHomePage />} />
               <Route path="discover" element={<DiscoverPage />} />

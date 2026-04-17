@@ -3,6 +3,7 @@ import { authService } from '@/services/authService';
 import { checkRegistrationEmail } from '@/services/registrationCheckService';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { clearAuthScopeTracking } from '@/utils/authScopeReset';
+import { clearPendingSignup } from '@/utils/pendingSignupStorage';
 
 interface AuthUser {
   email: string;
@@ -183,6 +184,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       await authService.logout();
+      clearPendingSignup();
       clearAuthScopeTracking();
       setUser(null);
     } catch (error) {

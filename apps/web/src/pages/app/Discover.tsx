@@ -195,7 +195,7 @@ function countActiveFilters(f: DiscoverFilters): number {
 export const DiscoverPage: React.FC = () => {
   const { t } = useI18n();
   const { user, logout } = useAuthContext();
-  const { me, refreshMe } = useMe();
+  const { me, refreshMe, loading: meLoading } = useMe();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const discoverLoadGenRef = useRef(0);
@@ -248,6 +248,13 @@ export const DiscoverPage: React.FC = () => {
     const now = Date.now();
     localStorage.setItem(`gtm_discover_last_visit_${user.sub}`, String(now));
   }, [me?.user?.id, user?.sub]);
+
+  useEffect(() => {
+    if (meLoading || !me) return;
+    if (!me.isProfileComplete) {
+      navigate('/app', { replace: true });
+    }
+  }, [me, meLoading, navigate]);
 
   useEffect(() => {
     if (!loading && shouldShowOnboardingModal(me?.isProfileComplete ?? true)) {

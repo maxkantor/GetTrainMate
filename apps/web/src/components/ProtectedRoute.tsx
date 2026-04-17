@@ -15,7 +15,7 @@ const DEV = import.meta.env.DEV;
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   isAdmin = false,
-  requireProfileComplete = true,
+  requireProfileComplete: _requireProfileComplete = true,
 }) => {
   const { isAuthenticated, isLoading, user } = useAuthContext();
   const { me, loading: meLoading, error: meError, refreshMe } = useMe();
@@ -66,28 +66,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/app" replace />;
   }
 
-  const profileJustCompleted = (location.state as { profileJustCompleted?: boolean } | null)?.profileJustCompleted;
-  const isSubscriptionPage = location.pathname === '/app/subscription';
-  const isProfilePage = location.pathname === '/app/profile';
-
-  // Only redirect to onboarding when we have successfully loaded me and profile is incomplete.
-  // Do NOT redirect when profile fetch failed (me === null with error) — allow through with warning.
-  const mustCompleteProfile =
-    requireProfileComplete &&
-    profileLoaded &&
-    !profileComplete &&
-    !profileJustCompleted &&
-    !isSubscriptionPage &&
-    !isProfilePage;
-
-  if (mustCompleteProfile) {
-    if (DEV) console.log('[ProtectedRoute] Redirecting to /onboarding/profile (profile incomplete)');
-    return <Navigate to="/onboarding/profile" replace state={{ from: location }} />;
-  }
-
-  if (DEV && requireProfileComplete && profileJustCompleted) {
-    console.log('[ProtectedRoute] Allowing through (profile just completed)');
-  }
+  // Profile completion is handled on the dashboard (quick setup) and Discover guard — do not redirect away from /app.
 
   return (
     <>
