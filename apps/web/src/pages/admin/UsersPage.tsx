@@ -79,6 +79,7 @@ export const UsersPage: React.FC = () => {
   const [planFilter, setPlanFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -113,7 +114,9 @@ export const UsersPage: React.FC = () => {
       const response = await adminApiService.get(`/api/admin/users?${params}`);
       const rows = pickPagedItems<Record<string, unknown>>(response).map((r) => normalizeAdminUserRow(r));
       setUsers(rows);
-      setTotalPages(pickPagedMeta(response).totalPages);
+      const meta = pickPagedMeta(response);
+      setTotalPages(meta.totalPages);
+      setTotalCount(meta.totalCount);
     } catch (err: unknown) {
       const status = (err as Error & { status?: number })?.status;
       const msg = (err as Error)?.message ?? '';
@@ -365,7 +368,12 @@ export const UsersPage: React.FC = () => {
   return (
     <div className={styles.root}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Users CRM</h1>
+        <div>
+          <h1 className={styles.title}>Users CRM</h1>
+          <p className={styles.subtitle}>
+            {loading ? '…' : `${totalCount} user${totalCount === 1 ? '' : 's'} in this view`}
+          </p>
+        </div>
         <div className={styles.actions}>
           <Button variant="secondary" size="sm" onClick={handleExport} disabled={users.length === 0}>
             Export CSV

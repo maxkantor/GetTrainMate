@@ -618,6 +618,29 @@ public class AdminUsersController : ControllerBase
         await Task.WhenAll(tasks);
     }
 
+    /// <summary>Treats account as closed if Dynamo has accountClosed (BOOL, legacy N=1, or string "true").</summary>
+    private static bool ReadAccountClosedFlag(Document doc)
+    {
+        if (doc == null || !doc.ContainsKey("accountClosed")) return false;
+        var v = doc["accountClosed"];
+        if (v == null) return false;
+        if (v is DynamoDBBool b) return b.Value;
+        if (v is Primitive p)
+        {
+            if (p.Type == DynamoDBEntryType.Numeric) return p.AsInt() != 0;
+            if (p.Type == DynamoDBEntryType.String)
+                return string.Equals(p.AsString(), "true", StringComparison.OrdinalIgnoreCase);
+        }
+        try
+        {
+            return v.AsBoolean();
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static UserListItem MapDocumentToListItem(Document doc)
     {
         var uid = doc.ContainsKey("userId") ? doc["userId"].AsString()
@@ -631,7 +654,7 @@ public class AdminUsersController : ControllerBase
             : doc.ContainsKey("Email") ? doc["Email"].AsString() : "";
         var name = doc.ContainsKey("name") ? doc["name"].AsString()
             : doc.ContainsKey("Name") ? doc["Name"].AsString() : "";
-        var accountClosed = doc.ContainsKey("accountClosed") && doc["accountClosed"].AsBoolean();
+        var accountClosed = ReadAccountClosedFlag(doc);
         return new UserListItem
         {
             UserId = uid,
