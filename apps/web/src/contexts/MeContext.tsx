@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { authService } from '@/services/authService';
 import { meService, type MeResponse } from '@/services/meService';
@@ -6,6 +7,7 @@ import type { UserProfile } from '@/services/profileService';
 import { isGraphQLEnabled, graphqlGetMe, graphqlEnsureFreeStartCredits, GraphQLApiError } from '@/services/graphqlService';
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { syncAuthScopeToCurrentUser } from '@/utils/authScopeReset';
+import { handleSessionInvalid } from '@/utils/sessionInvalid';
 
 interface MeContextType {
   me: MeResponse | null;
@@ -166,8 +168,17 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
         console.log('[MeContext] Profile loaded:', data.user?.id, 'onboarding required:', !data.isProfileComplete);
       }
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number }; status?: number }).response?.status ?? (err as { status?: number }).status;
+      let status: number | undefined;
+      if (err instanceof GraphQLApiError) status = err.status;
+      else if (axios.isAxiosError(err)) status = err.response?.status;
+      else
+        status =
+          (err as { response?: { status?: number }; status?: number }).response?.status ?? (err as { status?: number }).status;
       const graphqlErrors = err instanceof GraphQLApiError ? err.graphqlErrors : undefined;
+      if (status === 401) {
+        void handleSessionInvalid();
+        return;
+      }
       if (import.meta.env.DEV) {
         console.error('[MeContext] /me failed:', status ?? 'no status', graphqlErrors ?? (err instanceof Error ? err.message : err));
         if (status == null && err != null && typeof err === 'object') {

@@ -282,6 +282,7 @@ export const es = {
     hasAccount: '¿Ya tienes cuenta?',
     loginLink: 'Inicia sesión aquí',
     welcomeBack: '¡Bienvenido de nuevo! Inicia sesión en tu cuenta',
+    sessionEnded: 'Tu sesión terminó. Puedes iniciar sesión de nuevo o crear una cuenta nueva.',
     joinUs: 'Crea tu cuenta para empezar',
     forgotPasswordTitle: 'Restablecer contraseña',
     verifyEmailTitle: 'Verificar email',

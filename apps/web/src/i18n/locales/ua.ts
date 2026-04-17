@@ -282,6 +282,7 @@ export const ua = {
     hasAccount: 'Вже є обліковий запис?',
     loginLink: 'Увійти',
     welcomeBack: 'З поверненням! Увійдіть у свій обліковий запис',
+    sessionEnded: 'Сесію завершено. Увійдіть знову або створіть новий обліковий запис.',
     joinUs: 'Створіть обліковий запис, щоб почати',
     forgotPasswordTitle: 'Скинути пароль',
     verifyEmailTitle: 'Підтвердіть email',

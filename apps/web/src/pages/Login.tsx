@@ -63,6 +63,7 @@ export const LoginPage: React.FC = () => {
       localStorage.setItem('selectedPlanKey', plan);
     }
   }, [searchParams]);
+  const sessionEndedReason = searchParams.get('reason') === 'session';
   const { login, confirmSignInWithNewPassword, isLoading } = useAuthContext();
 
   const [email, setEmail] = useState(() => readSavedLoginEmail());
@@ -255,6 +256,12 @@ export const LoginPage: React.FC = () => {
         {error && (
           <Alert severity="error" sx={{ marginBottom: 2 }}>
             {error}
+          </Alert>
+        )}
+
+        {sessionEndedReason && (
+          <Alert severity="info" sx={{ marginBottom: 2 }}>
+            {t('auth.sessionEnded')}
           </Alert>
         )}
 

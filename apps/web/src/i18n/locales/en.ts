@@ -288,6 +288,7 @@ export const en = {
     hasAccount: 'Already have an account?',
     loginLink: 'Sign in here',
     welcomeBack: 'Welcome back! Sign in to your account',
+    sessionEnded: 'Your session ended. You can sign in again or create a new account.',
     joinUs: 'Create your account to get started',
     forgotPasswordTitle: 'Reset Password',
     forgotPasswordDesc: 'Enter your account email. We will send you a code to set a new password.',

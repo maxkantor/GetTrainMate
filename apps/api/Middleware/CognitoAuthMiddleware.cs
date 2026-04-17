@@ -66,7 +66,17 @@ public class CognitoAuthMiddleware
             }
             catch (NotAuthorizedException)
             {
-                _logger.LogDebug("Cognito GetUser rejected token (expired/invalid)");
+                _logger.LogDebug("Cognito GetUser rejected token (expired/invalid or user removed)");
+                if (!context.Response.HasStarted)
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        code = "NOT_AUTHORIZED",
+                        message = "Session expired or this account is no longer available.",
+                    });
+                }
+                return;
             }
             catch (Exception ex)
             {

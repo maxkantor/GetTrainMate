@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import './setupAxiosAuthInterceptor';
 import App from './App.tsx';
 import './styles/global.css';
 

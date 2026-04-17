@@ -281,6 +281,7 @@ export const zh = {
     hasAccount: '已有账户？',
     loginLink: '在此登录',
     welcomeBack: '欢迎回来！登录您的账户',
+    sessionEnded: '您的会话已结束。您可以重新登录或创建新账户。',
     joinUs: '创建账户并立即开始',
     forgotPasswordTitle: '重置密码',
     verifyEmailTitle: '验证邮箱',
