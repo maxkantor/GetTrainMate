@@ -134,8 +134,15 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
               boostExpiresAtUtc: rest.boostExpiresAtUtc ?? mapped.boostExpiresAtUtc,
               revealLikesUnlocked: rest.revealLikesUnlocked ?? mapped.revealLikesUnlocked,
             };
-          } catch {
-            /* REST /me optional merge */
+          } catch (mergeErr: unknown) {
+            const st = axios.isAxiosError(mergeErr)
+              ? mergeErr.response?.status
+              : (mergeErr as { status?: number })?.status;
+            if (st === 401 || st === 410) {
+              void handleSessionInvalid();
+              return;
+            }
+            /* REST /me optional merge for non-auth failures */
           }
           setMe(mapped);
           if (import.meta.env.DEV) {
@@ -154,7 +161,14 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
               if (import.meta.env.DEV) console.log('[MeContext] Profile loaded (REST fallback):', data.user?.id);
               graphqlEnsureFreeStartCredits().catch(() => {});
               return;
-            } catch (restErr) {
+            } catch (restErr: unknown) {
+              const st = axios.isAxiosError(restErr)
+                ? restErr.response?.status
+                : (restErr as { status?: number })?.status;
+              if (st === 401 || st === 410) {
+                void handleSessionInvalid();
+                return;
+              }
               if (import.meta.env.DEV) console.warn('[MeContext] REST fallback also failed:', restErr);
             }
           }

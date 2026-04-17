@@ -41,7 +41,10 @@ class MeService {
       return response.data;
     } catch (error) {
       const apiError = handleApiError(error);
-      throw new Error(apiError.message);
+      const wrapped = new Error(apiError.message) as Error & { status?: number; code?: string };
+      wrapped.status = apiError.status;
+      wrapped.code = apiError.code;
+      throw wrapped;
     }
   }
 }
