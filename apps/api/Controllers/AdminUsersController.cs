@@ -722,8 +722,13 @@ public class AdminUsersController : ControllerBase
                 return BadRequest(new { error = "This account is already marked deleted." });
 
             var profile = await _profileService.GetProfileForAdminAsync(userId);
-            if (profile == null)
-                return NotFound(new { error = "User not found" });
+            var hadNoProfileRow = profile == null;
+            var auditEmail = profile?.Email?.Trim() ?? "";
+            var auditName = profile?.Name?.Trim() ?? "";
+            if (string.IsNullOrEmpty(auditEmail))
+                auditEmail = await TryGetCognitoEmailAsync(userId) ?? "";
+            // Hard-deleted or never-synced Dynamo rows used to make CRM return 404 here, so no tombstone was
+            // written and Cognito could still issue tokens → /api/me stayed 200. Always run soft-delete + Cognito.
 
             var cognitoDeleted = await TryAdminDeleteCognitoUserAsync(userId);
             var deleted = await _profileService.DeleteProfileAsync(userId);
@@ -735,9 +740,15 @@ public class AdminUsersController : ControllerBase
                 "user.delete",
                 "user",
                 userId,
-                after: new { cognitoDeleted, email = profile.Email, name = profile.Name });
+                after: new { cognitoDeleted, email = auditEmail, name = auditName, hadNoProfileRow });
 
-            return Ok(new { message = "User marked deleted (CRM retains row); Cognito removed when possible.", cognitoDeleted });
+            return Ok(new
+            {
+                message = hadNoProfileRow
+                    ? "No profile row existed; tombstone written and Cognito removed when possible. /api/me will return 410 for this sub."
+                    : "User marked deleted (CRM retains row); Cognito removed when possible.",
+                cognitoDeleted,
+            });
         }
         catch (Exception ex)
         {
