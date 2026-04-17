@@ -199,3 +199,13 @@ button:disabled {
   margin: 0 auto;
   padding: 0 32px;
 }
+
+/*
+ * Native <select> dropdown (especially Chromium on Windows): option rows can render as white-on-white
+ * when the control uses light text on a dark panel. Explicit option colors keep lists readable everywhere.
+ */
+select option,
+select optgroup {
+  background-color: #14101f;
+  color: rgba(255, 255, 255, 0.95);
+}

@@ -83,6 +83,13 @@
   background: rgba(15, 18, 30, 0.85);
   color: rgba(255, 255, 255, 0.92);
   min-width: 140px;
+  color-scheme: dark;
+}
+
+.select option,
+.select optgroup {
+  background-color: #14101f;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .pagination {

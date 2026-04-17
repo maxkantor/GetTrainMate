@@ -74,6 +74,42 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           color: 'rgba(255, 255, 255, 0.9)',
+          '&.Mui-selected': {
+            backgroundColor: 'rgba(99, 102, 241, 0.35)',
+          },
+          '&.Mui-selected:hover': {
+            backgroundColor: 'rgba(99, 102, 241, 0.45)',
+          },
+        },
+      },
+    },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          backgroundImage: 'none',
+          backgroundColor: 'rgba(15, 18, 30, 0.98)',
+          color: 'rgba(255, 255, 255, 0.95)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+        },
+      },
+    },
+    MuiPopover: {
+      styleOverrides: {
+        paper: {
+          backgroundImage: 'none',
+          backgroundColor: 'rgba(15, 18, 30, 0.98)',
+          color: 'rgba(255, 255, 255, 0.95)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+        },
+      },
+    },
+    MuiAutocomplete: {
+      styleOverrides: {
+        paper: {
+          backgroundImage: 'none',
+          backgroundColor: 'rgba(15, 18, 30, 0.98)',
+          color: 'rgba(255, 255, 255, 0.95)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
         },
       },
     },

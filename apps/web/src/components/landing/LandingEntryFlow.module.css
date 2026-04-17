@@ -272,6 +272,13 @@
   color: rgba(255, 255, 255, 0.95);
   font-size: 0.9rem;
   cursor: pointer;
+  color-scheme: dark;
+}
+
+.select option,
+.select optgroup {
+  background-color: #14101f;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .select:focus {
