@@ -31,6 +31,7 @@ import {
 } from '@/utils/landingPrefs';
 import { getUploadLimits } from '@/config/uploadLimits';
 import { PROFILE_SPORTS } from '@/constants/profileSports';
+import { PhotoCropModal } from '@/components/profile/PhotoCropModal';
 
 const STEPS = ['Photo', 'Tags', 'Extra photo'];
 
@@ -51,6 +52,10 @@ export const ProfileOnboardingPage: React.FC = () => {
   const [secondPreview, setSecondPreview] = useState<string | null>(null);
   const [secondPhotoKey, setSecondPhotoKey] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
+  const [cropSecondOpen, setCropSecondOpen] = useState(false);
+  const [pendingSecondCropFile, setPendingSecondCropFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const secondInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,6 +111,20 @@ export const ProfileOnboardingPage: React.FC = () => {
     loadExisting();
   }, [loadExisting]);
 
+  const replacePhotoPreview = useCallback((next: string) => {
+    setPhotoPreview((prev) => {
+      if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return next;
+    });
+  }, []);
+
+  const replaceSecondPreview = useCallback((next: string) => {
+    setSecondPreview((prev) => {
+      if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return next;
+    });
+  }, []);
+
   const processFile = (selectedFile: File, which: 'first' | 'second') => {
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!validTypes.includes(selectedFile.type)) {
@@ -118,82 +137,105 @@ export const ProfileOnboardingPage: React.FC = () => {
     }
     setError('');
     if (which === 'first') {
-      setFile(selectedFile);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result && typeof reader.result === 'string') setPhotoPreview(reader.result);
-      };
-      reader.readAsDataURL(selectedFile);
+      setPendingCropFile(selectedFile);
+      setCropOpen(true);
     } else {
-      setSecondFile(selectedFile);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result && typeof reader.result === 'string') setSecondPreview(reader.result);
-      };
-      reader.readAsDataURL(selectedFile);
+      setPendingSecondCropFile(selectedFile);
+      setCropSecondOpen(true);
     }
   };
 
-  const handleUploadPrimary = async () => {
-    if (!file) return;
+  const uploadPrimaryFile = async (cropped: File): Promise<boolean> => {
     try {
       setUploading(true);
       setError('');
       const token = await authService.getJWT();
       if (!token) {
         setError('Not authenticated');
-        return;
+        return false;
       }
-      const uploadInfo = await profileService.getPhotoUploadUrl(token, file.type);
+      const uploadInfo = await profileService.getPhotoUploadUrl(token, cropped.type);
       const uploadResponse = await fetch(uploadInfo.uploadUrl, {
         method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type },
+        body: cropped,
+        headers: { 'Content-Type': cropped.type },
       });
       if (!uploadResponse.ok) throw new Error('Failed to upload photo');
       setPhotoKey(uploadInfo.key);
+      setFile(cropped);
       try {
-        setPhotoPreview(await profileService.getPhotoUrl(token, uploadInfo.key));
+        replacePhotoPreview(await profileService.getPhotoUrl(token, uploadInfo.key));
       } catch {
-        /* keep data url */
+        replacePhotoPreview(URL.createObjectURL(cropped));
       }
+      return true;
     } catch (err: unknown) {
       setError(handleApiError(err as Error).message || 'Upload failed');
+      return false;
     } finally {
       setUploading(false);
     }
   };
 
-  const handleUploadSecond = async () => {
-    if (!secondFile) return;
+  const handlePrimaryCropSave = async (blob: Blob) => {
+    const cropped = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
+    setFile(cropped);
+    replacePhotoPreview(URL.createObjectURL(cropped));
+    const ok = await uploadPrimaryFile(cropped);
+    if (ok) {
+      setCropOpen(false);
+      setPendingCropFile(null);
+    }
+  };
+
+  const uploadSecondFileFn = async (cropped: File): Promise<boolean> => {
     const limits = getUploadLimits(me?.credits ?? 0);
     if (limits.maxPhotos < 2) {
       setError('More photos require credits. See Pricing.');
-      return;
+      return false;
     }
     try {
       setUploadingSecond(true);
       setError('');
       const token = await authService.getJWT();
-      if (!token) return;
-      const uploadInfo = await profileService.getPhotoUploadUrl(token, secondFile.type);
+      if (!token) return false;
+      const uploadInfo = await profileService.getPhotoUploadUrl(token, cropped.type);
       const uploadResponse = await fetch(uploadInfo.uploadUrl, {
         method: 'PUT',
-        body: secondFile,
-        headers: { 'Content-Type': secondFile.type },
+        body: cropped,
+        headers: { 'Content-Type': cropped.type },
       });
       if (!uploadResponse.ok) throw new Error('Failed to upload');
       setSecondPhotoKey(uploadInfo.key);
+      setSecondFile(cropped);
       try {
-        setSecondPreview(await profileService.getPhotoUrl(token, uploadInfo.key));
+        replaceSecondPreview(await profileService.getPhotoUrl(token, uploadInfo.key));
       } catch {
-        /* keep data url */
+        replaceSecondPreview(URL.createObjectURL(cropped));
       }
+      return true;
     } catch (err: unknown) {
       setError(handleApiError(err as Error).message || 'Upload failed');
+      return false;
     } finally {
       setUploadingSecond(false);
     }
+  };
+
+  const handleSecondCropSave = async (blob: Blob) => {
+    const cropped = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
+    setSecondFile(cropped);
+    replaceSecondPreview(URL.createObjectURL(cropped));
+    const ok = await uploadSecondFileFn(cropped);
+    if (ok) {
+      setCropSecondOpen(false);
+      setPendingSecondCropFile(null);
+    }
+  };
+
+  const handleRetryPrimaryUpload = async () => {
+    if (!file) return;
+    await uploadPrimaryFile(file);
   };
 
   const toggleTag = (sport: string) => {
@@ -301,7 +343,8 @@ export const ProfileOnboardingPage: React.FC = () => {
                 Profile photo
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Profiles with photos get more matches. Add a clear face photo.
+                Profiles with photos get more matches. Add a clear face photo — you can drag, zoom, and crop in the next
+                step before it uploads.
               </Typography>
               <Box
                 onDragEnter={(e) => {
@@ -345,8 +388,11 @@ export const ProfileOnboardingPage: React.FC = () => {
                       sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(0,0,0,0.5)', borderRadius: '50%', p: 0.5 }}
                       onClick={(e) => {
                         e.stopPropagation();
+                        setPhotoPreview((prev) => {
+                          if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+                          return null;
+                        });
                         setFile(null);
-                        setPhotoPreview(null);
                         setPhotoKey(null);
                       }}
                     >
@@ -370,15 +416,29 @@ export const ProfileOnboardingPage: React.FC = () => {
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) processFile(f, 'first');
+                  e.target.value = '';
                 }}
               />
-              {file && !photoKey && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                  <Button variant="contained" onClick={handleUploadPrimary} disabled={uploading}>
-                    {uploading ? <CircularProgress size={22} color="inherit" /> : 'Upload photo'}
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, mt: 2 }}>
+                {file && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPendingCropFile(file);
+                      setCropOpen(true);
+                    }}
+                  >
+                    Adjust crop
                   </Button>
-                </Box>
-              )}
+                )}
+                {file && !photoKey && (
+                  <Button variant="contained" onClick={handleRetryPrimaryUpload} disabled={uploading}>
+                    {uploading ? <CircularProgress size={22} color="inherit" /> : 'Retry upload'}
+                  </Button>
+                )}
+              </Box>
             </Box>
           )}
 
@@ -467,15 +527,28 @@ export const ProfileOnboardingPage: React.FC = () => {
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       if (f) processFile(f, 'second');
+                      e.target.value = '';
                     }}
                   />
-                  {secondFile && !secondPhotoKey && (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                      <Button variant="outlined" onClick={handleUploadSecond} disabled={uploadingSecond}>
-                        {uploadingSecond ? <CircularProgress size={22} /> : 'Upload'}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, mt: 2 }}>
+                    {secondFile && (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => {
+                          setPendingSecondCropFile(secondFile);
+                          setCropSecondOpen(true);
+                        }}
+                      >
+                        Adjust crop
                       </Button>
-                    </Box>
-                  )}
+                    )}
+                    {secondFile && !secondPhotoKey && (
+                      <Button variant="outlined" onClick={() => void uploadSecondFileFn(secondFile)} disabled={uploadingSecond}>
+                        {uploadingSecond ? <CircularProgress size={22} /> : 'Retry upload'}
+                      </Button>
+                    )}
+                  </Box>
                 </>
               )}
             </Box>
@@ -503,6 +576,31 @@ export const ProfileOnboardingPage: React.FC = () => {
           </Button>
         )}
       </Box>
+
+      <PhotoCropModal
+        open={cropOpen}
+        imageFile={pendingCropFile}
+        onClose={() => {
+          if (!uploading) {
+            setCropOpen(false);
+            setPendingCropFile(null);
+          }
+        }}
+        saving={uploading}
+        onSave={handlePrimaryCropSave}
+      />
+      <PhotoCropModal
+        open={cropSecondOpen}
+        imageFile={pendingSecondCropFile}
+        onClose={() => {
+          if (!uploadingSecond) {
+            setCropSecondOpen(false);
+            setPendingSecondCropFile(null);
+          }
+        }}
+        saving={uploadingSecond}
+        onSave={handleSecondCropSave}
+      />
     </PageShell>
   );
 };
