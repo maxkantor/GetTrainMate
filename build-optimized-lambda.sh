@@ -54,10 +54,10 @@ SIZE_MB_INT=${SIZE_MB%.*}
 if [ "${SIZE_MB_INT:-0}" -gt 50 ] 2>/dev/null; then
   echo "⚠️  Size exceeds 50 MB limit. Deploy via S3:"
   echo ""
-  echo "  aws s3 cp deploy/gettrainmate-api-lambda.zip s3://getrainmate-media-bucket/lambda/gettrainmate-api-lambda.zip"
+  echo "  aws s3 cp deploy/gettrainmate-api-lambda.zip s3://gettrainmate-media-bucket/lambda/gettrainmate-api-lambda.zip"
   echo "  aws lambda update-function-code \\"
   echo "    --function-name GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u \\"
-  echo "    --s3-bucket getrainmate-media-bucket \\"
+  echo "    --s3-bucket gettrainmate-media-bucket \\"
   echo "    --s3-key lambda/gettrainmate-api-lambda.zip"
   echo ""
   echo "  aws lambda update-function-configuration \\"

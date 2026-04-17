@@ -94,8 +94,9 @@ export class GetTrainMateStack extends cdk.Stack {
     const creditsTables = this.createCreditsTables();
     const allTables = [...tables, ...adminTables, ...contactsTables, ...tokenWalletTables, ...creditsTables];
 
-    // S3 Bucket for media storage (existing bucket; set CORS once in Console → Permissions → CORS)
-    const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', 'getrainmate-media-bucket');
+    // S3 Bucket for media storage (existing bucket). CORS must allow the web origin for browser PUT uploads:
+    //   aws s3api put-bucket-cors --bucket gettrainmate-media-bucket --cors-configuration file://infra/s3-media-bucket-cors.json
+    const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', 'gettrainmate-media-bucket');
 
     // Bedrock model for AI features (match insight, chat, icebreakers). Override: --context bedrockModelId=...
     // Use inference profile ID (us. prefix) - direct model ID on-demand is no longer supported by Bedrock

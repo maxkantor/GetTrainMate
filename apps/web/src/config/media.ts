@@ -1,7 +1,7 @@
 // Central place to manage marketing/hero/pricing imagery.
 // Swap URLs with your own CDN/bucket paths (e.g., https://your-bucket.s3.region.amazonaws.com).
-// For GetTrainMate: point to getrainmate-media-bucket on S3.
-export const IMAGE_BUCKET_BASE = 'https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com';
+// For GetTrainMate: point to gettrainmate-media-bucket on S3.
+export const IMAGE_BUCKET_BASE = 'https://gettrainmate-media-bucket.s3.us-east-1.amazonaws.com';
 
 // Pricing "Meet the vibe" strip images.
 // Replace src values with your own assets while keeping width/height for CLS stability.

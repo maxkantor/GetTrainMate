@@ -73,10 +73,10 @@ def main():
         if size_mb > 50:
             print("⚠️  Size exceeds 50 MB limit. Deploy via S3:")
             print("")
-            print("  aws s3 cp deploy/gettrainmate-api-lambda.zip s3://getrainmate-media-bucket/lambda/gettrainmate-api-lambda.zip")
+            print("  aws s3 cp deploy/gettrainmate-api-lambda.zip s3://gettrainmate-media-bucket/lambda/gettrainmate-api-lambda.zip")
             print("  aws lambda update-function-code \\")
             print("    --function-name GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u \\")
-            print("    --s3-bucket getrainmate-media-bucket \\")
+            print("    --s3-bucket gettrainmate-media-bucket \\")
             print("    --s3-key lambda/gettrainmate-api-lambda.zip")
         else:
             print("✅ Size is under 50 MB - you can upload directly via AWS Console!")

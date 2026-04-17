@@ -219,7 +219,7 @@ export const ProfilePage: React.FC = () => {
               try {
                 return await profileService.getPhotoUrl(token, key);
               } catch {
-                return `https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/${key}`;
+                return `https://gettrainmate-media-bucket.s3.us-east-1.amazonaws.com/${key}`;
               }
             })
           );

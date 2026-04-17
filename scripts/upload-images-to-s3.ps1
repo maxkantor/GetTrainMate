@@ -2,7 +2,7 @@
 # Upload marketing images to S3 bucket
 
 param(
-  [string]$BucketName = "getrainmate-media-bucket",
+  [string]$BucketName = "gettrainmate-media-bucket",
   [string]$Region = "us-east-1"
 )
 
