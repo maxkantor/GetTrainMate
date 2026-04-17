@@ -15,6 +15,7 @@ import {
   resendSignUpCode,
 } from 'aws-amplify/auth';
 import { isGraphQLEnabled, APPSYNC_GRAPHQL_URL } from '@/config/appsync';
+import { API_BASE_URL } from '@/config/api';
 
 let isConfigured = false;
 
@@ -198,27 +199,26 @@ export const authService = {
   },
 
   /**
-   * Forces a Cognito token refresh. If the user was deleted, disabled, or refresh tokens were revoked,
-   * this fails and returns false — use on app bootstrap so the UI does not stay "logged in" from cache alone.
-   * Returns true on transient/network errors so we do not sign everyone out when offline.
+   * Validates the session against the GetTrainMate API, which runs Cognito GetUser on every request.
+   * Client-side token refresh alone is not enough: access tokens can remain valid briefly after admin deletes
+   * the Cognito user, but GetUser rejects deleted users immediately.
+   * Returns false if there is no token or the API responds 401. On network failure, returns true (do not sign out offline users).
    */
-  async isRefreshSessionValid(): Promise<boolean> {
+  async validateSessionWithApi(): Promise<boolean> {
+    const token = await this.getJWT(true);
+    if (!token) return false;
     try {
-      const session = await fetchAuthSession({ forceRefresh: true });
-      return Boolean(session.tokens?.accessToken);
-    } catch (e: unknown) {
-      const name = e && typeof e === 'object' && 'name' in e ? String((e as { name: string }).name) : '';
-      if (
-        name === 'NotAuthorizedException' ||
-        name === 'UserUnAuthenticatedException' ||
-        name === 'InvalidRefreshTokenException' ||
-        name === 'UserNotFoundException'
-      ) {
-        return false;
-      }
-      if (import.meta.env.DEV) {
-        console.warn('[auth] fetchAuthSession(forceRefresh) failed (treating as transient):', name || e);
-      }
+      const res = await fetch(`${API_BASE_URL}/api/me`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+        credentials: 'omit',
+      });
+      if (res.status === 401) return false;
+      return true;
+    } catch {
       return true;
     }
   },

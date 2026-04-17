@@ -4,6 +4,7 @@ import { checkRegistrationEmail } from '@/services/registrationCheckService';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { clearAuthScopeTracking } from '@/utils/authScopeReset';
 import { clearPendingSignup } from '@/utils/pendingSignupStorage';
+import { handleSessionInvalid } from '@/utils/sessionInvalid';
 
 interface AuthUser {
   email: string;
@@ -78,22 +79,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Initialize auth on mount — refresh with Cognito so deleted/revoked users are not left "signed in" from cache
+  // Initialize auth on mount — confirm session with API (Cognito GetUser); client-only refresh is not enough after admin delete
   useEffect(() => {
     const initAuth = async () => {
       try {
         const currentUser = await authService.getCurrentUser();
         if (currentUser) {
-          const stillValid = await authService.isRefreshSessionValid();
-          if (!stillValid) {
-            try {
-              await authService.logout();
-            } catch {
-              /* ignore */
-            }
-            clearPendingSignup();
-            clearAuthScopeTracking();
-            setUser(null);
+          const apiOk = await authService.validateSessionWithApi();
+          if (!apiOk) {
+            await handleSessionInvalid();
             return;
           }
           const userData = await extractUserData(currentUser);
