@@ -22,7 +22,7 @@ export const LoggedInActionHero: React.FC = () => {
   const creditCap = Math.max(me?.lifetimeEarned ?? 0, credits);
   const [limitModalOpen, setLimitModalOpen] = useState(false);
 
-  const primaryHref = complete ? '/app' : '/onboarding/profile';
+  const primaryHref = '/app';
   const primaryLabel = complete ? t('nav.dashboard') : t('landing.cta_finish_profile');
   const usedToday = Math.min(likesToday, DAILY_LIKE_LIMIT);
   const atOrPastFreeCap = likesToday >= DAILY_LIKE_LIMIT;

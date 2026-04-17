@@ -9,7 +9,6 @@ import { useMe } from '@/hooks/useMe';
 import { analytics } from '@/utils/analytics';
 import { LanguageDropdown } from '@/components/layout/LanguageDropdown';
 import { HeaderNavLink } from './HeaderNavLink';
-import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { useMatchStatusForHeader } from '@/hooks/useMatchStatusForHeader';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
@@ -21,7 +20,6 @@ export const AppHeader: React.FC = () => {
   const { t } = useI18n();
   const { user, logout } = useAuthContext();
   const { me } = useMe();
-  const { openEntryFlow } = useLandingConversion();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -215,14 +213,7 @@ export const AppHeader: React.FC = () => {
                 <RouterLink to="/login" className={styles.loginBtn}>
                   {t('header.login')}
                 </RouterLink>
-                <RouterLink
-                  to="/signup"
-                  className={styles.signupBtn}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    openEntryFlow();
-                  }}
-                >
+                <RouterLink to="/signup" className={styles.signupBtn}>
                   {t('header.signup')}
                 </RouterLink>
               </div>
@@ -330,7 +321,7 @@ export const AppHeader: React.FC = () => {
                 {userOpen && (
                   <div className={styles.dropdown}>
                     {!profileComplete && (
-                      <RouterLink to="/onboarding/profile" className={styles.dropItem} onClick={() => setUserOpen(false)}>
+                      <RouterLink to="/app" className={styles.dropItem} onClick={() => setUserOpen(false)}>
                         {t('header.complete_profile')}
                       </RouterLink>
                     )}
@@ -471,15 +462,7 @@ export const AppHeader: React.FC = () => {
                   <RouterLink to="/login" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
                     {t('header.login')}
                   </RouterLink>
-                  <RouterLink
-                    to="/signup"
-                    className={styles.mobileSignup}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setMobileOpen(false);
-                      openEntryFlow();
-                    }}
-                  >
+                  <RouterLink to="/signup" className={styles.mobileSignup} onClick={() => setMobileOpen(false)}>
                     {t('header.signup')}
                   </RouterLink>
                 </>

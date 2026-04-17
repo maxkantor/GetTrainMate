@@ -26,7 +26,11 @@ import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import { matchQueryKeys } from '@/lib/queryKeys';
 import { fetchSentRequestsForUser, fetchSkippedProfilesForUser } from '@/services/matchExploreQueries';
 import { DashboardQuickSetup } from '@/components/dashboard/DashboardQuickSetup';
-import { consumePostVerifyWelcome } from '@/utils/pendingSignupStorage';
+import {
+  consumePostVerifyWelcome,
+  peekNewUserDashboardGreeting,
+  clearNewUserDashboardGreeting,
+} from '@/utils/pendingSignupStorage';
 
 const cardSx = {
   borderRadius: 2,
@@ -52,13 +56,19 @@ export const AppHomePage: React.FC = () => {
   const { t } = useI18n();
   const { me } = useMe();
   const { user } = useAuthContext();
-  const [firstSessionWelcome, setFirstSessionWelcome] = useState(false);
+  /** First session after email verification — not used for returning users with incomplete profiles */
+  const [firstTimeDashboardCopy, setFirstTimeDashboardCopy] = useState(() => peekNewUserDashboardGreeting());
 
   useEffect(() => {
-    if (consumePostVerifyWelcome()) {
-      setFirstSessionWelcome(true);
-    }
+    if (consumePostVerifyWelcome()) setFirstTimeDashboardCopy(true);
   }, []);
+
+  useEffect(() => {
+    if (me?.isProfileComplete) {
+      clearNewUserDashboardGreeting();
+      setFirstTimeDashboardCopy(false);
+    }
+  }, [me?.isProfileComplete]);
   const userSub = user?.sub ?? '';
   const matchStatus = useMatchStatusForHeader(!!me?.user?.id);
   const chatUnread = useChatUnreadCount();
@@ -192,7 +202,7 @@ export const AppHomePage: React.FC = () => {
       <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: '0.12em' }}>
         {t('app_pages.home.dashboard_label')}
       </Typography>
-      {firstSessionWelcome ? (
+      {firstTimeDashboardCopy ? (
         <>
           <Typography variant="h4" component="h1" sx={{ fontWeight: 800, mt: 0.5, mb: 1 }}>
             You&apos;re in. Let&apos;s get you matched.
@@ -230,70 +240,78 @@ export const AppHomePage: React.FC = () => {
         >
           {t('app_pages.home.quick_access')}
         </Typography>
+      ) : !firstTimeDashboardCopy ? (
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 2, maxWidth: 560 }}>
+          Let&apos;s set up your training preferences. We&apos;ll use this to find better matches.
+        </Typography>
       ) : null}
 
       {needsQuickSetup ? <DashboardQuickSetup /> : null}
 
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 1.5,
-          mb: 2,
-          typography: 'caption',
-          color: 'text.secondary',
-        }}
-      >
-        <Box component="span">
-          {t('app_pages.home.matches_label')}:{' '}
-          <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
-            {matchesCount == null ? '…' : matchesCount}
-          </Box>
-        </Box>
-        <Box component="span" sx={{ opacity: 0.4 }}>
-          ·
-        </Box>
-        <Box component="span">
-          {t('app_pages.home.pending_sent_label')}:{' '}
-          <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
-            {sentPending == null ? '…' : sentPending}
-          </Box>
-        </Box>
-        {skippedEnabled ? (
-          <>
-            <Box component="span" sx={{ opacity: 0.4 }}>
-              ·
+      {!needsQuickSetup ? (
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1.5,
+            mb: 2,
+            typography: 'caption',
+            color: 'text.secondary',
+          }}
+        >
+          <Box component="span">
+            {t('app_pages.home.matches_label')}:{' '}
+            <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
+              {matchesCount == null ? '…' : matchesCount}
             </Box>
-            <Box component="span">
-              {t('nav.skipped')}:{' '}
-              <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
-                {skippedCount == null ? '…' : skippedCount}
+          </Box>
+          <Box component="span" sx={{ opacity: 0.4 }}>
+            ·
+          </Box>
+          <Box component="span">
+            {t('app_pages.home.pending_sent_label')}:{' '}
+            <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
+              {sentPending == null ? '…' : sentPending}
+            </Box>
+          </Box>
+          {skippedEnabled ? (
+            <>
+              <Box component="span" sx={{ opacity: 0.4 }}>
+                ·
               </Box>
+              <Box component="span">
+                {t('nav.skipped')}:{' '}
+                <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
+                  {skippedCount == null ? '…' : skippedCount}
+                </Box>
+              </Box>
+            </>
+          ) : null}
+          <Box component="span" sx={{ opacity: 0.4 }}>
+            ·
+          </Box>
+          <Box component="span">
+            {t('app_pages.home.unread_chats_label')}:{' '}
+            <Box component="span" sx={{ color: chatUnread > 0 ? 'primary.main' : 'text.primary', fontWeight: 700 }}>
+              {chatUnread}
             </Box>
-          </>
-        ) : null}
-        <Box component="span" sx={{ opacity: 0.4 }}>
-          ·
-        </Box>
-        <Box component="span">
-          {t('app_pages.home.unread_chats_label')}:{' '}
-          <Box component="span" sx={{ color: chatUnread > 0 ? 'primary.main' : 'text.primary', fontWeight: 700 }}>
-            {chatUnread}
           </Box>
         </Box>
-      </Box>
+      ) : null}
 
-      <Button
-        component={RouterLink}
-        to="/app/discover"
-        variant="contained"
-        size="large"
-        fullWidth
-        startIcon={<ExploreOutlinedIcon />}
-        sx={{ mb: 3, py: 1.5, fontWeight: 600 }}
-      >
-        {t('app_pages.home.start_discovering')}
-      </Button>
+      {!needsQuickSetup ? (
+        <Button
+          component={RouterLink}
+          to="/app/discover"
+          variant="contained"
+          size="large"
+          fullWidth
+          startIcon={<ExploreOutlinedIcon />}
+          sx={{ mb: 3, py: 1.5, fontWeight: 600 }}
+        >
+          {t('app_pages.home.start_discovering')}
+        </Button>
+      ) : null}
 
       <Box
         sx={{

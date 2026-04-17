@@ -2,7 +2,6 @@ import React, { useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
-import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { useI18n } from '@/hooks/useI18n';
 import { Container } from '@/components/layout/Container';
 import styles from './FinalCTA.module.css';
@@ -10,7 +9,6 @@ import styles from './FinalCTA.module.css';
 export const FinalCTA: React.FC = () => {
   const cardRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated } = useAuthContext();
-  const { openEntryFlow } = useLandingConversion();
   const { t } = useI18n();
 
   const onMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -48,9 +46,9 @@ export const FinalCTA: React.FC = () => {
           <h2 className={styles.title}>{t('landing.final_cta_card_title')}</h2>
           <p className={styles.sub}>{t('landing.final_cta_card_sub')}</p>
           {!isAuthenticated ? (
-            <button type="button" className={styles.btn} onClick={openEntryFlow}>
+            <Link to="/signup" className={styles.btn}>
               {t('landing.landing_primary_cta')}
-            </button>
+            </Link>
           ) : (
             <Link to="/app/discover" className={styles.btn}>
               {t('landing.landing_primary_cta')}

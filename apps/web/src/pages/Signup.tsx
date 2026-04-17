@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams, Navigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -28,7 +28,7 @@ export const SignupPage: React.FC = () => {
       localStorage.setItem('selectedPlanKey', plan);
     }
   }, [searchParams]);
-  const { signup, resendSignupCode, isLoading } = useAuthContext();
+  const { signup, resendSignupCode, isLoading, isAuthenticated } = useAuthContext();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -135,6 +135,10 @@ export const SignupPage: React.FC = () => {
       setResendNotice({ kind: 'error', text: r.error ?? 'Could not resend the code.' });
     }
   };
+
+  if (isAuthenticated) {
+    return <Navigate to="/app" replace />;
+  }
 
   return (
     <PageShell variant="form" showBackLink>

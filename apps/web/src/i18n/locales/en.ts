@@ -306,7 +306,7 @@ export const en = {
     verifyEmailTitle: 'Verify Email',
     verifyCode: 'Verification Code',
     verifyEmail: 'We sent a code to your email',
-    resendCode: 'Resend Code',
+    resendCode: 'Resend code',
   },
   validation: {
     emailRequired: 'Email is required',

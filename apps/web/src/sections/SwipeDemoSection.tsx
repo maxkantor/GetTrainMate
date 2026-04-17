@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
-import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
 import { useI18n } from '@/hooks/useI18n';
 import { LANDING_SHOWCASE_DECK_FALLBACK } from '@/data/landingShowcaseFallback';
@@ -162,7 +161,6 @@ export const SwipeDemoSection: React.FC = () => {
   const { t } = useI18n();
   const reduceMotion = useReducedMotion();
   const { isAuthenticated } = useAuthContext();
-  const { openEntryFlow } = useLandingConversion();
   const [profiles, setProfiles] = useState<DeckProfile[]>(() => [...FALLBACK_PROFILES]);
   const [phase, setPhase] = useState<Phase>('idle');
   const [deckIndex, setDeckIndex] = useState(0);
@@ -405,9 +403,9 @@ export const SwipeDemoSection: React.FC = () => {
 
         <div className={styles.ctaColumn}>
           {!isAuthenticated ? (
-            <button type="button" className={styles.cta} onClick={openEntryFlow}>
+            <Link to="/signup" className={styles.cta}>
               {t('landing.landing_primary_cta')}
-            </button>
+            </Link>
           ) : (
             <Link to="/app/discover" className={styles.cta}>
               {t('landing.landing_primary_cta')}

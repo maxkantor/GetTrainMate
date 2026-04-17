@@ -23,6 +23,7 @@ import {
   dashboardTimeToAvailabilitySlot,
   type DashboardTimeId,
 } from '@/config/dashboardQuickSetup';
+import { readSignupDisplayName, clearSignupDisplayName } from '@/utils/pendingSignupStorage';
 
 /**
  * First-time dashboard: one-tap training type, level, and time — then profile is complete enough for Discover.
@@ -39,6 +40,7 @@ export const DashboardQuickSetup: React.FC = () => {
 
   const displayName =
     me?.profile?.name?.trim() ||
+    readSignupDisplayName() ||
     user?.email?.split('@')[0]?.replace(/[^a-zA-Z0-9 _-]/g, '') ||
     'Athlete';
 
@@ -64,6 +66,7 @@ export const DashboardQuickSetup: React.FC = () => {
         mode: 'TRAIN',
       });
       await refreshMe();
+      clearSignupDisplayName();
       navigate('/app/discover', { replace: true });
     } catch (e: unknown) {
       setError(handleApiError(e as Error).message || 'Could not save preferences');
@@ -92,7 +95,7 @@ export const DashboardQuickSetup: React.FC = () => {
           Let&apos;s set up your training preferences.
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, maxWidth: 520 }}>
-          We&apos;ll use this to find better matches. Takes less than 30 seconds.
+          We&apos;ll use this to find better matches.
         </Typography>
 
         {error ? (
@@ -198,6 +201,9 @@ export const DashboardQuickSetup: React.FC = () => {
         >
           {saving ? <CircularProgress size={26} color="inherit" /> : 'Find My Matches'}
         </Button>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1.5 }}>
+          Takes less than 30 seconds
+        </Typography>
       </CardContent>
     </Card>
   );

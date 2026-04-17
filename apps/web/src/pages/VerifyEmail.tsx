@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -18,13 +18,15 @@ import {
   readPendingSignup,
   clearPendingSignup,
   markPostVerifyWelcome,
+  rememberSignupDisplayName,
+  setNewUserDashboardGreeting,
 } from '@/utils/pendingSignupStorage';
 
 export const VerifyEmailPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useI18n();
-  const { confirmSignUp, resendSignupCode, login, isLoading } = useAuthContext();
+  const { confirmSignUp, resendSignupCode, login, isLoading, isAuthenticated } = useAuthContext();
 
   const loc = (location.state as { email?: string; username?: string } | null) ?? {};
   const initialPending = readPendingSignup();
@@ -33,6 +35,7 @@ export const VerifyEmailPage: React.FC = () => {
   const [username, setUsername] = useState(() => loc.username ?? initialPending?.username ?? '');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  const [codeFieldError, setCodeFieldError] = useState('');
   const [resendOk, setResendOk] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ email?: string; code?: string }>({});
 
@@ -60,6 +63,7 @@ export const VerifyEmailPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setCodeFieldError('');
     setResendOk(false);
     if (!validateForm()) return;
 
@@ -82,15 +86,20 @@ export const VerifyEmailPage: React.FC = () => {
       const result = await confirmSignUp(u, code.trim());
       if (!result.success) {
         const msg = result.error ?? 'Verification failed. Check the code and try again.';
-        setError(
-          /expired|invalid|mismatch|not.*match/i.test(msg)
+        const friendly =
+          /expired|invalid|mismatch|not.*match|code/i.test(msg)
             ? msg
-            : 'That code doesn’t look right. Try again or request a new code.'
-        );
+            : 'That code doesn’t look right. Try again or request a new code.';
+        setCodeFieldError(friendly);
         return;
       }
 
       const loginEmail = email.trim() || p?.email || '';
+      const fullName = p?.fullName?.trim();
+      if (fullName) rememberSignupDisplayName(fullName);
+      setNewUserDashboardGreeting();
+      markPostVerifyWelcome();
+
       const loginRes = await login(loginEmail, pass);
       clearPendingSignup();
 
@@ -103,15 +112,15 @@ export const VerifyEmailPage: React.FC = () => {
         return;
       }
 
-      markPostVerifyWelcome();
       navigate('/app', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed. Please try again.');
+      setCodeFieldError(err instanceof Error ? err.message : 'Verification failed. Please try again.');
     }
   };
 
   const handleResend = async () => {
     setError('');
+    setCodeFieldError('');
     setResendOk(false);
     const u = username.trim();
     if (!u) {
@@ -127,6 +136,10 @@ export const VerifyEmailPage: React.FC = () => {
   };
 
   const codeLabel = t('auth.verifyCode') || 'Confirmation code';
+
+  if (isAuthenticated) {
+    return <Navigate to="/app" replace />;
+  }
 
   return (
     <PageShell variant="form" showBackLink>
@@ -178,9 +191,12 @@ export const VerifyEmailPage: React.FC = () => {
               label={codeLabel}
               type="text"
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              error={!!validationErrors.code}
-              helperText={validationErrors.code}
+              onChange={(e) => {
+                setCodeFieldError('');
+                setCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+              }}
+              error={!!validationErrors.code || !!codeFieldError}
+              helperText={validationErrors.code || codeFieldError || undefined}
               disabled={isLoading}
               margin="normal"
               autoComplete="one-time-code"
@@ -207,7 +223,7 @@ export const VerifyEmailPage: React.FC = () => {
                 disabled={isLoading || !username}
                 onClick={() => void handleResend()}
               >
-                Resend code
+                {t('auth.resendCode')}
               </Button>
               <Button
                 fullWidth

@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { useI18n } from '@/hooks/useI18n';
-import { useLandingConversion } from '@/contexts/LandingConversionContext';
 import { Container } from '@/components/layout/Container';
 import { HeroFloatingStack } from '@/components/premium/HeroFloatingStack';
 import styles from './sections.module.css';
@@ -13,24 +12,18 @@ const ease = [0.16, 1, 0.3, 1] as const;
 
 export const Hero: React.FC = () => {
   const { isAuthenticated } = useAuthContext();
-  const { openEntryFlow } = useLandingConversion();
   const { me } = useMe();
   const { t } = useI18n();
 
   const profileComplete = me?.isProfileComplete ?? true;
-  const ctaPrimaryHref = !isAuthenticated
-    ? '/signup'
-    : !profileComplete
-      ? '/onboarding/profile'
-      : '/app';
+  const ctaPrimaryHref = !isAuthenticated ? '/signup' : '/app';
   const primaryCta = t('landing.landing_primary_cta');
   const ctaPrimaryLabel = !isAuthenticated
     ? primaryCta
     : !profileComplete
       ? t('landing.cta_finish_profile')
       : t('nav.dashboard');
-  const showCtaSubtext = profileComplete;
-  const primaryOpensFlow = !isAuthenticated && ctaPrimaryLabel === primaryCta;
+  const showCtaSubtext = !isAuthenticated || profileComplete;
 
   return (
     <section className={styles.heroPremium}>
@@ -64,19 +57,13 @@ export const Hero: React.FC = () => {
               transition={{ duration: 0.5, ease, delay: 0.12 }}
             >
               <div className={styles.heroPrimaryStack}>
-                {primaryOpensFlow ? (
-                  <button type="button" className={styles.heroBtnPrimary} onClick={openEntryFlow}>
-                    {ctaPrimaryLabel}
-                  </button>
-                ) : (
-                  <Link to={ctaPrimaryHref} className={styles.heroBtnPrimary}>
-                    {ctaPrimaryLabel}
-                  </Link>
-                )}
-                {primaryOpensFlow && (
+                <Link to={ctaPrimaryHref} className={styles.heroBtnPrimary}>
+                  {ctaPrimaryLabel}
+                </Link>
+                {!isAuthenticated && (
                   <span className={styles.heroCtaSub}>{t('landing.landing_hero_sub_guest')}</span>
                 )}
-                {!primaryOpensFlow && showCtaSubtext && (
+                {isAuthenticated && showCtaSubtext && (
                   <>
                     <span className={styles.heroCtaSub}>{t('landing.landing_cta_sub')}</span>
                     <span className={styles.heroScarcityLine}>{t('landing.landing_scarcity')}</span>
