@@ -51,7 +51,7 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
             </p>
             <div className={styles.social}>
               <a
-                href="https://www.facebook.com/profile.php?id=61573213363765"
+                href="https://www.facebook.com/gettrainmate"
                 className={styles.socialLink}
                 aria-label="Facebook"
                 target="_blank"
