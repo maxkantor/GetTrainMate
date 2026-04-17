@@ -349,6 +349,56 @@ export const ProfilePage: React.FC = () => {
     setError('');
     if (!isDirty) return;
 
+    const fd = formDataRef.current;
+    if (!fd) return;
+
+    /*
+     * Do not rely on HTML5 `required` on MUI multi-select Autocomplete: the combobox input stays empty
+     * when only chips are selected, so the browser falsely focuses “Sports” and blocks submit.
+     */
+    if (!fd.name?.trim()) {
+      setSnack({ open: true, message: 'Please enter your name.', severity: 'error' });
+      return;
+    }
+    if (!(fd.sportTags && fd.sportTags.length > 0)) {
+      setSnack({ open: true, message: 'Please select at least one sport.', severity: 'error' });
+      return;
+    }
+    if (!fd.level?.trim()) {
+      setSnack({ open: true, message: 'Please select your level.', severity: 'error' });
+      return;
+    }
+    const slots = fd.availabilitySchedule || [];
+    if (slots.length === 0) {
+      setSnack({
+        open: true,
+        message:
+          'Add at least one availability slot — scroll to Schedule and tap “+ Add Availability Slot”, then pick days and times.',
+        severity: 'error',
+      });
+      return;
+    }
+    const badSlot = slots.some(
+      (s) => !s.days?.length || !String(s.timeStart ?? '').trim() || !String(s.timeEnd ?? '').trim()
+    );
+    if (badSlot) {
+      setSnack({
+        open: true,
+        message: 'For each schedule row, choose at least one day and set start and end times.',
+        severity: 'error',
+      });
+      return;
+    }
+    const modes = fd.modes?.length ? fd.modes : fd.mode ? [fd.mode] : [];
+    if (modes.length === 0) {
+      setSnack({
+        open: true,
+        message: 'Pick at least one option under “What are you open to?”',
+        severity: 'error',
+      });
+      return;
+    }
+
     await persistProfile('manual');
   };
 
@@ -660,7 +710,6 @@ export const ProfilePage: React.FC = () => {
           renderInput={(params) => (
             <TextField
               {...params}
-              required
               margin="normal"
               label={t('profile.sport_tags')}
               placeholder="Search or pick sports"
@@ -674,7 +723,7 @@ export const ProfilePage: React.FC = () => {
           }
         />
 
-        <FormControl fullWidth margin="normal" required>
+        <FormControl fullWidth margin="normal">
           <InputLabel>{t('profile.level')}</InputLabel>
           <Select
             value={formData.level}
@@ -723,7 +772,7 @@ export const ProfilePage: React.FC = () => {
           }
         />
 
-        <FormControl fullWidth margin="normal" required>
+        <FormControl fullWidth margin="normal">
           <FormLabel sx={{ mb: 1 }}>{t('profile.schedule')}</FormLabel>
           {sectionHint.availability && (
             <Typography variant="caption" color="success.main" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
