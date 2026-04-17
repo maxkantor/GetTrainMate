@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -224,19 +225,31 @@ public class BillingController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult> HandleWebhook()
     {
-        var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
+        Request.EnableBuffering();
+        Request.Body.Position = 0;
+        string json;
+        using (var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true))
+        {
+            json = await reader.ReadToEndAsync();
+        }
+
         var signature = Request.Headers["Stripe-Signature"].FirstOrDefault();
+        var secret = _webhookSecret.Value;
 
         Stripe.Event stripeEvent;
-        if (!string.IsNullOrEmpty(_webhookSecret.Value) && !string.IsNullOrEmpty(signature))
+        if (!string.IsNullOrEmpty(secret) && !string.IsNullOrEmpty(signature))
         {
             try
             {
-                stripeEvent = EventUtility.ConstructEvent(json, signature, _webhookSecret.Value);
+                stripeEvent = EventUtility.ConstructEvent(json, signature, secret);
             }
             catch (StripeException ex)
             {
-                _logger.LogWarning("Webhook signature verification failed: {Message}", ex.Message);
+                _logger.LogWarning(
+                    ex,
+                    "Stripe webhook signature verification failed; payloadBytes={Len}. " +
+                    "Update SSM /gettrainmate/stripe/webhook-secret to the Signing secret (whsec_...) for this endpoint in Stripe Dashboard.",
+                    Encoding.UTF8.GetByteCount(json));
                 return BadRequest(new { error = "Invalid signature" });
             }
         }

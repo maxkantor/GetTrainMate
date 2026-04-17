@@ -244,6 +244,21 @@ public class Startup
         app.UseHttpsRedirection();
         app.UseRouting();
 
+        // Stripe signs the exact raw POST body; enable buffering before any middleware reads the stream (e.g. Lambda).
+        app.Use(async (context, next) =>
+        {
+            if (HttpMethods.IsPost(context.Request.Method))
+            {
+                var path = context.Request.Path.Value ?? "";
+                if (string.Equals(path, "/stripe/webhook", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(path, "/api/billing/webhook", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Request.EnableBuffering();
+                }
+            }
+            await next();
+        });
+
         app.UseMiddleware<CognitoAuthMiddleware>();
         app.UseMiddleware<AdminTokenAuthMiddleware>();
         app.UseAuthorization();

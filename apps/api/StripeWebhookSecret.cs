@@ -9,6 +9,6 @@ public class StripeWebhookSecret
 
     public StripeWebhookSecret(string value)
     {
-        Value = value ?? string.Empty;
+        Value = (value ?? string.Empty).Trim();
     }
 }
