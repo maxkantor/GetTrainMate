@@ -78,7 +78,8 @@ export const hi = {
     field_email: 'ईमेल',
     field_subject: 'विषय',
     field_message: 'संदेश',
-    message_placeholder: 'बताएँ हम आपकी कैसे मदद कर सकते हैं…',
+    message_placeholder:
+      'बताएँ हम कैसे मदद करें… रिफंड या बिलिंग के लिए ऊपर «बिलिंग और सब्सक्रिप्शन» चुनें — ऐप में रिफंड नहीं होता।',
     subject_general: 'सामान्य प्रश्न',
     subject_support: 'तकनीकी सहायता',
     subject_billing: 'बिलिंग और सब्सक्रिप्शन',

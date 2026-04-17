@@ -175,7 +175,7 @@ export const MeProvider: React.FC<MeProviderProps> = ({ children }) => {
         status =
           (err as { response?: { status?: number }; status?: number }).response?.status ?? (err as { status?: number }).status;
       const graphqlErrors = err instanceof GraphQLApiError ? err.graphqlErrors : undefined;
-      if (status === 401) {
+      if (status === 401 || status === 410) {
         void handleSessionInvalid();
         return;
       }

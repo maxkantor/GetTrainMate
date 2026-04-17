@@ -38,6 +38,15 @@ public class MeController : ControllerBase
         try
         {
             var profile = await _profileService.GetProfileAsync(userId);
+            if (profile == null && await _profileService.IsAccountClosedAsync(userId))
+            {
+                return StatusCode(StatusCodes.Status410Gone, new
+                {
+                    code = "ACCOUNT_CLOSED",
+                    message = "This account is no longer available.",
+                });
+            }
+
             var credits = await _creditsService.GetCreditsBalanceAsync(userId);
             var email = profile?.Email ?? GetEmailFromToken() ?? "";
             var isAdmin = IsAdminEmail(email);

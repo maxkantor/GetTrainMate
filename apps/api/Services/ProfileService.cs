@@ -55,6 +55,12 @@ public class ProfileService : IProfileService
                 return null;
             }
 
+            if (document.ContainsKey("accountClosed") && document["accountClosed"].AsBoolean())
+            {
+                _logger.LogDebug("Account closed tombstone for user {UserId}", userId);
+                return null;
+            }
+
             _logger.LogDebug("Profile found for user {UserId}, deserializing", userId);
             return DocumentToProfile(document);
         }
@@ -295,11 +301,34 @@ public class ProfileService : IProfileService
         {
             var table = Table.LoadTable(_dynamoDb, _tableName);
             await table.DeleteItemAsync(userId);
+            // Tombstone so /api/me and AppSync can reject the session even if Cognito delete failed or tokens still exist.
+            await table.PutItemAsync(new Document
+            {
+                ["userId"] = userId,
+                ["accountClosed"] = true,
+                ["accountClosedAt"] = DateTime.UtcNow.ToString("O"),
+            });
             return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting profile for user {UserId}", userId);
+            return false;
+        }
+    }
+
+    public async Task<bool> IsAccountClosedAsync(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId)) return false;
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, _tableName);
+            var document = await table.GetItemAsync(userId);
+            return document != null && document.ContainsKey("accountClosed") && document["accountClosed"].AsBoolean();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "IsAccountClosedAsync failed for {UserId}", userId);
             return false;
         }
     }

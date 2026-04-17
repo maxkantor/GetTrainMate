@@ -199,9 +199,9 @@ export const authService = {
   },
 
   /**
-   * Validates the session against the GetTrainMate API (Cognito GetUser on each request).
-   * Only HTTP **200** from `/api/me` counts as valid. Any other status or thrown error ⇒ session is not trusted
-   * (fixes false "logged in" after admin delete when we previously treated non-401 errors / fetch failures as success).
+   * Validates the session against the GetTrainMate API (middleware uses Cognito GetUser).
+   * Only HTTP **200** from `/api/me` counts as valid (401/410 and errors ⇒ not trusted).
+   * 410 is returned when the profile was removed and an account-closed tombstone exists but tokens may still exist.
    */
   async validateSessionWithApi(): Promise<boolean> {
     const token = await this.getJWT(true);

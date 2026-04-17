@@ -25,7 +25,7 @@ axios.interceptors.response.use(
   async (error: unknown) => {
     if (!axios.isAxiosError(error)) return Promise.reject(error);
     const status = error.response?.status;
-    if (status !== 401) return Promise.reject(error);
+    if (status !== 401 && status !== 410) return Promise.reject(error);
     const url = error.config?.url;
     if (!shouldForceLogoutOn401(url)) return Promise.reject(error);
     await handleSessionInvalid();

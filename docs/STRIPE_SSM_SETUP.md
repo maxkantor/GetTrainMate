@@ -48,8 +48,12 @@ Stripe signs the **exact** raw POST body. Verification fails if:
 
 1. **Wrong signing secret** — Each webhook **endpoint URL** in Stripe has its own **Signing secret** (`whsec_...`). The value in SSM **`/gettrainmate/stripe/webhook-secret` must match** the secret shown for the endpoint whose URL is exactly what Stripe calls (e.g. `https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/stripe/webhook`). If you add a new endpoint or rotate the secret in Stripe, update SSM and redeploy the API Lambda.
 2. **Test vs Live** — Use the **live** secret with live mode keys (and the endpoint configured in live Stripe).
+3. **Lambda is not using the SSM value** — Resolution order is: `Configuration["Stripe:WebhookSecret"]` (includes `Stripe__WebhookSecret` on the Lambda), then `STRIPE_WEBHOOK_SECRET`, then SSM **only if the value is still empty**. If the Lambda has **any** non-empty `Stripe__WebhookSecret` or `STRIPE_WEBHOOK_SECRET` (leftover from an old test), that value is used and **SSM is never read** for the webhook secret. If **both** API key and webhook secret are already non-empty from env/config, the whole SSM block is skipped. **Symptom:** Stripe and SSM match in the console, but CloudWatch still shows `Invalid signature` — open **Lambda → Configuration → Environment variables**, remove stale Stripe vars so SSM loads, redeploy, and confirm startup logs `firstSegmentPrefixOk=True`.
+4. **Wrong kind of secret** — Only the **Signing secret** (`whsec_...`) from **Developers → Webhooks → [your endpoint]** works. The restricted API key, `sk_live_...`, or a secret from a **different** webhook destination will always fail verification.
 
 After updating SSM, restart/redeploy Lambda so it reloads parameters at cold start.
+
+On startup, CloudWatch should include: `Stripe webhook signing secret: length=…, firstSegmentPrefixOk=True` when a proper `whsec_` value is loaded.
 
 ### It used to work — then every delivery failed
 

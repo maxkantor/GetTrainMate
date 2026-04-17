@@ -78,7 +78,8 @@ export const ua = {
     field_email: 'Email',
     field_subject: 'Тема',
     field_message: 'Повідомлення',
-    message_placeholder: 'Розкажіть, чим ми можемо допомогти…',
+    message_placeholder:
+      'Опишіть, чим допомогти… Для оплати чи повернення оберіть вище «Оплата та підписки» — у застосунку повернення не оформлюються.',
     subject_general: 'Загальне питання',
     subject_support: 'Технічна підтримка',
     subject_billing: 'Оплата та підписки',

@@ -59,8 +59,8 @@ export const TermsPage: React.FC = () => {
         </Typography>
         <Typography variant="body1" paragraph>
           Paid plans (Pro, Elite) are billed monthly. Subscriptions renew automatically unless
-          canceled. Refunds are handled in accordance with our billing policy. Contact support for
-          subscription changes.
+          canceled. The app does not process refunds or payment adjustments; submit a request via
+          the Contact form (billing) and we may handle approved changes manually in Stripe.
         </Typography>
       </Box>
       <Box component="section" sx={{ mt: 3 }}>

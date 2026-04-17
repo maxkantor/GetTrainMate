@@ -78,7 +78,8 @@ export const es = {
     field_email: 'Correo electrónico',
     field_subject: 'Asunto',
     field_message: 'Mensaje',
-    message_placeholder: 'Cuéntanos cómo podemos ayudarte…',
+    message_placeholder:
+      'Cuéntanos en qué podemos ayudarte… Para facturación o reembolsos, elige arriba «Pagos y suscripciones»; la app no tramita reembolsos.',
     subject_general: 'Consulta general',
     subject_support: 'Soporte técnico',
     subject_billing: 'Pagos y suscripciones',

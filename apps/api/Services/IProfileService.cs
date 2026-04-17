@@ -14,6 +14,8 @@ public interface IProfileService
     Task<UserProfile?> SetProfileEmailIfEmptyAsync(string userId, string email);
     Task<UserProfile> UpdateProfileAsync(string userId, UpdateProfileRequest request);
     Task<bool> DeleteProfileAsync(string userId);
+    /// <summary>True when a minimal tombstone row exists (account was removed; Cognito may still exist briefly).</summary>
+    Task<bool> IsAccountClosedAsync(string userId);
     Task<UserProfile> AddPhotoUrlAsync(string userId, string url);
     Task<UserProfile?> PatchDiscoverLifecycleAsync(string userId, DiscoverLifecycleFlagsPatch patch);
 }

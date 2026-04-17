@@ -120,7 +120,7 @@ const FAQ_EN: FaqCategory[] = [
       },
       {
         q: 'Do you offer refunds?',
-        a: 'Refund requests are handled per our policy. Contact support for assistance.',
+        a: 'The app only collects payments; it cannot issue or adjust refunds. For a refund or billing change, use the Contact page and choose “Billing & subscriptions.” Our team reviews requests and, when appropriate, processes them manually in Stripe.',
       },
     ],
   },
@@ -258,7 +258,7 @@ const FAQ_ES: FaqCategory[] = [
       },
       {
         q: '¿Hay reembolsos?',
-        a: 'Según política; escribe a soporte.',
+        a: 'La app solo cobra; no gestiona reembolsos ni ajustes de pago. Usa Contacto y elige «Pagos y suscripciones» con los detalles; si procede, lo tramitamos manualmente en Stripe.',
       },
     ],
   },
@@ -396,7 +396,7 @@ const FAQ_RU: FaqCategory[] = [
       },
       {
         q: 'Есть ли возвраты?',
-        a: 'По политике; напишите в поддержку.',
+        a: 'Приложение только принимает оплату; возвраты и правки платежа в нём не оформляются. Напишите через Контакты, тема «Кредиты и оплата»; при одобрении оформляем вручную в Stripe.',
       },
     ],
   },
@@ -534,7 +534,7 @@ const FAQ_UA: FaqCategory[] = [
       },
       {
         q: 'Повернення коштів?',
-        a: 'За політикою; зверніться в підтримку.',
+        a: 'Застосунок лише приймає оплату; повернення та зміни платежу в ньому не оформлюються. Напишіть через Контакти → «Оплата та підписки»; за потреби оформлюємо вручну в Stripe.',
       },
     ],
   },
@@ -672,7 +672,7 @@ const FAQ_HI: FaqCategory[] = [
       },
       {
         q: 'रिफंड?',
-        a: 'नीति के अनुसार; सपोर्ट से संपर्क करें।',
+        a: 'ऐप में रिफंड या भुगतान संशोधन नहीं होता। कॉन्टैक्ट पेज पर «बिलिंग और सब्सक्रिप्शन» चुनकर विवरण भेजें; स्वीकृति पर हम Stripe में मैन्युअल प्रक्रिया करते हैं।',
       },
     ],
   },
@@ -810,7 +810,7 @@ const FAQ_ZH: FaqCategory[] = [
       },
       {
         q: '能退款吗？',
-        a: '按政策处理，请联系支持。',
+        a: '应用内不办理退款或修改付款。请通过「联系」页选择「账单与订阅」并说明情况；获批后我们在 Stripe 中手动处理。',
       },
     ],
   },

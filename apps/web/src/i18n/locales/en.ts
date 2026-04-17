@@ -74,7 +74,8 @@ export const en = {
     field_email: 'Email Address',
     field_subject: 'Subject',
     field_message: 'Message',
-    message_placeholder: 'Tell us how we can help you…',
+    message_placeholder:
+      'Tell us how we can help… For billing or refunds, choose “Billing & subscriptions” above — refunds are not processed in the app.',
     subject_general: 'General inquiry',
     subject_support: 'Technical support',
     subject_billing: 'Billing & subscriptions',

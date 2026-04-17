@@ -208,6 +208,7 @@ async function getProfile(userId) {
   }));
   if (!r.Item) return null;
   const p = unmarshall(r.Item);
+  if (p.accountClosed) return null;
   return await profileFromDoc(p);
 }
 
@@ -262,9 +263,17 @@ async function getCreditsBalance(userId) {
 
 async function getMe(identity) {
   const userId = getUserId(identity);
+  const profileRow = await dynamo.send(new GetItemCommand({
+    TableName: tables.profiles,
+    Key: marshall({ userId }),
+  }));
+  const raw = profileRow.Item ? unmarshall(profileRow.Item) : null;
+  if (raw?.accountClosed) {
+    throw new Error('UNAUTHORIZED');
+  }
   const [user, profile, credits] = await Promise.all([
     getCognitoUser(userId),
-    getProfile(userId),
+    raw ? profileFromDoc(raw) : Promise.resolve(null),
     getCreditsBalance(userId),
   ]);
   const isProfileComplete = profile ? isProfileCompleteCheck(profile) : false;
@@ -361,6 +370,7 @@ async function discoverCandidates(identity, args) {
     Key: marshall({ userId }),
   }));
   const meDoc = meRes.Item ? unmarshall(meRes.Item) : null;
+  if (meDoc?.accountClosed) throw new Error('UNAUTHORIZED');
   const meModes = meDoc ? normalizedModesFromDoc(meDoc) : null;
   const recycleSkipped = !!meDoc?.discoverCanRecycleSkippedProfiles;
   const replayQueue = !!meDoc?.discoverCanReplayDiscoverQueue;
@@ -382,6 +392,7 @@ async function discoverCandidates(identity, args) {
 
   const candidates = [];
   for (const doc of all) {
+    if (doc.accountClosed) continue;
     const profileUserId = doc.userId;
     if (!profileUserId || profileUserId === userId) continue;
     if (excludedMatch.has(profileUserId)) continue;
@@ -1211,8 +1222,10 @@ async function upsertProfile(identity, args) {
     TableName: tables.profiles,
     Key: marshall({ userId }),
   }));
+  const existingRaw = existing.Item ? unmarshall(existing.Item) : null;
+  if (existingRaw?.accountClosed) throw new Error('UNAUTHORIZED');
   const now = new Date().toISOString();
-  let doc = existing.Item ? unmarshall(existing.Item) : { userId, email: '', name: '', mode: 'TRAIN', isComplete: false, createdAt: now, updatedAt: now };
+  let doc = existingRaw ? existingRaw : { userId, email: '', name: '', mode: 'TRAIN', isComplete: false, createdAt: now, updatedAt: now };
   if (input.displayName != null) doc.name = input.displayName;
   if (input.age != null) doc.age = input.age;
   if (input.city != null) doc.city = input.city;

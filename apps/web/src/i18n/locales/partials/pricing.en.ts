@@ -68,7 +68,7 @@ export const pricingEn = {
   faq_a2: 'No. Your credits never expire. Use them whenever you want.',
   faq_q3: 'Can I get a refund?',
   faq_a3:
-    "If you haven't used the credits, contact support within 7 days for a refund. Used credits are non-refundable.",
+    'Refunds and payment fixes are not done inside the app. Use Contact → Billing & subscriptions with your details; we review and, if approved, handle it manually in Stripe. Used credits are non-refundable per policy.',
   packTitles: {
     starter: 'Starter',
     go: 'Go',

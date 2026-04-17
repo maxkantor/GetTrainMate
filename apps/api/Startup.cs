@@ -1,3 +1,4 @@
+using System.Linq;
 using Amazon;
 using Amazon.CognitoIdentityProvider;
 using Amazon.DynamoDBv2;
@@ -158,7 +159,26 @@ public class Startup
         {
             StripeConfiguration.ApiKey = stripeKey;
         }
-        services.AddSingleton(new StripeWebhookSecret(stripeWebhookSecret ?? string.Empty));
+
+        var wh = stripeWebhookSecret ?? string.Empty;
+        if (!string.IsNullOrEmpty(wh))
+        {
+            var trimmed = wh.Trim();
+            var firstSeg = trimmed.Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? "";
+            var looksLikeSigningSecret = firstSeg.StartsWith("whsec_", StringComparison.Ordinal);
+            Log.Information(
+                "Stripe webhook signing secret: length={Len}, firstSegmentPrefixOk={Ok} (must be whsec_ from Webhooks → endpoint → Signing secret)",
+                trimmed.Length,
+                looksLikeSigningSecret);
+            if (!looksLikeSigningSecret)
+                Log.Warning(
+                    "Stripe webhook secret does not look like a webhook signing secret (expected whsec_...). " +
+                    "Using the API secret key or wrong parameter will always produce Invalid signature.");
+        }
+        else
+            Log.Warning("Stripe webhook signing secret is empty; webhook verification is disabled until SSM /gettrainmate/stripe/webhook-secret or Stripe:WebhookSecret is set.");
+
+        services.AddSingleton(new StripeWebhookSecret(wh));
 
         // SES: appsettings / Lambda env → SSM /gettrainmate/ses-from-email (matches Stripe/Bedrock pattern)
         static string? EnvNonEmpty(string name)

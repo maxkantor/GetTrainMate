@@ -22,7 +22,7 @@ public interface ICreditsService
     Task<GrantFreeSignupCreditsResult> GrantFreeSignupCreditsAsync(string userId, string? signupEmail = null);
     /// <summary>True if the user already has a FREE_SIGNUP grant in the credit transaction ledger.</summary>
     Task<bool> HasReceivedFreeSignupCreditsAsync(string userId);
-    /// <summary>Admin: grant credits to a user (e.g. refund for failed AI).</summary>
+    /// <summary>Admin: grant credits to a user (compensation, promo, etc.).</summary>
     Task GrantCreditsAsync(string userId, int amount, string reason);
     /// <summary>
     /// Spend credits. Throws <see cref="Models.InsufficientCreditsException"/> if balance &lt; amount.

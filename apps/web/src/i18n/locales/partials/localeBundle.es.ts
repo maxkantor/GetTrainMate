@@ -68,7 +68,7 @@ export const pricingEs = {
   faq_a2: 'No. Tus créditos no caducan. Úsalos cuando quieras.',
   faq_q3: '¿Hay reembolso?',
   faq_a3:
-    'Si no has usado los créditos, contacta con soporte en 7 días. Los créditos usados no son reembolsables.',
+    'Reembolsos y cambios de pago no se hacen en la app. Usa Contacto → «Pagos y suscripciones»; si procede, lo gestionamos manualmente en Stripe. Los créditos usados no son reembolsables según política.',
   packTitles: {
     starter: 'Inicio',
     go: 'Go',

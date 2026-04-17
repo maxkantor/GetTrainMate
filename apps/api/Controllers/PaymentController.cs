@@ -187,11 +187,4 @@ public class PaymentController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
-
-    [HttpPost("refund/{paymentId}")]
-    public async Task<ActionResult> RefundPayment(string paymentId)
-    {
-        // Refunds are not available via API; admins should process refunds in Stripe Dashboard
-        return StatusCode(403, new { error = "Refunds must be processed in the Stripe Dashboard. Contact support for assistance." });
-    }
 }

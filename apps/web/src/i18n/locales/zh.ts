@@ -78,7 +78,8 @@ export const zh = {
     field_email: '邮箱',
     field_subject: '主题',
     field_message: '消息',
-    message_placeholder: '告诉我们你需要什么帮助…',
+    message_placeholder:
+      '请说明需要什么帮助… 账单或退款请选择上方的「账单与订阅」— 应用内不办理退款。',
     subject_general: '一般咨询',
     subject_support: '技术支持',
     subject_billing: '账单与订阅',

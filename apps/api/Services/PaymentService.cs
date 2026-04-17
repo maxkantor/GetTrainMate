@@ -174,40 +174,6 @@ public class PaymentService : IPaymentService
         }
     }
 
-    public async Task<bool> RefundPaymentAsync(string paymentId)
-    {
-        try
-        {
-            var payment = await GetPaymentAsync(paymentId);
-
-            if (payment.Status != "completed")
-                throw new InvalidOperationException("Only completed payments can be refunded");
-
-            var options = new RefundCreateOptions
-            {
-                PaymentIntent = payment.StripePaymentIntentId,
-                Reason = RefundReasons.RequestedByCustomer
-            };
-
-            var service = new RefundService();
-            var refund = await service.CreateAsync(options);
-
-            payment.Status = "refunded";
-            await _context.SaveAsync(payment);
-
-            // Revoke entitlement
-            await RevokeEntitlementAsync(payment.UserId, "premium");
-            _logger.LogInformation($"Refunded payment {paymentId}");
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Error refunding payment: {ex.Message}");
-            throw;
-        }
-    }
-
     public async Task<SubscriptionStatus> GetSubscriptionStatusAsync(string userId)
     {
         try

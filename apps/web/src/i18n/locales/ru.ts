@@ -74,7 +74,8 @@ export const ru = {
     field_email: 'Email',
     field_subject: 'Тема',
     field_message: 'Сообщение',
-    message_placeholder: 'Расскажите, чем мы можем помочь…',
+    message_placeholder:
+      'Расскажите, чем помочь… Для оплаты или возврата выберите выше «Оплата и подписки» — возвраты в приложении не оформляются.',
     subject_general: 'Общий вопрос',
     subject_support: 'Техническая поддержка',
     subject_billing: 'Оплата и подписки',

@@ -159,6 +159,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.log('Current user after login:', currentUser);
           
           if (currentUser) {
+            const apiOk = await authService.validateSessionWithApi();
+            if (!apiOk) {
+              await handleSessionInvalid();
+              return { success: false, error: 'This account is no longer available.' };
+            }
             const userData = await extractUserData(currentUser);
             console.log('Extracted user data:', userData);
             setUser(userData);
@@ -176,6 +181,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('Current user (no nextStep):', currentUser);
       
       if (currentUser) {
+        const apiOk = await authService.validateSessionWithApi();
+        if (!apiOk) {
+          await handleSessionInvalid();
+          return { success: false, error: 'This account is no longer available.' };
+        }
         const userData = await extractUserData(currentUser);
         setUser(userData);
         if (import.meta.env.DEV) console.log('Auth OK');
@@ -278,6 +288,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await new Promise(resolve => setTimeout(resolve, 100));
         const currentUser = await authService.getCurrentUser();
         if (currentUser) {
+          const apiOk = await authService.validateSessionWithApi();
+          if (!apiOk) {
+            await handleSessionInvalid();
+            return { success: false, error: 'This account is no longer available.' };
+          }
           const userData = await extractUserData(currentUser);
           setUser(userData);
           return { success: true };

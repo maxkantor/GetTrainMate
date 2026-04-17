@@ -38,7 +38,7 @@ public class AdminCreditsController : ControllerBase
         await _adminService.ValidateAdminTokenAsync(token);
     }
 
-    /// <summary>Grant credits to a user (refund, compensation, etc.).</summary>
+    /// <summary>Grant credits to a user (compensation, promo, etc.).</summary>
     [HttpPost("grant")]
     public async Task<ActionResult> Grant([FromBody] GrantCreditsRequest request)
     {
