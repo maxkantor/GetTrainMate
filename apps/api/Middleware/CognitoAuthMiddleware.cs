@@ -33,6 +33,14 @@ public class CognitoAuthMiddleware
             ? authHeader["Bearer ".Length..].Trim()
             : context.Request.Query["access_token"].FirstOrDefault();
 
+        if (IsGetMeRequest(context.Request))
+        {
+            _logger.LogInformation(
+                "HTTP trace: GET /api/me hit Lambda path={Path} hasBearer={HasBearer}",
+                context.Request.Path.Value ?? "",
+                !string.IsNullOrEmpty(token));
+        }
+
         if (!string.IsNullOrEmpty(token))
         {
             try
@@ -90,7 +98,7 @@ public class CognitoAuthMiddleware
                     context.Request.Path.Value ?? "");
             }
         }
-        else if (context.Request.Path.StartsWithSegments("/api/me"))
+        else if (IsGetMeRequest(context.Request) && string.IsNullOrEmpty(token))
         {
             _logger.LogInformation(
                 "CognitoAuth trace: no Bearer token on {Method} {Path}",
@@ -106,5 +114,14 @@ public class CognitoAuthMiddleware
         if (attrs == null) return null;
         var a = attrs.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
         return a?.Value?.Trim();
+    }
+
+    /// <summary>API Gateway may use a stage prefix (e.g. <c>/prod/api/me</c>).</summary>
+    private static bool IsGetMeRequest(HttpRequest request)
+    {
+        if (!HttpMethods.IsGet(request.Method)) return false;
+        var p = request.Path.Value ?? "";
+        return string.Equals(p, "/api/me", StringComparison.OrdinalIgnoreCase)
+            || p.EndsWith("/api/me", StringComparison.OrdinalIgnoreCase);
     }
 }
