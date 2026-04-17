@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
+using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 
@@ -15,17 +16,21 @@ public class MeController : ControllerBase
     private readonly ICreditsService _creditsService;
     private readonly IUserActivityService _userActivityService;
     private readonly ILogger<MeController> _logger;
+    private readonly string _profilesTableResolved;
 
     public MeController(
         IProfileService profileService,
         ICreditsService creditsService,
         IUserActivityService userActivityService,
+        IConfiguration configuration,
         ILogger<MeController> logger)
     {
         _profileService = profileService;
         _creditsService = creditsService;
         _userActivityService = userActivityService;
         _logger = logger;
+        var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
+        _profilesTableResolved = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
     }
 
     [HttpGet("me")]
@@ -42,11 +47,12 @@ public class MeController : ControllerBase
             var accountClosed = await _profileService.IsAccountClosedAsync(userId);
 
             _logger.LogInformation(
-                "GetMe trace: user={User} principalAuthenticated={PrincipalAuth} profilePresent={ProfilePresent} accountClosed={AccountClosed}",
+                "GetMe trace: user={User} principalAuthenticated={PrincipalAuth} profilePresent={ProfilePresent} accountClosed={AccountClosed} profilesTable={ProfilesTable}",
                 ShortUserIdForMeLog(userId),
                 principalAuthenticated,
                 profile != null,
-                accountClosed);
+                accountClosed,
+                _profilesTableResolved);
 
             if (profile == null && accountClosed)
             {
@@ -63,8 +69,9 @@ public class MeController : ControllerBase
             if (profile == null && !accountClosed)
             {
                 _logger.LogWarning(
-                    "GetMe outcome: 200 with null profile user={User} (new signup, Dynamo row missing/hard-deleted, or wrong profiles table/env)",
-                    ShortUserIdForMeLog(userId));
+                    "GetMe outcome: 200 with null profile user={User} profilesTable={ProfilesTable}. No Dynamo item or no accountClosed tombstone — 410 only after soft-delete. Fix: PutItem userId=sub, accountClosed=true, or re-delete via CRM.",
+                    ShortUserIdForMeLog(userId),
+                    _profilesTableResolved);
             }
 
             var credits = await _creditsService.GetCreditsBalanceAsync(userId);
