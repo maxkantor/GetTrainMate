@@ -13,9 +13,21 @@ public class S3StorageService : IStorageService
 {
     private const int MaxProfileImageBytes = 15 * 1024 * 1024;
 
+    /// <summary>Known production spellings (25 chars each) — wrong env/CDK name yields NoSuchBucket on the other.</summary>
+    private static readonly string[] HardcodedMediaBucketFallbacks =
+    [
+        "gettrainmate-media-bucket",
+        "gettraindmat-media-bucket",
+    ];
+
     private readonly IAmazonS3 _s3;
-    private readonly string _bucket;
+    private readonly string _configuredBucket;
     private readonly ILogger<S3StorageService> _logger;
+
+    private readonly object _bucketGate = new();
+
+    /// <summary>Effective bucket after first successful read (may differ from env if env was wrong).</summary>
+    private string _activeBucket;
 
     public S3StorageService(IAmazonS3 s3, IConfiguration configuration, ILogger<S3StorageService> logger)
     {
@@ -28,32 +40,76 @@ public class S3StorageService : IStorageService
                 ?? string.Empty)
             .Trim()
             .TrimStart('\uFEFF');
-        _bucket = SanitizeDnsBucketName(raw);
-        if (string.IsNullOrWhiteSpace(_bucket))
+        _configuredBucket = SanitizeDnsBucketName(raw);
+        if (string.IsNullOrWhiteSpace(_configuredBucket))
         {
             throw new InvalidOperationException("MEDIA_BUCKET is not configured");
         }
 
-        if (!string.Equals(raw, _bucket, StringComparison.Ordinal))
+        _activeBucket = _configuredBucket;
+
+        if (!string.Equals(raw, _configuredBucket, StringComparison.Ordinal))
         {
             _logger.LogWarning(
                 "MEDIA_BUCKET name was sanitized (remove BOM/quotes/non-DNS chars). RawLen={RawLen} Sanitized={Bucket}",
                 raw.Length,
-                _bucket);
+                _configuredBucket);
         }
 
-        // Smart quotes / Unicode in Lambda env → stripped chars → wrong bucket → NoSuchBucket (looks "correct" in logs).
-        if (_bucket.Length < raw.Length)
+        if (_configuredBucket.Length < raw.Length)
         {
             _logger.LogCritical(
                 "MEDIA_BUCKET lost {Removed} character(s) during DNS sanitization (non a-z0-9.-). Sanitized={Bucket} Utf8Hex={Hex} — re-type MEDIA_BUCKET / MEDIA_BUCKET_NAME in Lambda (ASCII only, no smart quotes).",
-                raw.Length - _bucket.Length,
-                _bucket,
+                raw.Length - _configuredBucket.Length,
+                _configuredBucket,
                 Convert.ToHexString(Encoding.UTF8.GetBytes(raw)));
         }
 
-        LogIfLikelyMediaBucketTypo(_bucket, _logger);
-        _logger.LogInformation("S3 media operations use bucket {Bucket}", _bucket);
+        LogIfLikelyMediaBucketTypo(_configuredBucket, _logger);
+        _logger.LogInformation("S3 media operations use configured bucket {Bucket}", _configuredBucket);
+    }
+
+    private string ActiveBucket
+    {
+        get
+        {
+            lock (_bucketGate)
+                return _activeBucket;
+        }
+    }
+
+    private void PinBucketIfNeeded(string winner)
+    {
+        if (string.IsNullOrEmpty(winner))
+            return;
+        lock (_bucketGate)
+        {
+            if (string.Equals(_activeBucket, winner, StringComparison.OrdinalIgnoreCase))
+                return;
+            _activeBucket = winner;
+            if (!string.Equals(winner, _configuredBucket, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogCritical(
+                    "S3 pinned media bucket to {Winner} (configured was {Configured}). Update Lambda MEDIA_BUCKET_NAME / CDK mediaBucketName so this auto-fix is not required.",
+                    winner,
+                    _configuredBucket);
+            }
+        }
+    }
+
+    private IEnumerable<string> DistinctBucketCandidates()
+    {
+        string active;
+        lock (_bucketGate)
+            active = _activeBucket;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var b in new[] { active, _configuredBucket }.Concat(HardcodedMediaBucketFallbacks))
+        {
+            if (string.IsNullOrWhiteSpace(b) || !seen.Add(b))
+                continue;
+            yield return b;
+        }
     }
 
     /// <summary>
@@ -102,7 +158,7 @@ public class S3StorageService : IStorageService
     {
         var request = new GetPreSignedUrlRequest
         {
-            BucketName = _bucket,
+            BucketName = ActiveBucket,
             Key = key,
             Verb = HttpVerb.PUT,
             Expires = DateTime.UtcNow.Add(expiresIn),
@@ -114,14 +170,14 @@ public class S3StorageService : IStorageService
 
     public string GetPublicUrl(string key)
     {
-        return $"https://{_bucket}.s3.amazonaws.com/{key}";
+        return $"https://{ActiveBucket}.s3.amazonaws.com/{key}";
     }
 
     public string GetPresignedDownloadUrl(string key, TimeSpan expiresIn)
     {
         var request = new GetPreSignedUrlRequest
         {
-            BucketName = _bucket,
+            BucketName = ActiveBucket,
             Key = key,
             Verb = HttpVerb.GET,
             Expires = DateTime.UtcNow.Add(expiresIn)
@@ -139,24 +195,31 @@ public class S3StorageService : IStorageService
         var host = uri.IdnHost;
         if (string.IsNullOrEmpty(host)) return null;
 
-        var bucketPrefix = $"{_bucket}.s3.";
-        if (host.StartsWith(bucketPrefix, StringComparison.OrdinalIgnoreCase)
-            && host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase))
+        foreach (var b in DistinctBucketCandidates())
         {
-            var vhKey = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
-            return string.IsNullOrEmpty(vhKey) ? null : vhKey;
+            var bucketPrefix = $"{b}.s3.";
+            if (host.StartsWith(bucketPrefix, StringComparison.OrdinalIgnoreCase)
+                && host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase))
+            {
+                var vhKey = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
+                return string.IsNullOrEmpty(vhKey) ? null : vhKey;
+            }
         }
 
         if (host.StartsWith("s3.", StringComparison.OrdinalIgnoreCase)
-            && host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase)
-            && !host.StartsWith(bucketPrefix, StringComparison.OrdinalIgnoreCase))
+            && host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase))
         {
             var segments = uri.AbsolutePath.TrimStart('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length >= 2
-                && string.Equals(segments[0], _bucket, StringComparison.OrdinalIgnoreCase))
+            if (segments.Length >= 2)
             {
-                var pathKey = Uri.UnescapeDataString(string.Join("/", segments.Skip(1)));
-                return string.IsNullOrEmpty(pathKey) ? null : pathKey;
+                foreach (var b in DistinctBucketCandidates())
+                {
+                    if (string.Equals(segments[0], b, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var pathKey = Uri.UnescapeDataString(string.Join("/", segments.Skip(1)));
+                        return string.IsNullOrEmpty(pathKey) ? null : pathKey;
+                    }
+                }
             }
         }
 
@@ -203,15 +266,34 @@ public class S3StorageService : IStorageService
 
         ms.Position = 0;
         var ct = string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim();
-        var req = new PutObjectRequest
-        {
-            BucketName = _bucket,
-            Key = objectKey,
-            InputStream = ms,
-            ContentType = ct,
-        };
 
-        await _s3.PutObjectAsync(req, cancellationToken).ConfigureAwait(false);
+        AmazonS3Exception? last = null;
+        foreach (var bucketName in DistinctBucketCandidates())
+        {
+            try
+            {
+                var req = new PutObjectRequest
+                {
+                    BucketName = bucketName,
+                    Key = objectKey,
+                    InputStream = ms,
+                    ContentType = ct,
+                };
+                ms.Position = 0;
+                await _s3.PutObjectAsync(req, cancellationToken).ConfigureAwait(false);
+                PinBucketIfNeeded(bucketName);
+                return;
+            }
+            catch (AmazonS3Exception ex) when (string.Equals(ex.ErrorCode, "NoSuchBucket", StringComparison.OrdinalIgnoreCase))
+            {
+                last = ex;
+                ms.Position = 0;
+            }
+        }
+
+        if (last != null)
+            throw new InvalidOperationException($"S3 PutObject failed for all bucket candidates (last: {last.ErrorCode}).", last);
+        throw new InvalidOperationException("S3 PutObject failed.");
     }
 
     public async Task<MediaObjectRead?> TryReadMediaObjectAsync(string key, CancellationToken cancellationToken = default)
@@ -219,125 +301,138 @@ public class S3StorageService : IStorageService
         var objectKey = NormalizeObjectKey(key);
         if (objectKey.Length == 0) return null;
 
-        try
+        foreach (var bucketName in DistinctBucketCandidates())
         {
-            return await ReadObjectBodyAsync(_s3, _bucket, objectKey, cancellationToken).ConfigureAwait(false);
-        }
-        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound
-                                          && string.Equals(ex.ErrorCode, "NoSuchKey", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogWarning(
-                "S3 GetObject NoSuchKey Bucket={Bucket} Key={Key}",
-                _bucket,
-                KeyLog(objectKey));
-            return null;
-        }
-        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound
-                                          && string.Equals(ex.ErrorCode, "NoSuchBucket", StringComparison.OrdinalIgnoreCase))
-        {
-            LogBucketDiagnostics(objectKey, ex);
-            var located = await TryGetBucketLocationRegionNameAsync(cancellationToken).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(located))
-            {
-                try
-                {
-                    using var regional = CreateRegionalS3Client(located);
-                    var retry = await ReadObjectBodyAsync(regional, _bucket, objectKey, cancellationToken)
-                        .ConfigureAwait(false);
-                    _logger.LogInformation(
-                        "S3 GetObject succeeded after GetBucketLocation retry Bucket={Bucket} region={Region}",
-                        _bucket,
-                        located);
-                    return retry;
-                }
-                catch (Exception retryEx)
-                {
-                    _logger.LogWarning(
-                        retryEx,
-                        "S3 GetObject retry after location failed Bucket={Bucket} region={Region}",
-                        _bucket,
-                        located);
-                }
-            }
-
             try
             {
-                using var pathStyle = CreateUsEast1PathStyleClient();
-                var alt = await ReadObjectBodyAsync(pathStyle, _bucket, objectKey, cancellationToken)
-                    .ConfigureAwait(false);
-                _logger.LogInformation(
-                    "S3 GetObject succeeded via us-east-1 path-style fallback Bucket={Bucket}",
-                    _bucket);
-                return alt;
+                var body = await ReadObjectBodyAsync(_s3, bucketName, objectKey, cancellationToken).ConfigureAwait(false);
+                PinBucketIfNeeded(bucketName);
+                return body;
             }
-            catch (Exception pathEx)
+            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound
+                                              && string.Equals(ex.ErrorCode, "NoSuchKey", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogWarning(
-                    pathEx,
-                    "S3 GetObject path-style fallback failed Bucket={Bucket} Key={Key}",
-                    _bucket,
+                _logger.LogDebug(
+                    "S3 GetObject NoSuchKey Bucket={Bucket} Key={Key}",
+                    bucketName,
                     KeyLog(objectKey));
             }
-
-            try
+            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound
+                                              && string.Equals(ex.ErrorCode, "NoSuchBucket", StringComparison.OrdinalIgnoreCase))
             {
-                using var legacy = CreateUsEast1LegacyVirtualHostedClient();
-                var legacyBody = await ReadObjectBodyAsync(legacy, _bucket, objectKey, cancellationToken)
-                    .ConfigureAwait(false);
-                _logger.LogInformation(
-                    "S3 GetObject succeeded via us-east-1 legacy global endpoint fallback Bucket={Bucket}",
-                    _bucket);
-                return legacyBody;
+                LogBucketDiagnostics(bucketName, objectKey, ex);
             }
-            catch (Exception legacyEx)
+            catch (AmazonS3Exception ex)
             {
-                _logger.LogWarning(
-                    legacyEx,
-                    "S3 GetObject legacy global endpoint fallback failed Bucket={Bucket} Key={Key}",
-                    _bucket,
-                    KeyLog(objectKey));
+                _logger.LogDebug(
+                    ex,
+                    "S3 GetObject candidate failed Bucket={Bucket} Key={Key} ErrorCode={ErrorCode} Status={Status}",
+                    bucketName,
+                    KeyLog(objectKey),
+                    ex.ErrorCode,
+                    ex.StatusCode);
             }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "S3 GetObject unexpected error Bucket={Bucket} Key={Key}", bucketName, KeyLog(objectKey));
+            }
+        }
 
-            return null;
-        }
-        catch (AmazonS3Exception ex)
-        {
-            _logger.LogWarning(
-                ex,
-                "S3 GetObject failed Bucket={Bucket} Key={Key} ErrorCode={ErrorCode} Status={Status}",
-                _bucket,
-                KeyLog(objectKey),
-                ex.ErrorCode,
-                ex.StatusCode);
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "S3 GetObject unexpected error Bucket={Bucket} Key={Key}", _bucket, KeyLog(objectKey));
-            return null;
-        }
+        return await TryReadWithEndpointFallbacksAsync(ActiveBucket, objectKey, cancellationToken).ConfigureAwait(false);
     }
 
-    private void LogBucketDiagnostics(string objectKey, AmazonS3Exception ex)
+    private async Task<MediaObjectRead?> TryReadWithEndpointFallbacksAsync(
+        string bucketName,
+        string objectKey,
+        CancellationToken cancellationToken)
     {
-        var prefix = new StringBuilder(Math.Min(12, _bucket.Length) * 5);
-        for (var i = 0; i < Math.Min(12, _bucket.Length); i++)
+        var located = await TryGetBucketLocationRegionNameAsync(bucketName, cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrEmpty(located))
+        {
+            try
+            {
+                using var regional = CreateRegionalS3Client(located);
+                var retry = await ReadObjectBodyAsync(regional, bucketName, objectKey, cancellationToken)
+                    .ConfigureAwait(false);
+                _logger.LogInformation(
+                    "S3 GetObject succeeded after GetBucketLocation retry Bucket={Bucket} region={Region}",
+                    bucketName,
+                    located);
+                PinBucketIfNeeded(bucketName);
+                return retry;
+            }
+            catch (Exception retryEx)
+            {
+                _logger.LogWarning(
+                    retryEx,
+                    "S3 GetObject retry after location failed Bucket={Bucket} region={Region}",
+                    bucketName,
+                    located);
+            }
+        }
+
+        try
+        {
+            using var pathStyle = CreateUsEast1PathStyleClient();
+            var alt = await ReadObjectBodyAsync(pathStyle, bucketName, objectKey, cancellationToken)
+                .ConfigureAwait(false);
+            _logger.LogInformation(
+                "S3 GetObject succeeded via us-east-1 path-style fallback Bucket={Bucket}",
+                bucketName);
+            PinBucketIfNeeded(bucketName);
+            return alt;
+        }
+        catch (Exception pathEx)
+        {
+            _logger.LogWarning(
+                pathEx,
+                "S3 GetObject path-style fallback failed Bucket={Bucket} Key={Key}",
+                bucketName,
+                KeyLog(objectKey));
+        }
+
+        try
+        {
+            using var legacy = CreateUsEast1LegacyVirtualHostedClient();
+            var legacyBody = await ReadObjectBodyAsync(legacy, bucketName, objectKey, cancellationToken)
+                .ConfigureAwait(false);
+            _logger.LogInformation(
+                "S3 GetObject succeeded via us-east-1 legacy global endpoint fallback Bucket={Bucket}",
+                bucketName);
+            PinBucketIfNeeded(bucketName);
+            return legacyBody;
+        }
+        catch (Exception legacyEx)
+        {
+            _logger.LogWarning(
+                legacyEx,
+                "S3 GetObject legacy global endpoint fallback failed Bucket={Bucket} Key={Key}",
+                bucketName,
+                KeyLog(objectKey));
+        }
+
+        return null;
+    }
+
+    private void LogBucketDiagnostics(string bucketShown, string objectKey, AmazonS3Exception ex)
+    {
+        var prefix = new StringBuilder(Math.Min(12, bucketShown.Length) * 5);
+        for (var i = 0; i < Math.Min(12, bucketShown.Length); i++)
         {
             if (i > 0) prefix.Append(',');
-            prefix.AppendFormat("U+{0:X4}", (int)_bucket[i]);
+            prefix.AppendFormat("U+{0:X4}", (int)bucketShown[i]);
         }
 
         _logger.LogWarning(
             "S3 GetObject NoSuchBucket Bucket={Bucket} bucketLen={BucketLen} firstChars={Chars} utf8Hex={Utf8Hex} Key={Key} Message={Message}",
-            _bucket,
-            _bucket.Length,
+            bucketShown,
+            bucketShown.Length,
             prefix.ToString(),
-            Convert.ToHexString(Encoding.UTF8.GetBytes(_bucket)),
+            Convert.ToHexString(Encoding.UTF8.GetBytes(bucketShown)),
             KeyLog(objectKey),
             ex.Message);
     }
 
-    /// <summary>Maps S3 GetBucketLocation constraint to a region system name.</summary>
     private static string? MapLocationConstraintToRegion(string? location)
     {
         if (string.IsNullOrEmpty(location)) return "us-east-1";
@@ -347,18 +442,18 @@ public class S3StorageService : IStorageService
         return location.Trim().ToLowerInvariant();
     }
 
-    private async Task<string?> TryGetBucketLocationRegionNameAsync(CancellationToken cancellationToken)
+    private async Task<string?> TryGetBucketLocationRegionNameAsync(string bucketName, CancellationToken cancellationToken)
     {
         try
         {
             using var probe = CreateUsEast1ProbeClient();
             var resp = await probe
-                .GetBucketLocationAsync(new GetBucketLocationRequest { BucketName = _bucket }, cancellationToken)
+                .GetBucketLocationAsync(new GetBucketLocationRequest { BucketName = bucketName }, cancellationToken)
                 .ConfigureAwait(false);
             var region = MapLocationConstraintToRegion(resp.Location);
             _logger.LogInformation(
                 "S3 GetBucketLocation Bucket={Bucket} rawConstraint={Raw} mappedRegion={Region}",
-                _bucket,
+                bucketName,
                 resp.Location ?? "(null)",
                 region ?? "(null)");
             return region;
@@ -370,13 +465,13 @@ public class S3StorageService : IStorageService
                 _logger.LogWarning(
                     ex,
                     "S3 GetBucketLocation failed Bucket={Bucket} ErrorCode={Code} Status={Status} (add s3:GetBucketLocation on bucket ARN if empty; NoSuchBucket here also means wrong bucket name)",
-                    _bucket,
+                    bucketName,
                     s3e.ErrorCode,
                     s3e.StatusCode);
             }
             else
             {
-                _logger.LogWarning(ex, "S3 GetBucketLocation failed Bucket={Bucket}", _bucket);
+                _logger.LogWarning(ex, "S3 GetBucketLocation failed Bucket={Bucket}", bucketName);
             }
 
             return null;

@@ -102,6 +102,8 @@ export class GetTrainMateStack extends cdk.Stack {
     const mediaBucketName =
       (this.node.tryGetContext('mediaBucketName') as string | undefined) || 'gettrainmate-media-bucket';
     const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', mediaBucketName);
+    // Runtime code tries this name if primary env/CDK name was wrong (same length typo).
+    const mediaBucketTypoFallback = s3.Bucket.fromBucketName(this, 'MediaBucketTypoFallback', 'gettraindmat-media-bucket');
 
     // Bedrock model for AI features (match insight, chat, icebreakers). Override: --context bedrockModelId=...
     // Use inference profile ID (us. prefix) - direct model ID on-demand is no longer supported by Bedrock
@@ -153,12 +155,13 @@ export class GetTrainMateStack extends cdk.Stack {
       resources: [`arn:aws:dynamodb:${this.region}:${this.account}:table/gettrainmate-*`],
     }));
     mediaBucket.grantReadWrite(apiLambda);
+    mediaBucketTypoFallback.grantReadWrite(apiLambda);
     // Resolve real bucket region when GetObject returns NoSuchBucket (wrong default endpoint / config).
     apiLambda.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ['s3:GetBucketLocation'],
-        resources: [mediaBucket.bucketArn],
+        resources: [mediaBucket.bucketArn, mediaBucketTypoFallback.bucketArn],
       }),
     );
 
