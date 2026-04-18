@@ -1,11 +1,16 @@
 ---
-description: After changing the .NET API (apps/api), produce the Lambda zip artifact.
+description: After changing the .NET API (apps/api), refresh the Lambda zip and push to origin.
 globs: apps/api/**/*
 alwaysApply: false
 ---
 
-When you change `apps/api/**`, finish with **`npm run api:publish`** from the repo root. That runs `dotnet publish` to `apps/api/publish` and then zips to `deploy/gettrainmate-api-lambda.zip`.
+# Backend API → Lambda zip → commit and push
 
-If `apps/api/publish` is already up to date, **`npm run zip:publish`** only refreshes the zip.
+When you change anything under `apps/api/**`:
 
-Do not skip the zip after backend edits when a deployable artifact is expected.
+1. From the repo root run **`npm run api:publish`** (runs `dotnet publish` → `apps/api/publish` → **`deploy/gettrainmate-api-lambda.zip`**). If publish output is already current, **`npm run zip:publish`** is enough to refresh only the zip. (`publish/` and `deploy/*.zip` are **gitignored**; the zip is for local/CD use, not the remote.)
+2. **`git add`** tracked API source only: e.g. `apps/api/**/*.cs`, `apps/api/**/*.csproj`, `apps/api/**/*.json` under `apps/api/` — not ignored build output. Do not stage unrelated paths or root `*.zip` unless the user asked.
+3. **`git commit`** with a clear message (e.g. `fix(api): …` or `chore(api): …`).
+4. **`git push`** to the tracked upstream.
+
+Do not skip the zip after backend edits when a deployable artifact is expected. If there is nothing to commit, skip commit/push. If push fails, report and stop.

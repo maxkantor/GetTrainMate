@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using Amazon;
 using Amazon.Runtime;
 using Amazon.S3;
@@ -18,6 +19,7 @@ public class S3StorageService : IStorageService
     [
         "gettrainmate-media-bucket",
         "gettraindmat-media-bucket",
+        "getrainmate-media-bucket",
     ];
 
     private readonly IAmazonS3 _s3;
@@ -28,6 +30,9 @@ public class S3StorageService : IStorageService
 
     /// <summary>Effective bucket after first successful read (may differ from env if env was wrong).</summary>
     private string _activeBucket;
+
+    /// <summary>Last ListBuckets(train+media) snapshot — merged into read candidates so objects are found even if pin targets another bucket.</summary>
+    private List<string>? _discoveredMediaBucketCache;
 
     public S3StorageService(IAmazonS3 s3, IConfiguration configuration, ILogger<S3StorageService> logger)
     {
@@ -100,8 +105,14 @@ public class S3StorageService : IStorageService
     private IEnumerable<string> DistinctBucketCandidates()
     {
         string active;
+        List<string>? discoveredSnapshot;
         lock (_bucketGate)
+        {
             active = _activeBucket;
+            discoveredSnapshot = _discoveredMediaBucketCache == null
+                ? null
+                : new List<string>(_discoveredMediaBucketCache);
+        }
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var b in new[] { active, _configuredBucket }.Concat(HardcodedMediaBucketFallbacks))
@@ -110,6 +121,34 @@ public class S3StorageService : IStorageService
                 continue;
             yield return b;
         }
+
+        if (discoveredSnapshot == null)
+            yield break;
+
+        foreach (var b in discoveredSnapshot
+                     .OrderBy(n => MediaBucketDiscoveryRank(n))
+                     .ThenBy(n => n.Length)
+                     .ThenBy(n => n, StringComparer.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(b) || !seen.Add(b))
+                continue;
+            yield return b;
+        }
+    }
+
+    /// <summary>
+    /// Lower = preferred for pinning and for trying after hardcoded names. Deprioritizes long
+    /// <c>…-123456789012-us-east-1</c>-style buckets that often have no CRM profile keys.
+    /// </summary>
+    private static int MediaBucketDiscoveryRank(string name)
+    {
+        if (string.Equals(name, "gettrainmate-media-bucket", StringComparison.OrdinalIgnoreCase))
+            return 0;
+        if (Regex.IsMatch(name, @"-\d{12}-[a-z0-9-]+$", RegexOptions.IgnoreCase))
+            return 100;
+        if (name.EndsWith("-media-bucket", StringComparison.OrdinalIgnoreCase))
+            return 20;
+        return 50;
     }
 
     /// <summary>
@@ -325,8 +364,9 @@ public class S3StorageService : IStorageService
     }
 
     /// <summary>
-    /// When configured bucket names do not exist in this account, list buckets and pin the first
-    /// <c>train</c>+<c>media</c> match (GetBucketLocation probe). Requires <c>s3:ListAllMyBuckets</c> on the Lambda role.
+    /// When configured bucket names do not exist in this account, list buckets and pin the first existing
+    /// <c>train</c>+<c>media</c> match after ranking (short <c>*-media-bucket</c> before account-suffixed names).
+    /// Caches all matches for <see cref="DistinctBucketCandidates"/>. Requires <c>s3:ListAllMyBuckets</c> on the Lambda role.
     /// </summary>
     public async Task<bool> ProbeAndPinMediaBucketAsync(CancellationToken cancellationToken = default)
     {
@@ -350,21 +390,27 @@ public class S3StorageService : IStorageService
                 .Where(n => !string.IsNullOrEmpty(n)
                             && n.Contains("train", StringComparison.OrdinalIgnoreCase)
                             && n.Contains("media", StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(n => n.Contains("gettrain", StringComparison.OrdinalIgnoreCase))
+                .Select(n => n!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(MediaBucketDiscoveryRank)
+                .ThenBy(n => n.Length)
                 .ThenBy(n => n, StringComparer.OrdinalIgnoreCase)
                 .Take(40)
                 .ToList();
 
+            lock (_bucketGate)
+                _discoveredMediaBucketCache = matches.ToList();
+
             _logger.LogWarning(
-                "S3 ListBuckets discovery: {Count} bucket(s) match train+media: {Names}",
+                "S3 ListBuckets discovery: {Count} bucket(s) match train+media (rank-ordered): {Names}",
                 matches.Count,
                 matches.Count > 0 ? string.Join(", ", matches) : "(none)");
 
             foreach (var name in matches)
             {
-                if (!await BucketExistsViaGetLocationAsync(name!, cancellationToken).ConfigureAwait(false))
+                if (!await BucketExistsViaGetLocationAsync(name, cancellationToken).ConfigureAwait(false))
                     continue;
-                PinBucketIfNeeded(name!);
+                PinBucketIfNeeded(name);
                 _logger.LogCritical(
                     "S3 pinned media bucket via account ListBuckets: {Bucket} (configured was {Configured}). Update MEDIA_BUCKET_NAME to this value.",
                     name,
