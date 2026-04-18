@@ -34,7 +34,13 @@ public class Startup
             .CreateLogger();
 
         // Add AWS services (GetAWSOptions reads "AWS" section; appsettings uses "Aws" — Cognito must match pool region prefix.)
-        services.AddDefaultAWSOptions(Configuration.GetAWSOptions());
+        var awsOptions = Configuration.GetAWSOptions();
+        if (awsOptions.Region == null && !string.IsNullOrWhiteSpace(Configuration["Aws:Region"]))
+        {
+            awsOptions.Region = RegionEndpoint.GetBySystemName(Configuration["Aws:Region"]!.Trim());
+        }
+
+        services.AddDefaultAWSOptions(awsOptions);
 
         CognitoPoolBootstrap.ApplySsmUserPoolIdOverride(Configuration);
         var cognitoRegionName = CognitoRegionResolver.ResolveRegionNameForCognitoClient(Configuration);
