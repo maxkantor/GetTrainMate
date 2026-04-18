@@ -345,6 +345,9 @@ public class Startup
         // Single CORS owner for all environments (CDK HttpApi corsPreflight removed — it conflicted with Lambda proxy).
         app.UseCors("AllowAll");
 
+        // Must run before any middleware that could touch the body; Stripe verifies HMAC over raw bytes.
+        app.UseMiddleware<StripeWebhookBufferingMiddleware>();
+
         app.UseMiddleware<CognitoAuthMiddleware>();
         app.UseMiddleware<AdminTokenAuthMiddleware>();
         app.UseAuthorization();

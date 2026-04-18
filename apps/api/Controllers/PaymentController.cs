@@ -140,7 +140,13 @@ public class PaymentController : ControllerBase
             Stripe.Event stripeEvent;
             if (_webhookSecret.HasSigningSecrets && !string.IsNullOrEmpty(signature))
             {
-                if (!StripeWebhookVerification.TryConstructEvent(json, signature, _webhookSecret.SigningSecrets, out var verified, out _))
+                if (!StripeWebhookVerification.TryConstructEvent(
+                        json,
+                        signature,
+                        _webhookSecret.SigningSecrets,
+                        out var verified,
+                        out _,
+                        out _))
                     return BadRequest(new { error = "Invalid signature" });
                 stripeEvent = verified!;
             }

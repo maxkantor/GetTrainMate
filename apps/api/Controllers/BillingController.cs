@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -225,21 +226,52 @@ public class BillingController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult> HandleWebhook(CancellationToken cancellationToken)
     {
+        var requestId = HttpContext.TraceIdentifier;
+        var lambdaAwsRequestId = Environment.GetEnvironmentVariable("AWS_REQUEST_ID");
+        _logger.LogInformation(
+            "Stripe webhook ingress: requestId={RequestId} awsRequestId={AwsRequestId} path={Path} contentLength={ContentLength} xAmznTraceId={Trace}",
+            requestId,
+            lambdaAwsRequestId ?? "(n/a)",
+            Request.Path.Value,
+            Request.ContentLength,
+            Request.Headers["X-Amzn-Trace-Id"].FirstOrDefault() ?? "(none)");
+
         var json = await StripeWebhookVerification.ReadRawBodyUtf8Async(Request, cancellationToken);
         var signature = Request.Headers["Stripe-Signature"].FirstOrDefault();
+        var bodySha = StripeWebhookVerification.BodySha256Prefix12(json);
+        var sigT = StripeWebhookVerification.TryGetSignatureTimestamp(signature);
+        var v1Count = StripeWebhookVerification.CountV1Signatures(signature);
+        _logger.LogInformation(
+            "Stripe webhook payload: requestId={RequestId} utf8Len={Len} bodySha256p12={Sha} hasStripeSignature={HasSig} sigT={SigT} v1Signatures={V1}",
+            requestId,
+            json.Length,
+            bodySha,
+            !string.IsNullOrEmpty(signature),
+            sigT?.ToString(CultureInfo.InvariantCulture) ?? "(missing)",
+            v1Count);
 
         Stripe.Event stripeEvent;
         if (_webhookSecret.HasSigningSecrets && !string.IsNullOrEmpty(signature))
         {
-            if (!StripeWebhookVerification.TryConstructEvent(json, signature, _webhookSecret.SigningSecrets, out var verified, out var verifyErr))
+            if (!StripeWebhookVerification.TryConstructEvent(
+                    json,
+                    signature,
+                    _webhookSecret.SigningSecrets,
+                    out var verified,
+                    out var verifyErr,
+                    out var perSecretFailures))
             {
                 _logger.LogWarning(
                     verifyErr,
-                    "Stripe webhook signature verification failed (tried {Count} secret(s); payload length {Len}). " +
-                    "Ensure SSM /gettrainmate/stripe/webhook-secret matches Signing secret(s) for this endpoint in Stripe.",
+                    "Stripe webhook signature verification failed: requestId={RequestId} secretsTried={Count} bodyLen={Len} bodySha256p12={Sha} lastExceptionMessage={Last} perSecret={Details}. " +
+                    "Ensure SSM /gettrainmate/stripe/webhook-secret matches Signing secret for this exact endpoint URL in Stripe (Developers → Webhooks → endpoint → Signing secret).",
+                    requestId,
                     _webhookSecret.SigningSecrets.Count,
-                    json.Length);
-                return BadRequest(new { error = "Invalid signature" });
+                    json.Length,
+                    bodySha,
+                    verifyErr?.Message ?? "(none)",
+                    string.Join(" || ", perSecretFailures));
+                return BadRequest(new { error = "Invalid signature", requestId });
             }
             stripeEvent = verified!;
         }

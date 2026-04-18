@@ -23,9 +23,16 @@ public class StripeWebhookSecret
         }
         var parts = trimmed
             .Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s.Trim())
+            .Select(SanitizeSegment)
             .Where(s => s.Length > 0)
             .ToArray();
         SigningSecrets = parts.Length > 0 ? parts : Array.Empty<string>();
+    }
+
+    /// <summary>Strip BOM / invisible chars that sometimes creep into SSM or copy-paste.</summary>
+    internal static string SanitizeSegment(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return s;
+        return s.Trim().TrimStart('\ufeff', '\u200b').TrimEnd('\u200b');
     }
 }
