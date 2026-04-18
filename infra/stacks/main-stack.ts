@@ -130,8 +130,11 @@ export class GetTrainMateStack extends cdk.Stack {
         // Must match physical bucket region (GetObject returns NoSuchBucket if client region is wrong).
         MEDIA_BUCKET_REGION:
           (this.node.tryGetContext('mediaBucketRegion') as string | undefined) || 'us-east-1',
-        // Required for Stripe checkout redirect URLs. Set: npx cdk deploy --context frontendUrl=https://yourdomain.com
-        FRONTEND_URL: this.node.tryGetContext('frontendUrl') || process.env.FRONTEND_URL || '',
+        // Required for Stripe checkout + chat email deep links. Never leave empty (empty string breaks C# ?? chain).
+        FRONTEND_URL:
+          (this.node.tryGetContext('frontendUrl') as string | undefined)?.trim() ||
+          (process.env.FRONTEND_URL || '').trim() ||
+          'https://gettrainmate.com',
         // Bedrock: ASP.NET maps Bedrock__ModelId -> Bedrock:ModelId; BEDROCK_MODEL_ID fallback
         Bedrock__ModelId: bedrockModelId,
         BEDROCK_MODEL_ID: bedrockModelId,
@@ -327,6 +330,10 @@ export class GetTrainMateStack extends cdk.Stack {
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
         MEDIA_BUCKET_REGION:
           (this.node.tryGetContext('mediaBucketRegion') as string | undefined) || 'us-east-1',
+        FRONTEND_URL:
+          (this.node.tryGetContext('frontendUrl') as string | undefined)?.trim() ||
+          (process.env.FRONTEND_URL || '').trim() ||
+          'https://gettrainmate.com',
       },
       bundling: {
         format: nodejs.OutputFormat.CJS,

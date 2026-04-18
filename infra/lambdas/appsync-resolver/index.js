@@ -983,7 +983,16 @@ async function countMessagesFromSender(threadId, senderId) {
   return items.filter((m) => m.senderId === senderId).length;
 }
 
-const FRONTEND_URL_NOTIFY = process.env.FRONTEND_URL || 'https://gettrainmate.com';
+const FRONTEND_URL_FALLBACK = 'https://gettrainmate.com';
+
+/** Chat email anchor href must be absolute https — bad FRONTEND_URL (e.g. "app") breaks mail clients (NXDOMAIN). */
+function resolveFrontendBaseUrlForEmail() {
+  const raw = (process.env.FRONTEND_URL || '').trim().replace(/\/$/, '');
+  if (!raw) return FRONTEND_URL_FALLBACK;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  console.warn('notifyChatRecipientEmail: FRONTEND_URL is not an absolute URL; using default. value=', raw);
+  return FRONTEND_URL_FALLBACK;
+}
 const SES_FROM_EMAIL_NOTIFY = process.env.SES_FROM_EMAIL || '';
 /** Optional comma-separated substrings; if any appear in preview text, redact (align with API ChatNotifications:PreviewBlocklistWords). */
 const CHAT_PREVIEW_BLOCKLIST = (process.env.CHAT_NOTIFICATION_BLOCKLIST || '')
@@ -1118,7 +1127,7 @@ async function notifyChatRecipientEmailAsync({ threadId, senderId, senderName, b
     const count = pending;
     const name = (senderName || 'Someone').trim();
     const subject = count <= 1 ? `New message from ${name}` : `You have ${count} new messages from ${name}`;
-    const base = FRONTEND_URL_NOTIFY.replace(/\/$/, '');
+    const base = resolveFrontendBaseUrlForEmail();
     const chatUrl = `${base}/app/chat?thread=${encodeURIComponent(threadId)}`;
     const headline = count <= 1 ? `${name} sent you a message on GetTrainMate.` : `You have ${count} new messages from ${name} on GetTrainMate.`;
     const text = [headline, '', 'Preview:', preview, '', 'Reply now:', chatUrl].join('\n');

@@ -79,3 +79,9 @@ Read this before changing **admin web**, **API/Lambda**, **CDK**, or **S3 media*
 | Users CRM  | Click two users quickly: detail email/ID match the row you clicked last. |
 
 If you add a new doc, link it from here in one line so others can find it.
+
+---
+
+## 7. Chat email “Reply now” link
+
+**`FRONTEND_URL`** on the **API Lambda** and **AppSync resolver Lambda** must be a full URL, e.g. `https://gettrainmate.com`. Values like **`app`** or empty string produce broken `href`s and `DNS_PROBE_FINISHED_NXDOMAIN` in the browser. CDK defaults to `https://gettrainmate.com` when unset; resolver + `ChatNotificationService` validate `http(s)://` at runtime.

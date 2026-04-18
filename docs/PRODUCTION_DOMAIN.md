@@ -39,7 +39,7 @@ Set in **Amplify Console → App → Environment variables** (branch that builds
 
 | Variable / config | Example | Purpose |
 |-------------------|---------|---------|
-| `FRONTEND_URL` | `https://gettrainmate.com` | Stripe subscription checkout + payment flows when `Origin` is missing. |
+| `FRONTEND_URL` | `https://gettrainmate.com` | Must be a full `https://…` URL (never `app` or a path only). Used for Stripe checkout, chat “Reply now” links (API + AppSync resolver), payment flows. |
 | `Frontend:BaseUrl` in appsettings / env | Same | Chat email links, notification URLs, fallback for billing base URL. |
 
 Stripe keys remain in SSM / env as documented in `docs/STRIPE_SSM_SETUP.md` (no change to pricing logic).

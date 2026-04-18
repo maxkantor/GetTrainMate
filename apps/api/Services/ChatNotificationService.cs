@@ -192,10 +192,27 @@ public class ChatNotificationService : IChatNotificationService
 
     private string GetFrontendBaseUrl()
     {
-        return Environment.GetEnvironmentVariable("FRONTEND_URL")
-            ?? _configuration["FRONTEND_URL"]
-            ?? _configuration["Frontend:BaseUrl"]
-            ?? "https://gettrainmate.com";
+        const string fallback = "https://gettrainmate.com";
+        foreach (var raw in new[]
+                 {
+                     Environment.GetEnvironmentVariable("FRONTEND_URL"),
+                     _configuration["FRONTEND_URL"],
+                     _configuration["Frontend:BaseUrl"],
+                 })
+        {
+            var t = (raw ?? string.Empty).Trim().TrimEnd('/');
+            if (t.Length == 0)
+                continue;
+            if (t.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                || t.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+                return t;
+            _logger.LogWarning(
+                "FRONTEND_URL / Frontend:BaseUrl is not an absolute http(s) URL (value preview: {Preview}); using {Fallback} for chat email deep links",
+                t.Length > 64 ? t[..64] + "…" : t,
+                fallback);
+        }
+
+        return fallback;
     }
 
     private static string BuildSubject(int count, string senderName)
