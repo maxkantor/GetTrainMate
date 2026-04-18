@@ -177,14 +177,14 @@ export class GetTrainMateStack extends cdk.Stack {
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
-        resources: [`arn:aws:s3:::gettrainmate-*/*`],
+        resources: [`arn:aws:s3:::gettrainmate-*/*`, `arn:aws:s3:::getrainmate-*/*`],
       }),
     );
     apiLambda.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ['s3:ListBucket', 's3:GetBucketLocation'],
-        resources: [`arn:aws:s3:::gettrainmate-*`],
+        resources: [`arn:aws:s3:::gettrainmate-*`, `arn:aws:s3:::getrainmate-*`],
       }),
     );
 
@@ -278,32 +278,11 @@ export class GetTrainMateStack extends cdk.Stack {
     }));
 
     // API Gateway HTTP API
+    // CORS is handled in ASP.NET Core (UseCors). HttpApi corsPreflight + Lambda proxy can duplicate
+    // Access-Control-* headers or leave OPTIONS without 2xx — admin CRM preflight then fails in the browser.
     const httpApi = new apigateway.HttpApi(this, 'HttpApi', {
       apiName: 'gettrainmate-api',
       description: 'GetTrainMate API Gateway',
-      corsPreflight: {
-        allowOrigins: ['*'], // In production, restrict this to your domain
-        allowMethods: [
-          apigateway.CorsHttpMethod.GET,
-          apigateway.CorsHttpMethod.POST,
-          apigateway.CorsHttpMethod.PUT,
-          apigateway.CorsHttpMethod.DELETE,
-          apigateway.CorsHttpMethod.OPTIONS,
-          apigateway.CorsHttpMethod.PATCH,
-        ],
-        allowHeaders: [
-          'Content-Type',
-          'Authorization',
-          'X-Admin-Token',
-          'X-Requested-With',
-          'Accept',
-          'Origin',
-          'Access-Control-Request-Method',
-          'Access-Control-Request-Headers',
-        ],
-        maxAge: cdk.Duration.days(1),
-        allowCredentials: false,
-      },
     });
 
     // Lambda integration

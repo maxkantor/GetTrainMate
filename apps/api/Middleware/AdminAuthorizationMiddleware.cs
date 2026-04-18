@@ -22,7 +22,7 @@ public class AdminAuthorizationMiddleware
 
     public async Task InvokeAsync(HttpContext context, IAdminAuthorizationService adminAuthService)
     {
-        // Skip OPTIONS requests (handled by CORS middleware)
+        // Skip OPTIONS — ASP.NET Core CORS handles preflight before auth.
         if (context.Request.Method == "OPTIONS")
         {
             await _next(context);

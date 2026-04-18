@@ -296,7 +296,7 @@ public class Startup
                     .AllowAnyOrigin()
                     .AllowAnyMethod()
                     .AllowAnyHeader()
-                    .WithExposedHeaders("Content-Type", "Authorization");
+                    .WithExposedHeaders("Content-Type", "Authorization", "X-Admin-Token");
             });
         });
         services.AddHealthChecks();
@@ -304,18 +304,15 @@ public class Startup
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
-        // HTTP API (main-stack) already injects CORS on integration responses. Emitting CORS again from
-        // ASP.NET Core duplicates Access-Control-Allow-Origin; browsers treat that as a CORS failure
-        // (admin CRM: multipart upload, PUT save, preview-urls POST).
         var inLambda = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AWS_LAMBDA_FUNCTION_NAME"));
+        // API Gateway terminates TLS. HTTPS redirection inside Lambda can turn OPTIONS preflight into a
+        // redirect (non-2xx) and the browser reports a CORS failure.
         if (!inLambda)
-        {
-            app.UseMiddleware<CorsMiddleware>();
-            app.UseCors("AllowAll");
-        }
+            app.UseHttpsRedirection();
 
-        app.UseHttpsRedirection();
         app.UseRouting();
+        // Single CORS owner for all environments (CDK HttpApi corsPreflight removed — it conflicted with Lambda proxy).
+        app.UseCors("AllowAll");
 
         app.UseMiddleware<CognitoAuthMiddleware>();
         app.UseMiddleware<AdminTokenAuthMiddleware>();
