@@ -152,26 +152,38 @@ function mapGraphqlDiscoverToFeedItems(items: GraphqlDiscoverCandidate[]): Match
   });
 }
 
+const HYDRATE_PROFILE_CONCURRENCY = 8;
+
 /** When GraphQL omits photos or returns placeholders, pull presigned URLs from REST (same CRM as Admin). */
 async function hydrateDiscoverFeedFromRest(items: MatchFeedItem[], token: string | null): Promise<MatchFeedItem[]> {
   if (!token) return items;
-  return Promise.all(
-    items.map(async (row) => {
-      const primary = row.photoUrls?.[0];
-      if (!isLikelyStockDiscoverPhoto(primary, row.userId)) return row;
-      try {
-        const p = await profileService.getProfile(token, row.userId);
-        const fromRest = (p.photoUrls ?? []).filter(Boolean);
-        if (fromRest.length === 0) return row;
-        return {
-          ...row,
-          photoUrls: getMultiplePhotoUrls(fromRest, row.userId, 4, row.name),
-        };
-      } catch {
-        return row;
-      }
-    })
-  );
+  const out = [...items];
+  for (let i = 0; i < out.length; i += HYDRATE_PROFILE_CONCURRENCY) {
+    const slice = out.slice(i, i + HYDRATE_PROFILE_CONCURRENCY);
+    const done = await Promise.all(
+      slice.map(async (row, j) => {
+        const idx = i + j;
+        const primary = row.photoUrls?.[0];
+        if (!isLikelyStockDiscoverPhoto(primary, row.userId)) return { idx, row };
+        try {
+          const p = await profileService.getProfile(token, row.userId);
+          const fromRest = (p.photoUrls ?? []).filter(Boolean);
+          if (fromRest.length === 0) return { idx, row };
+          return {
+            idx,
+            row: {
+              ...row,
+              photoUrls: getMultiplePhotoUrls(fromRest, row.userId, 4, row.name),
+            },
+          };
+        } catch {
+          return { idx, row };
+        }
+      })
+    );
+    for (const { idx, row } of done) out[idx] = row;
+  }
+  return out;
 }
 
 function newAthletesTodayCount(seed: string): number {
@@ -1051,6 +1063,7 @@ export const DiscoverPage: React.FC = () => {
             onSwipeLeft={handlePass}
             onSwipeRight={handleWantToTrain}
             matched={false}
+            priorityImage
           />
         }
         panel={

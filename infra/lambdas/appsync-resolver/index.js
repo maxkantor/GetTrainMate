@@ -58,9 +58,23 @@ function normalizePhotoUrlList(photoUrls) {
   return out;
 }
 
+/** Backend / seed placeholders — must not win over real S3 keys in photoKey/photoKeys. */
+function isBackendPlaceholderPhotoUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    return new URL(url.trim()).hostname.toLowerCase().includes('randomuser.me');
+  } catch (_) {
+    return false;
+  }
+}
+
 function pickHttpUrlFromList(urls) {
   for (const u of urls) {
-    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+    if (!u || typeof u !== 'string') continue;
+    const t = u.trim();
+    if (!t.startsWith('http://') && !t.startsWith('https://')) continue;
+    if (isBackendPlaceholderPhotoUrl(t)) continue;
+    return t;
   }
   return null;
 }
@@ -95,7 +109,7 @@ async function tryPresignCanonicalMediaUrl(url) {
   }
 }
 
-async function toAvatarUrl(photoUrls, photoKey, photoKeys, userIdForPlaceholder) {
+async function toAvatarUrl(photoUrls, photoKey, photoKeys) {
   const list = normalizePhotoUrlList(photoUrls);
   const direct = pickHttpUrlFromList(list);
   if (direct) {
@@ -107,12 +121,6 @@ async function toAvatarUrl(photoUrls, photoKey, photoKeys, userIdForPlaceholder)
   if (key) {
     const s3 = new S3Client({ region: MEDIA_S3_REGION });
     return getSignedUrl(s3, new GetObjectCommand({ Bucket: MEDIA_BUCKET, Key: key }), { expiresIn: 3600 });
-  }
-  if (userIdForPlaceholder) {
-    const n = String(userIdForPlaceholder).split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-    const idx = (n % 99) + 1;
-    const gender = n % 2 === 0 ? 'women' : 'men';
-    return `https://randomuser.me/api/portraits/${gender}/${idx}.jpg`;
   }
   return null;
 }
@@ -233,7 +241,7 @@ async function profileFromDoc(d) {
     sports: d.sportTags || [],
     goals: d.goals || [],
     schedule: scheduleParsed,
-    avatarUrl: await toAvatarUrl(d.photoUrls, d.photoKey, d.photoKeys, d.userId),
+    avatarUrl: await toAvatarUrl(d.photoUrls, d.photoKey, d.photoKeys),
     level: d.level || null,
     modes: normalizedModesFromDoc(d),
     workoutStyle: d.workoutStyle || null,
@@ -283,7 +291,7 @@ async function getMe(identity) {
   const displayName = (profile?.displayName?.trim() || user.name || '').trim() || null;
   const profileOut = profile
     ? { ...profile, displayName: displayName || profile.displayName || '', updatedAt: profile.updatedAt || null }
-    : (displayName ? { userId, displayName, age: null, city: null, bio: null, sports: [], goals: [], schedule: [], modes: ['TRAIN'], avatarUrl: await toAvatarUrl(null, null, null, userId), level: null, isComplete: false, updatedAt: null } : null);
+    : (displayName ? { userId, displayName, age: null, city: null, bio: null, sports: [], goals: [], schedule: [], modes: ['TRAIN'], avatarUrl: await toAvatarUrl(null, null, null), level: null, isComplete: false, updatedAt: null } : null);
   return {
     user: {
       id: user.id,
@@ -364,6 +372,23 @@ async function getExcludedFromMatchesForDiscover(userId) {
   return excluded;
 }
 
+/** Parallel async work with bounded concurrency (faster than sequential await in large scans). */
+async function mapPool(items, concurrency, mapper) {
+  if (!items.length) return [];
+  const results = new Array(items.length);
+  let cursor = 0;
+  const limit = Math.max(1, Math.min(concurrency, items.length));
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= items.length) return;
+      results[i] = await mapper(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: limit }, () => worker()));
+  return results;
+}
+
 async function discoverCandidates(identity, args) {
   const userId = getUserId(identity);
   const skippedIds = await getActiveSkippedTargetIds(userId);
@@ -393,7 +418,7 @@ async function discoverCandidates(identity, args) {
     lastKey = scan.LastEvaluatedKey || null;
   } while (lastKey);
 
-  const candidates = [];
+  const pending = [];
   for (const doc of all) {
     if (doc.accountClosed) continue;
     const profileUserId = doc.userId;
@@ -406,12 +431,16 @@ async function discoverCandidates(identity, args) {
       const tm = normalizedModesFromDoc(doc);
       if (!modesOverlap(meModes, tm)) continue;
     }
+    pending.push({ doc, seenBefore });
+  }
+
+  const DISCOVER_PROFILE_MAP_CONCURRENCY = 18;
+  const mapped = await mapPool(pending, DISCOVER_PROFILE_MAP_CONCURRENCY, async ({ doc, seenBefore }) => {
     const p = await profileFromDoc(doc);
-    if (!p) continue;
-    // Show profile even if name is empty: use fallback so real users always appear in discover
+    if (!p) return null;
     const displayName = (p.displayName && String(p.displayName).trim()) || 'User';
     const compatibilityScore = 50;
-    candidates.push({
+    return {
       userId: p.userId,
       displayName,
       age: p.age,
@@ -419,7 +448,7 @@ async function discoverCandidates(identity, args) {
       bio: p.bio ? p.bio.slice(0, 120) : null,
       sports: p.sports || [],
       goals: p.goals || [],
-      avatarUrl: p.avatarUrl || (() => { const n = String(p.userId).split('').reduce((a, b) => a + b.charCodeAt(0), 0); const idx = (n % 99) + 1; const g = n % 2 === 0 ? 'women' : 'men'; return `https://randomuser.me/api/portraits/${g}/${idx}.jpg`; })(),
+      avatarUrl: p.avatarUrl || null,
       level: p.level || null,
       compatibilityScore,
       modes: p.modes || normalizedModesFromDoc(doc),
@@ -427,8 +456,10 @@ async function discoverCandidates(identity, args) {
       matchPreviewReasons: [],
       lockedInsightReasons: ['🔒 Strength compatibility', '🔒 Training rhythm', '🔒 Personality fit'],
       seenBefore,
-    });
-  }
+    };
+  });
+
+  const candidates = mapped.filter(Boolean);
   return { items: candidates, nextToken: null };
 }
 

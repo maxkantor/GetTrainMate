@@ -1263,11 +1263,19 @@ public class MatchService : IMatchService
         return excluded;
     }
 
+    private static bool IsBackendPlaceholderPhotoUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return false;
+        return url.Contains("randomuser.me", StringComparison.OrdinalIgnoreCase);
+    }
+
     private List<string> ResolvePhotoUrlsForProfile(UserProfile? targetProfile)
     {
         if (targetProfile == null) return new List<string>();
         var raw = targetProfile.PhotoUrls ?? new List<string>();
-        var list = raw.Where(u => !string.IsNullOrWhiteSpace(u)).Select(u => u.Trim()).ToList();
+        var list = raw.Where(u => !string.IsNullOrWhiteSpace(u)).Select(u => u.Trim())
+            .Where(u => !IsBackendPlaceholderPhotoUrl(u))
+            .ToList();
         for (var i = 0; i < list.Count; i++)
         {
             var signed = _storageService.TryPresignCanonicalMediaUrl(list[i], TimeSpan.FromHours(1));

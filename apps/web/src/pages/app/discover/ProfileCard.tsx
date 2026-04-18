@@ -17,6 +17,8 @@ interface ProfileCardProps {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   matched?: boolean;
+  /** Discover hero: faster decode + LCP hints (not lazy). */
+  priorityImage?: boolean;
 }
 
 const MAX_SPORT_CHIPS = 4;
@@ -31,6 +33,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
   onSwipeLeft,
   onSwipeRight,
   matched = false,
+  priorityImage = false,
 }) => {
   const { t } = useI18n();
   const [bioExpanded, setBioExpanded] = useState(false);
@@ -77,13 +80,15 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
             <span className={styles.seenBeforeBadge}>Seen before</span>
           ) : null}
           <img
+            key={`${profile.userId}-${photoIndex}-${photoUrl.slice(0, 80)}`}
             src={photoUrl || NO_PHOTO_PLACEHOLDER}
             alt={`${profile.name} — photo ${photoIndex + 1} of ${allPhotoUrls.length}`}
             className={styles.mediaImage}
             onError={onPhotoError}
             referrerPolicy="no-referrer"
             draggable={false}
-            loading="lazy"
+            loading={priorityImage ? 'eager' : 'lazy'}
+            fetchPriority={priorityImage ? 'high' : 'auto'}
           />
           <div className={styles.overlay} aria-hidden />
           <div className={styles.overlayContent}>
