@@ -66,7 +66,7 @@ public class PublicMatchPreviewController : ControllerBase
                 foreach (var c in result.Deck.Take(4))
                 {
                     var u = (c.PhotoUrl ?? string.Empty).Trim();
-                    _logger.LogInformation(
+                    _logger.LogDebug(
                         "landing-showcase deck card name={Name} hasPhotoUrl={Has} looksPresigned={Sig}",
                         c.Name,
                         u.Length > 0,

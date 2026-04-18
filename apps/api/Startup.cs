@@ -303,8 +303,16 @@ public class Startup
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
-        app.UseMiddleware<CorsMiddleware>();
-        app.UseCors("AllowAll");
+        // HTTP API (main-stack) already injects CORS on integration responses. Emitting CORS again from
+        // ASP.NET Core duplicates Access-Control-Allow-Origin; browsers treat that as a CORS failure
+        // (admin CRM: multipart upload, PUT save, preview-urls POST).
+        var inLambda = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AWS_LAMBDA_FUNCTION_NAME"));
+        if (!inLambda)
+        {
+            app.UseMiddleware<CorsMiddleware>();
+            app.UseCors("AllowAll");
+        }
+
         app.UseHttpsRedirection();
         app.UseRouting();
 

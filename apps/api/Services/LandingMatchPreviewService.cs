@@ -166,7 +166,8 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             .ConfigureAwait(false);
 
         _logger.LogInformation(
-            "landing-showcase live: withPhotos={WithPhotos} deck={Deck} activity={Activity} sampleUserIds={Sample}",
+            "landing-showcase live: realCompleteProfiles={Complete} withPhotos={WithPhotos} deck={Deck} activity={Activity} sampleUserIds={Sample}",
+            completePool.Count,
             withPhotos.Count,
             deck.Count,
             activity.Count,

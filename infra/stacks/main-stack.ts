@@ -96,6 +96,7 @@ export class GetTrainMateStack extends cdk.Stack {
 
     // S3 Bucket for media storage (existing bucket). CORS must allow the web origin for browser PUT uploads:
     //   aws s3api put-bucket-cors --bucket gettrainmate-media-bucket --cors-configuration file://infra/s3-media-bucket-cors.json
+    // Admin test-user uploads use Lambda→S3 (no browser PUT); do not duplicate CORS in the Lambda app (see Startup.cs).
     const mediaBucket = s3.Bucket.fromBucketName(this, 'MediaBucket', 'gettrainmate-media-bucket');
 
     // Bedrock model for AI features (match insight, chat, icebreakers). Override: --context bedrockModelId=...
