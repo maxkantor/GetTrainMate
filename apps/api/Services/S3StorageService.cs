@@ -42,7 +42,29 @@ public class S3StorageService : IStorageService
                 _bucket);
         }
 
+        LogIfLikelyMediaBucketTypo(_bucket, _logger);
         _logger.LogInformation("S3 media operations use bucket {Bucket}", _bucket);
+    }
+
+    /// <summary>
+    /// Production typo: <c>gettraindmat-media-bucket</c> (…n-d-m-a-t…) vs real <c>gettrainmate-media-bucket</c> (…n-m-a-t-e…).
+    /// Same length (25); S3 returns NoSuchBucket for the misspelled name.
+    /// </summary>
+    private static void LogIfLikelyMediaBucketTypo(string bucket, ILogger logger)
+    {
+        const string expected = "gettrainmate-media-bucket";
+        if (string.Equals(bucket, expected, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (bucket.Contains("gettraindmat", StringComparison.OrdinalIgnoreCase)
+            || (bucket.StartsWith("gettrain", StringComparison.OrdinalIgnoreCase)
+                && bucket.Contains("dmat-media", StringComparison.OrdinalIgnoreCase)))
+        {
+            logger.LogCritical(
+                "MEDIA_BUCKET_NAME is misspelled: got {Actual} — set Lambda env to {Expected} (AWS Console → Lambda → Configuration → Environment variables). No code or S3 redesign required.",
+                bucket,
+                expected);
+        }
     }
 
     /// <summary>S3 bucket names are DNS labels: lowercase letters, digits, dot, hyphen.</summary>
@@ -276,7 +298,20 @@ public class S3StorageService : IStorageService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "S3 GetBucketLocation failed Bucket={Bucket} (IAM may lack s3:GetBucketLocation)", _bucket);
+            if (ex is AmazonS3Exception s3e)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "S3 GetBucketLocation failed Bucket={Bucket} ErrorCode={Code} Status={Status} (add s3:GetBucketLocation on bucket ARN if empty; NoSuchBucket here also means wrong bucket name)",
+                    _bucket,
+                    s3e.ErrorCode,
+                    s3e.StatusCode);
+            }
+            else
+            {
+                _logger.LogWarning(ex, "S3 GetBucketLocation failed Bucket={Bucket}", _bucket);
+            }
+
             return null;
         }
     }
