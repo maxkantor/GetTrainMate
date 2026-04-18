@@ -30,6 +30,7 @@ public class AdminUsersController : ControllerBase
     /// <summary>Primary + optional extra pools (e.g. Amplify app pool when stack uses a different pool).</summary>
     private readonly string[] _cognitoUserPoolIds;
     private readonly IAmazonCognitoIdentityProvider _cognito;
+    private readonly ICognitoAdminUserDeletionService _cognitoUserDeletion;
     private readonly ILogger<AdminUsersController> _logger;
 
     public AdminUsersController(
@@ -40,6 +41,7 @@ public class AdminUsersController : ControllerBase
         ICreditsService creditsService,
         IStorageService storageService,
         IAmazonCognitoIdentityProvider cognito,
+        ICognitoAdminUserDeletionService cognitoUserDeletion,
         IConfiguration configuration,
         ILogger<AdminUsersController> logger)
     {
@@ -50,62 +52,13 @@ public class AdminUsersController : ControllerBase
         _creditsService = creditsService;
         _storageService = storageService;
         _cognito = cognito;
+        _cognitoUserDeletion = cognitoUserDeletion;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _profilesTableName = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
-        // appsettings.json ships a non-empty placeholder; it must NOT win over Lambda COGNITO_USER_POOL_ID
-        // (otherwise Cognito calls target us-east-1_XXXXXXXXX and IAM denies AdminGetUser).
-        var primary = ResolvePrimaryUserPoolId(configuration);
-        var amplifyPool = NormalizeUserPoolId(Environment.GetEnvironmentVariable("AMPLIFY_USER_POOL_ID"));
-        // Same id twice (e.g. manual Lambda edits) must not reorder or duplicate.
-        if (!string.IsNullOrEmpty(amplifyPool) &&
-            string.Equals(amplifyPool, primary, StringComparison.OrdinalIgnoreCase))
-            amplifyPool = "";
-
-        var extraRaw = ResolveExtraUserPoolIdsRaw(configuration);
-        if (!string.IsNullOrEmpty(amplifyPool))
-            extraRaw = string.IsNullOrEmpty(extraRaw) ? amplifyPool : $"{extraRaw},{amplifyPool}";
-
-        var poolIds = string.Join(',', primary, extraRaw)
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(s => !string.IsNullOrWhiteSpace(s))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        // Always try COGNITO_USER_POOL_ID (primary) first — it is the CDK/deploy source of truth.
-        // Legacy setups used AMPLIFY_USER_POOL_ID first when the API stack pointed at a different pool; that ordering
-        // broke CRM when AMPLIFY_* / EXTRAS were typos or stale while primary was correct.
-        if (poolIds.Count > 0 && !string.IsNullOrEmpty(primary))
-        {
-            poolIds.RemoveAll(p => string.Equals(p, primary, StringComparison.OrdinalIgnoreCase));
-            poolIds.Insert(0, primary);
-        }
-
-        _cognitoUserPoolIds = poolIds.ToArray();
+        _cognitoUserPoolIds = CognitoPoolConfiguration.ResolveAllUserPoolIds(configuration);
         _logger = logger;
         if (_cognitoUserPoolIds.Length > 0)
             _logger.LogInformation("Admin CRM Cognito email lookup pool order: {Pools}", string.Join(", ", _cognitoUserPoolIds));
-    }
-
-    private static string NormalizeUserPoolId(string? value)
-    {
-        var s = (value ?? "").Trim();
-        if (s.Length == 0) return "";
-        if (string.Equals(s, "us-east-1_XXXXXXXXX", StringComparison.OrdinalIgnoreCase)) return "";
-        return s;
-    }
-
-    private static string ResolvePrimaryUserPoolId(IConfiguration configuration)
-    {
-        var env = NormalizeUserPoolId(Environment.GetEnvironmentVariable("COGNITO_USER_POOL_ID"));
-        if (env.Length > 0) return env;
-        return NormalizeUserPoolId(configuration["Aws:CognitoUserPoolId"]);
-    }
-
-    private static string ResolveExtraUserPoolIdsRaw(IConfiguration configuration)
-    {
-        var env = (Environment.GetEnvironmentVariable("COGNITO_EXTRA_USER_POOL_IDS") ?? "").Trim();
-        if (env.Length > 0) return env;
-        return (configuration["Aws:CognitoExtraUserPoolIds"] ?? "").Trim();
     }
 
     private AdminIdentity GetAdminIdentity()
@@ -810,7 +763,9 @@ public class AdminUsersController : ControllerBase
             // Hard-deleted or never-synced Dynamo rows used to make CRM return 404 here, so no tombstone was
             // written and Cognito could still issue tokens → /api/me stayed 200. Always run soft-delete + Cognito.
 
-            var cognitoDeleted = await TryAdminDeleteCognitoUserAsync(userId);
+            var cognitoDeleted = await _cognitoUserDeletion.TryDeleteCognitoUserAsync(
+                userId,
+                string.IsNullOrEmpty(auditEmail) ? null : auditEmail);
             var deleted = await _profileService.DeleteProfileAsync(userId);
             if (!deleted)
                 return StatusCode(500, new { error = "Failed to delete profile from database" });
@@ -859,7 +814,11 @@ public class AdminUsersController : ControllerBase
 
             if (body.Allow)
             {
-                var cognitoDeleted = await TryAdminDeleteCognitoUserAsync(userId);
+                var closedProfile = await _profileService.GetProfileForAdminAsync(userId);
+                var emailHint = closedProfile?.Email?.Trim();
+                if (string.IsNullOrEmpty(emailHint))
+                    emailHint = await TryGetCognitoEmailAsync(userId);
+                var cognitoDeleted = await _cognitoUserDeletion.TryDeleteCognitoUserAsync(userId, emailHint);
                 var persisted = await _profileService.SetEmailReleasedForSignupAsync(userId, true);
                 if (!persisted)
                     return StatusCode(500, new { error = "Could not update profile row." });
@@ -903,43 +862,6 @@ public class AdminUsersController : ControllerBase
             _logger.LogError(ex, "signup-email-release failed for {UserId}", userId);
             return StatusCode(500, new { error = "Failed to update email release" });
         }
-    }
-
-    private async Task<bool> TryAdminDeleteCognitoUserAsync(string userId)
-    {
-        if (_cognitoUserPoolIds.Length == 0) return false;
-        var username = NormalizeUserIdForCognitoLookup(userId);
-        foreach (var poolId in _cognitoUserPoolIds)
-        {
-            try
-            {
-                await _cognito.AdminDeleteUserAsync(new AdminDeleteUserRequest
-                {
-                    UserPoolId = poolId,
-                    Username = username,
-                });
-                _logger.LogInformation(
-                    "AdminDeleteUser succeeded for {UserId} in pool {PoolId}",
-                    ShortUserIdForLogs(userId),
-                    poolId);
-                return true;
-            }
-            catch (UserNotFoundException)
-            {
-                // Try next pool
-            }
-            catch (AmazonCognitoIdentityProviderException ex) when (
-                string.Equals(ex.ErrorCode, "UserNotFoundException", StringComparison.OrdinalIgnoreCase))
-            {
-                // Try next pool
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "AdminDeleteUser failed for {UserId} pool {PoolId}", userId, poolId);
-            }
-        }
-
-        return false;
     }
 
     /// <summary>

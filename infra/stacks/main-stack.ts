@@ -197,6 +197,8 @@ export class GetTrainMateStack extends cdk.Stack {
         // Admin CRM resolves email via ListUsers when Username != sub (email sign-in / aliases)
         'cognito-idp:ListUsers',
         'cognito-idp:AdminListGroupsForUser',
+        // Soft-delete / "signup again" — remove Cognito user when CRM releases email or check-email self-heal runs
+        'cognito-idp:AdminDeleteUser',
       ],
       resources: [cognitoIdpUserPoolsInAccount],
     }));

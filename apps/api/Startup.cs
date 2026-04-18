@@ -113,6 +113,7 @@ public class Startup
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IAdminNotificationService, AdminNotificationService>();
+        services.AddScoped<ICognitoAdminUserDeletionService, CognitoAdminUserDeletionService>();
         services.AddScoped<ICognitoRegistrationCheckService, CognitoRegistrationCheckService>();
         services.AddScoped<ILandingMatchPreviewService, LandingMatchPreviewService>();
         services.AddScoped<IBillingService, BillingService>();

@@ -75,6 +75,7 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
     if (!open || !userId) {
       setDetail(null);
       setError('');
+      setLoading(false);
       return;
     }
     let cancelled = false;
@@ -84,8 +85,7 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
       try {
         const token = await authService.getJWT(true);
         if (!token) {
-          setError(t('discover.sign_in_to_view_profile'));
-          setLoading(false);
+          if (!cancelled) setError(t('discover.sign_in_to_view_profile'));
           return;
         }
         const data = await profileService.getProfile(token, userId);
@@ -93,7 +93,8 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
       } catch (e) {
         if (!cancelled) setError(handleApiError(e).message || t('discover.could_not_load_profile'));
       } finally {
-        if (!cancelled) setLoading(false);
+        // Always clear loading (Strict Mode / fast close used to skip this when `cancelled` was true → stuck spinner).
+        setLoading(false);
       }
     })();
     return () => {
@@ -144,12 +145,17 @@ export const DiscoverProfileDrawer: React.FC<DiscoverProfileDrawerProps> = ({
             <CircularProgress />
           </Box>
         )}
-        {!loading && error && (
+        {!loading && error && !previewCard && (
           <Typography color="error" variant="body2" sx={{ mb: 2 }}>
             {error}
           </Typography>
         )}
-        {!loading && !error && (
+        {!loading && error && previewCard && (
+          <Typography color="warning.main" variant="body2" sx={{ mb: 2 }}>
+            {error}
+          </Typography>
+        )}
+        {!loading && (detail || previewCard) && (
           <>
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mb: 2 }}>
               {photoUrls.slice(0, 6).map((url, i) => (

@@ -125,7 +125,7 @@ class ProfileService {
   async getProfile(token: string, userId: string): Promise<Partial<UserProfile>> {
     const response = await axios.get<Partial<UserProfile>>(
       `${API_BASE_URL}/api/profile/${userId}`,
-      this.getHeaders(token)
+      { ...this.getHeaders(token), timeout: 25_000 }
     );
     return response.data;
   }

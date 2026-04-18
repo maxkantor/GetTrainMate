@@ -691,6 +691,59 @@ public class ProfileService : IProfileService
         }
     }
 
+    /// <inheritdoc />
+    public async Task<string?> TryFindClosedAccountUserIdByEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return null;
+        var variants = new[]
+        {
+            email.Trim(),
+            email.Trim().ToLowerInvariant(),
+        };
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var v in variants)
+        {
+            if (string.IsNullOrEmpty(v) || !seen.Add(v))
+                continue;
+
+            Dictionary<string, AttributeValue>? startKey = null;
+            for (var page = 0; page < 80; page++)
+            {
+                var req = new ScanRequest
+                {
+                    TableName = _tableName,
+                    FilterExpression = "email = :e",
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        [":e"] = new AttributeValue { S = v },
+                    },
+                    ProjectionExpression = "userId, email, accountClosed",
+                    ExclusiveStartKey = startKey,
+                };
+
+                var resp = await _dynamoDb.ScanAsync(req, cancellationToken).ConfigureAwait(false);
+                foreach (var item in resp.Items ?? new List<Dictionary<string, AttributeValue>>())
+                {
+                    var doc = Document.FromAttributeMap(item);
+                    if (!DynamoProfileDocumentFlags.IsAccountClosed(doc))
+                        continue;
+                    var em = doc.ContainsKey("email") ? doc["email"].AsString() : "";
+                    if (!string.Equals(em.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    var uid = doc.ContainsKey("userId") ? doc["userId"].AsString() : "";
+                    if (!string.IsNullOrWhiteSpace(uid))
+                        return uid.Trim();
+                }
+
+                startKey = resp.LastEvaluatedKey;
+                if (startKey == null || startKey.Count == 0)
+                    break;
+            }
+        }
+
+        return null;
+    }
+
     private bool IsProfileComplete(UserProfile profile)
     {
         // Required fields for profile completion:

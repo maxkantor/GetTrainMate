@@ -20,6 +20,10 @@ public interface IProfileService
     Task<bool> IsAccountClosedAsync(string userId);
     /// <summary>Persist CRM flag on a <b>closed</b> profile row (tombstone). Used with Cognito removal so the email can register again.</summary>
     Task<bool> SetEmailReleasedForSignupAsync(string userId, bool released);
+    /// <summary>
+    /// Finds a soft-deleted profile row by exact <c>email</c> attribute (scan). Used when Cognito <c>sub</c> does not match the Dynamo partition key.
+    /// </summary>
+    Task<string?> TryFindClosedAccountUserIdByEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<UserProfile> AddPhotoUrlAsync(string userId, string url);
     Task<UserProfile?> PatchDiscoverLifecycleAsync(string userId, DiscoverLifecycleFlagsPatch patch);
 }
