@@ -26,6 +26,9 @@ const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || '';
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
 const MEDIA_BUCKET = process.env.MEDIA_BUCKET_NAME || 'gettrainmate-media-bucket';
 const AWS_REGION = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-1';
+/** S3 bucket region (must match bucket; wrong region → NoSuchBucket on GetObject). */
+const MEDIA_S3_REGION =
+  process.env.MEDIA_BUCKET_REGION || process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-1';
 // Demo profile photos: distinct person portraits so each profile shows a different face (women for female profiles, men for male)
 const RANDOMUSER = 'https://randomuser.me/api/portraits';
 const DEMO_PERSON_PHOTOS = [
@@ -85,7 +88,7 @@ async function tryPresignCanonicalMediaUrl(url) {
     if (!ok) return null;
     const key = decodeURIComponent(u.pathname.replace(/^\//, ''));
     if (!key) return null;
-    const s3 = new S3Client({ region: AWS_REGION });
+    const s3 = new S3Client({ region: MEDIA_S3_REGION });
     return getSignedUrl(s3, new GetObjectCommand({ Bucket: MEDIA_BUCKET, Key: key }), { expiresIn: 3600 });
   } catch (_) {
     return null;
@@ -102,7 +105,7 @@ async function toAvatarUrl(photoUrls, photoKey, photoKeys, userIdForPlaceholder)
   }
   const key = primaryS3Key(photoKey, photoKeys);
   if (key) {
-    const s3 = new S3Client({ region: AWS_REGION });
+    const s3 = new S3Client({ region: MEDIA_S3_REGION });
     return getSignedUrl(s3, new GetObjectCommand({ Bucket: MEDIA_BUCKET, Key: key }), { expiresIn: 3600 });
   }
   if (userIdForPlaceholder) {

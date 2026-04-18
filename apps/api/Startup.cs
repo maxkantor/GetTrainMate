@@ -57,7 +57,33 @@ public class Startup
             new AmazonCognitoIdentityProviderClient(RegionEndpoint.GetBySystemName(cognitoRegionName)));
         services.AddAWSService<IAmazonDynamoDB>();
         services.AddAWSService<IAmazonSimpleSystemsManagement>();
-        services.AddAWSService<IAmazonS3>();
+        // S3 must use the *bucket's* region. Wrong region → GetObject ErrorCode NoSuchBucket even when the bucket exists.
+        services.AddSingleton<IAmazonS3>(_ =>
+        {
+            static string? FirstNonEmpty(params string?[] candidates)
+            {
+                foreach (var c in candidates)
+                {
+                    var t = c?.Trim();
+                    if (!string.IsNullOrEmpty(t)) return t;
+                }
+
+                return null;
+            }
+
+            var regionName = FirstNonEmpty(
+                Configuration["MEDIA_BUCKET_REGION"],
+                Configuration["MEDIA_BUCKET_S3_REGION"],
+                Environment.GetEnvironmentVariable("MEDIA_BUCKET_REGION"),
+                Environment.GetEnvironmentVariable("AWS_REGION"),
+                Configuration["AWS:Region"],
+                Configuration["Aws:Region"]) ?? "us-east-1";
+            var re = RegionEndpoint.GetBySystemName(regionName);
+            Log.Information(
+                "S3 client (media GetObject/presign) using region {Region} (override with MEDIA_BUCKET_REGION if bucket is not here)",
+                regionName);
+            return new AmazonS3Client(re);
+        });
         services.AddAWSService<Amazon.SimpleEmail.IAmazonSimpleEmailService>();
         services.AddScoped<IDynamoDBContext>(sp => new DynamoDBContext(sp.GetRequiredService<IAmazonDynamoDB>()));
 

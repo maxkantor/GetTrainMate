@@ -120,6 +120,9 @@ export class GetTrainMateStack extends cdk.Stack {
         DYNAMODB_TABLE_PREFIX: 'gettrainmate-',
         DYNAMODB_TABLE_AUDIT_LOG: 'gettrainmate-audit-log',
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
+        // Must match physical bucket region (GetObject returns NoSuchBucket if client region is wrong).
+        MEDIA_BUCKET_REGION:
+          (this.node.tryGetContext('mediaBucketRegion') as string | undefined) || 'us-east-1',
         // Required for Stripe checkout redirect URLs. Set: npx cdk deploy --context frontendUrl=https://yourdomain.com
         FRONTEND_URL: this.node.tryGetContext('frontendUrl') || process.env.FRONTEND_URL || '',
         // Bedrock: ASP.NET maps Bedrock__ModelId -> Bedrock:ModelId; BEDROCK_MODEL_ID fallback
@@ -302,6 +305,8 @@ export class GetTrainMateStack extends cdk.Stack {
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         ADMIN_EMAILS: process.env.ADMIN_EMAILS || '',
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
+        MEDIA_BUCKET_REGION:
+          (this.node.tryGetContext('mediaBucketRegion') as string | undefined) || 'us-east-1',
       },
       bundling: {
         format: nodejs.OutputFormat.CJS,

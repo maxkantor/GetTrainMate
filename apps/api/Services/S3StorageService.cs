@@ -167,7 +167,7 @@ public class S3StorageService : IStorageService
         catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
             _logger.LogWarning(
-                "S3 GetObject not found Bucket={Bucket} Key={Key} ErrorCode={ErrorCode}",
+                "S3 GetObject 404 Bucket={Bucket} Key={Key} ErrorCode={ErrorCode} (NoSuchBucket=wrong S3 client region or bucket name; NoSuchKey=object missing)",
                 _bucket,
                 KeyLog(key),
                 ex.ErrorCode);
