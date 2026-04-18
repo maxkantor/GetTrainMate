@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
+using GetTrainMate.Api.Infrastructure;
 using GetTrainMate.Api.Models;
 using Stripe;
 using Stripe.Checkout;
@@ -195,8 +196,18 @@ public class BillingService : IBillingService
             CancelUrl = cancelUrl,
             Metadata = new Dictionary<string, string>
             {
+                { StripeSessionOwnership.AppSourceKey, StripeSessionOwnership.AppSourceValue },
                 { "userId", userId },
                 { "planKey", planKey },
+            },
+            SubscriptionData = new SessionSubscriptionDataOptions
+            {
+                Metadata = new Dictionary<string, string>
+                {
+                    { StripeSessionOwnership.AppSourceKey, StripeSessionOwnership.AppSourceValue },
+                    { "userId", userId },
+                    { "planKey", planKey },
+                },
             },
         };
 

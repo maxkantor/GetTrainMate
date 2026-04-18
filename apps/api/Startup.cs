@@ -157,49 +157,79 @@ public class Startup
         services.AddSingleton<IStorageService, S3StorageService>();
         services.AddHostedService<MediaBucketBootstrapHostedService>();
 
-        // Configure Stripe: config → env → SSM /gettrainmate/stripe/*
+        // Configure Stripe: API key from config → env → SSM. Webhook signing secret merges SSM + env so a stale
+        // Lambda STRIPE_WEBHOOK_SECRET cannot shadow an updated SSM value (common cause of "Invalid signature" while SSM is "correct").
         var stripeKey = Configuration["Stripe:SecretKey"]
             ?? Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
-        var stripeWebhookSecret = Configuration["Stripe:WebhookSecret"]
+        var stripeWebhookFromConfig = Configuration["Stripe:WebhookSecret"]
             ?? Environment.GetEnvironmentVariable("STRIPE_WEBHOOK_SECRET");
 
         var ssmSecretKey = "/gettrainmate/stripe/secret-key";
         var ssmWebhookSecret = "/gettrainmate/stripe/webhook-secret";
 
-        if (string.IsNullOrEmpty(stripeKey) || string.IsNullOrEmpty(stripeWebhookSecret))
+        static void AppendWebhookSecretSegments(List<string> dest, string? raw)
         {
+            if (string.IsNullOrWhiteSpace(raw)) return;
+            foreach (var seg in raw.Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var t = seg.Trim();
+                if (t.Length == 0) continue;
+                if (!dest.Contains(t, StringComparer.Ordinal)) dest.Add(t);
+            }
+        }
+
+        string? stripeWebhookFromSsm = null;
+        try
+        {
+            using var ssm = new AmazonSimpleSystemsManagementClient();
+            if (string.IsNullOrEmpty(stripeKey))
+            {
+                var keyResponse = ssm.GetParameterAsync(new GetParameterRequest
+                {
+                    Name = ssmSecretKey,
+                    WithDecryption = true
+                }).GetAwaiter().GetResult();
+                stripeKey = keyResponse.Parameter.Value?.Trim() ?? "";
+                Log.Information("Stripe secret key loaded from SSM {Param}", ssmSecretKey);
+            }
+
             try
             {
-                using var ssm = new AmazonSimpleSystemsManagementClient();
-                if (string.IsNullOrEmpty(stripeKey))
+                var whResponse = ssm.GetParameterAsync(new GetParameterRequest
                 {
-                    var keyResponse = ssm.GetParameterAsync(new GetParameterRequest
-                    {
-                        Name = ssmSecretKey,
-                        WithDecryption = true
-                    }).GetAwaiter().GetResult();
-                    stripeKey = keyResponse.Parameter.Value?.Trim() ?? "";
-                    Log.Information("Stripe secret key loaded from SSM {Param}", ssmSecretKey);
-                }
-                if (string.IsNullOrEmpty(stripeWebhookSecret))
-                {
-                    var whResponse = ssm.GetParameterAsync(new GetParameterRequest
-                    {
-                        Name = ssmWebhookSecret,
-                        WithDecryption = true
-                    }).GetAwaiter().GetResult();
-                    stripeWebhookSecret = whResponse.Parameter.Value?.Trim() ?? "";
-                    Log.Information("Stripe webhook secret loaded from SSM {Param}", ssmWebhookSecret);
-                }
+                    Name = ssmWebhookSecret,
+                    WithDecryption = true
+                }).GetAwaiter().GetResult();
+                stripeWebhookFromSsm = whResponse.Parameter?.Value?.Trim();
+                if (!string.IsNullOrEmpty(stripeWebhookFromSsm))
+                    Log.Information("Stripe webhook signing secret loaded from SSM {Param}", ssmWebhookSecret);
             }
             catch (ParameterNotFoundException)
             {
-                Log.Warning("Stripe SSM parameters not found. Create with: aws ssm put-parameter --name {Key} --value sk_live_XXX --type SecureString", ssmSecretKey);
+                // optional
             }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "Could not load Stripe keys from SSM. Ensure Lambda has ssm:GetParameter on /gettrainmate/*");
-            }
+        }
+        catch (ParameterNotFoundException)
+        {
+            Log.Warning("Stripe SSM parameters not found. Create with: aws ssm put-parameter --name {Key} --value sk_live_XXX --type SecureString", ssmSecretKey);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not load Stripe keys from SSM. Ensure Lambda has ssm:GetParameter on /gettrainmate/*");
+        }
+
+        var whMergeList = new List<string>();
+        AppendWebhookSecretSegments(whMergeList, stripeWebhookFromSsm);
+        AppendWebhookSecretSegments(whMergeList, stripeWebhookFromConfig);
+        var stripeWebhookSecret = string.Join(",", whMergeList);
+
+        if (!string.IsNullOrEmpty(stripeWebhookFromSsm)
+            && !string.IsNullOrEmpty(stripeWebhookFromConfig)
+            && !string.Equals(stripeWebhookFromSsm.Trim(), stripeWebhookFromConfig.Trim(), StringComparison.Ordinal))
+        {
+            Log.Warning(
+                "Stripe webhook signing secret: SSM and Lambda env/config (STRIPE_WEBHOOK_SECRET / Stripe:WebhookSecret) differ. " +
+                "Verification tries SSM value(s) first, then env. Remove the stale env var on the Lambda if only SSM should apply — see docs/STRIPE_SSM_SETUP.md.");
         }
         if (!string.IsNullOrEmpty(stripeKey))
         {

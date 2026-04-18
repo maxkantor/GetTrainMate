@@ -287,12 +287,20 @@ public class BillingController : ControllerBase
 
         if (session.Mode == "payment")
         {
-            await _creditsService.RecordWebhookEventReceivedAsync(evt.Id, evt.Type);
             await _creditsService.ProcessCheckoutSessionCompletedAsync(evt.Id, session);
             return;
         }
 
         if (session.SubscriptionId == null) return;
+
+        if (!StripeSessionOwnership.IsGetTrainMateSubscription(session))
+        {
+            _logger.LogInformation(
+                "Stripe webhook: ignoring subscription checkout session {SessionId} (not GetTrainMate; shared Stripe account).",
+                session.Id);
+            return;
+        }
+
         var subscriptionService = new Stripe.SubscriptionService();
         var subscription = await subscriptionService.GetAsync(session.SubscriptionId);
         await UpsertSubscription(subscription, session.Metadata);
@@ -328,6 +336,14 @@ public class BillingController : ControllerBase
 
     private async Task UpsertSubscription(Stripe.Subscription stripeSubscription, Dictionary<string, string>? metadata)
     {
+        if (!await IsGetTrainMateStripeSubscriptionAsync(stripeSubscription, metadata))
+        {
+            _logger.LogInformation(
+                "Ignoring subscription upsert for {SubId} (not GetTrainMate; shared Stripe account).",
+                stripeSubscription.Id);
+            return;
+        }
+
         var priceId = stripeSubscription.Items?.Data?.FirstOrDefault()?.Price?.Id;
         var planKey = await ResolvePlanKeyFromPriceId(priceId) ?? metadata?.GetValueOrDefault("planKey") ?? "unknown";
 
@@ -356,6 +372,20 @@ public class BillingController : ControllerBase
     {
         if (string.IsNullOrEmpty(priceId)) return null;
         return await _billingService.ResolvePlanKeyFromPriceIdAsync(priceId);
+    }
+
+    /// <summary>Stripe sends the same events to every webhook URL on the account — only persist ours.</summary>
+    private async Task<bool> IsGetTrainMateStripeSubscriptionAsync(
+        Stripe.Subscription stripeSubscription,
+        Dictionary<string, string>? sessionMetadata)
+    {
+        var priceId = stripeSubscription.Items?.Data?.FirstOrDefault()?.Price?.Id;
+        var planFromOurCatalog = await ResolvePlanKeyFromPriceId(priceId);
+        if (!string.IsNullOrEmpty(planFromOurCatalog))
+            return true;
+
+        var m = sessionMetadata ?? stripeSubscription.Metadata;
+        return StripeSessionOwnership.IsGetTrainMateSubscriptionMeta(m);
     }
 
     private async Task<string?> ResolveUserIdFromCustomer(string? customerId)

@@ -8,6 +8,7 @@ using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
 using GetTrainMate.Api.Constants;
 using GetTrainMate.Api.Models;
+using GetTrainMate.Api.Infrastructure;
 using Stripe;
 using Stripe.Checkout;
 
@@ -409,6 +410,7 @@ public class CreditsService : ICreditsService
             ClientReferenceId = userId,
             Metadata = new Dictionary<string, string>
             {
+                { StripeSessionOwnership.AppSourceKey, StripeSessionOwnership.AppSourceValue },
                 { "userId", userId },
                 { "packKey", canonicalPackKey },
                 { "credits", pack.Credits.ToString() },
@@ -459,6 +461,14 @@ public class CreditsService : ICreditsService
                 _logger.LogWarning(ex, "ConfirmCreditsPurchase: could not refetch session {SessionId} for metadata", session.Id);
                 return null;
             }
+        }
+
+        if (!StripeSessionOwnership.IsGetTrainMateCreditsPayment(session))
+        {
+            _logger.LogInformation(
+                "ConfirmCreditsPurchase: ignoring session {SessionId} (not a GetTrainMate credit checkout; shared Stripe account).",
+                session.Id);
+            return null;
         }
 
         var sessionUserId = session.ClientReferenceId ?? session.Metadata?.GetValueOrDefault("userId");
@@ -551,6 +561,16 @@ public class CreditsService : ICreditsService
                 _logger.LogWarning(ex, "Could not fetch session {SessionId} for metadata", session.Id);
             }
         }
+
+        if (!StripeSessionOwnership.IsGetTrainMateCreditsPayment(session))
+        {
+            _logger.LogInformation(
+                "Stripe webhook: skipping credit purchase for session {SessionId} (not GetTrainMate; shared Stripe account).",
+                session.Id);
+            return false;
+        }
+
+        await RecordWebhookEventReceivedAsync(stripeEventId, Events.CheckoutSessionCompleted);
 
         var userId = session.ClientReferenceId ?? session.Metadata?.GetValueOrDefault("userId");
         var packKey = session.Metadata?.GetValueOrDefault("packKey");
