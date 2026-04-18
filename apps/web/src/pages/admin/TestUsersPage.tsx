@@ -151,6 +151,9 @@ export const TestUsersPage: React.FC = () => {
       const photoUrls = Array.isArray(o.photoUrls ?? o.PhotoUrls)
         ? ((o.photoUrls ?? o.PhotoUrls) as unknown[]).map((x) => String(x))
         : [];
+      const photoPreviewFromGet = Array.isArray(o.photoPreviewUrls ?? o.PhotoPreviewUrls)
+        ? ((o.photoPreviewUrls ?? o.PhotoPreviewUrls) as unknown[]).map((x) => String(x))
+        : [];
       const rawSports = Array.isArray(o.sportTags ?? o.SportTags)
         ? ((o.sportTags ?? o.SportTags) as unknown[]).map((x) => String(x))
         : [];
@@ -175,22 +178,33 @@ export const TestUsersPage: React.FC = () => {
         photoUrls: photoUrls.join('\n'),
       });
       if (photoUrls.length > 0) {
-        try {
-          const prevRes = await adminApiService.post(
-            `/api/admin/users/test-users/${encodeURIComponent(row.userId)}/photos/preview-urls`,
-            { urls: photoUrls, Urls: photoUrls }
-          );
-          const raw = (prevRes as { previews?: Record<string, string>; Previews?: Record<string, string> }) ?? {};
-          const previews = raw.previews ?? raw.Previews;
-          if (previews && typeof previews === 'object') {
-            setPhotoPreviewMap(previews);
+        if (photoPreviewFromGet.length === photoUrls.length) {
+          const m: Record<string, string> = {};
+          photoUrls.forEach((c, i) => {
+            const key = c.trim();
+            if (!key) return;
+            const p = (photoPreviewFromGet[i] || '').trim();
+            m[key] = p.length > 0 ? p : key;
+          });
+          setPhotoPreviewMap(m);
+        } else {
+          try {
+            const prevRes = await adminApiService.post(
+              `/api/admin/users/test-users/${encodeURIComponent(row.userId)}/photos/preview-urls`,
+              { urls: photoUrls, Urls: photoUrls }
+            );
+            const raw = (prevRes as { previews?: Record<string, string>; Previews?: Record<string, string> }) ?? {};
+            const previews = raw.previews ?? raw.Previews;
+            if (previews && typeof previews === 'object') {
+              setPhotoPreviewMap(previews as Record<string, string>);
+            }
+          } catch (prevErr: unknown) {
+            setPhotoPreviewMap({});
+            setError(
+              (prevErr as Error)?.message ||
+                'Could not load signed photo previews (private bucket). Save is unaffected; try refresh or re-open the user.'
+            );
           }
-        } catch (prevErr: unknown) {
-          setPhotoPreviewMap({});
-          setError(
-            (prevErr as Error)?.message ||
-              'Could not load signed photo previews (private bucket). Save is unaffected; try refresh or re-open the user.'
-          );
         }
       } else {
         setPhotoPreviewMap({});

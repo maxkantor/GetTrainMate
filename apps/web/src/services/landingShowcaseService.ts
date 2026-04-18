@@ -1,7 +1,7 @@
 import { API_BASE_URL } from '@/config/api';
 import { landingShowcaseDebugEnabled, logLandingShowcase, redactUrlForLog } from '@/utils/landingShowcaseDebug';
 
-const CACHE_KEY = 'gtmLandingShowcaseV10';
+const CACHE_KEY = 'gtmLandingShowcaseV11';
 const TTL_MS = 10 * 60 * 1000;
 
 /** Lambda / some hosts may emit PascalCase; admin pages already use `x ?? X` — same here. */

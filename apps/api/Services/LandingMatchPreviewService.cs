@@ -364,13 +364,9 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             .OrderBy(u => LandingShowcasePhotoRank(u, userId))
             .ToList();
 
-        foreach (var url in ordered)
-        {
-            var signed = _storage.TryPresignCanonicalMediaUrl(url, TimeSpan.FromHours(1));
-            if (!string.IsNullOrEmpty(signed))
-                return signed;
-        }
-
+        // Prefer path-based presign first: CRM may store CloudFront, accelerate, or regional hosts that do not
+        // match TryPresignCanonicalMediaUrl's virtual-host / path-style checks, but the object key is still
+        // profiles/{userId}/… in MEDIA_BUCKET.
         foreach (var url in ordered)
         {
             if (!TryGetProfilePhotoStorageKey(url, userId, out var key))
@@ -383,6 +379,13 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
             {
                 _logger.LogDebug(ex, "Presign showcase by object key for {UserId}", userId);
             }
+        }
+
+        foreach (var url in ordered)
+        {
+            var signed = _storage.TryPresignCanonicalMediaUrl(url, TimeSpan.FromHours(1));
+            if (!string.IsNullOrEmpty(signed))
+                return signed;
         }
 
         // Do not pass through Unsplash / random avatars — wrong person vs CRM

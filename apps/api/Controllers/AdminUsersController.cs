@@ -672,6 +672,8 @@ public class AdminUsersController : ControllerBase
                     await _profileService.SetProfileEmailIfEmptyAsync(userId, email);
             }
 
+            var uid = (profile.UserId ?? string.Empty).Trim();
+            var canonicalPhotos = profile.PhotoUrls ?? new List<string>();
             return Ok(new UserDetail
             {
                 UserId = profile.UserId,
@@ -686,7 +688,8 @@ public class AdminUsersController : ControllerBase
                 Mode = profile.Mode,
                 SportTags = profile.SportTags,
                 Goals = profile.Goals,
-                PhotoUrls = profile.PhotoUrls,
+                PhotoUrls = canonicalPhotos,
+                PhotoPreviewUrls = BuildAdminPhotoPreviewList(uid, canonicalPhotos),
                 CreatedAt = profile.CreatedAt,
                 Credits = credits.Balance,
                 LifetimeEarned = credits.LifetimeEarned,
@@ -1191,20 +1194,8 @@ public class AdminUsersController : ControllerBase
             {
                 var url = (raw ?? string.Empty).Trim();
                 if (url.Length == 0) continue;
-
-                if (TryGetProfilePhotoKey(url, normalizedUserId, out var keyFromPath))
-                {
-                    previews[url] = _storageService.GetPresignedDownloadUrl(keyFromPath, TimeSpan.FromHours(12));
-                    continue;
-                }
-
-                // Path-style canonical URLs: /{bucket}/profiles/{userId}/… — TryGetProfilePhotoKey misses these.
-                var objectKey = _storageService.TryGetObjectKeyFromCanonicalMediaUrl(url);
-                if (!string.IsNullOrEmpty(objectKey)
-                    && objectKey.StartsWith($"profiles/{normalizedUserId}/", StringComparison.OrdinalIgnoreCase))
-                {
-                    previews[url] = _storageService.GetPresignedDownloadUrl(objectKey, TimeSpan.FromHours(12));
-                }
+                if (TryPresignOwnedProfilePhotoUrl(normalizedUserId, url, out var signed))
+                    previews[url] = signed;
             }
 
             return Ok(new { previews });
@@ -1214,6 +1205,57 @@ public class AdminUsersController : ControllerBase
             _logger.LogError(ex, "Error building preview URLs for {UserId}", userId);
             return StatusCode(500, new { error = "Failed to build preview URLs" });
         }
+    }
+
+    /// <summary>Parallel to <see cref="UserDetail.PhotoUrls"/> — presigned GETs for private-bucket CRM previews.</summary>
+    private List<string> BuildAdminPhotoPreviewList(string normalizedUserId, List<string> canonicals)
+    {
+        var list = new List<string>(canonicals.Count);
+        foreach (var raw in canonicals)
+        {
+            var u = (raw ?? string.Empty).Trim();
+            if (u.Length == 0)
+            {
+                list.Add(u);
+                continue;
+            }
+
+            if (TryPresignOwnedProfilePhotoUrl(normalizedUserId, u, out var signed))
+                list.Add(signed);
+            else
+                list.Add(u);
+        }
+
+        return list;
+    }
+
+    /// <summary>Presign when URL points at <c>profiles/{userId}/…</c> in our media bucket (virtual-hosted or path-style).</summary>
+    private bool TryPresignOwnedProfilePhotoUrl(string normalizedUserId, string trimmedUrl, out string presignedUrl)
+    {
+        presignedUrl = string.Empty;
+        if (string.IsNullOrEmpty(trimmedUrl)) return false;
+        try
+        {
+            if (TryGetProfilePhotoKey(trimmedUrl, normalizedUserId, out var keyFromPath))
+            {
+                presignedUrl = _storageService.GetPresignedDownloadUrl(keyFromPath, TimeSpan.FromHours(12));
+                return true;
+            }
+
+            var objectKey = _storageService.TryGetObjectKeyFromCanonicalMediaUrl(trimmedUrl);
+            if (!string.IsNullOrEmpty(objectKey)
+                && objectKey.StartsWith($"profiles/{normalizedUserId}/", StringComparison.OrdinalIgnoreCase))
+            {
+                presignedUrl = _storageService.GetPresignedDownloadUrl(objectKey, TimeSpan.FromHours(12));
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Admin presign profile photo UserId={UserId}", normalizedUserId);
+        }
+
+        return false;
     }
 
     /// <summary>HTTPS S3 URL whose path is <c>profiles/{userId}/…</c> (user id segment case-insensitive).</summary>
@@ -1365,6 +1407,11 @@ public class UserDetail
     public List<string> SportTags { get; set; } = new();
     public List<string> Goals { get; set; } = new();
     public List<string> PhotoUrls { get; set; } = new();
+
+    /// <summary>Same order as <see cref="PhotoUrls"/>; presigned GET for private S3. Client maps canonical → preview for &lt;img src&gt;.</summary>
+    [JsonPropertyName("photoPreviewUrls")]
+    public List<string> PhotoPreviewUrls { get; set; } = new();
+
     public DateTime CreatedAt { get; set; }
     public int Credits { get; set; }
     public int LifetimeEarned { get; set; }
