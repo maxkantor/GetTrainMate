@@ -2,6 +2,7 @@ using System.Net;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace GetTrainMate.Api.Services;
 
@@ -11,10 +12,12 @@ public class S3StorageService : IStorageService
 
     private readonly IAmazonS3 _s3;
     private readonly string _bucket;
+    private readonly ILogger<S3StorageService> _logger;
 
-    public S3StorageService(IAmazonS3 s3, IConfiguration configuration)
+    public S3StorageService(IAmazonS3 s3, IConfiguration configuration, ILogger<S3StorageService> logger)
     {
         _s3 = s3;
+        _logger = logger;
         _bucket = configuration["MEDIA_BUCKET"] 
             ?? configuration["MEDIA_BUCKET_NAME"]
             ?? Environment.GetEnvironmentVariable("MEDIA_BUCKET") 
@@ -24,6 +27,8 @@ public class S3StorageService : IStorageService
         {
             throw new InvalidOperationException("MEDIA_BUCKET is not configured");
         }
+
+        _logger.LogInformation("S3 media operations use bucket {Bucket}", _bucket);
     }
 
     public string GetPresignedUploadUrl(string key, string contentType, TimeSpan expiresIn)
@@ -118,7 +123,14 @@ public class S3StorageService : IStorageService
 
             using var resp = await _s3.GetObjectAsync(request, cancellationToken).ConfigureAwait(false);
             if (resp.ContentLength > 0 && resp.ContentLength > MaxProfileImageBytes)
+            {
+                _logger.LogWarning(
+                    "S3 GetObject rejected oversized object Bucket={Bucket} Key={Key} ContentLength={Len}",
+                    _bucket,
+                    KeyLog(key),
+                    resp.ContentLength);
                 return null;
+            }
 
             await using var input = resp.ResponseStream;
             var capacity = resp.ContentLength > 0
@@ -136,18 +148,49 @@ public class S3StorageService : IStorageService
                 total += n;
             }
 
+            var body = ms.ToArray();
+            if (body.Length == 0)
+            {
+                _logger.LogWarning(
+                    "S3 GetObject returned zero bytes Bucket={Bucket} Key={Key} DeclaredContentLength={Declared}",
+                    _bucket,
+                    KeyLog(key),
+                    resp.ContentLength);
+                return null;
+            }
+
             var ct = string.IsNullOrWhiteSpace(resp.Headers.ContentType)
                 ? "application/octet-stream"
                 : resp.Headers.ContentType;
-            return new MediaObjectRead { Body = ms.ToArray(), ContentType = ct };
+            return new MediaObjectRead { Body = body, ContentType = ct };
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
+            _logger.LogWarning(
+                "S3 GetObject not found Bucket={Bucket} Key={Key} ErrorCode={ErrorCode}",
+                _bucket,
+                KeyLog(key),
+                ex.ErrorCode);
             return null;
         }
-        catch
+        catch (AmazonS3Exception ex)
         {
+            _logger.LogWarning(
+                ex,
+                "S3 GetObject failed Bucket={Bucket} Key={Key} ErrorCode={ErrorCode} Status={Status}",
+                _bucket,
+                KeyLog(key),
+                ex.ErrorCode,
+                ex.StatusCode);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "S3 GetObject unexpected error Bucket={Bucket} Key={Key}", _bucket, KeyLog(key));
             return null;
         }
     }
+
+    private static string KeyLog(string key) =>
+        key.Length > 96 ? key[..96] + "…" : key;
 }
