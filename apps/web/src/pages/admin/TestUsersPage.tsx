@@ -46,6 +46,46 @@ function parsePhotoUrlLines(raw: string): string[] {
     .slice(0, MAX_TEST_USER_PHOTOS);
 }
 
+/**
+ * Presigned PUT must send the same Content-Type the API used when signing.
+ * Many desktop browsers leave {@link File.type} empty for some files.
+ */
+function inferImageContentTypeForUpload(file: File): string {
+  const raw = (file.type || '').trim();
+  if (raw.length > 0 && raw.toLowerCase().startsWith('image/')) return raw;
+
+  const name = (file.name || '').trim();
+  const dot = name.lastIndexOf('.');
+  const ext = dot >= 0 ? name.slice(dot).toLowerCase() : '';
+  const byExt: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.heic': 'image/heic',
+    '.heif': 'image/heic',
+  };
+  if (ext && byExt[ext]) return byExt[ext];
+  return 'image/jpeg';
+}
+
+/** Upload through API (Lambda→S3) so the browser never presigns PUT to S3 (avoids bucket CORS). */
+async function uploadTestUserPhotoViaApi(userId: string, file: File): Promise<{ publicUrl: string; previewUrl: string }> {
+  const contentType = inferImageContentTypeForUpload(file);
+  const wrapped = new File([file], file.name || 'image.jpg', { type: contentType });
+  const fd = new FormData();
+  fd.append('file', wrapped);
+  const res = await adminApiService.postForm(
+    `/api/admin/users/test-users/${encodeURIComponent(userId)}/photos/upload`,
+    fd
+  );
+  const publicUrl = String(res?.publicUrl ?? res?.PublicUrl ?? '');
+  const previewUrl = String(res?.previewUrl ?? res?.PreviewUrl ?? '');
+  if (!publicUrl) throw new Error('Upload response was incomplete.');
+  return { publicUrl, previewUrl: previewUrl || publicUrl };
+}
+
 /** Prefer presigned GET for img src; tolerate minor key drift (trim). */
 function pickPhotoPreviewSrc(canonicalLine: string, map: Record<string, string>): string {
   const t = canonicalLine.trim();
@@ -60,6 +100,38 @@ function adminProfilePhotoStreamUrl(userId: string, slotIndex: number): string |
   if (!t || !userId) return null;
   const q = new URLSearchParams({ index: String(slotIndex), adminToken: t });
   return `${API_BASE_URL}/api/admin/users/${encodeURIComponent(userId)}/photos/stream?${q.toString()}`;
+}
+
+/**
+ * Stream endpoint only resolves S3 keys under profiles/{userId}/… (see AdminUsersController).
+ * Placeholder lines like https://example.com/… must not use stream or every img GET returns 404.
+ */
+function canonicalUrlIsStreamableProfileImage(userId: string, canonicalLine: string): boolean {
+  const uid = userId.trim();
+  const line = canonicalLine.trim();
+  if (!uid || !line) return false;
+  try {
+    const u = new URL(line);
+    if (u.protocol !== 'https:') return false;
+    const path = decodeURIComponent(u.pathname.replace(/^\/+/, '')).toLowerCase();
+    const needle = `profiles/${uid.toLowerCase()}/`;
+    return path.startsWith(needle) || path.includes(`/${needle}`);
+  } catch {
+    return false;
+  }
+}
+
+function resolveTestUserPhotoPreviewSrc(
+  activeUser: string | null,
+  slotIndex: number,
+  canonicalLine: string,
+  previewMap: Record<string, string>
+): string {
+  if (activeUser && canonicalUrlIsStreamableProfileImage(activeUser, canonicalLine)) {
+    const stream = adminProfilePhotoStreamUrl(activeUser, slotIndex);
+    if (stream) return stream;
+  }
+  return pickPhotoPreviewSrc(canonicalLine, previewMap);
 }
 
 const EMPTY_FORM: TestUserFormState = {
@@ -333,32 +405,7 @@ export const TestUsersPage: React.FC = () => {
       try {
         const uploadedUrls: string[] = [];
         for (const file of Array.from(files).slice(0, room)) {
-          const signed = await adminApiService.post(
-            `/api/admin/users/test-users/${encodeURIComponent(targetUserId)}/photos/upload-url`,
-            {
-              contentType: file.type || 'application/octet-stream',
-              fileName: file.name,
-            }
-          );
-
-          const uploadUrl = String(signed?.uploadUrl ?? signed?.UploadUrl ?? '');
-          const publicUrl = String(signed?.publicUrl ?? signed?.PublicUrl ?? '');
-          const previewUrl = String(signed?.previewUrl ?? signed?.PreviewUrl ?? '');
-          if (!uploadUrl || !publicUrl) {
-            throw new Error('Upload URL response was incomplete.');
-          }
-
-          const putResponse = await fetch(uploadUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': file.type || 'application/octet-stream',
-            },
-            body: file,
-          });
-
-          if (!putResponse.ok) {
-            throw new Error(`Failed uploading ${file.name} (${putResponse.status}).`);
-          }
+          const { publicUrl, previewUrl } = await uploadTestUserPhotoViaApi(targetUserId, file);
           uploadedUrls.push(publicUrl);
           if (previewUrl) {
             setPhotoPreviewMap((m) => ({ ...m, [publicUrl]: previewUrl }));
@@ -426,32 +473,7 @@ export const TestUsersPage: React.FC = () => {
       setUploadingPhotos(true);
       setError(null);
       try {
-        const signed = await adminApiService.post(
-          `/api/admin/users/test-users/${encodeURIComponent(targetUserId)}/photos/upload-url`,
-          {
-            contentType: file.type || 'application/octet-stream',
-            fileName: file.name,
-          }
-        );
-
-        const uploadUrl = String(signed?.uploadUrl ?? signed?.UploadUrl ?? '');
-        const publicUrl = String(signed?.publicUrl ?? signed?.PublicUrl ?? '');
-        const previewUrl = String(signed?.previewUrl ?? signed?.PreviewUrl ?? '');
-        if (!uploadUrl || !publicUrl) {
-          throw new Error('Upload URL response was incomplete.');
-        }
-
-        const putResponse = await fetch(uploadUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': file.type || 'application/octet-stream',
-          },
-          body: file,
-        });
-
-        if (!putResponse.ok) {
-          throw new Error(`Failed uploading (${putResponse.status}).`);
-        }
+        const { publicUrl, previewUrl } = await uploadTestUserPhotoViaApi(targetUserId, file);
 
         let oldUrlReplaced: string | undefined;
         setForm((prev) => {
@@ -778,12 +800,12 @@ export const TestUsersPage: React.FC = () => {
                           <div className={styles.photoPreviewFrame}>
                             <img
                               className={styles.photoPreview}
-                              src={
-                                activeUserId
-                                  ? adminProfilePhotoStreamUrl(activeUserId, index) ??
-                                    pickPhotoPreviewSrc(url, photoPreviewMap)
-                                  : pickPhotoPreviewSrc(url, photoPreviewMap)
-                              }
+                              src={resolveTestUserPhotoPreviewSrc(
+                                activeUserId,
+                                index,
+                                url,
+                                photoPreviewMap
+                              )}
                               alt=""
                               onError={(e) => {
                                 if (

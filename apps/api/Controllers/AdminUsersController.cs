@@ -1201,6 +1201,52 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
+    /// POST /api/admin/users/test-users/{userId}/photos/upload — multipart <c>file</c>; stores in S3 from Lambda (no browser→S3 CORS).
+    /// </summary>
+    [HttpPost("test-users/{userId}/photos/upload")]
+    [RequestSizeLimit(16 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 16 * 1024 * 1024)]
+    public async Task<ActionResult> UploadTestUserPhoto(string userId, IFormFile? file, CancellationToken ct)
+    {
+        try
+        {
+            _ = GetAdminIdentity();
+            var normalizedUserId = (userId ?? string.Empty).Trim();
+            if (!IsTestUserId(normalizedUserId))
+                return BadRequest(new { error = "Only dummy/test users are allowed." });
+
+            if (file == null || file.Length == 0)
+                return BadRequest(new { error = "Image file is required." });
+
+            var contentType = (file.ContentType ?? string.Empty).Trim();
+            if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { error = "Only image content types are allowed." });
+
+            var extension = InferImageExtension(contentType, file.FileName);
+            var key = $"profiles/{normalizedUserId}/admin-{Guid.NewGuid():N}{extension}";
+
+            await using (var stream = file.OpenReadStream())
+            {
+                await _storageService.PutMediaObjectAsync(key, stream, contentType, ct).ConfigureAwait(false);
+            }
+
+            var publicUrl = _storageService.GetPublicUrl(key);
+            var previewUrl = _storageService.GetPresignedDownloadUrl(key, TimeSpan.FromHours(24));
+            return Ok(new { key, publicUrl, previewUrl });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Test user photo upload rejected for {UserId}", userId);
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading test user photo for {UserId}", userId);
+            return StatusCode(500, new { error = "Failed to upload image" });
+        }
+    }
+
+    /// <summary>
     /// GET /api/admin/users/{userId}/photos/stream?index=0&amp;adminToken=… — stream S3 object through API (img cannot send X-Admin-Token).
     /// </summary>
     [HttpGet("{userId}/photos/stream")]

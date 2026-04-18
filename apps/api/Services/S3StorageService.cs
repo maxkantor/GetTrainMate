@@ -167,6 +167,43 @@ public class S3StorageService : IStorageService
         }
     }
 
+    public async Task PutMediaObjectAsync(string key, Stream body, string contentType, CancellationToken cancellationToken = default)
+    {
+        var objectKey = NormalizeObjectKey(key);
+        if (objectKey.Length == 0)
+            throw new ArgumentException("Object key is required.", nameof(key));
+
+        if (body == null)
+            throw new ArgumentNullException(nameof(body));
+
+        await using var ms = new MemoryStream();
+        var buffer = new byte[65536];
+        long total = 0;
+        int read;
+        while ((read = await body.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false)) > 0)
+        {
+            total += read;
+            if (total > MaxProfileImageBytes)
+                throw new InvalidOperationException($"Image exceeds max size ({MaxProfileImageBytes} bytes).");
+            ms.Write(buffer, 0, read);
+        }
+
+        if (total == 0)
+            throw new InvalidOperationException("Empty upload body.");
+
+        ms.Position = 0;
+        var ct = string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim();
+        var req = new PutObjectRequest
+        {
+            BucketName = _bucket,
+            Key = objectKey,
+            InputStream = ms,
+            ContentType = ct,
+        };
+
+        await _s3.PutObjectAsync(req, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<MediaObjectRead?> TryReadMediaObjectAsync(string key, CancellationToken cancellationToken = default)
     {
         var objectKey = NormalizeObjectKey(key);

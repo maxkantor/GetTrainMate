@@ -20,4 +20,7 @@ public interface IStorageService
     string? TryPresignCanonicalMediaUrl(string? url, TimeSpan expiresIn);
     /// <summary>Read object from the configured media bucket (admin stream / diagnostics).</summary>
     Task<MediaObjectRead?> TryReadMediaObjectAsync(string key, CancellationToken cancellationToken = default);
+
+    /// <summary>Write or replace an object in the media bucket (server-side; avoids browser→S3 CORS on presigned PUT).</summary>
+    Task PutMediaObjectAsync(string key, Stream body, string contentType, CancellationToken cancellationToken = default);
 }

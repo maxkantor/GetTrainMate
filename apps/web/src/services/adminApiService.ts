@@ -111,6 +111,26 @@ class AdminApiService {
     return parsed;
   }
 
+  /**
+   * Multipart POST (e.g. file upload). Do not set Content-Type; the browser sets the boundary.
+   */
+  async postForm(endpoint: string, formData: FormData): Promise<any> {
+    const token = getAdminToken();
+    if (!token) {
+      throw new Error('Admin session required. Please sign in at /admin/login.');
+    }
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers: { 'X-Admin-Token': token },
+      body: formData,
+    });
+    const parsed = await this.parseResponse(response);
+    if (!response.ok) {
+      throw this.attachStatusError(response, parsed, `HTTP ${response.status}`);
+    }
+    return parsed;
+  }
+
   async delete(endpoint: string, data?: any): Promise<any> {
     const headers = this.getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
