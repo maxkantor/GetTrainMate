@@ -2,6 +2,13 @@ using System;
 
 namespace GetTrainMate.Api.Services;
 
+/// <summary>In-bucket object bytes for admin CRM image streaming (img tags cannot send X-Admin-Token).</summary>
+public sealed class MediaObjectRead
+{
+    public required byte[] Body { get; init; }
+    public required string ContentType { get; init; }
+}
+
 public interface IStorageService
 {
     string GetPresignedUploadUrl(string key, string contentType, TimeSpan expiresIn);
@@ -11,4 +18,6 @@ public interface IStorageService
     string? TryGetObjectKeyFromCanonicalMediaUrl(string? url);
     /// <summary>If <paramref name="url"/> is an https URL for this app&apos;s media bucket, return a presigned GET URL; otherwise null.</summary>
     string? TryPresignCanonicalMediaUrl(string? url, TimeSpan expiresIn);
+    /// <summary>Read object from the configured media bucket (admin stream / diagnostics).</summary>
+    Task<MediaObjectRead?> TryReadMediaObjectAsync(string key, CancellationToken cancellationToken = default);
 }

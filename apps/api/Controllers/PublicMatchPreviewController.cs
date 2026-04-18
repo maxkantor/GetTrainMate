@@ -56,6 +56,25 @@ public class PublicMatchPreviewController : ControllerBase
         try
         {
             var result = await _preview.GetShowcaseAsync(cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation(
+                "landing-showcase response kind={Kind} deck={DeckLen} activity={ActLen}",
+                result.Kind,
+                result.Deck?.Count ?? 0,
+                result.Activity?.Count ?? 0);
+            if (result.Deck is { Count: > 0 })
+            {
+                foreach (var c in result.Deck.Take(4))
+                {
+                    var u = (c.PhotoUrl ?? string.Empty).Trim();
+                    _logger.LogInformation(
+                        "landing-showcase deck card name={Name} hasPhotoUrl={Has} looksPresigned={Sig}",
+                        c.Name,
+                        u.Length > 0,
+                        u.Contains("X-Amz-Algorithm", StringComparison.OrdinalIgnoreCase)
+                        || u.Contains("AWSAccessKeyId", StringComparison.OrdinalIgnoreCase));
+                }
+            }
+
             return Ok(result);
         }
         catch (Exception ex)

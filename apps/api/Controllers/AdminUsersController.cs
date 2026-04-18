@@ -674,6 +674,31 @@ public class AdminUsersController : ControllerBase
 
             var uid = (profile.UserId ?? string.Empty).Trim();
             var canonicalPhotos = profile.PhotoUrls ?? new List<string>();
+            var photoPreviewUrls = BuildAdminPhotoPreviewList(uid, canonicalPhotos);
+            var firstCanonical = canonicalPhotos.Count > 0 ? (canonicalPhotos[0] ?? string.Empty).Trim() : string.Empty;
+            var firstPreview = photoPreviewUrls.Count > 0 ? (photoPreviewUrls[0] ?? string.Empty).Trim() : string.Empty;
+            var firstPresigned = firstCanonical.Length > 0
+                && firstPreview.Length > 0
+                && !string.Equals(firstCanonical, firstPreview, StringComparison.Ordinal);
+            _logger.LogInformation(
+                "admin.user.detail photos userId={UserId} canonicalCount={Cc} previewCount={Pc} firstPresignedDiffers={Diff}",
+                uid,
+                canonicalPhotos.Count,
+                photoPreviewUrls.Count,
+                firstPresigned);
+            foreach (var pair in canonicalPhotos.Zip(photoPreviewUrls, (c, p) => (Canonical: (c ?? string.Empty).Trim(), Preview: (p ?? string.Empty).Trim())))
+            {
+                if (pair.Canonical.Length == 0) continue;
+                if (pair.Canonical.Contains("amazonaws.com", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(pair.Canonical, pair.Preview, StringComparison.Ordinal))
+                {
+                    _logger.LogWarning(
+                        "admin.user.detail preview-equals-canonical-s3 userId={UserId} hint={Hint}",
+                        uid,
+                        AdminPhotoUrlLogHint(pair.Canonical));
+                }
+            }
+
             return Ok(new UserDetail
             {
                 UserId = uid,
@@ -689,7 +714,7 @@ public class AdminUsersController : ControllerBase
                 SportTags = profile.SportTags,
                 Goals = profile.Goals,
                 PhotoUrls = canonicalPhotos,
-                PhotoPreviewUrls = BuildAdminPhotoPreviewList(uid, canonicalPhotos),
+                PhotoPreviewUrls = photoPreviewUrls,
                 CreatedAt = profile.CreatedAt,
                 Credits = credits.Balance,
                 LifetimeEarned = credits.LifetimeEarned,
@@ -1176,6 +1201,69 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
+    /// GET /api/admin/users/{userId}/photos/stream?index=0&amp;adminToken=… — stream S3 object through API (img cannot send X-Admin-Token).
+    /// </summary>
+    [HttpGet("{userId}/photos/stream")]
+    public async Task<IActionResult> StreamProfilePhoto(string userId, [FromQuery] int index, CancellationToken ct)
+    {
+        try
+        {
+            var normalizedUserId = (userId ?? string.Empty).Trim();
+            if (normalizedUserId.Length == 0)
+                return BadRequest();
+
+            var profile = await _profileService.GetProfileForAdminAsync(normalizedUserId).ConfigureAwait(false);
+            if (profile == null)
+                return NotFound();
+
+            var urls = profile.PhotoUrls ?? new List<string>();
+            if (index < 0 || index >= urls.Count)
+                return NotFound();
+
+            var raw = (urls[index] ?? string.Empty).Trim();
+            if (raw.Length == 0)
+                return NotFound();
+
+            if (!TryResolveOwnedProfilePhotoStorageKey(normalizedUserId, raw, out var objectKey))
+            {
+                _logger.LogWarning(
+                    "admin.photo.stream no-storage-key userId={UserId} index={Index} hint={Hint}",
+                    normalizedUserId,
+                    index,
+                    AdminPhotoUrlLogHint(raw));
+                return NotFound();
+            }
+
+            var blob = await _storageService.TryReadMediaObjectAsync(objectKey, ct).ConfigureAwait(false);
+            if (blob == null || blob.Body.Length == 0)
+            {
+                _logger.LogWarning(
+                    "admin.photo.stream s3-empty userId={UserId} index={Index} keyPrefix={KeyPrefix}",
+                    normalizedUserId,
+                    index,
+                    objectKey.Length > 48 ? objectKey[..48] + "…" : objectKey);
+                return NotFound();
+            }
+
+            _logger.LogInformation(
+                "admin.photo.stream ok userId={UserId} index={Index} bytes={Bytes} contentType={Ct} keyPrefix={KeyPrefix}",
+                normalizedUserId,
+                index,
+                blob.Body.Length,
+                blob.ContentType,
+                objectKey.Length > 48 ? objectKey[..48] + "…" : objectKey);
+
+            Response.Headers.CacheControl = "private, max-age=120";
+            return File(blob.Body, blob.ContentType, enableRangeProcessing: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "admin.photo.stream error userId={UserId} index={Index}", userId, index);
+            return StatusCode(500);
+        }
+    }
+
+    /// <summary>
     /// POST /api/admin/users/test-users/{userId}/photos/preview-urls
     /// Presigned GET URLs for admin image preview when the media bucket is not public-read.
     /// </summary>
@@ -1223,10 +1311,41 @@ public class AdminUsersController : ControllerBase
             if (TryPresignOwnedProfilePhotoUrl(normalizedUserId, u, out var signed))
                 list.Add(signed);
             else
+            {
+                if (u.Contains("amazonaws.com", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "admin.photo.preview-fallback-canonical userId={UserId} hint={Hint}",
+                        normalizedUserId,
+                        AdminPhotoUrlLogHint(u));
+                }
+
                 list.Add(u);
+            }
         }
 
         return list;
+    }
+
+    /// <summary>Resolves S3 object key for <c>profiles/{userId}/…</c> owned by the profile.</summary>
+    private bool TryResolveOwnedProfilePhotoStorageKey(string normalizedUserId, string trimmedUrl, out string objectKey)
+    {
+        objectKey = string.Empty;
+        if (TryGetProfilePhotoKey(trimmedUrl, normalizedUserId, out var pathKey))
+        {
+            objectKey = pathKey;
+            return true;
+        }
+
+        var extracted = _storageService.TryGetObjectKeyFromCanonicalMediaUrl(trimmedUrl);
+        if (!string.IsNullOrEmpty(extracted)
+            && extracted.StartsWith($"profiles/{normalizedUserId}/", StringComparison.OrdinalIgnoreCase))
+        {
+            objectKey = extracted;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>Presign when URL points at <c>profiles/{userId}/…</c> in our media bucket (virtual-hosted or path-style).</summary>
@@ -1236,26 +1355,23 @@ public class AdminUsersController : ControllerBase
         if (string.IsNullOrEmpty(trimmedUrl)) return false;
         try
         {
-            if (TryGetProfilePhotoKey(trimmedUrl, normalizedUserId, out var keyFromPath))
-            {
-                presignedUrl = _storageService.GetPresignedDownloadUrl(keyFromPath, TimeSpan.FromHours(12));
-                return true;
-            }
-
-            var objectKey = _storageService.TryGetObjectKeyFromCanonicalMediaUrl(trimmedUrl);
-            if (!string.IsNullOrEmpty(objectKey)
-                && objectKey.StartsWith($"profiles/{normalizedUserId}/", StringComparison.OrdinalIgnoreCase))
-            {
-                presignedUrl = _storageService.GetPresignedDownloadUrl(objectKey, TimeSpan.FromHours(12));
-                return true;
-            }
+            if (!TryResolveOwnedProfilePhotoStorageKey(normalizedUserId, trimmedUrl, out var objectKey))
+                return false;
+            presignedUrl = _storageService.GetPresignedDownloadUrl(objectKey, TimeSpan.FromHours(12));
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Admin presign profile photo UserId={UserId}", normalizedUserId);
+            return false;
         }
+    }
 
-        return false;
+    private static string AdminPhotoUrlLogHint(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return "not-a-uri";
+        var path = u.AbsolutePath.Length > 80 ? u.AbsolutePath[..80] + "…" : u.AbsolutePath;
+        return $"{u.Scheme}://{u.IdnHost}{path}";
     }
 
     /// <summary>HTTPS S3 URL whose path is <c>profiles/{userId}/…</c> (user id segment case-insensitive).</summary>

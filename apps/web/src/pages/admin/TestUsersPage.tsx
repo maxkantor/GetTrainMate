@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { API_BASE_URL } from '@/config/api';
 import { adminApiService } from '@/services/adminApiService';
+import { getAdminToken } from '@/services/adminAuthStorage';
 import { pickPagedItems, pickPagedMeta, normalizeAdminUserRow } from '@/utils/adminApiNormalize';
 import { PROFILE_SPORTS, normalizeSportTagsToCanonical, sortSportsByProfileOrder } from '@/constants/profileSports';
 import { DataTable, Column } from '@/components/ui/DataTable';
@@ -50,6 +52,14 @@ function pickPhotoPreviewSrc(canonicalLine: string, map: Record<string, string>)
   if (!t) return canonicalLine;
   const hit = map[t] ?? map[canonicalLine];
   return hit && hit.length > 0 ? hit : t;
+}
+
+/** Same-origin API stream (token in query) — works when S3 presigned GET is blocked in the browser. */
+function adminProfilePhotoStreamUrl(userId: string, slotIndex: number): string | null {
+  const t = getAdminToken();
+  if (!t || !userId) return null;
+  const q = new URLSearchParams({ index: String(slotIndex), adminToken: t });
+  return `${API_BASE_URL}/api/admin/users/${encodeURIComponent(userId)}/photos/stream?${q.toString()}`;
 }
 
 const EMPTY_FORM: TestUserFormState = {
@@ -198,6 +208,15 @@ export const TestUsersPage: React.FC = () => {
             m[key] = p.length > 0 ? p : key;
           });
           setPhotoPreviewMap(m);
+          if (typeof window !== 'undefined' && window.localStorage.getItem('gtmDebugAdminPhotos') === '1') {
+            // eslint-disable-next-line no-console
+            console.warn('[GetTrainMate] admin user detail photos', {
+              userId: row.userId,
+              canonical: photoUrlsCapped,
+              previewLens: previewsCapped.map((p) => p.length),
+              streamSample: adminProfilePhotoStreamUrl(row.userId, 0)?.slice(0, 120),
+            });
+          }
         } else {
           try {
             const prevRes = await adminApiService.post(
@@ -759,8 +778,26 @@ export const TestUsersPage: React.FC = () => {
                           <div className={styles.photoPreviewFrame}>
                             <img
                               className={styles.photoPreview}
-                              src={pickPhotoPreviewSrc(url, photoPreviewMap)}
+                              src={
+                                activeUserId
+                                  ? adminProfilePhotoStreamUrl(activeUserId, index) ??
+                                    pickPhotoPreviewSrc(url, photoPreviewMap)
+                                  : pickPhotoPreviewSrc(url, photoPreviewMap)
+                              }
                               alt=""
+                              onError={(e) => {
+                                if (
+                                  typeof window !== 'undefined' &&
+                                  window.localStorage.getItem('gtmDebugAdminPhotos') === '1'
+                                ) {
+                                  // eslint-disable-next-line no-console
+                                  console.warn('[GetTrainMate] admin photo img onError', {
+                                    userId: activeUserId,
+                                    index,
+                                    srcSample: (e.currentTarget.currentSrc || '').slice(0, 180),
+                                  });
+                                }
+                              }}
                             />
                             <button
                               type="button"

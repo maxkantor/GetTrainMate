@@ -1,3 +1,4 @@
+using System.Net;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.Extensions.Configuration;
@@ -6,6 +7,8 @@ namespace GetTrainMate.Api.Services;
 
 public class S3StorageService : IStorageService
 {
+    private const int MaxProfileImageBytes = 15 * 1024 * 1024;
+
     private readonly IAmazonS3 _s3;
     private readonly string _bucket;
 
@@ -95,6 +98,52 @@ public class S3StorageService : IStorageService
         try
         {
             return GetPresignedDownloadUrl(key, expiresIn);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<MediaObjectRead?> TryReadMediaObjectAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return null;
+        try
+        {
+            var request = new GetObjectRequest
+            {
+                BucketName = _bucket,
+                Key = key,
+            };
+
+            using var resp = await _s3.GetObjectAsync(request, cancellationToken).ConfigureAwait(false);
+            if (resp.ContentLength > 0 && resp.ContentLength > MaxProfileImageBytes)
+                return null;
+
+            await using var input = resp.ResponseStream;
+            var capacity = resp.ContentLength > 0
+                ? (int)Math.Min(resp.ContentLength, MaxProfileImageBytes)
+                : 64 * 1024;
+            await using var ms = new MemoryStream(capacity);
+            var buffer = new byte[65536];
+            long total = 0;
+            while (total < MaxProfileImageBytes)
+            {
+                var toRead = (int)Math.Min(buffer.Length, MaxProfileImageBytes - total);
+                var n = await input.ReadAsync(buffer.AsMemory(0, toRead), cancellationToken).ConfigureAwait(false);
+                if (n == 0) break;
+                ms.Write(buffer, 0, n);
+                total += n;
+            }
+
+            var ct = string.IsNullOrWhiteSpace(resp.Headers.ContentType)
+                ? "application/octet-stream"
+                : resp.Headers.ContentType;
+            return new MediaObjectRead { Body = ms.ToArray(), ContentType = ct };
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
         }
         catch
         {

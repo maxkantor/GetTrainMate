@@ -42,6 +42,15 @@ public class AdminTokenAuthMiddleware
         }
 
         var token = context.Request.Headers["X-Admin-Token"].FirstOrDefault();
+        // <img src> cannot send custom headers — photo stream accepts the same token in query (short TTL risk: treat like URL with secret).
+        if (string.IsNullOrWhiteSpace(token)
+            && HttpMethods.IsGet(context.Request.Method)
+            && path.Value?.Contains("/photos/stream", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            token = context.Request.Query["adminToken"].FirstOrDefault()
+                    ?? context.Request.Query["x-admin-token"].FirstOrDefault();
+        }
+
         if (string.IsNullOrWhiteSpace(token))
         {
             await _next(context);
