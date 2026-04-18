@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { Locale, DEFAULT_LOCALE, SUPPORTED_LOCALES } from '@/i18n';
 
 interface I18nContextType {
@@ -33,20 +33,20 @@ export const I18nProvider: React.FC<I18nProviderProps> = ({ children }) => {
     return DEFAULT_LOCALE;
   });
 
-  const handleSetLocale = (newLocale: Locale) => {
+  const handleSetLocale = useCallback((newLocale: Locale) => {
     setLocale(newLocale);
     localStorage.setItem('locale', newLocale);
-    // Update HTML lang attribute for accessibility
     document.documentElement.lang = newLocale;
-  };
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
 
-  return (
-    <I18nContext.Provider value={{ locale, setLocale: handleSetLocale }}>
-      {children}
-    </I18nContext.Provider>
+  const value = useMemo(
+    () => ({ locale, setLocale: handleSetLocale }),
+    [locale, handleSetLocale]
   );
+
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 };
