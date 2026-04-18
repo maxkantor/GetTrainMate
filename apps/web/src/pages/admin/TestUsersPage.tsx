@@ -44,6 +44,14 @@ function parsePhotoUrlLines(raw: string): string[] {
     .slice(0, MAX_TEST_USER_PHOTOS);
 }
 
+/** Prefer presigned GET for img src; tolerate minor key drift (trim). */
+function pickPhotoPreviewSrc(canonicalLine: string, map: Record<string, string>): string {
+  const t = canonicalLine.trim();
+  if (!t) return canonicalLine;
+  const hit = map[t] ?? map[canonicalLine];
+  return hit && hit.length > 0 ? hit : t;
+}
+
 const EMPTY_FORM: TestUserFormState = {
   userId: '',
   name: '',
@@ -148,12 +156,15 @@ export const TestUsersPage: React.FC = () => {
     try {
       const detail = await adminApiService.get(`/api/admin/users/${encodeURIComponent(row.userId)}`);
       const o = (detail && typeof detail === 'object' ? detail : {}) as Record<string, unknown>;
-      const photoUrls = Array.isArray(o.photoUrls ?? o.PhotoUrls)
-        ? ((o.photoUrls ?? o.PhotoUrls) as unknown[]).map((x) => String(x))
+      const photoUrlsArr = Array.isArray(o.photoUrls ?? o.PhotoUrls)
+        ? ((o.photoUrls ?? o.PhotoUrls) as unknown[]).map((x) => String(x ?? ''))
         : [];
       const photoPreviewFromGet = Array.isArray(o.photoPreviewUrls ?? o.PhotoPreviewUrls)
-        ? ((o.photoPreviewUrls ?? o.PhotoPreviewUrls) as unknown[]).map((x) => String(x))
+        ? ((o.photoPreviewUrls ?? o.PhotoPreviewUrls) as unknown[]).map((x) => String(x ?? ''))
         : [];
+      const photoUrlsCapped = photoUrlsArr.slice(0, MAX_TEST_USER_PHOTOS);
+      const previewsCapped = photoPreviewFromGet.slice(0, MAX_TEST_USER_PHOTOS);
+      const photoUrlsDense = photoUrlsCapped.map((x) => x.trim()).filter(Boolean);
       const rawSports = Array.isArray(o.sportTags ?? o.SportTags)
         ? ((o.sportTags ?? o.SportTags) as unknown[]).map((x) => String(x))
         : [];
@@ -175,15 +186,15 @@ export const TestUsersPage: React.FC = () => {
         mode: String(o.mode ?? o.Mode ?? 'TRAIN'),
         sportTags,
         goals,
-        photoUrls: photoUrls.join('\n'),
+        photoUrls: photoUrlsDense.join('\n'),
       });
-      if (photoUrls.length > 0) {
-        if (photoPreviewFromGet.length === photoUrls.length) {
+      if (photoUrlsDense.length > 0) {
+        if (previewsCapped.length === photoUrlsCapped.length && photoUrlsCapped.length > 0) {
           const m: Record<string, string> = {};
-          photoUrls.forEach((c, i) => {
+          photoUrlsCapped.forEach((c, i) => {
             const key = c.trim();
             if (!key) return;
-            const p = (photoPreviewFromGet[i] || '').trim();
+            const p = (previewsCapped[i] ?? '').trim();
             m[key] = p.length > 0 ? p : key;
           });
           setPhotoPreviewMap(m);
@@ -191,7 +202,7 @@ export const TestUsersPage: React.FC = () => {
           try {
             const prevRes = await adminApiService.post(
               `/api/admin/users/test-users/${encodeURIComponent(row.userId)}/photos/preview-urls`,
-              { urls: photoUrls, Urls: photoUrls }
+              { urls: photoUrlsDense, Urls: photoUrlsDense }
             );
             const raw = (prevRes as { previews?: Record<string, string>; Previews?: Record<string, string> }) ?? {};
             const previews = raw.previews ?? raw.Previews;
@@ -748,7 +759,7 @@ export const TestUsersPage: React.FC = () => {
                           <div className={styles.photoPreviewFrame}>
                             <img
                               className={styles.photoPreview}
-                              src={photoPreviewMap[url] ?? url}
+                              src={pickPhotoPreviewSrc(url, photoPreviewMap)}
                               alt=""
                             />
                             <button
