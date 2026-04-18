@@ -676,7 +676,7 @@ public class AdminUsersController : ControllerBase
             var canonicalPhotos = profile.PhotoUrls ?? new List<string>();
             return Ok(new UserDetail
             {
-                UserId = profile.UserId,
+                UserId = uid,
                 Email = email ?? string.Empty,
                 Name = profile.Name,
                 Status = isDeleted ? "deleted" : "active",
