@@ -65,6 +65,12 @@ function toLocation(data: {
 
 export async function getLocationFromIp(): Promise<IpLocation | null> {
   if (cached) return cached;
+  // Third-party IP APIs (ip-api, ipwho, etc.) often return 403 or omit CORS from real production
+  // origins — browser fetch fails every time and spams the console. Discover already uses
+  // FALLBACK_LOCATION when this returns null; no need to hammer these URLs in production.
+  if (typeof import.meta !== 'undefined' && import.meta.env?.PROD) {
+    return null;
+  }
   for (const { url, parse } of PROVIDERS) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
