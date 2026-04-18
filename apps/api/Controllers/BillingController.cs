@@ -237,16 +237,18 @@ public class BillingController : ControllerBase
             Request.Headers["X-Amzn-Trace-Id"].FirstOrDefault() ?? "(none)");
 
         var json = await StripeWebhookVerification.ReadRawBodyUtf8Async(Request, cancellationToken);
-        var signature = Request.Headers["Stripe-Signature"].FirstOrDefault();
+        var sigHeaderParts = Request.Headers["Stripe-Signature"].Count;
+        var signature = StripeWebhookVerification.GetStripeSignatureHeader(Request.Headers);
         var bodySha = StripeWebhookVerification.BodySha256Prefix12(json);
         var sigT = StripeWebhookVerification.TryGetSignatureTimestamp(signature);
         var v1Count = StripeWebhookVerification.CountV1Signatures(signature);
         _logger.LogInformation(
-            "Stripe webhook payload: requestId={RequestId} utf8Len={Len} bodySha256p12={Sha} hasStripeSignature={HasSig} sigT={SigT} v1Signatures={V1}",
+            "Stripe webhook payload: requestId={RequestId} utf8Len={Len} bodySha256p12={Sha} hasStripeSignature={HasSig} stripeSigHeaderParts={SigParts} sigT={SigT} v1Signatures={V1}",
             requestId,
             json.Length,
             bodySha,
             !string.IsNullOrEmpty(signature),
+            sigHeaderParts,
             sigT?.ToString(CultureInfo.InvariantCulture) ?? "(missing)",
             v1Count);
 

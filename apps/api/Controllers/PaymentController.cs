@@ -135,7 +135,7 @@ public class PaymentController : ControllerBase
         try
         {
             var json = await StripeWebhookVerification.ReadRawBodyUtf8Async(Request, cancellationToken);
-            var signature = Request.Headers["Stripe-Signature"].FirstOrDefault();
+            var signature = StripeWebhookVerification.GetStripeSignatureHeader(Request.Headers);
 
             Stripe.Event stripeEvent;
             if (_webhookSecret.HasSigningSecrets && !string.IsNullOrEmpty(signature))

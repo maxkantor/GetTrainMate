@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Http;
@@ -14,6 +15,20 @@ public static class StripeWebhookVerification
 {
     /// <summary>Stripe allows clock skew between signing and delivery; default SDK tolerance is 300s.</summary>
     public const int SignatureToleranceSeconds = 600;
+
+    /// <summary>
+    /// API Gateway HTTP API (and some proxies) may forward <c>Stripe-Signature</c> as multiple header values
+    /// (e.g. separate <c>t=</c> and <c>v1=</c>). Taking only the first value drops <c>v1</c>, Stripe.NET reports
+    /// "expected signature was not found" and <c>v1</c> count appears as 0.
+    /// </summary>
+    public static string? GetStripeSignatureHeader(IHeaderDictionary headers)
+    {
+        if (!headers.TryGetValue("Stripe-Signature", out var values) || values.Count == 0)
+            return null;
+        if (values.Count == 1)
+            return values[0];
+        return string.Join(",", values.Select(s => s ?? string.Empty));
+    }
 
     public static async Task<string> ReadRawBodyUtf8Async(HttpRequest request, CancellationToken cancellationToken = default)
     {
