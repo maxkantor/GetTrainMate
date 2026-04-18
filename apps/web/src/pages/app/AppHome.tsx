@@ -31,6 +31,7 @@ import {
   peekNewUserDashboardGreeting,
   clearNewUserDashboardGreeting,
 } from '@/utils/pendingSignupStorage';
+import { trackMatchSearchClicked } from '@/utils/analytics';
 
 const cardSx = {
   borderRadius: 2,
@@ -307,6 +308,7 @@ export const AppHomePage: React.FC = () => {
           size="large"
           fullWidth
           startIcon={<ExploreOutlinedIcon />}
+          onClick={() => trackMatchSearchClicked('Start Discovering CTA')}
           sx={{ mb: 3, py: 1.5, fontWeight: 600 }}
         >
           {t('app_pages.home.start_discovering')}

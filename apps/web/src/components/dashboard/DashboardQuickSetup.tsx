@@ -24,6 +24,7 @@ import {
   type DashboardTimeId,
 } from '@/config/dashboardQuickSetup';
 import { readSignupDisplayName, clearSignupDisplayName } from '@/utils/pendingSignupStorage';
+import { trackMatchSearchClicked } from '@/utils/analytics';
 
 /**
  * First-time dashboard: one-tap training type, level, and time — then profile is complete enough for Discover.
@@ -45,6 +46,7 @@ export const DashboardQuickSetup: React.FC = () => {
     'Athlete';
 
   const handleSubmit = async () => {
+    trackMatchSearchClicked('Find Match Button');
     setError('');
     try {
       setSaving(true);

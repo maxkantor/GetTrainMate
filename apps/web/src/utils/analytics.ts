@@ -63,6 +63,14 @@ export function trackGeneratePlan(kind: string): void {
 }
 
 /** Stripe checkout redirect — uses GA4 recommended `begin_checkout`. */
+/** Primary “find matches” funnel — GA4 custom event + legacy dimensions for explorations. */
+export function trackMatchSearchClicked(eventLabel: string): void {
+  gaEvent('match_search_clicked', {
+    event_category: 'engagement',
+    event_label: eventLabel,
+  });
+}
+
 export function trackBeginCheckout(params: {
   packKey: string;
   itemName: string;
