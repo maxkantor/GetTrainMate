@@ -18,11 +18,11 @@ public class S3StorageService : IStorageService
     {
         _s3 = s3;
         _logger = logger;
-        _bucket = configuration["MEDIA_BUCKET"] 
+        _bucket = (configuration["MEDIA_BUCKET"] 
             ?? configuration["MEDIA_BUCKET_NAME"]
             ?? Environment.GetEnvironmentVariable("MEDIA_BUCKET") 
             ?? Environment.GetEnvironmentVariable("MEDIA_BUCKET_NAME") 
-            ?? string.Empty;
+            ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(_bucket))
         {
             throw new InvalidOperationException("MEDIA_BUCKET is not configured");

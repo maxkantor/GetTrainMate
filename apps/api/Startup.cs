@@ -5,6 +5,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.SimpleSystemsManagement;
 using Amazon.SimpleSystemsManagement.Model;
+using Amazon.Runtime;
 using Amazon.S3;
 using GetTrainMate.Api.Configuration;
 using GetTrainMate.Api.Services;
@@ -79,10 +80,21 @@ public class Startup
                 Configuration["AWS:Region"],
                 Configuration["Aws:Region"]) ?? "us-east-1";
             var re = RegionEndpoint.GetBySystemName(regionName);
+            // us-east-1 defaults to legacy global endpoint (s3.amazonaws.com); that can yield NoSuchBucket on GetObject
+            // for normal buckets — force regional endpoint (s3.us-east-1.amazonaws.com).
+            var s3Config = new AmazonS3Config { RegionEndpoint = re };
+            if (string.Equals(regionName, "us-east-1", StringComparison.OrdinalIgnoreCase))
+            {
+                s3Config.USEast1RegionalEndpointValue = S3UsEast1RegionalEndpointValue.Regional;
+            }
+
             Log.Information(
-                "S3 client (media GetObject/presign) using region {Region} (override with MEDIA_BUCKET_REGION if bucket is not here)",
-                regionName);
-            return new AmazonS3Client(re);
+                "S3 client (media GetObject/presign) region={Region} usEast1Endpoint={UsEast1Mode} (set MEDIA_BUCKET_REGION if bucket is not in this region)",
+                regionName,
+                string.Equals(regionName, "us-east-1", StringComparison.OrdinalIgnoreCase)
+                    ? "regional"
+                    : "n/a");
+            return new AmazonS3Client(s3Config);
         });
         services.AddAWSService<Amazon.SimpleEmail.IAmazonSimpleEmailService>();
         services.AddScoped<IDynamoDBContext>(sp => new DynamoDBContext(sp.GetRequiredService<IAmazonDynamoDB>()));
