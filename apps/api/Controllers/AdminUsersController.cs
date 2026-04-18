@@ -1190,8 +1190,20 @@ public class AdminUsersController : ControllerBase
             {
                 var url = (raw ?? string.Empty).Trim();
                 if (url.Length == 0) continue;
-                if (!TryGetProfilePhotoKey(url, normalizedUserId, out var key)) continue;
-                previews[url] = _storageService.GetPresignedDownloadUrl(key, TimeSpan.FromHours(12));
+
+                if (TryGetProfilePhotoKey(url, normalizedUserId, out var keyFromPath))
+                {
+                    previews[url] = _storageService.GetPresignedDownloadUrl(keyFromPath, TimeSpan.FromHours(12));
+                    continue;
+                }
+
+                // Path-style canonical URLs: /{bucket}/profiles/{userId}/… — TryGetProfilePhotoKey misses these.
+                var objectKey = _storageService.TryGetObjectKeyFromCanonicalMediaUrl(url);
+                if (!string.IsNullOrEmpty(objectKey)
+                    && objectKey.StartsWith($"profiles/{normalizedUserId}/", StringComparison.OrdinalIgnoreCase))
+                {
+                    previews[url] = _storageService.GetPresignedDownloadUrl(objectKey, TimeSpan.FromHours(12));
+                }
             }
 
             return Ok(new { previews });

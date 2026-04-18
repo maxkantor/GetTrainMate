@@ -394,6 +394,19 @@ public class LandingMatchPreviewService : ILandingMatchPreviewService
                 return url;
         }
 
+        // Seeded dummy CRM rows (DummyProfilePhotos) store curated Unsplash only — still show them when
+        // nothing in S3/legacy resolved. Never use randomuser.me (wrong face vs catalog).
+        foreach (var url in ordered)
+        {
+            if (!IsStockOrPlaceholderImageUrl(url))
+                continue;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var stockUri))
+                continue;
+            if (stockUri.IdnHost.Contains("randomuser.me", StringComparison.OrdinalIgnoreCase))
+                continue;
+            return url;
+        }
+
         return ResolveShowcasePhotoFromLegacyKeys(p);
     }
 

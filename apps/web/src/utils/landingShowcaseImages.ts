@@ -1,23 +1,15 @@
-import { landingShowcaseDebugEnabled, logLandingShowcase, redactUrlForLog } from '@/utils/landingShowcaseDebug';
+import { landingShowcaseDebugEnabled, logLandingShowcase } from '@/utils/landingShowcaseDebug';
 import { NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 
-/** Never show seed / stock URLs in marketing — they are not the CRM S3 uploads. */
-export function isLandingStockOrPlaceholderPhotoUrl(url: string | undefined | null): boolean {
-  const u = (url || '').trim();
-  if (!u) return true;
-  return /images\.unsplash\.com|picsum\.photo|randomuser\.me/i.test(u);
-}
-
-/** Prefer API presigned S3; if missing or stock, neutral placeholder (never Unsplash). */
+/**
+ * Public landing-showcase JSON is server-curated (presigned S3, CDN, or seeded dummy Unsplash).
+ * Do not second-guess URLs here — stripping stock previously hid real CRM dummy seeds and broke the deck.
+ */
 export function pickLandingShowcasePhotoUrl(apiUrl: string | undefined | null): string {
   const u = (apiUrl || '').trim();
-  if (u && !isLandingStockOrPlaceholderPhotoUrl(u)) return u;
+  if (u) return u;
   if (landingShowcaseDebugEnabled()) {
-    logLandingShowcase('pickLandingShowcasePhotoUrl → NO_PHOTO', {
-      hadUrl: Boolean(u),
-      url: redactUrlForLog(u || undefined),
-      reason: !u ? 'empty' : 'stock_or_blocked_host',
-    });
+    logLandingShowcase('pickLandingShowcasePhotoUrl → NO_PHOTO', { reason: 'empty' });
   }
   return NO_PHOTO_PLACEHOLDER;
 }

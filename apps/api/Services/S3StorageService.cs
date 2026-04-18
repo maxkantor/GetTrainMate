@@ -55,7 +55,7 @@ public class S3StorageService : IStorageService
         return _s3.GetPreSignedURL(request);
     }
 
-    public string? TryPresignCanonicalMediaUrl(string? url, TimeSpan expiresIn)
+    public string? TryGetObjectKeyFromCanonicalMediaUrl(string? url)
     {
         if (string.IsNullOrWhiteSpace(url)) return null;
         if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri)) return null;
@@ -64,24 +64,14 @@ public class S3StorageService : IStorageService
         var host = uri.IdnHost;
         if (string.IsNullOrEmpty(host)) return null;
 
-        // Virtual-hosted: {bucket}.s3.amazonaws.com or {bucket}.s3.<region>.amazonaws.com
         var bucketPrefix = $"{_bucket}.s3.";
         if (host.StartsWith(bucketPrefix, StringComparison.OrdinalIgnoreCase)
             && host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase))
         {
             var vhKey = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/'));
-            if (string.IsNullOrEmpty(vhKey)) return null;
-            try
-            {
-                return GetPresignedDownloadUrl(vhKey, expiresIn);
-            }
-            catch
-            {
-                return null;
-            }
+            return string.IsNullOrEmpty(vhKey) ? null : vhKey;
         }
 
-        // Path-style: https://s3.<region>.amazonaws.com/<bucket>/<key> (stored URLs differ from GetPublicUrl)
         if (host.StartsWith("s3.", StringComparison.OrdinalIgnoreCase)
             && host.EndsWith(".amazonaws.com", StringComparison.OrdinalIgnoreCase)
             && !host.StartsWith(bucketPrefix, StringComparison.OrdinalIgnoreCase))
@@ -91,18 +81,24 @@ public class S3StorageService : IStorageService
                 && string.Equals(segments[0], _bucket, StringComparison.OrdinalIgnoreCase))
             {
                 var pathKey = Uri.UnescapeDataString(string.Join("/", segments.Skip(1)));
-                if (string.IsNullOrEmpty(pathKey)) return null;
-                try
-                {
-                    return GetPresignedDownloadUrl(pathKey, expiresIn);
-                }
-                catch
-                {
-                    return null;
-                }
+                return string.IsNullOrEmpty(pathKey) ? null : pathKey;
             }
         }
 
         return null;
+    }
+
+    public string? TryPresignCanonicalMediaUrl(string? url, TimeSpan expiresIn)
+    {
+        var key = TryGetObjectKeyFromCanonicalMediaUrl(url);
+        if (string.IsNullOrEmpty(key)) return null;
+        try
+        {
+            return GetPresignedDownloadUrl(key, expiresIn);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
