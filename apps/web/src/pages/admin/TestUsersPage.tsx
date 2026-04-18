@@ -178,15 +178,19 @@ export const TestUsersPage: React.FC = () => {
         try {
           const prevRes = await adminApiService.post(
             `/api/admin/users/test-users/${encodeURIComponent(row.userId)}/photos/preview-urls`,
-            { urls: photoUrls }
+            { urls: photoUrls, Urls: photoUrls }
           );
           const raw = (prevRes as { previews?: Record<string, string>; Previews?: Record<string, string> }) ?? {};
           const previews = raw.previews ?? raw.Previews;
           if (previews && typeof previews === 'object') {
             setPhotoPreviewMap(previews);
           }
-        } catch {
+        } catch (prevErr: unknown) {
           setPhotoPreviewMap({});
+          setError(
+            (prevErr as Error)?.message ||
+              'Could not load signed photo previews (private bucket). Save is unaffected; try refresh or re-open the user.'
+          );
         }
       } else {
         setPhotoPreviewMap({});

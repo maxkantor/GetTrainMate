@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Constants;
@@ -1401,6 +1402,8 @@ public class AdminPhotoUploadRequest
 
 public class AdminPhotoPreviewBatchRequest
 {
+    /// <summary>Canonical photo URLs (one per line in CRM). Explicit name so binding works if JSON options change.</summary>
+    [JsonPropertyName("urls")]
     public List<string> Urls { get; set; } = new();
 }
 

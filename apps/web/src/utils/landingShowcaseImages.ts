@@ -14,10 +14,11 @@ export function pickLandingShowcasePhotoUrl(apiUrl: string | undefined | null): 
   return NO_PHOTO_PLACEHOLDER;
 }
 
-/** Props for landing hero / deck photos so S3 presigned URLs load reliably in the browser. */
-export function landingShowcaseImageProps(url: string): { referrerPolicy?: 'no-referrer' } {
-  const u = (url || '').trim();
-  if (!u || u.startsWith('data:')) return {};
-  if (/^https?:\/\//i.test(u)) return { referrerPolicy: 'no-referrer' };
+/**
+ * Extra props for landing hero / deck images.
+ * Avoid `referrerPolicy: no-referrer`: buckets that allow GetObject only for your site's Referer
+ * will 403 presigned URLs when the browser sends no Referer.
+ */
+export function landingShowcaseImageProps(_url: string): Record<string, never> {
   return {};
 }
