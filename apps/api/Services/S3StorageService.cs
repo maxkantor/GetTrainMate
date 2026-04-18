@@ -42,6 +42,16 @@ public class S3StorageService : IStorageService
                 _bucket);
         }
 
+        // Smart quotes / Unicode in Lambda env → stripped chars → wrong bucket → NoSuchBucket (looks "correct" in logs).
+        if (_bucket.Length < raw.Length)
+        {
+            _logger.LogCritical(
+                "MEDIA_BUCKET lost {Removed} character(s) during DNS sanitization (non a-z0-9.-). Sanitized={Bucket} Utf8Hex={Hex} — re-type MEDIA_BUCKET / MEDIA_BUCKET_NAME in Lambda (ASCII only, no smart quotes).",
+                raw.Length - _bucket.Length,
+                _bucket,
+                Convert.ToHexString(Encoding.UTF8.GetBytes(raw)));
+        }
+
         LogIfLikelyMediaBucketTypo(_bucket, _logger);
         _logger.LogInformation("S3 media operations use bucket {Bucket}", _bucket);
     }
@@ -269,6 +279,25 @@ public class S3StorageService : IStorageService
                     KeyLog(objectKey));
             }
 
+            try
+            {
+                using var legacy = CreateUsEast1LegacyVirtualHostedClient();
+                var legacyBody = await ReadObjectBodyAsync(legacy, _bucket, objectKey, cancellationToken)
+                    .ConfigureAwait(false);
+                _logger.LogInformation(
+                    "S3 GetObject succeeded via us-east-1 legacy global endpoint fallback Bucket={Bucket}",
+                    _bucket);
+                return legacyBody;
+            }
+            catch (Exception legacyEx)
+            {
+                _logger.LogWarning(
+                    legacyEx,
+                    "S3 GetObject legacy global endpoint fallback failed Bucket={Bucket} Key={Key}",
+                    _bucket,
+                    KeyLog(objectKey));
+            }
+
             return null;
         }
         catch (AmazonS3Exception ex)
@@ -299,10 +328,11 @@ public class S3StorageService : IStorageService
         }
 
         _logger.LogWarning(
-            "S3 GetObject NoSuchBucket Bucket={Bucket} bucketLen={BucketLen} firstChars={Chars} Key={Key} Message={Message}",
+            "S3 GetObject NoSuchBucket Bucket={Bucket} bucketLen={BucketLen} firstChars={Chars} utf8Hex={Utf8Hex} Key={Key} Message={Message}",
             _bucket,
             _bucket.Length,
             prefix.ToString(),
+            Convert.ToHexString(Encoding.UTF8.GetBytes(_bucket)),
             KeyLog(objectKey),
             ex.Message);
     }
@@ -370,6 +400,17 @@ public class S3StorageService : IStorageService
             RegionEndpoint = RegionEndpoint.USEast1,
             USEast1RegionalEndpointValue = S3UsEast1RegionalEndpointValue.Regional,
             ForcePathStyle = true,
+        };
+        return new AmazonS3Client(cfg);
+    }
+
+    /// <summary>Legacy <c>s3.amazonaws.com</c> virtual-hosted style (rare; some misconfigurations only succeed here).</summary>
+    private static AmazonS3Client CreateUsEast1LegacyVirtualHostedClient()
+    {
+        var cfg = new AmazonS3Config
+        {
+            RegionEndpoint = RegionEndpoint.USEast1,
+            USEast1RegionalEndpointValue = S3UsEast1RegionalEndpointValue.Legacy,
         };
         return new AmazonS3Client(cfg);
     }
