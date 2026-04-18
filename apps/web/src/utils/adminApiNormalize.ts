@@ -77,14 +77,20 @@ export function normalizeAdminUserDetail(raw: unknown): {
   credits: number;
   lifetimeEarned: number;
   unlimitedDiscovery: boolean;
+  emailReleasedForSignup?: boolean;
 } {
   const base = normalizeAdminUserRow(raw);
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const er =
+    o.emailReleasedForSignup != null || o.EmailReleasedForSignup != null
+      ? Boolean(o.emailReleasedForSignup ?? o.EmailReleasedForSignup)
+      : undefined;
   return {
     ...base,
     credits: Number(o.credits ?? o.Credits ?? base.credits ?? 0) || 0,
     lifetimeEarned: Number(o.lifetimeEarned ?? o.LifetimeEarned ?? 0) || 0,
     unlimitedDiscovery: Boolean(o.unlimitedDiscovery ?? o.UnlimitedDiscovery ?? false),
+    ...(er !== undefined ? { emailReleasedForSignup: er } : {}),
   };
 }
 

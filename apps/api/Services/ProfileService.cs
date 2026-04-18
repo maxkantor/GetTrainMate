@@ -570,6 +570,7 @@ public class ProfileService : IProfileService
                 DateTime.TryParse(document["eventsCitySuggestionAt"].AsString(), out var esa)
                 ? esa
                 : null,
+            EmailReleasedForSignup = ReadBoolDocumentAttr(document, "emailReleasedForSignup"),
         };
 
         // Legacy single `mode` → always surface as `modes` array for API/clients (never silently drop multi-intent).
@@ -625,6 +626,45 @@ public class ProfileService : IProfileService
             profile.Mode = profile.Modes[0];
 
         return profile;
+    }
+
+    private static bool ReadBoolDocumentAttr(Document document, string key)
+    {
+        if (document == null || !document.ContainsKey(key)) return false;
+        var v = document[key];
+        if (v is DynamoDBBool b) return b.Value;
+        if (v is Primitive p)
+        {
+            if (p.Type == DynamoDBEntryType.Numeric && int.TryParse(p.AsString(), out var n)) return n != 0;
+            if (p.Type == DynamoDBEntryType.String)
+            {
+                var s = p.AsString();
+                if (string.Equals(s, "true", StringComparison.OrdinalIgnoreCase)) return true;
+                if (string.Equals(s, "1", StringComparison.OrdinalIgnoreCase)) return true;
+            }
+        }
+        return false;
+    }
+
+    public async Task<bool> SetEmailReleasedForSignupAsync(string userId, bool released)
+    {
+        if (string.IsNullOrWhiteSpace(userId)) return false;
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, _tableName);
+            var doc = await table.GetItemAsync(userId);
+            if (doc == null || doc.Count == 0 || !DynamoProfileDocumentFlags.IsAccountClosed(doc))
+                return false;
+            doc["emailReleasedForSignup"] = released;
+            doc["emailReleasedForSignupAt"] = DateTime.UtcNow.ToString("O");
+            await table.PutItemAsync(doc);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SetEmailReleasedForSignupAsync failed for {UserId}", userId);
+            return false;
+        }
     }
 
     private bool IsProfileComplete(UserProfile profile)

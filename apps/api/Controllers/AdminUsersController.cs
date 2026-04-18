@@ -689,7 +689,8 @@ public class AdminUsersController : ControllerBase
                 CreatedAt = profile.CreatedAt,
                 Credits = credits.Balance,
                 LifetimeEarned = credits.LifetimeEarned,
-                UnlimitedDiscovery = credits.UnlimitedDiscovery
+                UnlimitedDiscovery = credits.UnlimitedDiscovery,
+                EmailReleasedForSignup = profile.EmailReleasedForSignup,
             });
         }
         catch (Exception ex)
@@ -754,6 +755,74 @@ public class AdminUsersController : ControllerBase
         {
             _logger.LogError(ex, "Error deleting user {UserId}", userId);
             return StatusCode(500, new { error = "Failed to delete user" });
+        }
+    }
+
+    /// <summary>
+    /// POST /api/admin/users/{userId}/signup-email-release
+    /// For <b>deleted</b> accounts: allow = remove Cognito user (if still present) and mark the row so CRM shows email as released;
+    /// disallow = clear the release flag only (does not restore Cognito).
+    /// Public signup uses Cognito only — removing the Cognito user is what frees the email.
+    /// </summary>
+    [HttpPost("{userId}/signup-email-release")]
+    public async Task<ActionResult> SetSignupEmailRelease(string userId, [FromBody] SignupEmailReleaseRequest? body)
+    {
+        try
+        {
+            var admin = GetAdminIdentity();
+            if (string.IsNullOrWhiteSpace(userId))
+                return BadRequest(new { error = "userId is required" });
+            if (body == null)
+                return BadRequest(new { error = "Body is required." });
+
+            if (!await _profileService.IsAccountClosedAsync(userId))
+                return BadRequest(new { error = "Only closed (deleted) accounts can use email release controls." });
+
+            if (body.Allow)
+            {
+                var cognitoDeleted = await TryAdminDeleteCognitoUserAsync(userId);
+                var persisted = await _profileService.SetEmailReleasedForSignupAsync(userId, true);
+                if (!persisted)
+                    return StatusCode(500, new { error = "Could not update profile row." });
+
+                await _auditLogService.LogActionAsync(
+                    admin,
+                    "user.signup_email_release",
+                    "user",
+                    userId,
+                    after: new { allow = true, cognitoDeleted });
+
+                return Ok(new
+                {
+                    message = cognitoDeleted
+                        ? "Cognito user removed and email marked as released. The same address can sign up again."
+                        : "Release flag saved. Cognito had no user for this id (email may already be free). Try signup again.",
+                    cognitoDeleted,
+                    emailReleasedForSignup = true,
+                });
+            }
+
+            var cleared = await _profileService.SetEmailReleasedForSignupAsync(userId, false);
+            if (!cleared)
+                return StatusCode(500, new { error = "Could not update profile row." });
+
+            await _auditLogService.LogActionAsync(
+                admin,
+                "user.signup_email_release",
+                "user",
+                userId,
+                after: new { allow = false });
+
+            return Ok(new
+            {
+                message = "Email release flag cleared. Signup for this email still depends on Cognito (no duplicate user).",
+                emailReleasedForSignup = false,
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "signup-email-release failed for {UserId}", userId);
+            return StatusCode(500, new { error = "Failed to update email release" });
         }
     }
 
@@ -1287,6 +1356,14 @@ public class UserDetail
     public int Credits { get; set; }
     public int LifetimeEarned { get; set; }
     public bool UnlimitedDiscovery { get; set; }
+    /// <summary>When true, admin has run allow-release (Cognito cleared) so the same email can register again.</summary>
+    public bool EmailReleasedForSignup { get; set; }
+}
+
+public class SignupEmailReleaseRequest
+{
+    /// <summary>True = remove Cognito user for this sub and set release flag. False = clear flag only.</summary>
+    public bool Allow { get; set; }
 }
 
 public class AdminTestUserUpsertRequest

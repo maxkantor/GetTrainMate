@@ -26,6 +26,8 @@ interface User {
   credits?: number;
   lifetimeEarned?: number;
   unlimitedDiscovery?: boolean;
+  /** Closed account: admin cleared Cognito so this email can register again */
+  emailReleasedForSignup?: boolean;
 }
 
 /** GET /api/admin/credits/users/{id}/transactions (camelCase JSON). */
@@ -96,6 +98,7 @@ export const UsersPage: React.FC = () => {
   const [resetBusy, setResetBusy] = useState(false);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [deleteUserLoading, setDeleteUserLoading] = useState(false);
+  const [emailReleaseBusy, setEmailReleaseBusy] = useState(false);
   const [creditTx, setCreditTx] = useState<CreditAuditRow[]>([]);
   const [creditTxLoading, setCreditTxLoading] = useState(false);
 
@@ -249,6 +252,31 @@ export const UsersPage: React.FC = () => {
       setError((err as Error)?.message || 'Failed to delete user');
     } finally {
       setDeleteUserLoading(false);
+    }
+  };
+
+  const handleSignupEmailRelease = async (allow: boolean) => {
+    if (!detailUser?.userId) return;
+    setEmailReleaseBusy(true);
+    setError(null);
+    setResetSuccess(null);
+    try {
+      const data = (await adminApiService.post(
+        `/api/admin/users/${encodeURIComponent(detailUser.userId)}/signup-email-release`,
+        { allow }
+      )) as { message?: string };
+      setDetailUser((u) => (u ? { ...u, emailReleasedForSignup: allow } : u));
+      setResetSuccess(
+        data?.message ||
+          (allow
+            ? 'Cognito cleared where possible; same email can sign up again.'
+            : 'Email release flag turned off for this CRM row.')
+      );
+      await loadUsers();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to update email release');
+    } finally {
+      setEmailReleaseBusy(false);
     }
   };
 
@@ -597,9 +625,30 @@ export const UsersPage: React.FC = () => {
 
             <div className={styles.detailActions}>
               {detailIsDeleted ? (
-                <p className={styles.lifecycleHint} style={{ margin: 0 }}>
-                  Account closed — row kept for CRM. Ban, credits, delete, and discover resets are disabled.
-                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div className={styles.resetSection}>
+                    <h3 className={styles.lifecycleTitle}>Signup with this email again</h3>
+                    <p className={styles.lifecycleHint}>
+                      Turn on to remove any lingering Cognito user for this account ID and mark the row as released so
+                      the same email can use Create Account. Your CRM row stays (soft delete).
+                    </p>
+                    <label className={styles.lifecycleLabel}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(detailUser.emailReleasedForSignup)}
+                        disabled={emailReleaseBusy}
+                        onChange={(e) => void handleSignupEmailRelease(e.target.checked)}
+                      />
+                      <span>
+                        Allow signup again with this email
+                        {emailReleaseBusy ? ' …' : ''}
+                      </span>
+                    </label>
+                  </div>
+                  <p className={styles.lifecycleHint} style={{ margin: 0 }}>
+                    Account closed — row kept for CRM. Ban, credits, delete, and discover resets are disabled.
+                  </p>
+                </div>
               ) : (
                 <>
                   <div className={styles.grantRow}>

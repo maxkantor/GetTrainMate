@@ -18,6 +18,8 @@ public interface IProfileService
     Task<bool> DeleteProfileAsync(string userId);
     /// <summary>True when the profile row is marked <c>accountClosed</c> (soft-deleted CRM row or legacy tombstone).</summary>
     Task<bool> IsAccountClosedAsync(string userId);
+    /// <summary>Persist CRM flag on a <b>closed</b> profile row (tombstone). Used with Cognito removal so the email can register again.</summary>
+    Task<bool> SetEmailReleasedForSignupAsync(string userId, bool released);
     Task<UserProfile> AddPhotoUrlAsync(string userId, string url);
     Task<UserProfile?> PatchDiscoverLifecycleAsync(string userId, DiscoverLifecycleFlagsPatch patch);
 }
