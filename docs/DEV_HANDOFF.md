@@ -40,7 +40,9 @@ Read this before changing **admin web**, **API/Lambda**, **CDK**, or **S3 media*
 
 ## 3. Users CRM profile photos + detail panel race
 
-**API:** `apps/api/Controllers/AdminUsersController.cs` — `UserListItem.CoverPhotoUrl` (first `photoUrls` entry) for **`GET /api/admin/users`** list thumbnails.
+**API:** `apps/api/Controllers/AdminUsersController.cs` — `UserListItem.CoverPhotoUrl` for **`GET /api/admin/users`**: first **`photoUrls`** entry, or legacy **`photoKeys` / `photoKey`** (S3 key) turned into a canonical URL via **`IStorageService.GetPublicUrl`**.
+
+**API:** `apps/api/Services/ProfileService.cs` — **`GetProfileForAdminAsync`** calls **`HydratePhotoUrlsFromLegacyKeys`** so admin **`GET /api/admin/users/{id}`** and **`photos/stream`** see **`PhotoUrls`** even when Dynamo only stored keys (many production profiles).
 
 **Web:** `apps/web/src/pages/admin/UsersPage.tsx`, **`apps/web/src/utils/adminCrmPhotos.ts`**, `apps/web/src/utils/adminApiNormalize.ts`
 

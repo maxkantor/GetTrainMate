@@ -619,7 +619,7 @@ public class AdminUsersController : ControllerBase
         await Task.WhenAll(tasks);
     }
 
-    private static UserListItem MapDocumentToListItem(Document doc)
+    private UserListItem MapDocumentToListItem(Document doc)
     {
         var uid = doc.ContainsKey("userId") ? doc["userId"].AsString()
             : doc.ContainsKey("UserId") ? doc["UserId"].AsString() : "";
@@ -633,7 +633,7 @@ public class AdminUsersController : ControllerBase
         var name = doc.ContainsKey("name") ? doc["name"].AsString()
             : doc.ContainsKey("Name") ? doc["Name"].AsString() : "";
         var accountClosed = DynamoProfileDocumentFlags.IsAccountClosed(doc);
-        var coverPhoto = TryGetFirstPhotoUrlFromProfileDoc(doc);
+        var coverPhoto = TryGetCoverPhotoFromDoc(doc);
         return new UserListItem
         {
             UserId = uid,
@@ -648,6 +648,34 @@ public class AdminUsersController : ControllerBase
             CreatedAt = created,
             CoverPhotoUrl = coverPhoto,
         };
+    }
+
+    /// <summary>Prefer <c>photoUrls</c>; else first <c>photoKeys</c>/<c>photoKey</c> as canonical URL (legacy rows).</summary>
+    private string? TryGetCoverPhotoFromDoc(Document doc)
+    {
+        var fromUrls = TryGetFirstPhotoUrlFromProfileDoc(doc);
+        if (!string.IsNullOrEmpty(fromUrls))
+            return fromUrls;
+        try
+        {
+            string? key = null;
+            if (doc.ContainsKey("photoKeys"))
+            {
+                var keys = doc["photoKeys"].AsListOfString();
+                key = keys.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+            }
+
+            if (string.IsNullOrEmpty(key) && doc.ContainsKey("photoKey"))
+                key = doc["photoKey"].AsString();
+            key = key?.Trim();
+            if (string.IsNullOrEmpty(key))
+                return null;
+            return _storageService.GetPublicUrl(key);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static string? TryGetFirstPhotoUrlFromProfileDoc(Document doc)

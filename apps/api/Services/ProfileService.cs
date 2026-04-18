@@ -13,16 +13,19 @@ public class ProfileService : IProfileService
     private readonly IAmazonDynamoDB _dynamoDb;
     private readonly string _tableName;
     private readonly ILogger<ProfileService> _logger;
+    private readonly IStorageService _storage;
 
     public ProfileService(
         IAmazonDynamoDB dynamoDb,
         IConfiguration configuration,
-        ILogger<ProfileService> logger)
+        ILogger<ProfileService> logger,
+        IStorageService storage)
     {
         _dynamoDb = dynamoDb;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _tableName = configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
         _logger = logger;
+        _storage = storage;
     }
 
     public UserProfile? TryMapDynamoItemToProfile(Dictionary<string, AttributeValue>? item)
@@ -106,12 +109,33 @@ public class ProfileService : IProfileService
             var document = await table.GetItemAsync(userId);
             if (document == null || document.Count == 0)
                 return null;
-            return DocumentToProfile(document);
+            var profile = DocumentToProfile(document);
+            HydratePhotoUrlsFromLegacyKeys(profile);
+            return profile;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GetProfileForAdminAsync failed for {UserId}", userId);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Many production rows only have <c>photoKey</c>/<c>photoKeys</c> (S3 keys) with empty <c>photoUrls</c>.
+    /// Admin CRM and <c>photos/stream</c> read <see cref="UserProfile.PhotoUrls"/> — synthesize canonical HTTPS URLs in-memory only.
+    /// </summary>
+    private void HydratePhotoUrlsFromLegacyKeys(UserProfile profile)
+    {
+        if (profile.PhotoUrls.Any(static u => !string.IsNullOrWhiteSpace(u)))
+            return;
+        var keys = profile.PhotoKeys.Where(static k => !string.IsNullOrWhiteSpace(k)).Select(k => k.Trim()).ToList();
+        if (keys.Count == 0 && !string.IsNullOrWhiteSpace(profile.PhotoKey))
+            keys.Add(profile.PhotoKey.Trim());
+        foreach (var key in keys)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                continue;
+            profile.PhotoUrls.Add(_storage.GetPublicUrl(key));
         }
     }
 
