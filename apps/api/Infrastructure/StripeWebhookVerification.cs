@@ -38,11 +38,14 @@ public static class StripeWebhookVerification
             if (string.IsNullOrWhiteSpace(secret)) continue;
             try
             {
+                // Resent / older events may use a different Stripe API version than Stripe.net's default;
+                // that still throws StripeException and is easy to mistake for a bad signature.
                 stripeEvent = EventUtility.ConstructEvent(
                     json,
                     stripeSignatureHeader,
                     secret.Trim(),
-                    SignatureToleranceSeconds);
+                    SignatureToleranceSeconds,
+                    throwOnApiVersionMismatch: false);
                 return true;
             }
             catch (StripeException ex)
