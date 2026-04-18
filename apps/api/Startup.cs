@@ -154,6 +154,7 @@ public class Startup
 
         services.AddHttpContextAccessor();
         services.AddSingleton<IStorageService, S3StorageService>();
+        services.AddHostedService<MediaBucketBootstrapHostedService>();
 
         // Configure Stripe: config → env → SSM /gettrainmate/stripe/*
         var stripeKey = Configuration["Stripe:SecretKey"]

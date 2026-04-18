@@ -267,7 +267,23 @@ public class S3StorageService : IStorageService
         ms.Position = 0;
         var ct = string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim();
 
-        AmazonS3Exception? last = null;
+        if (await TryPutToCandidateBucketsAsync(ms, objectKey, contentType, cancellationToken).ConfigureAwait(false))
+            return;
+
+        await ProbeAndPinMediaBucketAsync(cancellationToken).ConfigureAwait(false);
+        ms.Position = 0;
+        if (await TryPutToCandidateBucketsAsync(ms, objectKey, contentType, cancellationToken).ConfigureAwait(false))
+            return;
+
+        throw new InvalidOperationException("S3 PutObject failed for all bucket candidates after discovery.");
+    }
+
+    private async Task<bool> TryPutToCandidateBucketsAsync(
+        MemoryStream ms,
+        string objectKey,
+        string contentType,
+        CancellationToken cancellationToken)
+    {
         foreach (var bucketName in DistinctBucketCandidates())
         {
             try
@@ -277,23 +293,20 @@ public class S3StorageService : IStorageService
                     BucketName = bucketName,
                     Key = objectKey,
                     InputStream = ms,
-                    ContentType = ct,
+                    ContentType = contentType,
                 };
                 ms.Position = 0;
                 await _s3.PutObjectAsync(req, cancellationToken).ConfigureAwait(false);
                 PinBucketIfNeeded(bucketName);
-                return;
+                return true;
             }
             catch (AmazonS3Exception ex) when (string.Equals(ex.ErrorCode, "NoSuchBucket", StringComparison.OrdinalIgnoreCase))
             {
-                last = ex;
                 ms.Position = 0;
             }
         }
 
-        if (last != null)
-            throw new InvalidOperationException($"S3 PutObject failed for all bucket candidates (last: {last.ErrorCode}).", last);
-        throw new InvalidOperationException("S3 PutObject failed.");
+        return false;
     }
 
     public async Task<MediaObjectRead?> TryReadMediaObjectAsync(string key, CancellationToken cancellationToken = default)
@@ -301,6 +314,94 @@ public class S3StorageService : IStorageService
         var objectKey = NormalizeObjectKey(key);
         if (objectKey.Length == 0) return null;
 
+        var first = await TryReadMediaObjectPipelineAsync(objectKey, cancellationToken).ConfigureAwait(false);
+        if (first != null)
+            return first;
+
+        var changed = await ProbeAndPinMediaBucketAsync(cancellationToken).ConfigureAwait(false);
+        if (changed)
+            return await TryReadMediaObjectPipelineAsync(objectKey, cancellationToken).ConfigureAwait(false);
+        return null;
+    }
+
+    /// <summary>
+    /// When configured bucket names do not exist in this account, list buckets and pin the first
+    /// <c>train</c>+<c>media</c> match (GetBucketLocation probe). Requires <c>s3:ListAllMyBuckets</c> on the Lambda role.
+    /// </summary>
+    public async Task<bool> ProbeAndPinMediaBucketAsync(CancellationToken cancellationToken = default)
+    {
+        var prior = ActiveBucket;
+
+        foreach (var bucketName in DistinctBucketCandidates())
+        {
+            if (await BucketExistsViaGetLocationAsync(bucketName, cancellationToken).ConfigureAwait(false))
+            {
+                PinBucketIfNeeded(bucketName);
+                _logger.LogInformation("S3 discovery: bucket exists (GetBucketLocation) for candidate {Bucket}", bucketName);
+                return !string.Equals(prior, ActiveBucket, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        try
+        {
+            var list = await _s3.ListBucketsAsync(cancellationToken).ConfigureAwait(false);
+            var matches = (list.Buckets ?? [])
+                .Select(b => b.BucketName)
+                .Where(n => !string.IsNullOrEmpty(n)
+                            && n.Contains("train", StringComparison.OrdinalIgnoreCase)
+                            && n.Contains("media", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(n => n.Contains("gettrain", StringComparison.OrdinalIgnoreCase))
+                .ThenBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .Take(40)
+                .ToList();
+
+            _logger.LogWarning(
+                "S3 ListBuckets discovery: {Count} bucket(s) match train+media: {Names}",
+                matches.Count,
+                matches.Count > 0 ? string.Join(", ", matches) : "(none)");
+
+            foreach (var name in matches)
+            {
+                if (!await BucketExistsViaGetLocationAsync(name!, cancellationToken).ConfigureAwait(false))
+                    continue;
+                PinBucketIfNeeded(name!);
+                _logger.LogCritical(
+                    "S3 pinned media bucket via account ListBuckets: {Bucket} (configured was {Configured}). Update MEDIA_BUCKET_NAME to this value.",
+                    name,
+                    _configuredBucket);
+                return !string.Equals(prior, ActiveBucket, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "S3 ListBuckets discovery failed (IAM needs s3:ListAllMyBuckets on the API Lambda role).");
+        }
+
+        return false;
+    }
+
+    /// <summary>HeadBucket is not on <see cref="IAmazonS3"/> in this SDK version — use GetBucketLocation as existence probe.</summary>
+    private async Task<bool> BucketExistsViaGetLocationAsync(string bucket, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _s3
+                .GetBucketLocationAsync(new GetBucketLocationRequest { BucketName = bucket }, cancellationToken)
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch (AmazonS3Exception ex) when (string.Equals(ex.ErrorCode, "NoSuchBucket", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task<MediaObjectRead?> TryReadMediaObjectPipelineAsync(string objectKey, CancellationToken cancellationToken)
+    {
         foreach (var bucketName in DistinctBucketCandidates())
         {
             try

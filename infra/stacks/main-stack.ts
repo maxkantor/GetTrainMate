@@ -164,6 +164,29 @@ export class GetTrainMateStack extends cdk.Stack {
         resources: [mediaBucket.bucketArn, mediaBucketTypoFallback.bucketArn],
       }),
     );
+    // S3StorageService.ProbeAndPinMediaBucketAsync — resolve real bucket when env names do not exist in this account.
+    apiLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['s3:ListAllMyBuckets'],
+        resources: ['*'],
+      }),
+    );
+    // Wildcard within gettrainmate-* so ListBuckets discovery can pin a bucket not named exactly in CDK imports.
+    apiLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
+        resources: [`arn:aws:s3:::gettrainmate-*/*`],
+      }),
+    );
+    apiLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['s3:ListBucket', 's3:GetBucketLocation'],
+        resources: [`arn:aws:s3:::gettrainmate-*`],
+      }),
+    );
 
     // Grant Lambda access to Cognito (GetUser for token validation, Admin* for admin features)
     apiLambda.addToRolePolicy(new iam.PolicyStatement({
