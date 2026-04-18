@@ -67,7 +67,10 @@ export const DashboardQuickSetup: React.FC = () => {
       });
       await refreshMe();
       clearSignupDisplayName();
-      navigate('/app/discover', { replace: true });
+      const refreshed = await profileService.getMyProfile(token);
+      const hasPhoto =
+        (refreshed.photoKeys && refreshed.photoKeys.length > 0) || Boolean(refreshed.photoKey?.trim());
+      navigate(hasPhoto ? '/app/discover' : '/app/profile?focus=photos', { replace: true });
     } catch (e: unknown) {
       setError(handleApiError(e as Error).message || 'Could not save preferences');
     } finally {

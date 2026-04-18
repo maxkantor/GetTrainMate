@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -35,6 +35,7 @@ import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useI18n } from '@/hooks/useI18n';
 import { useMe } from '@/hooks/useMe';
+import { useAuthContext } from '@/hooks/useAuthContext';
 import { profileService, UpdateProfileRequest, AvailabilitySlot } from '@/services/profileService';
 import { getUploadLimits } from '@/config/uploadLimits';
 import { PROFILE_SPORTS } from '@/constants/profileSports';
@@ -95,11 +96,32 @@ function snapshotProfile(form: UpdateProfileRequest, photoKeys: string[]): strin
   return JSON.stringify({ form, photoKeys });
 }
 
+function createEmptyProfileForm(): UpdateProfileRequest {
+  return {
+    name: '',
+    city: '',
+    state: '',
+    country: 'US',
+    bio: '',
+    sportTags: [],
+    level: '',
+    goals: [],
+    availabilitySchedule: [],
+    mode: 'TRAIN',
+    modes: ['TRAIN'],
+    chatNotificationsEnabled: true,
+    chatNotificationFrequency: 'smart',
+  };
+}
+
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { t } = useI18n();
   const { me, refreshMe } = useMe();
+  const { user } = useAuthContext();
+  const userSub = user?.sub ?? '';
   const uploadLimits = useMemo(() => getUploadLimits(me?.credits ?? 0), [me?.credits]);
 
   const [profileAiCost, setProfileAiCost] = useState(2);
@@ -136,21 +158,7 @@ export const ProfilePage: React.FC = () => {
   const persistInFlightRef = useRef(false);
   const photoKeysRef = useRef<string[]>([]);
 
-  const [formData, setFormData] = useState<UpdateProfileRequest>({
-    name: '',
-    city: '',
-    state: '',
-    country: 'US',
-    bio: '',
-    sportTags: [],
-    level: '',
-    goals: [],
-    availabilitySchedule: [],
-    mode: 'TRAIN',
-    modes: ['TRAIN'],
-    chatNotificationsEnabled: true,
-    chatNotificationFrequency: 'smart',
-  });
+  const [formData, setFormData] = useState<UpdateProfileRequest>(() => createEmptyProfileForm());
   const [aiSuggestions, setAiSuggestions] = useState<ProfileOptimizeResponse | null>(null);
   const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
   const [aiSuggestionsError, setAiSuggestionsError] = useState('');
@@ -167,13 +175,10 @@ export const ProfilePage: React.FC = () => {
     photoKeysRef.current = photoKeys;
   }, [photoKeys]);
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       setLoading(true);
+      setError('');
       const token = await authService.getJWT();
       if (!token) {
         setError('Not authenticated');
@@ -231,7 +236,7 @@ export const ProfilePage: React.FC = () => {
       } else {
         setMyPhotos(profile.photoUrls || []);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading profile:', err);
       const apiError = handleApiError(err);
       if (isNetworkError(err) || apiError.isCorsError) {
@@ -242,7 +247,32 @@ export const ProfilePage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!userSub) {
+      setFormData(createEmptyProfileForm());
+      setPhotoKeys([]);
+      setMyPhotos([]);
+      setBaseline(null);
+      setLoading(false);
+      return;
+    }
+    setFormData(createEmptyProfileForm());
+    setPhotoKeys([]);
+    setMyPhotos([]);
+    setBaseline(null);
+    void loadProfile();
+  }, [userSub, loadProfile]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (searchParams.get('focus') !== 'photos') return;
+    const id = window.setTimeout(() => {
+      document.getElementById('profile-photos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+    return () => window.clearTimeout(id);
+  }, [loading, searchParams]);
 
   const boostActive = useMemo(() => {
     if (!me?.boostExpiresAtUtc) return false;
@@ -625,6 +655,35 @@ export const ProfilePage: React.FC = () => {
         </Alert>
       )}
 
+      {!loading && photoKeys.length === 0 && (
+        <Box
+          sx={{
+            mb: 3,
+            p: 2.5,
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'rgba(129, 140, 248, 0.45)',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(15, 23, 42, 0.85) 100%)',
+          }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5 }}>
+            Add a clear training photo
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, maxWidth: 640 }}>
+            Your first photo is the cover card in Discover — bright, natural light, athletic kit, eyes visible. Scroll to{' '}
+            <strong>Profile photos</strong> below or jump there now.
+          </Typography>
+          <Button
+            type="button"
+            variant="contained"
+            size="medium"
+            onClick={() => document.getElementById('profile-photos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            Go to photo upload
+          </Button>
+        </Box>
+      )}
+
       {aiSuggestionsError && (
         <Alert severity="error" onClose={() => setAiSuggestionsError('')} sx={{ mb: 2 }}>
           {aiSuggestionsError}
@@ -798,7 +857,7 @@ export const ProfilePage: React.FC = () => {
           </Typography>
           
           {(formData.availabilitySchedule || []).map((slot, index) => (
-            <Card key={index} sx={{ mb: 2, p: 2 }}>
+            <Card key={`${userSub || 'me'}-slot-${index}`} sx={{ mb: 2, p: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="subtitle2">Slot {index + 1}</Typography>
                 <Button size="small" color="error" onClick={() => {
@@ -1033,7 +1092,7 @@ export const ProfilePage: React.FC = () => {
           </FormControl>
         </FormControl>
 
-        <Box sx={{ mt: 3 }}>
+        <Box id="profile-photos" sx={{ mt: 3 }}>
           <FormLabel>Profile Photos</FormLabel>
           {sectionHint.photo && (
             <Typography variant="caption" color="success.main" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
