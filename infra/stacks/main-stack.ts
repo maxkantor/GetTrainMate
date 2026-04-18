@@ -148,6 +148,14 @@ export class GetTrainMateStack extends cdk.Stack {
       resources: [`arn:aws:dynamodb:${this.region}:${this.account}:table/gettrainmate-*`],
     }));
     mediaBucket.grantReadWrite(apiLambda);
+    // Resolve real bucket region when GetObject returns NoSuchBucket (wrong default endpoint / config).
+    apiLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['s3:GetBucketLocation'],
+        resources: [mediaBucket.bucketArn],
+      }),
+    );
 
     // Grant Lambda access to Cognito (GetUser for token validation, Admin* for admin features)
     apiLambda.addToRolePolicy(new iam.PolicyStatement({
