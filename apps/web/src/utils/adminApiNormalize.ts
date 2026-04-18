@@ -28,6 +28,12 @@ export function pickPagedMeta(raw: unknown): { page: number; pageSize: number; t
 
 /** Normalize dashboard metrics payload (camelCase or PascalCase keys). */
 /** Map a user row from admin API (camelCase or PascalCase keys). */
+function pickStringList(o: Record<string, unknown>, camel: string, pascal: string): string[] {
+  const raw = o[camel] ?? o[pascal];
+  if (!Array.isArray(raw)) return [];
+  return raw.map((x) => String(x ?? '').trim()).filter((s) => s.length > 0);
+}
+
 export function normalizeAdminUserRow(raw: unknown): {
   userId: string;
   email: string;
@@ -38,6 +44,7 @@ export function normalizeAdminUserRow(raw: unknown): {
   state?: string;
   createdAt: string;
   credits?: number;
+  coverPhotoUrl?: string;
 } {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const uid = String(o.userId ?? o.UserId ?? '');
@@ -48,6 +55,10 @@ export function normalizeAdminUserRow(raw: unknown): {
       : typeof created === 'string'
         ? created
         : new Date().toISOString();
+  const cover =
+    o.coverPhotoUrl != null || o.CoverPhotoUrl != null
+      ? String(o.coverPhotoUrl ?? o.CoverPhotoUrl ?? '').trim() || undefined
+      : undefined;
   return {
     userId: uid,
     email: String(o.email ?? o.Email ?? ''),
@@ -61,6 +72,7 @@ export function normalizeAdminUserRow(raw: unknown): {
       o.credits != null || o.Credits != null
         ? Number(o.credits ?? o.Credits ?? 0) || 0
         : undefined,
+    ...(cover ? { coverPhotoUrl: cover } : {}),
   };
 }
 
@@ -78,6 +90,9 @@ export function normalizeAdminUserDetail(raw: unknown): {
   lifetimeEarned: number;
   unlimitedDiscovery: boolean;
   emailReleasedForSignup?: boolean;
+  bio?: string;
+  photoUrls: string[];
+  photoPreviewUrls: string[];
 } {
   const base = normalizeAdminUserRow(raw);
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -85,12 +100,19 @@ export function normalizeAdminUserDetail(raw: unknown): {
     o.emailReleasedForSignup != null || o.EmailReleasedForSignup != null
       ? Boolean(o.emailReleasedForSignup ?? o.EmailReleasedForSignup)
       : undefined;
+  const photos = pickStringList(o, 'photoUrls', 'PhotoUrls');
+  const previews = pickStringList(o, 'photoPreviewUrls', 'PhotoPreviewUrls');
+  const bioRaw = o.bio ?? o.Bio;
+  const bio = bioRaw != null && String(bioRaw).trim() ? String(bioRaw).trim() : undefined;
   return {
     ...base,
     credits: Number(o.credits ?? o.Credits ?? base.credits ?? 0) || 0,
     lifetimeEarned: Number(o.lifetimeEarned ?? o.LifetimeEarned ?? 0) || 0,
     unlimitedDiscovery: Boolean(o.unlimitedDiscovery ?? o.UnlimitedDiscovery ?? false),
     ...(er !== undefined ? { emailReleasedForSignup: er } : {}),
+    ...(bio ? { bio } : {}),
+    photoUrls: photos,
+    photoPreviewUrls: previews.length >= photos.length ? previews : photos.map((_, i) => previews[i] ?? ''),
   };
 }
 

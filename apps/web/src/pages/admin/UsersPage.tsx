@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import { adminApiService } from '@/services/adminApiService';
 import { pickPagedItems, pickPagedMeta, normalizeAdminUserRow, normalizeAdminUserDetail } from '@/utils/adminApiNormalize';
+import { resolveAdminCrmPhotoSrc } from '@/utils/adminCrmPhotos';
 import { AdminNoAccessPage } from './AdminNoAccess';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
@@ -28,6 +29,11 @@ interface User {
   unlimitedDiscovery?: boolean;
   /** Closed account: admin cleared Cognito so this email can register again */
   emailReleasedForSignup?: boolean;
+  /** First photo URL from list API (canonical). */
+  coverPhotoUrl?: string;
+  bio?: string;
+  photoUrls?: string[];
+  photoPreviewUrls?: string[];
 }
 
 /** GET /api/admin/credits/users/{id}/transactions (camelCase JSON). */
@@ -82,7 +88,6 @@ export const UsersPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailUser, setDetailUser] = useState<User | null>(null);
@@ -101,6 +106,8 @@ export const UsersPage: React.FC = () => {
   const [emailReleaseBusy, setEmailReleaseBusy] = useState(false);
   const [creditTx, setCreditTx] = useState<CreditAuditRow[]>([]);
   const [creditTxLoading, setCreditTxLoading] = useState(false);
+  /** Prevents an older in-flight detail fetch from overwriting a newer row selection. */
+  const detailFetchGen = useRef(0);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -138,7 +145,7 @@ export const UsersPage: React.FC = () => {
   }, [loadUsers]);
 
   const handleRowClick = async (row: User) => {
-    setSelectedUser(row);
+    const gen = ++detailFetchGen.current;
     setDetailOpen(true);
     setDetailLoading(true);
     setResetSuccess(null);
@@ -146,34 +153,40 @@ export const UsersPage: React.FC = () => {
     setCreditTx([]);
     setCreditTxLoading(true);
     try {
-      const user = await adminApiService.get(`/api/admin/users/${row.userId}`);
-      setDetailUser({ ...row, ...normalizeAdminUserDetail(user) });
+      const user = await adminApiService.get(`/api/admin/users/${encodeURIComponent(row.userId)}`);
+      if (gen !== detailFetchGen.current) return;
+      setDetailUser(normalizeAdminUserDetail(user) as User);
     } catch {
+      if (gen !== detailFetchGen.current) return;
       setDetailUser(row);
     } finally {
-      setDetailLoading(false);
+      if (gen === detailFetchGen.current) setDetailLoading(false);
     }
     try {
       const rows = await adminApiService.get(
         `/api/admin/credits/users/${encodeURIComponent(row.userId)}/transactions?limit=40`
       );
+      if (gen !== detailFetchGen.current) return;
       const list = Array.isArray(rows) ? rows : [];
       setCreditTx(list.map((r) => normalizeCreditTx(r as Record<string, unknown>)));
     } catch {
+      if (gen !== detailFetchGen.current) return;
       setCreditTx([]);
     } finally {
-      setCreditTxLoading(false);
+      if (gen === detailFetchGen.current) setCreditTxLoading(false);
     }
     setDiscoverLifecycleLoading(true);
     try {
       const lc = await adminApiService.get(
         `/api/admin/discover/users/${encodeURIComponent(row.userId)}/discover-lifecycle`
       );
+      if (gen !== detailFetchGen.current) return;
       setDiscoverLifecycle(lc as DiscoverLifecycleFlags);
     } catch {
+      if (gen !== detailFetchGen.current) return;
       setDiscoverLifecycle(null);
     } finally {
-      setDiscoverLifecycleLoading(false);
+      if (gen === detailFetchGen.current) setDiscoverLifecycleLoading(false);
     }
   };
 
@@ -241,7 +254,7 @@ export const UsersPage: React.FC = () => {
       await loadUsers();
       try {
         const user = await adminApiService.get(`/api/admin/users/${encodeURIComponent(userId)}`);
-        const merged = normalizeAdminUserDetail(user as Record<string, unknown>);
+        const merged = normalizeAdminUserDetail(user) as User;
         setDetailUser((prev) =>
           prev?.userId === userId ? { ...prev, ...merged, status: merged.status || 'deleted' } : prev
         );
@@ -368,6 +381,26 @@ export const UsersPage: React.FC = () => {
 
   const columns: Column<User>[] = [
     {
+      key: 'photo',
+      header: 'Photo',
+      render: (r) => {
+        const canon = r.coverPhotoUrl?.trim();
+        if (!canon) {
+          return <span className={styles.avatarPlaceholder} title="No profile photo" aria-hidden>—</span>;
+        }
+        const src = resolveAdminCrmPhotoSrc(r.userId, 0, canon, undefined);
+        return (
+          <img
+            src={src}
+            alt=""
+            className={styles.rowAvatar}
+            loading="lazy"
+            decoding="async"
+          />
+        );
+      },
+    },
+    {
       key: 'userId',
       header: 'User ID',
       render: (r) => (
@@ -480,13 +513,48 @@ export const UsersPage: React.FC = () => {
       {/* Detail panel */}
       <aside className={`${styles.detailPanel} ${detailOpen ? styles.open : ''}`}>
         <div className={styles.detailHeader}>
-          <h2>User details</h2>
+          <div>
+            <h2>User details</h2>
+            {detailUser && !detailLoading ? (
+              <p className={styles.detailHeaderEmail}>{detailUser.email}</p>
+            ) : null}
+          </div>
           <button type="button" className={styles.closeBtn} onClick={() => setDetailOpen(false)} aria-label="Close">×</button>
         </div>
         {detailLoading ? (
           <div className={styles.detailLoading}>Loading…</div>
         ) : detailUser ? (
           <div className={styles.detailContent}>
+            {(detailUser.photoUrls?.length ?? 0) > 0 || (detailUser.bio && detailUser.bio.trim()) ? (
+              <section className={styles.profileSection} aria-label="Profile">
+                <h3 className={styles.profileSectionTitle}>Profile</h3>
+                {detailUser.bio?.trim() ? <p className={styles.bioText}>{detailUser.bio}</p> : null}
+                {(detailUser.photoUrls?.length ?? 0) > 0 ? (
+                  <div className={styles.photoGrid}>
+                    {detailUser.photoUrls!.map((canon, i) => (
+                      <figure key={`${detailUser.userId}-ph-${i}`} className={styles.photoCell}>
+                        <img
+                          src={resolveAdminCrmPhotoSrc(
+                            detailUser.userId,
+                            i,
+                            canon,
+                            detailUser.photoPreviewUrls?.[i]
+                          )}
+                          alt={`Profile ${i + 1}`}
+                          className={styles.detailPhoto}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        {i === 0 ? <figcaption className={styles.coverBadge}>Cover</figcaption> : null}
+                      </figure>
+                    ))}
+                  </div>
+                ) : null}
+                <p className={styles.photoHint}>
+                  Same-origin stream or presigned preview when the media bucket is private.
+                </p>
+              </section>
+            ) : null}
             <dl className={styles.detailList}>
               <dt>User ID</dt>
               <dd className={styles.mono}>{detailUser.userId}</dd>

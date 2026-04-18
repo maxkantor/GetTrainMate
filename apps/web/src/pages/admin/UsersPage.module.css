@@ -115,6 +115,100 @@
   font-size: var(--font-xs);
 }
 
+.rowAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.avatarPlaceholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-xs);
+  color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.detailHeaderEmail {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-sm);
+  color: rgba(255, 255, 255, 0.65);
+  word-break: break-all;
+}
+
+.profileSection {
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profileSectionTitle {
+  font-size: var(--font-md);
+  margin: 0 0 var(--space-2);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.bioText {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.photoGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.photoCell {
+  position: relative;
+  margin: 0;
+  padding: 0;
+}
+
+.detailPhoto {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: block;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.coverBadge {
+  position: absolute;
+  bottom: var(--space-2);
+  left: var(--space-2);
+  margin: 0;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 4px;
+}
+
+.photoHint {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-xs);
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.45;
+}
+
 /* Detail panel */
 .detailPanel {
   position: fixed;

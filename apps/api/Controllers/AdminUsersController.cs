@@ -633,6 +633,7 @@ public class AdminUsersController : ControllerBase
         var name = doc.ContainsKey("name") ? doc["name"].AsString()
             : doc.ContainsKey("Name") ? doc["Name"].AsString() : "";
         var accountClosed = DynamoProfileDocumentFlags.IsAccountClosed(doc);
+        var coverPhoto = TryGetFirstPhotoUrlFromProfileDoc(doc);
         return new UserListItem
         {
             UserId = uid,
@@ -644,8 +645,29 @@ public class AdminUsersController : ControllerBase
                 : doc.ContainsKey("City") ? doc["City"].AsString() : null,
             State = doc.ContainsKey("state") ? doc["state"].AsString()
                 : doc.ContainsKey("State") ? doc["State"].AsString() : null,
-            CreatedAt = created
+            CreatedAt = created,
+            CoverPhotoUrl = coverPhoto,
         };
+    }
+
+    private static string? TryGetFirstPhotoUrlFromProfileDoc(Document doc)
+    {
+        try
+        {
+            List<string> urls;
+            if (doc.ContainsKey("photoUrls"))
+                urls = doc["photoUrls"].AsListOfString();
+            else if (doc.ContainsKey("PhotoUrls"))
+                urls = doc["PhotoUrls"].AsListOfString();
+            else
+                return null;
+            var first = urls.FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+            return string.IsNullOrWhiteSpace(first) ? null : first.Trim();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -1552,6 +1574,9 @@ public class UserListItem
     public string? State { get; set; }
     public DateTime CreatedAt { get; set; }
     public int? Credits { get; set; }
+
+    /// <summary>First entry from profile <c>photoUrls</c> (canonical URL) for CRM list thumbnails.</summary>
+    public string? CoverPhotoUrl { get; set; }
 }
 
 public class UserDetail
