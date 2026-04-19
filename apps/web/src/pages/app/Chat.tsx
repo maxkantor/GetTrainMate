@@ -84,7 +84,8 @@ export const ChatPage: React.FC = () => {
   const [highlightedThreadId, setHighlightedThreadId] = useState<string | null>(null);
   const [unlockChatCost, setUnlockChatCost] = useState(1);
   const [icebreakerCost, setIcebreakerCost] = useState(1);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  /** Scroll only this pane — `scrollIntoView` on inner nodes scrolls the window and reveals the site footer. */
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const threadItemsRef = useRef<HTMLDivElement>(null);
   const chatTitleRef = useRef<HTMLHeadingElement>(null);
   const selectedThreadIdRef = useRef<string | null>(null);
@@ -95,7 +96,9 @@ export const ChatPage: React.FC = () => {
   }, []);
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, left: 0, behavior: 'smooth' });
   }, []);
 
   useEffect(() => {
@@ -109,6 +112,7 @@ export const ChatPage: React.FC = () => {
 
   useEffect(() => {
     if (location.pathname !== '/app/chat') return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     scrollChatChromeToTop(false);
   }, [location.pathname, location.search, scrollChatChromeToTop]);
 
@@ -612,7 +616,7 @@ export const ChatPage: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  <div className={chatStyles.messagesScroll}>
+                  <div ref={messagesScrollRef} className={chatStyles.messagesScroll}>
                     {messages.map((msg) => (
                       <div
                         key={msg.messageId}
@@ -624,7 +628,6 @@ export const ChatPage: React.FC = () => {
                         </div>
                       </div>
                     ))}
-                    <div ref={messagesEndRef} />
                   </div>
 
                   <div className={chatStyles.aiToolsRow}>
