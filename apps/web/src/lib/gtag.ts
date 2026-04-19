@@ -1,25 +1,24 @@
 /**
  * Google Analytics 4 (gtag.js) — SPA `page_path` via `gtag('config', …)` + typed events.
- * Default measurement ID matches `index.html` (G-C29M8NWNY4). Optional `VITE_GA_MEASUREMENT_ID`
- * in Amplify must be the same property if set — do not mix multiple GA4 IDs.
+ * **Measurement ID must come from `VITE_GA_MEASUREMENT_ID`** (set in Amplify → Environment variables
+ * for production builds). No hardcoded ID — avoids drift from Admin / stream settings.
  */
 
 declare global {
   interface Window {
     dataLayer?: unknown[];
     gtag?: (...args: unknown[]) => void;
-    __GTM_GA4_HTML_INIT__?: boolean;
   }
 }
 
 const INIT_FLAG = '__GTM_GA4_INITIALIZED__';
 
-/** Production GA4 property for gettrainmate.com (also in `index.html`). */
-export const DEFAULT_GA_MEASUREMENT_ID = 'G-C29M8NWNY4';
-
-/** Single GA4 property for production (must match `index.html` gtag snippet). */
+/** GA4 ID from Vite env (Amplify injects at `vite build`). Undefined if unset. */
 export function getMeasurementId(): string | undefined {
-  return DEFAULT_GA_MEASUREMENT_ID;
+  const v = import.meta.env.VITE_GA_MEASUREMENT_ID;
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim();
+  return t.length > 0 ? t : undefined;
 }
 
 export function isGa4Enabled(): boolean {
@@ -27,7 +26,8 @@ export function isGa4Enabled(): boolean {
 }
 
 /**
- * Ensure gtag exists when `index.html` did not run (e.g. tests). Production uses HTML snippet + async loader.
+ * Load gtag.js once and register the measurement ID. Called from {@link usePageTracking} on app boot.
+ * Uses `send_page_view: false`; SPA sends page_view on each route via {@link gaPageView}.
  */
 export function initGa4(): void {
   if (typeof window === 'undefined') return;
@@ -35,18 +35,13 @@ export function initGa4(): void {
   if (!mid) return;
   if ((window as unknown as Record<string, boolean>)[INIT_FLAG]) return;
 
-  if (window.__GTM_GA4_HTML_INIT__ === true && typeof window.gtag === 'function') {
-    (window as unknown as Record<string, boolean>)[INIT_FLAG] = true;
-    return;
-  }
-
   window.dataLayer = window.dataLayer || [];
   window.gtag = function gtag(...args: unknown[]) {
     window.dataLayer!.push(args);
   };
   window.gtag('js', new Date());
   window.gtag('config', mid, {
-    send_page_view: true,
+    send_page_view: false,
     cookie_flags: 'SameSite=None;Secure',
   });
   (window as unknown as Record<string, boolean>)[INIT_FLAG] = true;

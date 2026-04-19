@@ -4,19 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Google tag (gtag.js) GA4 — load in HTML so collection works even if Vite env vars are missing in Amplify -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C29M8NWNY4"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-      gtag('js', new Date());
-      gtag('config', 'G-C29M8NWNY4', {
-        send_page_view: true,
-      });
-      window.__GTM_GA4_HTML_INIT__ = true;
-    </script>
+    <!-- GA4: measurement ID from Amplify `VITE_GA_MEASUREMENT_ID` at build time — see src/lib/gtag.ts + Ga4Bootstrap -->
     <meta name="theme-color" content="%THEME_COLOR%" />
     %GSC_META_LINE%
     <title>%OG_TITLE%</title>
