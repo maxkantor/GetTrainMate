@@ -1,6 +1,6 @@
 /**
  * Google Analytics 4 (gtag.js) — SPA `page_path` via `gtag('config', …)` + typed events.
- * Default measurement ID matches `index.html` (G-C29M8NWNW4). Optional `VITE_GA_MEASUREMENT_ID`
+ * Default measurement ID matches `index.html` (G-C29M8NWNY4). Optional `VITE_GA_MEASUREMENT_ID`
  * in Amplify must be the same property if set — do not mix multiple GA4 IDs.
  */
 
@@ -15,7 +15,7 @@ declare global {
 const INIT_FLAG = '__GTM_GA4_INITIALIZED__';
 
 /** Production GA4 property for gettrainmate.com (also in `index.html`). */
-export const DEFAULT_GA_MEASUREMENT_ID = 'G-C29M8NWNW4';
+export const DEFAULT_GA_MEASUREMENT_ID = 'G-C29M8NWNY4';
 
 /** Single GA4 property for production (must match `index.html` gtag snippet). */
 export function getMeasurementId(): string | undefined {
