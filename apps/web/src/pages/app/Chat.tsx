@@ -94,11 +94,18 @@ export const ChatPage: React.FC = () => {
     if (focusHeading) chatTitleRef.current?.focus({ preventScroll: true });
   }, []);
 
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
   useEffect(() => {
-    const onNavChat = () => scrollChatChromeToTop(true);
+    const onNavChat = () => {
+      scrollChatChromeToTop(true);
+      scrollToBottom();
+    };
     window.addEventListener(CHAT_NAV_SCROLL_TOP_EVENT, onNavChat);
     return () => window.removeEventListener(CHAT_NAV_SCROLL_TOP_EVENT, onNavChat);
-  }, [scrollChatChromeToTop]);
+  }, [scrollChatChromeToTop, scrollToBottom]);
 
   useEffect(() => {
     if (location.pathname !== '/app/chat') return;
@@ -239,11 +246,7 @@ export const ChatPage: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, [messages, scrollToBottom]);
 
   const loadThreads = async () => {
     try {
