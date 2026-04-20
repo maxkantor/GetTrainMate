@@ -23,7 +23,7 @@ import { getIcebreakers, getAiErrorMessage } from '@/services/aiService';
 import { profileService } from '@/services/profileService';
 import { IMAGE_BUCKET_BASE } from '@/config/media';
 import { setChatUnreadTotal } from '@/utils/chatUnreadStore';
-import { analytics, trackPremiumAction } from '@/utils/analytics';
+import { analytics, trackEvent, trackPremiumAction } from '@/utils/analytics';
 import { useChatPresence } from '@/contexts/ChatPresenceContext';
 import { CHAT_NAV_SCROLL_TOP_EVENT } from '@/utils/chatNav';
 import { loadPremiumCatalog, PREMIUM_ACTION, creditPhrase } from '@/config/premiumCatalog';
@@ -89,6 +89,7 @@ export const ChatPage: React.FC = () => {
   const threadItemsRef = useRef<HTMLDivElement>(null);
   const chatTitleRef = useRef<HTMLHeadingElement>(null);
   const selectedThreadIdRef = useRef<string | null>(null);
+  const chatStartedThreadIdsRef = useRef<Set<string>>(new Set());
 
   const scrollChatChromeToTop = useCallback((focusHeading: boolean) => {
     threadItemsRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -242,10 +243,20 @@ export const ChatPage: React.FC = () => {
 
   useEffect(() => {
     if (!selectedThreadId) return;
-    loadMessages(selectedThreadId);
-    if (threadLocked !== true) {
-      markThreadAsRead(selectedThreadId);
-    }
+
+    void (async () => {
+      await loadMessages(selectedThreadId);
+      if (threadLocked !== true) {
+        markThreadAsRead(selectedThreadId);
+      }
+      if (!chatStartedThreadIdsRef.current.has(selectedThreadId)) {
+        chatStartedThreadIdsRef.current.add(selectedThreadId);
+        trackEvent('chat_started', {
+          source_page: '/app/chat',
+          user_status: 'authenticated',
+        });
+      }
+    })();
   }, [selectedThreadId, threadLocked]);
 
   useEffect(() => {

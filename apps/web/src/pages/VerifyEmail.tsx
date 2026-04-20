@@ -123,7 +123,7 @@ export const VerifyEmailPage: React.FC = () => {
         return;
       }
 
-      trackEvent('signup_completed', { source_page: '/verify-email' });
+      trackEvent('signup_completed', { method: 'email', source_page: '/verify-email' });
 
       navigate('/app', { replace: true });
     } catch (err) {

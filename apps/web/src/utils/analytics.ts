@@ -23,9 +23,10 @@ function shouldTrackCurrentPath(): boolean {
 export { getMeasurementId, initGa4 };
 export const initAnalytics = initGa4;
 
-export function trackEvent(eventName: string, params?: Record<string, unknown>): void {
+export function trackEvent(eventName: string, params: Record<string, unknown> = {}): void {
   if (!shouldTrackCurrentPath()) return;
-  gaEvent(eventName, params);
+  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;
+  window.gtag('event', eventName, params);
 }
 
 /** Manual SPA page_view (pathname + optional `?query`; uses `document.title` / real URL on the client). */
@@ -144,7 +145,8 @@ export const analytics = {
     gaEvent('unlock_click', { funnel: 'landing_entry', surface }),
   /** Full credits usage breakdown modal (from header, pricing, etc.). */
   creditsUsageOpened: (source?: string) => gaEvent('view_credits_usage', { source: source ?? 'unknown' }),
-  pricingClicked: (source?: string) => gaEvent('pricing_clicked', { source: source ?? 'unknown' }),
+  pricingViewed: (source?: string) => gaEvent('pricing_viewed', { source: source ?? 'unknown' }),
+  pricingClicked: (source?: string) => gaEvent('pricing_viewed', { source: source ?? 'unknown' }),
   pricingOpened: (source?: string) => gaEvent('view_pricing', { source: source ?? 'direct' }),
   purchaseStarted: (packKey: string) => gaEvent('begin_checkout', { pack_key: packKey }),
   purchaseSuccess: (packKey: string, amount: number) =>

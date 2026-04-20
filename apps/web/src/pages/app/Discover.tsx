@@ -245,6 +245,7 @@ export const DiscoverPage: React.FC = () => {
 
   const feedRef = useRef<MatchFeedItem[]>([]);
   const currentIndexRef = useRef(0);
+  const shownMatchIdsRef = useRef<Set<string>>(new Set());
   feedRef.current = feed;
   currentIndexRef.current = currentIndex;
 
@@ -278,6 +279,18 @@ export const DiscoverPage: React.FC = () => {
     setPhotoErrorForIndex(null);
     setCurrentPhotoIndex(0);
   }, [currentIndex]);
+
+  useEffect(() => {
+    const currentCard = feed[currentIndex];
+    if (!currentCard?.userId) return;
+    if (isDummyNearbyProfile(currentCard.userId)) return;
+    if (shownMatchIdsRef.current.has(currentCard.userId)) return;
+    shownMatchIdsRef.current.add(currentCard.userId);
+    trackEvent('match_shown', {
+      source_page: '/app/discover',
+      user_status: 'authenticated',
+    });
+  }, [currentIndex, feed]);
 
   useEffect(() => {
     return () => {
@@ -517,6 +530,10 @@ export const DiscoverPage: React.FC = () => {
       setLikeLoading(true);
       if (isGraphQLEnabled) {
         const result = await graphqlLikeUser(currentCard.userId);
+        trackEvent('request_sent', {
+          source_page: '/app/discover',
+          user_status: 'authenticated',
+        });
         if (creditBefore === 0) incrementDailyLike(user?.sub);
         await refreshMe();
         if (user?.sub) {
@@ -546,6 +563,10 @@ export const DiscoverPage: React.FC = () => {
         }
         try {
           const result = await matchService.likeUser(token, currentCard.userId);
+          trackEvent('request_sent', {
+            source_page: '/app/discover',
+            user_status: 'authenticated',
+          });
           if (creditBefore === 0) incrementDailyLike(user?.sub);
           await refreshMe();
           if (user?.sub) {
@@ -574,6 +595,10 @@ export const DiscoverPage: React.FC = () => {
             if (token) {
               try {
                 const result = await matchService.likeUser(token, currentCard.userId);
+                trackEvent('request_sent', {
+                  source_page: '/app/discover',
+                  user_status: 'authenticated',
+                });
                 if (creditBefore === 0) incrementDailyLike(user?.sub);
                 await refreshMe();
                 if (user?.sub) {
