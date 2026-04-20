@@ -113,7 +113,7 @@ export function getRouteSeo(pathname: string): RouteSeo {
       title: `App | ${BRAND}`,
       description: 'Your GetTrainMate dashboard — discover, matches, chat, and profile.',
       canonicalPath: path,
-      noindex: false,
+      noindex: true,
     });
   }
 
@@ -122,7 +122,7 @@ export function getRouteSeo(pathname: string): RouteSeo {
       title: `Onboarding | ${BRAND}`,
       description: 'Complete your GetTrainMate profile.',
       canonicalPath: path,
-      noindex: false,
+      noindex: true,
     });
   }
 
@@ -131,7 +131,7 @@ export function getRouteSeo(pathname: string): RouteSeo {
       title: `Billing | ${BRAND}`,
       description: 'Payment confirmation.',
       canonicalPath: path,
-      noindex: false,
+      noindex: true,
     });
   }
 

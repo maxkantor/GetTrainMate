@@ -9,6 +9,7 @@ import { Features } from '@/sections/Features';
 import { WhoIsThisFor } from '@/sections/WhoIsThisFor';
 import { Testimonials } from '@/sections/Testimonials';
 import { FinalCTA } from '@/sections/FinalCTA';
+import { trackEvent } from '@/utils/analytics';
 import styles from '@/sections/sections.module.css';
 
 export const LandingPage: React.FC = () => {
@@ -17,6 +18,14 @@ export const LandingPage: React.FC = () => {
   const location = useLocation();
 
   /** When navigating from another route (e.g. Pricing) to /#how-it-works, scroll after marketing sections mount. */
+  useEffect(() => {
+    if (isAuthenticated) return;
+    trackEvent('landing_page_view', {
+      source_page: location.pathname,
+      user_status: 'guest',
+    });
+  }, [isAuthenticated, location.pathname]);
+
   useEffect(() => {
     if (isAuthenticated && me) return;
     if (location.pathname !== '/') return;

@@ -5,17 +5,34 @@
 
 import { gaEvent, gaPageView, getMeasurementId, initGa4 } from '@/lib/gtag';
 
+function isAdminPath(path: string): boolean {
+  return /^\/admin(?:\/|$)/i.test(path);
+}
+
+function normalizeAnalyticsPath(path: string): string {
+  if (!path) return '/';
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+function shouldTrackCurrentPath(): boolean {
+  if (typeof window === 'undefined') return true;
+  return !isAdminPath(window.location.pathname || '/');
+}
+
 /** Re-export for app bootstrap (same as {@link initGa4}). */
 export { getMeasurementId, initGa4 };
 export const initAnalytics = initGa4;
 
 export function trackEvent(eventName: string, params?: Record<string, unknown>): void {
+  if (!shouldTrackCurrentPath()) return;
   gaEvent(eventName, params);
 }
 
 /** Manual SPA page_view (pathname + optional `?query`; uses `document.title` / real URL on the client). */
 export function trackPageView(path: string, title?: string): void {
-  gaPageView(path, title);
+  const safePath = normalizeAnalyticsPath(path);
+  if (isAdminPath(safePath)) return;
+  gaPageView(safePath, title);
 }
 
 /** @deprecated Prefer {@link trackPageView} — identical. */

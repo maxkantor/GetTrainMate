@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useSearchParams, Navigate } from 'react-router-dom';
 import {
   Box,
@@ -12,7 +12,7 @@ import {
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { PageShell } from '@/components/layout/PageShell';
-import { trackSignUp } from '@/utils/analytics';
+import { trackEvent, trackSignUp } from '@/utils/analytics';
 import { savePendingSignup } from '@/utils/pendingSignupStorage';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -44,6 +44,16 @@ export const SignupPage: React.FC = () => {
     password?: string;
     confirmPassword?: string;
   }>({});
+  const startedRef = useRef(false);
+  const completedRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (startedRef.current && !completedRef.current) {
+        trackEvent('signup_abandoned', { source_page: '/signup' });
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setError('');
@@ -90,10 +100,16 @@ export const SignupPage: React.FC = () => {
       return;
     }
 
+    startedRef.current = true;
+    trackEvent('signup_started', { source_page: '/signup' });
+    trackEvent('email_submitted', { source_page: '/signup' });
+
     try {
       // signup() runs check-email first; only calls Cognito signUp when email is available
       const result = await signup(email, password, name);
       if (result.success && result.username) {
+        completedRef.current = true;
+        trackEvent('verification_code_sent', { source_page: '/signup' });
         trackSignUp('email');
         savePendingSignup({
           email: email.trim(),
@@ -103,11 +119,19 @@ export const SignupPage: React.FC = () => {
         });
         navigate('/verify-email', { state: { email: email.trim(), username: result.username } });
       } else if (!result.success) {
+        trackEvent('signup_failed', {
+          source_page: '/signup',
+          error_type: result.registrationStatus ?? 'signup_failed',
+        });
         setError(result.error ?? t('errors.signupFailed'));
         if (result.resendUsername) setSubmitResendUsername(result.resendUsername);
         if (result.registrationStatus) setFailedRegistrationStatus(result.registrationStatus);
       }
     } catch (err) {
+      trackEvent('signup_failed', {
+        source_page: '/signup',
+        error_type: 'exception',
+      });
       const errMessage = err instanceof Error ? err.message : t('errors.signupFailed');
       setError(errMessage);
     }
@@ -127,6 +151,10 @@ export const SignupPage: React.FC = () => {
     setResendNotice(null);
     const r = await resendSignupCode(submitResendUsername);
     if (r.success) {
+      trackEvent('verification_code_sent', {
+        source_page: '/signup',
+        trigger: 'resend',
+      });
       setResendNotice({
         kind: 'success',
         text: 'A new verification code was sent. Check your inbox and spam folder.',
@@ -156,7 +184,13 @@ export const SignupPage: React.FC = () => {
               {error}
               {showSignInFromError && (
                 <Box sx={{ mt: 1.5 }}>
-                  <Button component={Link} to="/login" variant="contained" size="small">
+                  <Button
+                    component={Link}
+                    to="/login"
+                    variant="contained"
+                    size="small"
+                    onClick={() => trackEvent('login_clicked', { source_page: '/signup' })}
+                  >
                     Sign in
                   </Button>
                 </Box>
@@ -259,7 +293,11 @@ export const SignupPage: React.FC = () => {
           <Box sx={{ marginTop: 3, textAlign: 'center' }}>
             <Typography variant="body2">
               {t('auth.hasAccount')}{' '}
-              <Link to="/login" style={{ textDecoration: 'none', color: '#1976d2' }}>
+              <Link
+                to="/login"
+                style={{ textDecoration: 'none', color: '#1976d2' }}
+                onClick={() => trackEvent('login_clicked', { source_page: '/signup' })}
+              >
                 {t('auth.loginLink')}
               </Link>
             </Typography>

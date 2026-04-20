@@ -14,6 +14,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { PageShell } from '@/components/layout/PageShell';
+import { trackEvent } from '@/utils/analytics';
 import {
   readPendingSignup,
   clearPendingSignup,
@@ -67,6 +68,8 @@ export const VerifyEmailPage: React.FC = () => {
     setResendOk(false);
     if (!validateForm()) return;
 
+    trackEvent('verification_code_submitted', { source_page: '/verify-email' });
+
     const u = username.trim();
     if (!u) {
       setError('Session expired. Go back to sign up to request a new code.');
@@ -85,6 +88,10 @@ export const VerifyEmailPage: React.FC = () => {
     try {
       const result = await confirmSignUp(u, code.trim());
       if (!result.success) {
+        trackEvent('signup_failed', {
+          source_page: '/verify-email',
+          error_type: 'verification_failed',
+        });
         const msg = result.error ?? 'Verification failed. Check the code and try again.';
         const friendly =
           /expired|invalid|mismatch|not.*match|code/i.test(msg)
@@ -104,6 +111,10 @@ export const VerifyEmailPage: React.FC = () => {
       clearPendingSignup();
 
       if (!loginRes.success) {
+        trackEvent('signup_failed', {
+          source_page: '/verify-email',
+          error_type: 'post_verify_login_failed',
+        });
         setError(
           loginRes.error ??
             'Email verified. Please sign in with your email and password.'
@@ -112,8 +123,14 @@ export const VerifyEmailPage: React.FC = () => {
         return;
       }
 
+      trackEvent('signup_completed', { source_page: '/verify-email' });
+
       navigate('/app', { replace: true });
     } catch (err) {
+      trackEvent('signup_failed', {
+        source_page: '/verify-email',
+        error_type: 'exception',
+      });
       setCodeFieldError(err instanceof Error ? err.message : 'Verification failed. Please try again.');
     }
   };
@@ -129,6 +146,10 @@ export const VerifyEmailPage: React.FC = () => {
     }
     const r = await resendSignupCode(u);
     if (r.success) {
+      trackEvent('verification_code_sent', {
+        source_page: '/verify-email',
+        trigger: 'resend',
+      });
       setResendOk(true);
     } else {
       setError(r.error ?? 'Could not resend the code. Try again in a moment.');

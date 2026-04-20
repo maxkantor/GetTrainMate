@@ -6,6 +6,7 @@ import { useMe } from '@/hooks/useMe';
 import { useI18n } from '@/hooks/useI18n';
 import { Container } from '@/components/layout/Container';
 import { HeroFloatingStack } from '@/components/premium/HeroFloatingStack';
+import { trackEvent } from '@/utils/analytics';
 import styles from './sections.module.css';
 
 const ease = [0.16, 1, 0.3, 1] as const;
@@ -57,7 +58,27 @@ export const Hero: React.FC = () => {
               transition={{ duration: 0.5, ease, delay: 0.12 }}
             >
               <div className={styles.heroPrimaryStack}>
-                <Link to={ctaPrimaryHref} className={styles.heroBtnPrimary}>
+                <Link
+                  to={ctaPrimaryHref}
+                  className={styles.heroBtnPrimary}
+                  onClick={() => {
+                    trackEvent('hero_cta_clicked', {
+                      source_page: '/',
+                      user_status: isAuthenticated ? 'authenticated' : 'guest',
+                    });
+                    if (isAuthenticated) {
+                      trackEvent('app_open_clicked', {
+                        source_page: '/',
+                        user_status: 'authenticated',
+                      });
+                    } else {
+                      trackEvent('sign_up_clicked', {
+                        source_page: '/',
+                        user_status: 'guest',
+                      });
+                    }
+                  }}
+                >
                   {ctaPrimaryLabel}
                 </Link>
                 {!isAuthenticated && (
@@ -70,7 +91,16 @@ export const Hero: React.FC = () => {
                   </>
                 )}
               </div>
-              <a href="#how-it-works" className={`${styles.heroBtnGhost} ${styles.landingLinkUnderline}`}>
+              <a
+                href="#how-it-works"
+                className={`${styles.heroBtnGhost} ${styles.landingLinkUnderline}`}
+                onClick={() => {
+                  trackEvent('see_how_it_works_clicked', {
+                    source_page: '/',
+                    user_status: isAuthenticated ? 'authenticated' : 'guest',
+                  });
+                }}
+              >
                 {t('landing.hero_see_how')}
               </a>
             </motion.div>

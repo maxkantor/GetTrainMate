@@ -15,7 +15,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { isAuthConfigured, getAuthPoolDebug } from '@/services/authService';
 import { PageShell } from '@/components/layout/PageShell';
-import { trackLogin } from '@/utils/analytics';
+import { trackEvent, trackLogin } from '@/utils/analytics';
 
 /** Last email used for a successful sign-in (pre-filled on return visits). */
 const LAST_LOGIN_EMAIL_KEY = 'gtm_last_login_email';
@@ -114,9 +114,12 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
+    trackEvent('login_clicked', { source_page: '/login' });
+
     try {
       const result = await login(email, password);
       if (result.success) {
+        trackLogin('email');
         persistLoginEmail(email.trim(), rememberMe);
         const plan = localStorage.getItem('selectedPlanKey');
         if (plan === 'pro' || plan === 'elite') {
@@ -332,7 +335,11 @@ export const LoginPage: React.FC = () => {
         <Box sx={{ marginTop: 3, textAlign: 'center' }}>
           <Typography variant="body2" sx={{ marginBottom: 1 }}>
             {t('auth.noAccount')}{' '}
-            <Link to="/signup" style={{ textDecoration: 'none', color: '#1976d2' }}>
+            <Link
+              to="/signup"
+              style={{ textDecoration: 'none', color: '#1976d2' }}
+              onClick={() => trackEvent('sign_up_clicked', { source_page: '/login' })}
+            >
               {t('auth.signupLink')}
             </Link>
           </Typography>

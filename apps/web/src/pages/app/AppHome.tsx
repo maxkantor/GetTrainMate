@@ -32,6 +32,7 @@ import {
   clearNewUserDashboardGreeting,
 } from '@/utils/pendingSignupStorage';
 import { trackMatchSearchClicked } from '@/utils/analytics';
+import { trackEvent } from '@/utils/analytics';
 
 const cardSx = {
   borderRadius: 2,
@@ -73,6 +74,13 @@ export const AppHomePage: React.FC = () => {
   const userSub = user?.sub ?? '';
   const matchStatus = useMatchStatusForHeader(!!me?.user?.id);
   const chatUnread = useChatUnreadCount();
+
+  useEffect(() => {
+    trackEvent('app_open_clicked', {
+      source_page: '/app',
+      user_status: 'authenticated',
+    });
+  }, []);
 
   const sentEnabled =
     !!userSub && me?.profile?.discoverCanReviewLikedProfiles !== false;
@@ -308,7 +316,13 @@ export const AppHomePage: React.FC = () => {
           size="large"
           fullWidth
           startIcon={<ExploreOutlinedIcon />}
-          onClick={() => trackMatchSearchClicked('Start Discovering CTA')}
+          onClick={() => {
+            trackMatchSearchClicked('Start Discovering CTA');
+            trackEvent('find_match_clicked', {
+              source_page: '/app',
+              user_status: 'authenticated',
+            });
+          }}
           sx={{ mb: 3, py: 1.5, fontWeight: 600 }}
         >
           {t('app_pages.home.start_discovering')}

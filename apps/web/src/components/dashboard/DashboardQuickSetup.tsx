@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -25,6 +25,7 @@ import {
 } from '@/config/dashboardQuickSetup';
 import { readSignupDisplayName, clearSignupDisplayName } from '@/utils/pendingSignupStorage';
 import { trackMatchSearchClicked } from '@/utils/analytics';
+import { trackEvent } from '@/utils/analytics';
 
 /**
  * First-time dashboard: one-tap training type, level, and time — then profile is complete enough for Discover.
@@ -38,6 +39,13 @@ export const DashboardQuickSetup: React.FC = () => {
   const [timeId, setTimeId] = useState<DashboardTimeId>('evening');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    trackEvent('onboarding_started', { source_page: '/app' });
+  }, []);
 
   const displayName =
     me?.profile?.name?.trim() ||
@@ -48,6 +56,13 @@ export const DashboardQuickSetup: React.FC = () => {
   const handleSubmit = async () => {
     trackMatchSearchClicked('Find Match Button');
     setError('');
+    trackEvent('find_match_clicked', {
+      source_page: '/app',
+      selected_training_type: trainingTag,
+      selected_level: level,
+      selected_time_preference: timeId,
+      user_status: 'authenticated',
+    });
     try {
       setSaving(true);
       const token = await authService.getJWT();
@@ -68,6 +83,12 @@ export const DashboardQuickSetup: React.FC = () => {
         mode: 'TRAIN',
       });
       await refreshMe();
+      trackEvent('onboarding_completed', {
+        source_page: '/app',
+        selected_training_type: trainingTag,
+        selected_level: level,
+        selected_time_preference: timeId,
+      });
       clearSignupDisplayName();
       const refreshed = await profileService.getMyProfile(token);
       const hasPhoto =
@@ -115,7 +136,14 @@ export const DashboardQuickSetup: React.FC = () => {
         <ToggleButtonGroup
           exclusive
           value={trainingTag}
-          onChange={(_, v) => v != null && setTrainingTag(v)}
+          onChange={(_, v) => {
+            if (v == null || v === trainingTag) return;
+            setTrainingTag(v);
+            trackEvent('training_type_selected', {
+              source_page: '/app',
+              selected_training_type: v,
+            });
+          }}
           sx={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -144,7 +172,14 @@ export const DashboardQuickSetup: React.FC = () => {
         <ToggleButtonGroup
           exclusive
           value={level}
-          onChange={(_, v) => v != null && setLevel(v)}
+          onChange={(_, v) => {
+            if (v == null || v === level) return;
+            setLevel(v);
+            trackEvent('level_selected', {
+              source_page: '/app',
+              selected_level: v,
+            });
+          }}
           sx={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -173,7 +208,14 @@ export const DashboardQuickSetup: React.FC = () => {
         <ToggleButtonGroup
           exclusive
           value={timeId}
-          onChange={(_, v) => v != null && setTimeId(v)}
+          onChange={(_, v) => {
+            if (v == null || v === timeId) return;
+            setTimeId(v);
+            trackEvent('time_preference_selected', {
+              source_page: '/app',
+              selected_time_preference: v,
+            });
+          }}
           sx={{
             display: 'flex',
             flexWrap: 'wrap',

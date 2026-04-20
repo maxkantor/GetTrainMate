@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { analytics, trackBeginCheckout } from '@/utils/analytics';
+import { analytics, trackBeginCheckout, trackEvent } from '@/utils/analytics';
 import { useSearchParams } from 'react-router-dom';
 import { Container } from '@/components/layout/Container';
 import { PageShell } from '@/components/layout/PageShell';
@@ -69,7 +69,11 @@ export const PricingPage: React.FC = () => {
 
   useEffect(() => {
     analytics.pricingOpened();
-  }, []);
+    trackEvent('credits_viewed', {
+      source_page: '/pricing',
+      user_status: isAuthenticated ? 'authenticated' : 'guest',
+    });
+  }, [isAuthenticated]);
 
   useEffect(() => {
     billingService

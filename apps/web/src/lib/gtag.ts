@@ -12,6 +12,8 @@ declare global {
 }
 
 const INIT_FLAG = '__GTM_GA4_INITIALIZED__';
+const SCRIPT_ATTR = 'data-gtm-ga4';
+let missingIdWarned = false;
 
 /** GA4 ID from Vite env (Amplify injects at `vite build`). Undefined if unset. */
 export function getMeasurementId(): string | undefined {
@@ -32,8 +34,16 @@ export function isGa4Enabled(): boolean {
 export function initGa4(): void {
   if (typeof window === 'undefined') return;
   const mid = getMeasurementId();
-  if (!mid) return;
+  if (!mid) {
+    if (import.meta.env.DEV && !missingIdWarned) {
+      missingIdWarned = true;
+      console.warn('[analytics] VITE_GA_MEASUREMENT_ID is missing. GA4 tracking is disabled.');
+    }
+    return;
+  }
   if ((window as unknown as Record<string, boolean>)[INIT_FLAG]) return;
+
+  const existingScript = document.querySelector<HTMLScriptElement>(`script[${SCRIPT_ATTR}="${mid}"]`);
 
   window.dataLayer = window.dataLayer || [];
   window.gtag = function gtag(...args: unknown[]) {
@@ -46,10 +56,13 @@ export function initGa4(): void {
   });
   (window as unknown as Record<string, boolean>)[INIT_FLAG] = true;
 
-  const s = document.createElement('script');
-  s.async = true;
-  s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(mid)}`;
-  document.head.appendChild(s);
+  if (!existingScript) {
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(mid)}`;
+    s.setAttribute(SCRIPT_ATTR, mid);
+    document.head.appendChild(s);
+  }
 }
 
 /** SPA route changes — `gtag('config', measurement_id, { page_path })` sends page_view in GA4. */

@@ -17,6 +17,7 @@ import { formatLookingForLine } from '@/config/modes';
 import { MATCHES_PAGE_SIZE } from '@/config/relationshipLimits';
 import { UpgradeBanner } from '@/components/discover/UpgradeBanner';
 import { ProfileCardSkeleton } from '@/components/ui/Skeleton';
+import { trackEvent } from '@/utils/analytics';
 import styles from './Matches.module.css';
 
 type Match = MutualMatchRow;
@@ -57,6 +58,23 @@ export const MatchesPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('newest');
   const [visibleCount, setVisibleCount] = useState(MATCHES_PAGE_SIZE);
+
+  useEffect(() => {
+    if (!userSub || loading || isError) return;
+    trackEvent('matches_loaded', {
+      source_page: '/app/matches',
+      result_count: matches.length,
+      user_status: 'authenticated',
+    });
+  }, [isError, loading, matches.length, userSub]);
+
+  useEffect(() => {
+    if (!isError) return;
+    trackEvent('match_load_failed', {
+      source_page: '/app/matches',
+      error_type: 'query_error',
+    });
+  }, [isError]);
 
   const filteredAndSorted = useMemo(() => {
     let result = [...matches];
@@ -244,6 +262,12 @@ export const MatchesPage: React.FC = () => {
                 <Link
                   to={`/app/chat?thread=${match.matchId}`}
                   className={styles.chatBtn}
+                  onClick={() =>
+                    trackEvent('message_cta_clicked', {
+                      source_page: '/app/matches',
+                      user_status: 'authenticated',
+                    })
+                  }
                 >
                   <ChatIcon sx={{ fontSize: 20 }} />
                   {t('app_pages.matches.open_chat')}
@@ -252,7 +276,13 @@ export const MatchesPage: React.FC = () => {
                 <button
                   type="button"
                   className={styles.unlockBtn}
-                  onClick={() => handleUnlockChat(match)}
+                  onClick={() => {
+                    trackEvent('message_cta_clicked', {
+                      source_page: '/app/matches',
+                      user_status: 'authenticated',
+                    });
+                    void handleUnlockChat(match);
+                  }}
                   disabled={unlockingMatchId === match.matchId || credits < 1}
                 >
                   <LockIcon sx={{ fontSize: 20 }} />

@@ -1,4 +1,10 @@
 User-agent: *
 Allow: /
+Disallow: /app/
+Disallow: /admin/
+Disallow: /onboarding/
+Disallow: /billing/
+Disallow: /auth/callback
+Disallow: /test/
 
 Sitemap: https://gettrainmate.com/sitemap.xml

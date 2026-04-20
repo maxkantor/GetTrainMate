@@ -42,7 +42,7 @@ import { MatchCelebrationOverlay, MatchCelebrationState } from '@/components/dis
 import { Modal } from '@/components/ui/Modal';
 import { getMatchInsight, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import { loadPremiumCatalog, PREMIUM_ACTION } from '@/config/premiumCatalog';
-import { trackPremiumAction } from '@/utils/analytics';
+import { trackEvent, trackPremiumAction } from '@/utils/analytics';
 import type { MatchInsightResponse } from '@/types/ai';
 import { useI18n } from '@/hooks/useI18n';
 import { formatI18n } from '@/i18n';
@@ -319,6 +319,11 @@ export const DiscoverPage: React.FC = () => {
         if (stale()) return;
         const location = locationRaw ?? FALLBACK_LOCATION;
         setFeed(hydrated);
+        trackEvent('matches_loaded', {
+          source_page: '/app/discover',
+          result_count: hydrated.length,
+          user_status: 'authenticated',
+        });
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
@@ -343,6 +348,11 @@ export const DiscoverPage: React.FC = () => {
         if (stale()) return;
         const location = locationRaw ?? FALLBACK_LOCATION;
         setFeed(dedupeDiscoverFeedByUserId(sortDiscoverFeed(excludeDiscoverSelf(feedWithPhotos, user?.sub))));
+        trackEvent('matches_loaded', {
+          source_page: '/app/discover',
+          result_count: feedWithPhotos.length,
+          user_status: 'authenticated',
+        });
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
@@ -371,6 +381,11 @@ export const DiscoverPage: React.FC = () => {
               if (stale()) return;
               const location = locationRaw ?? FALLBACK_LOCATION;
               setFeed(hydrated);
+              trackEvent('matches_loaded', {
+                source_page: '/app/discover',
+                result_count: hydrated.length,
+                user_status: 'authenticated',
+              });
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoFallbackUrls({});
@@ -388,6 +403,11 @@ export const DiscoverPage: React.FC = () => {
               setFeed(
                 dedupeDiscoverFeedByUserId(sortDiscoverFeed(excludeDiscoverSelf(feedWithPhotos, user?.sub)))
               );
+              trackEvent('matches_loaded', {
+                source_page: '/app/discover',
+                result_count: feedWithPhotos.length,
+                user_status: 'authenticated',
+              });
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoErrorForIndex(null);
@@ -409,6 +429,10 @@ export const DiscoverPage: React.FC = () => {
       }
 
       if (!stale()) {
+        trackEvent('match_load_failed', {
+          source_page: '/app/discover',
+          error_type: isNetworkError(err) ? 'network_error' : String(status ?? 'unknown_error'),
+        });
         if (isNetworkError(err)) {
           setError(t('app_messages.api_backend_unreachable'));
         } else if (status === 401) {
@@ -456,6 +480,10 @@ export const DiscoverPage: React.FC = () => {
     }
 
     const creditBefore = me?.credits ?? 0;
+    trackEvent('find_match_clicked', {
+      source_page: '/app/discover',
+      user_status: 'authenticated',
+    });
     if (!canSendLikeWithDailyCap(creditBefore, user?.sub)) {
       setToast(formatI18n(t('app_messages.daily_limit_midnight'), { limit: DAILY_LIKE_LIMIT }));
       openDailyLimitModal();
@@ -692,6 +720,10 @@ export const DiscoverPage: React.FC = () => {
   const handleViewProfile = () => {
     const currentCard = feed[currentIndex];
     if (currentCard?.userId) {
+      trackEvent('profile_viewed', {
+        source_page: '/app/discover',
+        user_status: 'authenticated',
+      });
       setProfileDrawerOpen(true);
     }
   };
@@ -1139,6 +1171,10 @@ export const DiscoverPage: React.FC = () => {
         celebration={matchCelebration}
         onSendMessage={() => {
           if (!matchCelebration) return;
+          trackEvent('message_cta_clicked', {
+            source_page: '/app/discover',
+            user_status: 'authenticated',
+          });
           const id = matchCelebration.matchId;
           closeMatchCelebration(true);
           navigate(`/app/chat?thread=${encodeURIComponent(id)}`);
