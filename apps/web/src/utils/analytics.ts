@@ -144,6 +144,7 @@ export const analytics = {
     gaEvent('unlock_click', { funnel: 'landing_entry', surface }),
   /** Full credits usage breakdown modal (from header, pricing, etc.). */
   creditsUsageOpened: (source?: string) => gaEvent('view_credits_usage', { source: source ?? 'unknown' }),
+  pricingClicked: (source?: string) => gaEvent('pricing_clicked', { source: source ?? 'unknown' }),
   pricingOpened: (source?: string) => gaEvent('view_pricing', { source: source ?? 'direct' }),
   purchaseStarted: (packKey: string) => gaEvent('begin_checkout', { pack_key: packKey }),
   purchaseSuccess: (packKey: string, amount: number) =>

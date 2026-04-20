@@ -4,6 +4,8 @@
  * for production builds). No hardcoded ID — avoids drift from Admin / stream settings.
  */
 
+import { getGaMeasurementId, initAnalytics } from '@/analytics';
+
 declare global {
   interface Window {
     dataLayer?: unknown[];
@@ -11,16 +13,9 @@ declare global {
   }
 }
 
-const INIT_FLAG = '__GTM_GA4_INITIALIZED__';
-const SCRIPT_ATTR = 'data-gtm-ga4';
-let missingIdWarned = false;
-
 /** GA4 ID from Vite env (Amplify injects at `vite build`). Undefined if unset. */
 export function getMeasurementId(): string | undefined {
-  const v = import.meta.env.VITE_GA_MEASUREMENT_ID;
-  if (typeof v !== 'string') return undefined;
-  const t = v.trim();
-  return t.length > 0 ? t : undefined;
+  return getGaMeasurementId();
 }
 
 export function isGa4Enabled(): boolean {
@@ -32,56 +27,26 @@ export function isGa4Enabled(): boolean {
  * Uses `send_page_view: false`; SPA sends page_view on each route via {@link gaPageView}.
  */
 export function initGa4(): void {
-  if (typeof window === 'undefined') return;
-  const mid = getMeasurementId();
-  if (!mid) {
-    if (import.meta.env.DEV && !missingIdWarned) {
-      missingIdWarned = true;
-      console.warn('[analytics] VITE_GA_MEASUREMENT_ID is missing. GA4 tracking is disabled.');
-    }
-    return;
-  }
-  if ((window as unknown as Record<string, boolean>)[INIT_FLAG]) return;
-
-  const existingScript = document.querySelector<HTMLScriptElement>(`script[${SCRIPT_ATTR}="${mid}"]`);
-
-  window.dataLayer = window.dataLayer || [];
-  window.gtag = function gtag(...args: unknown[]) {
-    window.dataLayer!.push(args);
-  };
-  window.gtag('js', new Date());
-  window.gtag('config', mid, {
-    send_page_view: false,
-    cookie_flags: 'SameSite=None;Secure',
-  });
-  (window as unknown as Record<string, boolean>)[INIT_FLAG] = true;
-
-  if (!existingScript) {
-    const s = document.createElement('script');
-    s.async = true;
-    s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(mid)}`;
-    s.setAttribute(SCRIPT_ATTR, mid);
-    document.head.appendChild(s);
-  }
+  initAnalytics();
 }
 
-/** SPA route changes — `gtag('config', measurement_id, { page_path })` sends page_view in GA4. */
+/** SPA route changes — explicit GA4 `page_view` event. */
 export function gaPageView(path: string, title?: string): void {
   if (typeof window === 'undefined' || !window.gtag) return;
-  const mid = getMeasurementId();
-  if (!mid) return;
+  if (!getMeasurementId()) return;
   const pagePath = path.startsWith('/') ? path : `/${path}`;
-  const cfg: Record<string, unknown> = {
+  const payload: Record<string, unknown> = {
     page_path: pagePath,
     page_title: title ?? (typeof document !== 'undefined' ? document.title : ''),
+    page_location: window.location.href,
   };
   if (import.meta.env.DEV) {
-    cfg.debug_mode = true;
+    payload.debug_mode = true;
   }
-  window.gtag('config', mid, cfg);
+  window.gtag('event', 'page_view', payload);
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console -- GA validation in local dev only
-    console.debug('[GA] page_view config', pagePath);
+    console.debug('[GA] page_view event', pagePath);
   }
 }
 

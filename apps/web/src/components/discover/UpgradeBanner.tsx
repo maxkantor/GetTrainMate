@@ -17,7 +17,7 @@ export const UpgradeBanner: React.FC<UpgradeBannerProps> = ({ message }) => {
       <Link
         to="/pricing"
         className={styles.btn}
-        onClick={() => analytics.pricingOpened('upgrade_banner')}
+        onClick={() => analytics.pricingClicked('upgrade_banner')}
       >
         {t('header.get_credits')}
       </Link>

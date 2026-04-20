@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { I18nProvider } from '@/contexts/I18nContext';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -6,6 +6,7 @@ import { MeProvider } from '@/contexts/MeContext';
 import { ReactQueryProvider } from '@/providers/ReactQueryProvider';
 import { Router } from '@/Router';
 import { authService } from '@/services/authService';
+import { initAnalytics } from '@/analytics';
 
 // Initialize AWS Amplify before React renders
 authService.configure();
@@ -145,6 +146,10 @@ const theme = createTheme({
 });
 
 function App() {
+  useEffect(() => {
+    initAnalytics();
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

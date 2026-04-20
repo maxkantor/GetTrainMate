@@ -240,7 +240,7 @@ export const CreditsUsageModal: React.FC<CreditsUsageModalProps> = ({ open, onCl
           variant="contained"
           className={styles.btnPrimary}
           onClick={() => {
-            analytics.pricingOpened(`credits_usage_${source}`);
+            analytics.pricingClicked(`credits_usage_${source}`);
             onClose();
           }}
         >

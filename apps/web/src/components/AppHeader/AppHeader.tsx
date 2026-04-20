@@ -293,7 +293,7 @@ export const AppHeader: React.FC = () => {
               <SamePathScrollLink
                 to="/pricing"
                 className={`${styles.upgradeBtn} ${pressureCredits ? styles.upgradeBtnUrgent : ''}`}
-                onClick={() => analytics.pricingOpened('header')}
+                onClick={() => analytics.pricingClicked('header')}
               >
                 {t('header.get_credits')}
               </SamePathScrollLink>
@@ -445,7 +445,7 @@ export const AppHeader: React.FC = () => {
                     className={`${styles.mobileUpgrade} ${pressureCredits ? styles.mobileUpgradeUrgent : ''}`}
                     onClick={() => {
                       setMobileOpen(false);
-                      analytics.pricingOpened('mobile');
+                      analytics.pricingClicked('mobile');
                     }}
                   >
                     {t('header.get_credits')}
