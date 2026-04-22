@@ -842,7 +842,7 @@
   top: 0;
   right: 0;
   width: min(300px, 85vw);
-  height: 100vh;
+  height: 100dvh;
   background: linear-gradient(180deg, rgba(10, 12, 22, 0.98) 0%, rgba(6, 8, 16, 0.99) 100%);
   backdrop-filter: blur(16px);
   border-left: 1px solid rgba(255, 255, 255, 0.06);
@@ -850,7 +850,9 @@
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  padding: 72px 24px 24px;
+  padding: calc(72px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mobileNav {
@@ -917,6 +919,24 @@
 }
 
 .mobileLink:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.mobileLinkBtn {
+  padding: 12px 16px;
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.mobileLinkBtn:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }

@@ -453,6 +453,19 @@ export const AppHeader: React.FC = () => {
                   <RouterLink to="/app/profile" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
                     {t('header.profile')}
                   </RouterLink>
+                  <RouterLink to="/app/subscription" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
+                    {t('header.billing')}
+                  </RouterLink>
+                  <button
+                    type="button"
+                    className={styles.mobileLinkBtn}
+                    onClick={() => {
+                      setMobileOpen(false);
+                      openCreditsUsageModal('header_mobile_menu');
+                    }}
+                  >
+                    {t('credits_usage.pricing_link')}
+                  </button>
                   <button type="button" className={styles.mobileLogout} onClick={handleLogout}>
                     {t('common.logout')}
                   </button>
