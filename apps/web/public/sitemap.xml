@@ -31,6 +31,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://gettrainmate.com/events/world-cup-2026</loc>
+    <lastmod>2026-04-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
     <loc>https://gettrainmate.com/gear</loc>
     <lastmod>2026-04-20</lastmod>
     <changefreq>monthly</changefreq>

@@ -3,21 +3,31 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Box, Button, Chip, Container, Snackbar, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { BackLink } from '@/components/ui/BackLink';
+import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import { trackEvent } from '@/utils/analytics';
 
-const SECTION_LABELS: Record<string, string> = {
-  train: 'Train: find training partners',
-  play: 'Play: join pickup games',
-  watch: 'Watch: watch games with fans',
-  meet: 'Meet: meet sports fans nearby',
-  vibe: 'Vibe: social hangouts',
-  date: 'Date: connect with someone who shares your energy',
+const ACTIVITY_LABEL_KEYS: Record<string, string> = {
+  train: 'sports_event_layer.activity_train',
+  play: 'sports_event_layer.activity_play',
+  watch: 'sports_event_layer.activity_watch',
+  meet: 'sports_event_layer.activity_meet',
+  vibe: 'sports_event_layer.activity_vibe',
+  date: 'sports_event_layer.activity_date',
+};
+const EN_DEFAULT_EVENT_COPY = 'find people to train, play, watch, meet, vibe, or date';
+const EN_SOCIAL_PROOF_LINE = 'fans are already connecting near you';
+
+const isSeededEnglishEventCopy = (value?: string) => {
+  const normalized = (value ?? '').toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, ' ').trim();
+  return normalized.includes(EN_DEFAULT_EVENT_COPY) || normalized.includes(EN_SOCIAL_PROOF_LINE);
 };
 
 export const EventLandingPage: React.FC = () => {
   const { eventId = '' } = useParams();
   const navigate = useNavigate();
+  const { locale, t } = useI18n();
   const [toast, setToast] = useState<string | null>(null);
   const { data } = useQuery({
     queryKey: ['sports-event', eventId],
@@ -39,19 +49,26 @@ export const EventLandingPage: React.FC = () => {
     const firstClickFlag = window.sessionStorage.getItem('gtm_event_first_click');
     if (firstClickFlag !== '1') return;
     window.sessionStorage.removeItem('gtm_event_first_click');
-    setToast('Start now - your first connection is free');
-    const t = window.setTimeout(() => {
-      setToast('2 connections left');
+    setToast(t('sports_event_layer.toast_first_connection'));
+    const timer = window.setTimeout(() => {
+      setToast(t('sports_event_layer.toast_connections_left'));
     }, 2100);
-    return () => window.clearTimeout(t);
-  }, []);
+    return () => window.clearTimeout(timer);
+  }, [t]);
 
-  const title = useMemo(() => (data ? `${data.label} on GetTrainMate` : 'Event on GetTrainMate'), [data]);
+  const title = useMemo(
+    () => formatI18n(t('sports_event_layer.title_template'), { label: data?.label ?? t('nav.events') }),
+    [data?.label, t]
+  );
+  const crmDescription = data?.description?.trim();
+  const eventDescription = crmDescription && (locale === 'en' || !isSeededEnglishEventCopy(crmDescription))
+    ? crmDescription
+    : t('sports_event_layer.default_description');
 
   return (
     <Container maxWidth="md" sx={{ py: 5 }}>
       <Box sx={{ mb: 2 }}>
-        <BackLink label="Back" />
+        <BackLink label={t('common.back')} />
       </Box>
       <Box
         sx={{
@@ -67,7 +84,7 @@ export const EventLandingPage: React.FC = () => {
         {title}
       </Typography>
       <Typography sx={{ mb: 1, fontWeight: 700 }}>
-        Don&apos;t watch alone this year.
+        {t('sports_event_layer.emotional_line')}
       </Typography>
       {data?.bannerImageUrl ? (
         <Box
@@ -83,11 +100,10 @@ export const EventLandingPage: React.FC = () => {
         </Box>
       ) : null}
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        {(data?.description?.trim() || 'Find people to train, play, watch, meet, vibe, or date.')
-          + ' GetTrainMate is an independent platform and is not affiliated with or endorsed by any league, club, federation, or event organizer.'}
+        {eventDescription + ` ${t('sports_event_layer.disclaimer')}`}
       </Typography>
       <Typography color="warning.main" sx={{ mb: 2, fontWeight: 700 }}>
-        You have 3 free connections to get started.
+        {t('sports_event_layer.credit_line')}
       </Typography>
       {(data?.tags ?? []).length > 0 ? (
         <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', rowGap: 1 }}>
@@ -97,20 +113,20 @@ export const EventLandingPage: React.FC = () => {
       <Stack spacing={1.2} sx={{ mb: 3 }}>
         {(data?.activities ?? ['train', 'play', 'watch', 'meet', 'vibe', 'date']).map((activity) => (
           <Box key={activity} sx={{ p: 1.2, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
-            <Typography variant="body2">{SECTION_LABELS[activity] ?? activity}</Typography>
+            <Typography variant="body2">{ACTIVITY_LABEL_KEYS[activity] ? t(ACTIVITY_LABEL_KEYS[activity]) : activity}</Typography>
           </Box>
         ))}
       </Stack>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
         <Button variant="contained" size="large" onClick={() => navigate('/signup')} sx={{ minHeight: 44, minWidth: { sm: 220 }, fontWeight: 800 }}>
-          Find Fans Near You
+          {t('sports_event_layer.primary_cta')}
         </Button>
         <Button variant="text" size="large" component={RouterLink} to="/login" sx={{ minHeight: 44 }}>
-          Log In
+          {t('header.login')}
         </Button>
       </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ mt: 1.2, display: 'block' }}>
-        No app. No subscription. Start free.
+        {t('sports_event_layer.trust_text')}
       </Typography>
       </Box>
       <Snackbar open={!!toast} autoHideDuration={1800} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>

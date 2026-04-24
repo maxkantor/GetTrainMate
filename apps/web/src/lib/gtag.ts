@@ -32,6 +32,7 @@ export function initGa4(): void {
 
 /** SPA route changes — explicit GA4 `page_view` event. */
 export function gaPageView(path: string, title?: string): void {
+  initAnalytics();
   if (typeof window === 'undefined' || !window.gtag) return;
   if (!getMeasurementId()) return;
   const pagePath = path.startsWith('/') ? path : `/${path}`;
@@ -50,6 +51,7 @@ export function gaPageView(path: string, title?: string): void {
 }
 
 export function gaEvent(name: string, params?: Record<string, unknown>): void {
+  initAnalytics();
   if (typeof window === 'undefined' || !window.gtag) return;
   if (!getMeasurementId()) return;
   window.gtag('event', name, params);

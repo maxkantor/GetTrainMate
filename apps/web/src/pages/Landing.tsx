@@ -3,6 +3,7 @@ import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Box, Button, Container, Typography } from '@mui/material';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { useI18n } from '@/hooks/useI18n';
 import { useMe } from '@/hooks/useMe';
 import { useActiveEvents } from '@/hooks/useActiveEvents';
 import { LoggedInActionHero } from '@/components/app/LoggedInActionHero';
@@ -16,15 +17,20 @@ import { trackEvent } from '@/utils/analytics';
 import { featureFlagsService } from '@/services/featureFlagsService';
 import styles from '@/sections/sections.module.css';
 
-const DEFAULT_EVENT_DESCRIPTION = 'Find people to train, play, watch, meet, vibe, or date.';
-const EMOTIONAL_LINE = "Don't watch alone this year.";
-const SOCIAL_PROOF_LINE = 'Fans are already connecting near you.';
-const URGENCY_LINE = 'Limited free connections — start now.';
+const EN_EMOTIONAL_LINE = "Don't watch alone this year.";
+const EN_SOCIAL_PROOF_LINE = 'Fans are already connecting near you.';
+const EN_URGENCY_LINE = 'Limited free connections — start now.';
+const EN_DEFAULT_EVENT_COPY = 'find people to train, play, watch, meet, vibe, or date';
 
 const normalizeCopy = (value: string) => value.toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, ' ').trim();
+const isSeededEnglishEventCopy = (value?: string) => {
+  const normalized = normalizeCopy(value ?? '');
+  return normalized.includes(EN_DEFAULT_EVENT_COPY) || normalized.includes(normalizeCopy(EN_SOCIAL_PROOF_LINE));
+};
 
 export const LandingPage: React.FC = () => {
   const { isAuthenticated } = useAuthContext();
+  const { locale, t } = useI18n();
   const { me, loading } = useMe();
   const location = useLocation();
   const { data: featureFlags } = useQuery({
@@ -38,9 +44,16 @@ export const LandingPage: React.FC = () => {
     !isAuthenticated &&
     featureFlagsService.isFeatureEnabled(featureFlags, 'sports_event_layer') &&
     !!featuredEvent;
-  const eventDescription = featuredEvent?.description?.trim() || DEFAULT_EVENT_DESCRIPTION;
+  const crmDescription = featuredEvent?.description?.trim();
+  const eventDescription = crmDescription && (locale === 'en' || !isSeededEnglishEventCopy(crmDescription))
+    ? crmDescription
+    : t('sports_event_layer.default_description');
   const eventCopy = normalizeCopy(`${eventDescription} ${featuredEvent?.landingHeadline ?? ''} ${featuredEvent?.ctaLabel ?? ''}`);
-  const shouldShowLine = (line: string) => !eventCopy.includes(normalizeCopy(line));
+  const eventEmotionalLine = t('sports_event_layer.emotional_line');
+  const eventSocialProofLine = t('sports_event_layer.social_proof_line');
+  const eventUrgencyLine = t('sports_event_layer.urgency_line');
+  const shouldShowLine = (line: string, englishLine: string) =>
+    !eventCopy.includes(normalizeCopy(line)) && !eventCopy.includes(normalizeCopy(englishLine));
 
   /** When navigating from another route (e.g. Pricing) to /#how-it-works, scroll after marketing sections mount. */
   useEffect(() => {
@@ -111,19 +124,19 @@ export const LandingPage: React.FC = () => {
               <Typography color="text.secondary" sx={{ maxWidth: 720, mt: 0.8 }}>
                 {eventDescription}
               </Typography>
-              {shouldShowLine(EMOTIONAL_LINE) ? (
+              {shouldShowLine(eventEmotionalLine, EN_EMOTIONAL_LINE) ? (
                 <Typography sx={{ mt: 0.8, fontWeight: 700 }}>
-                  Don&apos;t watch alone this year.
+                  {eventEmotionalLine}
                 </Typography>
               ) : null}
-              {shouldShowLine(SOCIAL_PROOF_LINE) ? (
+              {shouldShowLine(eventSocialProofLine, EN_SOCIAL_PROOF_LINE) ? (
                 <Typography color="text.secondary" sx={{ mt: 0.6, fontWeight: 600 }}>
-                  {SOCIAL_PROOF_LINE}
+                  {eventSocialProofLine}
                 </Typography>
               ) : null}
-              {shouldShowLine(URGENCY_LINE) ? (
+              {shouldShowLine(eventUrgencyLine, EN_URGENCY_LINE) ? (
                 <Typography color="warning.main" sx={{ mt: 0.35, fontWeight: 700 }}>
-                  {URGENCY_LINE}
+                  {eventUrgencyLine}
                 </Typography>
               ) : null}
             </Box>
@@ -153,13 +166,13 @@ export const LandingPage: React.FC = () => {
                 }}
                 sx={{ width: '100%', minHeight: 44, whiteSpace: 'nowrap', fontWeight: 800 }}
               >
-                {featuredEvent.ctaLabel?.trim() || 'Find Fans Near You'}
+                {featuredEvent.ctaLabel?.trim() || t('sports_event_layer.primary_cta')}
               </Button>
               <Button variant="outlined" component={RouterLink} to="/signup" size="large" sx={{ width: '100%', minHeight: 44, whiteSpace: 'nowrap' }}>
-                Start Free
+                {t('sports_event_layer.secondary_cta')}
               </Button>
               <Typography variant="caption" color="text.secondary" sx={{ textAlign: { xs: 'left', md: 'center' } }}>
-                No app. No subscription. Start free.
+                {t('sports_event_layer.trust_text')}
               </Typography>
             </Box>
           </Box>

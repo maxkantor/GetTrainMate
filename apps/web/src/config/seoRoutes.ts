@@ -78,6 +78,21 @@ function normalizePath(pathname: string): string {
   return p || '/';
 }
 
+function eventLabelFromPath(path: string): string {
+  const slug = decodeURIComponent(path.split('/').filter(Boolean).at(1) ?? '').trim();
+  if (!slug) return 'Sports Event';
+  if (slug === 'world-cup-2026') return 'World Cup 2026';
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (/^\d+$/.test(lower)) return lower;
+      return `${lower.charAt(0).toUpperCase()}${lower.slice(1)}`;
+    })
+    .join(' ');
+}
+
 export function getRouteSeo(pathname: string): RouteSeo {
   const path = normalizePath(pathname);
 
@@ -96,6 +111,20 @@ export function getRouteSeo(pathname: string): RouteSeo {
       noindex: p.noindex,
       ogTitle: p.ogTitle,
       ogDescription: p.ogDescription,
+    });
+  }
+
+  if (path.startsWith('/events/')) {
+    const eventLabel = eventLabelFromPath(path);
+    return base({
+      title: `${eventLabel} on ${BRAND}`,
+      description:
+        'Find fans, training partners, watch parties, sports meetups, and real connections around featured events on GetTrainMate.',
+      canonicalPath: path,
+      noindex: false,
+      ogTitle: `${eventLabel} on ${BRAND}`,
+      ogDescription:
+        'Do not watch alone. Meet fans nearby, connect around the event, and start free on GetTrainMate.',
     });
   }
 

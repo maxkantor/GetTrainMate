@@ -25,8 +25,7 @@ export const initAnalytics = initGa4;
 
 export function trackEvent(eventName: string, params: Record<string, unknown> = {}): void {
   if (!shouldTrackCurrentPath()) return;
-  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;
-  window.gtag('event', eventName, params);
+  gaEvent(eventName, params);
 }
 
 /** Manual SPA page_view (pathname + optional `?query`; uses `document.title` / real URL on the client). */
