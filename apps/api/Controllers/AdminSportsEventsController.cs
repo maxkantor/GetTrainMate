@@ -47,6 +47,26 @@ public class AdminSportsEventsController : ControllerBase
     [HttpPut("{eventId}")]
     public async Task<ActionResult<EventConfig>> UpsertEvent(string eventId, [FromBody] EventConfig config)
     {
+        if (string.IsNullOrWhiteSpace(eventId))
+        {
+            return BadRequest("Event ID is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(config.Label) || string.IsNullOrWhiteSpace(config.Sport))
+        {
+            return BadRequest("Label and sport are required.");
+        }
+
+        if (!DateTime.TryParse(config.StartDate, out var start) || !DateTime.TryParse(config.EndDate, out var end))
+        {
+            return BadRequest("StartDate and EndDate must be valid ISO date/time values.");
+        }
+
+        if (start >= end)
+        {
+            return BadRequest("StartDate must be before EndDate.");
+        }
+
         config.EventId = eventId;
         var saved = await _sportsEventLayerService.UpsertEventConfigAsync(config);
         return Ok(saved);
