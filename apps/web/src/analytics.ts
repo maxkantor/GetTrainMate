@@ -42,8 +42,8 @@ export function initAnalytics(): void {
   window.dataLayer = window.dataLayer || [];
   window.gtag =
     window.gtag ||
-    (function gtag(): void {
-      window.dataLayer!.push(arguments);
+    (function gtag(...args: unknown[]): void {
+      window.dataLayer!.push(args);
     } as unknown as (...args: unknown[]) => void);
 
   if ((window as unknown as Record<string, boolean>)[INIT_FLAG]) return;
@@ -56,7 +56,6 @@ export function initAnalytics(): void {
 
   (window as unknown as Record<string, boolean>)[INIT_FLAG] = true;
   if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console -- useful for local GA validation
     console.debug('[GA] initialized', measurementId);
   }
 }

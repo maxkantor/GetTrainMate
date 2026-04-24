@@ -281,7 +281,6 @@ export const TestUsersPage: React.FC = () => {
           });
           setPhotoPreviewMap(m);
           if (typeof window !== 'undefined' && window.localStorage.getItem('gtmDebugAdminPhotos') === '1') {
-            // eslint-disable-next-line no-console
             console.warn('[GetTrainMate] admin user detail photos', {
               userId: row.userId,
               canonical: photoUrlsCapped,
@@ -812,7 +811,6 @@ export const TestUsersPage: React.FC = () => {
                                   typeof window !== 'undefined' &&
                                   window.localStorage.getItem('gtmDebugAdminPhotos') === '1'
                                 ) {
-                                  // eslint-disable-next-line no-console
                                   console.warn('[GetTrainMate] admin photo img onError', {
                                     userId: activeUserId,
                                     index,
