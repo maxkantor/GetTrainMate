@@ -116,9 +116,10 @@ export const LandingPage: React.FC = () => {
               gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 260px' },
               gap: { xs: 2.5, md: 4 },
               alignItems: 'center',
+              minHeight: eventBannerImageUrl ? { xs: 220, md: 170 } : undefined,
               position: 'relative',
               overflow: 'hidden',
-              boxShadow: eventBannerImageUrl ? `0 18px 60px ${eventThemeColor}22` : undefined,
+              boxShadow: eventBannerImageUrl ? `0 18px 60px ${eventThemeColor}30` : undefined,
             }}
           >
             {eventBannerImageUrl ? (
@@ -131,9 +132,9 @@ export const LandingPage: React.FC = () => {
                     zIndex: 0,
                     backgroundImage: `url("${eventBannerImageUrl}")`,
                     backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    opacity: 0.16,
-                    filter: 'blur(2px)',
+                    backgroundPosition: 'center 42%',
+                    opacity: 0.24,
+                    filter: 'blur(1px) saturate(1.15)',
                     transform: 'scale(1.03)',
                     pointerEvents: 'none',
                   }}
@@ -144,7 +145,7 @@ export const LandingPage: React.FC = () => {
                     position: 'absolute',
                     inset: 0,
                     zIndex: 0,
-                    background: `linear-gradient(120deg, rgba(4,7,20,0.86), rgba(4,7,20,0.72)), linear-gradient(120deg, ${eventThemeColor}22, transparent)`,
+                    background: `linear-gradient(120deg, rgba(4,7,20,0.7), rgba(4,7,20,0.5)), linear-gradient(120deg, ${eventThemeColor}26, transparent)`,
                     pointerEvents: 'none',
                   }}
                 />
