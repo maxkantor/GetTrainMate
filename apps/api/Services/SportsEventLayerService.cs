@@ -52,6 +52,7 @@ public class SportsEventLayerService : ISportsEventLayerService
             StartDate = "2026-06-01T00:00:00Z",
             EndDate = "2026-08-01T00:00:00Z",
             Icon = "⚽",
+            LandingHeadline = "Find your World Cup crew and make every matchday unforgettable.",
             Description = "GetTrainMate is an independent platform and is not affiliated with or endorsed by any league, club, federation, or event organizer.",
             Activities = new List<string> { "train", "play", "watch", "meet", "vibe", "date" },
             Tags = new List<string> { "soccer", "football", "world cup", "watch party", "pickup soccer" },
@@ -143,11 +144,40 @@ public class SportsEventLayerService : ISportsEventLayerService
     public async Task<EventConfig> UpsertEventConfigAsync(EventConfig config)
     {
         config.UpdatedAt = DateTime.UtcNow.ToString("O");
+        config.Name = string.IsNullOrWhiteSpace(config.Name) ? config.Label : config.Name;
+        config.Icon = string.IsNullOrWhiteSpace(config.Icon) ? "🏅" : config.Icon;
+        config.Activities = config.Activities?.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim().ToLowerInvariant()).Distinct().ToList() ?? new List<string>();
+        config.Tags = config.Tags?.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct().ToList() ?? new List<string>();
+        config.Teams = config.Teams?.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct().ToList();
+        config.Locations = config.Locations?.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct().ToList();
+        config.BannerImageUrl = string.IsNullOrWhiteSpace(config.BannerImageUrl) ? null : config.BannerImageUrl.Trim();
+        config.LandingHeadline = string.IsNullOrWhiteSpace(config.LandingHeadline) ? null : config.LandingHeadline.Trim();
+
         if (string.IsNullOrWhiteSpace(config.CreatedAt))
         {
             config.CreatedAt = config.UpdatedAt;
         }
 
+        if (config.IsFeatured)
+        {
+            var allEvents = await GetAllEventConfigsAsync();
+            var featuredEvents = allEvents
+                .Where(x => x.IsFeatured && !string.Equals(x.EventId, config.EventId, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            foreach (var featured in featuredEvents)
+            {
+                featured.IsFeatured = false;
+                featured.UpdatedAt = config.UpdatedAt;
+                await SaveEventDocumentAsync(featured);
+            }
+        }
+
+        await SaveEventDocumentAsync(config);
+        return config;
+    }
+
+    private async Task SaveEventDocumentAsync(EventConfig config)
+    {
         var table = Table.LoadTable(_dynamoDb, _configsTable);
         await table.PutItemAsync(new Document
         {
@@ -161,6 +191,8 @@ public class SportsEventLayerService : ISportsEventLayerService
             ["endDate"] = config.EndDate,
             ["icon"] = config.Icon,
             ["themeColor"] = config.ThemeColor ?? string.Empty,
+            ["bannerImageUrl"] = config.BannerImageUrl ?? string.Empty,
+            ["landingHeadline"] = config.LandingHeadline ?? string.Empty,
             ["description"] = config.Description,
             ["activities"] = new DynamoDBList(config.Activities.Select(x => new Primitive(x))),
             ["tags"] = new DynamoDBList(config.Tags.Select(x => new Primitive(x))),
@@ -174,7 +206,6 @@ public class SportsEventLayerService : ISportsEventLayerService
             ["createdAt"] = config.CreatedAt,
             ["updatedAt"] = config.UpdatedAt,
         });
-        return config;
     }
 
     public async Task<List<EventMeetup>> GetMeetupsForEventAsync(string eventId)
@@ -240,6 +271,8 @@ public class SportsEventLayerService : ISportsEventLayerService
         EndDate = doc.ContainsKey("endDate") ? doc["endDate"].AsString() : string.Empty,
         Icon = doc.ContainsKey("icon") ? doc["icon"].AsString() : "🏅",
         ThemeColor = doc.ContainsKey("themeColor") ? doc["themeColor"].AsString() : null,
+        BannerImageUrl = doc.ContainsKey("bannerImageUrl") ? doc["bannerImageUrl"].AsString() : null,
+        LandingHeadline = doc.ContainsKey("landingHeadline") ? doc["landingHeadline"].AsString() : null,
         Description = doc.ContainsKey("description") ? doc["description"].AsString() : string.Empty,
         Activities = doc.ContainsKey("activities") ? doc["activities"].AsListOfString() : new List<string>(),
         Tags = doc.ContainsKey("tags") ? doc["tags"].AsListOfString() : new List<string>(),

@@ -13,6 +13,8 @@ export interface SportsEventConfig {
   endDate: string;
   icon: string;
   themeColor?: string;
+  bannerImageUrl?: string;
+  landingHeadline?: string;
   description: string;
   activities: string[];
   tags: string[];
