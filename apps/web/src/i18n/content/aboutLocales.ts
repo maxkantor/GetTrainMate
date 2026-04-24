@@ -22,6 +22,7 @@ export type AboutPageContent = {
   founder_list_title: string;
   founder_activities: string[];
   founder_closing: string;
+  founder_disclaimer?: string;
 };
 
 const EN: AboutPageContent = {
@@ -59,16 +60,15 @@ const EN: AboutPageContent = {
   values_section_title: 'What I care about',
   founder_kicker: 'About GetTrainMate',
   founder_h2: 'Built by an athlete — for real people',
-  founder_p1: 'GetTrainMate was built by me — Max Kantor.',
-  founder_p2: 'I created this because meeting active people shouldn’t be awkward, random, or low-trust.',
-  founder_p3:
-    'I regularly train, play soccer, hit the gym, and stay active with things like pickleball and fishing. I wanted a simple way to find people who actually show up and train consistently.',
-  founder_p4:
-    'This app is built for people who want fitness-first connection — whether that becomes a great workout partner, a new friend, or something more.',
-  founder_p5: 'No sleaze. No games. Just real people with real energy.',
-  founder_list_title: 'What I do:',
-  founder_activities: ['Soccer / Football', 'Gym workouts', 'Pickleball', 'Fishing'],
-  founder_closing: 'If you’re using GetTrainMate, you’re exactly the kind of person I built this for.',
+  founder_p1: 'GetTrainMate was created to solve a simple problem: finding the right people to train, play, and connect with in real life.',
+  founder_p2: 'The best experiences don’t happen only online. They happen when people meet, move, compete, cheer, laugh, and share something real together.',
+  founder_p3: 'I built GetTrainMate as a sports fan, builder, and someone who believes activity is one of the easiest ways to connect with people naturally.',
+  founder_p4: 'And yes — I’m a huge Chelsea FC supporter.',
+  founder_p5: 'GetTrainMate is for everyone: every sport, every team, every skill level, and every reason to connect — whether you want to train, play, meet, vibe, watch a game, or maybe even date.',
+  founder_list_title: 'Core positioning:',
+  founder_activities: ['Train', 'Play', 'Meet', 'Vibe', 'Date'],
+  founder_closing: 'Real-world connection, on your terms. — Max',
+  founder_disclaimer: 'GetTrainMate is independent and is not affiliated with or endorsed by Chelsea FC or any sports club, league, federation, or event organizer.',
 };
 
 const ES: AboutPageContent = {

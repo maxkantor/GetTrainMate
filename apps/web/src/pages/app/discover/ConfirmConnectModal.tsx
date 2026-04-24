@@ -21,8 +21,8 @@ export const ConfirmConnectModal: React.FC<ConfirmConnectModalProps> = ({
   body,
   confirmLabel,
 }) => {
-  if (!open) return null;
   const { t } = useI18n();
+  if (!open) return null;
 
   const resolvedTitle = title ?? t('connect_modal.title');
   const resolvedBody = body ?? t('connect_modal.body');

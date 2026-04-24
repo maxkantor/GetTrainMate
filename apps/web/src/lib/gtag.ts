@@ -45,7 +45,6 @@ export function gaPageView(path: string, title?: string): void {
   }
   window.gtag('event', 'page_view', payload);
   if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console -- GA validation in local dev only
     console.debug('[GA] page_view event', pagePath);
   }
 }

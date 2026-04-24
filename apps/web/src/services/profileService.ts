@@ -53,6 +53,10 @@ export interface UserProfile {
   /** Requested city coverage (Suggest a city). */
   eventsCitySuggestion?: string | null;
   eventsCitySuggestionAt?: string;
+  favoriteSports?: string[];
+  favoriteTeams?: string[];
+  activeEventIds?: string[];
+  eventActivities?: string[];
 }
 
 export interface UpdateProfileRequest {
@@ -82,6 +86,10 @@ export interface UpdateProfileRequest {
   eventsCityInterest?: string | null;
   eventsInterestTypes?: string[];
   eventsCitySuggestion?: string | null;
+  favoriteSports?: string[];
+  favoriteTeams?: string[];
+  activeEventIds?: string[];
+  eventActivities?: string[];
 }
 
 export interface PhotoUploadInfo {
