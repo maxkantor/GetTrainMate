@@ -33,6 +33,9 @@ import {
 } from '@/utils/pendingSignupStorage';
 import { trackMatchSearchClicked } from '@/utils/analytics';
 import { trackEvent } from '@/utils/analytics';
+import { featureFlagsService } from '@/services/featureFlagsService';
+import { sportsEventLayerService } from '@/services/sportsEventLayerService';
+import { sportsLayerDevLog } from '@/utils/sportsLayerEnv';
 
 const cardSx = {
   borderRadius: 2,
@@ -80,6 +83,7 @@ export const AppHomePage: React.FC = () => {
       source_page: '/app',
       user_status: 'authenticated',
     });
+    sportsLayerDevLog();
   }, []);
 
   const sentEnabled =
@@ -99,6 +103,27 @@ export const AppHomePage: React.FC = () => {
     enabled: skippedEnabled,
     staleTime: 45_000,
   });
+  const { data: featureFlags } = useQuery({
+    queryKey: ['feature-flags'],
+    queryFn: () => featureFlagsService.getFlags(),
+    staleTime: 30_000,
+  });
+  const { data: activeEvents } = useQuery({
+    queryKey: ['active-events-layer'],
+    queryFn: () => sportsEventLayerService.getActiveEvents(),
+    staleTime: 30_000,
+  });
+  const featuredEvent = (activeEvents ?? []).find((x) => x.isFeatured);
+  const sportsLayerEnabled = featureFlagsService.isFeatureEnabled(featureFlags, 'sports_event_layer');
+  useEffect(() => {
+    if (!sportsLayerEnabled || !featuredEvent) return;
+    trackEvent('event_banner_view', {
+      eventId: featuredEvent.eventId,
+      eventLabel: featuredEvent.label,
+      sport: featuredEvent.sport,
+      sourcePage: '/app',
+    });
+  }, [sportsLayerEnabled, featuredEvent]);
 
   const sentPending =
     sentItems != null ? sentItems.filter((s) => s.status === 'Pending').length : null;
@@ -327,6 +352,30 @@ export const AppHomePage: React.FC = () => {
         >
           {t('app_pages.home.start_discovering')}
         </Button>
+      ) : null}
+      {sportsLayerEnabled && featuredEvent ? (
+        <Card variant="outlined" sx={{ mb: 2, borderRadius: 2 }}>
+          <CardActionArea
+            component={RouterLink}
+            to={`/events/${featuredEvent.eventId}`}
+            onClick={() =>
+              trackEvent('event_banner_click', {
+                eventId: featuredEvent.eventId,
+                eventLabel: featuredEvent.label,
+                sport: featuredEvent.sport,
+                sourcePage: '/app',
+              })
+            }
+            sx={{ p: 2 }}
+          >
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              {featuredEvent.icon} {featuredEvent.label}: Find people to train, play, watch, meet, vibe, or date.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Explore
+            </Typography>
+          </CardActionArea>
+        </Card>
       ) : null}
 
       <Box

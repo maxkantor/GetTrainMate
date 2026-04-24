@@ -126,6 +126,11 @@ export const AboutPage: React.FC = () => {
                 <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.75, fontStyle: 'italic' }}>
                   {about.founder_closing}
                 </Typography>
+                {about.founder_disclaimer ? (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+                    {about.founder_disclaimer}
+                  </Typography>
+                ) : null}
               </Box>
             </CardContent>
           </Card>

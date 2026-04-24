@@ -14,6 +14,7 @@ import { BillingCancelPage } from '@/pages/BillingCancel';
 import { AboutPage } from '@/pages/About';
 import { FAQPage } from '@/pages/FAQ';
 import { ContactPage } from '@/pages/Contact';
+import { EventLandingPage } from '@/pages/EventLandingPage';
 import { PrivacyPage } from '@/pages/Privacy';
 import { TermsPage } from '@/pages/Terms';
 import { GearPage } from '@/pages/Gear';
@@ -115,6 +116,7 @@ export const Router: React.FC = () => {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/contact" element={<ContactPage />} />
+            <Route path="/events/:eventId" element={<EventLandingPage />} />
             <Route path="/gear" element={<GearPage />} />
             <Route path="/platform" element={<PlatformPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />

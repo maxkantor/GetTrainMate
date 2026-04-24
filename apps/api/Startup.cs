@@ -118,6 +118,7 @@ public class Startup
         services.AddScoped<ILandingMatchPreviewService, LandingMatchPreviewService>();
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<ICreditsService, CreditsService>();
+        services.AddScoped<ISportsEventLayerService, SportsEventLayerService>();
 
         // Bedrock & AI: config-driven (stub when Bedrock:ModelId not set)
         // Priority: SSM /gettrainmate/bedrock/model-id > env BEDROCK_MODEL_ID > appsettings
@@ -335,6 +336,12 @@ public class Startup
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
+        using (var scope = app.ApplicationServices.CreateScope())
+        {
+            var sportsLayer = scope.ServiceProvider.GetRequiredService<ISportsEventLayerService>();
+            sportsLayer.EnsureDefaultSeedDataAsync().GetAwaiter().GetResult();
+        }
+
         var inLambda = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AWS_LAMBDA_FUNCTION_NAME"));
         // API Gateway terminates TLS. HTTPS redirection inside Lambda can turn OPTIONS preflight into a
         // redirect (non-2xx) and the browser reports a CORS failure.

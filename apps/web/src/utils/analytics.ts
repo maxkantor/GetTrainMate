@@ -136,6 +136,28 @@ export function trackPremiumAction(
   gaEvent('premium_action', { action, outcome, ...extra });
 }
 
+export function trackSportsEventAnalytics(
+  eventName:
+    | 'event_banner_view'
+    | 'event_banner_click'
+    | 'event_page_view'
+    | 'event_activity_click'
+    | 'event_profile_badge_view'
+    | 'event_meetup_create_start'
+    | 'event_meetup_created'
+    | 'event_boost_click'
+    | 'event_credit_prompt_view',
+  params: {
+    eventId?: string;
+    eventLabel?: string;
+    sport?: string;
+    activityType?: string;
+    sourcePage?: string;
+  }
+): void {
+  gaEvent(eventName, params);
+}
+
 /** Legacy helpers — map to GA4 + keep names stable for dashboards. */
 export const analytics = {
   ctaClick: (cta: string, location?: string) => trackCTA(cta, location),

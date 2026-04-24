@@ -20,6 +20,35 @@ export type FaqPageBundle = { sections: FaqCategory[]; ui: FaqPageUi };
 
 const FAQ_EN: FaqCategory[] = [
   {
+    category: 'Sports Event Layer',
+    questions: [
+      {
+        q: 'Is GetTrainMate only for one sport?',
+        a: 'No. GetTrainMate is built for all sports and activities. You can use it to train, play, meet, vibe, watch games, or connect with people who share your interests.',
+      },
+      {
+        q: 'Are sports events like World Cup permanent?',
+        a: 'No. Special event opportunities can be turned on or off. After one event ends, GetTrainMate can feature other sports, seasons, tournaments, or local activities.',
+      },
+      {
+        q: 'Do I need separate credits for sports events?',
+        a: 'No. Your existing credits work across GetTrainMate. One wallet. One balance. You can use credits for training, playing, meeting, watching, vibing, dating, and event-based connections.',
+      },
+      {
+        q: 'What are “free connections”?',
+        a: 'Free connections let new users try the platform and start meeting people without paying immediately.',
+      },
+      {
+        q: 'Can I use GetTrainMate to watch games with other fans?',
+        a: 'Yes, when event features are enabled, you may be able to find or create watch parties, fan meetups, pickup games, and other sports-related connections.',
+      },
+      {
+        q: 'Is GetTrainMate affiliated with teams or leagues?',
+        a: 'No. GetTrainMate is an independent platform and is not affiliated with or endorsed by any club, league, federation, tournament, or event organizer.',
+      },
+    ],
+  },
+  {
     category: 'Getting Started',
     questions: [
       {

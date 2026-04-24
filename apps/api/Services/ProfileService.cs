@@ -292,6 +292,14 @@ public class ProfileService : IProfileService
                     existingProfile.EventsCitySuggestionAt = DateTime.UtcNow;
                 }
             }
+            if (request.FavoriteSports != null)
+                existingProfile.FavoriteSports = request.FavoriteSports.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (request.FavoriteTeams != null)
+                existingProfile.FavoriteTeams = request.FavoriteTeams.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (request.ActiveEventIds != null)
+                existingProfile.ActiveEventIds = request.ActiveEventIds.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (request.EventActivities != null)
+                existingProfile.EventActivities = request.EventActivities.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
             existingProfile.UpdatedAt = DateTime.UtcNow;
             existingProfile.IsComplete = IsProfileComplete(existingProfile);
@@ -518,6 +526,10 @@ public class ProfileService : IProfileService
         if (!string.IsNullOrEmpty(profile.EventsCitySuggestion)) doc["eventsCitySuggestion"] = profile.EventsCitySuggestion;
         if (profile.EventsCitySuggestionAt.HasValue)
             doc["eventsCitySuggestionAt"] = profile.EventsCitySuggestionAt.Value.ToString("O");
+        if (profile.FavoriteSports.Count > 0) doc["favoriteSports"] = new DynamoDBList(profile.FavoriteSports.Select(s => new Primitive(s)));
+        if (profile.FavoriteTeams.Count > 0) doc["favoriteTeams"] = new DynamoDBList(profile.FavoriteTeams.Select(s => new Primitive(s)));
+        if (profile.ActiveEventIds.Count > 0) doc["activeEventIds"] = new DynamoDBList(profile.ActiveEventIds.Select(s => new Primitive(s)));
+        if (profile.EventActivities.Count > 0) doc["eventActivities"] = new DynamoDBList(profile.EventActivities.Select(s => new Primitive(s)));
 
         return doc;
     }
@@ -594,6 +606,18 @@ public class ProfileService : IProfileService
                 DateTime.TryParse(document["eventsCitySuggestionAt"].AsString(), out var esa)
                 ? esa
                 : null,
+            FavoriteSports = document.ContainsKey("favoriteSports") && document["favoriteSports"] is DynamoDBList fs
+                ? fs.AsListOfString()
+                : new List<string>(),
+            FavoriteTeams = document.ContainsKey("favoriteTeams") && document["favoriteTeams"] is DynamoDBList ft
+                ? ft.AsListOfString()
+                : new List<string>(),
+            ActiveEventIds = document.ContainsKey("activeEventIds") && document["activeEventIds"] is DynamoDBList ae
+                ? ae.AsListOfString()
+                : new List<string>(),
+            EventActivities = document.ContainsKey("eventActivities") && document["eventActivities"] is DynamoDBList ea
+                ? ea.AsListOfString()
+                : new List<string>(),
             EmailReleasedForSignup = ReadBoolDocumentAttr(document, "emailReleasedForSignup"),
         };
 

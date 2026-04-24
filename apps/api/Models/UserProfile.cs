@@ -53,6 +53,10 @@ public class UserProfile
     /// <summary>User-requested city for future coverage (separate from waitlist city).</summary>
     public string? EventsCitySuggestion { get; set; }
     public DateTime? EventsCitySuggestionAt { get; set; }
+    public List<string> FavoriteSports { get; set; } = new();
+    public List<string> FavoriteTeams { get; set; } = new();
+    public List<string> ActiveEventIds { get; set; } = new();
+    public List<string> EventActivities { get; set; } = new();
 
     /// <summary>CRM-only: closed account has been cleared for Cognito so the same email can sign up again.</summary>
     public bool EmailReleasedForSignup { get; set; }
@@ -94,4 +98,8 @@ public class UpdateProfileRequest
     public string? EventsCityInterest { get; set; }
     public List<string>? EventsInterestTypes { get; set; }
     public string? EventsCitySuggestion { get; set; }
+    public List<string>? FavoriteSports { get; set; }
+    public List<string>? FavoriteTeams { get; set; }
+    public List<string>? ActiveEventIds { get; set; }
+    public List<string>? EventActivities { get; set; }
 }

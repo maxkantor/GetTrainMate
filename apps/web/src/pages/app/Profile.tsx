@@ -111,6 +111,10 @@ function createEmptyProfileForm(): UpdateProfileRequest {
     modes: ['TRAIN'],
     chatNotificationsEnabled: true,
     chatNotificationFrequency: 'smart',
+    favoriteSports: [],
+    favoriteTeams: [],
+    activeEventIds: [],
+    eventActivities: [],
   };
 }
 
@@ -207,6 +211,10 @@ export const ProfilePage: React.FC = () => {
         personalityTag: profile.personalityTag,
         chatNotificationsEnabled: profile.chatNotificationsEnabled !== false,
         chatNotificationFrequency: (profile.chatNotificationFrequency as 'realtime' | 'smart' | 'daily') || 'smart',
+        favoriteSports: profile.favoriteSports || [],
+        favoriteTeams: profile.favoriteTeams || [],
+        activeEventIds: profile.activeEventIds || [],
+        eventActivities: profile.eventActivities || [],
       };
       setFormData(nextForm);
       const keys =
@@ -1055,6 +1063,45 @@ export const ProfilePage: React.FC = () => {
           placeholder="e.g. Early bird, coach energy, chill"
           value={formData.personalityTag ?? ''}
           onChange={(e) => setFormData({ ...formData, personalityTag: e.target.value || undefined })}
+        />
+        <Typography variant="subtitle2" sx={{ mt: 2 }}>
+          Sports event interests (optional)
+        </Typography>
+        <TextField
+          fullWidth
+          margin="normal"
+          label="Favorite sport"
+          value={(formData.favoriteSports || []).join(', ')}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              favoriteSports: e.target.value.split(',').map((x) => x.trim()).filter(Boolean),
+            })
+          }
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          label="Favorite team"
+          value={(formData.favoriteTeams || []).join(', ')}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              favoriteTeams: e.target.value.split(',').map((x) => x.trim()).filter(Boolean),
+            })
+          }
+        />
+        <TextField
+          fullWidth
+          margin="normal"
+          label="Interested in (Train / Play / Watch / Meet / Vibe / Date)"
+          value={(formData.eventActivities || []).join(', ')}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              eventActivities: e.target.value.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean),
+            })
+          }
         />
 
         <FormControl fullWidth margin="normal">
