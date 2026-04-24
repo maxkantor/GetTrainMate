@@ -336,10 +336,16 @@ public class Startup
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
-        using (var scope = app.ApplicationServices.CreateScope())
+        try
         {
+            using var scope = app.ApplicationServices.CreateScope();
             var sportsLayer = scope.ServiceProvider.GetRequiredService<ISportsEventLayerService>();
             sportsLayer.EnsureDefaultSeedDataAsync().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            // Never block API startup if optional Sports Event Layer tables are missing.
+            Console.WriteLine($"[Startup] Sports Event Layer seed skipped: {ex.Message}");
         }
 
         var inLambda = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AWS_LAMBDA_FUNCTION_NAME"));
