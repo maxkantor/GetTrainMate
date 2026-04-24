@@ -61,10 +61,14 @@ const createEmptyEvent = (): EventConfig => ({
 
 export const AdminEventsPage: React.FC = () => {
   const [flags, setFlags] = useState<Flags>({});
+  const [flagsDraft, setFlagsDraft] = useState<Flags>({});
   const [events, setEvents] = useState<EventConfig[]>([]);
+  const [eventDrafts, setEventDrafts] = useState<Record<string, { enabled: boolean; isFeatured: boolean; showAnytime: boolean }>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingFlags, setSavingFlags] = useState(false);
+  const [savingEventId, setSavingEventId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<EventConfig>(createEmptyEvent());
@@ -78,7 +82,17 @@ export const AdminEventsPage: React.FC = () => {
         adminApiService.get('/api/admin/sports-events'),
       ]);
       setFlags(flagsRes ?? {});
+      setFlagsDraft(flagsRes ?? {});
       setEvents(eventsRes ?? []);
+      const drafts: Record<string, { enabled: boolean; isFeatured: boolean; showAnytime: boolean }> = {};
+      (eventsRes ?? []).forEach((ev: EventConfig) => {
+        drafts[ev.eventId] = {
+          enabled: ev.enabled === true,
+          isFeatured: ev.isFeatured === true,
+          showAnytime: ev.showAnytime === true,
+        };
+      });
+      setEventDrafts(drafts);
     } catch (err: unknown) {
       const msg = (err as Error)?.message ?? '';
       if (/forbidden|403/i.test(msg)) setError('FORBIDDEN');
@@ -93,6 +107,7 @@ export const AdminEventsPage: React.FC = () => {
   }, [load]);
 
   const featuredCount = useMemo(() => events.filter((x) => x.isFeatured).length, [events]);
+  const flagsDirty = useMemo(() => FLAG_KEYS.some((k) => (flags[k] === true) !== (flagsDraft[k] === true)), [flags, flagsDraft]);
   const sortedEvents = useMemo(() => [...events].sort((a, b) => (a.label || a.eventId).localeCompare(b.label || b.eventId)), [events]);
   const formTitle = editingId ? `Edit event: ${editingId}` : 'Create New Event';
 
@@ -135,6 +150,52 @@ export const AdminEventsPage: React.FC = () => {
       locations: ev.locations ?? [],
     });
     setFormOpen(true);
+  };
+
+  const saveFlags = async () => {
+    setSavingFlags(true);
+    setError(null);
+    try {
+      const changed = FLAG_KEYS.filter((k) => (flags[k] === true) !== (flagsDraft[k] === true));
+      await Promise.all(
+        changed.map((flagKey) =>
+          adminApiService.put(`/api/admin/sports-events/flags/${flagKey}`, {
+            enabled: flagsDraft[flagKey] === true,
+            environment: 'prod',
+            description: `Admin toggle for ${flagKey}`,
+          })
+        )
+      );
+      setFlags((prev) => ({ ...prev, ...flagsDraft }));
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to save feature flags');
+    } finally {
+      setSavingFlags(false);
+    }
+  };
+
+  const isEventDraftDirty = (ev: EventConfig) => {
+    const draft = eventDrafts[ev.eventId];
+    if (!draft) return false;
+    return draft.enabled !== (ev.enabled === true)
+      || draft.isFeatured !== (ev.isFeatured === true)
+      || draft.showAnytime !== (ev.showAnytime === true);
+  };
+
+  const saveEventCardToggles = async (ev: EventConfig) => {
+    const draft = eventDrafts[ev.eventId];
+    if (!draft) return;
+    setSavingEventId(ev.eventId);
+    setError(null);
+    try {
+      const next: EventConfig = { ...ev, ...draft };
+      await adminApiService.put(`/api/admin/sports-events/${ev.eventId}`, next);
+      setEvents((prev) => prev.map((x) => (x.eventId === ev.eventId ? next : x)));
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to save event toggles');
+    } finally {
+      setSavingEventId(null);
+    }
   };
 
   const upsertEvent = async () => {
@@ -210,20 +271,15 @@ export const AdminEventsPage: React.FC = () => {
           <label key={flagKey} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             <input
               type="checkbox"
-              checked={flags[flagKey] === true}
-              onChange={async (e) => {
-                const enabled = e.target.checked;
-                setFlags((prev) => ({ ...prev, [flagKey]: enabled }));
-                await adminApiService.put(`/api/admin/sports-events/flags/${flagKey}`, {
-                  enabled,
-                  environment: 'prod',
-                  description: `Admin toggle for ${flagKey}`,
-                });
-              }}
+              checked={flagsDraft[flagKey] === true}
+              onChange={(e) => setFlagsDraft((prev) => ({ ...prev, [flagKey]: e.target.checked }))}
             />
             {flagKey}
           </label>
         ))}
+        <button type="button" className={styles.refresh} disabled={!flagsDirty || savingFlags} onClick={() => void saveFlags()}>
+          {savingFlags ? 'Saving...' : 'Save Flags'}
+        </button>
       </div>
 
       <div className={styles.panel}>
@@ -236,24 +292,47 @@ export const AdminEventsPage: React.FC = () => {
             {ev.eventId} • {ev.startDate ? new Date(ev.startDate).toLocaleDateString() : '—'} to {ev.endDate ? new Date(ev.endDate).toLocaleDateString() : '—'}
           </div>
           <div className={styles.actionRow}>
-            <label><input type="checkbox" checked={ev.enabled} onChange={async (e) => {
+            <label><input type="checkbox" checked={eventDrafts[ev.eventId]?.enabled ?? ev.enabled} onChange={(e) => {
               const enabled = e.target.checked;
-              const next = { ...ev, enabled };
-              setEvents((prev) => prev.map((x) => x.eventId === ev.eventId ? next : x));
-              await adminApiService.put(`/api/admin/sports-events/${ev.eventId}`, next);
+              setEventDrafts((prev) => ({
+                ...prev,
+                [ev.eventId]: {
+                  enabled,
+                  isFeatured: prev[ev.eventId]?.isFeatured ?? ev.isFeatured,
+                  showAnytime: prev[ev.eventId]?.showAnytime ?? (ev.showAnytime === true),
+                },
+              }));
             }} /> enabled</label>
-            <label><input type="checkbox" checked={ev.isFeatured} onChange={async (e) => {
+            <label><input type="checkbox" checked={eventDrafts[ev.eventId]?.isFeatured ?? ev.isFeatured} onChange={(e) => {
               const isFeatured = e.target.checked;
-              const next = { ...ev, isFeatured };
-              setEvents((prev) => prev.map((x) => x.eventId === ev.eventId ? next : x));
-              await adminApiService.put(`/api/admin/sports-events/${ev.eventId}`, next);
+              setEventDrafts((prev) => ({
+                ...prev,
+                [ev.eventId]: {
+                  enabled: prev[ev.eventId]?.enabled ?? ev.enabled,
+                  isFeatured,
+                  showAnytime: prev[ev.eventId]?.showAnytime ?? (ev.showAnytime === true),
+                },
+              }));
             }} /> featured</label>
-            <label><input type="checkbox" checked={ev.showAnytime === true} onChange={async (e) => {
+            <label><input type="checkbox" checked={eventDrafts[ev.eventId]?.showAnytime ?? (ev.showAnytime === true)} onChange={(e) => {
               const showAnytime = e.target.checked;
-              const next = { ...ev, showAnytime };
-              setEvents((prev) => prev.map((x) => x.eventId === ev.eventId ? next : x));
-              await adminApiService.put(`/api/admin/sports-events/${ev.eventId}`, next);
+              setEventDrafts((prev) => ({
+                ...prev,
+                [ev.eventId]: {
+                  enabled: prev[ev.eventId]?.enabled ?? ev.enabled,
+                  isFeatured: prev[ev.eventId]?.isFeatured ?? ev.isFeatured,
+                  showAnytime,
+                },
+              }));
             }} /> show now (ignore dates)</label>
+            <button
+              type="button"
+              className={styles.inlineBtn}
+              disabled={!isEventDraftDirty(ev) || savingEventId === ev.eventId}
+              onClick={() => void saveEventCardToggles(ev)}
+            >
+              {savingEventId === ev.eventId ? 'Saving...' : 'Save'}
+            </button>
             <button type="button" className={styles.inlineBtn} onClick={() => openEdit(ev)}>Edit Event</button>
           </div>
         </div>
