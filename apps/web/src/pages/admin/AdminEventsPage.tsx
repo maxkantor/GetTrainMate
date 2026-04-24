@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminApiService } from '@/services/adminApiService';
+import { normalizePublicAssetUrl } from '@/utils/publicAssetUrl';
 import { AdminNoAccessPage } from './AdminNoAccess';
 import styles from './AdminPlaceholderPage.module.css';
 
@@ -112,6 +113,7 @@ export const AdminEventsPage: React.FC = () => {
   const flagsDirty = useMemo(() => FLAG_KEYS.some((k) => (flags[k] === true) !== (flagsDraft[k] === true)), [flags, flagsDraft]);
   const sortedEvents = useMemo(() => [...events].sort((a, b) => (a.label || a.eventId).localeCompare(b.label || b.eventId)), [events]);
   const formTitle = editingId ? `Edit event: ${editingId}` : 'Create New Event';
+  const normalizedBannerImageUrl = normalizePublicAssetUrl(form.bannerImageUrl);
 
   const setFormField = <K extends keyof EventConfig>(key: K, value: EventConfig[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -146,6 +148,7 @@ export const AdminEventsPage: React.FC = () => {
     setForm({
       ...createEmptyEvent(),
       ...ev,
+      bannerImageUrl: normalizePublicAssetUrl(ev.bannerImageUrl),
       activities: ev.activities?.length ? ev.activities : [...DEFAULT_ACTIVITIES],
       tags: ev.tags ?? [],
       teams: ev.teams ?? [],
@@ -190,7 +193,7 @@ export const AdminEventsPage: React.FC = () => {
     setSavingEventId(ev.eventId);
     setError(null);
     try {
-      const next: EventConfig = { ...ev, ...draft };
+      const next: EventConfig = { ...ev, ...draft, bannerImageUrl: normalizePublicAssetUrl(ev.bannerImageUrl) };
       await adminApiService.put(`/api/admin/sports-events/${ev.eventId}`, next);
       setEvents((prev) => prev.map((x) => (x.eventId === ev.eventId ? next : x)));
     } catch (err: unknown) {
@@ -234,7 +237,7 @@ export const AdminEventsPage: React.FC = () => {
         label: form.label.trim(),
         sport: form.sport.trim(),
         icon: (form.icon || '🏆').trim(),
-        bannerImageUrl: form.bannerImageUrl?.trim() || '',
+        bannerImageUrl: normalizedBannerImageUrl,
         landingHeadline: form.landingHeadline?.trim() || '',
         ctaLabel: form.ctaLabel?.trim() || '',
         description: form.description?.trim() || '',
@@ -390,10 +393,16 @@ export const AdminEventsPage: React.FC = () => {
             Banner Image URL
             <input value={form.bannerImageUrl ?? ''} onChange={(e) => setFormField('bannerImageUrl', e.target.value)} />
             <span style={{ fontSize: 12, opacity: 0.72 }}>
-              Use a generic dark blue soccer stadium or fan background. Do not use official club logos, player photos, or copyrighted club imagery.
+              Use /images/event-banner.png for files in apps/web/public/images, or paste a full https URL. Local public paths are normalized when saved.
+              Do not use official club logos, player photos, or copyrighted club imagery.
             </span>
+            {form.bannerImageUrl?.trim() && normalizedBannerImageUrl !== form.bannerImageUrl.trim() ? (
+              <span style={{ fontSize: 12, opacity: 0.78 }}>
+                Will save as: {normalizedBannerImageUrl}
+              </span>
+            ) : null}
           </label>
-          {form.bannerImageUrl?.trim() ? (
+          {normalizedBannerImageUrl ? (
             <div
               style={{
                 marginTop: 10,
@@ -414,7 +423,7 @@ export const AdminEventsPage: React.FC = () => {
                 Banner preview before saving
               </div>
               <img
-                src={form.bannerImageUrl.trim()}
+                src={normalizedBannerImageUrl}
                 alt="Event banner preview"
                 style={{
                   display: 'block',

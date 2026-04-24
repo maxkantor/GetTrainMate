@@ -15,6 +15,7 @@ import { Testimonials } from '@/sections/Testimonials';
 import { FinalCTA } from '@/sections/FinalCTA';
 import { trackEvent } from '@/utils/analytics';
 import { featureFlagsService } from '@/services/featureFlagsService';
+import { normalizePublicAssetUrl } from '@/utils/publicAssetUrl';
 import styles from '@/sections/sections.module.css';
 
 const EN_EMOTIONAL_LINE = "Don't watch alone this year.";
@@ -41,7 +42,7 @@ export const LandingPage: React.FC = () => {
   const { data: activeEvents } = useActiveEvents();
   const featuredEvent = (activeEvents ?? []).find((x) => x.isFeatured);
   const eventThemeColor = featuredEvent?.themeColor?.trim() || '#2b2c7f';
-  const eventBannerImageUrl = featuredEvent?.bannerImageUrl?.trim();
+  const eventBannerImageUrl = normalizePublicAssetUrl(featuredEvent?.bannerImageUrl);
   const showEventPromo =
     !isAuthenticated &&
     featureFlagsService.isFeatureEnabled(featureFlags, 'sports_event_layer') &&
