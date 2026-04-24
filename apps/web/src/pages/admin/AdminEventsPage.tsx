@@ -19,6 +19,7 @@ type EventConfig = {
   themeColor?: string;
   bannerImageUrl?: string;
   landingHeadline?: string;
+  ctaLabel?: string;
   activities: string[];
   tags?: string[];
   teams?: string[];
@@ -48,6 +49,7 @@ const createEmptyEvent = (): EventConfig => ({
   themeColor: '#1e88e5',
   bannerImageUrl: '',
   landingHeadline: '',
+  ctaLabel: '',
   activities: [...DEFAULT_ACTIVITIES],
   tags: [],
   teams: [],
@@ -234,6 +236,7 @@ export const AdminEventsPage: React.FC = () => {
         icon: (form.icon || '🏆').trim(),
         bannerImageUrl: form.bannerImageUrl?.trim() || '',
         landingHeadline: form.landingHeadline?.trim() || '',
+        ctaLabel: form.ctaLabel?.trim() || '',
         description: form.description?.trim() || '',
         activities: form.activities?.length ? form.activities : [...DEFAULT_ACTIVITIES],
       };
@@ -378,6 +381,10 @@ export const AdminEventsPage: React.FC = () => {
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
             Landing Headline
             <input value={form.landingHeadline ?? ''} onChange={(e) => setFormField('landingHeadline', e.target.value)} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
+            CTA Label (optional)
+            <input value={form.ctaLabel ?? ''} onChange={(e) => setFormField('ctaLabel', e.target.value)} />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
             Banner Image URL

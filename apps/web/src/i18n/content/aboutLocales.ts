@@ -61,14 +61,14 @@ const EN: AboutPageContent = {
   founder_kicker: 'About GetTrainMate',
   founder_h2: 'Built by an athlete — for real people',
   founder_p1: 'GetTrainMate was created to solve a simple problem: finding the right people to train, play, and connect with in real life.',
-  founder_p2: 'The best experiences don’t happen only online. They happen when people meet, move, compete, cheer, laugh, and share something real together.',
-  founder_p3: 'I built GetTrainMate as a sports fan, builder, and someone who believes activity is one of the easiest ways to connect with people naturally.',
-  founder_p4: 'And yes — I’m a huge Chelsea FC supporter.',
-  founder_p5: 'GetTrainMate is for everyone: every sport, every team, every skill level, and every reason to connect — whether you want to train, play, meet, vibe, watch a game, or maybe even date.',
+  founder_p2: 'The best experiences don’t happen only online. They happen when people meet, move, compete, and share something real together.',
+  founder_p3: 'Built by a sports fan (and yes — a Chelsea supporter 💙), this platform is designed for all sports, all teams, and all ways of connecting.',
+  founder_p4: 'Train. Play. Meet. Vibe. Date.',
+  founder_p5: 'Real-world connection — on your terms.',
   founder_list_title: 'Core positioning:',
   founder_activities: ['Train', 'Play', 'Meet', 'Vibe', 'Date'],
-  founder_closing: 'Real-world connection, on your terms. — Max',
-  founder_disclaimer: 'GetTrainMate is independent and is not affiliated with or endorsed by Chelsea FC or any sports club, league, federation, or event organizer.',
+  founder_closing: '— Max',
+  founder_disclaimer: 'GetTrainMate is independent and not affiliated with or endorsed by any club, league, federation, or event organizer.',
 };
 
 const ES: AboutPageContent = {
@@ -106,16 +106,15 @@ const ES: AboutPageContent = {
   values_section_title: 'En lo que creo',
   founder_kicker: 'Sobre GetTrainMate',
   founder_h2: 'Hecho por un deportista — para gente real',
-  founder_p1: 'GetTrainMate lo construyo yo — Max Kantor.',
-  founder_p2: 'Porque conocer gente activa no debería ser incómodo, aleatorio o poco fiable.',
-  founder_p3:
-    'Entreno, juego al fútbol, voy al gimnasio y practico cosas como pickleball o pesca. Quería una forma sencilla de encontrar gente que de verdad se apunte.',
-  founder_p4:
-    'La app es para quien quiere conexión fitness-first: buen compañero de entreno, amistad o algo más.',
-  founder_p5: 'Sin postureo. Sin juegos. Gente real con energía real.',
+  founder_p1: 'GetTrainMate se creó para resolver un problema simple: encontrar a las personas adecuadas para entrenar, jugar y conectar en la vida real.',
+  founder_p2: 'Las mejores experiencias no ocurren solo online. Ocurren cuando la gente se encuentra, se mueve, compite y comparte algo real.',
+  founder_p3: 'Creado por un fan del deporte (y sí — hincha del Chelsea 💙), esta plataforma está diseñada para todos los deportes, todos los equipos y todas las formas de conectar.',
+  founder_p4: 'Entrena. Juega. Conoce. Vibra. Cita.',
+  founder_p5: 'Conexión real — a tu manera.',
   founder_list_title: 'Qué hago:',
-  founder_activities: ['Fútbol', 'Gimnasio', 'Pickleball', 'Pesca'],
-  founder_closing: 'Si usas GetTrainMate, eres justo a quien va dirigido esto.',
+  founder_activities: ['Entrena', 'Juega', 'Conoce', 'Vibra', 'Cita'],
+  founder_closing: '— Max',
+  founder_disclaimer: 'GetTrainMate es independiente y no está afiliado ni respaldado por ningún club, liga, federación u organizador de eventos.',
 };
 
 const RU: AboutPageContent = {
@@ -153,16 +152,15 @@ const RU: AboutPageContent = {
   values_section_title: 'Что для меня важно',
   founder_kicker: 'О GetTrainMate',
   founder_h2: 'Сделано спортсменом — для живых людей',
-  founder_p1: 'Проект делает Макс Кантор.',
-  founder_p2: 'Встречи с активными людьми не должны быть неловкими или ненадёжными.',
-  founder_p3:
-    'Тренируюсь, играю в футбол, хожу в зал, pickleball и рыбалка — хотелось простого способа находить тех, кто реально приходит на тренировки.',
-  founder_p4:
-    'Для тех, кто хочет связь через спорт: партнёр, друг или больше.',
-  founder_p5: 'Без пошлости и игр — только люди с энергией.',
+  founder_p1: 'GetTrainMate создан, чтобы решить простую задачу: находить подходящих людей для тренировок, игр и живого общения.',
+  founder_p2: 'Лучшие впечатления происходят не только онлайн. Они происходят, когда люди встречаются, двигаются, соревнуются и делятся чем-то настоящим.',
+  founder_p3: 'Проект создан спортивным фанатом (и да — болельщиком Chelsea 💙) и подходит для любых видов спорта, команд и форм знакомства.',
+  founder_p4: 'Тренируйся. Играй. Знакомься. Вайб. Дейт.',
+  founder_p5: 'Связь в реальном мире — на ваших условиях.',
   founder_list_title: 'Чем занимаюсь:',
-  founder_activities: ['Футбол', 'Зал', 'Пиклбол', 'Рыбалка'],
-  founder_closing: 'Если вы здесь — вы как раз тот человек, для кого это сделано.',
+  founder_activities: ['Тренируйся', 'Играй', 'Знакомься', 'Вайб', 'Дейт'],
+  founder_closing: '— Max',
+  founder_disclaimer: 'GetTrainMate — независимая платформа и не связана с клубами, лигами, федерациями или организаторами событий.',
 };
 
 const UA: AboutPageContent = {
@@ -200,16 +198,15 @@ const UA: AboutPageContent = {
   values_section_title: 'Що для мене важливо',
   founder_kicker: 'Про GetTrainMate',
   founder_h2: 'Зроблено спортсменом — для реальних людей',
-  founder_p1: 'GetTrainMate роблю я — Макс Кантор.',
-  founder_p2: 'Зустрічати активних людей не має бути неловко чи ненадійно.',
-  founder_p3:
-    'Тренуюсь, граю у футбол, зал, pickleball і рибалка — хотілося простого способу знаходити тих, хто реально зʼявляється на тренуваннях.',
-  founder_p4:
-    'Для тих, хто хоче звʼязок через фітнес: партнер, друг чи більше.',
-  founder_p5: 'Без вульгарності й ігор — лише люди з енергією.',
+  founder_p1: 'GetTrainMate створено, щоб вирішити просту задачу: знаходити правильних людей для тренувань, гри та живого спілкування.',
+  founder_p2: 'Найкращі враження трапляються не лише онлайн. Вони народжуються, коли люди зустрічаються, рухаються, змагаються та діляться чимось справжнім.',
+  founder_p3: 'Платформу створив фанат спорту (і так — прихильник Chelsea 💙), і вона підходить для всіх видів спорту, команд та форматів знайомств.',
+  founder_p4: 'Тренуйся. Грай. Знайомся. Вайб. Дейт.',
+  founder_p5: 'Реальний звʼязок — на ваших умовах.',
   founder_list_title: 'Чим займаюсь:',
-  founder_activities: ['Футбол', 'Зал', 'Піклбол', 'Рибалка'],
-  founder_closing: 'Якщо ви тут — ви саме та людина, для якої це зроблено.',
+  founder_activities: ['Тренуйся', 'Грай', 'Знайомся', 'Вайб', 'Дейт'],
+  founder_closing: '— Max',
+  founder_disclaimer: 'GetTrainMate є незалежною платформою і не афілійований та не підтримується жодним клубом, лігою, федерацією чи організатором подій.',
 };
 
 const HI: AboutPageContent = {
@@ -247,16 +244,15 @@ const HI: AboutPageContent = {
   values_section_title: 'जो मायने रखता है',
   founder_kicker: 'GetTrainMate के बारे में',
   founder_h2: 'एक एथलीट द्वारा — असली लोगों के लिए',
-  founder_p1: 'इसे मैंने बनाया — मैक्स कैंटर।',
-  founder_p2: 'सक्रिय लोगों से मिलना अजीब या कम भरोसे वाला नहीं होना चाहिए।',
-  founder_p3:
-    'मैं ट्रेन करता हूँ, फुटबॉल, जिम, पिकलबॉल और मछली पकड़ता हूँ — ऐसे लोग चाहिए जो वास्तव में ट्रेनिंग पर आते हैं।',
-  founder_p4:
-    'फिटनेस-फर्स्ट कनेक्शन चाहने वालों के लिए: पार्टनर, दोस्त या कुछ और।',
-  founder_p5: 'कोई अश्लीलता नहीं, कोई खेल नहीं — सच्ची ऊर्जा वाले लोग।',
+  founder_p1: 'GetTrainMate एक सरल समस्या हल करने के लिए बनाया गया: सही लोगों को ढूँढना जिनके साथ आप ट्रेन कर सकें, खेल सकें और वास्तविक जीवन में जुड़ सकें।',
+  founder_p2: 'सबसे अच्छे अनुभव सिर्फ ऑनलाइन नहीं होते। वे तब होते हैं जब लोग मिलते हैं, चलते हैं, प्रतिस्पर्धा करते हैं और कुछ सच्चा साझा करते हैं।',
+  founder_p3: 'एक स्पोर्ट्स फैन द्वारा बनाया गया (और हाँ — Chelsea समर्थक 💙), यह प्लेटफ़ॉर्म हर खेल, हर टीम और हर तरह के कनेक्शन के लिए डिज़ाइन किया गया है।',
+  founder_p4: 'ट्रेन करो। खेलो। मिलो। वाइब करो। डेट करो।',
+  founder_p5: 'रियल-वर्ल्ड कनेक्शन — आपकी शर्तों पर।',
   founder_list_title: 'मैं क्या करता हूँ:',
-  founder_activities: ['फुटबॉल', 'जिम', 'पिकलबॉल', 'मछली पकड़ना'],
-  founder_closing: 'अगर आप GetTrainMate इस्तेमाल कर रहे हैं, तो आपके लिए ही यह बना है।',
+  founder_activities: ['ट्रेन', 'खेल', 'मिलो', 'वाइब', 'डेट'],
+  founder_closing: '— Max',
+  founder_disclaimer: 'GetTrainMate स्वतंत्र है और किसी क्लब, लीग, फेडरेशन या इवेंट आयोजक से संबद्ध या समर्थित नहीं है।',
 };
 
 const ZH: AboutPageContent = {
@@ -294,16 +290,15 @@ const ZH: AboutPageContent = {
   values_section_title: '我在乎的事',
   founder_kicker: '关于 GetTrainMate',
   founder_h2: '由运动者打造——为真实的人',
-  founder_p1: '由我 Max Kantor 创建。',
-  founder_p2: '结识爱动的人不该尴尬、随机或缺乏信任。',
-  founder_p3:
-    '我坚持训练、踢球、健身，也喜欢匹克球和钓鱼。我想找到真正会坚持来练的伙伴。',
-  founder_p4:
-    '这款应用面向想要「健身优先」连接的人——无论是训练搭档、新朋友，还是更进一步。',
-  founder_p5: '不油腻、不套路，只有真实能量的人。',
+  founder_p1: 'GetTrainMate 的创建是为了解决一个简单问题：找到合适的人，一起训练、一起运动，并在线下建立真实连接。',
+  founder_p2: '最好的体验不只发生在网上，而是在人们相遇、运动、竞争并分享真实时刻时发生。',
+  founder_p3: '这款平台由一位体育迷打造（没错，也是 Chelsea 球迷 💙），面向所有运动、所有球队和所有连接方式。',
+  founder_p4: '训练。比赛。相识。同频。约会。',
+  founder_p5: '真实世界的连接——由你定义。',
   founder_list_title: '我常做的事：',
-  founder_activities: ['足球', '健身房', '匹克球', '钓鱼'],
-  founder_closing: '如果你正在使用 GetTrainMate，你就是我为之打造的那类人。',
+  founder_activities: ['训练', '比赛', '相识', '同频', '约会'],
+  founder_closing: '— Max',
+  founder_disclaimer: 'GetTrainMate 是独立平台，与任何俱乐部、联赛、协会或赛事组织者均无隶属或背书关系。',
 };
 
 const BY_LOCALE: Record<Locale, AboutPageContent> = {

@@ -64,7 +64,8 @@ export const EventLandingPage: React.FC = () => {
         </Box>
       ) : null}
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        {data?.landingHeadline?.trim() || data?.description?.trim() || `Find people to train, play, watch, meet, vibe, or date around ${data?.label ?? 'this event'}.`}
+        {(data?.description?.trim() || 'Find people to train, play, watch, meet, vibe, or date.')
+          + ' GetTrainMate is an independent platform and is not affiliated with or endorsed by any league, club, federation, or event organizer.'}
       </Typography>
       {(data?.tags ?? []).length > 0 ? (
         <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', rowGap: 1 }}>
@@ -80,16 +81,13 @@ export const EventLandingPage: React.FC = () => {
       </Stack>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2}>
         <Button variant="contained" size="large" onClick={() => navigate('/signup')}>
-          Start Connecting
+          {data?.ctaLabel?.trim() || 'Find People Near You'}
         </Button>
         <Button variant="outlined" size="large" component={RouterLink} to="/login">
           Log In
         </Button>
       </Stack>
       </Box>
-      <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 3 }}>
-        GetTrainMate is an independent platform and is not affiliated with or endorsed by any league, club, federation, or event organizer.
-      </Typography>
     </Container>
   );
 };

@@ -124,16 +124,20 @@ public class SportsEventLayerService : ISportsEventLayerService
 
     public async Task<List<EventConfig>> GetActiveEventConfigsAsync(bool allowDisabledForAdmin = false)
     {
-        var now = DateTime.UtcNow;
-        var all = await GetAllEventConfigsAsync();
-        return all.Where(e =>
+        try
         {
-            if (!allowDisabledForAdmin && !e.Enabled) return false;
-            if (e.ShowAnytime) return true;
-            if (!DateTime.TryParse(e.StartDate, out var start)) return false;
-            if (!DateTime.TryParse(e.EndDate, out var end)) return false;
-            return now >= start && now <= end;
-        }).ToList();
+            var all = await GetAllEventConfigsAsync();
+            return all.Where(e =>
+            {
+                if (allowDisabledForAdmin) return true;
+                return e.Enabled;
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Active events failed to load, returning empty array");
+            return new List<EventConfig>();
+        }
     }
 
     public async Task<EventConfig?> GetEventConfigAsync(string eventId)
@@ -154,6 +158,7 @@ public class SportsEventLayerService : ISportsEventLayerService
         config.Locations = config.Locations?.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).Distinct().ToList();
         config.BannerImageUrl = string.IsNullOrWhiteSpace(config.BannerImageUrl) ? null : config.BannerImageUrl.Trim();
         config.LandingHeadline = string.IsNullOrWhiteSpace(config.LandingHeadline) ? null : config.LandingHeadline.Trim();
+        config.CtaLabel = string.IsNullOrWhiteSpace(config.CtaLabel) ? null : config.CtaLabel.Trim();
 
         if (string.IsNullOrWhiteSpace(config.CreatedAt))
         {
@@ -196,6 +201,7 @@ public class SportsEventLayerService : ISportsEventLayerService
             ["themeColor"] = config.ThemeColor ?? string.Empty,
             ["bannerImageUrl"] = config.BannerImageUrl ?? string.Empty,
             ["landingHeadline"] = config.LandingHeadline ?? string.Empty,
+            ["ctaLabel"] = config.CtaLabel ?? string.Empty,
             ["description"] = config.Description,
             ["activities"] = new DynamoDBList(config.Activities.Select(x => new Primitive(x))),
             ["tags"] = new DynamoDBList(config.Tags.Select(x => new Primitive(x))),
@@ -277,6 +283,7 @@ public class SportsEventLayerService : ISportsEventLayerService
         ThemeColor = doc.ContainsKey("themeColor") ? doc["themeColor"].AsString() : null,
         BannerImageUrl = doc.ContainsKey("bannerImageUrl") ? doc["bannerImageUrl"].AsString() : null,
         LandingHeadline = doc.ContainsKey("landingHeadline") ? doc["landingHeadline"].AsString() : null,
+        CtaLabel = doc.ContainsKey("ctaLabel") ? doc["ctaLabel"].AsString() : null,
         Description = doc.ContainsKey("description") ? doc["description"].AsString() : string.Empty,
         Activities = doc.ContainsKey("activities") ? doc["activities"].AsListOfString() : new List<string>(),
         Tags = doc.ContainsKey("tags") ? doc["tags"].AsListOfString() : new List<string>(),

@@ -19,8 +19,16 @@ public class SportsEventsController : ControllerBase
     [HttpGet("active")]
     public async Task<ActionResult<List<EventConfig>>> GetActiveEvents()
     {
-        var active = await _sportsEventLayerService.GetActiveEventConfigsAsync();
-        return Ok(active);
+        try
+        {
+            var active = await _sportsEventLayerService.GetActiveEventConfigsAsync();
+            return Ok(active ?? new List<EventConfig>());
+        }
+        catch
+        {
+            // Endpoint must fail-safe with an empty list for homepage rendering.
+            return Ok(new List<EventConfig>());
+        }
     }
 
     [HttpGet("{eventId}")]

@@ -31,6 +31,7 @@ public class EventConfig
     public string? ThemeColor { get; set; }
     public string? BannerImageUrl { get; set; }
     public string? LandingHeadline { get; set; }
+    public string? CtaLabel { get; set; }
     public string Description { get; set; } = string.Empty;
     public List<string> Activities { get; set; } = new();
     public List<string> Tags { get; set; } = new();

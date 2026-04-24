@@ -16,6 +16,7 @@ export interface SportsEventConfig {
   themeColor?: string;
   bannerImageUrl?: string;
   landingHeadline?: string;
+  ctaLabel?: string;
   description: string;
   activities: string[];
   tags: string[];

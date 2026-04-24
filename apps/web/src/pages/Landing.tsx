@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Box, Button, Container, Typography } from '@mui/material';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
+import { useActiveEvents } from '@/hooks/useActiveEvents';
 import { LoggedInActionHero } from '@/components/app/LoggedInActionHero';
 import { Hero } from '@/sections/Hero';
 import { SwipeDemoSection } from '@/sections/SwipeDemoSection';
@@ -13,7 +14,6 @@ import { Testimonials } from '@/sections/Testimonials';
 import { FinalCTA } from '@/sections/FinalCTA';
 import { trackEvent } from '@/utils/analytics';
 import { featureFlagsService } from '@/services/featureFlagsService';
-import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import styles from '@/sections/sections.module.css';
 
 export const LandingPage: React.FC = () => {
@@ -25,11 +25,7 @@ export const LandingPage: React.FC = () => {
     queryFn: () => featureFlagsService.getFlags(),
     staleTime: 30_000,
   });
-  const { data: activeEvents } = useQuery({
-    queryKey: ['landing-active-events'],
-    queryFn: () => sportsEventLayerService.getActiveEvents(),
-    staleTime: 30_000,
-  });
+  const { data: activeEvents } = useActiveEvents();
   const featuredEvent = (activeEvents ?? []).find((x) => x.isFeatured);
   const showEventPromo =
     !isAuthenticated &&
@@ -100,14 +96,11 @@ export const LandingPage: React.FC = () => {
             }}
           >
             <Box>
-              <Typography variant="overline" sx={{ opacity: 0.8, letterSpacing: '0.14em' }}>
-                Featured Event
-              </Typography>
               <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.4 }}>
                 {featuredEvent.icon} {featuredEvent.label}
               </Typography>
               <Typography color="text.secondary" sx={{ maxWidth: 720, mt: 0.8 }}>
-                {featuredEvent.landingHeadline || `Find people to train, play, watch, meet, vibe, or date around ${featuredEvent.label}. Join early and start connecting with fans near you.`}
+                {featuredEvent.description?.trim() || 'Find people to train, play, watch, meet, vibe, or date.'}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1.2, flexWrap: 'wrap' }}>
@@ -124,7 +117,7 @@ export const LandingPage: React.FC = () => {
                   })
                 }
               >
-                Explore Event
+                {featuredEvent.landingHeadline?.trim() || 'Find People Near You'}
               </Button>
               <Button variant="contained" component={RouterLink} to="/signup">
                 Start Free
