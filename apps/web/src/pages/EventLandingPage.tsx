@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Box, Button, Chip, Container, Snackbar, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { BackLink } from '@/components/ui/BackLink';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import { trackEvent } from '@/utils/analytics';
 
@@ -49,6 +50,9 @@ export const EventLandingPage: React.FC = () => {
 
   return (
     <Container maxWidth="md" sx={{ py: 5 }}>
+      <Box sx={{ mb: 2 }}>
+        <BackLink label="Back" />
+      </Box>
       <Box
         sx={{
           border: '1px solid',
@@ -97,11 +101,11 @@ export const EventLandingPage: React.FC = () => {
           </Box>
         ))}
       </Stack>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2}>
-        <Button variant="contained" size="large" onClick={() => navigate('/signup')}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
+        <Button variant="contained" size="large" onClick={() => navigate('/signup')} sx={{ minHeight: 44, minWidth: { sm: 220 }, fontWeight: 800 }}>
           Find Fans Near You
         </Button>
-        <Button variant="text" size="large" component={RouterLink} to="/login">
+        <Button variant="text" size="large" component={RouterLink} to="/login" sx={{ minHeight: 44 }}>
           Log In
         </Button>
       </Stack>

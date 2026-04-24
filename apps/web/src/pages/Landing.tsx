@@ -16,6 +16,13 @@ import { trackEvent } from '@/utils/analytics';
 import { featureFlagsService } from '@/services/featureFlagsService';
 import styles from '@/sections/sections.module.css';
 
+const DEFAULT_EVENT_DESCRIPTION = 'Find people to train, play, watch, meet, vibe, or date.';
+const EMOTIONAL_LINE = "Don't watch alone this year.";
+const SOCIAL_PROOF_LINE = 'Fans are already connecting near you.';
+const URGENCY_LINE = 'Limited free connections — start now.';
+
+const normalizeCopy = (value: string) => value.toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, ' ').trim();
+
 export const LandingPage: React.FC = () => {
   const { isAuthenticated } = useAuthContext();
   const { me, loading } = useMe();
@@ -31,6 +38,9 @@ export const LandingPage: React.FC = () => {
     !isAuthenticated &&
     featureFlagsService.isFeatureEnabled(featureFlags, 'sports_event_layer') &&
     !!featuredEvent;
+  const eventDescription = featuredEvent?.description?.trim() || DEFAULT_EVENT_DESCRIPTION;
+  const eventCopy = normalizeCopy(`${eventDescription} ${featuredEvent?.landingHeadline ?? ''} ${featuredEvent?.ctaLabel ?? ''}`);
+  const shouldShowLine = (line: string) => !eventCopy.includes(normalizeCopy(line));
 
   /** When navigating from another route (e.g. Pricing) to /#how-it-works, scroll after marketing sections mount. */
   useEffect(() => {
@@ -88,35 +98,50 @@ export const LandingPage: React.FC = () => {
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               p: { xs: 2, sm: 3 },
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 2,
-              alignItems: { xs: 'flex-start', sm: 'center' },
-              flexDirection: { xs: 'column', sm: 'row' },
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 260px' },
+              gap: { xs: 2.5, md: 4 },
+              alignItems: 'center',
             }}
           >
-            <Box>
+            <Box sx={{ minWidth: 0 }}>
               <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.4 }}>
                 {featuredEvent.icon} {featuredEvent.label}
               </Typography>
               <Typography color="text.secondary" sx={{ maxWidth: 720, mt: 0.8 }}>
-                {featuredEvent.description?.trim() || 'Find people to train, play, watch, meet, vibe, or date.'}
+                {eventDescription}
               </Typography>
-              <Typography color="text.secondary" sx={{ mt: 0.8, fontWeight: 600 }}>
-                Fans are already connecting near you.
-              </Typography>
-              <Typography sx={{ mt: 0.6, fontWeight: 700 }}>
-                Don&apos;t watch alone this year.
-              </Typography>
-              <Typography color="warning.main" sx={{ mt: 0.35, fontWeight: 700 }}>
-                Limited free connections - start now.
-              </Typography>
+              {shouldShowLine(EMOTIONAL_LINE) ? (
+                <Typography sx={{ mt: 0.8, fontWeight: 700 }}>
+                  Don&apos;t watch alone this year.
+                </Typography>
+              ) : null}
+              {shouldShowLine(SOCIAL_PROOF_LINE) ? (
+                <Typography color="text.secondary" sx={{ mt: 0.6, fontWeight: 600 }}>
+                  {SOCIAL_PROOF_LINE}
+                </Typography>
+              ) : null}
+              {shouldShowLine(URGENCY_LINE) ? (
+                <Typography color="warning.main" sx={{ mt: 0.35, fontWeight: 700 }}>
+                  {URGENCY_LINE}
+                </Typography>
+              ) : null}
             </Box>
-            <Box sx={{ display: 'flex', gap: 1.2, flexWrap: 'wrap' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+                width: '100%',
+                maxWidth: { md: 260 },
+                justifySelf: { xs: 'stretch', md: 'end' },
+              }}
+            >
               <Button
-                variant="outlined"
+                variant="contained"
                 component={RouterLink}
                 to={`/events/${featuredEvent.eventId}`}
+                size="large"
                 onClick={() => {
                   window.sessionStorage.setItem('gtm_event_first_click', '1');
                   trackEvent('event_banner_click', {
@@ -126,16 +151,17 @@ export const LandingPage: React.FC = () => {
                     sourcePage: '/',
                   });
                 }}
+                sx={{ width: '100%', minHeight: 44, whiteSpace: 'nowrap', fontWeight: 800 }}
               >
-                Find Fans Near You
+                {featuredEvent.ctaLabel?.trim() || 'Find Fans Near You'}
               </Button>
-              <Button variant="contained" component={RouterLink} to="/signup">
+              <Button variant="outlined" component={RouterLink} to="/signup" size="large" sx={{ width: '100%', minHeight: 44, whiteSpace: 'nowrap' }}>
                 Start Free
               </Button>
+              <Typography variant="caption" color="text.secondary" sx={{ textAlign: { xs: 'left', md: 'center' } }}>
+                No app. No subscription. Start free.
+              </Typography>
             </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ width: '100%', mt: 0.6 }}>
-              No app. No subscription. Start free.
-            </Typography>
           </Box>
         </Container>
       ) : null}
