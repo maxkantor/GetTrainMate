@@ -257,9 +257,12 @@ export const AppHomePage: React.FC = () => {
           color="text.secondary"
           sx={{ display: 'inline-block', mb: 2, cursor: 'default', borderBottom: '1px dotted', borderColor: 'divider' }}
         >
-          {credits} {t('app_pages.home.credits_left')}
+          You have {credits} free connections
         </Typography>
       </Tooltip>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {featuredEvent ? `Perfect for connecting during ${featuredEvent.label}` : 'Start connecting now'}
+      </Typography>
       {!needsQuickSetup ? (
         <Typography
           variant="body1"

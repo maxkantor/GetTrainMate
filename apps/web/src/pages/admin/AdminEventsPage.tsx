@@ -414,25 +414,6 @@ export const AdminEventsPage: React.FC = () => {
             <label><input type="checkbox" checked={form.enabled} onChange={(e) => setFormField('enabled', e.target.checked)} /> enabled</label>
             <label><input type="checkbox" checked={form.isFeatured} onChange={(e) => setFormField('isFeatured', e.target.checked)} /> featured</label>
             <label><input type="checkbox" checked={form.showAnytime === true} onChange={(e) => setFormField('showAnytime', e.target.checked)} /> show now (ignore dates)</label>
-            <label><input type="checkbox" checked={form.boostEnabled === true} onChange={(e) => setFormField('boostEnabled', e.target.checked)} /> boost enabled</label>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              Boost Price
-              <input value={form.boostPrice ?? ''} onChange={(e) => setFormField('boostPrice', e.target.value ? Number(e.target.value) : null)} />
-            </label>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              Boost Label
-              <input value={form.boostLabel ?? ''} onChange={(e) => setFormField('boostLabel', e.target.value)} />
-            </label>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              Stripe Price ID (Dev)
-              <input value={form.stripePriceIdDev ?? ''} onChange={(e) => setFormField('stripePriceIdDev', e.target.value)} />
-            </label>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              Stripe Price ID (Prod)
-              <input value={form.stripePriceIdProd ?? ''} onChange={(e) => setFormField('stripePriceIdProd', e.target.value)} />
-            </label>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
             <button type="button" className={styles.refresh} disabled={saving} onClick={() => void upsertEvent()}>

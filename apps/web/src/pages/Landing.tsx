@@ -102,27 +102,40 @@ export const LandingPage: React.FC = () => {
               <Typography color="text.secondary" sx={{ maxWidth: 720, mt: 0.8 }}>
                 {featuredEvent.description?.trim() || 'Find people to train, play, watch, meet, vibe, or date.'}
               </Typography>
+              <Typography color="text.secondary" sx={{ mt: 0.8, fontWeight: 600 }}>
+                Fans are already connecting near you.
+              </Typography>
+              <Typography sx={{ mt: 0.6, fontWeight: 700 }}>
+                Don&apos;t watch alone this year.
+              </Typography>
+              <Typography color="warning.main" sx={{ mt: 0.35, fontWeight: 700 }}>
+                Limited free connections - start now.
+              </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1.2, flexWrap: 'wrap' }}>
               <Button
                 variant="outlined"
                 component={RouterLink}
                 to={`/events/${featuredEvent.eventId}`}
-                onClick={() =>
+                onClick={() => {
+                  window.sessionStorage.setItem('gtm_event_first_click', '1');
                   trackEvent('event_banner_click', {
                     eventId: featuredEvent.eventId,
                     eventLabel: featuredEvent.label,
                     sport: featuredEvent.sport,
                     sourcePage: '/',
-                  })
-                }
+                  });
+                }}
               >
-                {featuredEvent.landingHeadline?.trim() || 'Find People Near You'}
+                Find Fans Near You
               </Button>
               <Button variant="contained" component={RouterLink} to="/signup">
                 Start Free
               </Button>
             </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ width: '100%', mt: 0.6 }}>
+              No app. No subscription. Start free.
+            </Typography>
           </Box>
         </Container>
       ) : null}
