@@ -49,6 +49,7 @@ public class SportsEventLayerService : ISportsEventLayerService
             Sport = "Soccer",
             Enabled = false,
             IsFeatured = false,
+            ShowAnytime = false,
             StartDate = "2026-06-01T00:00:00Z",
             EndDate = "2026-08-01T00:00:00Z",
             Icon = "⚽",
@@ -128,6 +129,7 @@ public class SportsEventLayerService : ISportsEventLayerService
         return all.Where(e =>
         {
             if (!allowDisabledForAdmin && !e.Enabled) return false;
+            if (e.ShowAnytime) return true;
             if (!DateTime.TryParse(e.StartDate, out var start)) return false;
             if (!DateTime.TryParse(e.EndDate, out var end)) return false;
             return now >= start && now <= end;
@@ -187,6 +189,7 @@ public class SportsEventLayerService : ISportsEventLayerService
             ["sport"] = config.Sport,
             ["enabled"] = config.Enabled,
             ["isFeatured"] = config.IsFeatured,
+            ["showAnytime"] = config.ShowAnytime,
             ["startDate"] = config.StartDate,
             ["endDate"] = config.EndDate,
             ["icon"] = config.Icon,
@@ -267,6 +270,7 @@ public class SportsEventLayerService : ISportsEventLayerService
         Sport = doc.ContainsKey("sport") ? doc["sport"].AsString() : string.Empty,
         Enabled = doc.ContainsKey("enabled") && doc["enabled"].AsBoolean(),
         IsFeatured = doc.ContainsKey("isFeatured") && doc["isFeatured"].AsBoolean(),
+        ShowAnytime = doc.ContainsKey("showAnytime") && doc["showAnytime"].AsBoolean(),
         StartDate = doc.ContainsKey("startDate") ? doc["startDate"].AsString() : string.Empty,
         EndDate = doc.ContainsKey("endDate") ? doc["endDate"].AsString() : string.Empty,
         Icon = doc.ContainsKey("icon") ? doc["icon"].AsString() : "🏅",

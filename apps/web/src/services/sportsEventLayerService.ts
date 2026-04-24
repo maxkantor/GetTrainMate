@@ -9,6 +9,7 @@ export interface SportsEventConfig {
   sport: string;
   enabled: boolean;
   isFeatured: boolean;
+  showAnytime?: boolean;
   startDate: string;
   endDate: string;
   icon: string;

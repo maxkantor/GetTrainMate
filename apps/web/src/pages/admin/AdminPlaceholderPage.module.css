@@ -32,14 +32,25 @@
   padding: 8px 16px;
   border-radius: 10px;
   border: 1px solid rgba(99, 102, 241, 0.35);
-  background: rgba(99, 102, 241, 0.08);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(139, 92, 246, 0.88));
+  color: #ffffff;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+
+.refresh:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(99, 102, 241, 0.35);
+  filter: brightness(1.04);
 }
 
 .refresh:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .alert {
@@ -98,4 +109,45 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.55);
+}
+
+.panel {
+  border: 1px solid rgba(130, 140, 255, 0.25);
+  border-radius: 12px;
+  padding: 14px;
+  background: rgba(11, 14, 34, 0.75);
+  margin-bottom: 14px;
+}
+
+.subTitle {
+  margin: 0 0 10px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.eventRow {
+  border: 1px solid rgba(92, 102, 220, 0.28);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: rgba(18, 23, 48, 0.72);
+}
+
+.actionRow {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+
+.inlineBtn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(121, 133, 255, 0.55);
+  background: rgba(121, 133, 255, 0.18);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
 }

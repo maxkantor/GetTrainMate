@@ -24,6 +24,7 @@ public class EventConfig
     public string Sport { get; set; } = string.Empty;
     public bool Enabled { get; set; }
     public bool IsFeatured { get; set; }
+    public bool ShowAnytime { get; set; }
     public string StartDate { get; set; } = string.Empty;
     public string EndDate { get; set; } = string.Empty;
     public string Icon { get; set; } = "🏅";

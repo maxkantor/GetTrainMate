@@ -11,6 +11,7 @@ type EventConfig = {
   sport: string;
   enabled: boolean;
   isFeatured: boolean;
+  showAnytime?: boolean;
   startDate: string;
   endDate: string;
   icon: string;
@@ -39,6 +40,7 @@ const createEmptyEvent = (): EventConfig => ({
   sport: '',
   enabled: false,
   isFeatured: false,
+  showAnytime: false,
   startDate: '',
   endDate: '',
   icon: '🏆',
@@ -202,35 +204,38 @@ export const AdminEventsPage: React.FC = () => {
       <p className={styles.lead}>Warning: This will make the event layer visible to users if the feature flag is enabled.</p>
       {error ? <div className={styles.alert}>{error}</div> : null}
 
-      <h3>Feature Flags</h3>
-      {FLAG_KEYS.map((flagKey) => (
-        <label key={flagKey} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-          <input
-            type="checkbox"
-            checked={flags[flagKey] === true}
-            onChange={async (e) => {
-              const enabled = e.target.checked;
-              setFlags((prev) => ({ ...prev, [flagKey]: enabled }));
-              await adminApiService.put(`/api/admin/sports-events/flags/${flagKey}`, {
-                enabled,
-                environment: 'prod',
-                description: `Admin toggle for ${flagKey}`,
-              });
-            }}
-          />
-          {flagKey}
-        </label>
-      ))}
+      <div className={styles.panel}>
+        <h3 className={styles.subTitle}>Feature Flags</h3>
+        {FLAG_KEYS.map((flagKey) => (
+          <label key={flagKey} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input
+              type="checkbox"
+              checked={flags[flagKey] === true}
+              onChange={async (e) => {
+                const enabled = e.target.checked;
+                setFlags((prev) => ({ ...prev, [flagKey]: enabled }));
+                await adminApiService.put(`/api/admin/sports-events/flags/${flagKey}`, {
+                  enabled,
+                  environment: 'prod',
+                  description: `Admin toggle for ${flagKey}`,
+                });
+              }}
+            />
+            {flagKey}
+          </label>
+        ))}
+      </div>
 
-      <h3 style={{ marginTop: 20 }}>Event Management</h3>
+      <div className={styles.panel}>
+      <h3 className={styles.subTitle}>Event Management</h3>
       <p>Featured events: {featuredCount}</p>
       {sortedEvents.map((ev) => (
-        <div key={ev.eventId} style={{ border: '1px solid #333', borderRadius: 8, padding: 12, marginBottom: 10 }}>
+        <div key={ev.eventId} className={styles.eventRow}>
           <strong>{ev.icon} {ev.label}</strong> <span style={{ opacity: 0.8 }}>({ev.sport})</span>
           <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>
             {ev.eventId} • {ev.startDate ? new Date(ev.startDate).toLocaleDateString() : '—'} to {ev.endDate ? new Date(ev.endDate).toLocaleDateString() : '—'}
           </div>
-          <div style={{ marginTop: 8, display: 'flex', gap: 16 }}>
+          <div className={styles.actionRow}>
             <label><input type="checkbox" checked={ev.enabled} onChange={async (e) => {
               const enabled = e.target.checked;
               const next = { ...ev, enabled };
@@ -243,10 +248,17 @@ export const AdminEventsPage: React.FC = () => {
               setEvents((prev) => prev.map((x) => x.eventId === ev.eventId ? next : x));
               await adminApiService.put(`/api/admin/sports-events/${ev.eventId}`, next);
             }} /> featured</label>
-            <button type="button" className={styles.refresh} onClick={() => openEdit(ev)}>edit</button>
+            <label><input type="checkbox" checked={ev.showAnytime === true} onChange={async (e) => {
+              const showAnytime = e.target.checked;
+              const next = { ...ev, showAnytime };
+              setEvents((prev) => prev.map((x) => x.eventId === ev.eventId ? next : x));
+              await adminApiService.put(`/api/admin/sports-events/${ev.eventId}`, next);
+            }} /> show now (ignore dates)</label>
+            <button type="button" className={styles.inlineBtn} onClick={() => openEdit(ev)}>Edit Event</button>
           </div>
         </div>
       ))}
+      </div>
       {formOpen ? (
         <div style={{ marginTop: 16, border: '1px solid #3c3c55', borderRadius: 10, padding: 14, background: 'rgba(15,18,40,0.6)' }}>
           <h3 style={{ marginTop: 0 }}>{formTitle}</h3>
@@ -315,6 +327,7 @@ export const AdminEventsPage: React.FC = () => {
           <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
             <label><input type="checkbox" checked={form.enabled} onChange={(e) => setFormField('enabled', e.target.checked)} /> enabled</label>
             <label><input type="checkbox" checked={form.isFeatured} onChange={(e) => setFormField('isFeatured', e.target.checked)} /> featured</label>
+            <label><input type="checkbox" checked={form.showAnytime === true} onChange={(e) => setFormField('showAnytime', e.target.checked)} /> show now (ignore dates)</label>
             <label><input type="checkbox" checked={form.boostEnabled === true} onChange={(e) => setFormField('boostEnabled', e.target.checked)} /> boost enabled</label>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
