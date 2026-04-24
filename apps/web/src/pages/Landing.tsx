@@ -40,6 +40,8 @@ export const LandingPage: React.FC = () => {
   });
   const { data: activeEvents } = useActiveEvents();
   const featuredEvent = (activeEvents ?? []).find((x) => x.isFeatured);
+  const eventThemeColor = featuredEvent?.themeColor?.trim() || '#2b2c7f';
+  const eventBannerImageUrl = featuredEvent?.bannerImageUrl?.trim();
   const showEventPromo =
     !isAuthenticated &&
     featureFlagsService.isFeatureEnabled(featureFlags, 'sports_event_layer') &&
@@ -106,18 +108,48 @@ export const LandingPage: React.FC = () => {
           <Box
             sx={{
               borderRadius: 3,
-              border: '1px solid rgba(128,128,255,0.35)',
-              background: `linear-gradient(120deg, ${featuredEvent.themeColor || '#2b2c7f'}22, rgba(12,13,28,0.95)), url(${featuredEvent.bannerImageUrl || ''})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
+              border: `1px solid ${eventBannerImageUrl ? `${eventThemeColor}88` : 'rgba(128,128,255,0.35)'}`,
+              background: `linear-gradient(120deg, ${eventThemeColor}22, rgba(12,13,28,0.95))`,
               p: { xs: 2, sm: 3 },
               display: 'grid',
               gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 260px' },
               gap: { xs: 2.5, md: 4 },
               alignItems: 'center',
+              position: 'relative',
+              overflow: 'hidden',
+              boxShadow: eventBannerImageUrl ? `0 18px 60px ${eventThemeColor}22` : undefined,
             }}
           >
-            <Box sx={{ minWidth: 0 }}>
+            {eventBannerImageUrl ? (
+              <>
+                <Box
+                  aria-hidden
+                  sx={{
+                    position: 'absolute',
+                    inset: -6,
+                    zIndex: 0,
+                    backgroundImage: `url("${eventBannerImageUrl}")`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    opacity: 0.16,
+                    filter: 'blur(2px)',
+                    transform: 'scale(1.03)',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <Box
+                  aria-hidden
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 0,
+                    background: `linear-gradient(120deg, rgba(4,7,20,0.86), rgba(4,7,20,0.72)), linear-gradient(120deg, ${eventThemeColor}22, transparent)`,
+                    pointerEvents: 'none',
+                  }}
+                />
+              </>
+            ) : null}
+            <Box sx={{ minWidth: 0, position: 'relative', zIndex: 1 }}>
               <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.4 }}>
                 {featuredEvent.icon} {featuredEvent.label}
               </Typography>
@@ -148,6 +180,8 @@ export const LandingPage: React.FC = () => {
                 width: '100%',
                 maxWidth: { md: 260 },
                 justifySelf: { xs: 'stretch', md: 'end' },
+                position: 'relative',
+                zIndex: 1,
               }}
             >
               <Button
@@ -164,11 +198,41 @@ export const LandingPage: React.FC = () => {
                     sourcePage: '/',
                   });
                 }}
-                sx={{ width: '100%', minHeight: 44, whiteSpace: 'nowrap', fontWeight: 800 }}
+                sx={{
+                  width: '100%',
+                  minHeight: 44,
+                  whiteSpace: 'nowrap',
+                  fontWeight: 800,
+                  bgcolor: eventThemeColor,
+                  borderColor: eventThemeColor,
+                  boxShadow: `0 0 0 1px ${eventThemeColor}55, 0 14px 34px ${eventThemeColor}44`,
+                  '&:hover': {
+                    bgcolor: eventThemeColor,
+                    borderColor: eventThemeColor,
+                    boxShadow: `0 0 0 1px ${eventThemeColor}88, 0 18px 42px ${eventThemeColor}55`,
+                    filter: 'brightness(1.08)',
+                  },
+                }}
               >
                 {featuredEvent.ctaLabel?.trim() || t('sports_event_layer.primary_cta')}
               </Button>
-              <Button variant="outlined" component={RouterLink} to="/signup" size="large" sx={{ width: '100%', minHeight: 44, whiteSpace: 'nowrap' }}>
+              <Button
+                variant="outlined"
+                component={RouterLink}
+                to="/signup"
+                size="large"
+                sx={{
+                  width: '100%',
+                  minHeight: 44,
+                  whiteSpace: 'nowrap',
+                  borderColor: `${eventThemeColor}aa`,
+                  color: 'text.primary',
+                  '&:hover': {
+                    borderColor: eventThemeColor,
+                    bgcolor: `${eventThemeColor}18`,
+                  },
+                }}
+              >
                 {t('sports_event_layer.secondary_cta')}
               </Button>
               <Typography variant="caption" color="text.secondary" sx={{ textAlign: { xs: 'left', md: 'center' } }}>

@@ -389,7 +389,46 @@ export const AdminEventsPage: React.FC = () => {
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
             Banner Image URL
             <input value={form.bannerImageUrl ?? ''} onChange={(e) => setFormField('bannerImageUrl', e.target.value)} />
+            <span style={{ fontSize: 12, opacity: 0.72 }}>
+              Use a generic dark blue soccer stadium or fan background. Do not use official club logos, player photos, or copyrighted club imagery.
+            </span>
           </label>
+          {form.bannerImageUrl?.trim() ? (
+            <div
+              style={{
+                marginTop: 10,
+                border: '1px solid rgba(128,128,255,0.28)',
+                borderRadius: 10,
+                overflow: 'hidden',
+                background: '#070b1a',
+              }}
+            >
+              <div
+                style={{
+                  padding: '8px 10px',
+                  fontSize: 12,
+                  opacity: 0.76,
+                  borderBottom: '1px solid rgba(128,128,255,0.18)',
+                }}
+              >
+                Banner preview before saving
+              </div>
+              <img
+                src={form.bannerImageUrl.trim()}
+                alt="Event banner preview"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  height: 180,
+                  objectFit: 'cover',
+                  objectPosition: 'center',
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
+          ) : null}
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
             Description
             <textarea rows={3} value={form.description ?? ''} onChange={(e) => setFormField('description', e.target.value)} />
