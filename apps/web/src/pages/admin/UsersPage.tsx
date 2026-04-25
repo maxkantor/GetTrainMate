@@ -24,6 +24,8 @@ interface User {
   createdAt: string;
   city?: string;
   state?: string;
+  birthDate?: string;
+  age?: number;
   credits?: number;
   lifetimeEarned?: number;
   unlimitedDiscovery?: boolean;
@@ -106,6 +108,8 @@ export const UsersPage: React.FC = () => {
   const [emailReleaseBusy, setEmailReleaseBusy] = useState(false);
   const [creditTx, setCreditTx] = useState<CreditAuditRow[]>([]);
   const [creditTxLoading, setCreditTxLoading] = useState(false);
+  const [ageInput, setAgeInput] = useState('');
+  const [ageSaving, setAgeSaving] = useState(false);
   /** Prevents an older in-flight detail fetch from overwriting a newer row selection. */
   const detailFetchGen = useRef(0);
 
@@ -143,6 +147,10 @@ export const UsersPage: React.FC = () => {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  useEffect(() => {
+    setAgeInput(detailUser?.age != null ? String(detailUser.age) : '');
+  }, [detailUser?.userId, detailUser?.age]);
 
   const handleRowClick = async (row: User) => {
     const gen = ++detailFetchGen.current;
@@ -312,6 +320,32 @@ export const UsersPage: React.FC = () => {
       setError((err as Error)?.message || 'Failed to grant credits');
     } finally {
       setGrantLoading(false);
+    }
+  };
+
+  const handleSaveAge = async () => {
+    if (!detailUser || detailIsDeleted) return;
+    const age = Number(ageInput);
+    if (!Number.isInteger(age) || age < 18 || age > 120) {
+      setError('Age must be a whole number between 18 and 120.');
+      return;
+    }
+
+    setAgeSaving(true);
+    setError(null);
+    setResetSuccess(null);
+    try {
+      const updated = await adminApiService.put(
+        `/api/admin/users/${encodeURIComponent(detailUser.userId)}/profile`,
+        { age }
+      );
+      setDetailUser(normalizeAdminUserDetail(updated) as User);
+      setResetSuccess('Age updated.');
+      await loadUsers();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to update age');
+    } finally {
+      setAgeSaving(false);
     }
   };
 
@@ -568,6 +602,8 @@ export const UsersPage: React.FC = () => {
               <dd>{detailUser.plan || '—'}</dd>
               <dt>City / State</dt>
               <dd>{[detailUser.city, detailUser.state].filter(Boolean).join(', ') || '—'}</dd>
+              <dt>Age</dt>
+              <dd>{detailUser.age ?? '—'}</dd>
               <dt>Credits</dt>
               <dd>
                 {detailUser.credits ?? '—'}
@@ -610,6 +646,36 @@ export const UsersPage: React.FC = () => {
               <dt>Created</dt>
               <dd>{new Date(detailUser.createdAt).toLocaleString()}</dd>
             </dl>
+            <div className={styles.profileEditSection}>
+              <h3 className={styles.lifecycleTitle}>Edit profile</h3>
+              <p className={styles.lifecycleHint}>
+                Age is saved as the profile birth date used by matching and landing preview cards.
+                {detailIsDeleted ? ' Closed accounts: view only.' : ''}
+              </p>
+              <div className={styles.grantRow}>
+                <label className={styles.grantLabel} htmlFor="admin-user-age">
+                  Age
+                </label>
+                <input
+                  id="admin-user-age"
+                  type="number"
+                  min={18}
+                  max={120}
+                  className={styles.grantInput}
+                  value={ageInput}
+                  onChange={(e) => setAgeInput(e.target.value)}
+                  disabled={ageSaving || detailIsDeleted}
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void handleSaveAge()}
+                  disabled={ageSaving || detailIsDeleted}
+                >
+                  {ageSaving ? 'Saving…' : 'Save age'}
+                </Button>
+              </div>
+            </div>
             <div className={styles.lifecycleSection}>
               <h3 className={styles.lifecycleTitle}>Discover lifecycle</h3>
               <p className={styles.lifecycleHint}>

@@ -28,6 +28,7 @@ type TestUserFormState = {
   email: string;
   city: string;
   state: string;
+  age: string;
   bio: string;
   level: string;
   mode: string;
@@ -140,6 +141,7 @@ const EMPTY_FORM: TestUserFormState = {
   email: '',
   city: 'San Francisco',
   state: 'CA',
+  age: '32',
   bio: '',
   level: 'intermediate',
   mode: 'TRAIN',
@@ -263,6 +265,7 @@ export const TestUsersPage: React.FC = () => {
         email: String(o.email ?? o.Email ?? row.email ?? ''),
         city: String(o.city ?? o.City ?? row.city ?? ''),
         state: String(o.state ?? o.State ?? row.state ?? ''),
+        age: String(o.age ?? o.Age ?? ''),
         bio: String(o.bio ?? o.Bio ?? ''),
         level: String(o.level ?? o.Level ?? 'intermediate'),
         mode: String(o.mode ?? o.Mode ?? 'TRAIN'),
@@ -341,6 +344,11 @@ export const TestUsersPage: React.FC = () => {
       setError('Name is required.');
       return;
     }
+    const parsedAge = form.age.trim() ? Number(form.age) : undefined;
+    if (parsedAge != null && (!Number.isInteger(parsedAge) || parsedAge < 18 || parsedAge > 120)) {
+      setError('Age must be a whole number between 18 and 120.');
+      return;
+    }
 
     setError(null);
     setSuccess(null);
@@ -352,6 +360,7 @@ export const TestUsersPage: React.FC = () => {
         email: form.email.trim() || undefined,
         city: form.city.trim() || undefined,
         state: form.state.trim() || undefined,
+        age: parsedAge,
         bio: form.bio.trim() || undefined,
         level: form.level.trim() || undefined,
         mode: form.mode.trim() || undefined,
@@ -699,6 +708,17 @@ export const TestUsersPage: React.FC = () => {
                     <input className={styles.search} value={form.state} onChange={(e) => updateForm('state', e.target.value)} />
                   </label>
                 </div>
+                <label className={styles.formField}>
+                  <span>Age</span>
+                  <input
+                    className={styles.search}
+                    type="number"
+                    min={18}
+                    max={120}
+                    value={form.age}
+                    onChange={(e) => updateForm('age', e.target.value)}
+                  />
+                </label>
                 <div className={styles.formGrid}>
                   <label className={styles.formField}>
                     <span>Level</span>

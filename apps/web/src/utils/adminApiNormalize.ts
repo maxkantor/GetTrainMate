@@ -42,6 +42,8 @@ export function normalizeAdminUserRow(raw: unknown): {
   plan?: string;
   city?: string;
   state?: string;
+  birthDate?: string;
+  age?: number;
   createdAt: string;
   credits?: number;
   coverPhotoUrl?: string;
@@ -67,6 +69,11 @@ export function normalizeAdminUserRow(raw: unknown): {
     plan: (o.plan ?? o.Plan) != null ? String(o.plan ?? o.Plan) : undefined,
     city: (o.city ?? o.City) != null ? String(o.city ?? o.City) : undefined,
     state: (o.state ?? o.State) != null ? String(o.state ?? o.State) : undefined,
+    birthDate: (o.birthDate ?? o.BirthDate) != null ? String(o.birthDate ?? o.BirthDate) : undefined,
+    age:
+      o.age != null || o.Age != null
+        ? Number(o.age ?? o.Age ?? 0) || undefined
+        : undefined,
     createdAt,
     credits:
       o.credits != null || o.Credits != null
@@ -85,6 +92,8 @@ export function normalizeAdminUserDetail(raw: unknown): {
   plan?: string;
   city?: string;
   state?: string;
+  birthDate?: string;
+  age?: number;
   createdAt: string;
   credits: number;
   lifetimeEarned: number;

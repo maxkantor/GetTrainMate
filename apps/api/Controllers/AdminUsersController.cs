@@ -712,6 +712,8 @@ public class AdminUsersController : ControllerBase
                 City = profile.City,
                 State = profile.State,
                 Bio = profile.Bio,
+                BirthDate = profile.BirthDate,
+                Age = ComputeAge(profile.BirthDate),
                 Level = profile.Level,
                 Mode = profile.Mode,
                 SportTags = profile.SportTags,
@@ -729,6 +731,58 @@ public class AdminUsersController : ControllerBase
         {
             _logger.LogError(ex, "Error getting user {UserId}", userId);
             return StatusCode(500, new { error = "Failed to get user" });
+        }
+    }
+
+    /// <summary>
+    /// PUT /api/admin/users/{userId}/profile
+    /// Admin-only profile edits for support/CRM fields. Age is stored as birthDate.
+    /// </summary>
+    [HttpPut("{userId}/profile")]
+    public async Task<ActionResult<UserDetail>> UpdateUserProfileFromAdmin(string userId, [FromBody] AdminUserProfileUpdateRequest request)
+    {
+        try
+        {
+            var admin = GetAdminIdentity();
+            if (string.IsNullOrWhiteSpace(userId))
+                return BadRequest(new { error = "userId is required" });
+            if (request == null)
+                return BadRequest(new { error = "Request body is required." });
+            if (request.Age.HasValue && !IsValidAdminAge(request.Age.Value))
+                return BadRequest(new { error = "Age must be between 18 and 120." });
+
+            var profile = await _profileService.GetProfileForAdminAsync(userId);
+            if (profile == null)
+                return NotFound(new { error = "User not found" });
+            if (await _profileService.IsAccountClosedAsync(userId))
+                return BadRequest(new { error = "Closed accounts cannot be edited." });
+
+            var beforeAge = ComputeAge(profile.BirthDate);
+            if (request.BirthDate.HasValue)
+            {
+                profile.BirthDate = request.BirthDate.Value.Date;
+            }
+            else if (request.Age.HasValue)
+            {
+                profile.BirthDate = BirthDateFromAge(request.Age.Value);
+            }
+
+            profile.UpdatedAt = DateTime.UtcNow;
+            await _profileService.CreateProfileAsync(profile);
+            await _auditLogService.LogActionAsync(
+                admin,
+                "user.profile.update",
+                "user",
+                userId,
+                before: new { age = beforeAge },
+                after: new { age = ComputeAge(profile.BirthDate), birthDate = profile.BirthDate?.ToString("yyyy-MM-dd") });
+
+            return await GetUser(userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating admin profile fields for user {UserId}", userId);
+            return StatusCode(500, new { error = "Failed to update user profile" });
         }
     }
 
@@ -1043,6 +1097,7 @@ public class AdminUsersController : ControllerBase
                 City = string.IsNullOrWhiteSpace(request.City) ? null : request.City.Trim(),
                 State = string.IsNullOrWhiteSpace(request.State) ? null : request.State.Trim(),
                 Bio = string.IsNullOrWhiteSpace(request.Bio) ? DefaultBioForName(request.Name) : request.Bio.Trim(),
+                BirthDate = BirthDateFromAdminRequest(request),
                 Level = level,
                 Mode = mode,
                 Modes = new List<string> { mode },
@@ -1103,6 +1158,8 @@ public class AdminUsersController : ControllerBase
                 existing.State = string.IsNullOrWhiteSpace(request.State) ? null : request.State.Trim();
             if (request.Bio != null)
                 existing.Bio = string.IsNullOrWhiteSpace(request.Bio) ? DefaultBioForName(existing.Name) : request.Bio.Trim();
+            if (request.BirthDate.HasValue || request.Age.HasValue)
+                existing.BirthDate = BirthDateFromAdminRequest(request);
             if (request.Level != null)
                 existing.Level = NormalizeLevel(request.Level);
             if (request.Mode != null)
@@ -1415,6 +1472,7 @@ public class AdminUsersController : ControllerBase
         if (requireUserId && string.IsNullOrWhiteSpace(request.UserId)) return "userId is required.";
         if (string.IsNullOrWhiteSpace(request.Name)) return "name is required.";
         if (request.Name.Trim().Length > 200) return "name must be 200 characters or less.";
+        if (request.Age.HasValue && !IsValidAdminAge(request.Age.Value)) return "age must be between 18 and 120.";
         if (request.Bio != null && request.Bio.Trim().Length is > 0 and < 20) return "bio must be at least 20 characters if provided.";
         if (request.Level != null && !new[] { "beginner", "intermediate", "advanced", "pro" }.Contains(request.Level.Trim(), StringComparer.OrdinalIgnoreCase))
             return "level must be one of: beginner, intermediate, advanced, pro.";
@@ -1435,6 +1493,31 @@ public class AdminUsersController : ControllerBase
             return profileValidation.SelectMany(kv => kv.Value).FirstOrDefault() ?? "Validation failed.";
 
         return null;
+    }
+
+    private static bool IsValidAdminAge(int age) => age >= 18 && age <= 120;
+
+    private static DateTime BirthDateFromAge(int age) => DateTime.UtcNow.Date.AddYears(-age);
+
+    private static DateTime? BirthDateFromAdminRequest(AdminTestUserUpsertRequest request)
+    {
+        if (request.BirthDate.HasValue)
+            return request.BirthDate.Value.Date;
+        if (request.Age.HasValue)
+            return BirthDateFromAge(request.Age.Value);
+        return null;
+    }
+
+    private static int? ComputeAge(DateTime? birthDate)
+    {
+        if (!birthDate.HasValue)
+            return null;
+        var today = DateTime.UtcNow.Date;
+        var bd = birthDate.Value.Date;
+        var age = today.Year - bd.Year;
+        if (bd.Date > today.AddYears(-age))
+            age--;
+        return age < 0 || age > 120 ? null : age;
     }
 
     private static bool IsTestUserId(string userId) =>
@@ -1539,6 +1622,8 @@ public class UserDetail
     public string? City { get; set; }
     public string? State { get; set; }
     public string? Bio { get; set; }
+    public DateTime? BirthDate { get; set; }
+    public int? Age { get; set; }
     public string? Level { get; set; }
     public string? Mode { get; set; }
     public List<string> SportTags { get; set; } = new();
@@ -1563,6 +1648,12 @@ public class SignupEmailReleaseRequest
     public bool Allow { get; set; }
 }
 
+public class AdminUserProfileUpdateRequest
+{
+    public int? Age { get; set; }
+    public DateTime? BirthDate { get; set; }
+}
+
 public class AdminTestUserUpsertRequest
 {
     public string? UserId { get; set; }
@@ -1571,6 +1662,8 @@ public class AdminTestUserUpsertRequest
     public string? City { get; set; }
     public string? State { get; set; }
     public string? Bio { get; set; }
+    public DateTime? BirthDate { get; set; }
+    public int? Age { get; set; }
     public string? Level { get; set; }
     public string? Mode { get; set; }
     public List<string>? SportTags { get; set; }
