@@ -55,6 +55,9 @@ public class PublicMatchPreviewController : ControllerBase
     {
         try
         {
+            Response.Headers.CacheControl = "no-store, no-cache, max-age=0";
+            Response.Headers.Pragma = "no-cache";
+            Response.Headers.Expires = "0";
             var result = await _preview.GetShowcaseAsync(cancellationToken).ConfigureAwait(false);
             _logger.LogInformation(
                 "landing-showcase response kind={Kind} deck={DeckLen} activity={ActLen}",

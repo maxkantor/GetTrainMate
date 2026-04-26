@@ -1,8 +1,9 @@
 import { API_BASE_URL } from '@/config/api';
 import { landingShowcaseDebugEnabled, logLandingShowcase, redactUrlForLog } from '@/utils/landingShowcaseDebug';
 
-const CACHE_KEY = 'gtmLandingShowcaseV13';
-const TTL_MS = 10 * 60 * 1000;
+const CACHE_KEY = 'gtmLandingShowcaseV14';
+const LEGACY_CACHE_KEYS = ['gtmLandingShowcaseV13'];
+const TTL_MS = 30 * 1000;
 
 /** Lambda / some hosts may emit PascalCase; admin pages already use `x ?? X` — same here. */
 function str(
@@ -116,6 +117,7 @@ export function isLandingShowcaseLive(data: LandingShowcaseResult | null | undef
  */
 export async function fetchLandingShowcase(): Promise<LandingShowcaseResult | null> {
   try {
+    LEGACY_CACHE_KEYS.forEach((key) => sessionStorage.removeItem(key));
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as { at?: number; data?: LandingShowcaseResult };
@@ -126,7 +128,7 @@ export async function fetchLandingShowcase(): Promise<LandingShowcaseResult | nu
   }
 
   const url = `${API_BASE_URL}/api/public/landing-showcase`;
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) {
     logLandingShowcase('fetch failed', res.status, res.statusText, url);
     return null;

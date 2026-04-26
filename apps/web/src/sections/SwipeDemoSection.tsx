@@ -15,7 +15,7 @@ type Phase = 'idle' | 'swipe' | 'match';
 
 type DeckProfile = {
   name: string;
-  age: number;
+  age: number | null;
   photo: string;
   tags: string[];
   matchPct: number;
@@ -102,7 +102,7 @@ function DeckFace({ profile, depth, hideMeta, onPhotoError }: FaceProps) {
           <div className={styles.faceMeta}>
             <div className={styles.nameRow}>
               <span className={styles.name}>
-                {profile.name}, {profile.age}
+                {profile.age != null ? `${profile.name}, ${profile.age}` : profile.name}
               </span>
               <MatchBadge percent={profile.matchPct} />
             </div>
@@ -140,7 +140,7 @@ function DeckFace({ profile, depth, hideMeta, onPhotoError }: FaceProps) {
         <div className={styles.faceMeta}>
           <div className={styles.nameRow}>
             <span className={styles.name}>
-              {profile.name}, {profile.age}
+              {profile.age != null ? `${profile.name}, ${profile.age}` : profile.name}
             </span>
             <MatchBadge percent={profile.matchPct} />
           </div>
@@ -193,7 +193,7 @@ export const SwipeDemoSection: React.FC = () => {
           card.tags?.filter((t) => t && t.trim().length > 0).map((t) => t.trim()) ?? fallback.tags;
         return {
           name: card.name?.trim() || fallback.name,
-          age: card.age ?? fallback.age,
+          age: card.age ?? null,
           photo,
           tags: tags.length > 0 ? tags : fallback.tags,
           matchPct: typeof card.matchPct === 'number' ? card.matchPct : fallback.matchPct,
