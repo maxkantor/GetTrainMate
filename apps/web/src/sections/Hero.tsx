@@ -10,6 +10,31 @@ import { trackEvent } from '@/utils/analytics';
 import styles from './sections.module.css';
 
 const ease = [0.16, 1, 0.3, 1] as const;
+const ENGLISH_ACCENT_PHRASE = 'Maybe More.';
+
+function renderHeroTitle(title: string) {
+  const englishAccentIndex = title.indexOf(ENGLISH_ACCENT_PHRASE);
+  if (englishAccentIndex >= 0) {
+    return (
+      <>
+        <span className={styles.heroTitleLine}>{title.slice(0, englishAccentIndex).trim()}</span>
+        <span className={styles.heroTitleAccent}>{ENGLISH_ACCENT_PHRASE}</span>
+      </>
+    );
+  }
+
+  const sentences = title.match(/[^.!?।。]+[.!?।。]?/g)?.map((part) => part.trim()).filter(Boolean);
+  if (!sentences || sentences.length < 2) {
+    return title;
+  }
+
+  return (
+    <>
+      <span className={styles.heroTitleLine}>{sentences.slice(0, -1).join(' ')}</span>
+      <span className={styles.heroTitleAccent}>{sentences.at(-1)}</span>
+    </>
+  );
+}
 
 export const Hero: React.FC = () => {
   const { isAuthenticated } = useAuthContext();
@@ -25,6 +50,7 @@ export const Hero: React.FC = () => {
       ? t('landing.cta_finish_profile')
       : t('nav.dashboard');
   const showCtaSubtext = !isAuthenticated || profileComplete;
+  const heroTitle = t('landing.hero_premium_title');
 
   return (
     <section className={styles.heroPremium}>
@@ -41,7 +67,7 @@ export const Hero: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, ease }}
             >
-              {t('landing.hero_premium_title')}
+              {renderHeroTitle(heroTitle)}
             </motion.h1>
             <motion.p
               className={styles.heroPremiumSub}

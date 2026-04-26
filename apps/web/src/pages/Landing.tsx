@@ -105,12 +105,12 @@ export const LandingPage: React.FC = () => {
     <>
       <Hero />
       {showEventPromo && featuredEvent ? (
-        <Container maxWidth="lg" sx={{ mt: 2, mb: 4 }}>
+        <Container maxWidth="lg" sx={{ mt: 2, mb: 4, position: 'relative' }}>
           <Box
             sx={{
               borderRadius: 3,
               border: `1px solid ${eventBannerImageUrl ? `${eventThemeColor}88` : 'rgba(128,128,255,0.35)'}`,
-              background: `linear-gradient(120deg, ${eventThemeColor}22, rgba(12,13,28,0.95))`,
+              background: `radial-gradient(720px 280px at 16% 0%, ${eventThemeColor}26, transparent 62%), linear-gradient(120deg, rgba(7,10,24,0.98), rgba(24,18,54,0.92) 48%, rgba(4,7,20,0.96))`,
               p: { xs: 2, sm: 3 },
               display: 'grid',
               gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 260px' },

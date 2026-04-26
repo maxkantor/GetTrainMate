@@ -41,7 +41,7 @@ export const Testimonials: React.FC = () => {
   const { t } = useI18n();
 
   return (
-    <Section id="testimonials" background="subtle" paddingSize="xl" className={styles.testimonials}>
+    <Section id="testimonials" background="subtle" paddingSize="xl" className={`${styles.testimonials} premium-section-bg`}>
       <Container>
         <motion.div
           className={styles.sectionHeader}

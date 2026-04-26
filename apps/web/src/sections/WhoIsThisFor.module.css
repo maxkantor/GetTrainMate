@@ -2,6 +2,22 @@
   position: relative;
 }
 
+.section::before {
+  content: '';
+  position: absolute;
+  inset: 4% 0 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(560px 300px at 14% 24%, rgba(99, 102, 241, 0.1), transparent 70%),
+    radial-gradient(540px 300px at 86% 70%, rgba(217, 70, 239, 0.08), transparent 72%);
+}
+
+.section > * {
+  position: relative;
+  z-index: 1;
+}
+
 .header {
   text-align: center;
   max-width: 660px;
@@ -47,7 +63,8 @@
   padding: 20px 20px 19px;
   border-radius: 22px;
   border: 1px solid rgba(255, 255, 255, 0.11);
-  background: linear-gradient(155deg, rgba(14, 10, 28, 0.95) 0%, rgba(48, 24, 72, 0.35) 100%);
+  background:
+    linear-gradient(155deg, rgba(10, 12, 30, 0.95) 0%, rgba(44, 24, 76, 0.4) 58%, rgba(5, 8, 22, 0.9) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     inset 0 -2px 14px rgba(0, 0, 0, 0.28),

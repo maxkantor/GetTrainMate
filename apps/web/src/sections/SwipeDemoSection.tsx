@@ -302,7 +302,7 @@ export const SwipeDemoSection: React.FC = () => {
   const showMatch = phase === 'match';
 
   return (
-    <section className={styles.section} id="how-it-works" aria-labelledby="swipe-demo-heading">
+    <section className={`${styles.section} premium-section-bg`} id="how-it-works" aria-labelledby="swipe-demo-heading">
       <Container size="wide">
         <div className={styles.sectionHead}>
           <h2 id="swipe-demo-heading" className={styles.title}>

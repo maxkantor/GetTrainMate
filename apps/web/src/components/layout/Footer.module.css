@@ -1,8 +1,30 @@
 .footer {
-  background: #070b1a;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(620px 260px at 16% 0%, rgba(99, 102, 241, 0.12), transparent 70%),
+    radial-gradient(560px 260px at 86% 10%, rgba(168, 85, 247, 0.08), transparent 72%),
+    linear-gradient(180deg, #050712 0%, #070b1a 100%);
   color: rgba(255, 255, 255, 0.8);
   padding: 44px 0 32px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.footer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.016) 1px, transparent 1px);
+  background-size: 76px 76px;
+}
+
+.footer > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Compact footer for /app/* – minimal links, no giant marketing section */

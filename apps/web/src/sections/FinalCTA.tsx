@@ -29,7 +29,7 @@ export const FinalCTA: React.FC = () => {
   }, []);
 
   return (
-    <section className={styles.section}>
+    <section className={`${styles.section} premium-section-bg`}>
       <div className={styles.bgGrain} aria-hidden />
       <Container size="wide">
         <motion.div

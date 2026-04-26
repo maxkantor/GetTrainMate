@@ -3,8 +3,12 @@
    ====================== */
 .heroPremium {
   position: relative;
-  padding: clamp(32px, 5vw, 64px) 0 clamp(40px, 6vw, 80px);
+  min-height: 720px;
+  display: flex;
+  align-items: center;
+  padding: clamp(72px, 8vw, 108px) 0 clamp(56px, 7vw, 88px);
   overflow: hidden;
+  isolation: isolate;
 }
 
 /* Softer transition into the next band */
@@ -25,18 +29,38 @@
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(1200px 600px at 15% 10%, rgba(88, 28, 135, 0.45), transparent 55%),
-    radial-gradient(900px 500px at 85% 30%, rgba(30, 64, 175, 0.35), transparent 50%),
-    radial-gradient(800px 400px at 50% 100%, rgba(59, 130, 246, 0.08), transparent 45%),
+    linear-gradient(
+      90deg,
+      rgba(3, 5, 18, 0.88) 0%,
+      rgba(8, 7, 28, 0.72) 35%,
+      rgba(8, 7, 28, 0.38) 62%,
+      rgba(3, 5, 18, 0.7) 100%
+    ),
+    radial-gradient(900px 520px at 23% 44%, rgba(91, 33, 182, 0.23), transparent 58%),
+    radial-gradient(760px 420px at 86% 70%, rgba(217, 70, 239, 0.14), transparent 62%),
+    url('/images/hero-couples-night-waterfront.png') center center / cover no-repeat,
     #050510;
+  pointer-events: none;
+}
+
+.heroPremiumBg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(3, 5, 18, 0.12), rgba(3, 5, 18, 0.22) 72%, rgba(3, 5, 18, 0.82)),
+    radial-gradient(700px 420px at 42% 36%, rgba(3, 5, 18, 0.34), transparent 68%);
   pointer-events: none;
 }
 
 .heroRadialAccent {
   position: absolute;
-  inset: -15% -20% 35%;
+  inset: -18% -20% 22%;
   z-index: 0;
-  background: radial-gradient(ellipse 70% 55% at 45% 35%, rgba(139, 92, 246, 0.35), transparent 62%);
+  background:
+    radial-gradient(ellipse 58% 48% at 34% 36%, rgba(139, 92, 246, 0.24), transparent 62%),
+    radial-gradient(ellipse 44% 38% at 72% 58%, rgba(59, 130, 246, 0.12), transparent 64%);
+  mix-blend-mode: screen;
   pointer-events: none;
 }
 
@@ -63,20 +87,55 @@
 
 .heroPremiumLeft {
   max-width: 620px;
+  padding: 22px 0;
 }
 
 .heroPremiumTitle {
-  font-size: clamp(2.05rem, 4.8vw, 3.5rem);
+  font-family: 'Satoshi', 'Plus Jakarta Sans', 'General Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: clamp(56px, 5.3vw, 72px);
   font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.06;
-  color: rgba(255, 255, 255, 0.99);
-  margin: 0 0 16px;
-  max-width: min(22ch, 100%);
+  letter-spacing: -0.04em;
+  line-height: 1.07;
+  color: #fff;
+  margin: 0 0 18px;
+  max-width: min(12ch, 100%);
   text-wrap: balance;
   text-shadow:
     0 1px 0 rgba(255, 255, 255, 0.06),
-    0 12px 48px rgba(0, 0, 0, 0.5);
+    0 16px 52px rgba(0, 0, 0, 0.62);
+}
+
+.heroTitleLine,
+.heroTitleAccent {
+  display: block;
+}
+
+.heroTitleLine {
+  color: #fff;
+}
+
+.heroTitleAccent {
+  width: fit-content;
+  margin-top: 0.06em;
+  white-space: nowrap;
+  background: linear-gradient(90deg, #a78bfa 0%, #c084fc 40%, #f472b6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  text-shadow: 0 0 20px rgba(168, 85, 247, 0.35);
+  animation: heroTitleAccentSettle 0.6s ease-out both;
+}
+
+@keyframes heroTitleAccentSettle {
+  from {
+    opacity: 0;
+    letter-spacing: -0.055em;
+  }
+  to {
+    opacity: 1;
+    letter-spacing: -0.04em;
+  }
 }
 
 .heroPremiumSub {
@@ -320,9 +379,33 @@
     transform: none;
     animation: none;
   }
+
+  .heroTitleAccent {
+    animation: none;
+  }
 }
 
 @media (max-width: 900px) {
+  .heroPremium {
+    min-height: 680px;
+    align-items: flex-start;
+    padding-top: 84px;
+  }
+
+  .heroPremiumBg {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(3, 5, 18, 0.9) 0%,
+        rgba(8, 7, 28, 0.78) 40%,
+        rgba(8, 7, 28, 0.48) 68%,
+        rgba(3, 5, 18, 0.76) 100%
+      ),
+      radial-gradient(760px 420px at 26% 36%, rgba(91, 33, 182, 0.2), transparent 60%),
+      url('/images/hero-couples-night-waterfront.png') center center / cover no-repeat,
+      #050510;
+  }
+
   .heroPremiumGrid {
     grid-template-columns: 1fr;
     gap: 18px;
@@ -331,6 +414,7 @@
 
   .heroPremiumRight {
     justify-content: center;
+    opacity: 0.92;
 }
 
   .heroPremiumLeft {
@@ -338,7 +422,8 @@
   }
 
   .heroPremiumTitle {
-    max-width: min(24ch, 100%);
+    font-size: clamp(44px, 7vw, 56px);
+    max-width: min(12ch, 100%);
   }
 
   .heroPremiumCtas {
@@ -353,14 +438,39 @@
 
 @media (max-width: 640px) {
   .heroPremium {
-    padding: 18px 0 30px;
+    min-height: 700px;
+    padding: 76px 0 34px;
+  }
+
+  .heroPremiumBg {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(3, 5, 18, 0.94) 0%,
+        rgba(8, 7, 28, 0.88) 42%,
+        rgba(8, 7, 28, 0.68) 70%,
+        rgba(3, 5, 18, 0.86) 100%
+      ),
+      radial-gradient(560px 360px at 18% 28%, rgba(139, 92, 246, 0.18), transparent 62%),
+      url('/images/hero-couples-night-waterfront.png') center center / cover no-repeat,
+      #050510;
+  }
+
+  .heroPremiumBg::after {
+    background:
+      linear-gradient(180deg, rgba(3, 5, 18, 0.2), rgba(3, 5, 18, 0.52) 56%, rgba(3, 5, 18, 0.9)),
+      radial-gradient(520px 340px at 42% 36%, rgba(3, 5, 18, 0.46), transparent 70%);
+  }
+
+  .heroPremiumRight {
+    display: none;
   }
 
   .heroPremiumTitle {
-    font-size: clamp(1.85rem, 8vw, 2.45rem);
+    font-size: clamp(32px, 10.5vw, 40px);
     line-height: 1.1;
     margin-bottom: 12px;
-    max-width: 100%;
+    max-width: min(12ch, 100%);
   }
 
   .heroPremiumSub {
@@ -402,6 +512,12 @@
   .socialProof {
     max-width: none;
     padding: 12px 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .heroPremiumBg {
+    background-position: center center;
   }
 }
 
