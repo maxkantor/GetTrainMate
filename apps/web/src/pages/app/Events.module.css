@@ -56,14 +56,14 @@
 .title {
   font-size: var(--font-2xl);
   font-weight: 700;
-  color: var(--color-neutral-900);
+  color: rgba(255, 255, 255, 0.96);
   margin: 0;
 }
 
 .viewToggle {
   display: flex;
   gap: 0;
-  border: 1px solid var(--color-neutral-300);
+  border: 1px solid rgba(167, 139, 250, 0.22);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
@@ -103,10 +103,13 @@
 .calendarPlaceholder {
   text-align: center;
   padding: var(--space-12);
-  background: var(--color-neutral-50);
+  background:
+    radial-gradient(420px circle at 50% 0%, rgba(139, 92, 246, 0.1), transparent 62%),
+    linear-gradient(155deg, rgba(10, 12, 30, 0.88), rgba(28, 18, 58, 0.62), rgba(5, 8, 22, 0.9));
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-xl);
   margin-bottom: var(--space-6);
-  color: var(--color-neutral-500);
+  color: rgba(255, 255, 255, 0.66);
 }
 
 .eventList {
@@ -224,7 +227,7 @@
 
 .emptyDesc {
   font-size: var(--font-base);
-  color: var(--color-neutral-600);
+  color: rgba(255, 255, 255, 0.66);
   margin: 0;
   max-width: 320px;
   line-height: 1.5;

@@ -11,7 +11,7 @@
 .title {
   font-size: var(--font-2xl);
   font-weight: 700;
-  color: var(--color-neutral-900);
+  color: rgba(255, 255, 255, 0.96);
   margin: 0 0 var(--space-3);
 }
 
@@ -50,16 +50,19 @@
   width: 100%;
   padding: 10px 16px;
   font-size: var(--font-base);
-  border: 1px solid var(--color-neutral-300);
+  border: 1px solid rgba(167, 139, 250, 0.24);
   border-radius: var(--radius-lg);
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(3, 5, 18, 0.52);
 }
 
 .sortSelect {
   padding: 10px 16px;
   font-size: var(--font-sm);
-  border: 1px solid var(--color-neutral-300);
+  border: 1px solid rgba(167, 139, 250, 0.24);
   border-radius: var(--radius-lg);
-  background: #fff;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(3, 5, 18, 0.58);
   min-width: 160px;
 }
 
@@ -70,11 +73,15 @@
 }
 
 .card {
-  background: #fff;
+  background:
+    radial-gradient(420px circle at 50% 0%, rgba(139, 92, 246, 0.1), transparent 62%),
+    linear-gradient(155deg, rgba(10, 12, 30, 0.94), rgba(28, 18, 58, 0.68), rgba(5, 8, 22, 0.94));
   border-radius: var(--radius-2xl);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
-  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 16px 44px rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
@@ -112,27 +119,27 @@
   font-size: var(--font-xl);
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--color-neutral-900);
+  color: rgba(255, 255, 255, 0.96);
   margin: 0 0 var(--space-1);
   line-height: 1.25;
 }
 
 .cardMeta {
   font-size: var(--font-sm);
-  color: var(--color-neutral-500);
+  color: rgba(255, 255, 255, 0.62);
   margin: 0 0 var(--space-2);
 }
 
 .cardModes {
   font-size: var(--font-xs);
-  color: var(--color-neutral-500);
+  color: rgba(255, 255, 255, 0.62);
   margin: 0 0 var(--space-3);
   line-height: 1.4;
 }
 
 .cardBio {
   font-size: var(--font-sm);
-  color: var(--color-neutral-600);
+  color: rgba(255, 255, 255, 0.72);
   margin: 0 0 var(--space-3);
   line-height: 1.5;
   display: -webkit-box;
@@ -152,8 +159,9 @@
   font-size: var(--font-xs);
   padding: 4px 10px;
   border-radius: var(--radius-full);
-  background: var(--color-neutral-100);
-  color: var(--color-neutral-700);
+  background: rgba(167, 139, 250, 0.14);
+  color: rgba(237, 233, 254, 0.92);
+  border: 1px solid rgba(167, 139, 250, 0.22);
 }
 
 .unlockBtn {
@@ -221,7 +229,7 @@
 
 .emptyDesc {
   font-size: var(--font-base);
-  color: var(--color-neutral-600);
+  color: rgba(255, 255, 255, 0.66);
   margin: 0;
   max-width: 360px;
 }

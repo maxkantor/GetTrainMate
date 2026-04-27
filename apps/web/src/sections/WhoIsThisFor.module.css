@@ -1,5 +1,6 @@
 .section {
   position: relative;
+  --premium-section-image: url('/images/section-features-bg.png');
 }
 
 .section::before {

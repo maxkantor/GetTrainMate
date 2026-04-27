@@ -33,6 +33,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isApp = isAppRoute(pathname);
   const isAdmin = isAdminRoute(pathname);
   const { user } = useAuthContext();
+  const appShellClassName = isApp && !isAdmin ? `${styles.mainApp} app-auth-bg premium-page-bg` : styles.main;
 
   return (
     <div className={styles.wrapper}>
@@ -40,12 +41,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <CreditsUsageModalProvider>
           {user && isApp && !isAdmin && <AppActivityHeartbeat />}
           {!isAdmin && <AppHeader />}
-          <main className={isApp && !isAdmin ? styles.mainApp : styles.main}>
+          <main className={appShellClassName}>
             {isApp && !isAdmin ? <div className={styles.appContainer}>{children}</div> : children}
           </main>
         </CreditsUsageModalProvider>
       </ChatPresenceProvider>
-      {!isAdmin && <Footer />}
+      {!isAdmin && <Footer compact={isApp && !isAdmin} />}
     </div>
   );
 };

@@ -914,6 +914,7 @@
    ====================== */
 .features {
   padding: 0;
+  --premium-section-image: url('/images/section-features-bg.png');
 }
 
 /* Soft radial highlight behind Why heading */
@@ -1129,6 +1130,7 @@
 .testimonials {
   padding: 0;
   position: relative;
+  --premium-section-image: url('/images/section-features-bg.png');
 }
 .testimonials::before {
   content: '';

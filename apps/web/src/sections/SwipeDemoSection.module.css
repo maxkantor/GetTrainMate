@@ -1,13 +1,16 @@
 /* Real swipe deck — no abstract bars; stack + swipe + match reward */
 
 .section {
+  --premium-section-image: url('/images/section-how-it-works-bg.png');
   position: relative;
   padding: clamp(38px, 6.4vw, 78px) 0 clamp(30px, 5vw, 58px);
   overflow: hidden;
   background:
-    radial-gradient(780px 420px at 50% 8%, rgba(99, 102, 241, 0.14), transparent 62%),
-    radial-gradient(620px 360px at 82% 64%, rgba(168, 85, 247, 0.1), transparent 66%),
-    linear-gradient(180deg, rgba(3, 5, 18, 0.1), rgba(8, 7, 28, 0.22), rgba(3, 5, 18, 0.08));
+    linear-gradient(180deg, rgba(3, 5, 18, 0.92), rgba(8, 7, 28, 0.78), rgba(3, 5, 18, 0.94)),
+    radial-gradient(780px 420px at 50% 8%, rgba(99, 102, 241, 0.16), transparent 62%),
+    radial-gradient(620px 360px at 82% 64%, rgba(168, 85, 247, 0.12), transparent 66%),
+    url('/images/section-how-it-works-bg.png') center center / cover no-repeat,
+    linear-gradient(180deg, #030512, #08071c 48%, #030512);
   isolation: isolate;
 }
 

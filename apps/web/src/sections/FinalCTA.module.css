@@ -1,11 +1,14 @@
 .section {
+  --premium-section-image: url('/images/section-cta-bg.png');
   position: relative;
   padding: clamp(40px, 6vw, 56px) 0 clamp(48px, 7vw, 64px);
   overflow: hidden;
   background:
-    radial-gradient(780px 420px at 50% 42%, rgba(99, 102, 241, 0.15), transparent 68%),
-    radial-gradient(540px 340px at 82% 12%, rgba(168, 85, 247, 0.08), transparent 70%),
-    linear-gradient(180deg, rgba(3, 5, 18, 0), rgba(8, 7, 28, 0.28) 54%, rgba(3, 5, 18, 0.18));
+    linear-gradient(180deg, rgba(3, 5, 18, 0.92), rgba(8, 7, 28, 0.78), rgba(3, 5, 18, 0.94)),
+    radial-gradient(780px 420px at 50% 42%, rgba(99, 102, 241, 0.17), transparent 68%),
+    radial-gradient(540px 340px at 82% 12%, rgba(168, 85, 247, 0.1), transparent 70%),
+    url('/images/section-cta-bg.png') center center / cover no-repeat,
+    linear-gradient(180deg, #030512, #08071c 48%, #030512);
 }
 
 .bgGrain {

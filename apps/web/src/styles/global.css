@@ -200,14 +200,76 @@ button:disabled {
   padding: 0 32px;
 }
 
-.premium-section-bg {
+.premium-page-bg,
+.premium-section-bg,
+.app-auth-bg {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+}
+
+.premium-page-bg {
   background:
-    radial-gradient(820px 420px at 18% 12%, rgba(99, 102, 241, 0.12), transparent 64%),
-    radial-gradient(760px 420px at 86% 74%, rgba(168, 85, 247, 0.1), transparent 68%),
-    linear-gradient(180deg, rgba(3, 5, 18, 0), rgba(8, 7, 28, 0.28), rgba(3, 5, 18, 0));
+    radial-gradient(980px 520px at 16% 10%, rgba(99, 102, 241, 0.14), transparent 66%),
+    radial-gradient(860px 480px at 84% 24%, rgba(217, 70, 239, 0.1), transparent 72%),
+    linear-gradient(180deg, rgba(3, 5, 18, 0.94), rgba(8, 7, 28, 0.84), rgba(3, 5, 18, 0.96));
+}
+
+.premium-section-bg {
+  --premium-section-image: none;
+  background:
+    linear-gradient(180deg, rgba(3, 5, 18, 0.9), rgba(8, 7, 28, 0.74), rgba(3, 5, 18, 0.92)),
+    radial-gradient(820px 420px at 18% 12%, rgba(99, 102, 241, 0.14), transparent 64%),
+    radial-gradient(760px 420px at 86% 74%, rgba(168, 85, 247, 0.12), transparent 68%),
+    var(--premium-section-image),
+    linear-gradient(180deg, #030512, #08071c 48%, #030512);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.premium-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(3, 5, 18, 0.94), rgba(8, 7, 28, 0.82), rgba(3, 5, 18, 0.96)),
+    radial-gradient(760px 420px at 18% 10%, rgba(99, 102, 241, 0.16), transparent 66%),
+    radial-gradient(680px 380px at 84% 82%, rgba(244, 114, 182, 0.1), transparent 72%);
+}
+
+.app-auth-bg {
+  background:
+    linear-gradient(180deg, rgba(3, 5, 18, 0.94), rgba(8, 7, 28, 0.82), rgba(3, 5, 18, 0.96)),
+    radial-gradient(900px 520px at 18% 0%, rgba(99, 102, 241, 0.16), transparent 68%),
+    radial-gradient(760px 420px at 86% 16%, rgba(217, 70, 239, 0.1), transparent 72%),
+    url('/images/app-premium-bg.png') center center / cover no-repeat,
+    linear-gradient(180deg, #030512, #08071c 46%, #030512);
+}
+
+.app-auth-bg :where(.MuiCard-root, .MuiPaper-root) {
+  background:
+    radial-gradient(520px circle at 50% 0%, rgba(139, 92, 246, 0.1), transparent 62%),
+    linear-gradient(155deg, rgba(10, 12, 30, 0.92), rgba(28, 18, 58, 0.72), rgba(5, 8, 22, 0.92)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 16px 44px rgba(0, 0, 0, 0.32);
+}
+
+.app-auth-bg :where(.MuiTypography-colorTextSecondary, .MuiFormHelperText-root) {
+  color: rgba(255, 255, 255, 0.66) !important;
+}
+
+.app-auth-bg :where(.MuiOutlinedInput-root, .MuiInputBase-root) {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(3, 5, 18, 0.42);
+}
+
+.app-auth-bg :where(.MuiOutlinedInput-notchedOutline) {
+  border-color: rgba(167, 139, 250, 0.24);
 }
 
 .premium-card-bg {
@@ -224,6 +286,28 @@ button:disabled {
   background:
     radial-gradient(620px 320px at 24% 18%, rgba(99, 102, 241, 0.16), transparent 68%),
     radial-gradient(520px 280px at 78% 70%, rgba(217, 70, 239, 0.1), transparent 70%);
+}
+
+@media (max-width: 640px) {
+  .premium-section-bg {
+    background:
+      linear-gradient(180deg, rgba(3, 5, 18, 0.96), rgba(8, 7, 28, 0.9), rgba(3, 5, 18, 0.98)),
+      radial-gradient(620px 360px at 28% 8%, rgba(99, 102, 241, 0.16), transparent 68%),
+      radial-gradient(560px 320px at 84% 78%, rgba(244, 114, 182, 0.1), transparent 72%),
+      var(--premium-section-image),
+      linear-gradient(180deg, #030512, #08071c 48%, #030512);
+    background-position: center;
+    background-size: cover;
+  }
+
+  .app-auth-bg {
+    background:
+      linear-gradient(180deg, rgba(3, 5, 18, 0.97), rgba(8, 7, 28, 0.9), rgba(3, 5, 18, 0.98)),
+      radial-gradient(620px 360px at 24% 0%, rgba(99, 102, 241, 0.16), transparent 70%),
+      radial-gradient(520px 320px at 84% 18%, rgba(244, 114, 182, 0.09), transparent 74%),
+      url('/images/app-premium-bg.png') center center / cover no-repeat,
+      linear-gradient(180deg, #030512, #08071c 46%, #030512);
+  }
 }
 
 /*

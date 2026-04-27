@@ -2,8 +2,10 @@
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(620px 260px at 16% 0%, rgba(99, 102, 241, 0.12), transparent 70%),
-    radial-gradient(560px 260px at 86% 10%, rgba(168, 85, 247, 0.08), transparent 72%),
+    linear-gradient(180deg, rgba(5, 7, 18, 0.92), rgba(7, 11, 26, 0.96)),
+    radial-gradient(620px 260px at 16% 0%, rgba(99, 102, 241, 0.14), transparent 70%),
+    radial-gradient(560px 260px at 86% 10%, rgba(168, 85, 247, 0.1), transparent 72%),
+    url('/images/section-footer-bg.png') center center / cover no-repeat,
     linear-gradient(180deg, #050712 0%, #070b1a 100%);
   color: rgba(255, 255, 255, 0.8);
   padding: 44px 0 32px;
@@ -31,7 +33,10 @@
 .footerCompact {
   padding: var(--space-4) 0;
   margin-top: auto;
-  background: #070b1a;
+  background:
+    linear-gradient(180deg, rgba(3, 5, 18, 0.94), rgba(8, 7, 28, 0.88)),
+    url('/images/app-premium-bg.png') center center / cover no-repeat,
+    #070b1a;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 

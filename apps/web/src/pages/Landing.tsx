@@ -110,7 +110,7 @@ export const LandingPage: React.FC = () => {
             sx={{
               borderRadius: 3,
               border: `1px solid ${eventBannerImageUrl ? `${eventThemeColor}88` : 'rgba(128,128,255,0.35)'}`,
-              background: `radial-gradient(720px 280px at 16% 0%, ${eventThemeColor}26, transparent 62%), linear-gradient(120deg, rgba(7,10,24,0.98), rgba(24,18,54,0.92) 48%, rgba(4,7,20,0.96))`,
+              background: `linear-gradient(120deg, rgba(3,5,18,0.94), rgba(8,7,28,0.76), rgba(3,5,18,0.92)), radial-gradient(720px 280px at 16% 0%, ${eventThemeColor}30, transparent 62%), url('/images/section-worldcup-bg.png') center center / cover no-repeat, linear-gradient(120deg, rgba(7,10,24,0.98), rgba(24,18,54,0.92) 48%, rgba(4,7,20,0.96))`,
               p: { xs: 2, sm: 3 },
               display: 'grid',
               gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 260px' },
