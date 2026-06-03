@@ -1,0 +1,40 @@
+# Normalize all text files to LF in the repo and in the working tree.
+# This stops the recurring LF/CRLF "phantom modified" churn on Windows.
+* text=auto eol=lf
+
+# Explicit text files (kept LF)
+*.ts      text eol=lf
+*.tsx     text eol=lf
+*.js      text eol=lf
+*.jsx     text eol=lf
+*.mjs     text eol=lf
+*.cjs     text eol=lf
+*.json    text eol=lf
+*.css     text eol=lf
+*.scss    text eol=lf
+*.html    text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.svg     text eol=lf
+*.txt     text eol=lf
+
+# Windows-specific scripts keep CRLF
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+*.ps1     text eol=crlf
+
+# Binary files (never touched by line-ending normalization)
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.webp    binary
+*.ico     binary
+*.woff    binary
+*.woff2   binary
+*.ttf     binary
+*.eot     binary
+*.pdf     binary
+*.mp4     binary
+*.webm    binary
