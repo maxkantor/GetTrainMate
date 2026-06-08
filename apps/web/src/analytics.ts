@@ -40,10 +40,13 @@ export function initAnalytics(): void {
   ensureGtagScript(measurementId);
 
   window.dataLayer = window.dataLayer || [];
+  // gtag.js identifies commands by the `arguments` object (an Arguments instance).
+  // Pushing a plain array is silently ignored, so hits never send — must push `arguments`.
   window.gtag =
     window.gtag ||
-    (function gtag(...args: unknown[]): void {
-      window.dataLayer!.push(args);
+    (function gtag(): void {
+      // eslint-disable-next-line prefer-rest-params
+      window.dataLayer!.push(arguments);
     } as unknown as (...args: unknown[]) => void);
 
   if ((window as unknown as Record<string, boolean>)[INIT_FLAG]) return;
