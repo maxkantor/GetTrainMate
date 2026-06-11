@@ -526,6 +526,26 @@ export class GetTrainMateStack extends cdk.Stack {
     });
     tables.push(userInteractionsTable);
 
+    // Event Hub tables (reusable across World Cup, Olympics, etc.)
+    const eventHubTables = [
+      { id: 'EventGroupsTable', name: 'gettrainmate-event-groups' },
+      { id: 'EventTeamsTable', name: 'gettrainmate-event-teams' },
+      { id: 'EventMatchesTable', name: 'gettrainmate-event-matches' },
+      { id: 'EventPredictionsTable', name: 'gettrainmate-event-predictions' },
+      { id: 'EventCommentsTable', name: 'gettrainmate-event-comments' },
+      { id: 'EventBansTable', name: 'gettrainmate-event-bans' },
+    ];
+    for (const t of eventHubTables) {
+      const table = new dynamodb.Table(this, t.id, {
+        tableName: t.name,
+        partitionKey: { name: 'eventId', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: t.name.includes('bans') ? 'userId' : t.name.includes('groups') ? 'groupId' : t.name.includes('teams') ? 'teamId' : t.name.includes('matches') ? 'matchId' : t.name.includes('predictions') ? 'predictionKey' : 'commentKey', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        encryption: dynamodb.TableEncryption.DEFAULT,
+      });
+      tables.push(table);
+    }
+
     return tables;
   }
 

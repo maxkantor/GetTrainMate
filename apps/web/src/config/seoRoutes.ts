@@ -67,6 +67,15 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
     description: 'Reset your GetTrainMate password using the verification code sent to your email.',
     noindex: false,
   },
+  '/world-cup': {
+    title: `World Cup 2026 Fan Hub | ${BRAND}`,
+    description:
+      'Predict. Connect. Experience Together. Free World Cup 2026 predictions, live group standings, match schedule, and connect with fans near you on GetTrainMate.',
+    noindex: false,
+    ogTitle: 'World Cup 2026 Fan Hub — Predict. Connect. Experience Together.',
+    ogDescription:
+      'Make free predictions, see live groups, share your picks, and find fans nearby. No betting — just football fans connecting worldwide.',
+  },
 };
 
 const AUTH_PATHS = new Set(['/login', '/signup', '/verify-email', '/admin/login']);

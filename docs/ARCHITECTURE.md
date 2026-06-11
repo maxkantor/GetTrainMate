@@ -128,6 +128,18 @@ GetTrainMate is a training-first partner matching SaaS built with a modern serve
     - PK: `logId` (string)
     - Fields: userId, action, resource, timestamp, changes
 
+### Event Hub tables (reusable across World Cup, Olympics, etc.)
+
+11. **event-configs** — event settings + homepage/CRM toggles (PK: `eventId`)
+12. **event-groups** — PK: `eventId`, SK: `groupId`
+13. **event-teams** — PK: `eventId`, SK: `teamId` (standings fields)
+14. **event-matches** — PK: `eventId`, SK: `matchId` (status, scores)
+15. **event-predictions** — PK: `eventId`, SK: `predictionKey` (`matchId#userId`)
+16. **event-comments** — PK: `eventId`, SK: `commentKey`
+17. **event-bans** — PK: `eventId`, SK: `userId`
+
+Public routes: `/api/events/{eventId}/hub`, `/groups`, `/teams`, `/matches`, `/predictions`, `/comments`, `/leaderboard`. Admin: `/api/admin/sports-events/{eventId}/*`.
+
 ## API Routes
 
 ### Public

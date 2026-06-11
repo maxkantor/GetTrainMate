@@ -882,6 +882,8 @@ const BUNDLES: Record<Locale, FaqPageBundle> = {
   ua: { sections: FAQ_UA, ui: UI_UA },
   hi: { sections: FAQ_HI, ui: UI_HI },
   zh: { sections: FAQ_ZH, ui: UI_ZH },
+  fr: { sections: FAQ_EN, ui: UI_EN },
+  de: { sections: FAQ_EN, ui: UI_EN },
 };
 
 export function getFaqPage(locale: Locale): FaqPageBundle {

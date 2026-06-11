@@ -1,0 +1,78 @@
+.hubRoot {
+  min-height: 100vh;
+  background: #070b1a;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.heroTitle {
+  font-weight: 800;
+  background: linear-gradient(135deg, #fff 0%, #a78bfa 60%, #6366f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glassCard {
+  background: rgba(15, 18, 30, 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 16px;
+  padding: 1.25rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.glassCard:hover {
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.12);
+}
+
+.standingsTable {
+  font-size: 0.8rem;
+}
+
+.standingsHeader,
+.standingsRow {
+  display: grid;
+  grid-template-columns: 2fr repeat(6, 1fr);
+  gap: 0.25rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.standingsHeader {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.7rem;
+}
+
+.lbRow {
+  display: grid;
+  grid-template-columns: 2rem 1fr 4rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.connectBtn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem 0.5rem !important;
+  min-height: 88px;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+}
+
+.connectBtn span:first-child {
+  font-size: 1.5rem;
+}
+
+@media (max-width: 600px) {
+  .standingsHeader,
+  .standingsRow {
+    font-size: 0.65rem;
+  }
+}

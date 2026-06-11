@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminApiService } from '@/services/adminApiService';
 import { normalizePublicAssetUrl } from '@/utils/publicAssetUrl';
 import { AdminNoAccessPage } from './AdminNoAccess';
+import { AdminEventHubPanel } from './AdminEventHubPanel';
 import styles from './AdminPlaceholderPage.module.css';
 
 type Flags = Record<string, boolean>;
@@ -470,6 +471,14 @@ export const AdminEventsPage: React.FC = () => {
             <button type="button" className={styles.refresh} onClick={() => setFormOpen(false)}>Cancel</button>
           </div>
         </div>
+      ) : null}
+
+      {sortedEvents.some((ev) => ev.eventId === 'world-cup-2026') ? (
+        <AdminEventHubPanel
+          eventId="world-cup-2026"
+          config={sortedEvents.find((ev) => ev.eventId === 'world-cup-2026')!}
+          onConfigSaved={() => void load()}
+        />
       ) : null}
     </div>
   );

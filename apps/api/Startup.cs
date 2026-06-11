@@ -119,6 +119,7 @@ public class Startup
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<ICreditsService, CreditsService>();
         services.AddScoped<ISportsEventLayerService, SportsEventLayerService>();
+        services.AddScoped<IEventHubService, EventHubService>();
 
         // Bedrock & AI: config-driven (stub when Bedrock:ModelId not set)
         // Priority: SSM /gettrainmate/bedrock/model-id > env BEDROCK_MODEL_ID > appsettings
@@ -341,6 +342,8 @@ public class Startup
             using var scope = app.ApplicationServices.CreateScope();
             var sportsLayer = scope.ServiceProvider.GetRequiredService<ISportsEventLayerService>();
             sportsLayer.EnsureDefaultSeedDataAsync().GetAwaiter().GetResult();
+            var eventHub = scope.ServiceProvider.GetRequiredService<IEventHubService>();
+            eventHub.EnsureWorldCupSeedAsync().GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {

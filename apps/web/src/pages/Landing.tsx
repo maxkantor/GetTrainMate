@@ -46,7 +46,9 @@ export const LandingPage: React.FC = () => {
   const showEventPromo =
     !isAuthenticated &&
     featureFlagsService.isFeatureEnabled(featureFlags, 'sports_event_layer') &&
-    !!featuredEvent;
+    !!featuredEvent &&
+    featuredEvent.homepageVisible !== false;
+  const eventHubLink = featuredEvent?.hubRoute || `/events/${featuredEvent?.eventId ?? 'world-cup-2026'}`;
   const crmDescription = featuredEvent?.description?.trim();
   const eventDescription = crmDescription && (locale === 'en' || !isSeededEnglishEventCopy(crmDescription))
     ? crmDescription
@@ -153,11 +155,16 @@ export const LandingPage: React.FC = () => {
             ) : null}
             <Box sx={{ minWidth: 0, position: 'relative', zIndex: 1 }}>
               <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.4 }}>
-                {featuredEvent.icon} {featuredEvent.label}
+                {featuredEvent.icon} {featuredEvent.homepageHeadline || featuredEvent.label}
               </Typography>
               <Typography color="text.secondary" sx={{ maxWidth: 720, mt: 0.8 }}>
-                {eventDescription}
+                {featuredEvent.homepageSubheadline || eventDescription}
               </Typography>
+              {featuredEvent.homepagePromoText ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.6 }}>
+                  {featuredEvent.homepagePromoText}
+                </Typography>
+              ) : null}
               {shouldShowLine(eventEmotionalLine, EN_EMOTIONAL_LINE) ? (
                 <Typography sx={{ mt: 0.8, fontWeight: 700 }}>
                   {eventEmotionalLine}
@@ -189,7 +196,7 @@ export const LandingPage: React.FC = () => {
               <Button
                 variant="contained"
                 component={RouterLink}
-                to={`/events/${featuredEvent.eventId}`}
+                to={eventHubLink}
                 size="large"
                 onClick={() => {
                   window.sessionStorage.setItem('gtm_event_first_click', '1');
@@ -216,12 +223,12 @@ export const LandingPage: React.FC = () => {
                   },
                 }}
               >
-                {featuredEvent.ctaLabel?.trim() || t('sports_event_layer.primary_cta')}
+                {featuredEvent.homepageCtaPrimary || featuredEvent.ctaLabel?.trim() || t('event_hub.cta_predict')}
               </Button>
               <Button
                 variant="outlined"
                 component={RouterLink}
-                to="/signup"
+                to={eventHubLink}
                 size="large"
                 sx={{
                   width: '100%',
@@ -235,7 +242,7 @@ export const LandingPage: React.FC = () => {
                   },
                 }}
               >
-                {t('sports_event_layer.secondary_cta')}
+                {featuredEvent.homepageCtaSecondary || t('event_hub.cta_connect')}
               </Button>
               <Typography variant="caption" color="text.secondary" sx={{ textAlign: { xs: 'left', md: 'center' } }}>
                 {t('sports_event_layer.trust_text')}

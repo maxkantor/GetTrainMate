@@ -14,6 +14,7 @@ import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import { requestChatNavScrollTop } from '@/utils/chatNav';
 import { useCreditsUsageModal } from '@/contexts/CreditsUsageModalContext';
+import { useWorldCupHubNav } from '@/hooks/useWorldCupHubNav';
 import styles from './AppHeader.module.css';
 
 export const AppHeader: React.FC = () => {
@@ -32,6 +33,7 @@ export const AppHeader: React.FC = () => {
   const matchStatus = useMatchStatusForHeader(isLoggedIn);
   const chatUnread = useChatUnreadCount();
   const { openModal: openCreditsUsageModal } = useCreditsUsageModal();
+  const { showNav: showWorldCupNav, hubRoute } = useWorldCupHubNav();
 
   const credits = me?.credits ?? 0;
   const creditCap = Math.max(me?.lifetimeEarned ?? 0, credits);
@@ -203,6 +205,9 @@ export const AppHeader: React.FC = () => {
                 {t('header.product')}
               </a>
               <HeaderNavLink to="/pricing" label={t('header.pricing')} icon="💰" exact />
+              {showWorldCupNav && (
+                <HeaderNavLink to={hubRoute} label={t('event_hub.nav_label')} icon="⚽" exact />
+              )}
             </nav>
 
             <div className={styles.actions}>
@@ -383,6 +388,11 @@ export const AppHeader: React.FC = () => {
                   <SamePathScrollLink to="/pricing" className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
                     💰 {t('header.pricing')}
                   </SamePathScrollLink>
+                  {showWorldCupNav && (
+                    <RouterLink to={hubRoute} className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
+                      ⚽ {t('event_hub.nav_label')}
+                    </RouterLink>
+                  )}
                 </>
               ) : (
                 <>

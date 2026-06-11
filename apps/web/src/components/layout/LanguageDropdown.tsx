@@ -10,6 +10,8 @@ const LOCALE_LABELS: Record<Locale, string> = {
   ua: 'Українська',
   hi: 'हिन्दी',
   zh: '中文',
+  fr: 'Français',
+  de: 'Deutsch',
 };
 
 export const LanguageDropdown: React.FC = () => {

@@ -42,6 +42,22 @@ public class EventConfig
     public string? BoostLabel { get; set; }
     public string? StripePriceIdDev { get; set; }
     public string? StripePriceIdProd { get; set; }
+    // Event Hub settings (reusable across future events)
+    public string? HomepageHeadline { get; set; }
+    public string? HomepageSubheadline { get; set; }
+    public string? HomepageCtaPrimary { get; set; }
+    public string? HomepageCtaSecondary { get; set; }
+    public string? HomepagePromoText { get; set; }
+    public string? HomepageBackgroundImage { get; set; }
+    public bool HomepageVisible { get; set; } = true;
+    public bool NavbarVisible { get; set; } = true;
+    public string? HubRoute { get; set; }
+    public bool PredictionsEnabled { get; set; } = true;
+    public bool ExactScoreEnabled { get; set; } = true;
+    public bool WinnerPickEnabled { get; set; } = true;
+    public bool DrawPickEnabled { get; set; } = true;
+    public bool CommentsEnabled { get; set; } = true;
+    public bool SharingEnabled { get; set; } = true;
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("O");
     public string UpdatedAt { get; set; } = DateTime.UtcNow.ToString("O");
 }

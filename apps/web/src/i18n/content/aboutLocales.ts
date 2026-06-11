@@ -308,6 +308,8 @@ const BY_LOCALE: Record<Locale, AboutPageContent> = {
   ua: UA,
   hi: HI,
   zh: ZH,
+  fr: EN,
+  de: EN,
 };
 
 export function getAboutPage(locale: Locale): AboutPageContent {
