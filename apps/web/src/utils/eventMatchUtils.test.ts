@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arePredictionsOpen, categorizeMatches, compareMatchesChronological, parseKickoffUtc } from './eventMatchUtils';
+import { arePredictionsOpen, categorizeMatches, compareMatchesChronological, isMatchUpcoming, parseKickoffUtc } from './eventMatchUtils';
 import type { EventMatch } from '@/services/sportsEventLayerService';
 
 function matchFixture(overrides: Partial<EventMatch> & Pick<EventMatch, 'matchId'>): EventMatch {
@@ -23,6 +23,16 @@ describe('eventMatchUtils', () => {
   it('arePredictionsOpen is false when manually locked', () => {
     const match = matchFixture({ matchId: 'm2', predictionsOpen: false });
     expect(arePredictionsOpen(match)).toBe(false);
+  });
+
+  it('isMatchUpcoming is false after kickoff even if status is still Scheduled', () => {
+    const past = new Date(Date.now() - 3600000);
+    const match = matchFixture({
+      matchId: 'm-past',
+      matchDate: past.toISOString().slice(0, 10),
+      matchTime: past.toISOString().slice(11, 16),
+    });
+    expect(isMatchUpcoming(match)).toBe(false);
   });
 
   it('arePredictionsOpen is false after kickoff', () => {
@@ -59,8 +69,8 @@ describe('eventMatchUtils', () => {
     const matches = [
       matchFixture({ matchId: 'final', stage: 'Final', teamAId: 'tbd-a', teamBId: 'tbd-b' }),
       matchFixture({ matchId: 'r16-1', stage: 'Round of 16', teamAId: 'tbd-a', teamBId: 'tbd-b' }),
-      matchFixture({ matchId: 'gs-late', groupId: 'group-l', matchDate: '2026-06-27', matchTime: '21:00' }),
-      matchFixture({ matchId: 'gs-soon', groupId: 'group-b', matchDate: '2026-06-12', matchTime: '19:00' }),
+      matchFixture({ matchId: 'gs-late', groupId: 'group-l', matchDate: '2030-06-27', matchTime: '21:00' }),
+      matchFixture({ matchId: 'gs-soon', groupId: 'group-b', matchDate: '2030-06-12', matchTime: '19:00' }),
     ];
     const { upcoming } = categorizeMatches(matches);
     expect(upcoming.map((m) => m.matchId)).toEqual(['gs-soon', 'gs-late', 'r16-1', 'final']);

@@ -5,7 +5,7 @@
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  padding: clamp(56px, 7vw, 96px) 20px;
+  padding: clamp(32px, 4.5vw, 52px) clamp(16px, 2vw, 24px);
   border-top: 1px solid rgba(245, 208, 97, 0.14);
   border-bottom: 1px solid rgba(245, 208, 97, 0.14);
 }
@@ -61,11 +61,11 @@
 .inner {
   position: relative;
   z-index: 1;
-  max-width: 1180px;
+  max-width: 1240px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
-  gap: clamp(28px, 4.5vw, 64px);
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 400px);
+  gap: clamp(16px, 2.5vw, 28px);
   align-items: center;
 }
 
@@ -107,7 +107,7 @@
 }
 
 .title {
-  margin: 18px 0 12px;
+  margin: 12px 0 8px;
   font-size: clamp(32px, 4vw, 50px);
   font-weight: 800;
   letter-spacing: -0.03em;

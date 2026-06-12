@@ -15,6 +15,7 @@ import { FinalCTA } from '@/sections/FinalCTA';
 import { trackEvent } from '@/utils/analytics';
 import { featureFlagsService } from '@/services/featureFlagsService';
 import styles from '@/sections/sections.module.css';
+import landingStyles from './LandingPage.module.css';
 
 export const LandingPage: React.FC = () => {
   const { isAuthenticated } = useAuthContext();
@@ -77,7 +78,7 @@ export const LandingPage: React.FC = () => {
   }
 
   return (
-    <>
+    <div className={landingStyles.landing}>
       <Hero />
       {showEventPromo && featuredEvent ? <EventPromoSection event={featuredEvent} /> : null}
       <SwipeDemoSection />
@@ -86,6 +87,6 @@ export const LandingPage: React.FC = () => {
       <WhoIsThisFor />
       <Testimonials />
       <FinalCTA />
-    </>
+    </div>
   );
 };

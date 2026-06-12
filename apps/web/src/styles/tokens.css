@@ -24,13 +24,13 @@
   --nav-height-desktop: 64px;
 
   /* Section padding – shared spacing tokens */
-  --section-py-desktop: 56px;
-  --section-py-tablet: 40px;
-  --section-py-mobile: 32px;
+  --section-py-desktop: 40px;
+  --section-py-tablet: 32px;
+  --section-py-mobile: 24px;
   /* Extra breathing room for primary marketing bands (Section paddingSize="xl") */
-  --section-py-xl-desktop: 72px;
-  --section-py-xl-tablet: 48px;
-  --section-py-xl-mobile: 36px;
+  --section-py-xl-desktop: 52px;
+  --section-py-xl-tablet: 40px;
+  --section-py-xl-mobile: 28px;
 
   /* Colors - Semantic */
   --color-success: #10b981;

@@ -185,6 +185,8 @@ public class EventHubService : IEventHubService
 
             var existing = allMatches
                 .FirstOrDefault(m => string.Equals(m.MatchId, official.MatchId, StringComparison.OrdinalIgnoreCase));
+            var officialResult = WorldCupOfficialFixtures.OpeningResults
+                .FirstOrDefault(r => string.Equals(r.MatchId, official.MatchId, StringComparison.OrdinalIgnoreCase));
 
             await UpsertMatchAsync(new EventMatch
             {
@@ -199,9 +201,9 @@ public class EventHubService : IEventHubService
                 MatchDate = existing?.MatchDate ?? string.Empty,
                 MatchTime = existing?.MatchTime,
                 Venue = existing?.Venue ?? string.Empty,
-                Status = existing?.Status ?? EventMatchStatus.Scheduled,
-                ScoreA = existing?.ScoreA,
-                ScoreB = existing?.ScoreB,
+                Status = officialResult != null ? EventMatchStatus.Completed : existing?.Status ?? EventMatchStatus.Scheduled,
+                ScoreA = officialResult?.ScoreA ?? existing?.ScoreA,
+                ScoreB = officialResult?.ScoreB ?? existing?.ScoreB,
                 GroupId = official.GroupId,
                 Stage = official.Stage,
                 IsFeatured = true,
@@ -213,6 +215,29 @@ public class EventHubService : IEventHubService
         await GenerateGroupStageFixturesAsync();
         await ApplyOfficialKickoffsAsync();
         await SeedKnockoutPlaceholdersAsync();
+        await SyncMatchTeamMetadataAsync();
+    }
+
+    /// <summary>Refresh team names/flags on every fixture from the authoritative team catalog.</summary>
+    private async Task SyncMatchTeamMetadataAsync()
+    {
+        var teamById = (await GetTeamsAsync(WorldCupEventId))
+            .ToDictionary(t => t.TeamId, StringComparer.OrdinalIgnoreCase);
+        var matches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
+        foreach (var match in matches)
+        {
+            if (!teamById.TryGetValue(match.TeamAId, out var teamA) || !teamById.TryGetValue(match.TeamBId, out var teamB))
+                continue;
+            if (match.TeamAName == teamA.Name && match.TeamBName == teamB.Name
+                && match.TeamAFlag == teamA.FlagEmoji && match.TeamBFlag == teamB.FlagEmoji)
+                continue;
+
+            match.TeamAName = teamA.Name;
+            match.TeamBName = teamB.Name;
+            match.TeamAFlag = teamA.FlagEmoji;
+            match.TeamBFlag = teamB.FlagEmoji;
+            await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
+        }
     }
 
     /// <summary>

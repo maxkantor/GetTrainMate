@@ -22,7 +22,7 @@
 .header {
   text-align: center;
   max-width: 660px;
-  margin: 0 auto 26px;
+  margin: 0 auto clamp(16px, 2.5vw, 22px);
 }
 
 .kicker {

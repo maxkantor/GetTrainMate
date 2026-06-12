@@ -8,6 +8,11 @@ export function parseKickoffUtc(matchDate?: string, matchTime?: string): number 
   return Number.isNaN(ms) ? null : ms;
 }
 
+/** True when a fixture has not started and predictions are still open. */
+export function isMatchUpcoming(match: EventMatch): boolean {
+  return match.status === 'Scheduled' && arePredictionsOpen(match);
+}
+
 export function arePredictionsOpen(match: EventMatch): boolean {
   if (match.predictionsLocked) return false;
   if (match.predictionsOpen === false) return false;

@@ -10,7 +10,10 @@ import {
   type SportsEventConfig,
   type EventMatch,
 } from '@/services/sportsEventLayerService';
+import { arePredictionsOpen } from '@/utils/eventMatchUtils';
+import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { trackEvent } from '@/utils/analytics';
+import { compareMatchesChronological } from '@/utils/eventMatchUtils';
 import { normalizePublicAssetUrl } from '@/utils/publicAssetUrl';
 import styles from './EventPromoSection.module.css';
 
@@ -56,8 +59,8 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
     .filter((m) => m.status === 'Completed' && m.scoreA != null && m.scoreB != null)
     .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))[0];
   const nextMatch = matches
-    .filter((m) => m.status === 'Scheduled')
-    .sort((a, b) => Number(b.isFeatured ?? false) - Number(a.isFeatured ?? false))[0];
+    .filter((m) => m.status === 'Scheduled' && arePredictionsOpen(m))
+    .sort(compareMatchesChronological)[0];
 
   const leader = (hub?.teams ?? [])
     .filter((tm) => tm.played > 0)
@@ -101,7 +104,7 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
   const renderTeams = (m: EventMatch) => (
     <div className={styles.tickerTeams}>
       <span className={styles.tickerTeam}>
-        <span className={styles.tickerFlag} aria-hidden>{m.teamAFlag}</span>
+        <CountryFlag teamId={m.teamAId} flagEmoji={m.teamAFlag} size={26} alt={m.teamAName ?? ''} />
         <span className={styles.tickerTeamName}>{m.teamAName ?? m.teamAId}</span>
       </span>
       <span className={styles.tickerScore}>
@@ -109,7 +112,7 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
       </span>
       <span className={`${styles.tickerTeam} ${styles.tickerTeamRight}`}>
         <span className={styles.tickerTeamName}>{m.teamBName ?? m.teamBId}</span>
-        <span className={styles.tickerFlag} aria-hidden>{m.teamBFlag}</span>
+        <CountryFlag teamId={m.teamBId} flagEmoji={m.teamBFlag} size={26} alt={m.teamBName ?? ''} />
       </span>
     </div>
   );
@@ -213,11 +216,14 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
               {leader && leaderGroup ? (
                 <div className={styles.tickerFooter}>
                   <span aria-hidden>🏆</span>
-                  {formatI18n(t('event_hub.promo_leader_line'), {
-                    team: `${leader.flagEmoji} ${leader.name}`,
-                    group: leaderGroup,
-                    points: leader.points,
-                  })}
+                  <CountryFlag teamId={leader.teamId} flagEmoji={leader.flagEmoji} size={20} alt={leader.name} />
+                  <span>
+                    {formatI18n(t('event_hub.promo_leader_line'), {
+                      team: leader.name,
+                      group: leaderGroup,
+                      points: leader.points,
+                    })}
+                  </span>
                 </div>
               ) : null}
             </div>

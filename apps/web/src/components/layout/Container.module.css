@@ -6,8 +6,8 @@
 }
 
 .containerWide {
-  max-width: 1550px;
-  padding: 0 32px;
+  max-width: 1400px;
+  padding: 0 clamp(16px, 2vw, 24px);
 }
 
 .sm {

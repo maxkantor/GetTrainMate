@@ -2,7 +2,8 @@ import React from 'react';
 import { Box, Chip, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import type { EventMatch } from '@/services/sportsEventLayerService';
-import { formatMatchMeta, isTbdMatch, parseKickoffUtc } from '@/utils/eventMatchUtils';
+import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
+import { formatMatchMeta, isTbdMatch } from '@/utils/eventMatchUtils';
 import { useMatchCountdown } from '@/hooks/useMatchCountdown';
 import { WcInlinePredict } from './WcInlinePredict';
 import styles from '@/pages/WorldCupV2.module.css';
@@ -36,10 +37,7 @@ export const WcMatchCard: React.FC<Props> = ({
   const hasKickoff = Boolean(match.matchDate?.trim() && match.matchTime?.trim());
   const countdown = useMatchCountdown(hasKickoff ? match.matchDate : '', hasKickoff ? match.matchTime : undefined);
   const isFinal = match.status === 'Completed';
-  const kickoff = parseKickoffUtc(match.matchDate, match.matchTime);
-  // Treat a scheduled match whose kickoff has passed as live — score feeds may lag the real world.
-  const isLive = match.status === 'Live'
-    || (match.status === 'Scheduled' && kickoff != null && kickoff <= Date.now());
+  const isLive = match.status === 'Live';
   const isTbd = isTbdMatch(match);
 
   if (isTbd) {
@@ -96,7 +94,7 @@ export const WcMatchCard: React.FC<Props> = ({
 
       <Box className={styles.matchTeams}>
         <Box className={styles.matchTeam}>
-          <span className={styles.matchFlag}>{match.teamAFlag}</span>
+          <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={40} className={styles.matchFlag} alt={match.teamAName ?? ''} />
           <Typography className={styles.matchTeamName}>{match.teamAName}</Typography>
         </Box>
         <Box sx={{ textAlign: 'center' }}>
@@ -109,7 +107,7 @@ export const WcMatchCard: React.FC<Props> = ({
           )}
         </Box>
         <Box className={styles.matchTeam}>
-          <span className={styles.matchFlag}>{match.teamBFlag}</span>
+          <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={40} className={styles.matchFlag} alt={match.teamBName ?? ''} />
           <Typography className={styles.matchTeamName}>{match.teamBName}</Typography>
         </Box>
       </Box>

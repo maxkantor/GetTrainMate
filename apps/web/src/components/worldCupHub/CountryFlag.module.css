@@ -1,0 +1,16 @@
+.flagImg {
+  display: inline-block;
+  object-fit: cover;
+  border-radius: 4px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.45);
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.flagEmoji {
+  font-size: 1.35em;
+  line-height: 1;
+  flex-shrink: 0;
+}

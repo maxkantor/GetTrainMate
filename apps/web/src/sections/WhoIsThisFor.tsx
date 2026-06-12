@@ -24,7 +24,7 @@ export const WhoIsThisFor: React.FC = () => {
   const { t } = useI18n();
 
   return (
-    <Section id="who-its-for" background="subtle" paddingSize="xl" className={`${styles.section} premium-section-bg`}>
+    <Section id="who-its-for" background="subtle" paddingSize="lg" className={`${styles.section} premium-section-bg`}>
       <Container>
         <motion.div
           className={styles.header}

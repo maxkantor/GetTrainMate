@@ -130,22 +130,14 @@ export const Hero: React.FC = () => {
                 {t('landing.hero_see_how')}
               </a>
             </motion.div>
-            <motion.p
-              className={styles.heroEmotionalHook}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, ease, delay: 0.14 }}
-            >
-              {t('landing.hero_hook')}
-            </motion.p>
             <motion.div
-              className={styles.heroExclusivity}
+              className={styles.heroTrustStrip}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, ease, delay: 0.14 }}
             >
               <span className={styles.heroExclusivityBadge}>{t('landing.hero_badge_serious')}</span>
-              <p className={styles.heroExclusivityLine}>{t('landing.hero_exclusivity_line')}</p>
+              <p className={styles.heroTrustStripText}>{t('landing.hero_hook')}</p>
             </motion.div>
             <motion.ul
               className={styles.socialProof}
@@ -158,14 +150,6 @@ export const Hero: React.FC = () => {
               <li>{t('landing.hero_proof_2')}</li>
               <li>{t('landing.hero_proof_3')}</li>
             </motion.ul>
-            <motion.p
-              className={styles.heroFomoLine}
-              initial={{ opacity: 0.85 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4 }}
-            >
-              {t('landing.hero_fomo')}
-            </motion.p>
           </div>
 
           <motion.div

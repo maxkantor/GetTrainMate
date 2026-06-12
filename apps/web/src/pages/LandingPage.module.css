@@ -1,0 +1,8 @@
+/* Landing page — dense premium rhythm, minimal dead space */
+.landing {
+  --landing-section-gap: clamp(28px, 4vw, 44px);
+}
+
+.landing > * + * {
+  margin-top: 0;
+}

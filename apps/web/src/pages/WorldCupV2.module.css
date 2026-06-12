@@ -464,7 +464,12 @@
   gap: 0.25rem;
 }
 
-.matchFlag { font-size: 2rem; line-height: 1; }
+.matchFlag {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0.15rem;
+}
 
 .matchTeamName {
   font-size: 0.88rem;
@@ -565,9 +570,7 @@
 }
 
 .pickBtnFlag {
-  font-size: 1.25rem;
-  line-height: 1;
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+  flex-shrink: 0;
 }
 
 .pickBtnName {
@@ -626,9 +629,7 @@
 }
 
 .scoreFlag {
-  font-size: 1.3rem;
-  line-height: 1;
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+  flex-shrink: 0;
 }
 
 .scoreInput {

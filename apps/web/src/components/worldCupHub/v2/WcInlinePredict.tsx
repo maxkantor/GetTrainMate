@@ -8,6 +8,7 @@ import {
   type EventMatch,
   type EventPrediction,
 } from '@/services/sportsEventLayerService';
+import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { arePredictionsOpen, parseKickoffUtc } from '@/utils/eventMatchUtils';
 import { PredictionShareCard } from '@/components/eventHub/PredictionShareCard';
 import type { WinnerPick } from '@/types/worldCupHub';
@@ -232,7 +233,7 @@ export const WcInlinePredict: React.FC<Props> = ({
               onClick={() => handlePick('teamA')}
               disabled={predictMutation.isPending}
             >
-              <span className={styles.pickBtnFlag}>{match.teamAFlag}</span>
+              <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={22} className={styles.pickBtnFlag} />
               <span className={styles.pickBtnName}>{match.teamAName}</span>
             </Button>
             <Button
@@ -248,7 +249,7 @@ export const WcInlinePredict: React.FC<Props> = ({
               onClick={() => handlePick('teamB')}
               disabled={predictMutation.isPending}
             >
-              <span className={styles.pickBtnFlag}>{match.teamBFlag}</span>
+              <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={22} className={styles.pickBtnFlag} />
               <span className={styles.pickBtnName}>{match.teamBName}</span>
             </Button>
           </Box>
@@ -271,7 +272,7 @@ export const WcInlinePredict: React.FC<Props> = ({
           <Collapse in={showScore}>
             <Box className={styles.scorePanel}>
               <Box className={styles.scoreRow}>
-                <span className={styles.scoreFlag} aria-hidden>{match.teamAFlag}</span>
+                <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={24} className={styles.scoreFlag} />
                 <input
                   className={styles.scoreInput}
                   type="number"
@@ -291,7 +292,7 @@ export const WcInlinePredict: React.FC<Props> = ({
                   onChange={(e) => setScoreB(e.target.value)}
                   aria-label={`${match.teamBName} score`}
                 />
-                <span className={styles.scoreFlag} aria-hidden>{match.teamBFlag}</span>
+                <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={24} className={styles.scoreFlag} />
               </Box>
               {derivedPick && (
                 <Typography className={styles.scoreSummary}>

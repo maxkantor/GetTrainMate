@@ -115,6 +115,13 @@ public static class WorldCupOfficialFixtures
         new("opening-south-korea-vs-czechia", "south-korea", "czechia", "Opening Match", "group-a", 1),
     ];
 
+    /// <summary>Authoritative full-time scores for opening fixtures (admin CRM can override later).</summary>
+    public static readonly IReadOnlyList<OfficialResult> OpeningResults =
+    [
+        new("opening-mexico-vs-south-africa", 2, 0),
+        new("opening-south-korea-vs-czechia", 2, 1),
+    ];
+
     /// <summary>
     /// Official kickoff times for all 72 group-stage fixtures (FIFA schedule, stored in UTC —
     /// ET kickoffs are UTC-4 in June). Looked up by team pair, so generated fixture order doesn't matter.
@@ -234,6 +241,8 @@ public sealed record OfficialGroup(string GroupId, string Label, int SortOrder);
 public sealed record OfficialTeam(string TeamId, string Name, string Country, string FlagEmoji, string GroupId, int SortOrder);
 
 public sealed record OfficialMatch(string MatchId, string TeamAId, string TeamBId, string Stage, string GroupId, int SortOrder);
+
+public sealed record OfficialResult(string MatchId, int ScoreA, int ScoreB);
 
 public sealed record OfficialKickoff(string TeamAId, string TeamBId, string DateUtc, string TimeUtc);
 
