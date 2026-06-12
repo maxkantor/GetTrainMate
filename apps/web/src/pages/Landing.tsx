@@ -156,12 +156,16 @@ export const LandingPage: React.FC = () => {
             ) : null}
             <Box sx={{ minWidth: 0, position: 'relative', zIndex: 1 }}>
               <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.4 }}>
-                {featuredEvent.icon} {featuredEvent.homepageHeadline || featuredEvent.label}
+                {featuredEvent.icon} {isWorldCupPromo ? t('event_hub.promo_home_title') : (featuredEvent.homepageHeadline || featuredEvent.label)}
               </Typography>
               <Typography color="text.secondary" sx={{ maxWidth: 720, mt: 0.8 }}>
-                {featuredEvent.homepageSubheadline || eventDescription}
+                {isWorldCupPromo ? t('event_hub.promo_home_copy') : (featuredEvent.homepageSubheadline || eventDescription)}
               </Typography>
-              {featuredEvent.homepagePromoText ? (
+              {isWorldCupPromo ? (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: 'block' }}>
+                  {t('event_hub.trust_line')}
+                </Typography>
+              ) : featuredEvent.homepagePromoText ? (
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.6 }}>
                   {featuredEvent.homepagePromoText}
                 </Typography>
@@ -243,7 +247,7 @@ export const LandingPage: React.FC = () => {
                   },
                 }}
               >
-                {featuredEvent.homepageCtaSecondary || t('event_hub.cta_connect')}
+                {isWorldCupPromo ? t('event_hub.promo_home_cta_secondary') : (featuredEvent.homepageCtaSecondary || t('event_hub.cta_connect'))}
               </Button>
               <Typography variant="caption" color="text.secondary" sx={{ textAlign: { xs: 'left', md: 'center' } }}>
                 {t('sports_event_layer.trust_text')}

@@ -169,6 +169,7 @@ public class EventHubService : IEventHubService
                 ScoreA = existing?.ScoreA,
                 ScoreB = existing?.ScoreB,
                 Stage = official.Stage,
+                IsFeatured = true,
                 CreatedAt = existing?.CreatedAt ?? DateTime.UtcNow.ToString("O"),
             }, touchTimestamp: false, skipDuplicateCheck: true);
         }
@@ -582,6 +583,89 @@ public class EventHubService : IEventHubService
         };
     }
 
+    public async Task<CommunityPulse> GetCommunityPulseAsync(string eventId)
+    {
+        var analytics = await GetAnalyticsAsync(eventId);
+        var predictions = await QueryEventItemsAsync(_predictionsTable, eventId, MapPrediction);
+        var comments = await QueryEventItemsAsync(_commentsTable, eventId, MapComment);
+        var matches = await GetMatchesAsync(eventId);
+        var teams = await GetTeamsAsync(eventId);
+        var teamNames = teams.ToDictionary(t => t.TeamId, t => t.Name, StringComparer.OrdinalIgnoreCase);
+
+        string? topTeamId = null;
+        string? topTeamName = null;
+        if (analytics.PopularTeams.Count > 0)
+        {
+            topTeamId = analytics.PopularTeams.OrderByDescending(kv => kv.Value).First().Key;
+            topTeamName = teamNames.GetValueOrDefault(topTeamId, topTeamId);
+        }
+
+        string? topMatchId = null;
+        string? topMatchLabel = null;
+        if (analytics.PredictionsPerMatch.Count > 0)
+        {
+            topMatchId = analytics.PredictionsPerMatch.OrderByDescending(kv => kv.Value).First().Key;
+            var m = matches.FirstOrDefault(x => x.MatchId == topMatchId);
+            topMatchLabel = m != null ? $"{m.TeamAName} vs {m.TeamBName}" : topMatchId;
+        }
+
+        var predByUser = predictions.ToDictionary(p => p.UserId, p => p, StringComparer.Ordinal);
+        var latestTakes = comments
+            .Where(c => !c.Deleted && !c.Hidden && c.ThreadType == "match")
+            .OrderByDescending(c => c.CreatedAt)
+            .Take(6)
+            .Select(c =>
+            {
+                predByUser.TryGetValue(c.UserId, out var pred);
+                return new FanTakePreview
+                {
+                    UserDisplayName = c.UserDisplayName,
+                    Body = c.Body,
+                    ThreadId = c.ThreadId,
+                    PickedTeamId = pred?.PredictedWinnerTeamId,
+                    CreatedAt = c.CreatedAt,
+                };
+            })
+            .ToList();
+
+        return new CommunityPulse
+        {
+            TotalPredictions = analytics.TotalPredictions,
+            MostPickedTeamId = topTeamId,
+            MostPickedTeamName = topTeamName,
+            MostDiscussedMatchId = topMatchId,
+            MostDiscussedMatchLabel = topMatchLabel,
+            LatestTakes = latestTakes,
+        };
+    }
+
+    public async Task<List<PredictionExportRow>> ExportPredictionsAsync(string eventId)
+    {
+        var predictions = await QueryEventItemsAsync(_predictionsTable, eventId, MapPrediction);
+        var matches = await GetMatchesAsync(eventId);
+        var matchLabels = matches.ToDictionary(
+            m => m.MatchId,
+            m => $"{m.TeamAName} vs {m.TeamBName}",
+            StringComparer.OrdinalIgnoreCase);
+
+        return predictions
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => new PredictionExportRow
+            {
+                MatchId = p.MatchId,
+                MatchLabel = matchLabels.GetValueOrDefault(p.MatchId),
+                UserId = p.UserId,
+                UserDisplayName = p.UserDisplayName,
+                PredictionType = p.PredictionType,
+                PredictedWinnerTeamId = p.PredictedWinnerTeamId,
+                PredictedScoreA = p.PredictedScoreA,
+                PredictedScoreB = p.PredictedScoreB,
+                Reason = p.Reason,
+                CreatedAt = p.CreatedAt,
+            })
+            .ToList();
+    }
+
     public async Task<MatchPredictionBreakdown> GetMatchPredictionBreakdownAsync(string eventId, string matchId)
     {
         var predictions = (await GetPredictionsForMatchAsync(eventId, matchId)).ToList();
@@ -711,6 +795,7 @@ public class EventHubService : IEventHubService
         ["matchDate"] = m.MatchDate, ["matchTime"] = m.MatchTime ?? "", ["venue"] = m.Venue,
         ["status"] = m.Status, ["scoreA"] = m.ScoreA ?? -1, ["scoreB"] = m.ScoreB ?? -1,
         ["groupId"] = m.GroupId ?? "", ["stage"] = m.Stage ?? "",
+        ["isFeatured"] = m.IsFeatured, ["predictionsLocked"] = m.PredictionsLocked,
         ["createdAt"] = m.CreatedAt, ["updatedAt"] = m.UpdatedAt,
     };
 
@@ -784,6 +869,8 @@ public class EventHubService : IEventHubService
             ScoreB = scoreB >= 0 ? scoreB : null,
             GroupId = d.ContainsKey("groupId") ? d["groupId"].AsString() : null,
             Stage = d.ContainsKey("stage") ? d["stage"].AsString() : null,
+            IsFeatured = d.ContainsKey("isFeatured") && d["isFeatured"].AsBoolean(),
+            PredictionsLocked = d.ContainsKey("predictionsLocked") && d["predictionsLocked"].AsBoolean(),
             CreatedAt = d.ContainsKey("createdAt") ? d["createdAt"].AsString() : "",
             UpdatedAt = d.ContainsKey("updatedAt") ? d["updatedAt"].AsString() : "",
         };

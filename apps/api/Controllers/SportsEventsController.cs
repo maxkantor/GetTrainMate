@@ -93,6 +93,13 @@ public class SportsEventsController : ControllerBase
         return Ok(await _eventHubService.GetLiveStatsAsync(eventId));
     }
 
+    [HttpGet("{eventId}/stats/pulse")]
+    public async Task<ActionResult<CommunityPulse>> GetCommunityPulse(string eventId)
+    {
+        if (!await IsHubAccessible(eventId)) return NotFound();
+        return Ok(await _eventHubService.GetCommunityPulseAsync(eventId));
+    }
+
     [HttpGet("{eventId}/matches/{matchId}/prediction-breakdown")]
     public async Task<ActionResult<MatchPredictionBreakdown>> GetPredictionBreakdown(string eventId, string matchId)
     {

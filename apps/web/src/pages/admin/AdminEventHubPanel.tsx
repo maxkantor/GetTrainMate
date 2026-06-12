@@ -300,7 +300,10 @@ export const AdminEventHubPanel: React.FC<Props> = ({ eventId, config, onConfigS
                 <option value="Scheduled">Upcoming</option>
                 <option value="Live">Live</option>
                 <option value="Completed">Final</option>
+                <option value="Postponed">Postponed</option>
               </select>
+              <label><input type="checkbox" checked={m.isFeatured === true} onChange={(e) => updateMatch({ ...m, isFeatured: e.target.checked })} /> Featured</label>
+              <label><input type="checkbox" checked={m.predictionsLocked === true} onChange={(e) => updateMatch({ ...m, predictionsLocked: e.target.checked })} /> Lock predictions</label>
               <input type="number" placeholder="Score A" style={{ width: 60 }} value={m.scoreA ?? ''} onChange={(e) => updateMatch({ ...m, scoreA: parseInt(e.target.value, 10) || 0 })} />
               <input type="number" placeholder="Score B" style={{ width: 60 }} value={m.scoreB ?? ''} onChange={(e) => updateMatch({ ...m, scoreB: parseInt(e.target.value, 10) || 0 })} />
               <button type="button" className={styles.secondaryBtn} onClick={() => deleteMatch(m.matchId)}>Delete</button>
@@ -318,6 +321,27 @@ export const AdminEventHubPanel: React.FC<Props> = ({ eventId, config, onConfigS
               <button type="button" className={styles.secondaryBtn} onClick={() => deleteComment(c.commentKey)}>Delete</button>
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === 'analytics' && (
+        <div>
+          <button
+            type="button"
+            className={styles.secondaryBtn}
+            onClick={async () => {
+              const rows = await adminApiService.get(`/api/admin/sports-events/${eventId}/predictions/export`);
+              const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `world-cup-predictions-${eventId}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            Export Predictions (JSON)
+          </button>
         </div>
       )}
 

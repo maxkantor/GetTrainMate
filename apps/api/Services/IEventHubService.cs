@@ -35,6 +35,8 @@ public interface IEventHubService
 
     Task<EventHubAnalytics> GetAnalyticsAsync(string eventId);
     Task<EventHubLiveStats> GetLiveStatsAsync(string eventId);
+    Task<CommunityPulse> GetCommunityPulseAsync(string eventId);
+    Task<List<PredictionExportRow>> ExportPredictionsAsync(string eventId);
     Task<MatchPredictionBreakdown> GetMatchPredictionBreakdownAsync(string eventId, string matchId);
     Task<List<TeamExplorerStats>> GetTeamExplorerStatsAsync(string eventId);
     Task<List<EventComment>> GetTrendingCommentsAsync(string eventId, string sort = "trending");

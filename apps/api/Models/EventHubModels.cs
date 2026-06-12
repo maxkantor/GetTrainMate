@@ -51,6 +51,7 @@ public static class EventMatchStatus
     public const string Scheduled = "Scheduled";
     public const string Live = "Live";
     public const string Completed = "Completed";
+    public const string Postponed = "Postponed";
 }
 
 [DynamoDBTable("gettrainmate-event-matches")]
@@ -76,6 +77,8 @@ public class EventMatch
     public int? ScoreB { get; set; }
     public string? GroupId { get; set; }
     public string? Stage { get; set; }
+    public bool IsFeatured { get; set; }
+    public bool PredictionsLocked { get; set; }
     /// <summary>Computed on read — not persisted.</summary>
     [DynamoDBIgnore]
     public bool PredictionsOpen { get; set; } = true;
@@ -175,6 +178,39 @@ public sealed class EventHubLiveStats
     public int ActiveFans { get; set; }
     public int MatchesDiscussed { get; set; }
     public int ConnectionsMade { get; set; }
+}
+
+public sealed class CommunityPulse
+{
+    public int TotalPredictions { get; set; }
+    public string? MostPickedTeamId { get; set; }
+    public string? MostPickedTeamName { get; set; }
+    public string? MostDiscussedMatchId { get; set; }
+    public string? MostDiscussedMatchLabel { get; set; }
+    public List<FanTakePreview> LatestTakes { get; set; } = new();
+}
+
+public sealed class FanTakePreview
+{
+    public string? UserDisplayName { get; set; }
+    public string Body { get; set; } = string.Empty;
+    public string ThreadId { get; set; } = string.Empty;
+    public string? PickedTeamId { get; set; }
+    public string CreatedAt { get; set; } = string.Empty;
+}
+
+public sealed class PredictionExportRow
+{
+    public string MatchId { get; set; } = string.Empty;
+    public string? MatchLabel { get; set; }
+    public string UserId { get; set; } = string.Empty;
+    public string? UserDisplayName { get; set; }
+    public string PredictionType { get; set; } = string.Empty;
+    public string? PredictedWinnerTeamId { get; set; }
+    public int? PredictedScoreA { get; set; }
+    public int? PredictedScoreB { get; set; }
+    public string? Reason { get; set; }
+    public string CreatedAt { get; set; } = string.Empty;
 }
 
 public sealed class MatchPredictionBreakdown

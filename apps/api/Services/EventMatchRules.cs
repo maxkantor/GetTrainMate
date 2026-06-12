@@ -31,8 +31,11 @@ public static class EventMatchRules
 
     public static bool ArePredictionsOpen(EventMatch match)
     {
+        if (match.PredictionsLocked) return false;
+
         if (string.Equals(match.Status, EventMatchStatus.Completed, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(match.Status, EventMatchStatus.Live, StringComparison.OrdinalIgnoreCase))
+            || string.Equals(match.Status, EventMatchStatus.Live, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(match.Status, EventMatchStatus.Postponed, StringComparison.OrdinalIgnoreCase))
             return false;
 
         var kickoff = ParseKickoffUtc(match.MatchDate, match.MatchTime);

@@ -79,6 +79,12 @@ public class AdminSportsEventsController : ControllerBase
         return Ok(await _eventHubService.GetAnalyticsAsync(eventId));
     }
 
+    [HttpGet("{eventId}/predictions/export")]
+    public async Task<ActionResult<List<PredictionExportRow>>> ExportPredictions(string eventId)
+    {
+        return Ok(await _eventHubService.ExportPredictionsAsync(eventId));
+    }
+
     [HttpPut("{eventId}/groups")]
     public async Task<ActionResult<EventGroup>> UpsertGroup(string eventId, [FromBody] EventGroup group)
     {

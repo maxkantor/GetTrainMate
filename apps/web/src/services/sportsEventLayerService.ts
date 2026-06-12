@@ -138,11 +138,13 @@ export interface EventMatch {
   matchDate: string;
   matchTime?: string;
   venue: string;
-  status: 'Scheduled' | 'Live' | 'Completed';
+  status: 'Scheduled' | 'Live' | 'Completed' | 'Postponed';
   scoreA?: number;
   scoreB?: number;
   groupId?: string;
   stage?: string;
+  isFeatured?: boolean;
+  predictionsLocked?: boolean;
   predictionsOpen?: boolean;
   updatedAt?: string;
 }
@@ -330,6 +332,13 @@ class SportsEventLayerService {
 
   async getLiveStats(eventId: string): Promise<EventHubLiveStats> {
     const res = await axios.get<EventHubLiveStats>(`${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/stats/live`);
+    return res.data;
+  }
+
+  async getCommunityPulse(eventId: string) {
+    const res = await axios.get<import('@/types/worldCupHub').CommunityPulse>(
+      `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/stats/pulse`
+    );
     return res.data;
   }
 

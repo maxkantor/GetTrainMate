@@ -9,8 +9,9 @@ export function parseKickoffUtc(matchDate?: string, matchTime?: string): number 
 }
 
 export function arePredictionsOpen(match: EventMatch): boolean {
+  if (match.predictionsLocked) return false;
   if (match.predictionsOpen === false) return false;
-  if (match.status === 'Completed' || match.status === 'Live') return false;
+  if (match.status === 'Completed' || match.status === 'Live' || match.status === 'Postponed') return false;
   const kickoff = parseKickoffUtc(match.matchDate, match.matchTime);
   if (kickoff != null && kickoff <= Date.now()) return false;
   return true;

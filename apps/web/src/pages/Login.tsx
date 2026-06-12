@@ -16,6 +16,7 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { isAuthConfigured, getAuthPoolDebug } from '@/services/authService';
 import { PageShell } from '@/components/layout/PageShell';
 import { trackEvent, trackLogin } from '@/utils/analytics';
+import { clearAuthReturn, resolveReturnUrl } from '@/utils/authReturn';
 
 /** Last email used for a successful sign-in (pre-filled on return visits). */
 const LAST_LOGIN_EMAIL_KEY = 'gtm_last_login_email';
@@ -50,11 +51,11 @@ function persistLoginEmail(emailTrimmed: string, remember: boolean) {
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const location = useLocation();
   const locationState = location.state as { hint?: string; infoMessage?: string } | null;
   const oauthHint = locationState?.hint;
   const infoMessage = locationState?.infoMessage;
-  const [searchParams] = useSearchParams();
   const { t } = useI18n();
 
   useEffect(() => {
@@ -127,7 +128,9 @@ export const LoginPage: React.FC = () => {
           navigate(`/pricing?checkout=${plan}`);
           return;
         }
-        navigate('/app');
+        const dest = resolveReturnUrl(searchParams);
+        clearAuthReturn();
+        navigate(dest);
       } else if (result.requiresNewPassword) {
         setRequiresNewPassword(true);
         setError('');
@@ -159,7 +162,9 @@ export const LoginPage: React.FC = () => {
           navigate(`/pricing?checkout=${plan}`);
           return;
         }
-        navigate('/app');
+        const dest = resolveReturnUrl(searchParams);
+        clearAuthReturn();
+        navigate(dest);
       } else {
         setError(result.error || 'Failed to set new password');
       }
