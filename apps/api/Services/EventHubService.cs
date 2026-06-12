@@ -379,14 +379,17 @@ public class EventHubService : IEventHubService
         if (string.Equals(match.TeamAId, match.TeamBId, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("A team cannot play itself.");
 
-        var existing = await QueryEventItemsAsync(_matchesTable, match.EventId, MapMatch);
-        // Scope duplicates: same pair may legitimately meet again in the knockout bracket,
-        // so group fixtures only collide within their group and knockout fixtures within the bracket.
-        var scope = string.IsNullOrWhiteSpace(match.GroupId)
-            ? existing.Where(m => string.IsNullOrWhiteSpace(m.GroupId))
-            : existing.Where(m => string.Equals(m.GroupId, match.GroupId, StringComparison.OrdinalIgnoreCase));
-        if (!skipDuplicateCheck && EventMatchRules.IsDuplicateFixture(scope, match.TeamAId, match.TeamBId, match.MatchId))
-            throw new InvalidOperationException("Duplicate fixture — this matchup already exists.");
+        if (!skipDuplicateCheck)
+        {
+            var existing = await QueryEventItemsAsync(_matchesTable, match.EventId, MapMatch);
+            // Scope duplicates: same pair may legitimately meet again in the knockout bracket,
+            // so group fixtures only collide within their group and knockout fixtures within the bracket.
+            var scope = string.IsNullOrWhiteSpace(match.GroupId)
+                ? existing.Where(m => string.IsNullOrWhiteSpace(m.GroupId))
+                : existing.Where(m => string.Equals(m.GroupId, match.GroupId, StringComparison.OrdinalIgnoreCase));
+            if (EventMatchRules.IsDuplicateFixture(scope, match.TeamAId, match.TeamBId, match.MatchId))
+                throw new InvalidOperationException("Duplicate fixture — this matchup already exists.");
+        }
 
         match.UpdatedAt = DateTime.UtcNow.ToString("O");
         if (string.IsNullOrWhiteSpace(match.CreatedAt)) match.CreatedAt = match.UpdatedAt;
