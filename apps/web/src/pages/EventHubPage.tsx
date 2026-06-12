@@ -19,6 +19,7 @@ import {
   type EventPrediction,
 } from '@/services/sportsEventLayerService';
 import { trackSportsEventAnalytics } from '@/utils/analytics';
+import { formatLastUpdated } from '@/utils/eventMatchUtils';
 import { profileService } from '@/services/profileService';
 import { authService } from '@/services/authService';
 import styles from './EventHub.module.css';
@@ -94,6 +95,10 @@ export const EventHubPage: React.FC<{ eventId?: string }> = ({ eventId = WORLD_C
   const handlePredict = () => {
     const match = hub?.matches.find((m) => m.matchId === selectedMatchId) ?? hub?.matches[0];
     if (!match) return;
+    if (match.status === 'Completed' || match.status === 'Live' || match.predictionsOpen === false) {
+      setError('Predictions are closed for this match.');
+      return;
+    }
     if (!isAuthenticated) {
       navigate(`/signup?intent=world-cup&return=/world-cup#predictions`);
       return;
@@ -139,6 +144,7 @@ export const EventHubPage: React.FC<{ eventId?: string }> = ({ eventId = WORLD_C
         settings={settings}
         themeColor={themeColor}
         liveStats={liveStats}
+        lastUpdated={formatLastUpdated(hub.fixturesLastUpdatedAt)}
         onPredict={() => scrollTo('predictions')}
         onConnect={() => handleConnect('watch')}
       />

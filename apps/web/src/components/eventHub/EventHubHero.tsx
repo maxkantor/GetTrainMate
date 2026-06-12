@@ -10,16 +10,21 @@ type Props = {
   settings: EventHubSettings;
   themeColor: string;
   liveStats?: EventHubLiveStats;
+  lastUpdated?: string | null;
   onPredict: () => void;
   onConnect: () => void;
 };
 
-export const EventHubHero: React.FC<Props> = ({ settings, themeColor, liveStats, onPredict, onConnect }) => {
+export const EventHubHero: React.FC<Props> = ({ settings, themeColor, liveStats, lastUpdated, onPredict, onConnect }) => {
   const { t } = useI18n();
   const predictions = useAnimatedCounter(liveStats?.predictionsSubmitted ?? 0);
   const fans = useAnimatedCounter(liveStats?.activeFans ?? 0);
   const discussed = useAnimatedCounter(liveStats?.matchesDiscussed ?? 0);
   const connections = useAnimatedCounter(liveStats?.connectionsMade ?? 0);
+  const showStats = (liveStats?.predictionsSubmitted ?? 0) > 0
+    || (liveStats?.activeFans ?? 0) > 0
+    || (liveStats?.matchesDiscussed ?? 0) > 0
+    || (liveStats?.connectionsMade ?? 0) > 0;
 
   return (
     <Box className={styles.hero} sx={{ '--wc-accent': themeColor } as React.CSSProperties}>
@@ -42,27 +47,34 @@ export const EventHubHero: React.FC<Props> = ({ settings, themeColor, liveStats,
             </Button>
           </Stack>
           <Typography className={styles.heroFine}>{settings.homepagePromoText ?? t('event_hub.promo_free')}</Typography>
+          {lastUpdated ? (
+            <Typography className={styles.lastUpdated}>
+              {t('event_hub.fixtures_last_updated')}: {lastUpdated}
+            </Typography>
+          ) : null}
         </motion.div>
 
-        <motion.div
-          className={styles.liveStats}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.6 }}
-        >
-          {[
-            { icon: '🔥', label: t('event_hub.stat_predictions'), value: predictions },
-            { icon: '🌎', label: t('event_hub.stat_fans'), value: fans },
-            { icon: '⚽', label: t('event_hub.stat_discussed'), value: discussed },
-            { icon: '❤️', label: t('event_hub.stat_connections'), value: connections },
-          ].map((s) => (
-            <Box key={s.label} className={styles.liveStatCard}>
-              <span className={styles.liveStatIcon}>{s.icon}</span>
-              <span className={styles.liveStatValue}>{s.value.toLocaleString()}</span>
-              <span className={styles.liveStatLabel}>{s.label}</span>
-            </Box>
-          ))}
-        </motion.div>
+        {showStats ? (
+          <motion.div
+            className={styles.liveStats}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.6 }}
+          >
+            {[
+              { icon: '🔥', label: t('event_hub.stat_predictions'), value: predictions },
+              { icon: '🌎', label: t('event_hub.stat_fans'), value: fans },
+              { icon: '⚽', label: t('event_hub.stat_discussed'), value: discussed },
+              { icon: '❤️', label: t('event_hub.stat_connections'), value: connections },
+            ].map((s) => (
+              <Box key={s.label} className={styles.liveStatCard}>
+                <span className={styles.liveStatIcon}>{s.icon}</span>
+                <span className={styles.liveStatValue}>{s.value.toLocaleString()}</span>
+                <span className={styles.liveStatLabel}>{s.label}</span>
+              </Box>
+            ))}
+          </motion.div>
+        ) : null}
       </Container>
     </Box>
   );

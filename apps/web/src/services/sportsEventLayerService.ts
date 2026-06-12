@@ -143,6 +143,8 @@ export interface EventMatch {
   scoreB?: number;
   groupId?: string;
   stage?: string;
+  predictionsOpen?: boolean;
+  updatedAt?: string;
 }
 
 export interface EventPrediction {
@@ -189,6 +191,7 @@ export interface EventHubSnapshot {
   groups: EventGroup[];
   teams: EventTeam[];
   matches: EventMatch[];
+  fixturesLastUpdatedAt?: string;
 }
 
 export interface EventHubAnalytics {

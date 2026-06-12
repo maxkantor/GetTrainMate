@@ -19,7 +19,7 @@ public interface IEventHubService
     Task DeleteGroupAsync(string eventId, string groupId);
     Task<EventTeam> UpsertTeamAsync(EventTeam team);
     Task DeleteTeamAsync(string eventId, string teamId);
-    Task<EventMatch> UpsertMatchAsync(EventMatch match);
+    Task<EventMatch> UpsertMatchAsync(EventMatch match, bool touchTimestamp = true, bool skipDuplicateCheck = false);
     Task DeleteMatchAsync(string eventId, string matchId);
 
     Task<EventPrediction?> GetUserPredictionAsync(string eventId, string matchId, string userId);

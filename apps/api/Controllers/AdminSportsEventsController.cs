@@ -117,9 +117,16 @@ public class AdminSportsEventsController : ControllerBase
     public async Task<ActionResult<EventMatch>> UpsertMatch(string eventId, [FromBody] EventMatch match)
     {
         match.EventId = eventId;
-        var saved = await _eventHubService.UpsertMatchAsync(match);
-        await _auditLog.LogActionAsync(GetAdminIdentity(), "sports_event.upsert_match", "event_match", match.MatchId, after: saved);
-        return Ok(saved);
+        try
+        {
+            var saved = await _eventHubService.UpsertMatchAsync(match);
+            await _auditLog.LogActionAsync(GetAdminIdentity(), "sports_event.upsert_match", "event_match", match.MatchId, after: saved);
+            return Ok(saved);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpDelete("{eventId}/matches/{matchId}")]

@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
+using GetTrainMate.Api.Data;
 using GetTrainMate.Api.Models;
 
 namespace GetTrainMate.Api.Services;
@@ -72,6 +73,7 @@ public class EventHubService : IEventHubService
         if (config == null) return null;
         if (!allowDisabledForAdmin && !IsEventEffectivelyEnabled(config)) return null;
 
+        var matches = await GetMatchesAsync(eventId);
         return new EventHubSnapshot
         {
             Config = config,
@@ -79,11 +81,12 @@ public class EventHubService : IEventHubService
             Settings = MapSettings(config),
             Groups = await GetGroupsAsync(eventId),
             Teams = await GetTeamsAsync(eventId),
-            Matches = await GetMatchesAsync(eventId),
+            Matches = matches,
+            FixturesLastUpdatedAt = ResolveFixturesLastUpdatedAt(config, matches),
         };
     }
 
-    /// <summary>Config-only bootstrap — never seeds teams, groups, matches, or standings.</summary>
+    /// <summary>Bootstrap config, purge legacy fake seed data once, sync official opening fixtures.</summary>
     public async Task EnsureWorldCupSeedAsync()
     {
         await _sportsLayer.EnsureDefaultSeedDataAsync();
@@ -91,20 +94,92 @@ public class EventHubService : IEventHubService
         var existing = await _sportsLayer.GetEventConfigAsync(WorldCupEventId);
         if (existing == null) return;
 
-        if (!string.IsNullOrWhiteSpace(existing.HubRoute)) return;
+        if (string.IsNullOrWhiteSpace(existing.HubRoute))
+        {
+            existing.HubRoute = "/world-cup";
+            existing.HomepageHeadline = "PREDICT. CONNECT. EXPERIENCE THE WORLD CUP TOGETHER.";
+            existing.HomepageSubheadline =
+                "Make free predictions, debate matches, follow your favorite teams, and connect with fans near you.";
+            existing.HomepageCtaPrimary = "Make Free Prediction";
+            existing.HomepageCtaSecondary = "Find Fans Near You";
+            existing.HomepagePromoText = "Free fan predictions — no betting, no purchase required.";
+            existing.HomepageBackgroundImage = "/images/section-worldcup-bg.png";
+            existing.LandingHeadline = "Predict. Connect. Experience Together.";
+            existing.CtaLabel = "Make Free Prediction";
+            existing.ThemeColor = "#6366f1";
+        }
 
-        existing.HubRoute = "/world-cup";
-        existing.HomepageHeadline = "PREDICT. CONNECT. EXPERIENCE THE WORLD CUP TOGETHER.";
-        existing.HomepageSubheadline =
-            "Make free predictions, debate matches, follow your favorite teams, and connect with fans near you.";
-        existing.HomepageCtaPrimary = "Make Free Prediction";
-        existing.HomepageCtaSecondary = "Find Fans Near You";
-        existing.HomepagePromoText = "Free fan predictions — no betting, no purchase required.";
-        existing.HomepageBackgroundImage = "/images/section-worldcup-bg.png";
-        existing.LandingHeadline = "Predict. Connect. Experience Together.";
-        existing.CtaLabel = "Make Free Prediction";
-        existing.ThemeColor = "#6366f1";
+        if (!existing.LegacySeedPurged)
+        {
+            _logger.LogWarning("Purging legacy World Cup fake seed data from DynamoDB");
+            foreach (var group in await GetGroupsAsync(WorldCupEventId))
+                await DeleteGroupAsync(WorldCupEventId, group.GroupId);
+            foreach (var team in await GetTeamsAsync(WorldCupEventId))
+                await DeleteTeamAsync(WorldCupEventId, team.TeamId);
+            foreach (var match in await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch))
+                await DeleteMatchAsync(WorldCupEventId, match.MatchId);
+            existing.LegacySeedPurged = true;
+        }
+
+        await SyncOfficialWorldCupCatalogAsync();
+        existing.FixturesLastUpdatedAt = DateTime.UtcNow.ToString("O");
         await _sportsLayer.UpsertEventConfigAsync(existing);
+    }
+
+    private async Task SyncOfficialWorldCupCatalogAsync()
+    {
+        foreach (var official in WorldCupOfficialFixtures.Teams)
+        {
+            await UpsertTeamAsync(new EventTeam
+            {
+                EventId = WorldCupEventId,
+                TeamId = official.TeamId,
+                Name = official.Name,
+                Country = official.Country,
+                FlagEmoji = official.FlagEmoji,
+                GroupId = string.Empty,
+                SortOrder = official.SortOrder,
+            });
+        }
+
+        var teamById = (await GetTeamsAsync(WorldCupEventId)).ToDictionary(t => t.TeamId, StringComparer.OrdinalIgnoreCase);
+        foreach (var official in WorldCupOfficialFixtures.OpeningMatches)
+        {
+            if (!teamById.TryGetValue(official.TeamAId, out var teamA)
+                || !teamById.TryGetValue(official.TeamBId, out var teamB))
+                continue;
+
+            var existing = (await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch))
+                .FirstOrDefault(m => string.Equals(m.MatchId, official.MatchId, StringComparison.OrdinalIgnoreCase));
+
+            await UpsertMatchAsync(new EventMatch
+            {
+                EventId = WorldCupEventId,
+                MatchId = official.MatchId,
+                TeamAId = official.TeamAId,
+                TeamBId = official.TeamBId,
+                TeamAName = teamA.Name,
+                TeamBName = teamB.Name,
+                TeamAFlag = teamA.FlagEmoji,
+                TeamBFlag = teamB.FlagEmoji,
+                MatchDate = existing?.MatchDate ?? string.Empty,
+                MatchTime = existing?.MatchTime,
+                Venue = existing?.Venue ?? string.Empty,
+                Status = existing?.Status ?? EventMatchStatus.Scheduled,
+                ScoreA = existing?.ScoreA,
+                ScoreB = existing?.ScoreB,
+                Stage = official.Stage,
+                CreatedAt = existing?.CreatedAt ?? DateTime.UtcNow.ToString("O"),
+            }, touchTimestamp: false, skipDuplicateCheck: true);
+        }
+    }
+
+    private static string? ResolveFixturesLastUpdatedAt(EventConfig config, List<EventMatch> matches)
+    {
+        if (!string.IsNullOrWhiteSpace(config.FixturesLastUpdatedAt))
+            return config.FixturesLastUpdatedAt;
+        var latest = matches.Select(m => m.UpdatedAt).Where(x => !string.IsNullOrWhiteSpace(x)).OrderByDescending(x => x).FirstOrDefault();
+        return string.IsNullOrWhiteSpace(latest) ? null : latest;
     }
 
     public async Task<List<EventGroup>> GetGroupsAsync(string eventId)
@@ -123,7 +198,9 @@ public class EventHubService : IEventHubService
 
     public async Task<List<EventMatch>> GetMatchesAsync(string eventId, string? date = null)
     {
-        var all = await QueryEventItemsAsync(_matchesTable, eventId, MapMatch);
+        var all = (await QueryEventItemsAsync(_matchesTable, eventId, MapMatch))
+            .Select(EventMatchRules.Enrich)
+            .ToList();
         if (!string.IsNullOrWhiteSpace(date))
             return all.Where(m => m.MatchDate == date).OrderBy(m => m.MatchTime).ToList();
         return all.OrderBy(m => m.MatchDate).ThenBy(m => m.MatchTime).ToList();
@@ -181,19 +258,38 @@ public class EventHubService : IEventHubService
         await table.DeleteItemAsync(eventId, teamId);
     }
 
-    public async Task<EventMatch> UpsertMatchAsync(EventMatch match)
+    public async Task<EventMatch> UpsertMatchAsync(EventMatch match, bool touchTimestamp = true, bool skipDuplicateCheck = false)
     {
+        if (string.IsNullOrWhiteSpace(match.TeamAId) || string.IsNullOrWhiteSpace(match.TeamBId))
+            throw new InvalidOperationException("Both teams are required.");
+        if (string.Equals(match.TeamAId, match.TeamBId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("A team cannot play itself.");
+
+        var existing = await QueryEventItemsAsync(_matchesTable, match.EventId, MapMatch);
+        if (!skipDuplicateCheck && EventMatchRules.IsDuplicateFixture(existing, match.TeamAId, match.TeamBId, match.MatchId))
+            throw new InvalidOperationException("Duplicate fixture — this matchup already exists.");
+
         match.UpdatedAt = DateTime.UtcNow.ToString("O");
         if (string.IsNullOrWhiteSpace(match.CreatedAt)) match.CreatedAt = match.UpdatedAt;
         var table = Table.LoadTable(_dynamoDb, _matchesTable);
         await table.PutItemAsync(MatchToDoc(match));
-        return match;
+        if (touchTimestamp) await TouchFixturesTimestampAsync(match.EventId);
+        return EventMatchRules.Enrich(match);
     }
 
     public async Task DeleteMatchAsync(string eventId, string matchId)
     {
         var table = Table.LoadTable(_dynamoDb, _matchesTable);
         await table.DeleteItemAsync(eventId, matchId);
+        await TouchFixturesTimestampAsync(eventId);
+    }
+
+    private async Task TouchFixturesTimestampAsync(string eventId)
+    {
+        var config = await _sportsLayer.GetEventConfigAsync(eventId);
+        if (config == null) return;
+        config.FixturesLastUpdatedAt = DateTime.UtcNow.ToString("O");
+        await _sportsLayer.UpsertEventConfigAsync(config);
     }
 
     public async Task<EventPrediction?> GetUserPredictionAsync(string eventId, string matchId, string userId)
@@ -219,6 +315,12 @@ public class EventHubService : IEventHubService
         var config = await _sportsLayer.GetEventConfigAsync(eventId);
         if (config == null || !IsEventEffectivelyEnabled(config) || !config.PredictionsEnabled)
             throw new InvalidOperationException("Predictions are not enabled.");
+
+        var match = (await GetMatchesAsync(eventId)).FirstOrDefault(m => m.MatchId == request.MatchId);
+        if (match == null)
+            throw new InvalidOperationException("Match not found.");
+        if (!match.PredictionsOpen)
+            throw new InvalidOperationException("Predictions are closed for this match.");
 
         var key = PredictionKey(request.MatchId, userId);
         var existing = await GetUserPredictionAsync(eventId, request.MatchId, userId);

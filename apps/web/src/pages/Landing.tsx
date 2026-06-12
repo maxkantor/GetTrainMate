@@ -48,7 +48,8 @@ export const LandingPage: React.FC = () => {
     featureFlagsService.isFeatureEnabled(featureFlags, 'sports_event_layer') &&
     !!featuredEvent &&
     featuredEvent.homepageVisible !== false;
-  const eventHubLink = featuredEvent?.hubRoute || `/events/${featuredEvent?.eventId ?? 'world-cup-2026'}`;
+  const eventHubLink = featuredEvent?.hubRoute?.trim() || '/world-cup';
+  const isWorldCupPromo = featuredEvent?.eventId === 'world-cup-2026';
   const crmDescription = featuredEvent?.description?.trim();
   const eventDescription = crmDescription && (locale === 'en' || !isSeededEnglishEventCopy(crmDescription))
     ? crmDescription
@@ -107,18 +108,18 @@ export const LandingPage: React.FC = () => {
     <>
       <Hero />
       {showEventPromo && featuredEvent ? (
-        <Container maxWidth="lg" sx={{ mt: 2, mb: 4, position: 'relative' }}>
+        <Container maxWidth="md" sx={{ mt: 1.5, mb: 2.5, position: 'relative' }}>
           <Box
             sx={{
               borderRadius: 3,
               border: `1px solid ${eventBannerImageUrl ? `${eventThemeColor}88` : 'rgba(128,128,255,0.35)'}`,
               background: `linear-gradient(120deg, rgba(3,5,18,0.94), rgba(8,7,28,0.76), rgba(3,5,18,0.92)), radial-gradient(720px 280px at 16% 0%, ${eventThemeColor}30, transparent 62%), url('/images/section-worldcup-bg.png') center center / cover no-repeat, linear-gradient(120deg, rgba(7,10,24,0.98), rgba(24,18,54,0.92) 48%, rgba(4,7,20,0.96))`,
-              p: { xs: 2, sm: 3 },
+              p: { xs: 2, sm: 2.5 },
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 260px' },
-              gap: { xs: 2.5, md: 4 },
+              gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 220px' },
+              gap: { xs: 2, md: 3 },
               alignItems: 'center',
-              minHeight: eventBannerImageUrl ? { xs: 220, md: 170 } : undefined,
+              minHeight: eventBannerImageUrl ? { xs: 180, md: 150 } : undefined,
               position: 'relative',
               overflow: 'hidden',
               boxShadow: eventBannerImageUrl ? `0 18px 60px ${eventThemeColor}30` : undefined,
@@ -165,17 +166,17 @@ export const LandingPage: React.FC = () => {
                   {featuredEvent.homepagePromoText}
                 </Typography>
               ) : null}
-              {shouldShowLine(eventEmotionalLine, EN_EMOTIONAL_LINE) ? (
+              {!isWorldCupPromo && shouldShowLine(eventEmotionalLine, EN_EMOTIONAL_LINE) ? (
                 <Typography sx={{ mt: 0.8, fontWeight: 700 }}>
                   {eventEmotionalLine}
                 </Typography>
               ) : null}
-              {shouldShowLine(eventSocialProofLine, EN_SOCIAL_PROOF_LINE) ? (
+              {!isWorldCupPromo && shouldShowLine(eventSocialProofLine, EN_SOCIAL_PROOF_LINE) ? (
                 <Typography color="text.secondary" sx={{ mt: 0.6, fontWeight: 600 }}>
                   {eventSocialProofLine}
                 </Typography>
               ) : null}
-              {shouldShowLine(eventUrgencyLine, EN_URGENCY_LINE) ? (
+              {!isWorldCupPromo && shouldShowLine(eventUrgencyLine, EN_URGENCY_LINE) ? (
                 <Typography color="warning.main" sx={{ mt: 0.35, fontWeight: 700 }}>
                   {eventUrgencyLine}
                 </Typography>

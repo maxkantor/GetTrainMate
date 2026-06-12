@@ -129,21 +129,49 @@ export const AdminEventHubPanel: React.FC<Props> = ({ eventId, config, onConfigS
 
   const saveMatch = async () => {
     if (!newMatch.teamAId || !newMatch.teamBId) return;
+    if (newMatch.teamAId === newMatch.teamBId) {
+      setError('A team cannot play itself.');
+      return;
+    }
     const matchId = `match-${Date.now()}`;
     const teamA = teams.find((t) => t.teamId === newMatch.teamAId);
     const teamB = teams.find((t) => t.teamId === newMatch.teamBId);
-    await adminApiService.put(`/api/admin/sports-events/${eventId}/matches`, {
-      eventId, matchId, ...newMatch,
-      teamAName: teamA?.name, teamBName: teamB?.name,
-      teamAFlag: teamA?.flagEmoji, teamBFlag: teamB?.flagEmoji,
-    });
-    setNewMatch({ teamAId: '', teamBId: '', matchDate: '', matchTime: '', venue: '', status: 'Scheduled' });
-    await loadHub();
+    setError(null);
+    try {
+      await adminApiService.put(`/api/admin/sports-events/${eventId}/matches`, {
+        eventId, matchId, ...newMatch,
+        teamAName: teamA?.name, teamBName: teamB?.name,
+        teamAFlag: teamA?.flagEmoji, teamBFlag: teamB?.flagEmoji,
+      });
+      setNewMatch({ teamAId: '', teamBId: '', matchDate: '', matchTime: '', venue: '', status: 'Scheduled' });
+      await loadHub();
+      onConfigSaved();
+    } catch (e: unknown) {
+      setError((e as Error)?.message ?? 'Could not save match');
+    }
   };
 
-  const updateMatchScore = async (match: EventMatch) => {
-    await adminApiService.put(`/api/admin/sports-events/${eventId}/matches`, match);
-    await loadHub();
+  const updateMatch = async (match: EventMatch) => {
+    setError(null);
+    try {
+      await adminApiService.put(`/api/admin/sports-events/${eventId}/matches`, match);
+      await loadHub();
+      onConfigSaved();
+    } catch (e: unknown) {
+      setError((e as Error)?.message ?? 'Could not update match');
+    }
+  };
+
+  const deleteMatch = async (matchId: string) => {
+    if (!window.confirm('Delete this fixture?')) return;
+    setError(null);
+    try {
+      await adminApiService.delete(`/api/admin/sports-events/${eventId}/matches/${encodeURIComponent(matchId)}`);
+      await loadHub();
+      onConfigSaved();
+    } catch (e: unknown) {
+      setError((e as Error)?.message ?? 'Could not delete match');
+    }
   };
 
   const hideComment = async (commentKey: string) => {
@@ -244,6 +272,10 @@ export const AdminEventHubPanel: React.FC<Props> = ({ eventId, config, onConfigS
 
       {tab === 'matches' && (
         <div>
+          <p style={{ fontSize: 12, opacity: 0.75, marginBottom: '0.75rem' }}>
+            Official opening fixtures are synced from the authoritative catalog on deploy.
+            Add kickoff time before going live — predictions lock after kickoff.
+          </p>
           <div className={styles.formGrid}>
             <select value={newMatch.teamAId} onChange={(e) => setNewMatch({ ...newMatch, teamAId: e.target.value })}>
               <option value="">Team A</option>
@@ -259,15 +291,19 @@ export const AdminEventHubPanel: React.FC<Props> = ({ eventId, config, onConfigS
             <button type="button" className={styles.primaryBtn} onClick={saveMatch}>Add Match</button>
           </div>
           {matches.map((m) => (
-            <div key={m.matchId} className={styles.row} style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-              <span>{m.teamAName} vs {m.teamBName} — {m.matchDate}</span>
-              <select value={m.status} onChange={(e) => updateMatchScore({ ...m, status: e.target.value as EventMatch['status'] })}>
-                <option value="Scheduled">Scheduled</option>
+            <div key={m.matchId} className={styles.row} style={{ flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+              <span>{m.teamAFlag} {m.teamAName} vs {m.teamBName} {m.teamBFlag}</span>
+              <input type="date" value={m.matchDate ?? ''} onChange={(e) => updateMatch({ ...m, matchDate: e.target.value })} />
+              <input type="time" value={m.matchTime ?? ''} onChange={(e) => updateMatch({ ...m, matchTime: e.target.value })} />
+              <input placeholder="Venue" value={m.venue ?? ''} onChange={(e) => updateMatch({ ...m, venue: e.target.value })} />
+              <select value={m.status} onChange={(e) => updateMatch({ ...m, status: e.target.value as EventMatch['status'] })}>
+                <option value="Scheduled">Upcoming</option>
                 <option value="Live">Live</option>
-                <option value="Completed">Completed</option>
+                <option value="Completed">Final</option>
               </select>
-              <input type="number" placeholder="Score A" style={{ width: 60 }} value={m.scoreA ?? ''} onChange={(e) => updateMatchScore({ ...m, scoreA: parseInt(e.target.value, 10) || 0 })} />
-              <input type="number" placeholder="Score B" style={{ width: 60 }} value={m.scoreB ?? ''} onChange={(e) => updateMatchScore({ ...m, scoreB: parseInt(e.target.value, 10) || 0 })} />
+              <input type="number" placeholder="Score A" style={{ width: 60 }} value={m.scoreA ?? ''} onChange={(e) => updateMatch({ ...m, scoreA: parseInt(e.target.value, 10) || 0 })} />
+              <input type="number" placeholder="Score B" style={{ width: 60 }} value={m.scoreB ?? ''} onChange={(e) => updateMatch({ ...m, scoreB: parseInt(e.target.value, 10) || 0 })} />
+              <button type="button" className={styles.secondaryBtn} onClick={() => deleteMatch(m.matchId)}>Delete</button>
             </div>
           ))}
         </div>

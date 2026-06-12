@@ -229,6 +229,8 @@ public class SportsEventLayerService : ISportsEventLayerService
             ["sharingEnabled"] = config.SharingEnabled,
             ["standingsEnabled"] = config.StandingsEnabled,
             ["standingsPublished"] = config.StandingsPublished,
+            ["legacySeedPurged"] = config.LegacySeedPurged,
+            ["fixturesLastUpdatedAt"] = config.FixturesLastUpdatedAt ?? string.Empty,
             ["createdAt"] = config.CreatedAt,
             ["updatedAt"] = config.UpdatedAt,
         });
@@ -328,6 +330,8 @@ public class SportsEventLayerService : ISportsEventLayerService
         SharingEnabled = !doc.ContainsKey("sharingEnabled") || doc["sharingEnabled"].AsBoolean(),
         StandingsEnabled = doc.ContainsKey("standingsEnabled") && doc["standingsEnabled"].AsBoolean(),
         StandingsPublished = doc.ContainsKey("standingsPublished") && doc["standingsPublished"].AsBoolean(),
+        LegacySeedPurged = doc.ContainsKey("legacySeedPurged") && doc["legacySeedPurged"].AsBoolean(),
+        FixturesLastUpdatedAt = doc.ContainsKey("fixturesLastUpdatedAt") ? doc["fixturesLastUpdatedAt"].AsString() : null,
         CreatedAt = doc.ContainsKey("createdAt") ? doc["createdAt"].AsString() : DateTime.UtcNow.ToString("O"),
         UpdatedAt = doc.ContainsKey("updatedAt") ? doc["updatedAt"].AsString() : DateTime.UtcNow.ToString("O"),
     };

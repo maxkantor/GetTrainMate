@@ -10,6 +10,7 @@ import {
   type EventMatch,
   type EventPrediction,
 } from '@/services/sportsEventLayerService';
+import { arePredictionsOpen } from '@/utils/eventMatchUtils';
 import styles from '@/pages/EventHub.module.css';
 
 type Props = {
@@ -46,7 +47,12 @@ export const PredictionCenter: React.FC<Props> = ({
   reason, onReason, onSubmit, submitting, submittedPrediction, isAuthenticated, onLogin,
 }) => {
   const { t } = useI18n();
-  const match = matches.find((m) => m.matchId === selectedMatchId) ?? matches[0];
+  const openMatches = matches.filter(arePredictionsOpen);
+  const match = openMatches.find((m) => m.matchId === selectedMatchId)
+    ?? openMatches[0]
+    ?? matches.find((m) => m.matchId === selectedMatchId)
+    ?? matches[0];
+  const predictionsOpen = match ? arePredictionsOpen(match) : false;
 
   const { data: breakdown } = useQuery({
     queryKey: ['prediction-breakdown', eventId, match?.matchId],
@@ -114,8 +120,18 @@ export const PredictionCenter: React.FC<Props> = ({
 
           <TextField fullWidth size="small" multiline rows={2} label={t('event_hub.why_optional')} value={reason} onChange={(e) => onReason(e.target.value)} className={styles.inputDark} sx={{ mt: 1.5 }} />
 
+          {!predictionsOpen && match && (
+            <Typography color="text.secondary" sx={{ mt: 2 }}>{t('event_hub.predictions_closed')}</Typography>
+          )}
+
           {isAuthenticated ? (
-            <Button variant="contained" className={styles.ctaPrimary} onClick={onSubmit} disabled={submitting} sx={{ mt: 2 }}>
+            <Button
+              variant="contained"
+              className={styles.ctaPrimary}
+              onClick={onSubmit}
+              disabled={submitting || !predictionsOpen}
+              sx={{ mt: 2 }}
+            >
               {t('event_hub.submit_prediction')}
             </Button>
           ) : (

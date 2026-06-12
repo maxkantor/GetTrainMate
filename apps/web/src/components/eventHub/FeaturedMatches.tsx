@@ -5,6 +5,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useMatchCountdown } from '@/hooks/useMatchCountdown';
 import { ComingSoon } from '@/components/eventHub/ComingSoon';
 import type { EventMatch } from '@/services/sportsEventLayerService';
+import { arePredictionsOpen, formatMatchMeta } from '@/utils/eventMatchUtils';
 import styles from '@/pages/EventHub.module.css';
 
 type Props = {
@@ -21,7 +22,10 @@ const MatchCard: React.FC<{
   onShare: () => void;
 }> = ({ match, onPredict, onDiscuss, onShare }) => {
   const { t } = useI18n();
-  const countdown = useMatchCountdown(match.matchDate, match.matchTime);
+  const hasKickoff = Boolean(match.matchDate?.trim() && match.matchTime?.trim());
+  const countdown = useMatchCountdown(hasKickoff ? match.matchDate : '', hasKickoff ? match.matchTime : undefined);
+  const meta = formatMatchMeta(match);
+  const predictionsOpen = arePredictionsOpen(match);
 
   return (
     <motion.div whileHover={{ y: -4 }} transition={{ type: 'spring', stiffness: 300, damping: 22 }}>
@@ -31,7 +35,7 @@ const MatchCard: React.FC<{
           {match.status === 'Completed' && match.scoreA != null && (
             <Typography className={styles.matchScore}>{match.scoreA} – {match.scoreB}</Typography>
           )}
-          {countdown && match.status === 'Scheduled' && (
+          {hasKickoff && countdown && match.status === 'Scheduled' && (
             <Typography className={styles.matchCountdown}>{countdown}</Typography>
           )}
         </Box>
@@ -46,10 +50,18 @@ const MatchCard: React.FC<{
             <Typography className={styles.matchTeamName}>{match.teamBName}</Typography>
           </Box>
         </Box>
-        <Typography className={styles.matchMeta}>{match.matchDate} · {match.matchTime} · {match.venue}</Typography>
+        <Typography className={styles.matchMeta}>
+          {meta || (match.stage ? match.stage : t('event_hub.schedule_tbd'))}
+        </Typography>
         <Box className={styles.matchActions}>
-          <Button size="small" variant="contained" className={styles.matchBtnPrimary} onClick={onPredict}>
-            {t('event_hub.predict_match')}
+          <Button
+            size="small"
+            variant="contained"
+            className={styles.matchBtnPrimary}
+            onClick={onPredict}
+            disabled={!predictionsOpen}
+          >
+            {predictionsOpen ? t('event_hub.predict_match') : t('event_hub.predictions_closed')}
           </Button>
           <Button size="small" variant="outlined" className={styles.matchBtnGhost} onClick={onDiscuss}>
             {t('event_hub.join_discussion')}

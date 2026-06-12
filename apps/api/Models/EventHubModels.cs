@@ -76,6 +76,9 @@ public class EventMatch
     public int? ScoreB { get; set; }
     public string? GroupId { get; set; }
     public string? Stage { get; set; }
+    /// <summary>Computed on read — not persisted.</summary>
+    [DynamoDBIgnore]
+    public bool PredictionsOpen { get; set; } = true;
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("O");
     public string UpdatedAt { get; set; } = DateTime.UtcNow.ToString("O");
 }
@@ -210,6 +213,7 @@ public sealed class EventHubSnapshot
     public List<EventGroup> Groups { get; set; } = new();
     public List<EventTeam> Teams { get; set; } = new();
     public List<EventMatch> Matches { get; set; } = new();
+    public string? FixturesLastUpdatedAt { get; set; }
 }
 
 public sealed class EventLeaderboardEntry
