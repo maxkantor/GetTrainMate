@@ -374,6 +374,11 @@ export const en = {
     share: 'Share',
     copy_link: 'Copy Link',
     download_image: 'Download Image',
+    share_card_hint: 'Copy your link or download an image — no credits required.',
+    link_copied: 'Link copied to clipboard.',
+    image_downloaded: 'Image saved to your downloads.',
+    copy_failed: 'Could not copy link. Try download instead.',
+    share_fallback: 'Native share unavailable — link copied instead.',
     completed: 'Completed',
   },
   sports_event_layer: {

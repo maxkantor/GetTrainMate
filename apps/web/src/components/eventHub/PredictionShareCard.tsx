@@ -1,5 +1,5 @@
-import React, { useCallback, useRef } from 'react';
-import { Box, Button, Stack, Typography } from '@mui/material';
+import React, { useCallback, useState } from 'react';
+import { Alert, Box, Button, Snackbar, Stack, Typography } from '@mui/material';
 import type { EventMatch, EventPrediction } from '@/services/sportsEventLayerService';
 import { useI18n } from '@/hooks/useI18n';
 
@@ -46,10 +46,10 @@ function renderShareCardToCanvas(
   let line = '';
   let y = 400;
   for (const w of words) {
-    const test = line + w + ' ';
+    const test = `${line}${w} `;
     if (ctx.measureText(test).width > 880 && line) {
       ctx.fillText(line, 100, y);
-      line = w + ' ';
+      line = `${w} `;
       y += 70;
     } else {
       line = test;
@@ -70,9 +70,30 @@ function renderShareCardToCanvas(
   return canvas;
 }
 
+function canShareWithFiles(file: File): boolean {
+  if (!navigator.share || !navigator.canShare) return false;
+  try {
+    return navigator.canShare({ files: [file] });
+  } catch {
+    return false;
+  }
+}
+
+function buildShareText(match: EventMatch, prediction: EventPrediction, footer: string): string {
+  const pick =
+    prediction.predictionType === 'draw'
+      ? 'Draw'
+      : prediction.predictionType === 'exact_score' && prediction.predictedScoreA != null
+        ? `${prediction.predictedScoreA}-${prediction.predictedScoreB}`
+        : prediction.predictedWinnerTeamId === match.teamAId
+          ? match.teamAName
+          : match.teamBName;
+  return `My World Cup pick: ${match.teamAName} vs ${match.teamBName} → ${pick}. ${footer}`;
+}
+
 export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShared }) => {
   const { t } = useI18n();
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/world-cup` : '';
 
@@ -87,58 +108,107 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
     link.download = 'world-cup-prediction.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
+    setNotice(t('event_hub.image_downloaded'));
     onShared?.();
   }, [match, prediction, t, onShared]);
 
   const handleCopyLink = useCallback(async () => {
-    await navigator.clipboard.writeText(shareUrl);
-    onShared?.();
-  }, [shareUrl, onShared]);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setNotice(t('event_hub.link_copied'));
+      onShared?.();
+    } catch {
+      setNotice(t('event_hub.copy_failed'));
+    }
+  }, [shareUrl, t, onShared]);
 
   const handleWebShare = useCallback(async () => {
-    const canvas = renderShareCardToCanvas(
-      match,
-      prediction,
-      t('event_hub.share_card_title'),
-      t('event_hub.share_card_footer')
-    );
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (navigator.share && blob) {
-      const file = new File([blob], 'prediction.png', { type: 'image/png' });
-      await navigator.share({
-        title: t('event_hub.share_card_title'),
-        text: `${match.teamAName} vs ${match.teamBName}`,
-        url: shareUrl,
-        files: [file],
-      });
-      onShared?.();
-    } else {
-      await handleCopyLink();
+    const text = buildShareText(match, prediction, t('event_hub.share_card_footer'));
+    try {
+      const canvas = renderShareCardToCanvas(
+        match,
+        prediction,
+        t('event_hub.share_card_title'),
+        t('event_hub.share_card_footer')
+      );
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (blob) {
+        const file = new File([blob], 'world-cup-prediction.png', { type: 'image/png' });
+        if (canShareWithFiles(file)) {
+          await navigator.share({
+            title: t('event_hub.share_card_title'),
+            text,
+            url: shareUrl,
+            files: [file],
+          });
+          onShared?.();
+          return;
+        }
+      }
+      if (navigator.share) {
+        await navigator.share({ title: t('event_hub.share_card_title'), text, url: shareUrl });
+        onShared?.();
+        return;
+      }
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return;
     }
+    await handleCopyLink();
+    setNotice((prev) => prev ?? t('event_hub.share_fallback'));
   }, [match, prediction, shareUrl, t, onShared, handleCopyLink]);
 
+  const handleShareTwitter = () => {
+    const text = encodeURIComponent(buildShareText(match, prediction, 'gettrainmate.com/world-cup'));
+    window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank', 'noopener,noreferrer');
+    onShared?.();
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(`${buildShareText(match, prediction, '')} ${shareUrl}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+    onShared?.();
+  };
+
   return (
-    <Box ref={cardRef} sx={{ mt: 2, p: 2, borderRadius: 3, border: '1px solid rgba(99,102,241,0.4)', background: 'rgba(15,18,30,0.9)' }}>
+    <Box sx={{ mt: 2, p: 2, borderRadius: 3, border: '1px solid rgba(99,102,241,0.35)', background: 'rgba(15,18,30,0.85)' }}>
       <Typography variant="subtitle2" color="primary.light" gutterBottom>
         {t('event_hub.share_card_title')}
       </Typography>
-      <Typography variant="h6" sx={{ mb: 1 }}>
+      <Typography variant="body1" sx={{ mb: 0.5, fontWeight: 600 }}>
         {match.teamAFlag} {match.teamAName} vs {match.teamBName} {match.teamBFlag}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t('event_hub.share_card_footer')}
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        {t('event_hub.share_card_hint')}
       </Typography>
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-        <Button size="small" variant="contained" onClick={handleWebShare}>
-          {t('event_hub.share')}
-        </Button>
-        <Button size="small" variant="outlined" onClick={handleCopyLink}>
+        <Button size="small" variant="contained" onClick={handleCopyLink}>
           {t('event_hub.copy_link')}
         </Button>
         <Button size="small" variant="outlined" onClick={handleDownload}>
           {t('event_hub.download_image')}
         </Button>
+        <Button size="small" variant="outlined" onClick={handleShareTwitter}>
+          X
+        </Button>
+        <Button size="small" variant="outlined" onClick={handleShareWhatsApp}>
+          WhatsApp
+        </Button>
+        {typeof navigator !== 'undefined' && 'share' in navigator && (
+          <Button size="small" variant="text" onClick={handleWebShare}>
+            {t('event_hub.share')}
+          </Button>
+        )}
       </Stack>
+      <Snackbar
+        open={!!notice}
+        autoHideDuration={3500}
+        onClose={() => setNotice(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" onClose={() => setNotice(null)} sx={{ width: '100%' }}>
+          {notice}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

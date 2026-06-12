@@ -12,10 +12,11 @@ type Props = {
   breakdown?: PredictionAggregate;
   onFindFans: (teamId: string) => void;
   onFindNearby: () => void;
+  onShared?: () => void;
 };
 
 export const WcPredictionSuccess: React.FC<Props> = ({
-  fixture, prediction, breakdown, onFindFans, onFindNearby,
+  fixture, prediction, breakdown, onFindFans, onFindNearby, onShared,
 }) => {
   const { t } = useI18n();
   const pickedTeamId = prediction.predictedWinnerTeamId
@@ -63,7 +64,7 @@ export const WcPredictionSuccess: React.FC<Props> = ({
           </Button>
         </Box>
 
-        <PredictionShareCard match={fixture} prediction={prediction} onShared={() => {}} />
+        <PredictionShareCard match={fixture} prediction={prediction} onShared={onShared} />
       </Box>
     </Box>
   );

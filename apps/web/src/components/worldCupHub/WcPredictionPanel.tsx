@@ -30,13 +30,14 @@ type Props = {
   onAuthRequired: () => void;
   onFindFans: (teamId: string) => void;
   onFindNearby: () => void;
+  onShared?: () => void;
 };
 
 export const WcPredictionPanel: React.FC<Props> = ({
   eventId, fixture, fixtures, winnerPick, onWinnerPick,
   scoreA, scoreB, onScoreA, onScoreB, fanTake, onFanTake,
   showScore, onToggleScore, isAuthenticated, submitting, submitted,
-  onSubmit, onAuthRequired, onFindFans, onFindNearby,
+  onSubmit, onAuthRequired, onFindFans, onFindNearby, onShared,
 }) => {
   const { t } = useI18n();
   const open = fixture ? arePredictionsOpen(fixture) : false;
@@ -66,6 +67,7 @@ export const WcPredictionPanel: React.FC<Props> = ({
         breakdown={breakdown}
         onFindFans={onFindFans}
         onFindNearby={onFindNearby}
+        onShared={onShared}
       />
     );
   }

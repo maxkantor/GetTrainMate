@@ -202,6 +202,11 @@ export const EventHubPage: React.FC<{ eventId?: string }> = ({ eventId = WORLD_C
           onAuthRequired={requireAuth}
           onFindFans={handleFindFans}
           onFindNearby={handleFindNearby}
+          onShared={() => {
+            if (selectedFixture) {
+              sportsEventLayerService.sharePrediction(eventId, selectedFixture.matchId).catch(() => {});
+            }
+          }}
         />
 
         <WcFanOpinions
