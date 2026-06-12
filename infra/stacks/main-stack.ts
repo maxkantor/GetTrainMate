@@ -126,6 +126,7 @@ export class GetTrainMateStack extends cdk.Stack {
         AMPLIFY_USER_POOL_ID: amplifyUserPoolId,
         DYNAMODB_TABLE_PREFIX: 'gettrainmate-',
         DYNAMODB_TABLE_AUDIT_LOG: 'gettrainmate-audit-log',
+        DYNAMODB_TABLE_ANALYTICS: 'gettrainmate-analytics',
         MEDIA_BUCKET_NAME: mediaBucket.bucketName,
         // Must match physical bucket region (GetObject returns NoSuchBucket if client region is wrong).
         MEDIA_BUCKET_REGION:
@@ -502,7 +503,7 @@ export class GetTrainMateStack extends cdk.Stack {
     const leadsTable = dynamodb.Table.fromTableName(this, 'LeadsTable', 'gettrainmate-leads');
     tables.push(leadsTable);
 
-    // Audit log table
+    // Audit log table (pre-provisioned; PK attribute logId)
     const auditLogTable = dynamodb.Table.fromTableName(this, 'AuditLogTable', 'gettrainmate-audit-log');
     tables.push(auditLogTable);
 

@@ -21,7 +21,11 @@ public class UserActivityService : IUserActivityService
         _logger = logger;
     }
 
-    public async Task RecordHeartbeatAsync(string userId, string? activeChatThreadId = null, CancellationToken cancellationToken = default)
+    public async Task RecordHeartbeatAsync(
+        string userId,
+        string? activeChatThreadId = null,
+        string? currentPath = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(userId)) return;
         try
@@ -34,6 +38,12 @@ public class UserActivityService : IUserActivityService
             };
             if (!string.IsNullOrWhiteSpace(activeChatThreadId))
                 doc["activeChatThreadId"] = activeChatThreadId.Trim();
+            if (!string.IsNullOrWhiteSpace(currentPath))
+            {
+                var path = currentPath.Trim();
+                if (path.Length > 512) path = path[..512];
+                doc["currentPath"] = path;
+            }
 
             await table.PutItemAsync(doc, cancellationToken);
         }
@@ -75,5 +85,47 @@ public class UserActivityService : IUserActivityService
             _logger.LogDebug(ex, "GetActivity failed for {UserId}", userId);
             return null;
         }
+    }
+
+    public async Task<int> CountActiveUsersAsync(DateTime sinceUtc, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var table = Table.LoadTable(_dynamoDb, _tableName);
+            var scan = table.Scan(new ScanOperationConfig());
+            var count = 0;
+            do
+            {
+                var batch = await scan.GetNextSetAsync(cancellationToken);
+                foreach (var doc in batch)
+                {
+                    if (!TryParseLastSeen(doc, out var lastSeen)) continue;
+                    if (lastSeen >= sinceUtc.ToUniversalTime())
+                        count++;
+                }
+            } while (!scan.IsDone);
+
+            return count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "CountActiveUsers failed");
+            return 0;
+        }
+    }
+
+    private static bool TryParseLastSeen(Document doc, out DateTime lastSeen)
+    {
+        lastSeen = default;
+        foreach (var key in new[] { "lastSeenUtc", "LastSeenUtc" })
+        {
+            if (!doc.ContainsKey(key)) continue;
+            if (DateTime.TryParse(doc[key].AsString(), out var utc))
+            {
+                lastSeen = utc.ToUniversalTime();
+                return true;
+            }
+        }
+        return false;
     }
 }

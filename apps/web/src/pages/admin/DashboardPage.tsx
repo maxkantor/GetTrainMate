@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Box,
   Grid,
@@ -7,6 +8,7 @@ import {
   Typography,
   CircularProgress,
   Alert,
+  Button,
 } from '@mui/material';
 import { AdminNoAccessPage } from './AdminNoAccess';
 import PeopleIcon from '@mui/icons-material/People';
@@ -122,9 +124,12 @@ export const DashboardPage: React.FC = () => {
 
       <Card sx={{ mt: 3 }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Recent Activity
-          </Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+            <Typography variant="h6">Recent Activity</Typography>
+            <Button component={Link} to="/admin/activity" size="small" variant="outlined">
+              View all activity
+            </Button>
+          </Box>
           {metrics?.recentActivity && metrics.recentActivity.length > 0 ? (
             <Box component="ul" sx={{ pl: 2 }}>
               {metrics.recentActivity.map((activity, index) => {

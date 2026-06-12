@@ -16,17 +16,23 @@ public class AdminMetricsController : ControllerBase
     private readonly IAmazonDynamoDB _dynamoDb;
     private readonly IConfiguration _configuration;
     private readonly IAuditLogService _auditLogService;
+    private readonly IActivityAnalyticsService _activityAnalytics;
+    private readonly IUserActivityService _userActivityService;
     private readonly ILogger<AdminMetricsController> _logger;
 
     public AdminMetricsController(
         IAmazonDynamoDB dynamoDb,
         IConfiguration configuration,
         IAuditLogService auditLogService,
+        IActivityAnalyticsService activityAnalytics,
+        IUserActivityService userActivityService,
         ILogger<AdminMetricsController> logger)
     {
         _dynamoDb = dynamoDb;
         _configuration = configuration;
         _auditLogService = auditLogService;
+        _activityAnalytics = activityAnalytics;
+        _userActivityService = userActivityService;
         _logger = logger;
     }
 
@@ -43,10 +49,13 @@ public class AdminMetricsController : ControllerBase
             var matchesTable = _configuration["DYNAMODB_TABLE_MATCHES"] ?? $"{prefix}matches";
             var messagesTable = _configuration["DYNAMODB_TABLE_MESSAGES"] ?? $"{prefix}messages";
             var eventsTable = _configuration["DYNAMODB_TABLE_EVENTS"] ?? $"{prefix}events";
+            var paymentsTable = _configuration["DYNAMODB_TABLE_PAYMENTS"] ?? $"{prefix}payments";
 
             var days = string.Equals(range, "30d", StringComparison.OrdinalIgnoreCase) ? 30 : 7;
             var fromDate = DateTime.UtcNow.AddDays(-days);
             var activeCutoff = DateTime.UtcNow.AddDays(-7);
+            var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var ordersCutoff = DateTime.UtcNow.AddDays(-7);
 
             List<Document> profileDocs;
             try
@@ -58,57 +67,85 @@ public class AdminMetricsController : ControllerBase
                 _logger.LogWarning(ex, "Profile scan failed for metrics (table {Table})", profilesTable);
                 profileDocs = new List<Document>();
             }
+
             var totalUsers = profileDocs.Count;
             var newUsers = 0;
-            var activeUsers = 0;
+            var recentSignups = new List<ActivityItem>();
             foreach (var doc in profileDocs)
             {
                 if (TryParseCreated(doc, out var created) && created >= fromDate)
                     newUsers++;
-                if (TryParseUpdated(doc, out var updated) && updated >= activeCutoff)
-                    activeUsers++;
+
+                if (TryParseCreated(doc, out var signupAt) && signupAt >= fromDate)
+                {
+                    var email = TryGetString(doc, "email", "Email");
+                    var name = TryGetString(doc, "name", "Name", "displayName", "DisplayName");
+                    var userId = TryGetString(doc, "userId", "UserId");
+                    var label = !string.IsNullOrEmpty(name) ? name
+                        : !string.IsNullOrEmpty(email) ? MaskEmail(email)
+                        : userId;
+                    recentSignups.Add(new ActivityItem
+                    {
+                        Type = "user_signup",
+                        Description = $"New user: {label}",
+                        Timestamp = signupAt,
+                    });
+                }
             }
+
+            var activeUsers = await _userActivityService.CountActiveUsersAsync(activeCutoff);
 
             var totalMatches = await CountTableSafeAsync(matchesTable);
             var totalMessages = await CountTableSafeAsync(messagesTable);
             var totalEvents = await CountTableSafeAsync(eventsTable);
 
-            List<AuditLog> recentLogs;
+            var (revenueMtd, orders7d) = await GetPaymentMetricsAsync(paymentsTable, monthStart, ordersCutoff);
+
+            var recentActivity = new List<ActivityItem>();
+
             try
             {
-                recentLogs = (await _auditLogService.GetLogsAsync(null, null, null, null, null, 1, 20)).Items;
+                var analyticsEvents = (await _activityAnalytics.GetEventsAsync(
+                    null, fromDate, null, 1, 12)).Items;
+                recentActivity.AddRange(analyticsEvents.Select(ev => new ActivityItem
+                {
+                    Type = ev.EventType,
+                    Description = FormatAnalyticsDescription(ev),
+                    Timestamp = DateTime.TryParse(ev.Timestamp, out var ts) ? ts : DateTime.UtcNow,
+                }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Analytics events unavailable for dashboard");
+            }
+
+            recentActivity.AddRange(recentSignups.Take(5));
+
+            try
+            {
+                var recentLogs = (await _auditLogService.GetLogsAsync(null, null, null, fromDate, null, 1, 8)).Items;
+                recentActivity.AddRange(recentLogs.Select(log =>
+                {
+                    var ts = DateTime.TryParse(log.Timestamp, out var logDate) ? logDate : DateTime.UtcNow;
+                    var target = string.IsNullOrEmpty(log.TargetId) ? log.TargetType : $"{log.TargetType}/{log.TargetId}";
+                    var desc = string.IsNullOrEmpty(log.AdminEmail) ? target : $"{target} — {log.AdminEmail}";
+                    return new ActivityItem
+                    {
+                        Type = $"admin_{log.Action}",
+                        Description = desc,
+                        Timestamp = ts,
+                    };
+                }));
             }
             catch (Exception auditEx)
             {
                 _logger.LogWarning(auditEx, "Audit log unavailable for dashboard metrics");
-                recentLogs = new List<AuditLog>();
             }
-            var recentActivity = recentLogs
-                .OrderByDescending(l => l.Timestamp)
-                .Take(15)
-                .Select(log =>
-                {
-                    var ts = DateTime.TryParse(log.Timestamp, out var logDate)
-                        ? logDate
-                        : DateTime.UtcNow;
-                    var target = string.IsNullOrEmpty(log.TargetId)
-                        ? log.TargetType
-                        : $"{log.TargetType}/{log.TargetId}";
-                    var desc = string.IsNullOrEmpty(log.AdminEmail)
-                        ? target
-                        : $"{target} — {log.AdminEmail}";
-                    return new ActivityItem
-                    {
-                        Type = log.Action,
-                        Description = desc,
-                        Timestamp = ts
-                    };
-                })
-                .ToList();
 
-            // Revenue / orders: extend when billing aggregates exist (Stripe sync table, etc.).
-            const decimal revenueMtd = 0;
-            const int orders7d = 0;
+            recentActivity = recentActivity
+                .OrderByDescending(a => a.Timestamp)
+                .Take(20)
+                .ToList();
 
             return Ok(new MetricsResponse
             {
@@ -124,7 +161,7 @@ public class AdminMetricsController : ControllerBase
                 PremiumSubscriptions = 0,
                 Revenue = revenueMtd,
                 Orders7d = orders7d,
-                RecentActivity = recentActivity
+                RecentActivity = recentActivity,
             });
         }
         catch (Exception ex)
@@ -134,18 +171,106 @@ public class AdminMetricsController : ControllerBase
         }
     }
 
+    private async Task<(decimal RevenueMtd, int Orders7d)> GetPaymentMetricsAsync(
+        string paymentsTable,
+        DateTime monthStart,
+        DateTime ordersCutoff)
+    {
+        decimal revenueMtd = 0;
+        var orders7d = 0;
+        try
+        {
+            var docs = await ScanAllDocumentsAsync(paymentsTable);
+            foreach (var doc in docs)
+            {
+                var status = TryGetString(doc, "status", "Status").ToLowerInvariant();
+                if (status != "completed" && status != "succeeded" && status != "paid") continue;
+
+                if (!TryParsePaymentDate(doc, out var paidAt)) continue;
+                if (paidAt < monthStart) continue;
+
+                var amount = TryGetDecimal(doc, "amount", "Amount");
+                revenueMtd += amount;
+                if (paidAt >= ordersCutoff)
+                    orders7d++;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Payment metrics scan failed for {Table}", paymentsTable);
+        }
+        return (revenueMtd, orders7d);
+    }
+
+    private static string FormatAnalyticsDescription(ActivityEventRecord ev)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(ev.Path)) parts.Add(ev.Path);
+        if (!string.IsNullOrEmpty(ev.UserId))
+            parts.Add($"user {ev.UserId[..Math.Min(8, ev.UserId.Length)]}…");
+        else if (!string.IsNullOrEmpty(ev.SessionId))
+            parts.Add($"session {ev.SessionId[..Math.Min(8, ev.SessionId.Length)]}…");
+        return parts.Count > 0 ? string.Join(" · ", parts) : ev.EventType;
+    }
+
+    private static string MaskEmail(string email)
+    {
+        var at = email.IndexOf('@');
+        if (at <= 1) return "***";
+        return $"{email[0]}***{email[at..]}";
+    }
+
     private static bool TryParseCreated(Document doc, out DateTime dt)
     {
         dt = default;
-        if (!doc.ContainsKey("createdAt")) return false;
-        return DateTime.TryParse(doc["createdAt"].AsString(), out dt);
+        foreach (var key in new[] { "createdAt", "CreatedAt" })
+        {
+            if (!doc.ContainsKey(key)) continue;
+            if (DateTime.TryParse(doc[key].AsString(), out dt))
+            {
+                dt = dt.ToUniversalTime();
+                return true;
+            }
+        }
+        return false;
     }
 
-    private static bool TryParseUpdated(Document doc, out DateTime dt)
+    private static bool TryParsePaymentDate(Document doc, out DateTime dt)
     {
         dt = default;
-        if (!doc.ContainsKey("updatedAt")) return false;
-        return DateTime.TryParse(doc["updatedAt"].AsString(), out dt);
+        foreach (var key in new[] { "completedAt", "CompletedAt", "createdAt", "CreatedAt" })
+        {
+            if (!doc.ContainsKey(key)) continue;
+            if (DateTime.TryParse(doc[key].AsString(), out dt))
+            {
+                dt = dt.ToUniversalTime();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static string TryGetString(Document doc, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (doc.ContainsKey(key))
+                return doc[key].AsString();
+        }
+        return "";
+    }
+
+    private static decimal TryGetDecimal(Document doc, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (!doc.ContainsKey(key)) continue;
+            var entry = doc[key];
+            if (entry is Primitive p && decimal.TryParse(p.AsString(), out var d)) return d;
+            if (entry is DynamoDBNull) continue;
+            try { return entry.AsDecimal(); } catch { /* fall through */ }
+        }
+        return 0;
     }
 
     private async Task<List<Document>> ScanAllDocumentsAsync(string tableName)
@@ -209,7 +334,7 @@ public class MetricsResponse
     public int TotalEvents { get; set; }
     public int PremiumSubscriptions { get; set; }
     public decimal Revenue { get; set; }
-    /// <summary>Stripe orders or checkout completions in the last 7 days (placeholder until wired).</summary>
+    /// <summary>Stripe orders or checkout completions in the last 7 days.</summary>
     public int Orders7d { get; set; }
     public List<ActivityItem> RecentActivity { get; set; } = new();
 }

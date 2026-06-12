@@ -121,7 +121,8 @@ public class MeController : ControllerBase
         if (string.IsNullOrEmpty(userId))
             return Unauthorized(new { code = "NOT_AUTHENTICATED", message = "Invalid token" });
         var thread = string.IsNullOrWhiteSpace(body?.ActiveThreadId) ? null : body!.ActiveThreadId.Trim();
-        await _userActivityService.RecordHeartbeatAsync(userId, thread, cancellationToken);
+        var path = string.IsNullOrWhiteSpace(body?.Path) ? null : body.Path.Trim();
+        await _userActivityService.RecordHeartbeatAsync(userId, thread, path, cancellationToken);
         return Ok(new { ok = true });
     }
 

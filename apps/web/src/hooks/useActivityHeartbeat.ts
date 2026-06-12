@@ -29,6 +29,7 @@ export function useActivityHeartbeat() {
           },
           body: JSON.stringify({
             activeThreadId: activeChatThreadId ?? undefined,
+            path: location.pathname + location.search,
           }),
         });
       } catch {
@@ -39,5 +40,5 @@ export function useActivityHeartbeat() {
     void ping();
     const id = window.setInterval(() => void ping(), INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [user, isApp, activeChatThreadId]);
+  }, [user, isApp, activeChatThreadId, location.pathname, location.search]);
 }

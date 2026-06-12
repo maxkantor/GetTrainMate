@@ -151,9 +151,10 @@ public class AuditLogService : IAuditLogService
     private static Document AuditLogToDocument(AuditLog log)
     {
         // Match legacy DynamoDBContext attribute names (PascalCase) so existing table keys/indexes align.
+        // Physical table PK is lowercase logId (see DynamoDB describe-table).
         var doc = new Document
         {
-            ["LogId"] = log.LogId,
+            ["logId"] = log.LogId,
             ["Timestamp"] = log.Timestamp,
             ["AdminSub"] = log.AdminSub,
             ["Action"] = log.Action,

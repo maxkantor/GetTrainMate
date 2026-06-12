@@ -25,6 +25,7 @@ import SupportIcon from '@mui/icons-material/Support';
 import PaymentIcon from '@mui/icons-material/Payment';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import TimelineIcon from '@mui/icons-material/Timeline';
 import ScienceIcon from '@mui/icons-material/Science';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -35,6 +36,7 @@ const drawerWidth = 240;
 
 const menuItems = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
+  { path: '/admin/activity', label: 'User Activity', icon: <TimelineIcon /> },
   { path: '/admin/users', label: 'Users CRM', icon: <PeopleIcon /> },
   { path: '/admin/matches', label: 'Matches', icon: <FavoriteIcon /> },
   { path: '/admin/test-users', label: 'Test Users', icon: <ScienceIcon /> },

@@ -51,6 +51,7 @@ import { AdminStripePage } from '@/pages/admin/AdminStripePage';
 import { AdminEventsPage } from '@/pages/admin/AdminEventsPage';
 import { AdminTicketsPage } from '@/pages/admin/AdminTicketsPage';
 import { AdminAuditPage } from '@/pages/admin/AdminAuditPage';
+import { AdminActivityPage } from '@/pages/admin/AdminActivityPage';
 import { AdminMatchesPage } from '@/pages/admin/AdminMatchesPage';
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { DocumentSeo } from '@/components/seo/DocumentSeo';
@@ -160,6 +161,7 @@ export const Router: React.FC = () => {
                 <Route element={<AdminLayout />}>
                   <Route path="/admin" element={<AdminDashboardPage />} />
                   <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+                  <Route path="/admin/activity" element={<AdminActivityPage />} />
                   <Route path="/admin/users" element={<UsersPage />} />
                   <Route path="/admin/devices" element={<DevicesPage />} />
                   <Route path="/admin/chats" element={<AdminChatsPage />} />
