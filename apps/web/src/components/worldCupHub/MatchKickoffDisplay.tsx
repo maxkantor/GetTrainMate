@@ -4,7 +4,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { formatI18n } from '@/i18n';
 import { useMatchCountdown } from '@/hooks/useMatchCountdown';
 import type { EventMatch } from '@/services/sportsEventLayerService';
-import { formatKickoffFriendly } from '@/utils/eventMatchUtils';
+import { formatKickoffCompact } from '@/utils/eventMatchUtils';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
@@ -16,7 +16,7 @@ export const MatchKickoffDisplay: React.FC<Props> = ({ match }) => {
   const { t } = useI18n();
   const hasKickoff = Boolean(match.matchDate?.trim() && match.matchTime?.trim());
   const countdown = useMatchCountdown(hasKickoff ? match.matchDate : '', hasKickoff ? match.matchTime : undefined);
-  const friendly = formatKickoffFriendly(match.matchDate, match.matchTime);
+  const friendly = formatKickoffCompact(match.matchDate, match.matchTime);
 
   if (!friendly) {
     return (
@@ -28,7 +28,9 @@ export const MatchKickoffDisplay: React.FC<Props> = ({ match }) => {
 
   return (
     <Box className={styles.matchKickoff}>
-      <Typography className={styles.matchKickoffDate}>{friendly}</Typography>
+      <Typography className={styles.matchKickoffDate} noWrap title={friendly}>
+        {friendly}
+      </Typography>
       {match.status === 'Scheduled' && countdown && (
         <Typography className={styles.matchKickoffCountdown}>
           {formatI18n(t('event_hub.starts_in'), { time: countdown })}

@@ -66,6 +66,14 @@ function isSameLocalDay(a: Date, b: Date): boolean {
     && a.getDate() === b.getDate();
 }
 
+function formatLocalKickoffTime(d: Date): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(d);
+}
+
 /** User-friendly local kickoff, e.g. "Friday, June 12 at 7:00 PM" or "Today at 3:00 PM". */
 export function formatKickoffFriendly(matchDate?: string, matchTime?: string): string | null {
   const kickoff = parseKickoffUtc(matchDate, matchTime);
@@ -76,10 +84,7 @@ export function formatKickoffFriendly(matchDate?: string, matchTime?: string): s
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const timeStr = new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(d);
+  const timeStr = formatLocalKickoffTime(d);
 
   if (isSameLocalDay(d, now)) return `Today at ${timeStr}`;
   if (isSameLocalDay(d, tomorrow)) return `Tomorrow at ${timeStr}`;
@@ -93,8 +98,32 @@ export function formatKickoffFriendly(matchDate?: string, matchTime?: string): s
   return `${dateStr} at ${timeStr}`;
 }
 
+/** One-line card kickoff in the viewer's timezone, e.g. "Thu, Jun 18 · 7:00 PM EDT". */
+export function formatKickoffCompact(matchDate?: string, matchTime?: string): string | null {
+  const kickoff = parseKickoffUtc(matchDate, matchTime);
+  if (kickoff == null) return null;
+
+  const d = new Date(kickoff);
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const timeStr = formatLocalKickoffTime(d);
+
+  if (isSameLocalDay(d, now)) return `Today · ${timeStr}`;
+  if (isSameLocalDay(d, tomorrow)) return `Tomorrow · ${timeStr}`;
+
+  const dateStr = new Intl.DateTimeFormat(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  }).format(d);
+
+  return `${dateStr} · ${timeStr}`;
+}
+
 export function formatMatchMeta(match: EventMatch): string {
-  const friendly = formatKickoffFriendly(match.matchDate, match.matchTime);
+  const friendly = formatKickoffCompact(match.matchDate, match.matchTime);
   if (friendly) {
     return [friendly, match.venue?.trim()].filter(Boolean).join(' · ');
   }

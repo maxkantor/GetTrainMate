@@ -8,6 +8,7 @@ import { isGraphQLEnabled, graphqlGetMe, graphqlEnsureFreeStartCredits, GraphQLA
 import { getErrorMessage } from '@/utils/apiErrorHandler';
 import { syncAuthScopeToCurrentUser } from '@/utils/authScopeReset';
 import { handleSessionInvalid } from '@/utils/sessionInvalid';
+import { photoUrlsFromAvatarField, resolveProfilePhotoUrl } from '@/utils/profilePhotos';
 
 interface MeContextType {
   me: MeResponse | null;
@@ -35,8 +36,17 @@ function mergeEventsProfileFields(
   if (!gqlProfile && !restProfile) return null;
   if (!restProfile) return gqlProfile;
   if (!gqlProfile) return restProfile;
+  const restPhotos = (restProfile.photoUrls ?? [])
+    .map((u) => resolveProfilePhotoUrl(u))
+    .filter((u): u is string => Boolean(u));
+  const gqlPhotos = (gqlProfile.photoUrls ?? [])
+    .map((u) => resolveProfilePhotoUrl(u))
+    .filter((u): u is string => Boolean(u));
+  const mergedPhotos = restPhotos.length > 0 ? restPhotos : gqlPhotos;
+
   return {
     ...gqlProfile,
+    photoUrls: mergedPhotos.length > 0 ? mergedPhotos : gqlProfile.photoUrls,
     eventsWaitlistEnabled: restProfile.eventsWaitlistEnabled ?? gqlProfile.eventsWaitlistEnabled,
     eventsCityInterest: restProfile.eventsCityInterest ?? gqlProfile.eventsCityInterest,
     eventsInterestTypes:
@@ -68,7 +78,7 @@ function mapGraphQLMeToResponse(g: Awaited<ReturnType<typeof graphqlGetMe>>): Me
         availabilitySchedule: ((g.profile as { schedule?: unknown[] }).schedule as { days: string[]; timeStart: string; timeEnd: string }[]) ?? [],
         mode: modeSingle,
         modes,
-        photoUrls: (g.profile as { avatarUrl?: string }).avatarUrl ? [(g.profile as { avatarUrl: string }).avatarUrl] : [],
+        photoUrls: photoUrlsFromAvatarField((g.profile as { avatarUrl?: string }).avatarUrl),
         isComplete: g.isProfileComplete,
         updatedAt: (g.profile as { updatedAt?: string }).updatedAt,
       };

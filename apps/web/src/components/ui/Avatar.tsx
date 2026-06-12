@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './Avatar.module.css';
 
 interface AvatarProps {
@@ -15,12 +15,26 @@ export const Avatar: React.FC<AvatarProps> = ({
   fallback = '?',
   size = 'md',
   className = '',
-}) => (
-  <div className={`${styles.avatar} ${styles[size]} ${className}`}>
-    {src ? (
-      <img src={src} alt={alt} referrerPolicy="no-referrer" />
-    ) : (
-      <span className={styles.fallback}>{fallback}</span>
-    )}
-  </div>
-);
+}) => {
+  const [imgFailed, setImgFailed] = useState(false);
+  const showImage = Boolean(src) && !imgFailed;
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [src]);
+
+  return (
+    <div className={`${styles.avatar} ${styles[size]} ${className}`}>
+      {showImage ? (
+        <img
+          src={src!}
+          alt={alt}
+          referrerPolicy="no-referrer"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <span className={styles.fallback}>{fallback}</span>
+      )}
+    </div>
+  );
+};

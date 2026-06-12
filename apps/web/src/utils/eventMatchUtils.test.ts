@@ -4,6 +4,7 @@ import {
   categorizeMatches,
   compareMatchesChronological,
   formatKickoffFriendly,
+  formatKickoffCompact,
   isMatchUpcoming,
   parseKickoffUtc,
 } from './eventMatchUtils';
@@ -63,6 +64,14 @@ describe('eventMatchUtils', () => {
     expect(label).toMatch(/June|Jun/);
     expect(label).toMatch(/12/);
     expect(label).toMatch(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/i);
+  });
+
+  it('formatKickoffCompact is one line with local timezone hint', () => {
+    const label = formatKickoffCompact('2030-06-12', '19:00');
+    expect(label).toBeTruthy();
+    expect(label).not.toMatch(/\n/);
+    expect(label).toMatch(/·/);
+    expect(label).toMatch(/\d/);
   });
 
   it('compareMatchesChronological puts dated fixtures before undated knockout TBD slots', () => {

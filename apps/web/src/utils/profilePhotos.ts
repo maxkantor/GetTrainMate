@@ -1,3 +1,5 @@
+import { IMAGE_BUCKET_BASE } from '@/config/media';
+
 /**
  * Placeholder images: each profile gets multiple different images of the SAME person
  * (e.g. Sofia = 4 different shots of one woman, not 4 different women).
@@ -12,10 +14,29 @@ const PICSUM_BASE = 'https://picsum.photos/seed';
 /** Backend uses randomuser.me when profile has no photo — these are random people, not the user. */
 const BACKEND_PLACEHOLDER_HOST = 'randomuser.me';
 
+/** Resolve S3 key or relative path to a browser-loadable URL. */
+export function resolveProfilePhotoUrl(url: string | undefined | null): string | null {
+  if (!url?.trim()) return null;
+  const u = url.trim();
+  if (isBackendPlaceholderPhotoUrl(u)) return null;
+  if (/^https?:\/\//i.test(u) || u.startsWith('data:')) return u;
+  return `${IMAGE_BUCKET_BASE}/${u.replace(/^\//, '')}`;
+}
+
+/** Map GraphQL avatarUrl / photoUrls entry to a resolved URL list. */
+export function photoUrlsFromAvatarField(avatarUrl: string | undefined | null): string[] {
+  const resolved = resolveProfilePhotoUrl(avatarUrl);
+  return resolved ? [resolved] : [];
+}
+
 /** First real uploaded photo — excludes backend randomuser.me placeholders. */
 export function getRealPrimaryPhotoUrl(photoUrls: string[] | undefined | null): string | null {
   const real = (photoUrls ?? []).filter((u) => u?.trim() && !isBackendPlaceholderPhotoUrl(u));
-  return real[0] ?? null;
+  for (const u of real) {
+    const resolved = resolveProfilePhotoUrl(u);
+    if (resolved) return resolved;
+  }
+  return null;
 }
 
 /** Returns true if URL is a backend placeholder (random person), not the user's real photo. */

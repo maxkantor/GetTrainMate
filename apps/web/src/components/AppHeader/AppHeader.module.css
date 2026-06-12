@@ -366,8 +366,14 @@
 }
 
 .headerAvatar {
+  width: 40px;
+  height: 40px;
   border: 2px solid rgba(255, 255, 255, 0.18);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.headerAvatar img {
+  object-position: center center;
 }
 
 .avatarBtn .badge {
