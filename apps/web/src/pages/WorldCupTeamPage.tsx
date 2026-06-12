@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useI18n } from '@/hooks/useI18n';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
+import { WcCinematicBackdrop } from '@/components/worldCupHub/v2/WcCinematicBackdrop';
 import { WcMatchCard } from '@/components/worldCupHub/v2/WcMatchCard';
 import { WcAuthGateModal } from '@/components/worldCupHub/WcAuthGateModal';
 import {
@@ -55,13 +56,16 @@ export const WorldCupTeamPage: React.FC = () => {
 
   return (
     <Box className={styles.shell} sx={{ '--wc-accent': hub.config.themeColor || '#6366f1' } as React.CSSProperties}>
-      <Box className={styles.body} sx={{ pt: 2 }}>
+      <WcCinematicBackdrop />
+      <Box className={styles.body} sx={{ pt: 2, position: 'relative', zIndex: 1 }}>
         <Button component={RouterLink} to="/world-cup#groups" size="small" sx={{ mb: 2, color: 'rgba(255,255,255,0.6)' }}>
           ← {t('event_hub.back_to_hub')}
         </Button>
 
         <Box className={styles.teamHero}>
-          <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={72} alt={team.name} className={styles.teamHeroFlag} />
+          <Box className={styles.teamHeroFlagWrap}>
+            <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={80} alt={team.name} className={styles.teamHeroFlag} />
+          </Box>
           <Box>
             <Typography className={styles.teamHeroName}>{team.name}</Typography>
             <Typography className={styles.teamHeroMeta}>

@@ -10,6 +10,7 @@ import { WcLeaderboardTab } from './WcLeaderboardTab';
 import { WcFansTab } from './WcFansTab';
 import { WcMyPicksTab } from './WcMyPicksTab';
 import { WcAuthGateModal } from '@/components/worldCupHub/WcAuthGateModal';
+import { WcCinematicBackdrop } from './WcCinematicBackdrop';
 import type { EventHubSnapshot } from '@/services/sportsEventLayerService';
 import { parseWcTab, type WcTab } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
@@ -57,6 +58,7 @@ export const WcShell: React.FC<Props> = ({
       className={styles.shell}
       sx={{ '--wc-accent': hub.config.themeColor || '#6366f1' } as React.CSSProperties}
     >
+      <WcCinematicBackdrop />
       {tab === 'overview' && (
         <WcHeroV2
           eventId={eventId}

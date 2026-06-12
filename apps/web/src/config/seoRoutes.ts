@@ -1,4 +1,5 @@
 import { absoluteUrl } from '@/config/site';
+import { getWcTeamById } from '@/config/wcTeams';
 
 export type RouteSeo = {
   title: string;
@@ -8,6 +9,10 @@ export type RouteSeo = {
   noindex: boolean;
   ogTitle?: string;
   ogDescription?: string;
+  /** Path under public/, e.g. /images/event-banner.png */
+  ogImagePath?: string;
+  /** Extra JSON-LD objects (SportsEvent, etc.) */
+  jsonLd?: Record<string, unknown>[];
 };
 
 const BRAND = 'GetTrainMate';
@@ -75,7 +80,24 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
     ogTitle: 'World Cup 2026 Fan Hub — Predict. Connect. Experience Together.',
     ogDescription:
       'Make free predictions, see live groups, share your picks, and find fans nearby. No betting — just football fans connecting worldwide.',
+    ogImagePath: '/images/event-banner.png',
   },
+};
+
+const WC_SPORTS_EVENT_LD: Record<string, unknown> = {
+  '@context': 'https://schema.org',
+  '@type': 'SportsEvent',
+  name: 'FIFA World Cup 2026',
+  sport: 'Soccer',
+  startDate: '2026-06-11',
+  endDate: '2026-07-19',
+  location: {
+    '@type': 'Place',
+    name: 'United States, Canada, Mexico',
+    address: { '@type': 'PostalAddress', addressCountry: 'US' },
+  },
+  organizer: { '@type': 'Organization', name: 'FIFA' },
+  url: absoluteUrl('/world-cup'),
 };
 
 const AUTH_PATHS = new Set(['/login', '/signup', '/verify-email', '/admin/login']);
@@ -120,7 +142,28 @@ export function getRouteSeo(pathname: string): RouteSeo {
       noindex: p.noindex,
       ogTitle: p.ogTitle,
       ogDescription: p.ogDescription,
+      ogImagePath: p.ogImagePath,
+      jsonLd: path === '/world-cup' ? [WC_SPORTS_EVENT_LD] : undefined,
     });
+  }
+
+  if (path.startsWith('/world-cup/team/')) {
+    const teamId = decodeURIComponent(path.split('/').filter(Boolean).at(2) ?? '');
+    const team = getWcTeamById(teamId);
+    if (team) {
+      const canonicalPath = `/world-cup/team/${team.teamId}`;
+      return base({
+        title: `${team.name} — World Cup 2026 Fan Hub | ${BRAND}`,
+        description:
+          `Follow ${team.name} at FIFA World Cup 2026. Free predictions, group standings, upcoming matches, fan wall, and connect with ${team.name} supporters on GetTrainMate.`,
+        canonicalPath,
+        noindex: false,
+        ogTitle: `${team.name} World Cup 2026 — Predictions, Fans & Matches`,
+        ogDescription:
+          `Make free ${team.name} predictions, see standings and fixtures, and find fellow supporters worldwide.`,
+        ogImagePath: '/images/event-banner.png',
+      });
+    }
   }
 
   if (path.startsWith('/events/')) {

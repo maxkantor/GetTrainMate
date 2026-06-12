@@ -30,7 +30,9 @@ export const WcHeroV2: React.FC<Props> = ({ eventId, onPredict, onViewGroups }) 
 
   return (
     <Box className={styles.hero}>
+      <Box className={styles.heroVeil} aria-hidden />
       <Box className={styles.heroGlow} aria-hidden />
+      <Box className={styles.heroGrain} aria-hidden />
       <Box className={styles.heroInner}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <Typography className={styles.heroEyebrow}>⚽ FIFA World Cup 2026</Typography>

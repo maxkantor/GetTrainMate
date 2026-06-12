@@ -11,7 +11,9 @@ export const DocumentSeo: React.FC = () => {
   const { pathname } = useLocation();
   const seo = getRouteSeo(pathname);
   const canonical = canonicalHrefForPath(seo.canonicalPath);
-  const ogImage = ogImageAbsoluteUrl();
+  const ogImage = seo.ogImagePath
+    ? canonicalHrefForPath(seo.ogImagePath)
+    : ogImageAbsoluteUrl();
   const robots = seo.noindex ? 'noindex, nofollow' : 'index, follow';
   const ogTitle = seo.ogTitle ?? seo.title;
   const ogDesc = seo.ogDescription ?? seo.description;
@@ -52,6 +54,9 @@ export const DocumentSeo: React.FC = () => {
       {webPageLd && (
         <script type="application/ld+json">{JSON.stringify(webPageLd)}</script>
       )}
+      {seo.jsonLd?.map((ld, i) => (
+        <script key={i} type="application/ld+json">{JSON.stringify(ld)}</script>
+      ))}
     </Helmet>
   );
 };
