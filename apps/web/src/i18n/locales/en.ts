@@ -304,7 +304,6 @@ export const en = {
     promo_home_copy: 'Predict matches free, see community picks, and connect with fans watching the same games.',
     promo_home_cta_secondary: 'Explore Fan Hub',
     edit_pick: 'Change pick',
-    pick_first_hint: 'Tap a team or draw first, then save your score.',
     stage_group: 'Group Stage',
     stage_r32: 'Round of 32',
     stage_r16: 'Round of 16',

@@ -69,6 +69,16 @@ export const WcInlinePredict: React.FC<Props> = ({
   const draw = breakdown?.outcomes.find((o) => o.outcomeType === 'draw');
   const total = breakdown?.totalPredictions ?? 0;
 
+  const scoreNumA = parseInt(scoreA, 10);
+  const scoreNumB = parseInt(scoreB, 10);
+  const scoresValid = Number.isInteger(scoreNumA) && Number.isInteger(scoreNumB)
+    && scoreNumA >= 0 && scoreNumB >= 0;
+  /** With the score panel open, the score itself decides the outcome — no separate tap required. */
+  const derivedPick: WinnerPick | null = scoresValid
+    ? (scoreNumA === scoreNumB ? 'draw' : scoreNumA > scoreNumB ? 'teamA' : 'teamB')
+    : null;
+  const activeChoice = showScore ? derivedPick : winnerPick;
+
   const submit = (pick: WinnerPick, exact = false) => {
     if (!isAuthenticated) { onAuthRequired(); return; }
     if (!open) return;
@@ -81,8 +91,8 @@ export const WcInlinePredict: React.FC<Props> = ({
       payload.predictedWinnerTeamId = pick === 'teamA' ? match.teamAId : match.teamBId;
     }
     if (payload.predictionType === 'exact_score') {
-      payload.predictedScoreA = parseInt(scoreA, 10);
-      payload.predictedScoreB = parseInt(scoreB, 10);
+      payload.predictedScoreA = scoreNumA;
+      payload.predictedScoreB = scoreNumB;
       if (pick === 'teamA') payload.predictedWinnerTeamId = match.teamAId;
       else if (pick === 'teamB') payload.predictedWinnerTeamId = match.teamBId;
     }
@@ -91,7 +101,21 @@ export const WcInlinePredict: React.FC<Props> = ({
 
   const handlePick = (pick: WinnerPick) => {
     setWinnerPick(pick);
-    if (!showScore) submit(pick);
+    if (!showScore) {
+      submit(pick);
+      return;
+    }
+    // Score panel open: tapping a side flips the score to match the chosen outcome.
+    if (!scoresValid) return;
+    if (pick === 'draw' && scoreNumA !== scoreNumB) {
+      setScoreB(scoreA);
+    } else if (pick === 'teamA' && scoreNumA < scoreNumB) {
+      setScoreA(scoreB);
+      setScoreB(scoreA);
+    } else if (pick === 'teamB' && scoreNumA > scoreNumB) {
+      setScoreA(scoreB);
+      setScoreB(scoreA);
+    }
   };
 
   /** Reopen the pick UI prefilled from the saved prediction (change pick / add exact score). */
@@ -183,7 +207,7 @@ export const WcInlinePredict: React.FC<Props> = ({
         <Box sx={{ mt: total > 0 ? 1 : 0 }}>
           <Box className={styles.pickRow}>
             <Button
-              className={`${styles.pickBtn} ${winnerPick === 'teamA' ? styles.pickBtnActive : ''}`}
+              className={`${styles.pickBtn} ${activeChoice === 'teamA' ? styles.pickBtnActive : ''}`}
               onClick={() => handlePick('teamA')}
               disabled={predictMutation.isPending}
             >
@@ -191,7 +215,7 @@ export const WcInlinePredict: React.FC<Props> = ({
               <span className={styles.pickBtnName}>{match.teamAName}</span>
             </Button>
             <Button
-              className={`${styles.pickBtn} ${winnerPick === 'draw' ? styles.pickBtnActive : ''}`}
+              className={`${styles.pickBtn} ${activeChoice === 'draw' ? styles.pickBtnActive : ''}`}
               onClick={() => handlePick('draw')}
               disabled={predictMutation.isPending}
             >
@@ -199,7 +223,7 @@ export const WcInlinePredict: React.FC<Props> = ({
               <span className={styles.pickBtnName}>{t('event_hub.pick_draw')}</span>
             </Button>
             <Button
-              className={`${styles.pickBtn} ${winnerPick === 'teamB' ? styles.pickBtnActive : ''}`}
+              className={`${styles.pickBtn} ${activeChoice === 'teamB' ? styles.pickBtnActive : ''}`}
               onClick={() => handlePick('teamB')}
               disabled={predictMutation.isPending}
             >
@@ -248,16 +272,22 @@ export const WcInlinePredict: React.FC<Props> = ({
                 />
                 <span className={styles.scoreFlag} aria-hidden>{match.teamBFlag}</span>
               </Box>
-              {!winnerPick && (
-                <Typography className={styles.scoreHint}>{t('event_hub.pick_first_hint')}</Typography>
+              {derivedPick && (
+                <Typography className={styles.scoreSummary}>
+                  {derivedPick === 'draw'
+                    ? `🤝 ${t('event_hub.pick_draw')} · ${scoreNumA}–${scoreNumB}`
+                    : derivedPick === 'teamA'
+                      ? `${match.teamAFlag} ${match.teamAName} · ${scoreNumA}–${scoreNumB}`
+                      : `${match.teamBFlag} ${match.teamBName} · ${scoreNumA}–${scoreNumB}`}
+                </Typography>
               )}
               <Button
                 size="small"
                 variant="contained"
                 className={styles.ctaPrimary}
                 fullWidth
-                disabled={!winnerPick || predictMutation.isPending}
-                onClick={() => winnerPick && submit(winnerPick, true)}
+                disabled={!derivedPick || predictMutation.isPending}
+                onClick={() => derivedPick && submit(derivedPick, true)}
               >
                 {t('event_hub.save_prediction')}
               </Button>

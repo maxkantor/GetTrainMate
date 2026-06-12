@@ -653,9 +653,10 @@
 
 .scoreDash { color: rgba(255, 255, 255, 0.4); font-weight: 800; font-size: 1.05rem; }
 
-.scoreHint {
-  font-size: 0.72rem;
-  color: rgba(253, 230, 138, 0.85);
+.scoreSummary {
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  color: #a7f3d0;
   text-align: center;
 }
 
