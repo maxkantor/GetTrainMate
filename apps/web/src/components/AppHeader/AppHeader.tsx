@@ -141,8 +141,11 @@ export const AppHeader: React.FC = () => {
       { label: t('nav.profile'), href: '/app/profile' },
       { label: t('nav.ai_coach'), href: '/app/ai-coach' }
     );
+    if (showWorldCupNav) {
+      items.push({ label: t('event_hub.nav_label'), href: hubRoute, icon: '⚽' });
+    }
     return items;
-  }, [me?.profile, t]);
+  }, [me?.profile, t, showWorldCupNav, hubRoute]);
 
   const isAppNavItemActive = (
     pathname: string,
@@ -399,7 +402,7 @@ export const AppHeader: React.FC = () => {
                   {centerStatus ? (
                     <div className={styles.mobileStatus}>{centerStatus}</div>
                   ) : null}
-                  {navItems.map(({ label, href, exact, alsoActiveOnPaths }) => {
+                  {navItems.map(({ label, href, icon, exact, alsoActiveOnPaths }) => {
                     const navActive = isAppNavItemActive(location.pathname, href, { exact, alsoActiveOnPaths });
                     return (
                       <RouterLink
@@ -411,7 +414,7 @@ export const AppHeader: React.FC = () => {
                           if (href === '/app/chat') requestChatNavScrollTop();
                         }}
                       >
-                        {label}
+                        {icon ? `${icon} ` : ''}{label}
                       </RouterLink>
                     );
                   })}

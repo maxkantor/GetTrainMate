@@ -357,27 +357,71 @@ export const AppHomePage: React.FC = () => {
         </Button>
       ) : null}
       {sportsLayerEnabled && featuredEvent ? (
-        <Card variant="outlined" sx={{ mb: 2, borderRadius: 2 }}>
-          <CardActionArea
-            component={RouterLink}
-            to={`/events/${featuredEvent.eventId}`}
-            onClick={() =>
-              trackEvent('event_banner_click', {
-                eventId: featuredEvent.eventId,
-                eventLabel: featuredEvent.label,
-                sport: featuredEvent.sport,
-                sourcePage: '/app',
-              })
-            }
-            sx={{ p: 2 }}
-          >
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              {featuredEvent.icon} {featuredEvent.label}: Find people to train, play, watch, meet, vibe, or date.
+        <Card
+          variant="outlined"
+          sx={{
+            mb: 2,
+            borderRadius: 3,
+            borderColor: 'rgba(245, 208, 97, 0.35)',
+            background:
+              'linear-gradient(120deg, rgba(245,208,97,0.08), rgba(99,102,241,0.08) 55%, rgba(245,208,97,0.05))',
+            boxShadow: '0 0 24px rgba(245, 208, 97, 0.08)',
+          }}
+        >
+          <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              {featuredEvent.icon}{' '}
+              {featuredEvent.eventId === 'world-cup-2026' ? t('event_hub.promo_home_title') : featuredEvent.label}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Explore
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
+              {featuredEvent.eventId === 'world-cup-2026'
+                ? t('event_hub.promo_home_copy')
+                : featuredEvent.description}
             </Typography>
-          </CardActionArea>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              <Button
+                component={RouterLink}
+                to={`${featuredEvent.hubRoute?.trim() || '/world-cup'}#predictions`}
+                variant="contained"
+                size="small"
+                onClick={() =>
+                  trackEvent('event_banner_click', {
+                    eventId: featuredEvent.eventId,
+                    eventLabel: featuredEvent.label,
+                    sport: featuredEvent.sport,
+                    sourcePage: '/app',
+                    cta: 'predict',
+                  })
+                }
+                sx={{
+                  fontWeight: 800,
+                  color: '#181000',
+                  background: 'linear-gradient(135deg, #ffe9a3, #f5d061 45%, #dfb544)',
+                  '&:hover': { background: 'linear-gradient(135deg, #ffe9a3, #f5d061 45%, #dfb544)', filter: 'brightness(1.05)' },
+                }}
+              >
+                ⚽ {t('event_hub.cta_predict')}
+              </Button>
+              <Button
+                component={RouterLink}
+                to={featuredEvent.hubRoute?.trim() || '/world-cup'}
+                variant="outlined"
+                size="small"
+                onClick={() =>
+                  trackEvent('event_banner_click', {
+                    eventId: featuredEvent.eventId,
+                    eventLabel: featuredEvent.label,
+                    sport: featuredEvent.sport,
+                    sourcePage: '/app',
+                    cta: 'explore',
+                  })
+                }
+                sx={{ fontWeight: 700 }}
+              >
+                {t('event_hub.promo_home_cta_secondary')}
+              </Button>
+            </Box>
+          </Box>
         </Card>
       ) : null}
 
