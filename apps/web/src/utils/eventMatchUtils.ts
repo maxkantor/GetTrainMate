@@ -60,16 +60,43 @@ export function stageI18nKey(match: EventMatch): string | null {
   return STAGE_I18N_KEY[(match.stage ?? '').trim().toLowerCase()] ?? null;
 }
 
+function isSameLocalDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+/** User-friendly local kickoff, e.g. "Friday, June 12 at 7:00 PM" or "Today at 3:00 PM". */
+export function formatKickoffFriendly(matchDate?: string, matchTime?: string): string | null {
+  const kickoff = parseKickoffUtc(matchDate, matchTime);
+  if (kickoff == null) return null;
+
+  const d = new Date(kickoff);
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const timeStr = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(d);
+
+  if (isSameLocalDay(d, now)) return `Today at ${timeStr}`;
+  if (isSameLocalDay(d, tomorrow)) return `Tomorrow at ${timeStr}`;
+
+  const dateStr = new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).format(d);
+
+  return `${dateStr} at ${timeStr}`;
+}
+
 export function formatMatchMeta(match: EventMatch): string {
-  const kickoff = parseKickoffUtc(match.matchDate, match.matchTime);
-  if (kickoff != null) {
-    const local = new Intl.DateTimeFormat(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    }).format(new Date(kickoff));
-    return [local, match.venue?.trim()].filter(Boolean).join(' · ');
+  const friendly = formatKickoffFriendly(match.matchDate, match.matchTime);
+  if (friendly) {
+    return [friendly, match.venue?.trim()].filter(Boolean).join(' · ');
   }
   const parts = [
     match.matchDate?.trim(),

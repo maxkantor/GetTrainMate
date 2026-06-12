@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { arePredictionsOpen, categorizeMatches, compareMatchesChronological, isMatchUpcoming, parseKickoffUtc } from './eventMatchUtils';
+import {
+  arePredictionsOpen,
+  categorizeMatches,
+  compareMatchesChronological,
+  formatKickoffFriendly,
+  isMatchUpcoming,
+  parseKickoffUtc,
+} from './eventMatchUtils';
 import type { EventMatch } from '@/services/sportsEventLayerService';
 
 function matchFixture(overrides: Partial<EventMatch> & Pick<EventMatch, 'matchId'>): EventMatch {
@@ -47,6 +54,15 @@ describe('eventMatchUtils', () => {
 
   it('parseKickoffUtc returns null without time', () => {
     expect(parseKickoffUtc('2026-06-11', '')).toBeNull();
+  });
+
+  it('formatKickoffFriendly includes weekday, month, day, and time', () => {
+    const label = formatKickoffFriendly('2030-06-12', '19:00');
+    expect(label).toBeTruthy();
+    expect(label).toMatch(/at \d/);
+    expect(label).toMatch(/June|Jun/);
+    expect(label).toMatch(/12/);
+    expect(label).toMatch(/Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday/i);
   });
 
   it('compareMatchesChronological puts dated fixtures before undated knockout TBD slots', () => {

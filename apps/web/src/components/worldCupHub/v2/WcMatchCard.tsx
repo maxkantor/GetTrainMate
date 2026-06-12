@@ -3,8 +3,8 @@ import { Box, Chip, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import type { EventMatch } from '@/services/sportsEventLayerService';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
-import { formatMatchMeta, isTbdMatch } from '@/utils/eventMatchUtils';
-import { useMatchCountdown } from '@/hooks/useMatchCountdown';
+import { MatchKickoffDisplay } from '@/components/worldCupHub/MatchKickoffDisplay';
+import { isTbdMatch } from '@/utils/eventMatchUtils';
 import { WcInlinePredict } from './WcInlinePredict';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -34,8 +34,6 @@ export const WcMatchCard: React.FC<Props> = ({
   eventId, match, groupLabel, isAuthenticated, onAuthRequired, showPredict = true,
 }) => {
   const { t } = useI18n();
-  const hasKickoff = Boolean(match.matchDate?.trim() && match.matchTime?.trim());
-  const countdown = useMatchCountdown(hasKickoff ? match.matchDate : '', hasKickoff ? match.matchTime : undefined);
   const isFinal = match.status === 'Completed';
   const isLive = match.status === 'Live';
   const isTbd = isTbdMatch(match);
@@ -81,15 +79,7 @@ export const WcMatchCard: React.FC<Props> = ({
         />
         {match.isFeatured && <Chip size="small" label="★" sx={{ ml: 0.5, bgcolor: 'rgba(251,191,36,0.2)', color: '#fde68a' }} />}
         {groupLabel && <Chip size="small" label={groupLabel} sx={{ ml: 0.5, bgcolor: 'rgba(129,140,248,0.14)', color: '#c7d2fe' }} />}
-        {isLive ? (
-          <Typography sx={{ fontSize: '0.78rem', color: '#fca5a5', fontWeight: 700 }}>● LIVE</Typography>
-        ) : hasKickoff && match.status === 'Scheduled' && countdown ? (
-          <Typography sx={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.55)' }}>{countdown}</Typography>
-        ) : (
-          <Typography sx={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
-            {formatMatchMeta(match) || t('event_hub.kickoff_tbd')}
-          </Typography>
-        )}
+        <MatchKickoffDisplay match={match} />
       </Box>
 
       <Box className={styles.matchTeams}>
