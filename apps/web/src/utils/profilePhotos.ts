@@ -12,6 +12,12 @@ const PICSUM_BASE = 'https://picsum.photos/seed';
 /** Backend uses randomuser.me when profile has no photo — these are random people, not the user. */
 const BACKEND_PLACEHOLDER_HOST = 'randomuser.me';
 
+/** First real uploaded photo — excludes backend randomuser.me placeholders. */
+export function getRealPrimaryPhotoUrl(photoUrls: string[] | undefined | null): string | null {
+  const real = (photoUrls ?? []).filter((u) => u?.trim() && !isBackendPlaceholderPhotoUrl(u));
+  return real[0] ?? null;
+}
+
 /** Returns true if URL is a backend placeholder (random person), not the user's real photo. */
 export function isBackendPlaceholderPhotoUrl(url: string | undefined): boolean {
   if (!url || typeof url !== 'string') return false;

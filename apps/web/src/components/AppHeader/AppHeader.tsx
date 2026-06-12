@@ -15,6 +15,8 @@ import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import { requestChatNavScrollTop } from '@/utils/chatNav';
 import { useCreditsUsageModal } from '@/contexts/CreditsUsageModalContext';
 import { useWorldCupHubNav } from '@/hooks/useWorldCupHubNav';
+import { Avatar } from '@/components/ui/Avatar';
+import { getRealPrimaryPhotoUrl } from '@/utils/profilePhotos';
 import styles from './AppHeader.module.css';
 
 export const AppHeader: React.FC = () => {
@@ -83,6 +85,11 @@ export const AppHeader: React.FC = () => {
     me?.profile?.name?.trim()?.charAt(0)?.toUpperCase() ||
     user?.email?.charAt(0)?.toUpperCase() ||
     '?';
+
+  const avatarPhotoUrl = useMemo(
+    () => getRealPrimaryPhotoUrl(me?.profile?.photoUrls),
+    [me?.profile?.photoUrls],
+  );
 
   useEffect(() => {
     const fn = (e: MouseEvent) => {
@@ -319,7 +326,13 @@ export const AppHeader: React.FC = () => {
                       : user?.email || undefined
                   }
                 >
-                  <span className={styles.avatarCircle}>{avatarLetter}</span>
+                  <Avatar
+                    src={avatarPhotoUrl}
+                    alt={me?.profile?.name?.trim() || user?.email || ''}
+                    fallback={avatarLetter}
+                    size="md"
+                    className={styles.headerAvatar}
+                  />
                   {!profileComplete && (
                     <span className={styles.badge} aria-label={t('header.profile_incomplete')}>
                       !
