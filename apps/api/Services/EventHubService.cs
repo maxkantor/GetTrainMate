@@ -574,12 +574,49 @@ public class EventHubService : IEventHubService
         var matchesDiscussed = comments.Where(c => !c.Deleted && c.ThreadType == "match")
             .Select(c => c.ThreadId).Distinct().Count();
         var meetups = await _sportsLayer.GetMeetupsForEventAsync(eventId);
+        var matches = await GetMatchesAsync(eventId);
+        var matchesPlayed = matches.Count(m => m.Status == EventMatchStatus.Completed);
+        var countriesRepresented = analytics.PopularTeams.Count(kv => kv.Value > 0);
         return new EventHubLiveStats
         {
+            MatchesPlayed = matchesPlayed,
             PredictionsSubmitted = analytics.TotalPredictions,
-            ActiveFans = analytics.UniquePredictors + comments.Select(c => c.UserId).Distinct().Count(),
+            ActiveFans = analytics.UniquePredictors,
+            CountriesRepresented = countriesRepresented,
             MatchesDiscussed = matchesDiscussed,
             ConnectionsMade = meetups.Count,
+        };
+    }
+
+    public async Task<UserPicksSummary> GetUserPicksSummaryAsync(string eventId, string userId)
+    {
+        var predictions = (await QueryEventItemsAsync(_predictionsTable, eventId, MapPrediction))
+            .Where(p => p.UserId == userId)
+            .OrderByDescending(p => p.UpdatedAt)
+            .ToList();
+        var matches = await GetMatchesAsync(eventId);
+        var completed = matches.Where(m => m.Status == EventMatchStatus.Completed).ToList();
+        var correct = 0;
+        foreach (var pred in predictions)
+        {
+            var match = completed.FirstOrDefault(m => m.MatchId == pred.MatchId);
+            if (match == null || match.ScoreA == null || match.ScoreB == null) continue;
+            if (ScorePrediction(pred, match) > 0) correct++;
+        }
+        var pending = predictions.Count(p => matches.Any(m => m.MatchId == p.MatchId && m.Status != EventMatchStatus.Completed));
+        var leaderboard = await GetLeaderboardAsync(eventId, "predictors");
+        var rank = leaderboard.FindIndex(e => e.UserId == userId);
+        var globalRank = rank >= 0 ? rank + 1 : 0;
+        var resolved = predictions.Count - pending;
+        var accuracy = resolved > 0 ? (int)Math.Round(100.0 * correct / resolved) : 0;
+        return new UserPicksSummary
+        {
+            Predictions = predictions,
+            CorrectCount = correct,
+            PendingCount = pending,
+            TotalCount = predictions.Count,
+            GlobalRank = globalRank,
+            AccuracyPercent = accuracy,
         };
     }
 

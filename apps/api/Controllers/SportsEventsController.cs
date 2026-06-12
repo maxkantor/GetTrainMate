@@ -150,6 +150,15 @@ public class SportsEventsController : ControllerBase
         return Ok(pred);
     }
 
+    [HttpGet("{eventId}/predictions/mine/summary")]
+    public async Task<ActionResult<UserPicksSummary>> GetMyPicksSummary(string eventId)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+        if (!await IsHubAccessible(eventId)) return NotFound();
+        return Ok(await _eventHubService.GetUserPicksSummaryAsync(eventId, userId));
+    }
+
     [HttpPost("{eventId}/predictions")]
     public async Task<ActionResult<EventPrediction>> CreatePrediction(string eventId, [FromBody] CreatePredictionRequest request)
     {

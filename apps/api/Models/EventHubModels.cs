@@ -174,10 +174,22 @@ public sealed class EventHubSettings
 
 public sealed class EventHubLiveStats
 {
+    public int MatchesPlayed { get; set; }
     public int PredictionsSubmitted { get; set; }
     public int ActiveFans { get; set; }
+    public int CountriesRepresented { get; set; }
     public int MatchesDiscussed { get; set; }
     public int ConnectionsMade { get; set; }
+}
+
+public sealed class UserPicksSummary
+{
+    public List<EventPrediction> Predictions { get; set; } = new();
+    public int CorrectCount { get; set; }
+    public int PendingCount { get; set; }
+    public int TotalCount { get; set; }
+    public int GlobalRank { get; set; }
+    public int AccuracyPercent { get; set; }
 }
 
 public sealed class CommunityPulse

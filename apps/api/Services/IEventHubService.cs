@@ -23,6 +23,7 @@ public interface IEventHubService
     Task DeleteMatchAsync(string eventId, string matchId);
 
     Task<EventPrediction?> GetUserPredictionAsync(string eventId, string matchId, string userId);
+    Task<UserPicksSummary> GetUserPicksSummaryAsync(string eventId, string userId);
     Task<List<EventPrediction>> GetPredictionsForMatchAsync(string eventId, string matchId);
     Task<EventPrediction> CreateOrUpdatePredictionAsync(string eventId, string userId, string? displayName, CreatePredictionRequest request);
     Task IncrementPredictionShareAsync(string eventId, string matchId, string userId);

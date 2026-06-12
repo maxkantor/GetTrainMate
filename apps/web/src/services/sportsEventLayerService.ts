@@ -69,10 +69,21 @@ export interface EventHubSettings {
 }
 
 export interface EventHubLiveStats {
+  matchesPlayed: number;
   predictionsSubmitted: number;
   activeFans: number;
+  countriesRepresented: number;
   matchesDiscussed: number;
   connectionsMade: number;
+}
+
+export interface UserPicksSummary {
+  predictions: EventPrediction[];
+  correctCount: number;
+  pendingCount: number;
+  totalCount: number;
+  globalRank: number;
+  accuracyPercent: number;
 }
 
 export interface PredictionOutcomeShare {
@@ -282,6 +293,20 @@ class SportsEventLayerService {
       `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/comments/${encodeURIComponent(threadId)}`
     );
     return res.data ?? [];
+  }
+
+  async getMyPicksSummary(eventId: string): Promise<UserPicksSummary | null> {
+    const token = await authService.getJWT();
+    if (!token) return null;
+    try {
+      const res = await axios.get<UserPicksSummary>(
+        `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/predictions/mine/summary`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return res.data;
+    } catch {
+      return null;
+    }
   }
 
   async getMyPrediction(eventId: string, matchId: string): Promise<EventPrediction | null> {

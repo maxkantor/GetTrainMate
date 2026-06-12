@@ -16,6 +16,7 @@ import { FAQPage } from '@/pages/FAQ';
 import { ContactPage } from '@/pages/Contact';
 import { EventLandingPage } from '@/pages/EventLandingPage';
 import { EventHubPage } from '@/pages/EventHubPage';
+import { WorldCupTeamPage } from '@/pages/WorldCupTeamPage';
 import { PrivacyPage } from '@/pages/Privacy';
 import { TermsPage } from '@/pages/Terms';
 import { GearPage } from '@/pages/Gear';
@@ -118,6 +119,7 @@ export const Router: React.FC = () => {
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/world-cup" element={<EventHubPage eventId="world-cup-2026" />} />
+            <Route path="/world-cup/team/:teamId" element={<WorldCupTeamPage />} />
             <Route path="/events/:eventId" element={<EventLandingPage />} />
             <Route path="/gear" element={<GearPage />} />
             <Route path="/platform" element={<PlatformPage />} />

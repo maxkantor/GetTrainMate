@@ -1,0 +1,749 @@
+/* World Cup Fan Hub V2 — Command Center */
+
+.shell {
+  min-height: 100vh;
+  background: #02040a;
+  color: #f4f4fb;
+  --wc-accent: #6366f1;
+  --wc-gold: #fbbf24;
+  overflow-x: hidden;
+}
+
+.body {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem 4rem;
+}
+
+/* ── Sticky Nav ── */
+.navWrap {
+  position: sticky;
+  top: 0;
+  z-index: 120;
+  background: rgba(2, 4, 10, 0.88);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.navInner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.navInner::-webkit-scrollbar { display: none; }
+
+.navTab {
+  flex: 0 0 auto;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+.navTab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.navTabActive {
+  color: #fff;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(129, 140, 248, 0.2));
+  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.45);
+}
+
+/* ── Hero V2 ── */
+.hero {
+  position: relative;
+  min-height: 520px;
+  display: flex;
+  align-items: center;
+  background:
+    radial-gradient(ellipse 100% 80% at 50% -20%, rgba(99, 102, 241, 0.35), transparent 60%),
+    radial-gradient(ellipse 50% 60% at 85% 40%, rgba(251, 191, 36, 0.12), transparent),
+    radial-gradient(ellipse 40% 50% at 10% 60%, rgba(34, 197, 94, 0.08), transparent),
+    linear-gradient(180deg, #0a0f22 0%, #02040a 100%),
+    url('/images/section-worldcup-bg.png') center 30% / cover no-repeat;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.heroGlow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 80%, rgba(251, 191, 36, 0.06), transparent 40%),
+    radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.1), transparent 45%);
+  pointer-events: none;
+  animation: heroPulse 8s ease-in-out infinite alternate;
+}
+
+@keyframes heroPulse {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
+.heroInner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2.5rem 1rem 2rem;
+}
+
+.heroEyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--wc-gold);
+  margin-bottom: 0.6rem;
+}
+
+.heroHeadline {
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #fff 10%, #fde68a 45%, #a78bfa 80%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.85rem;
+  max-width: 16ch;
+}
+
+.heroSub {
+  font-size: clamp(1rem, 2.2vw, 1.2rem);
+  color: rgba(255, 255, 255, 0.78);
+  max-width: 36rem;
+  line-height: 1.55;
+  margin-bottom: 1.5rem;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 720px) {
+  .statGrid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.statCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  backdrop-filter: blur(8px);
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.statCard:hover {
+  border-color: rgba(129, 140, 248, 0.4);
+  transform: translateY(-2px);
+}
+
+.statValue {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.statLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 0.2rem;
+}
+
+.heroCtas { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+.ctaPrimary {
+  background: linear-gradient(135deg, var(--wc-accent), #818cf8) !important;
+  font-weight: 700 !important;
+  border-radius: 12px !important;
+  text-transform: none !important;
+  box-shadow: 0 8px 28px rgba(99, 102, 241, 0.4) !important;
+  padding: 0.65rem 1.5rem !important;
+}
+
+.ctaSecondary {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #fff !important;
+  border-radius: 12px !important;
+  text-transform: none !important;
+  padding: 0.65rem 1.5rem !important;
+}
+
+.trustLine {
+  font-size: 0.82rem;
+  color: rgba(167, 139, 250, 0.9);
+  font-weight: 600;
+  margin-top: 0.75rem;
+}
+
+/* ── Sections ── */
+.tabPanel { padding-top: 1.5rem; }
+
+.sectionTitle {
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.35rem;
+}
+
+.sectionLead {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.58);
+  margin-bottom: 1.25rem;
+  max-width: 42rem;
+}
+
+/* ── Sub tabs ── */
+.subTabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.subTab {
+  padding: 0.45rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.subTab:hover { border-color: rgba(129, 140, 248, 0.4); color: #fff; }
+
+.subTabActive {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(129, 140, 248, 0.5);
+  color: #fff;
+}
+
+.viewToggle {
+  display: flex;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+/* ── Glass cards ── */
+.glassCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.1rem;
+  backdrop-filter: blur(10px);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.glassCard:hover {
+  border-color: rgba(129, 140, 248, 0.35);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Groups ── */
+.groupsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.groupCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.1rem;
+  backdrop-filter: blur(10px);
+}
+
+.groupLabel {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--wc-gold);
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+.standingsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.standingsTable th {
+  text-align: left;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 600;
+  padding: 0.35rem 0.4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.standingsTable td {
+  padding: 0.5rem 0.4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.standingsTable tr:hover td {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.teamCell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.teamFlag { font-size: 1.35rem; line-height: 1; }
+
+.ptsCell {
+  font-weight: 800;
+  color: var(--wc-gold);
+  text-align: right;
+}
+
+.cardStandingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cardStandingRow:last-child { border-bottom: none; }
+
+.cardStandingStats {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Match cards ── */
+.matchGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.matchCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.1rem;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.matchCardFeatured {
+  border-color: rgba(251, 191, 36, 0.35);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.15);
+}
+
+.matchTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.statusLive {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #fca5a5 !important;
+  font-weight: 800 !important;
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+.statusFinal { background: rgba(255, 255, 255, 0.08) !important; color: rgba(255,255,255,0.7) !important; }
+.statusUpcoming { background: rgba(99, 102, 241, 0.15) !important; color: #a5b4fc !important; }
+
+.matchTeams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.matchTeam {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.25rem;
+}
+
+.matchFlag { font-size: 2rem; line-height: 1; }
+
+.matchTeamName {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.matchScore {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.matchVs {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 700;
+}
+
+.matchMeta {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+
+/* Community poll */
+.pollBar {
+  display: flex;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pollSegA { background: #6366f1; }
+.pollSegD { background: rgba(255, 255, 255, 0.35); }
+.pollSegB { background: #22c55e; }
+
+.pollLabels {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.4;
+}
+
+/* Inline predict */
+.pickRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.pickBtn {
+  padding: 0.5rem 0.35rem !important;
+  border-radius: 10px !important;
+  text-transform: none !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  min-width: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.pickBtn:hover {
+  border-color: rgba(129, 140, 248, 0.5) !important;
+  background: rgba(99, 102, 241, 0.15) !important;
+}
+
+.pickBtnActive {
+  border-color: var(--wc-accent) !important;
+  background: rgba(99, 102, 241, 0.25) !important;
+  color: #fff !important;
+}
+
+.scoreRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.scoreInput {
+  width: 3rem;
+  text-align: center;
+  padding: 0.4rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-weight: 700;
+}
+
+.scoreDash { color: rgba(255, 255, 255, 0.4); font-weight: 700; }
+
+/* ── Fan wall ── */
+.fanWall {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.fanPost {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.1rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+}
+
+.fanAvatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--wc-accent), #a78bfa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.fanPostHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.25rem;
+}
+
+.fanName { font-weight: 700; font-size: 0.9rem; }
+.fanMeta { font-size: 0.75rem; color: rgba(255, 255, 255, 0.45); }
+.fanBody { font-size: 0.92rem; line-height: 1.45; color: rgba(255, 255, 255, 0.88); }
+
+.fanActions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.fanActionBtn {
+  font-size: 0.75rem !important;
+  text-transform: none !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  min-width: 0 !important;
+  padding: 0.2rem 0.5rem !important;
+}
+
+.replyBox {
+  margin-top: 0.5rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid rgba(99, 102, 241, 0.35);
+}
+
+/* ── Leaderboard ── */
+.lbTable {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.lbRow {
+  display: grid;
+  grid-template-columns: 3rem 1fr auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lbRow:hover { background: rgba(99, 102, 241, 0.06); }
+
+.lbRank {
+  font-weight: 900;
+  color: var(--wc-gold);
+  font-size: 0.95rem;
+}
+
+.lbName { font-weight: 700; }
+.lbStat { font-size: 0.82rem; color: rgba(255, 255, 255, 0.55); }
+.lbPts { font-weight: 800; color: #a5b4fc; }
+
+/* ── My picks ── */
+.picksGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.pickStatCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.1rem;
+  text-align: center;
+}
+
+.pickStatVal {
+  font-size: 1.75rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.pickStatLbl {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.2rem;
+}
+
+/* ── Challenges ── */
+.challengeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.challengeCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.1rem;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.challengeCard:hover { transform: translateY(-3px); }
+
+.challengeIcon { font-size: 1.5rem; margin-bottom: 0.35rem; }
+.challengeTitle { font-weight: 800; font-size: 0.95rem; }
+.challengeDesc { font-size: 0.78rem; color: rgba(255, 255, 255, 0.5); margin-top: 0.25rem; }
+
+/* ── Team explorer strip ── */
+.teamStrip {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+}
+
+.teamChip {
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  min-width: 120px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0.85rem 1rem;
+  transition: border-color 0.2s;
+}
+
+.teamChip:hover { border-color: rgba(251, 191, 36, 0.4); }
+
+.teamChipFlag { font-size: 2rem; display: block; margin-bottom: 0.25rem; }
+.teamChipName { font-size: 0.82rem; font-weight: 700; }
+
+/* ── Empty states ── */
+.emptyPremium {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+}
+
+.emptyTitle {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+}
+
+.emptyDesc {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+/* ── Overview grid ── */
+.overviewGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .overviewGrid { grid-template-columns: 1fr; }
+}
+
+.overviewBlock {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.1rem;
+}
+
+.pulseItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.88rem;
+}
+
+.pulseItem:last-child { border-bottom: none; }
+
+.pulseVal { font-weight: 800; color: #a5b4fc; }
+
+/* ── Team page ── */
+.teamHero {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+}
+
+.teamHeroFlag { font-size: 4rem; line-height: 1; }
+.teamHeroName { font-size: 1.75rem; font-weight: 900; }
+.teamHeroMeta { color: rgba(255, 255, 255, 0.55); font-size: 0.9rem; }
+
+.teamPageGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .teamPageGrid { grid-template-columns: 1fr; }
+}
