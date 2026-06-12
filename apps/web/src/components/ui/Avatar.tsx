@@ -24,16 +24,19 @@ export const Avatar: React.FC<AvatarProps> = ({
   }, [src]);
 
   return (
-    <div className={`${styles.avatar} ${styles[size]} ${className}`}>
+    <div className={`${styles.avatar} ${styles[size]} ${className}`} aria-hidden={!alt && showImage}>
       {showImage ? (
         <img
           src={src!}
           alt={alt}
           referrerPolicy="no-referrer"
+          decoding="async"
           onError={() => setImgFailed(true)}
         />
       ) : (
-        <span className={styles.fallback}>{fallback}</span>
+        <span className={styles.fallback} aria-hidden={Boolean(alt)}>
+          {fallback}
+        </span>
       )}
     </div>
   );

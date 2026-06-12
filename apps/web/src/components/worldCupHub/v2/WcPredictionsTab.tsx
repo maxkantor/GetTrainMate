@@ -1,7 +1,12 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
-import { isTbdMatch, stageOrder, stageI18nKey } from '@/utils/eventMatchUtils';
+import {
+  compareMatchesChronological,
+  isTbdMatch,
+  stageOrder,
+  stageI18nKey,
+} from '@/utils/eventMatchUtils';
 import type { EventMatch } from '@/services/sportsEventLayerService';
 import type { WcHubProps } from './wcTypes';
 import { WcMatchCard } from './WcMatchCard';
@@ -17,30 +22,48 @@ type StageSection = {
 
 export const WcPredictionsTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, onAuthRequired }) => {
   const { t } = useI18n();
+  const groupSort = new Map(hub.groups.map((g) => [g.groupId, g.sortOrder]));
   const groupLabel = (groupId?: string) =>
     hub.groups.find((g) => g.groupId === groupId)?.label;
 
   const sections = new Map<string, StageSection>();
   for (const match of hub.matches) {
     if (match.status === 'Completed') continue;
+
+    if (match.groupId?.trim()) {
+      const gid = match.groupId.trim();
+      const label = groupLabel(gid) ?? gid;
+      const key = `group|${gid}`;
+      const section = sections.get(key) ?? {
+        order: groupSort.get(gid) ?? 999,
+        label,
+        matches: [],
+      };
+      section.matches.push(match);
+      sections.set(key, section);
+      continue;
+    }
+
     const i18nKey = stageI18nKey(match);
     const label = i18nKey ? t(i18nKey) : (match.stage?.trim() || t('event_hub.stage_group'));
-    const key = `${stageOrder(match)}|${label}`;
-    const section = sections.get(key) ?? { order: stageOrder(match), label, matches: [] };
+    const key = `stage|${stageOrder(match)}|${label}`;
+    const section = sections.get(key) ?? {
+      order: 100 + stageOrder(match),
+      label,
+      matches: [],
+    };
     section.matches.push(match);
     sections.set(key, section);
   }
 
-  const sortKey = (m: EventMatch) =>
-    `${m.groupId ?? 'zz'}|${m.matchDate ?? ''}${m.matchTime ?? ''}|${m.matchId}`;
   const ordered = [...sections.values()]
-    .sort((a, b) => a.order - b.order)
+    .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
     .map((s) => ({
       ...s,
       matches: s.matches.sort((a, b) => {
         const tbd = Number(isTbdMatch(a)) - Number(isTbdMatch(b));
         if (tbd !== 0) return tbd;
-        return sortKey(a).localeCompare(sortKey(b));
+        return compareMatchesChronological(a, b);
       }),
     }));
 

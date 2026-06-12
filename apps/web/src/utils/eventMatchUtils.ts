@@ -98,8 +98,15 @@ export function formatKickoffFriendly(matchDate?: string, matchTime?: string): s
   return `${dateStr} at ${timeStr}`;
 }
 
-/** One-line card kickoff in the viewer's timezone, e.g. "Thu, Jun 18 · 7:00 PM EDT". */
-export function formatKickoffCompact(matchDate?: string, matchTime?: string): string | null {
+export type KickoffCardLabels = {
+  dateLabel: string;
+  timeLabel: string;
+  /** Single line for title/tooltip */
+  fullLabel: string;
+};
+
+/** Card kickoff labels in the viewer's local timezone (date row + time+TZ row). */
+export function formatKickoffCard(matchDate?: string, matchTime?: string): KickoffCardLabels | null {
   const kickoff = parseKickoffUtc(matchDate, matchTime);
   if (kickoff == null) return null;
 
@@ -108,18 +115,38 @@ export function formatKickoffCompact(matchDate?: string, matchTime?: string): st
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const timeStr = formatLocalKickoffTime(d);
+  const timeParts = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).formatToParts(d);
+  const clock = timeParts
+    .filter((p) => p.type === 'hour' || p.type === 'minute' || p.type === 'dayPeriod' || p.type === 'literal')
+    .map((p) => p.value)
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const tz = timeParts.find((p) => p.type === 'timeZoneName')?.value ?? '';
 
-  if (isSameLocalDay(d, now)) return `Today · ${timeStr}`;
-  if (isSameLocalDay(d, tomorrow)) return `Tomorrow · ${timeStr}`;
+  let dateLabel: string;
+  if (isSameLocalDay(d, now)) dateLabel = 'Today';
+  else if (isSameLocalDay(d, tomorrow)) dateLabel = 'Tomorrow';
+  else {
+    dateLabel = new Intl.DateTimeFormat(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    }).format(d);
+  }
 
-  const dateStr = new Intl.DateTimeFormat(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  }).format(d);
+  const timeLabel = tz ? `${clock} ${tz}` : clock;
+  const fullLabel = `${dateLabel} · ${timeLabel}`;
+  return { dateLabel, timeLabel, fullLabel };
+}
 
-  return `${dateStr} · ${timeStr}`;
+/** One-line card kickoff in the viewer's timezone, e.g. "Thu, Jun 18 · 7:00 PM EDT". */
+export function formatKickoffCompact(matchDate?: string, matchTime?: string): string | null {
+  return formatKickoffCard(matchDate, matchTime)?.fullLabel ?? null;
 }
 
 export function formatMatchMeta(match: EventMatch): string {

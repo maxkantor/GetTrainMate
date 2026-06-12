@@ -16,7 +16,7 @@ import { requestChatNavScrollTop } from '@/utils/chatNav';
 import { useCreditsUsageModal } from '@/contexts/CreditsUsageModalContext';
 import { useWorldCupHubNav } from '@/hooks/useWorldCupHubNav';
 import { Avatar } from '@/components/ui/Avatar';
-import { getRealPrimaryPhotoUrl } from '@/utils/profilePhotos';
+import { useHeaderAvatarPhoto } from '@/hooks/useHeaderAvatarPhoto';
 import styles from './AppHeader.module.css';
 
 export const AppHeader: React.FC = () => {
@@ -86,10 +86,7 @@ export const AppHeader: React.FC = () => {
     user?.email?.charAt(0)?.toUpperCase() ||
     '?';
 
-  const avatarPhotoUrl = useMemo(
-    () => getRealPrimaryPhotoUrl(me?.profile?.photoUrls),
-    [me?.profile?.photoUrls],
-  );
+  const avatarPhotoUrl = useHeaderAvatarPhoto(me?.profile?.photoUrls);
 
   useEffect(() => {
     const fn = (e: MouseEvent) => {

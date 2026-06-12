@@ -73,15 +73,19 @@ export const WcMatchCard: React.FC<Props> = ({
 
   return (
     <Box className={`${styles.matchCard} ${match.isFeatured ? styles.matchCardFeatured : ''}`}>
-      <Box className={styles.matchTop}>
-        <Box className={styles.matchTopChips}>
-          <Chip
-            size="small"
-            label={isLive ? 'LIVE' : statusLabel(match.status, t)}
-            className={isLive ? styles.statusLive : statusClass(match.status)}
-          />
-          {match.isFeatured && <Chip size="small" label="★" sx={{ bgcolor: 'rgba(251,191,36,0.2)', color: '#fde68a' }} />}
-          {groupLabel && <Chip size="small" label={groupLabel} sx={{ bgcolor: 'rgba(129,140,248,0.14)', color: '#c7d2fe' }} />}
+      <Box className={styles.matchCardHeader}>
+        <Box className={styles.matchCardHeaderRow}>
+          <Box className={styles.matchTopChips}>
+            <Chip
+              size="small"
+              label={isLive ? 'LIVE' : statusLabel(match.status, t)}
+              className={isLive ? styles.statusLive : statusClass(match.status)}
+            />
+            {match.isFeatured && (
+              <Chip size="small" label="★" sx={{ bgcolor: 'rgba(251,191,36,0.2)', color: '#fde68a' }} />
+            )}
+          </Box>
+          {groupLabel && <span className={styles.matchGroupPill}>{groupLabel}</span>}
         </Box>
         <MatchKickoffDisplay match={match} />
       </Box>
