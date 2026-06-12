@@ -74,10 +74,18 @@ export function formatMatchMeta(match: EventMatch): string {
   return parts.length > 0 ? parts.join(' · ') : '';
 }
 
+/** "Today" in the viewer's local timezone — kickoffs are stored in UTC. */
 export function isMatchToday(match: EventMatch): boolean {
+  const kickoff = parseKickoffUtc(match.matchDate, match.matchTime);
+  if (kickoff != null) {
+    const k = new Date(kickoff);
+    const now = new Date();
+    return k.getFullYear() === now.getFullYear()
+      && k.getMonth() === now.getMonth()
+      && k.getDate() === now.getDate();
+  }
   if (!match.matchDate?.trim()) return false;
-  const today = new Date().toISOString().slice(0, 10);
-  return match.matchDate.trim() === today;
+  return match.matchDate.trim() === new Date().toISOString().slice(0, 10);
 }
 
 export function categorizeMatches(matches: EventMatch[]) {
@@ -87,13 +95,13 @@ export function categorizeMatches(matches: EventMatch[]) {
   for (const m of matches) {
     if (m.status === 'Completed') completed.push(m);
     else if (m.status === 'Live' || isMatchToday(m)) today.push(m);
-    else if (m.status === 'Scheduled') upcoming.push(m);
     else upcoming.push(m);
   }
-  const sortKey = (m: EventMatch) => `${m.matchDate ?? ''}${m.matchTime ?? ''}`;
-  today.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
-  upcoming.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
-  completed.sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
+  // Matches without a kickoff date (TBD knockout slots) sort to the end of every list.
+  const kickoffMs = (m: EventMatch) => parseKickoffUtc(m.matchDate, m.matchTime);
+  today.sort((a, b) => (kickoffMs(a) ?? Infinity) - (kickoffMs(b) ?? Infinity));
+  upcoming.sort((a, b) => (kickoffMs(a) ?? Infinity) - (kickoffMs(b) ?? Infinity));
+  completed.sort((a, b) => (kickoffMs(b) ?? 0) - (kickoffMs(a) ?? 0));
   return { today, upcoming, completed };
 }
 

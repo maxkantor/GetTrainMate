@@ -3,6 +3,7 @@ import { Box, Button, Chip, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
+import { parseKickoffUtc } from '@/utils/eventMatchUtils';
 import type { WcHubProps } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -76,13 +77,37 @@ export const WcMyPicksTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
           {summary.predictions.map((pred) => {
             const match = hub.matches.find((m) => m.matchId === pred.matchId);
             if (!match) return null;
-            const isPending = match.status !== 'Completed';
             const label =
               pred.predictionType === 'draw'
                 ? t('event_hub.pick_draw')
                 : pred.predictedWinnerTeamId === match.teamAId
                   ? match.teamAName
                   : match.teamBName;
+
+            const hasResult = match.status === 'Completed' && match.scoreA != null && match.scoreB != null;
+            const kickoff = parseKickoffUtc(match.matchDate, match.matchTime);
+            const inPlay = match.status === 'Live'
+              || (match.status === 'Scheduled' && kickoff != null && kickoff <= Date.now());
+
+            let chipLabel: string;
+            let chipColor: 'success' | 'error' | 'warning' | 'default';
+            if (hasResult) {
+              const actual = match.scoreA! > match.scoreB! ? match.teamAId
+                : match.scoreB! > match.scoreA! ? match.teamBId : 'draw';
+              const predicted = pred.predictionType === 'draw' ? 'draw' : pred.predictedWinnerTeamId;
+              const exact = pred.predictionType === 'exact_score'
+                && pred.predictedScoreA === match.scoreA && pred.predictedScoreB === match.scoreB;
+              if (exact) { chipLabel = `🎯 ${t('event_hub.pick_exact')}`; chipColor = 'success'; }
+              else if (actual === predicted) { chipLabel = `✓ ${t('event_hub.pick_correct')}`; chipColor = 'success'; }
+              else { chipLabel = `✗ ${t('event_hub.pick_missed')}`; chipColor = 'error'; }
+            } else if (inPlay) {
+              chipLabel = t('event_hub.pick_in_progress');
+              chipColor = 'warning';
+            } else {
+              chipLabel = `✓ ${t('event_hub.pick_saved')}`;
+              chipColor = 'default';
+            }
+
             return (
               <Box key={pred.predictionKey} className={styles.matchCard}>
                 <Typography sx={{ fontWeight: 700 }}>
@@ -94,11 +119,12 @@ export const WcMyPicksTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
                     <> · {pred.predictedScoreA}–{pred.predictedScoreB}</>
                   )}
                 </Typography>
-                <Chip
-                  size="small"
-                  label={isPending ? t('event_hub.pending_picks') : t('event_hub.completed')}
-                  color={isPending ? 'default' : 'success'}
-                />
+                {hasResult && (
+                  <Typography sx={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.55)' }}>
+                    {t('event_hub.final_score')}: {match.scoreA}–{match.scoreB}
+                  </Typography>
+                )}
+                <Chip size="small" label={chipLabel} color={chipColor} />
               </Box>
             );
           })}

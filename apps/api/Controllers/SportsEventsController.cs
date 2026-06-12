@@ -11,13 +11,28 @@ public class SportsEventsController : ControllerBase
 {
     private readonly ISportsEventLayerService _sportsEventLayerService;
     private readonly IEventHubService _eventHubService;
+    private readonly IProfileService _profileService;
 
     public SportsEventsController(
         ISportsEventLayerService sportsEventLayerService,
-        IEventHubService eventHubService)
+        IEventHubService eventHubService,
+        IProfileService profileService)
     {
         _sportsEventLayerService = sportsEventLayerService;
         _eventHubService = eventHubService;
+        _profileService = profileService;
+    }
+
+    /// <summary>App profile name first — the JWT "name" claim is often missing or a generic "User".</summary>
+    private async Task<string?> ResolveDisplayNameAsync(string userId)
+    {
+        try
+        {
+            var profile = await _profileService.GetProfileAsync(userId);
+            if (!string.IsNullOrWhiteSpace(profile?.Name)) return profile.Name;
+        }
+        catch { /* fall back to claims */ }
+        return User.FindFirst("name")?.Value ?? User.Identity?.Name;
     }
 
     [HttpGet("active")]
@@ -168,7 +183,7 @@ public class SportsEventsController : ControllerBase
 
         try
         {
-            var displayName = User.FindFirst("name")?.Value ?? User.Identity?.Name;
+            var displayName = await ResolveDisplayNameAsync(userId);
             var pred = await _eventHubService.CreateOrUpdatePredictionAsync(eventId, userId, displayName, request);
             return Ok(pred);
         }
@@ -198,7 +213,7 @@ public class SportsEventsController : ControllerBase
 
         try
         {
-            var displayName = User.FindFirst("name")?.Value ?? User.Identity?.Name;
+            var displayName = await ResolveDisplayNameAsync(userId);
             var comment = await _eventHubService.CreateCommentAsync(eventId, userId, displayName, request);
             return Ok(comment);
         }

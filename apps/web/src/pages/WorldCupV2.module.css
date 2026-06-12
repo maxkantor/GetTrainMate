@@ -809,6 +809,119 @@
 }
 
 /* ── Leaderboard ── */
+.lbPodium {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .lbPodium { grid-template-columns: 1fr; }
+}
+
+.lbPodiumCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.25rem 1rem 1.1rem;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.lbPodiumGold {
+  border-color: rgba(251, 191, 36, 0.45);
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.12), rgba(251, 191, 36, 0.02));
+  box-shadow: 0 8px 32px rgba(251, 191, 36, 0.12);
+}
+
+.lbPodiumSilver {
+  border-color: rgba(203, 213, 225, 0.35);
+  background: linear-gradient(180deg, rgba(203, 213, 225, 0.1), rgba(203, 213, 225, 0.02));
+}
+
+.lbPodiumBronze {
+  border-color: rgba(217, 119, 6, 0.35);
+  background: linear-gradient(180deg, rgba(217, 119, 6, 0.1), rgba(217, 119, 6, 0.02));
+}
+
+.lbMedal {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.lbAvatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1rem;
+  color: #0b1020;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+}
+
+.lbAvatarSm {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.7rem;
+  color: #0b1020;
+  background: linear-gradient(135deg, #a5b4fc, #818cf8);
+  flex-shrink: 0;
+}
+
+.lbPodiumName {
+  font-weight: 800 !important;
+  font-size: 0.95rem !important;
+}
+
+.lbPodiumPts {
+  font-weight: 900 !important;
+  font-size: 1.35rem !important;
+  color: var(--wc-gold);
+}
+
+.lbPodiumPts small {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.lbPodiumStat {
+  font-size: 0.78rem !important;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lbYouTag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  vertical-align: middle;
+}
+
+.lbMine {
+  outline: 1px solid rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.06);
+}
+
 .lbTable {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -818,7 +931,7 @@
 
 .lbRow {
   display: grid;
-  grid-template-columns: 3rem 1fr auto auto;
+  grid-template-columns: 3rem 1fr auto auto auto;
   gap: 0.75rem;
   align-items: center;
   padding: 0.75rem 1rem;
@@ -827,13 +940,33 @@
 
 .lbRow:hover { background: rgba(99, 102, 241, 0.06); }
 
+.lbHead {
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
 .lbRank {
   font-weight: 900;
   color: var(--wc-gold);
   font-size: 0.95rem;
 }
 
-.lbName { font-weight: 700; }
+.lbNameCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lbName {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .lbStat { font-size: 0.82rem; color: rgba(255, 255, 255, 0.55); }
 .lbPts { font-weight: 800; color: #a5b4fc; }
 

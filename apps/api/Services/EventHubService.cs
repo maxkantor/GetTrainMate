@@ -11,6 +11,7 @@ public class EventHubService : IEventHubService
 
     private readonly IAmazonDynamoDB _dynamoDb;
     private readonly ISportsEventLayerService _sportsLayer;
+    private readonly IProfileService _profiles;
     private readonly ILogger<EventHubService> _logger;
     private readonly string _groupsTable;
     private readonly string _teamsTable;
@@ -22,11 +23,13 @@ public class EventHubService : IEventHubService
     public EventHubService(
         IAmazonDynamoDB dynamoDb,
         ISportsEventLayerService sportsLayer,
+        IProfileService profiles,
         IConfiguration configuration,
         ILogger<EventHubService> logger)
     {
         _dynamoDb = dynamoDb;
         _sportsLayer = sportsLayer;
+        _profiles = profiles;
         _logger = logger;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _groupsTable = configuration["DYNAMODB_TABLE_EVENT_GROUPS"] ?? $"{prefix}event-groups";
@@ -358,12 +361,38 @@ public class EventHubService : IEventHubService
     public async Task<List<EventLeaderboardEntry>> GetLeaderboardAsync(string eventId, string type)
     {
         var analytics = await GetAnalyticsAsync(eventId);
-        return type switch
+        var entries = type switch
         {
             "active" => analytics.MostActiveFans,
             "shared" => analytics.MostShared,
             _ => analytics.TopPredictors,
         };
+        await EnrichDisplayNamesAsync(entries);
+        return entries;
+    }
+
+    /// <summary>
+    /// Predictions store the JWT "name" claim, which is often missing or a generic "User".
+    /// Replace those with the real app profile name so the leaderboard shows who fans actually are.
+    /// </summary>
+    private async Task EnrichDisplayNamesAsync(List<EventLeaderboardEntry> entries)
+    {
+        foreach (var entry in entries)
+        {
+            if (!string.IsNullOrWhiteSpace(entry.DisplayName)
+                && !string.Equals(entry.DisplayName, "User", StringComparison.OrdinalIgnoreCase))
+                continue;
+            try
+            {
+                var profile = await _profiles.GetProfileAsync(entry.UserId);
+                if (!string.IsNullOrWhiteSpace(profile?.Name))
+                    entry.DisplayName = profile.Name;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Leaderboard profile lookup failed for {UserId}", entry.UserId);
+            }
+        }
     }
 
     public async Task<EventGroup> UpsertGroupAsync(EventGroup group)

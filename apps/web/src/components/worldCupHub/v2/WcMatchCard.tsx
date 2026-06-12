@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Chip, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import type { EventMatch } from '@/services/sportsEventLayerService';
-import { formatMatchMeta, isTbdMatch } from '@/utils/eventMatchUtils';
+import { formatMatchMeta, isTbdMatch, parseKickoffUtc } from '@/utils/eventMatchUtils';
 import { useMatchCountdown } from '@/hooks/useMatchCountdown';
 import { WcInlinePredict } from './WcInlinePredict';
 import styles from '@/pages/WorldCupV2.module.css';
@@ -36,7 +36,10 @@ export const WcMatchCard: React.FC<Props> = ({
   const hasKickoff = Boolean(match.matchDate?.trim() && match.matchTime?.trim());
   const countdown = useMatchCountdown(hasKickoff ? match.matchDate : '', hasKickoff ? match.matchTime : undefined);
   const isFinal = match.status === 'Completed';
-  const isLive = match.status === 'Live';
+  const kickoff = parseKickoffUtc(match.matchDate, match.matchTime);
+  // Treat a scheduled match whose kickoff has passed as live — score feeds may lag the real world.
+  const isLive = match.status === 'Live'
+    || (match.status === 'Scheduled' && kickoff != null && kickoff <= Date.now());
   const isTbd = isTbdMatch(match);
 
   if (isTbd) {
@@ -73,7 +76,11 @@ export const WcMatchCard: React.FC<Props> = ({
   return (
     <Box className={`${styles.matchCard} ${match.isFeatured ? styles.matchCardFeatured : ''}`}>
       <Box className={styles.matchTop}>
-        <Chip size="small" label={statusLabel(match.status, t)} className={statusClass(match.status)} />
+        <Chip
+          size="small"
+          label={isLive ? 'LIVE' : statusLabel(match.status, t)}
+          className={isLive ? styles.statusLive : statusClass(match.status)}
+        />
         {match.isFeatured && <Chip size="small" label="★" sx={{ ml: 0.5, bgcolor: 'rgba(251,191,36,0.2)', color: '#fde68a' }} />}
         {groupLabel && <Chip size="small" label={groupLabel} sx={{ ml: 0.5, bgcolor: 'rgba(129,140,248,0.14)', color: '#c7d2fe' }} />}
         {isLive ? (
