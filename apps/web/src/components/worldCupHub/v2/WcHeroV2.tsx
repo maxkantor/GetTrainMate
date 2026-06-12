@@ -3,6 +3,7 @@ import { Box, Button, Stack, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
+import { WC_BACKDROP_IMAGES } from '@/config/worldCupMedia';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -30,6 +31,16 @@ export const WcHeroV2: React.FC<Props> = ({ eventId, onPredict, onViewGroups }) 
 
   return (
     <Box className={styles.hero}>
+      <Box
+        className={styles.heroPhoto}
+        aria-hidden
+        style={{ backgroundImage: `url('${WC_BACKDROP_IMAGES.stadiumAerial}')` }}
+      />
+      <Box
+        className={styles.heroPhotoAccent}
+        aria-hidden
+        style={{ backgroundImage: `url('${WC_BACKDROP_IMAGES.stadiumCrowd}')` }}
+      />
       <Box className={styles.heroVeil} aria-hidden />
       <Box className={styles.heroGlow} aria-hidden />
       <Box className={styles.heroGrain} aria-hidden />
