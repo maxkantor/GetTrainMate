@@ -47,7 +47,10 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
     enabled: isWorldCup,
   });
 
-  const matches = hub?.matches ?? [];
+  // Knockout placeholders (TBD slots) are seeded ahead of time — never feature them on the homepage.
+  const matches = (hub?.matches ?? []).filter(
+    (m) => !m.teamAId.startsWith('tbd-') && !m.teamBId.startsWith('tbd-'),
+  );
   const liveMatch = matches.find((m) => m.status === 'Live');
   const latestResult = matches
     .filter((m) => m.status === 'Completed' && m.scoreA != null && m.scoreB != null)

@@ -173,13 +173,14 @@ public class EventHubService : IEventHubService
         }
 
         var teamById = (await GetTeamsAsync(WorldCupEventId)).ToDictionary(t => t.TeamId, StringComparer.OrdinalIgnoreCase);
+        var allMatches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
         foreach (var official in WorldCupOfficialFixtures.OpeningMatches)
         {
             if (!teamById.TryGetValue(official.TeamAId, out var teamA)
                 || !teamById.TryGetValue(official.TeamBId, out var teamB))
                 continue;
 
-            var existing = (await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch))
+            var existing = allMatches
                 .FirstOrDefault(m => string.Equals(m.MatchId, official.MatchId, StringComparison.OrdinalIgnoreCase));
 
             await UpsertMatchAsync(new EventMatch
@@ -198,9 +199,91 @@ public class EventHubService : IEventHubService
                 Status = existing?.Status ?? EventMatchStatus.Scheduled,
                 ScoreA = existing?.ScoreA,
                 ScoreB = existing?.ScoreB,
+                GroupId = official.GroupId,
                 Stage = official.Stage,
                 IsFeatured = true,
+                PredictionsLocked = existing?.PredictionsLocked ?? false,
                 CreatedAt = existing?.CreatedAt ?? DateTime.UtcNow.ToString("O"),
+            }, touchTimestamp: false, skipDuplicateCheck: true);
+        }
+
+        await GenerateGroupStageFixturesAsync();
+        await SeedKnockoutPlaceholdersAsync();
+    }
+
+    /// <summary>
+    /// Every team in a group plays every other once — generates any missing group fixtures
+    /// (no invented dates; kickoff/venue come later via Admin CRM). Covers CRM-added teams too.
+    /// </summary>
+    private async Task GenerateGroupStageFixturesAsync()
+    {
+        var teams = (await GetTeamsAsync(WorldCupEventId))
+            .Where(t => !string.IsNullOrWhiteSpace(t.GroupId))
+            .OrderBy(t => t.SortOrder)
+            .ToList();
+        var matches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
+        var existingPairs = matches
+            .Where(m => !string.IsNullOrWhiteSpace(m.GroupId))
+            .Select(m => $"{m.GroupId!.ToLowerInvariant()}|{EventMatchRules.NormalizePairKey(m.TeamAId, m.TeamBId)}")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in teams.GroupBy(t => t.GroupId, StringComparer.OrdinalIgnoreCase))
+        {
+            var members = group.ToList();
+            for (var i = 0; i < members.Count; i++)
+            {
+                for (var j = i + 1; j < members.Count; j++)
+                {
+                    var a = members[i];
+                    var b = members[j];
+                    var pairKey = $"{group.Key.ToLowerInvariant()}|{EventMatchRules.NormalizePairKey(a.TeamId, b.TeamId)}";
+                    if (!existingPairs.Add(pairKey)) continue;
+
+                    await UpsertMatchAsync(new EventMatch
+                    {
+                        EventId = WorldCupEventId,
+                        MatchId = $"gs-{a.TeamId}-vs-{b.TeamId}",
+                        TeamAId = a.TeamId,
+                        TeamBId = b.TeamId,
+                        TeamAName = a.Name,
+                        TeamBName = b.Name,
+                        TeamAFlag = a.FlagEmoji,
+                        TeamBFlag = b.FlagEmoji,
+                        GroupId = group.Key,
+                        Stage = EventMatchStage.GroupStage,
+                        Status = EventMatchStatus.Scheduled,
+                    }, touchTimestamp: false, skipDuplicateCheck: true);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Seeds the knockout bracket (Round of 32 → Final) as locked TBD placeholders so fans see the
+    /// full road to the final. Existing matches are never touched — the Admin CRM assigns real teams
+    /// and unlocks predictions as qualifiers are confirmed.
+    /// </summary>
+    private async Task SeedKnockoutPlaceholdersAsync()
+    {
+        var existingIds = (await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch))
+            .Select(m => m.MatchId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var ko in WorldCupOfficialFixtures.KnockoutMatches)
+        {
+            if (existingIds.Contains(ko.MatchId)) continue;
+
+            await UpsertMatchAsync(new EventMatch
+            {
+                EventId = WorldCupEventId,
+                MatchId = ko.MatchId,
+                TeamAId = $"{WorldCupOfficialFixtures.TbdTeamPrefix}{ko.MatchId}-a",
+                TeamBId = $"{WorldCupOfficialFixtures.TbdTeamPrefix}{ko.MatchId}-b",
+                TeamAName = "TBD",
+                TeamBName = "TBD",
+                Stage = ko.Stage,
+                Status = EventMatchStatus.Scheduled,
+                PredictionsLocked = true,
             }, touchTimestamp: false, skipDuplicateCheck: true);
         }
     }
@@ -297,7 +380,12 @@ public class EventHubService : IEventHubService
             throw new InvalidOperationException("A team cannot play itself.");
 
         var existing = await QueryEventItemsAsync(_matchesTable, match.EventId, MapMatch);
-        if (!skipDuplicateCheck && EventMatchRules.IsDuplicateFixture(existing, match.TeamAId, match.TeamBId, match.MatchId))
+        // Scope duplicates: same pair may legitimately meet again in the knockout bracket,
+        // so group fixtures only collide within their group and knockout fixtures within the bracket.
+        var scope = string.IsNullOrWhiteSpace(match.GroupId)
+            ? existing.Where(m => string.IsNullOrWhiteSpace(m.GroupId))
+            : existing.Where(m => string.Equals(m.GroupId, match.GroupId, StringComparison.OrdinalIgnoreCase));
+        if (!skipDuplicateCheck && EventMatchRules.IsDuplicateFixture(scope, match.TeamAId, match.TeamBId, match.MatchId))
             throw new InvalidOperationException("Duplicate fixture — this matchup already exists.");
 
         match.UpdatedAt = DateTime.UtcNow.ToString("O");
@@ -319,9 +407,11 @@ public class EventHubService : IEventHubService
         var teams = await GetTeamsAsync(eventId);
         if (teams.Count == 0) return;
 
+        // Group tables only count group-stage results — knockout matches never affect standings.
         var completed = (await QueryEventItemsAsync(_matchesTable, eventId, MapMatch))
             .Where(m => string.Equals(m.Status, EventMatchStatus.Completed, StringComparison.OrdinalIgnoreCase)
-                        && m.ScoreA.HasValue && m.ScoreB.HasValue)
+                        && m.ScoreA.HasValue && m.ScoreB.HasValue
+                        && !string.IsNullOrWhiteSpace(m.GroupId))
             .ToList();
 
         foreach (var team in teams)

@@ -17,6 +17,44 @@ export function arePredictionsOpen(match: EventMatch): boolean {
   return true;
 }
 
+/** Knockout placeholder slots seeded by the API until real qualifiers are assigned. */
+export function isTbdMatch(match: EventMatch): boolean {
+  return match.teamAId.startsWith('tbd-') || match.teamBId.startsWith('tbd-');
+}
+
+const STAGE_ORDER: Record<string, number> = {
+  'opening match': 0,
+  'group stage': 0,
+  'round of 32': 1,
+  'round of 16': 2,
+  'quarter-final': 3,
+  'semi-final': 4,
+  'third-place match': 5,
+  'final': 6,
+};
+
+const STAGE_I18N_KEY: Record<string, string> = {
+  'opening match': 'event_hub.stage_group',
+  'group stage': 'event_hub.stage_group',
+  'round of 32': 'event_hub.stage_r32',
+  'round of 16': 'event_hub.stage_r16',
+  'quarter-final': 'event_hub.stage_qf',
+  'semi-final': 'event_hub.stage_sf',
+  'third-place match': 'event_hub.stage_third',
+  'final': 'event_hub.stage_final',
+};
+
+/** Group-stage matches (anything with a groupId) sort before knockout rounds. */
+export function stageOrder(match: EventMatch): number {
+  if (match.groupId?.trim()) return 0;
+  return STAGE_ORDER[(match.stage ?? '').trim().toLowerCase()] ?? 0;
+}
+
+export function stageI18nKey(match: EventMatch): string | null {
+  if (match.groupId?.trim()) return 'event_hub.stage_group';
+  return STAGE_I18N_KEY[(match.stage ?? '').trim().toLowerCase()] ?? null;
+}
+
 export function formatMatchMeta(match: EventMatch): string {
   const parts = [
     match.matchDate?.trim(),
