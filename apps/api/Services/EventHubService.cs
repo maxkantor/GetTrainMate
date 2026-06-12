@@ -346,7 +346,7 @@ public class EventHubService : IEventHubService
             .ToList();
         if (!string.IsNullOrWhiteSpace(date))
             return all.Where(m => m.MatchDate == date).OrderBy(m => m.MatchTime).ToList();
-        return all.OrderBy(m => m.MatchDate).ThenBy(m => m.MatchTime).ToList();
+        return all.OrderBy(m => m, Comparer<EventMatch>.Create(EventMatchRules.CompareChronological)).ToList();
     }
 
     public async Task<List<EventComment>> GetCommentsAsync(string eventId, string threadId)

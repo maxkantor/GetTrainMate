@@ -88,6 +88,18 @@ export function isMatchToday(match: EventMatch): boolean {
   return match.matchDate.trim() === new Date().toISOString().slice(0, 10);
 }
 
+/** Ascending chronological order: soonest kickoff first; undated TBD slots last (by stage). */
+export function compareMatchesChronological(a: EventMatch, b: EventMatch): number {
+  const kickA = parseKickoffUtc(a.matchDate, a.matchTime);
+  const kickB = parseKickoffUtc(b.matchDate, b.matchTime);
+  const keyA = kickA ?? Number.MAX_SAFE_INTEGER;
+  const keyB = kickB ?? Number.MAX_SAFE_INTEGER;
+  if (keyA !== keyB) return keyA - keyB;
+  const stage = stageOrder(a) - stageOrder(b);
+  if (stage !== 0) return stage;
+  return a.matchId.localeCompare(b.matchId);
+}
+
 export function categorizeMatches(matches: EventMatch[]) {
   const today: EventMatch[] = [];
   const upcoming: EventMatch[] = [];
@@ -97,11 +109,9 @@ export function categorizeMatches(matches: EventMatch[]) {
     else if (m.status === 'Live' || isMatchToday(m)) today.push(m);
     else upcoming.push(m);
   }
-  // Matches without a kickoff date (TBD knockout slots) sort to the end of every list.
-  const kickoffMs = (m: EventMatch) => parseKickoffUtc(m.matchDate, m.matchTime);
-  today.sort((a, b) => (kickoffMs(a) ?? Infinity) - (kickoffMs(b) ?? Infinity));
-  upcoming.sort((a, b) => (kickoffMs(a) ?? Infinity) - (kickoffMs(b) ?? Infinity));
-  completed.sort((a, b) => (kickoffMs(b) ?? 0) - (kickoffMs(a) ?? 0));
+  today.sort(compareMatchesChronological);
+  upcoming.sort(compareMatchesChronological);
+  completed.sort((a, b) => -compareMatchesChronological(a, b));
   return { today, upcoming, completed };
 }
 

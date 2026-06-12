@@ -50,4 +50,32 @@ public static class EventMatchRules
         match.PredictionsOpen = ArePredictionsOpen(match);
         return match;
     }
+
+    public static int StageSortOrder(EventMatch match)
+    {
+        if (!string.IsNullOrWhiteSpace(match.GroupId)) return 0;
+        return (match.Stage ?? "").Trim().ToLowerInvariant() switch
+        {
+            "round of 32" => 1,
+            "round of 16" => 2,
+            "quarter-final" => 3,
+            "semi-final" => 4,
+            "third-place match" => 5,
+            "final" => 6,
+            _ => 0,
+        };
+    }
+
+    public static int CompareChronological(EventMatch a, EventMatch b)
+    {
+        var kickA = ParseKickoffUtc(a.MatchDate, a.MatchTime);
+        var kickB = ParseKickoffUtc(b.MatchDate, b.MatchTime);
+        var keyA = kickA?.Ticks ?? long.MaxValue;
+        var keyB = kickB?.Ticks ?? long.MaxValue;
+        var cmp = keyA.CompareTo(keyB);
+        if (cmp != 0) return cmp;
+        cmp = StageSortOrder(a).CompareTo(StageSortOrder(b));
+        if (cmp != 0) return cmp;
+        return string.Compare(a.MatchId, b.MatchId, StringComparison.OrdinalIgnoreCase);
+    }
 }

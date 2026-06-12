@@ -63,4 +63,26 @@ public class EventMatchRulesTests
         Assert.True(EventMatchRules.IsDuplicateFixture(existing, "south-africa", "mexico"));
         Assert.False(EventMatchRules.IsDuplicateFixture(existing, "south-africa", "mexico", "m1"));
     }
+
+    [Fact]
+    public void CompareChronological_PutsDatedFixturesBeforeUndatedKnockoutSlots()
+    {
+        var group = new EventMatch
+        {
+            MatchId = "gs-a",
+            GroupId = "group-a",
+            MatchDate = "2026-06-18",
+            MatchTime = "16:00",
+        };
+        var final = new EventMatch { MatchId = "final", Stage = "Final" };
+        Assert.True(EventMatchRules.CompareChronological(group, final) < 0);
+    }
+
+    [Fact]
+    public void CompareChronological_OrdersUndatedKnockoutByStage()
+    {
+        var r16 = new EventMatch { MatchId = "r16", Stage = "Round of 16" };
+        var final = new EventMatch { MatchId = "final", Stage = "Final" };
+        Assert.True(EventMatchRules.CompareChronological(r16, final) < 0);
+    }
 }
