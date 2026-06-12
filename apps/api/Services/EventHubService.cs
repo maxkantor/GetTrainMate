@@ -62,6 +62,8 @@ public class EventHubService : IEventHubService
         DrawPickEnabled = config.DrawPickEnabled,
         CommentsEnabled = config.CommentsEnabled,
         SharingEnabled = config.SharingEnabled,
+        StandingsEnabled = config.StandingsEnabled,
+        StandingsPublished = config.StandingsPublished,
     };
 
     public async Task<EventHubSnapshot?> GetHubSnapshotAsync(string eventId, bool allowDisabledForAdmin = false)
@@ -81,6 +83,7 @@ public class EventHubService : IEventHubService
         };
     }
 
+    /// <summary>Config-only bootstrap — never seeds teams, groups, matches, or standings.</summary>
     public async Task EnsureWorldCupSeedAsync()
     {
         await _sportsLayer.EnsureDefaultSeedDataAsync();
@@ -88,87 +91,20 @@ public class EventHubService : IEventHubService
         var existing = await _sportsLayer.GetEventConfigAsync(WorldCupEventId);
         if (existing == null) return;
 
-        var groups = await GetGroupsAsync(WorldCupEventId);
-        if (groups.Count > 0) return;
+        if (!string.IsNullOrWhiteSpace(existing.HubRoute)) return;
 
-        _logger.LogInformation("Seeding World Cup 2026 Event Hub data");
-
-        var enriched = existing;
-        enriched.HubRoute = "/world-cup";
-        enriched.HomepageHeadline = "World Cup 2026 Fan Hub";
-        enriched.HomepageSubheadline = "See live groups, make free predictions, share your picks, and connect with fans near you.";
-        enriched.HomepageCtaPrimary = "Make Your Free Prediction";
-        enriched.HomepageCtaSecondary = "Find Fans Near You";
-        enriched.HomepagePromoText = "No betting. No purchase required. Just football fans connecting worldwide.";
-        enriched.HomepageBackgroundImage = "/images/section-worldcup-bg.png";
-        enriched.LandingHeadline = "Predict. Connect. Experience Together.";
-        enriched.CtaLabel = "Make Your Free Prediction";
-        enriched.ThemeColor = "#6366f1";
-        await _sportsLayer.UpsertEventConfigAsync(enriched);
-
-        var wcTeams = GetWorldCupTeamsSeed();
-        var groupLetters = new[] { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L" };
-        for (var i = 0; i < groupLetters.Length; i++)
-        {
-            var letter = groupLetters[i];
-            var groupId = $"group-{letter.ToLowerInvariant()}";
-            await UpsertGroupAsync(new EventGroup
-            {
-                EventId = WorldCupEventId,
-                GroupId = groupId,
-                Label = $"Group {letter}",
-                SortOrder = i,
-            });
-
-            var groupTeams = wcTeams.Skip(i * 4).Take(4).ToList();
-            for (var j = 0; j < groupTeams.Count; j++)
-            {
-                var (name, country, flag) = groupTeams[j];
-                var teamId = Slugify(country);
-                await UpsertTeamAsync(new EventTeam
-                {
-                    EventId = WorldCupEventId,
-                    TeamId = teamId,
-                    Name = name,
-                    Country = country,
-                    FlagEmoji = flag,
-                    GroupId = groupId,
-                    SortOrder = j,
-                });
-            }
-        }
-
-        var allTeams = await GetTeamsAsync(WorldCupEventId);
-        var kickoff = new DateTime(2026, 6, 11, 18, 0, 0, DateTimeKind.Utc);
-        for (var g = 0; g < groupLetters.Length; g++)
-        {
-            var groupId = $"group-{groupLetters[g].ToLowerInvariant()}";
-            var gt = allTeams.Where(t => t.GroupId == groupId).OrderBy(t => t.SortOrder).ToList();
-            if (gt.Count < 2) continue;
-            for (var m = 0; m < 2; m++)
-            {
-                var a = gt[m % gt.Count];
-                var b = gt[(m + 1) % gt.Count];
-                var matchDate = kickoff.AddDays(g * 2 + m);
-                await UpsertMatchAsync(new EventMatch
-                {
-                    EventId = WorldCupEventId,
-                    MatchId = $"match-{groupId}-{m + 1}",
-                    TeamAId = a.TeamId,
-                    TeamBId = b.TeamId,
-                    TeamAName = a.Name,
-                    TeamBName = b.Name,
-                    TeamAFlag = a.FlagEmoji,
-                    TeamBFlag = b.FlagEmoji,
-                    MatchDate = matchDate.ToString("yyyy-MM-dd"),
-                    MatchTime = matchDate.ToString("HH:mm"),
-                    Venue = m == 0 ? "MetLife Stadium" : "SoFi Stadium",
-                    Status = EventMatchStatus.Scheduled,
-                    GroupId = groupId,
-                    Stage = "Group Stage",
-                });
-            }
-        }
+        existing.HubRoute = "/world-cup";
+        existing.HomepageHeadline = "PREDICT. CONNECT. EXPERIENCE THE WORLD CUP TOGETHER.";
+        existing.HomepageSubheadline =
+            "Make free predictions, debate matches, follow your favorite teams, and connect with fans near you.";
+        existing.HomepageCtaPrimary = "Make Free Prediction";
+        existing.HomepageCtaSecondary = "Find Fans Near You";
+        existing.HomepagePromoText = "Free fan predictions — no betting, no purchase required.";
+        existing.HomepageBackgroundImage = "/images/section-worldcup-bg.png";
+        existing.LandingHeadline = "Predict. Connect. Experience Together.";
+        existing.CtaLabel = "Make Free Prediction";
+        existing.ThemeColor = "#6366f1";
+        await _sportsLayer.UpsertEventConfigAsync(existing);
     }
 
     public async Task<List<EventGroup>> GetGroupsAsync(string eventId)
@@ -528,21 +464,126 @@ public class EventHubService : IEventHubService
     private static string Slugify(string s) =>
         s.ToLowerInvariant().Replace(" ", "-").Replace("'", "");
 
-    private static List<(string Name, string Country, string Flag)> GetWorldCupTeamsSeed() => new()
+    public async Task<EventHubLiveStats> GetLiveStatsAsync(string eventId)
     {
-        ("United States", "USA", "🇺🇸"), ("Mexico", "Mexico", "🇲🇽"), ("Canada", "Canada", "🇨🇦"), ("Brazil", "Brazil", "🇧🇷"),
-        ("Argentina", "Argentina", "🇦🇷"), ("Uruguay", "Uruguay", "🇺🇾"), ("Colombia", "Colombia", "🇨🇴"), ("Chile", "Chile", "🇨🇱"),
-        ("England", "England", "🏴󠁧󠁢󠁥󠁮󠁧󠁿"), ("France", "France", "🇫🇷"), ("Germany", "Germany", "🇩🇪"), ("Spain", "Spain", "🇪🇸"),
-        ("Italy", "Italy", "🇮🇹"), ("Netherlands", "Netherlands", "🇳🇱"), ("Portugal", "Portugal", "🇵🇹"), ("Belgium", "Belgium", "🇧🇪"),
-        ("Croatia", "Croatia", "🇭🇷"), ("Serbia", "Serbia", "🇷🇸"), ("Poland", "Poland", "🇵🇱"), ("Switzerland", "Switzerland", "🇨🇭"),
-        ("Japan", "Japan", "🇯🇵"), ("South Korea", "South Korea", "🇰🇷"), ("Australia", "Australia", "🇦🇺"), ("Saudi Arabia", "Saudi Arabia", "🇸🇦"),
-        ("Morocco", "Morocco", "🇲🇦"), ("Senegal", "Senegal", "🇸🇳"), ("Nigeria", "Nigeria", "🇳🇬"), ("Ghana", "Ghana", "🇬🇭"),
-        ("Ecuador", "Ecuador", "🇪🇨"), ("Peru", "Peru", "🇵🇪"), ("Costa Rica", "Costa Rica", "🇨🇷"), ("Panama", "Panama", "🇵🇦"),
-        ("Denmark", "Denmark", "🇩🇰"), ("Sweden", "Sweden", "🇸🇪"), ("Norway", "Norway", "🇳🇴"), ("Wales", "Wales", "🏴󠁧󠁢󠁷󠁬󠁳󠁿"),
-        ("Iran", "Iran", "🇮🇷"), ("Qatar", "Qatar", "🇶🇦"), ("Tunisia", "Tunisia", "🇹🇳"), ("Cameroon", "Cameroon", "🇨🇲"),
-        ("Ukraine", "Ukraine", "🇺🇦"), ("Turkey", "Turkey", "🇹🇷"), ("Austria", "Austria", "🇦🇹"), ("Czech Republic", "Czech Republic", "🇨🇿"),
-        ("Scotland", "Scotland", "🏴󠁧󠁢󠁳󠁣󠁴󠁿"), ("Paraguay", "Paraguay", "🇵🇾"), ("Jamaica", "Jamaica", "🇯🇲"), ("Honduras", "Honduras", "🇭🇳"),
-    };
+        var analytics = await GetAnalyticsAsync(eventId);
+        var comments = await QueryEventItemsAsync(_commentsTable, eventId, MapComment);
+        var matchesDiscussed = comments.Where(c => !c.Deleted && c.ThreadType == "match")
+            .Select(c => c.ThreadId).Distinct().Count();
+        var meetups = await _sportsLayer.GetMeetupsForEventAsync(eventId);
+        return new EventHubLiveStats
+        {
+            PredictionsSubmitted = analytics.TotalPredictions,
+            ActiveFans = analytics.UniquePredictors + comments.Select(c => c.UserId).Distinct().Count(),
+            MatchesDiscussed = matchesDiscussed,
+            ConnectionsMade = meetups.Count,
+        };
+    }
+
+    public async Task<MatchPredictionBreakdown> GetMatchPredictionBreakdownAsync(string eventId, string matchId)
+    {
+        var predictions = (await GetPredictionsForMatchAsync(eventId, matchId)).ToList();
+        var match = (await GetMatchesAsync(eventId)).FirstOrDefault(m => m.MatchId == matchId);
+        var total = predictions.Count;
+        if (total == 0)
+        {
+            return new MatchPredictionBreakdown { MatchId = matchId, TotalPredictions = 0 };
+        }
+
+        var outcomes = new List<PredictionOutcomeShare>();
+        var drawCount = predictions.Count(p => p.PredictionType == EventPredictionType.Draw);
+        if (drawCount > 0)
+        {
+            outcomes.Add(new PredictionOutcomeShare
+            {
+                Label = "Draw",
+                OutcomeType = EventPredictionType.Draw,
+                Count = drawCount,
+                Percent = (int)Math.Round(100.0 * drawCount / total),
+            });
+        }
+
+        if (match != null)
+        {
+            foreach (var teamId in new[] { match.TeamAId, match.TeamBId })
+            {
+                var name = teamId == match.TeamAId ? match.TeamAName : match.TeamBName;
+                var winnerCount = predictions.Count(p =>
+                    p.PredictionType == EventPredictionType.Winner && p.PredictedWinnerTeamId == teamId);
+                var exactCount = predictions.Count(p =>
+                    p.PredictionType == EventPredictionType.ExactScore &&
+                    ((p.PredictedScoreA > p.PredictedScoreB && teamId == match.TeamAId) ||
+                     (p.PredictedScoreB > p.PredictedScoreA && teamId == match.TeamBId)));
+                var count = winnerCount + exactCount;
+                if (count > 0)
+                {
+                    outcomes.Add(new PredictionOutcomeShare
+                    {
+                        Label = $"{name} Win",
+                        TeamId = teamId,
+                        OutcomeType = EventPredictionType.Winner,
+                        Count = count,
+                        Percent = (int)Math.Round(100.0 * count / total),
+                    });
+                }
+            }
+        }
+
+        return new MatchPredictionBreakdown
+        {
+            MatchId = matchId,
+            TotalPredictions = total,
+            Outcomes = outcomes.OrderByDescending(o => o.Percent).ToList(),
+        };
+    }
+
+    public async Task<List<TeamExplorerStats>> GetTeamExplorerStatsAsync(string eventId)
+    {
+        var teams = await GetTeamsAsync(eventId);
+        var predictions = await QueryEventItemsAsync(_predictionsTable, eventId, MapPrediction);
+        var comments = await QueryEventItemsAsync(_commentsTable, eventId, MapComment);
+        var analytics = await GetAnalyticsAsync(eventId);
+
+        return teams.Select(team =>
+        {
+            var predCount = predictions.Count(p =>
+                p.PredictedWinnerTeamId == team.TeamId ||
+                (p.PredictionType == EventPredictionType.ExactScore && (p.PredictedScoreA > p.PredictedScoreB || p.PredictedScoreB > p.PredictedScoreA)));
+            var discussCount = comments.Count(c => !c.Deleted && c.ThreadId == team.TeamId);
+            analytics.PopularTeams.TryGetValue(team.TeamId, out var fanPickCount);
+            return new TeamExplorerStats
+            {
+                TeamId = team.TeamId,
+                Name = team.Name,
+                Country = team.Country,
+                FlagEmoji = team.FlagEmoji,
+                Description = team.Description,
+                FanCount = fanPickCount,
+                PredictionsCount = predCount,
+                DiscussionCount = discussCount,
+            };
+        }).OrderByDescending(t => t.PredictionsCount + t.DiscussionCount).ToList();
+    }
+
+    public async Task<List<EventComment>> GetTrendingCommentsAsync(string eventId, string sort = "trending")
+    {
+        var all = await QueryEventItemsAsync(_commentsTable, eventId, MapComment);
+        var visible = all.Where(c => !c.Deleted && !c.Hidden).ToList();
+        return sort == "recent"
+            ? visible.OrderByDescending(c => c.CreatedAt).Take(50).ToList()
+            : visible.OrderByDescending(c => c.LikeCount).ThenByDescending(c => c.CreatedAt).Take(50).ToList();
+    }
+
+    public async Task LikeCommentAsync(string eventId, string commentKey)
+    {
+        var table = Table.LoadTable(_dynamoDb, _commentsTable);
+        var doc = await table.GetItemAsync(eventId, commentKey);
+        if (doc == null) return;
+        var c = MapComment(doc);
+        c.LikeCount++;
+        c.UpdatedAt = DateTime.UtcNow.ToString("O");
+        await table.PutItemAsync(CommentToDoc(c));
+    }
 
     private static Document GroupToDoc(EventGroup g) => new()
     {
@@ -586,7 +627,7 @@ public class EventHubService : IEventHubService
         ["eventId"] = c.EventId, ["commentKey"] = c.CommentKey, ["threadId"] = c.ThreadId,
         ["threadType"] = c.ThreadType, ["userId"] = c.UserId, ["userDisplayName"] = c.UserDisplayName ?? "",
         ["body"] = c.Body, ["parentCommentKey"] = c.ParentCommentKey ?? "",
-        ["hidden"] = c.Hidden, ["deleted"] = c.Deleted,
+        ["hidden"] = c.Hidden, ["deleted"] = c.Deleted, ["likeCount"] = c.LikeCount,
         ["createdAt"] = c.CreatedAt, ["updatedAt"] = c.UpdatedAt,
     };
 
@@ -678,6 +719,7 @@ public class EventHubService : IEventHubService
         ParentCommentKey = d.ContainsKey("parentCommentKey") ? d["parentCommentKey"].AsString() : null,
         Hidden = d.ContainsKey("hidden") && d["hidden"].AsBoolean(),
         Deleted = d.ContainsKey("deleted") && d["deleted"].AsBoolean(),
+        LikeCount = d.ContainsKey("likeCount") ? (int)d["likeCount"].AsLong() : 0,
         CreatedAt = d.ContainsKey("createdAt") ? d["createdAt"].AsString() : "",
         UpdatedAt = d.ContainsKey("updatedAt") ? d["updatedAt"].AsString() : "",
     };

@@ -58,6 +58,8 @@ public class EventConfig
     public bool DrawPickEnabled { get; set; } = true;
     public bool CommentsEnabled { get; set; } = true;
     public bool SharingEnabled { get; set; } = true;
+    public bool StandingsEnabled { get; set; }
+    public bool StandingsPublished { get; set; }
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("O");
     public string UpdatedAt { get; set; } = DateTime.UtcNow.ToString("O");
 }

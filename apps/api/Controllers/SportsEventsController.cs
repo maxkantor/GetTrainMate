@@ -86,6 +86,44 @@ public class SportsEventsController : ControllerBase
         return Ok(await _eventHubService.GetLeaderboardAsync(eventId, type));
     }
 
+    [HttpGet("{eventId}/stats/live")]
+    public async Task<ActionResult<EventHubLiveStats>> GetLiveStats(string eventId)
+    {
+        if (!await IsHubAccessible(eventId)) return NotFound();
+        return Ok(await _eventHubService.GetLiveStatsAsync(eventId));
+    }
+
+    [HttpGet("{eventId}/matches/{matchId}/prediction-breakdown")]
+    public async Task<ActionResult<MatchPredictionBreakdown>> GetPredictionBreakdown(string eventId, string matchId)
+    {
+        if (!await IsHubAccessible(eventId)) return NotFound();
+        return Ok(await _eventHubService.GetMatchPredictionBreakdownAsync(eventId, matchId));
+    }
+
+    [HttpGet("{eventId}/teams/stats")]
+    public async Task<ActionResult<List<TeamExplorerStats>>> GetTeamStats(string eventId)
+    {
+        if (!await IsHubAccessible(eventId)) return NotFound();
+        return Ok(await _eventHubService.GetTeamExplorerStatsAsync(eventId));
+    }
+
+    [HttpGet("{eventId}/comments/trending")]
+    public async Task<ActionResult<List<EventComment>>> GetTrendingComments(string eventId, [FromQuery] string sort = "trending")
+    {
+        if (!await IsHubAccessible(eventId)) return NotFound();
+        return Ok(await _eventHubService.GetTrendingCommentsAsync(eventId, sort));
+    }
+
+    [HttpPost("{eventId}/comments/{commentKey}/like")]
+    public async Task<ActionResult> LikeComment(string eventId, string commentKey)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+        if (!await IsHubAccessible(eventId)) return NotFound();
+        await _eventHubService.LikeCommentAsync(eventId, commentKey);
+        return Ok(new { liked = true });
+    }
+
     [HttpGet("{eventId}/comments/{threadId}")]
     public async Task<ActionResult<List<EventComment>>> GetComments(string eventId, string threadId)
     {

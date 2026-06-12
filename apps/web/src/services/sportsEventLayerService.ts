@@ -44,6 +44,8 @@ export interface SportsEventConfig {
   drawPickEnabled?: boolean;
   commentsEnabled?: boolean;
   sharingEnabled?: boolean;
+  standingsEnabled?: boolean;
+  standingsPublished?: boolean;
 }
 
 export interface EventHubSettings {
@@ -62,6 +64,40 @@ export interface EventHubSettings {
   drawPickEnabled: boolean;
   commentsEnabled: boolean;
   sharingEnabled: boolean;
+  standingsEnabled: boolean;
+  standingsPublished: boolean;
+}
+
+export interface EventHubLiveStats {
+  predictionsSubmitted: number;
+  activeFans: number;
+  matchesDiscussed: number;
+  connectionsMade: number;
+}
+
+export interface PredictionOutcomeShare {
+  label: string;
+  teamId?: string;
+  outcomeType: string;
+  count: number;
+  percent: number;
+}
+
+export interface MatchPredictionBreakdown {
+  matchId: string;
+  totalPredictions: number;
+  outcomes: PredictionOutcomeShare[];
+}
+
+export interface TeamExplorerStats {
+  teamId: string;
+  name: string;
+  country: string;
+  flagEmoji: string;
+  description?: string;
+  fanCount: number;
+  predictionsCount: number;
+  discussionCount: number;
 }
 
 export interface EventGroup {
@@ -132,6 +168,7 @@ export interface EventComment {
   userDisplayName?: string;
   body: string;
   parentCommentKey?: string;
+  likeCount: number;
   createdAt: string;
 }
 
@@ -286,6 +323,41 @@ class SportsEventLayerService {
       { headers: { Authorization: `Bearer ${token}` } }
     );
     return res.data;
+  }
+
+  async getLiveStats(eventId: string): Promise<EventHubLiveStats> {
+    const res = await axios.get<EventHubLiveStats>(`${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/stats/live`);
+    return res.data;
+  }
+
+  async getPredictionBreakdown(eventId: string, matchId: string): Promise<MatchPredictionBreakdown> {
+    const res = await axios.get<MatchPredictionBreakdown>(
+      `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/matches/${encodeURIComponent(matchId)}/prediction-breakdown`
+    );
+    return res.data;
+  }
+
+  async getTeamStats(eventId: string): Promise<TeamExplorerStats[]> {
+    const res = await axios.get<TeamExplorerStats[]>(`${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/teams/stats`);
+    return res.data ?? [];
+  }
+
+  async getTrendingComments(eventId: string, sort: 'trending' | 'recent' = 'trending'): Promise<EventComment[]> {
+    const res = await axios.get<EventComment[]>(
+      `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/comments/trending`,
+      { params: { sort } }
+    );
+    return res.data ?? [];
+  }
+
+  async likeComment(eventId: string, commentKey: string): Promise<void> {
+    const token = await authService.getJWT();
+    if (!token) throw new Error('Sign in required');
+    await axios.post(
+      `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/comments/${encodeURIComponent(commentKey)}/like`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
   }
 
   async createMeetup(eventId: string, payload: EventMeetupPayload): Promise<void> {

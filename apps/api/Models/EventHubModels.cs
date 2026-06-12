@@ -126,6 +126,7 @@ public class EventComment
     public string? ParentCommentKey { get; set; }
     public bool Hidden { get; set; }
     public bool Deleted { get; set; }
+    public int LikeCount { get; set; }
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("O");
     public string UpdatedAt { get; set; } = DateTime.UtcNow.ToString("O");
 }
@@ -161,6 +162,44 @@ public sealed class EventHubSettings
     public bool DrawPickEnabled { get; set; } = true;
     public bool CommentsEnabled { get; set; } = true;
     public bool SharingEnabled { get; set; } = true;
+    public bool StandingsEnabled { get; set; }
+    public bool StandingsPublished { get; set; }
+}
+
+public sealed class EventHubLiveStats
+{
+    public int PredictionsSubmitted { get; set; }
+    public int ActiveFans { get; set; }
+    public int MatchesDiscussed { get; set; }
+    public int ConnectionsMade { get; set; }
+}
+
+public sealed class MatchPredictionBreakdown
+{
+    public string MatchId { get; set; } = string.Empty;
+    public int TotalPredictions { get; set; }
+    public List<PredictionOutcomeShare> Outcomes { get; set; } = new();
+}
+
+public sealed class PredictionOutcomeShare
+{
+    public string Label { get; set; } = string.Empty;
+    public string? TeamId { get; set; }
+    public string OutcomeType { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public int Percent { get; set; }
+}
+
+public sealed class TeamExplorerStats
+{
+    public string TeamId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Country { get; set; } = string.Empty;
+    public string FlagEmoji { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int FanCount { get; set; }
+    public int PredictionsCount { get; set; }
+    public int DiscussionCount { get; set; }
 }
 
 public sealed class EventHubSnapshot

@@ -227,6 +227,8 @@ public class SportsEventLayerService : ISportsEventLayerService
             ["drawPickEnabled"] = config.DrawPickEnabled,
             ["commentsEnabled"] = config.CommentsEnabled,
             ["sharingEnabled"] = config.SharingEnabled,
+            ["standingsEnabled"] = config.StandingsEnabled,
+            ["standingsPublished"] = config.StandingsPublished,
             ["createdAt"] = config.CreatedAt,
             ["updatedAt"] = config.UpdatedAt,
         });
@@ -324,6 +326,8 @@ public class SportsEventLayerService : ISportsEventLayerService
         DrawPickEnabled = !doc.ContainsKey("drawPickEnabled") || doc["drawPickEnabled"].AsBoolean(),
         CommentsEnabled = !doc.ContainsKey("commentsEnabled") || doc["commentsEnabled"].AsBoolean(),
         SharingEnabled = !doc.ContainsKey("sharingEnabled") || doc["sharingEnabled"].AsBoolean(),
+        StandingsEnabled = doc.ContainsKey("standingsEnabled") && doc["standingsEnabled"].AsBoolean(),
+        StandingsPublished = doc.ContainsKey("standingsPublished") && doc["standingsPublished"].AsBoolean(),
         CreatedAt = doc.ContainsKey("createdAt") ? doc["createdAt"].AsString() : DateTime.UtcNow.ToString("O"),
         UpdatedAt = doc.ContainsKey("updatedAt") ? doc["updatedAt"].AsString() : DateTime.UtcNow.ToString("O"),
     };

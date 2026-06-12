@@ -30,6 +30,8 @@ type EventConfigExt = {
   drawPickEnabled?: boolean;
   commentsEnabled?: boolean;
   sharingEnabled?: boolean;
+  standingsEnabled?: boolean;
+  standingsPublished?: boolean;
   themeColor?: string;
   description?: string;
   icon?: string;
@@ -197,6 +199,11 @@ export const AdminEventHubPanel: React.FC<Props> = ({ eventId, config, onConfigS
           <label>Exact Scores <input type="checkbox" checked={settings.exactScoreEnabled !== false} onChange={(e) => setSettings({ ...settings, exactScoreEnabled: e.target.checked })} /></label>
           <label>Comments <input type="checkbox" checked={settings.commentsEnabled !== false} onChange={(e) => setSettings({ ...settings, commentsEnabled: e.target.checked })} /></label>
           <label>Sharing <input type="checkbox" checked={settings.sharingEnabled !== false} onChange={(e) => setSettings({ ...settings, sharingEnabled: e.target.checked })} /></label>
+          <label>Standings Enabled <input type="checkbox" checked={settings.standingsEnabled === true} onChange={(e) => setSettings({ ...settings, standingsEnabled: e.target.checked })} /></label>
+          <label>Standings Published <input type="checkbox" checked={settings.standingsPublished === true} onChange={(e) => setSettings({ ...settings, standingsPublished: e.target.checked })} /></label>
+          <p style={{ fontSize: 12, opacity: 0.7, gridColumn: '1 / -1' }}>
+            No teams, groups, or matches are auto-generated. Add all tournament data manually below.
+          </p>
           <button type="button" className={styles.primaryBtn} disabled={saving} onClick={saveSettings}>Save Settings</button>
         </div>
       )}

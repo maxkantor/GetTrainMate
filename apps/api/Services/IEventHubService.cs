@@ -34,4 +34,9 @@ public interface IEventHubService
     Task<bool> IsUserBannedAsync(string eventId, string userId);
 
     Task<EventHubAnalytics> GetAnalyticsAsync(string eventId);
+    Task<EventHubLiveStats> GetLiveStatsAsync(string eventId);
+    Task<MatchPredictionBreakdown> GetMatchPredictionBreakdownAsync(string eventId, string matchId);
+    Task<List<TeamExplorerStats>> GetTeamExplorerStatsAsync(string eventId);
+    Task<List<EventComment>> GetTrendingCommentsAsync(string eventId, string sort = "trending");
+    Task LikeCommentAsync(string eventId, string commentKey);
 }
