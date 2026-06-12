@@ -56,6 +56,16 @@ export function stageI18nKey(match: EventMatch): string | null {
 }
 
 export function formatMatchMeta(match: EventMatch): string {
+  const kickoff = parseKickoffUtc(match.matchDate, match.matchTime);
+  if (kickoff != null) {
+    const local = new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(new Date(kickoff));
+    return [local, match.venue?.trim()].filter(Boolean).join(' · ');
+  }
   const parts = [
     match.matchDate?.trim(),
     match.matchTime?.trim(),

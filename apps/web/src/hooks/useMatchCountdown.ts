@@ -19,7 +19,7 @@ export function useMatchCountdown(matchDate: string, matchTime?: string): string
     const update = () => {
       const diff = kickoff - Date.now();
       if (diff <= 0) {
-        setLabel('Starting soon');
+        setLabel('In progress');
         return;
       }
       const d = Math.floor(diff / 86400000);

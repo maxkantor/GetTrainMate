@@ -316,8 +316,15 @@ export const WcInlinePredict: React.FC<Props> = ({
           </Collapse>
         </Box>
       ) : (
-        <Typography sx={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.45)' }}>
-          {t('event_hub.predictions_closed')}
+        <Typography className={styles.lockedReason}>
+          🔒{' '}
+          {match.status === 'Live'
+            ? t('event_hub.predictions_locked_live')
+            : match.status === 'Completed'
+              ? t('event_hub.predictions_locked_done')
+              : kickoff != null && kickoff <= Date.now()
+                ? t('event_hub.predictions_locked_started')
+                : t('event_hub.predictions_closed')}
         </Typography>
       )}
     </Box>

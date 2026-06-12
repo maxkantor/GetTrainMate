@@ -208,7 +208,33 @@ public class EventHubService : IEventHubService
         }
 
         await GenerateGroupStageFixturesAsync();
+        await ApplyOfficialKickoffsAsync();
         await SeedKnockoutPlaceholdersAsync();
+    }
+
+    /// <summary>
+    /// Stamps the official FIFA kickoff date/time (UTC) onto group-stage fixtures so predictions
+    /// lock automatically at kickoff. Matched by team pair — fixture team order doesn't matter.
+    /// </summary>
+    private async Task ApplyOfficialKickoffsAsync()
+    {
+        var kickoffByPair = WorldCupOfficialFixtures.GroupKickoffs.ToDictionary(
+            k => EventMatchRules.NormalizePairKey(k.TeamAId, k.TeamBId),
+            k => k,
+            StringComparer.OrdinalIgnoreCase);
+
+        var matches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
+        foreach (var match in matches.Where(m => !string.IsNullOrWhiteSpace(m.GroupId)))
+        {
+            if (!kickoffByPair.TryGetValue(EventMatchRules.NormalizePairKey(match.TeamAId, match.TeamBId), out var kickoff))
+                continue;
+            if (match.MatchDate == kickoff.DateUtc && match.MatchTime == kickoff.TimeUtc)
+                continue;
+
+            match.MatchDate = kickoff.DateUtc;
+            match.MatchTime = kickoff.TimeUtc;
+            await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
+        }
     }
 
     /// <summary>

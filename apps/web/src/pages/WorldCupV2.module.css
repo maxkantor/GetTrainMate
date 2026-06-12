@@ -653,6 +653,12 @@
 
 .scoreDash { color: rgba(255, 255, 255, 0.4); font-weight: 800; font-size: 1.05rem; }
 
+.lockedReason {
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  color: rgba(252, 165, 165, 0.85);
+}
+
 .saveError {
   font-size: 0.74rem !important;
   font-weight: 600 !important;
