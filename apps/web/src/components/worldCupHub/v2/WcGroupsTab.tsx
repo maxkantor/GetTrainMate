@@ -81,8 +81,10 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
   const enabled = settings.standingsEnabled;
   const published = settings.standingsPublished;
   const hasData = groups.length > 0;
+  const groupedTeams = teams.filter((tm) => tm.groupId);
+  const canShowStandings = hasData && groupedTeams.length > 0 && (!enabled || published);
 
-  if (!enabled) {
+  if (!enabled && !hasData && teams.length === 0) {
     return (
       <Box className={styles.tabPanel}>
         <Typography className={styles.sectionTitle}>{t('event_hub.groups_title')}</Typography>
@@ -111,7 +113,7 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
       </Box>
       <Typography className={styles.sectionLead}>{t('event_hub.groups_lead')}</Typography>
 
-      {!published || !hasData ? (
+      {!canShowStandings ? (
         <Box className={styles.emptyPremium}>
           <Typography className={styles.emptyTitle}>{t('event_hub.standings_not_published')}</Typography>
           <Typography className={styles.emptyDesc}>{t('event_hub.standings_wait')}</Typography>

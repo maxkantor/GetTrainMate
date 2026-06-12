@@ -2,6 +2,8 @@
  * Authoritative World Cup 2026 catalog IDs — display data always comes from the API.
  * Kept in sync with apps/api/Data/WorldCupOfficialFixtures.cs
  */
+export const WORLD_CUP_OFFICIAL_GROUP_IDS = ['group-a', 'group-b'] as const;
+
 export const WORLD_CUP_OFFICIAL_TEAM_IDS = [
   'mexico',
   'south-africa',

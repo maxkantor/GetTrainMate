@@ -122,14 +122,37 @@ public class EventHubService : IEventHubService
         }
 
         await SyncOfficialWorldCupCatalogAsync();
+        await RecalculateStandingsAsync(WorldCupEventId);
+        var groups = await GetGroupsAsync(WorldCupEventId);
+        var teams = await GetTeamsAsync(WorldCupEventId);
+        if (groups.Count > 0 && teams.Any(t => !string.IsNullOrWhiteSpace(t.GroupId)))
+        {
+            existing.StandingsEnabled = true;
+            existing.StandingsPublished = true;
+        }
+
         existing.FixturesLastUpdatedAt = DateTime.UtcNow.ToString("O");
         await _sportsLayer.UpsertEventConfigAsync(existing);
     }
 
     private async Task SyncOfficialWorldCupCatalogAsync()
     {
+        foreach (var official in WorldCupOfficialFixtures.Groups)
+        {
+            await UpsertGroupAsync(new EventGroup
+            {
+                EventId = WorldCupEventId,
+                GroupId = official.GroupId,
+                Label = official.Label,
+                SortOrder = official.SortOrder,
+            });
+        }
+
+        var existingTeams = (await GetTeamsAsync(WorldCupEventId))
+            .ToDictionary(t => t.TeamId, StringComparer.OrdinalIgnoreCase);
         foreach (var official in WorldCupOfficialFixtures.Teams)
         {
+            existingTeams.TryGetValue(official.TeamId, out var prior);
             await UpsertTeamAsync(new EventTeam
             {
                 EventId = WorldCupEventId,
@@ -137,8 +160,15 @@ public class EventHubService : IEventHubService
                 Name = official.Name,
                 Country = official.Country,
                 FlagEmoji = official.FlagEmoji,
-                GroupId = string.Empty,
+                GroupId = official.GroupId,
                 SortOrder = official.SortOrder,
+                Played = prior?.Played ?? 0,
+                Wins = prior?.Wins ?? 0,
+                Draws = prior?.Draws ?? 0,
+                Losses = prior?.Losses ?? 0,
+                GoalsFor = prior?.GoalsFor ?? 0,
+                GoalsAgainst = prior?.GoalsAgainst ?? 0,
+                CreatedAt = prior?.CreatedAt ?? string.Empty,
             });
         }
 
@@ -274,8 +304,57 @@ public class EventHubService : IEventHubService
         if (string.IsNullOrWhiteSpace(match.CreatedAt)) match.CreatedAt = match.UpdatedAt;
         var table = Table.LoadTable(_dynamoDb, _matchesTable);
         await table.PutItemAsync(MatchToDoc(match));
-        if (touchTimestamp) await TouchFixturesTimestampAsync(match.EventId);
+        if (touchTimestamp)
+        {
+            await TouchFixturesTimestampAsync(match.EventId);
+            // Admin recorded a result (or reverted one) — keep group standings derived from matches.
+            await RecalculateStandingsAsync(match.EventId);
+        }
         return EventMatchRules.Enrich(match);
+    }
+
+    /// <summary>Recompute team standings from completed matches with scores — single source of truth, idempotent.</summary>
+    public async Task RecalculateStandingsAsync(string eventId)
+    {
+        var teams = await GetTeamsAsync(eventId);
+        if (teams.Count == 0) return;
+
+        var completed = (await QueryEventItemsAsync(_matchesTable, eventId, MapMatch))
+            .Where(m => string.Equals(m.Status, EventMatchStatus.Completed, StringComparison.OrdinalIgnoreCase)
+                        && m.ScoreA.HasValue && m.ScoreB.HasValue)
+            .ToList();
+
+        foreach (var team in teams)
+        {
+            int played = 0, wins = 0, draws = 0, losses = 0, goalsFor = 0, goalsAgainst = 0;
+            foreach (var m in completed)
+            {
+                var isA = string.Equals(m.TeamAId, team.TeamId, StringComparison.OrdinalIgnoreCase);
+                var isB = string.Equals(m.TeamBId, team.TeamId, StringComparison.OrdinalIgnoreCase);
+                if (!isA && !isB) continue;
+
+                var scored = isA ? m.ScoreA!.Value : m.ScoreB!.Value;
+                var conceded = isA ? m.ScoreB!.Value : m.ScoreA!.Value;
+                played++;
+                goalsFor += scored;
+                goalsAgainst += conceded;
+                if (scored > conceded) wins++;
+                else if (scored == conceded) draws++;
+                else losses++;
+            }
+
+            if (team.Played == played && team.Wins == wins && team.Draws == draws
+                && team.Losses == losses && team.GoalsFor == goalsFor && team.GoalsAgainst == goalsAgainst)
+                continue;
+
+            team.Played = played;
+            team.Wins = wins;
+            team.Draws = draws;
+            team.Losses = losses;
+            team.GoalsFor = goalsFor;
+            team.GoalsAgainst = goalsAgainst;
+            await UpsertTeamAsync(team); // recomputes GoalDifference + Points
+        }
     }
 
     public async Task DeleteMatchAsync(string eventId, string matchId)
