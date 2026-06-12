@@ -653,6 +653,13 @@
 
 .scoreDash { color: rgba(255, 255, 255, 0.4); font-weight: 800; font-size: 1.05rem; }
 
+.saveError {
+  font-size: 0.74rem !important;
+  font-weight: 600 !important;
+  color: #fca5a5;
+  margin-bottom: 6px !important;
+}
+
 .scoreSummary {
   font-size: 0.8rem !important;
   font-weight: 700 !important;

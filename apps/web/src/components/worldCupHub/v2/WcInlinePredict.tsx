@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Button, Collapse, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
@@ -8,7 +8,7 @@ import {
   type EventMatch,
   type EventPrediction,
 } from '@/services/sportsEventLayerService';
-import { arePredictionsOpen } from '@/utils/eventMatchUtils';
+import { arePredictionsOpen, parseKickoffUtc } from '@/utils/eventMatchUtils';
 import { PredictionShareCard } from '@/components/eventHub/PredictionShareCard';
 import type { WinnerPick } from '@/types/worldCupHub';
 import styles from '@/pages/WorldCupV2.module.css';
@@ -32,8 +32,20 @@ export const WcInlinePredict: React.FC<Props> = ({
   const [scoreB, setScoreB] = useState('0');
   const [winnerPick, setWinnerPick] = useState<WinnerPick | null>(null);
   const [submitted, setSubmitted] = useState<EventPrediction | null>(null);
+  const [saveError, setSaveError] = useState(false);
+  const [, setLockTick] = useState(0);
 
   const open = arePredictionsOpen(match);
+
+  // Flip the card to "closed" the moment kickoff passes, even without a data refresh.
+  const kickoff = parseKickoffUtc(match.matchDate, match.matchTime);
+  useEffect(() => {
+    if (kickoff == null) return;
+    const delay = kickoff - Date.now();
+    if (delay <= 0) return;
+    const id = window.setTimeout(() => setLockTick((n) => n + 1), Math.min(delay + 1000, 2 ** 31 - 1));
+    return () => window.clearTimeout(id);
+  }, [kickoff]);
 
   const { data: breakdown } = useQuery({
     queryKey: ['prediction-breakdown', eventId, match.matchId],
@@ -56,11 +68,17 @@ export const WcInlinePredict: React.FC<Props> = ({
     onSuccess: (pred) => {
       setSubmitted(pred);
       setEditing(false);
+      setSaveError(false);
       queryClient.invalidateQueries({ queryKey: ['my-prediction', eventId, match.matchId] });
       queryClient.invalidateQueries({ queryKey: ['prediction-breakdown', eventId, match.matchId] });
       queryClient.invalidateQueries({ queryKey: ['live-stats', eventId] });
       queryClient.invalidateQueries({ queryKey: ['community-pulse', eventId] });
       queryClient.invalidateQueries({ queryKey: ['my-picks', eventId] });
+    },
+    onError: () => {
+      // Server rejects picks for live/finished/locked matches — refresh so the card reflects it.
+      setSaveError(true);
+      queryClient.invalidateQueries({ queryKey: ['event-hub', eventId] });
     },
   });
 
@@ -205,6 +223,9 @@ export const WcInlinePredict: React.FC<Props> = ({
 
       {open ? (
         <Box sx={{ mt: total > 0 ? 1 : 0 }}>
+          {saveError && (
+            <Typography className={styles.saveError}>{t('event_hub.predict_save_failed')}</Typography>
+          )}
           <Box className={styles.pickRow}>
             <Button
               className={`${styles.pickBtn} ${activeChoice === 'teamA' ? styles.pickBtnActive : ''}`}
