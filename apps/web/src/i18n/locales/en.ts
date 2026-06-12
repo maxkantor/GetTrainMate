@@ -303,6 +303,8 @@ export const en = {
     promo_home_title: 'World Cup 2026 Fan Hub',
     promo_home_copy: 'Predict matches free, see community picks, and connect with fans watching the same games.',
     promo_home_cta_secondary: 'Explore Fan Hub',
+    edit_pick: 'Change pick',
+    pick_first_hint: 'Tap a team or draw first, then save your score.',
     promo_kicker: 'Official Fan Hub',
     promo_matchday: 'Matchday Live',
     promo_full_time: 'Full-time',
