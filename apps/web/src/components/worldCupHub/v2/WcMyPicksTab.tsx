@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Button, Chip, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { useI18n } from '@/hooks/useI18n';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import { parseKickoffUtc } from '@/utils/eventMatchUtils';
@@ -110,9 +111,13 @@ export const WcMyPicksTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
 
             return (
               <Box key={pred.predictionKey} className={styles.matchCard}>
-                <Typography sx={{ fontWeight: 700 }}>
-                  {match.teamAFlag} {match.teamAName} vs {match.teamBName} {match.teamBFlag}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', fontWeight: 700 }}>
+                  <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={24} alt={match.teamAName ?? ''} />
+                  <span>{match.teamAName}</span>
+                  <span className={styles.matchVs}>vs</span>
+                  <span>{match.teamBName}</span>
+                  <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={24} alt={match.teamBName ?? ''} />
+                </Box>
                 <Typography sx={{ fontSize: '0.9rem' }}>
                   {label}
                   {pred.predictionType === 'exact_score' && pred.predictedScoreA != null && (

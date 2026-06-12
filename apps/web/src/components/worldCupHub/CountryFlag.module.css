@@ -9,8 +9,13 @@
   vertical-align: middle;
 }
 
-.flagEmoji {
-  font-size: 1.35em;
-  line-height: 1;
+.flagPlaceholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6em;
+  height: 1.2em;
+  font-size: 0.85em;
+  opacity: 0.55;
   flex-shrink: 0;
 }

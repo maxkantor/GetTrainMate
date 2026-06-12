@@ -13,7 +13,7 @@ type Props = {
 
 /** Cross-platform flag — uses flagcdn images instead of emoji regional indicators. */
 export const CountryFlag: React.FC<Props> = ({
-  teamId, flagEmoji, size = 28, className = '', alt = '',
+  teamId, size = 28, className = '', alt = '',
 }) => {
   const src = flagCdnUrl(teamId, size);
   if (src) {
@@ -29,8 +29,9 @@ export const CountryFlag: React.FC<Props> = ({
       />
     );
   }
-  if (flagEmoji) {
-    return <span className={`${styles.flagEmoji} ${className}`.trim()} aria-hidden>{flagEmoji}</span>;
-  }
-  return null;
+  return (
+    <span className={`${styles.flagPlaceholder} ${className}`.trim()} aria-hidden title={alt}>
+      🏳️
+    </span>
+  );
 };

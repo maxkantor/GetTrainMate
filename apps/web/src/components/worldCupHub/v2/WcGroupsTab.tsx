@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography } from '@mui/material';
+import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
+import { TeamExploreCard } from '@/components/worldCupHub/TeamExploreCard';
 import { useI18n } from '@/hooks/useI18n';
 import type { EventGroup, EventTeam } from '@/services/sportsEventLayerService';
 import type { WcHubProps } from './wcTypes';
@@ -34,7 +36,7 @@ const GroupTable: React.FC<{ teams: EventTeam[]; onTeamPage: (id: string) => voi
                 style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}
                 onClick={() => onTeamPage(team.teamId)}
               >
-                <span className={styles.teamFlag}>{team.flagEmoji}</span>
+                <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={24} alt={team.name} />
                 {team.name}
               </button>
             </td>
@@ -59,7 +61,7 @@ const GroupCards: React.FC<{ teams: EventTeam[] }> = ({ teams }) => {
       {sorted.map((team, i) => (
         <Box key={team.teamId} className={styles.cardStandingRow}>
           <Box className={styles.teamCell}>
-            <span className={styles.teamFlag}>{team.flagEmoji}</span>
+            <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={28} alt={team.name} />
             <Box>
               <Typography sx={{ fontWeight: 700, fontSize: '0.88rem' }}>{team.name}</Typography>
               <Typography className={styles.cardStandingStats}>
@@ -141,17 +143,15 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
       {teams.length > 0 && (
         <Box sx={{ mt: 2 }}>
           <Typography sx={{ fontWeight: 700, mb: 1 }}>{t('event_hub.explore_teams')}</Typography>
-          <Box className={styles.teamStrip}>
+          <Box className={styles.teamExploreGrid}>
             {teams.map((team) => (
-              <button
+              <TeamExploreCard
                 key={team.teamId}
-                type="button"
-                className={styles.teamChip}
+                teamId={team.teamId}
+                name={team.name}
+                flagEmoji={team.flagEmoji}
                 onClick={() => onTeamPage(team.teamId)}
-              >
-                <span className={styles.teamChipFlag}>{team.flagEmoji}</span>
-                <span className={styles.teamChipName}>{team.name}</span>
-              </button>
+              />
             ))}
           </Box>
         </Box>

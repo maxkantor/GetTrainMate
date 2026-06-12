@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { useI18n } from '@/hooks/useI18n';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import { categorizeMatches } from '@/utils/eventMatchUtils';
@@ -128,7 +129,7 @@ export const WcOverviewTab: React.FC<Props> = ({
                       onClick={() => onTeamPage(team.teamId)}
                     >
                       <span className={styles.teamCell}>
-                        <span className={styles.teamFlag}>{team.flagEmoji}</span>
+                        <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={22} alt={team.name} />
                         {team.name}
                       </span>
                       <span className={styles.ptsCell}>{team.points}</span>

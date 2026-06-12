@@ -10,9 +10,9 @@
 }
 
 .body {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 1rem 4rem;
+  padding: 0 1.25rem 4rem;
 }
 
 /* ── Sticky Nav ── */
@@ -26,7 +26,7 @@
 }
 
 .navInner {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
   display: flex;
   gap: 0.25rem;
@@ -97,9 +97,9 @@
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 2.5rem 1rem 2rem;
+  padding: 2.5rem 1.25rem 2rem;
 }
 
 .heroEyebrow {
@@ -274,11 +274,14 @@
 }
 
 .groupCard {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   padding: 1.1rem;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 12px 32px rgba(0, 0, 0, 0.25);
 }
 
 .groupLabel {
@@ -322,7 +325,7 @@
   font-weight: 600;
 }
 
-.teamFlag { font-size: 1.35rem; line-height: 1; }
+.teamFlag { flex-shrink: 0; line-height: 1; }
 
 .ptsCell {
   font-weight: 800;
@@ -785,7 +788,12 @@
 }
 
 .fanName { font-weight: 700; font-size: 0.9rem; }
-.fanMeta { font-size: 0.75rem; color: rgba(255, 255, 255, 0.45); }
+.fanMeta {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+}
 .fanBody { font-size: 0.92rem; line-height: 1.45; color: rgba(255, 255, 255, 0.88); }
 
 .fanActions {
@@ -1024,31 +1032,19 @@
 .challengeTitle { font-weight: 800; font-size: 0.95rem; }
 .challengeDesc { font-size: 0.78rem; color: rgba(255, 255, 255, 0.5); margin-top: 0.25rem; }
 
-/* ── Team explorer strip ── */
-.teamStrip {
-  display: flex;
-  gap: 0.75rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
-  scrollbar-width: thin;
+/* ── Team explorer grid (Groups + Find Fans) ── */
+.teamExploreGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 0.85rem;
 }
 
-.teamChip {
-  flex: 0 0 auto;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  min-width: 120px;
-  text-align: center;
-  cursor: pointer;
-  padding: 0.85rem 1rem;
-  transition: border-color 0.2s;
+@media (max-width: 640px) {
+  .teamExploreGrid {
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 0.65rem;
+  }
 }
-
-.teamChip:hover { border-color: rgba(251, 191, 36, 0.4); }
-
-.teamChipFlag { font-size: 2rem; display: block; margin-bottom: 0.25rem; }
-.teamChipName { font-size: 0.82rem; font-weight: 700; }
 
 /* ── Empty states ── */
 .emptyPremium {
@@ -1115,7 +1111,13 @@
   padding: 1.5rem;
 }
 
-.teamHeroFlag { font-size: 4rem; line-height: 1; }
+.teamHeroFlag {
+  flex-shrink: 0;
+  border-radius: 10px !important;
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
 .teamHeroName { font-size: 1.75rem; font-weight: 900; }
 .teamHeroMeta { color: rgba(255, 255, 255, 0.55); font-size: 0.9rem; }
 

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Alert, Box, Button, Snackbar, TextField, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MatchFlagPair } from '@/components/worldCupHub/MatchFlagPair';
+import { TeamExploreCard } from '@/components/worldCupHub/TeamExploreCard';
 import { useI18n } from '@/hooks/useI18n';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import type { WcHubProps } from './wcTypes';
@@ -141,7 +143,7 @@ export const WcFansTab: React.FC<Props> = ({
                     <span className={styles.fanName}>{o.userDisplayName ?? t('event_hub.fan')}</span>
                     {match && (
                       <span className={styles.fanMeta}>
-                        {match.teamAFlag} vs {match.teamBFlag}
+                        <MatchFlagPair match={match} size={18} />
                       </span>
                     )}
                     <span className={styles.fanMeta}>{new Date(o.createdAt).toLocaleString()}</span>
@@ -208,27 +210,31 @@ export const WcFansTab: React.FC<Props> = ({
           <Typography className={styles.emptyDesc}>{t('event_hub.teams_coming_soon')}</Typography>
         </Box>
       ) : (
-        <Box className={styles.teamStrip}>
+        <Box className={styles.teamExploreGrid}>
           {teamStats.map((team) => (
-            <Box key={team.teamId} className={styles.teamChip}>
-              <span className={styles.teamChipFlag}>{team.flagEmoji}</span>
-              <span className={styles.teamChipName}>{team.name}</span>
-              <Typography sx={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)', mt: 0.5 }}>
-                {team.fanCount} {t('event_hub.fans')}
-              </Typography>
-              <Button
-                size="small"
-                variant="contained"
-                className={styles.ctaPrimary}
-                sx={{ mt: 0.75, fontSize: '0.72rem' }}
-                onClick={() => {
-                  if (!isAuthenticated) { onAuthRequired(); return; }
-                  onFindFans(team.teamId);
-                }}
-              >
-                {t('event_hub.connect')}
-              </Button>
-            </Box>
+            <TeamExploreCard
+              key={team.teamId}
+              teamId={team.teamId}
+              name={team.name}
+              flagEmoji={team.flagEmoji}
+              subtitle={`${team.fanCount} ${t('event_hub.fans')}`}
+              as="div"
+              footer={(
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="contained"
+                  className={styles.ctaPrimary}
+                  sx={{ fontSize: '0.72rem' }}
+                  onClick={() => {
+                    if (!isAuthenticated) { onAuthRequired(); return; }
+                    onFindFans(team.teamId);
+                  }}
+                >
+                  {t('event_hub.connect')}
+                </Button>
+              )}
+            />
           ))}
         </Box>
       )}

@@ -4,6 +4,7 @@ import { Box, Button, Chip, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useI18n } from '@/hooks/useI18n';
+import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { WcMatchCard } from '@/components/worldCupHub/v2/WcMatchCard';
 import { WcAuthGateModal } from '@/components/worldCupHub/WcAuthGateModal';
 import {
@@ -60,7 +61,7 @@ export const WorldCupTeamPage: React.FC = () => {
         </Button>
 
         <Box className={styles.teamHero}>
-          <span className={styles.teamHeroFlag}>{team.flagEmoji}</span>
+          <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={72} alt={team.name} className={styles.teamHeroFlag} />
           <Box>
             <Typography className={styles.teamHeroName}>{team.name}</Typography>
             <Typography className={styles.teamHeroMeta}>
