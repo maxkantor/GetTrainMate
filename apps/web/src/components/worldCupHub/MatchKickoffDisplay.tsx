@@ -22,10 +22,17 @@ export const MatchKickoffDisplay: React.FC<Props> = ({ match }) => {
     return <span className={styles.matchKickoffTbd}>{t('event_hub.kickoff_tbd')}</span>;
   }
 
+  const dateLabel = kickoff.dateLabel === 'Today'
+    ? t('event_hub.kickoff_today')
+    : kickoff.dateLabel === 'Tomorrow'
+      ? t('event_hub.kickoff_tomorrow')
+      : kickoff.dateLabel;
+  const fullLabel = `${dateLabel} · ${kickoff.timeLabel}`;
+
   return (
     <Box className={styles.matchKickoff}>
-      <Box className={styles.matchKickoffBar} title={kickoff.fullLabel}>
-        <span className={styles.matchKickoffDate}>{kickoff.dateLabel}</span>
+      <Box className={styles.matchKickoffBar} title={fullLabel}>
+        <span className={styles.matchKickoffDate}>{dateLabel}</span>
         <span className={styles.matchKickoffTime}>{kickoff.timeLabel}</span>
       </Box>
       {match.status === 'Scheduled' && countdown && (

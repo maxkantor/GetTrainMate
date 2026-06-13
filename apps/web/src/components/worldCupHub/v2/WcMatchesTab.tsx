@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
+import { TodayPredictionsSharePanel } from '@/components/worldCupHub/TodayPredictionsSharePanel';
 import { categorizeMatches } from '@/utils/eventMatchUtils';
 import type { WcHubProps } from './wcTypes';
 import { WcMatchCard } from './WcMatchCard';
@@ -41,6 +42,15 @@ export const WcMatchesTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
           </button>
         ))}
       </Box>
+
+      {filter === 'today' && (
+        <TodayPredictionsSharePanel
+          eventId={eventId}
+          todayMatches={today}
+          isAuthenticated={isAuthenticated}
+          onAuthRequired={onAuthRequired}
+        />
+      )}
 
       {active.length === 0 ? (
         <Box className={styles.emptyPremium}>

@@ -8,6 +8,7 @@ import {
   formatKickoffFriendly,
   formatKickoffCompact,
   formatKickoffCard,
+  isMatchToday,
   isMatchUpcoming,
   parseKickoffUtc,
 } from './eventMatchUtils';
@@ -123,6 +124,46 @@ describe('eventMatchUtils', () => {
       teamBId: 'tbd-final-b',
     });
     expect(compareMatchesChronological(group, final)).toBeLessThan(0);
+  });
+
+  it('isMatchToday does not use UTC date fallback when kickoff time is missing', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-13T01:00:00Z'));
+    const tomorrowKickoff = matchFixture({
+      matchId: 'gs-australia-vs-turkiye',
+      matchDate: '2026-06-14',
+      matchTime: '',
+    });
+    expect(isMatchToday(tomorrowKickoff)).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('categorizeMatches puts tomorrow midnight kickoff in upcoming not today', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-13T01:00:00Z'));
+    const matches = [
+      matchFixture({
+        matchId: 'gs-australia-vs-turkiye',
+        teamAId: 'australia',
+        teamBId: 'turkiye',
+        groupId: 'group-d',
+        matchDate: '2026-06-14',
+        matchTime: '04:00',
+      }),
+      matchFixture({
+        matchId: 'gs-usa-vs-paraguay',
+        teamAId: 'usa',
+        teamBId: 'paraguay',
+        groupId: 'group-d',
+        status: 'Live',
+        scoreA: 2,
+        scoreB: 0,
+      }),
+    ];
+    const { today, upcoming } = categorizeMatches(matches);
+    expect(today.map((m) => m.matchId)).toEqual(['gs-usa-vs-paraguay']);
+    expect(upcoming.map((m) => m.matchId)).toEqual(['gs-australia-vs-turkiye']);
+    vi.useRealTimers();
   });
 
   it('categorizeMatches upcoming lists soonest kickoffs first and Final last among TBD', () => {

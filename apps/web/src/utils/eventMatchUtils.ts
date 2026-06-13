@@ -163,18 +163,16 @@ export function formatMatchMeta(match: EventMatch): string {
   return parts.length > 0 ? parts.join(' · ') : '';
 }
 
-/** "Today" in the viewer's local timezone — kickoffs are stored in UTC. */
+/** True when kickoff falls on the viewer's local calendar day (excludes Live — use status for that). */
 export function isMatchToday(match: EventMatch): boolean {
+  if (!match.matchDate?.trim() || !match.matchTime?.trim()) return false;
   const kickoff = parseKickoffUtc(match.matchDate, match.matchTime);
-  if (kickoff != null) {
-    const k = new Date(kickoff);
-    const now = new Date();
-    return k.getFullYear() === now.getFullYear()
-      && k.getMonth() === now.getMonth()
-      && k.getDate() === now.getDate();
-  }
-  if (!match.matchDate?.trim()) return false;
-  return match.matchDate.trim() === new Date().toISOString().slice(0, 10);
+  if (kickoff == null) return false;
+  const k = new Date(kickoff);
+  const now = new Date();
+  return k.getFullYear() === now.getFullYear()
+    && k.getMonth() === now.getMonth()
+    && k.getDate() === now.getDate();
 }
 
 /** Ascending chronological order: soonest kickoff first; undated TBD slots last (by stage). */
