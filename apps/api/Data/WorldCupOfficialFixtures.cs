@@ -129,7 +129,7 @@ public static class WorldCupOfficialFixtures
     public static readonly IReadOnlyList<OfficialPairResult> ScoreOverrides =
     [
         new("canada", "bosnia-herzegovina", 1, 1, "Completed"),
-        new("usa", "paraguay", 2, 0, "Live"),
+        new("usa", "paraguay", 4, 1, "Completed"),
     ];
 
     /// <summary>

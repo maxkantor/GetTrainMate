@@ -151,17 +151,17 @@ describe('eventMatchUtils', () => {
         matchTime: '04:00',
       }),
       matchFixture({
-        matchId: 'gs-usa-vs-paraguay',
-        teamAId: 'usa',
-        teamBId: 'paraguay',
-        groupId: 'group-d',
+        matchId: 'gs-qatar-vs-switzerland',
+        teamAId: 'qatar',
+        teamBId: 'switzerland',
+        groupId: 'group-b',
         status: 'Live',
-        scoreA: 2,
+        scoreA: 0,
         scoreB: 0,
       }),
     ];
     const { today, upcoming } = categorizeMatches(matches);
-    expect(today.map((m) => m.matchId)).toEqual(['gs-usa-vs-paraguay']);
+    expect(today.map((m) => m.matchId)).toEqual(['gs-qatar-vs-switzerland']);
     expect(upcoming.map((m) => m.matchId)).toEqual(['gs-australia-vs-turkiye']);
     vi.useRealTimers();
   });
@@ -240,7 +240,7 @@ describe('eventMatchUtils', () => {
     expect(bosnia?.points).toBe(1);
   });
 
-  it('mergeOfficialResultsIntoMatches applies live catalog scores to scheduled fixtures', () => {
+  it('mergeOfficialResultsIntoMatches applies USA 4-1 catalog to scheduled fixtures', () => {
     const teams: EventTeam[] = [
       {
         eventId: 'world-cup-2026', teamId: 'usa', name: 'United States', country: 'USA',
@@ -263,9 +263,9 @@ describe('eventMatchUtils', () => {
       }),
     ];
     const merged = mergeOfficialResultsIntoMatches(matches, teams);
-    expect(merged[0].status).toBe('Live');
-    expect(merged[0].scoreA).toBe(2);
-    expect(merged[0].scoreB).toBe(0);
+    expect(merged[0].status).toBe('Completed');
+    expect(merged[0].scoreA).toBe(4);
+    expect(merged[0].scoreB).toBe(1);
   });
 
   it('computeStandingsFromMatches uses official catalog when API match is still scheduled', () => {
@@ -292,6 +292,8 @@ describe('eventMatchUtils', () => {
     ];
     const standings = computeStandingsFromMatches(teams, matches);
     expect(standings.find((t) => t.teamId === 'usa')?.points).toBe(3);
+    expect(standings.find((t) => t.teamId === 'usa')?.goalsFor).toBe(4);
     expect(standings.find((t) => t.teamId === 'paraguay')?.points).toBe(0);
+    expect(standings.find((t) => t.teamId === 'paraguay')?.goalsFor).toBe(1);
   });
 });

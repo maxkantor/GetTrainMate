@@ -42,7 +42,7 @@ export const WORLD_CUP_OFFICIAL_MATCH_IDS = [
 /** In-play and full-time scores — keep in sync with WorldCupOfficialFixtures.ScoreOverrides */
 export const WORLD_CUP_SCORE_OVERRIDES = [
   { teamAId: 'canada', teamBId: 'bosnia-herzegovina', scoreA: 1, scoreB: 1, status: 'Completed' as const },
-  { teamAId: 'usa', teamBId: 'paraguay', scoreA: 2, scoreB: 0, status: 'Live' as const },
+  { teamAId: 'usa', teamBId: 'paraguay', scoreA: 4, scoreB: 1, status: 'Completed' as const },
 ] as const;
 
 export type OfficialScoreOverride = (typeof WORLD_CUP_SCORE_OVERRIDES)[number];
