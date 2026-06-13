@@ -12,7 +12,7 @@ import {
   renderTodayPicksCanvas,
   type TodayPickRow,
 } from '@/utils/todayPredictionsShareCanvas';
-import { getRealPrimaryPhotoUrl } from '@/utils/profilePhotos';
+import { useHeaderAvatarPhoto } from '@/hooks/useHeaderAvatarPhoto';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
@@ -96,7 +96,7 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
     || summary?.predictions[0]?.userDisplayName?.trim()
     || t('event_hub.share_fan_fallback');
 
-  const profilePhotoUrl = getRealPrimaryPhotoUrl(me?.profile?.photoUrls);
+  const profilePhotoUrl = useHeaderAvatarPhoto(me?.profile?.photoUrls);
 
   const dateLabel = new Intl.DateTimeFormat(locale, {
     weekday: 'long',

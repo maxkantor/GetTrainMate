@@ -36,13 +36,40 @@ function roundRect(
 }
 
 function loadCanvasImage(url: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
+  const loadBitmap = (src: string, revoke?: string) => new Promise<HTMLImageElement | null>((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      if (revoke) URL.revokeObjectURL(revoke);
+      resolve(img);
+    };
+    img.onerror = () => {
+      if (revoke) URL.revokeObjectURL(revoke);
+      resolve(null);
+    };
+    img.src = src;
+  });
+
+  return (async () => {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const img = await loadBitmap(objectUrl, objectUrl);
+        if (img) return img;
+      }
+    } catch {
+      /* try direct load below */
+    }
+
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
+    return new Promise<HTMLImageElement | null>((resolve) => {
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  })();
 }
 
 function drawAvatar(
@@ -60,7 +87,20 @@ function drawAvatar(
   ctx.clip();
 
   if (avatarImg) {
-    ctx.drawImage(avatarImg, cx - radius, cy - radius, radius * 2, radius * 2);
+    const size = Math.min(avatarImg.width, avatarImg.height);
+    const sx = (avatarImg.width - size) / 2;
+    const sy = (avatarImg.height - size) / 2;
+    ctx.drawImage(
+      avatarImg,
+      sx,
+      sy,
+      size,
+      size,
+      cx - radius,
+      cy - radius,
+      radius * 2,
+      radius * 2,
+    );
   } else {
     const grad = ctx.createLinearGradient(cx - radius, cy - radius, cx + radius, cy + radius);
     grad.addColorStop(0, '#6366f1');
