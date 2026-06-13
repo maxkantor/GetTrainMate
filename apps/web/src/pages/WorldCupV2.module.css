@@ -436,6 +436,7 @@
   border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 16px;
   padding: 1.1rem;
+  overflow: hidden;
   backdrop-filter: blur(16px) saturate(1.2);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
@@ -454,6 +455,28 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.82rem;
+  table-layout: fixed;
+}
+
+.standingsTable th:first-child,
+.standingsTable td:first-child {
+  width: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.standingsTable th:not(:first-child):not(:last-child),
+.standingsTable td:not(:first-child):not(:last-child) {
+  width: 1.65rem;
+  text-align: center;
+  padding-left: 0.1rem;
+  padding-right: 0.1rem;
+}
+
+.standingsTable th:last-child,
+.standingsTable td:last-child {
+  width: 2.25rem;
+  padding-right: 0.55rem;
 }
 
 .standingsTable th {
@@ -489,6 +512,28 @@
   font-weight: 800;
   color: var(--wc-gold);
   text-align: right;
+  white-space: nowrap;
+}
+
+.cardStandingRow .ptsCell {
+  flex-shrink: 0;
+  padding-left: 0.5rem;
+}
+
+.livePtsBadge {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #f87171;
+  line-height: 1;
+}
+
+.cardStandingRow .livePtsBadge {
+  display: inline;
+  margin-top: 0;
+  margin-left: 0.25rem;
 }
 
 .cardStandingRow {

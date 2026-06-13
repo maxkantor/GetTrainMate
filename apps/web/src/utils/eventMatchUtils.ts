@@ -1,5 +1,5 @@
 import type { EventMatch, EventTeam } from '@/services/sportsEventLayerService';
-import { WORLD_CUP_COMPLETED_GROUP_RESULTS } from '@/data/worldCupOfficial';
+import { WORLD_CUP_SCORE_OVERRIDES } from '@/data/worldCupOfficial';
 
 export function parseKickoffUtc(matchDate?: string, matchTime?: string): number | null {
   if (!matchDate?.trim() || !matchTime?.trim()) return null;
@@ -222,10 +222,10 @@ const pairKey = (teamAId: string, teamBId: string) => {
   return a <= b ? `${a}|${b}` : `${b}|${a}`;
 };
 
-/** Overlay authoritative full-time scores when the API fixture is still Scheduled. */
+/** Overlay authoritative scores when the API fixture is still Scheduled or stale. */
 export function mergeOfficialResultsIntoMatches(matches: EventMatch[], teams: EventTeam[]): EventMatch[] {
   const resultByPair = new Map(
-    WORLD_CUP_COMPLETED_GROUP_RESULTS.map((r) => [pairKey(r.teamAId, r.teamBId), r]),
+    WORLD_CUP_SCORE_OVERRIDES.map((r) => [pairKey(r.teamAId, r.teamBId), r]),
   );
   const teamById = new Map(teams.map((t) => [t.teamId.toLowerCase(), t]));
   const seenPairs = new Set<string>();
@@ -240,11 +240,11 @@ export function mergeOfficialResultsIntoMatches(matches: EventMatch[], teams: Ev
     const aIsCatalogA = sameTeam(match.teamAId, official.teamAId);
     const scoreA = aIsCatalogA ? official.scoreA : official.scoreB;
     const scoreB = aIsCatalogA ? official.scoreB : official.scoreA;
-    if (match.status === 'Completed' && match.scoreA === scoreA && match.scoreB === scoreB) return match;
-    return { ...match, status: 'Completed' as const, scoreA, scoreB };
+    if (match.status === official.status && match.scoreA === scoreA && match.scoreB === scoreB) return match;
+    return { ...match, status: official.status, scoreA, scoreB };
   });
 
-  for (const official of WORLD_CUP_COMPLETED_GROUP_RESULTS) {
+  for (const official of WORLD_CUP_SCORE_OVERRIDES) {
     const key = pairKey(official.teamAId, official.teamBId);
     if (seenPairs.has(key)) continue;
     const teamA = teamById.get(official.teamAId.toLowerCase());
@@ -262,7 +262,7 @@ export function mergeOfficialResultsIntoMatches(matches: EventMatch[], teams: Ev
       groupId: teamA.groupId,
       matchDate: '',
       venue: '',
-      status: 'Completed',
+      status: official.status,
       scoreA: official.scoreA,
       scoreB: official.scoreB,
     });
@@ -271,15 +271,17 @@ export function mergeOfficialResultsIntoMatches(matches: EventMatch[], teams: Ev
   return merged;
 }
 
-/** Derive group standings from completed fixtures — always in sync with match scores on poll. */
+const standingsMatches = (matches: EventMatch[]) => matches.filter(
+  (m) => (m.status === 'Completed' || m.status === 'Live')
+    && m.scoreA != null
+    && m.scoreB != null
+    && Boolean(m.groupId?.trim()),
+);
+
+/** Derive group standings from completed and in-play fixtures. */
 export function computeStandingsFromMatches(teams: EventTeam[], matches: EventMatch[]): EventTeam[] {
   const effectiveMatches = mergeOfficialResultsIntoMatches(matches, teams);
-  const completed = effectiveMatches.filter(
-    (m) => m.status === 'Completed'
-      && m.scoreA != null
-      && m.scoreB != null
-      && Boolean(m.groupId?.trim()),
-  );
+  const counted = standingsMatches(effectiveMatches);
 
   return teams.map((team) => {
     let played = 0;
@@ -289,7 +291,7 @@ export function computeStandingsFromMatches(teams: EventTeam[], matches: EventMa
     let goalsFor = 0;
     let goalsAgainst = 0;
 
-    for (const m of completed) {
+    for (const m of counted) {
       const isA = sameTeam(m.teamAId, team.teamId);
       const isB = sameTeam(m.teamBId, team.teamId);
       if (!isA && !isB) continue;
@@ -322,6 +324,7 @@ export function computeStandingsFromMatches(teams: EventTeam[], matches: EventMa
 
 /** Poll faster while matches are live or recently finished. */
 export function hubRefetchIntervalMs(matches: EventMatch[] | undefined, baseMs = 45_000): number {
+  if (WORLD_CUP_SCORE_OVERRIDES.some((r) => r.status === 'Live')) return 10_000;
   if (!matches?.length) return baseMs;
   if (matches.some((m) => m.status === 'Live')) return 10_000;
   const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;

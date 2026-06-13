@@ -123,13 +123,13 @@ public static class WorldCupOfficialFixtures
     ];
 
     /// <summary>
-    /// Completed group-stage scores keyed by team pair (order-independent).
-    /// Synced on every hub load so standings update as official results land.
+    /// Authoritative in-play and full-time scores keyed by team pair (order-independent).
+    /// Synced on every hub load — set Status to Live while a match is on, Completed at full time.
     /// </summary>
-    public static readonly IReadOnlyList<OfficialPairResult> CompletedGroupResults =
+    public static readonly IReadOnlyList<OfficialPairResult> ScoreOverrides =
     [
-        new("canada", "bosnia-herzegovina", 1, 1),
-        new("usa", "paraguay", 2, 0),
+        new("canada", "bosnia-herzegovina", 1, 1, "Completed"),
+        new("usa", "paraguay", 2, 0, "Live"),
     ];
 
     /// <summary>
@@ -254,7 +254,7 @@ public sealed record OfficialMatch(string MatchId, string TeamAId, string TeamBI
 
 public sealed record OfficialResult(string MatchId, int ScoreA, int ScoreB);
 
-public sealed record OfficialPairResult(string TeamAId, string TeamBId, int ScoreA, int ScoreB);
+public sealed record OfficialPairResult(string TeamAId, string TeamBId, int ScoreA, int ScoreB, string Status = "Completed");
 
 public sealed record OfficialKickoff(string TeamAId, string TeamBId, string DateUtc, string TimeUtc);
 

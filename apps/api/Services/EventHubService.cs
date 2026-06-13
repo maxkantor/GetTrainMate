@@ -98,7 +98,7 @@ public class EventHubService : IEventHubService
     /// <summary>Stamp known full-time scores onto group fixtures and refresh standings.</summary>
     private async Task ApplyOfficialCompletedResultsAsync()
     {
-        var resultByPair = WorldCupOfficialFixtures.CompletedGroupResults
+        var resultByPair = WorldCupOfficialFixtures.ScoreOverrides
             .ToDictionary(
                 r => EventMatchRules.NormalizePairKey(r.TeamAId, r.TeamBId),
                 r => r,
@@ -116,11 +116,11 @@ public class EventHubService : IEventHubService
             var scoreA = teamAIsCatalogA ? official.ScoreA : official.ScoreB;
             var scoreB = teamAIsCatalogA ? official.ScoreB : official.ScoreA;
 
-            if (string.Equals(match.Status, EventMatchStatus.Completed, StringComparison.OrdinalIgnoreCase)
+            if (string.Equals(match.Status, official.Status, StringComparison.OrdinalIgnoreCase)
                 && match.ScoreA == scoreA && match.ScoreB == scoreB)
                 continue;
 
-            match.Status = EventMatchStatus.Completed;
+            match.Status = official.Status;
             match.ScoreA = scoreA;
             match.ScoreB = scoreB;
             await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
@@ -527,15 +527,16 @@ public class EventHubService : IEventHubService
         return EventMatchRules.Enrich(match);
     }
 
-    /// <summary>Recompute team standings from completed matches with scores — single source of truth, idempotent.</summary>
+    /// <summary>Recompute team standings from completed and in-play group matches with scores.</summary>
     public async Task RecalculateStandingsAsync(string eventId)
     {
         var teams = await GetTeamsAsync(eventId);
         if (teams.Count == 0) return;
 
-        // Group tables only count group-stage results — knockout matches never affect standings.
-        var completed = (await QueryEventItemsAsync(_matchesTable, eventId, MapMatch))
-            .Where(m => string.Equals(m.Status, EventMatchStatus.Completed, StringComparison.OrdinalIgnoreCase)
+        // Group tables count group-stage results — knockout matches never affect standings.
+        var counted = (await QueryEventItemsAsync(_matchesTable, eventId, MapMatch))
+            .Where(m => (string.Equals(m.Status, EventMatchStatus.Completed, StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(m.Status, EventMatchStatus.Live, StringComparison.OrdinalIgnoreCase))
                         && m.ScoreA.HasValue && m.ScoreB.HasValue
                         && !string.IsNullOrWhiteSpace(m.GroupId))
             .ToList();
@@ -543,7 +544,7 @@ public class EventHubService : IEventHubService
         foreach (var team in teams)
         {
             int played = 0, wins = 0, draws = 0, losses = 0, goalsFor = 0, goalsAgainst = 0;
-            foreach (var m in completed)
+            foreach (var m in counted)
             {
                 var isA = string.Equals(m.TeamAId, team.TeamId, StringComparison.OrdinalIgnoreCase);
                 var isB = string.Equals(m.TeamBId, team.TeamId, StringComparison.OrdinalIgnoreCase);

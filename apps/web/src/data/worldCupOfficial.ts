@@ -39,10 +39,13 @@ export const WORLD_CUP_OFFICIAL_MATCH_IDS = [
   'opening-south-korea-vs-czechia',
 ] as const;
 
-/** Completed group-stage scores — keep in sync with WorldCupOfficialFixtures.CompletedGroupResults */
-export const WORLD_CUP_COMPLETED_GROUP_RESULTS = [
-  { teamAId: 'canada', teamBId: 'bosnia-herzegovina', scoreA: 1, scoreB: 1 },
-  { teamAId: 'usa', teamBId: 'paraguay', scoreA: 2, scoreB: 0 },
+/** In-play and full-time scores — keep in sync with WorldCupOfficialFixtures.ScoreOverrides */
+export const WORLD_CUP_SCORE_OVERRIDES = [
+  { teamAId: 'canada', teamBId: 'bosnia-herzegovina', scoreA: 1, scoreB: 1, status: 'Completed' as const },
+  { teamAId: 'usa', teamBId: 'paraguay', scoreA: 2, scoreB: 0, status: 'Live' as const },
 ] as const;
 
-export type OfficialPairResult = (typeof WORLD_CUP_COMPLETED_GROUP_RESULTS)[number];
+export type OfficialScoreOverride = (typeof WORLD_CUP_SCORE_OVERRIDES)[number];
+
+/** @deprecated Use WORLD_CUP_SCORE_OVERRIDES */
+export const WORLD_CUP_COMPLETED_GROUP_RESULTS = WORLD_CUP_SCORE_OVERRIDES.filter((r) => r.status === 'Completed');

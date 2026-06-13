@@ -175,6 +175,34 @@ describe('eventMatchUtils', () => {
     expect(bosnia?.points).toBe(1);
   });
 
+  it('mergeOfficialResultsIntoMatches applies live catalog scores to scheduled fixtures', () => {
+    const teams: EventTeam[] = [
+      {
+        eventId: 'world-cup-2026', teamId: 'usa', name: 'United States', country: 'USA',
+        flagEmoji: '🇺🇸', groupId: 'group-d', sortOrder: 0, played: 0, wins: 0, draws: 0, losses: 0,
+        goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0,
+      },
+      {
+        eventId: 'world-cup-2026', teamId: 'paraguay', name: 'Paraguay', country: 'Paraguay',
+        flagEmoji: '🇵🇾', groupId: 'group-d', sortOrder: 1, played: 0, wins: 0, draws: 0, losses: 0,
+        goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0,
+      },
+    ];
+    const matches: EventMatch[] = [
+      matchFixture({
+        matchId: 'gs-usa-vs-paraguay',
+        teamAId: 'usa',
+        teamBId: 'paraguay',
+        groupId: 'group-d',
+        status: 'Scheduled',
+      }),
+    ];
+    const merged = mergeOfficialResultsIntoMatches(matches, teams);
+    expect(merged[0].status).toBe('Live');
+    expect(merged[0].scoreA).toBe(2);
+    expect(merged[0].scoreB).toBe(0);
+  });
+
   it('computeStandingsFromMatches uses official catalog when API match is still scheduled', () => {
     const teams: EventTeam[] = [
       {

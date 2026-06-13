@@ -6,13 +6,17 @@ import { useI18n } from '@/hooks/useI18n';
 import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { formatI18n } from '@/i18n';
 import type { EventGroup, EventTeam } from '@/services/sportsEventLayerService';
-import { computeStandingsFromMatches } from '@/utils/eventMatchUtils';
+import { computeStandingsFromMatches, mergeOfficialResultsIntoMatches } from '@/utils/eventMatchUtils';
 import type { WcHubProps } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = Pick<WcHubProps, 'hub' | 'onTeamPage'>;
 
-const GroupTable: React.FC<{ teams: EventTeam[]; onTeamPage: (id: string) => void }> = ({ teams, onTeamPage }) => {
+const GroupTable: React.FC<{
+  teams: EventTeam[];
+  liveTeamIds: Set<string>;
+  onTeamPage: (id: string) => void;
+}> = ({ teams, liveTeamIds, onTeamPage }) => {
   const { t } = useI18n();
   const { teamName } = useWcDisplay();
   const sorted = [...teams].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference);
@@ -51,7 +55,12 @@ const GroupTable: React.FC<{ teams: EventTeam[]; onTeamPage: (id: string) => voi
               <td>{team.draws}</td>
               <td>{team.losses}</td>
               <td>{team.goalsFor}:{team.goalsAgainst}</td>
-              <td className={styles.ptsCell}>{team.points}</td>
+              <td className={styles.ptsCell}>
+                {team.points}
+                {liveTeamIds.has(team.teamId.toLowerCase()) && (
+                  <span className={styles.livePtsBadge}>{t('event_hub.status_live')}</span>
+                )}
+              </td>
             </tr>
           );
         })}
@@ -60,7 +69,7 @@ const GroupTable: React.FC<{ teams: EventTeam[]; onTeamPage: (id: string) => voi
   );
 };
 
-const GroupCards: React.FC<{ teams: EventTeam[] }> = ({ teams }) => {
+const GroupCards: React.FC<{ teams: EventTeam[]; liveTeamIds: Set<string> }> = ({ teams, liveTeamIds }) => {
   const { t } = useI18n();
   const { teamName } = useWcDisplay();
   const sorted = [...teams].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference);
@@ -92,6 +101,9 @@ const GroupCards: React.FC<{ teams: EventTeam[] }> = ({ teams }) => {
             </Box>
             <Typography className={styles.ptsCell}>
               {team.points} {t('event_hub.points_suffix')}
+              {liveTeamIds.has(team.teamId.toLowerCase()) && (
+                <span className={styles.livePtsBadge}> {t('event_hub.status_live')}</span>
+              )}
             </Typography>
           </Box>
         );
@@ -105,7 +117,13 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
   const { teamName, groupLabel } = useWcDisplay();
   const [view, setView] = useState<'table' | 'card'>('table');
   const { groups, teams: rawTeams, matches, settings } = hub;
+  const mergedMatches = mergeOfficialResultsIntoMatches(matches, rawTeams);
   const teams = computeStandingsFromMatches(rawTeams, matches);
+  const liveTeamIds = new Set(
+    mergedMatches
+      .filter((m) => m.status === 'Live' && m.groupId)
+      .flatMap((m) => [m.teamAId.toLowerCase(), m.teamBId.toLowerCase()]),
+  );
   const enabled = settings.standingsEnabled;
   const published = settings.standingsPublished;
   const hasData = groups.length > 0;
@@ -158,9 +176,9 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
                     {groupLabel(g.groupId, g.label)}
                   </Typography>
                   {view === 'table' ? (
-                    <GroupTable teams={groupTeams} onTeamPage={onTeamPage} />
+                    <GroupTable teams={groupTeams} liveTeamIds={liveTeamIds} onTeamPage={onTeamPage} />
                   ) : (
-                    <GroupCards teams={groupTeams} />
+                    <GroupCards teams={groupTeams} liveTeamIds={liveTeamIds} />
                   )}
                 </Box>
               );
