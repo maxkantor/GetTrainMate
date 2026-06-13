@@ -4,6 +4,7 @@ import { Box, Button, Chip, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useI18n } from '@/hooks/useI18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { WcCinematicBackdrop } from '@/components/worldCupHub/v2/WcCinematicBackdrop';
 import { WcMatchCard } from '@/components/worldCupHub/v2/WcMatchCard';
@@ -16,7 +17,8 @@ import styles from '@/pages/WorldCupV2.module.css';
 
 export const WorldCupTeamPage: React.FC = () => {
   const { teamId = '' } = useParams<{ teamId: string }>();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const { teamName, groupLabel } = useWcDisplay();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthContext();
   const [authOpen, setAuthOpen] = React.useState(false);
@@ -54,8 +56,10 @@ export const WorldCupTeamPage: React.FC = () => {
   const upcoming = teamMatches.filter((m) => m.status === 'Scheduled' || m.status === 'Live');
   const fanPosts = opinions.filter((o) => teamMatches.some((m) => m.matchId === o.threadId)).slice(0, 8);
 
+  const displayName = teamName(team.teamId, team.name);
+
   return (
-    <Box className={styles.shell} sx={{ '--wc-accent': hub.config.themeColor || '#6366f1' } as React.CSSProperties}>
+    <Box className={styles.shell} key={locale} sx={{ '--wc-accent': hub.config.themeColor || '#6366f1' } as React.CSSProperties}>
       <WcCinematicBackdrop />
       <Box className={styles.body} sx={{ pt: 2, position: 'relative', zIndex: 1 }}>
         <Button component={RouterLink} to="/world-cup#groups" size="small" sx={{ mb: 2, color: 'rgba(255,255,255,0.6)' }}>
@@ -64,12 +68,12 @@ export const WorldCupTeamPage: React.FC = () => {
 
         <Box className={styles.teamHero}>
           <Box className={styles.teamHeroFlagWrap}>
-            <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={80} alt={team.name} className={styles.teamHeroFlag} />
+            <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={80} alt={displayName} className={styles.teamHeroFlag} />
           </Box>
           <Box>
-            <Typography className={styles.teamHeroName}>{team.name}</Typography>
+            <Typography className={styles.teamHeroName}>{displayName}</Typography>
             <Typography className={styles.teamHeroMeta}>
-              {group?.label ?? t('event_hub.group_tbd')} · {team.points} {t('event_hub.col_pts')}
+              {groupLabel(team.groupId, group?.label) ?? t('event_hub.group_tbd')} · {team.points} {t('event_hub.col_pts')}
             </Typography>
             {stats && (
               <Typography className={styles.teamHeroMeta}>
@@ -83,7 +87,10 @@ export const WorldCupTeamPage: React.FC = () => {
           <Box className={styles.overviewBlock}>
             <Typography sx={{ fontWeight: 800, mb: 1 }}>{t('event_hub.team_stats')}</Typography>
             <Box className={styles.pulseItem}><span>{t('event_hub.col_played')}</span><span className={styles.pulseVal}>{team.played}</span></Box>
-            <Box className={styles.pulseItem}><span>W / D / L</span><span className={styles.pulseVal}>{team.wins} / {team.draws} / {team.losses}</span></Box>
+            <Box className={styles.pulseItem}>
+              <span>{t('event_hub.col_wins_abbr')} / {t('event_hub.col_draws_abbr')} / {t('event_hub.col_losses_abbr')}</span>
+              <span className={styles.pulseVal}>{team.wins} / {team.draws} / {team.losses}</span>
+            </Box>
             <Box className={styles.pulseItem}><span>{t('event_hub.col_goals')}</span><span className={styles.pulseVal}>{team.goalsFor}:{team.goalsAgainst}</span></Box>
             <Box className={styles.pulseItem}><span>{t('event_hub.col_pts')}</span><span className={styles.pulseVal}>{team.points}</span></Box>
           </Box>
@@ -91,7 +98,7 @@ export const WorldCupTeamPage: React.FC = () => {
           <Box className={styles.overviewBlock}>
             <Typography sx={{ fontWeight: 800, mb: 1 }}>{t('event_hub.find_fans_title')}</Typography>
             <Typography sx={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.55)', mb: 1.5 }}>
-              {t('event_hub.team_find_fans').replace('{team}', team.name)}
+              {t('event_hub.team_find_fans').replace('{team}', displayName)}
             </Typography>
             <Button
               variant="contained"

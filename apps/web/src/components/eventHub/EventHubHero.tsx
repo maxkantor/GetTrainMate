@@ -31,7 +31,7 @@ export const EventHubHero: React.FC<Props> = ({ settings, themeColor, liveStats,
       <Box className={styles.heroGlow} aria-hidden />
       <Container maxWidth="lg" className={styles.heroInner}>
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
-          <Typography component="p" className={styles.heroEyebrow}>⚽ World Cup 2026 Fan Hub</Typography>
+          <Typography component="p" className={styles.heroEyebrow}>⚽ {t('event_hub.fan_hub')}</Typography>
           <Typography component="h1" className={styles.heroHeadline}>
             {settings.homepageHeadline ?? t('event_hub.hero_headline_premium')}
           </Typography>

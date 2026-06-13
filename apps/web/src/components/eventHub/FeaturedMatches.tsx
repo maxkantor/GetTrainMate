@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Button, Chip, Grid, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useI18n } from '@/hooks/useI18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { useMatchCountdown } from '@/hooks/useMatchCountdown';
 import { ComingSoon } from '@/components/eventHub/ComingSoon';
 import type { EventMatch } from '@/services/sportsEventLayerService';
@@ -22,6 +23,7 @@ const MatchCard: React.FC<{
   onShare: () => void;
 }> = ({ match, onPredict, onDiscuss, onShare }) => {
   const { t } = useI18n();
+  const { teamName } = useWcDisplay();
   const hasKickoff = Boolean(match.matchDate?.trim() && match.matchTime?.trim());
   const countdown = useMatchCountdown(hasKickoff ? match.matchDate : '', hasKickoff ? match.matchTime : undefined);
   const meta = formatMatchMeta(match);
@@ -31,7 +33,7 @@ const MatchCard: React.FC<{
     <motion.div whileHover={{ y: -4 }} transition={{ type: 'spring', stiffness: 300, damping: 22 }}>
       <Box className={styles.matchTicket}>
         <Box className={styles.matchTicketTop}>
-          {match.status === 'Live' && <Chip label="LIVE" size="small" className={styles.liveChip} />}
+          {match.status === 'Live' && <Chip label={t('event_hub.status_live')} size="small" className={styles.liveChip} />}
           {match.status === 'Completed' && match.scoreA != null && (
             <Typography className={styles.matchScore}>{match.scoreA} – {match.scoreB}</Typography>
           )}
@@ -42,12 +44,12 @@ const MatchCard: React.FC<{
         <Box className={styles.matchTeams}>
           <Box className={styles.matchTeam}>
             <span className={styles.matchFlag}>{match.teamAFlag}</span>
-            <Typography className={styles.matchTeamName}>{match.teamAName}</Typography>
+            <Typography className={styles.matchTeamName}>{teamName(match.teamAId, match.teamAName)}</Typography>
           </Box>
-          <Typography className={styles.matchVs}>VS</Typography>
+          <Typography className={styles.matchVs}>{t('event_hub.vs').toUpperCase()}</Typography>
           <Box className={styles.matchTeam}>
             <span className={styles.matchFlag}>{match.teamBFlag}</span>
-            <Typography className={styles.matchTeamName}>{match.teamBName}</Typography>
+            <Typography className={styles.matchTeamName}>{teamName(match.teamBId, match.teamBName)}</Typography>
           </Box>
         </Box>
         <Typography className={styles.matchMeta}>

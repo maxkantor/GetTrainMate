@@ -4,6 +4,8 @@ import {
   appMessagesEs,
   chatUiEs,
 } from './partials/localeBundle.es';
+import { en } from './en';
+import { eventHubEs } from './partials/eventHub.es';
 
 export const es = {
   common: {
@@ -493,6 +495,7 @@ export const es = {
       launch_body: 'Estamos preparando meetups por ciudad y flujo RSVP. Únete a la lista para enterarte del lanzamiento.',
     },
   },
+  event_hub: { ...en.event_hub, ...eventHubEs },
   admin: {
     dashboard: 'Panel de Admin',
     content: 'Contenido',

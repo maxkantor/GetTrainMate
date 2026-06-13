@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
 import { formatI18n } from '@/i18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 import {
   sportsEventLayerService,
   WORLD_CUP_EVENT_ID,
@@ -15,6 +16,7 @@ import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { trackEvent } from '@/utils/analytics';
 import { compareMatchesChronological } from '@/utils/eventMatchUtils';
 import { normalizePublicAssetUrl } from '@/utils/publicAssetUrl';
+import { resolveEventCopy } from '@/utils/eventLocalizedCopy';
 import styles from './EventPromoSection.module.css';
 
 const ease = [0.16, 1, 0.3, 1] as const;
@@ -37,6 +39,7 @@ interface EventPromoSectionProps {
 /** Premium landing-page band for the featured sports event (World Cup Fan Hub). */
 export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) => {
   const { locale, t } = useI18n();
+  const { teamName, groupLabel } = useWcDisplay();
   const isWorldCup = event.eventId === WORLD_CUP_EVENT_ID;
   const hubLink = event.hubRoute?.trim() || '/world-cup';
   const themeColor = event.themeColor?.trim() || '#2b2c7f';
@@ -69,16 +72,16 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
     ? hub?.groups.find((g) => g.groupId === leader.groupId)?.label
     : undefined;
 
-  const crmDescription = event.description?.trim();
+  const crmDescription = resolveEventCopy(event, locale, 'description');
   const description = crmDescription && (locale === 'en' || !isSeededEnglishEventCopy(crmDescription))
     ? crmDescription
     : t('sports_event_layer.default_description');
   const title = isWorldCup
-    ? t('event_hub.promo_home_title')
-    : event.homepageHeadline || event.label;
+    ? (resolveEventCopy(event, locale, 'homepageHeadline') ?? t('event_hub.promo_home_title'))
+    : (resolveEventCopy(event, locale, 'homepageHeadline') ?? event.label);
   const copy = isWorldCup
-    ? t('event_hub.promo_home_copy')
-    : event.homepageSubheadline || description;
+    ? (resolveEventCopy(event, locale, 'homepageSubheadline') ?? t('event_hub.promo_home_copy'))
+    : (resolveEventCopy(event, locale, 'homepageSubheadline') ?? description);
   const trustChips = t('event_hub.trust_line')
     .split(/[.。]\s*/)
     .map((s) => s.trim())
@@ -104,15 +107,15 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
   const renderTeams = (m: EventMatch) => (
     <div className={styles.tickerTeams}>
       <span className={styles.tickerTeam}>
-        <CountryFlag teamId={m.teamAId} flagEmoji={m.teamAFlag} size={26} alt={m.teamAName ?? ''} />
-        <span className={styles.tickerTeamName}>{m.teamAName ?? m.teamAId}</span>
+        <CountryFlag teamId={m.teamAId} flagEmoji={m.teamAFlag} size={26} alt={teamName(m.teamAId, m.teamAName) ?? ''} />
+        <span className={styles.tickerTeamName}>{teamName(m.teamAId, m.teamAName) ?? m.teamAId}</span>
       </span>
       <span className={styles.tickerScore}>
-        {m.scoreA != null && m.scoreB != null ? `${m.scoreA} – ${m.scoreB}` : 'vs'}
+        {m.scoreA != null && m.scoreB != null ? `${m.scoreA} – ${m.scoreB}` : t('event_hub.vs')}
       </span>
       <span className={`${styles.tickerTeam} ${styles.tickerTeamRight}`}>
-        <span className={styles.tickerTeamName}>{m.teamBName ?? m.teamBId}</span>
-        <CountryFlag teamId={m.teamBId} flagEmoji={m.teamBFlag} size={26} alt={m.teamBName ?? ''} />
+        <span className={styles.tickerTeamName}>{teamName(m.teamBId, m.teamBName) ?? m.teamBId}</span>
+        <CountryFlag teamId={m.teamBId} flagEmoji={m.teamBFlag} size={26} alt={teamName(m.teamBId, m.teamBName) ?? ''} />
       </span>
     </div>
   );
@@ -140,7 +143,7 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
         >
           <span className={styles.kicker}>
             <span className={styles.kickerDot} aria-hidden />
-            {event.icon} {isWorldCup ? `${t('event_hub.nav_label')} · ${t('event_hub.promo_kicker')}` : event.label}
+            {event.icon} {isWorldCup ? `${t('event_hub.nav_label')} · ${t('event_hub.promo_kicker')}` : (resolveEventCopy(event, locale, 'label') ?? event.label)}
           </span>
           <h2 className={styles.title}>{title}</h2>
           <p className={styles.copy}>{copy}</p>
@@ -157,12 +160,14 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
 
           <div className={styles.ctas}>
             <Link to={hubLink} className={styles.btnPrimary} onClick={onPrimaryClick}>
-              {event.homepageCtaPrimary || event.ctaLabel?.trim() || t('event_hub.cta_predict')}
+              {resolveEventCopy(event, locale, 'homepageCtaPrimary')
+                ?? resolveEventCopy(event, locale, 'ctaLabel')
+                ?? t('event_hub.cta_predict')}
             </Link>
             <Link to={hubLink} className={styles.btnGhost}>
               {isWorldCup
                 ? t('event_hub.promo_home_cta_secondary')
-                : event.homepageCtaSecondary || t('event_hub.cta_connect')}
+                : (resolveEventCopy(event, locale, 'homepageCtaSecondary') ?? t('event_hub.cta_connect'))}
             </Link>
           </div>
 
@@ -216,11 +221,11 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
               {leader && leaderGroup ? (
                 <div className={styles.tickerFooter}>
                   <span aria-hidden>🏆</span>
-                  <CountryFlag teamId={leader.teamId} flagEmoji={leader.flagEmoji} size={20} alt={leader.name} />
+                  <CountryFlag teamId={leader.teamId} flagEmoji={leader.flagEmoji} size={20} alt={teamName(leader.teamId, leader.name)} />
                   <span>
                     {formatI18n(t('event_hub.promo_leader_line'), {
-                      team: leader.name,
-                      group: leaderGroup,
+                      team: teamName(leader.teamId, leader.name),
+                      group: groupLabel(leader.groupId, leaderGroup),
                       points: leader.points,
                     })}
                   </span>
@@ -231,7 +236,7 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
             <div className={styles.fallbackCard}>
               <span className={styles.fallbackIcon} aria-hidden>{event.icon || '⚽'}</span>
               <p className={styles.fallbackText}>
-                {isWorldCup ? t('event_hub.promo_free') : event.homepagePromoText || description}
+                {isWorldCup ? t('event_hub.promo_free') : (resolveEventCopy(event, locale, 'homepagePromoText') ?? description)}
               </p>
             </div>
           )}

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Box, Button, Collapse, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
+import { formatI18n } from '@/i18n';
 import {
   sportsEventLayerService,
   type CreatePredictionPayload,
@@ -26,6 +28,7 @@ export const WcInlinePredict: React.FC<Props> = ({
   eventId, match, isAuthenticated, onAuthRequired, compact,
 }) => {
   const { t } = useI18n();
+  const { teamName } = useWcDisplay();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [showScore, setShowScore] = useState(false);
@@ -163,15 +166,22 @@ export const WcInlinePredict: React.FC<Props> = ({
         <Box className={styles.pollSegB} style={{ width: `${teamB?.percent ?? 0}%` }} />
       </Box>
       <Typography className={styles.pollLabels}>
-        {match.teamAName} {teamA?.percent ?? 0}% · Draw {draw?.percent ?? 0}% · {match.teamBName} {teamB?.percent ?? 0}%
+        {formatI18n(t('event_hub.community_picks_line'), {
+          teamA: teamName(match.teamAId, match.teamAName),
+          pctA: teamA?.percent ?? 0,
+          draw: t('event_hub.pick_draw'),
+          pctDraw: draw?.percent ?? 0,
+          teamB: teamName(match.teamBId, match.teamBName),
+          pctB: teamB?.percent ?? 0,
+        })}
       </Typography>
     </>
   );
 
   if (activePred && !editing) {
     const pickLabel =
-      activePred.predictedWinnerTeamId === match.teamAId ? `${match.teamAFlag} ${match.teamAName}`
-      : activePred.predictedWinnerTeamId === match.teamBId ? `${match.teamBFlag} ${match.teamBName}`
+      activePred.predictedWinnerTeamId === match.teamAId ? `${match.teamAFlag} ${teamName(match.teamAId, match.teamAName)}`
+      : activePred.predictedWinnerTeamId === match.teamBId ? `${match.teamBFlag} ${teamName(match.teamBId, match.teamBName)}`
       : t('event_hub.pick_draw');
 
     return (
@@ -234,7 +244,7 @@ export const WcInlinePredict: React.FC<Props> = ({
               disabled={predictMutation.isPending}
             >
               <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={22} className={styles.pickBtnFlag} />
-              <span className={styles.pickBtnName}>{match.teamAName}</span>
+              <span className={styles.pickBtnName}>{teamName(match.teamAId, match.teamAName)}</span>
             </Button>
             <Button
               className={`${styles.pickBtn} ${activeChoice === 'draw' ? styles.pickBtnActive : ''}`}
@@ -250,7 +260,7 @@ export const WcInlinePredict: React.FC<Props> = ({
               disabled={predictMutation.isPending}
             >
               <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={22} className={styles.pickBtnFlag} />
-              <span className={styles.pickBtnName}>{match.teamBName}</span>
+              <span className={styles.pickBtnName}>{teamName(match.teamBId, match.teamBName)}</span>
             </Button>
           </Box>
 
@@ -280,7 +290,7 @@ export const WcInlinePredict: React.FC<Props> = ({
                   max={20}
                   value={scoreA}
                   onChange={(e) => setScoreA(e.target.value)}
-                  aria-label={`${match.teamAName} score`}
+                  aria-label={`${teamName(match.teamAId, match.teamAName)} score`}
                 />
                 <span className={styles.scoreDash}>–</span>
                 <input
@@ -290,7 +300,7 @@ export const WcInlinePredict: React.FC<Props> = ({
                   max={20}
                   value={scoreB}
                   onChange={(e) => setScoreB(e.target.value)}
-                  aria-label={`${match.teamBName} score`}
+                  aria-label={`${teamName(match.teamBId, match.teamBName)} score`}
                 />
                 <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={24} className={styles.scoreFlag} />
               </Box>
@@ -299,8 +309,8 @@ export const WcInlinePredict: React.FC<Props> = ({
                   {derivedPick === 'draw'
                     ? `🤝 ${t('event_hub.pick_draw')} · ${scoreNumA}–${scoreNumB}`
                     : derivedPick === 'teamA'
-                      ? `${match.teamAFlag} ${match.teamAName} · ${scoreNumA}–${scoreNumB}`
-                      : `${match.teamBFlag} ${match.teamBName} · ${scoreNumA}–${scoreNumB}`}
+                      ? `${match.teamAFlag} ${teamName(match.teamAId, match.teamAName)} · ${scoreNumA}–${scoreNumB}`
+                      : `${match.teamBFlag} ${teamName(match.teamBId, match.teamBName)} · ${scoreNumA}–${scoreNumB}`}
                 </Typography>
               )}
               <Button

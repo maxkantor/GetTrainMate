@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MatchFlagPair } from '@/components/worldCupHub/MatchFlagPair';
 import { TeamExploreCard } from '@/components/worldCupHub/TeamExploreCard';
 import { useI18n } from '@/hooks/useI18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import type { WcHubProps } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
@@ -16,6 +17,7 @@ export const WcFansTab: React.FC<Props> = ({
   eventId, hub, isAuthenticated, onAuthRequired, onFindFans, onTabChange,
 }) => {
   const { t } = useI18n();
+  const { teamName } = useWcDisplay();
   const queryClient = useQueryClient();
   const [body, setBody] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -215,7 +217,7 @@ export const WcFansTab: React.FC<Props> = ({
             <TeamExploreCard
               key={team.teamId}
               teamId={team.teamId}
-              name={team.name}
+              name={teamName(team.teamId, team.name)}
               flagEmoji={team.flagEmoji}
               subtitle={`${team.fanCount} ${t('event_hub.fans')}`}
               as="div"

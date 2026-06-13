@@ -46,6 +46,8 @@ export interface SportsEventConfig {
   sharingEnabled?: boolean;
   standingsEnabled?: boolean;
   standingsPublished?: boolean;
+  localizedCopy?: import('@/utils/eventLocalizedCopy').EventLocalizedCopyMap;
+  localizedCopyJson?: string;
 }
 
 export interface EventHubSettings {
@@ -247,19 +249,33 @@ export interface EventMeetupPayload {
   visibility: 'public' | 'private';
 }
 
+function normalizeEventConfig(config: SportsEventConfig): SportsEventConfig {
+  if (!config.localizedCopy && config.localizedCopyJson?.trim()) {
+    try {
+      config.localizedCopy = JSON.parse(config.localizedCopyJson) as SportsEventConfig['localizedCopy'];
+    } catch {
+      // ignore invalid admin JSON
+    }
+  }
+  return config;
+}
+
 class SportsEventLayerService {
   async getActiveEvents(): Promise<SportsEventConfig[]> {
     const res = await axios.get<SportsEventConfig[]>(`${API_BASE_URL}/api/events/active`);
-    return res.data ?? [];
+    return (res.data ?? []).map(normalizeEventConfig);
   }
 
   async getEvent(eventId: string): Promise<SportsEventConfig> {
     const res = await axios.get<SportsEventConfig>(`${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}`);
-    return res.data;
+    return normalizeEventConfig(res.data);
   }
 
   async getHubSnapshot(eventId: string): Promise<EventHubSnapshot> {
     const res = await axios.get<EventHubSnapshot>(`${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/hub`);
+    if (res.data?.config) {
+      res.data.config = normalizeEventConfig(res.data.config);
+    }
     return res.data;
   }
 

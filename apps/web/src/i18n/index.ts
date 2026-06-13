@@ -33,21 +33,30 @@ export const getTranslation = (locale: Locale) => {
 
 export const t = (locale: Locale, path: string): string => {
   const keys = path.split('.');
-  let value: any = getTranslation(locale);
+  let value: unknown = getTranslation(locale);
+  let found = true;
 
   for (const key of keys) {
-    value = value?.[key];
-    if (value === undefined) {
-      // Fallback to English
-      value = getTranslation(DEFAULT_LOCALE);
-      for (const k of keys) {
-        value = value?.[k];
-      }
+    if (value != null && typeof value === 'object' && key in (value as Record<string, unknown>)) {
+      value = (value as Record<string, unknown>)[key];
+    } else {
+      found = false;
       break;
     }
   }
 
-  return typeof value === 'string' ? value : path;
+  if (found && typeof value === 'string') return value;
+
+  let fallback: unknown = getTranslation(DEFAULT_LOCALE);
+  for (const key of keys) {
+    if (fallback != null && typeof fallback === 'object' && key in (fallback as Record<string, unknown>)) {
+      fallback = (fallback as Record<string, unknown>)[key];
+    } else {
+      return path;
+    }
+  }
+
+  return typeof fallback === 'string' ? fallback : path;
 };
 
 /** Replace `{name}` placeholders in translated strings (e.g. `{price}`, `{credits}`). */

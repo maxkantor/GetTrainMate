@@ -3,6 +3,7 @@ import { Box, Button, Chip, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { useI18n } from '@/hooks/useI18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import { parseKickoffUtc } from '@/utils/eventMatchUtils';
 import type { WcHubProps } from './wcTypes';
@@ -12,6 +13,7 @@ type Props = Pick<WcHubProps, 'eventId' | 'hub' | 'isAuthenticated' | 'onAuthReq
 
 export const WcMyPicksTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, onAuthRequired }) => {
   const { t } = useI18n();
+  const { teamName } = useWcDisplay();
 
   const { data: summary } = useQuery({
     queryKey: ['my-picks', eventId],
@@ -82,8 +84,11 @@ export const WcMyPicksTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
               pred.predictionType === 'draw'
                 ? t('event_hub.pick_draw')
                 : pred.predictedWinnerTeamId === match.teamAId
-                  ? match.teamAName
-                  : match.teamBName;
+                  ? teamName(match.teamAId, match.teamAName)
+                  : teamName(match.teamBId, match.teamBName);
+
+            const teamADisplay = teamName(match.teamAId, match.teamAName);
+            const teamBDisplay = teamName(match.teamBId, match.teamBName);
 
             const hasResult = match.status === 'Completed' && match.scoreA != null && match.scoreB != null;
             const kickoff = parseKickoffUtc(match.matchDate, match.matchTime);
@@ -112,11 +117,11 @@ export const WcMyPicksTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
             return (
               <Box key={pred.predictionKey} className={styles.matchCard}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', fontWeight: 700 }}>
-                  <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={24} alt={match.teamAName ?? ''} />
-                  <span>{match.teamAName}</span>
-                  <span className={styles.matchVs}>vs</span>
-                  <span>{match.teamBName}</span>
-                  <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={24} alt={match.teamBName ?? ''} />
+                  <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={24} alt={teamADisplay} />
+                  <span>{teamADisplay}</span>
+                  <span className={styles.matchVs}>{t('event_hub.vs')}</span>
+                  <span>{teamBDisplay}</span>
+                  <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={24} alt={teamBDisplay} />
                 </Box>
                 <Typography sx={{ fontSize: '0.9rem' }}>
                   {label}

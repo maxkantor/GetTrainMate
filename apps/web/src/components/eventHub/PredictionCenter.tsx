@@ -3,6 +3,7 @@ import { Box, Button, MenuItem, Select, Stack, TextField, Typography } from '@mu
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { PredictionShareCard } from '@/components/eventHub/PredictionShareCard';
 import { ComingSoon } from '@/components/eventHub/ComingSoon';
 import {
@@ -47,6 +48,7 @@ export const PredictionCenter: React.FC<Props> = ({
   reason, onReason, onSubmit, submitting, submittedPrediction, isAuthenticated, onLogin,
 }) => {
   const { t } = useI18n();
+  const { teamName, matchLine, outcomeLabel } = useWcDisplay();
   const openMatches = matches.filter(arePredictionsOpen);
   const match = openMatches.find((m) => m.matchId === selectedMatchId)
     ?? openMatches[0]
@@ -74,7 +76,9 @@ export const PredictionCenter: React.FC<Props> = ({
         <Box className={styles.predictionPanel}>
           <Select fullWidth size="small" value={match?.matchId ?? ''} onChange={(e) => onSelectMatch(e.target.value)} className={styles.selectDark}>
             {matches.map((m) => (
-              <MenuItem key={m.matchId} value={m.matchId}>{m.teamAFlag} {m.teamAName} vs {m.teamBName} {m.teamBFlag}</MenuItem>
+              <MenuItem key={m.matchId} value={m.matchId}>
+                {m.teamAFlag} {matchLine(m.teamAId, m.teamAName, m.teamBId, m.teamBName)} {m.teamBFlag}
+              </MenuItem>
             ))}
           </Select>
 
@@ -83,7 +87,7 @@ export const PredictionCenter: React.FC<Props> = ({
               <Typography className={styles.communityLabel}>{t('event_hub.community_picks')}</Typography>
               {breakdown.outcomes.map((o) => (
                 <Box key={o.label} className={styles.barRow}>
-                  <Typography className={styles.barLabel}>{o.label}</Typography>
+                  <Typography className={styles.barLabel}>{outcomeLabel(o)}</Typography>
                   <Box className={styles.barTrack}>
                     <motion.div
                       className={styles.barFill}
@@ -106,15 +110,15 @@ export const PredictionCenter: React.FC<Props> = ({
 
           {predictionType === 'winner' && match && (
             <Select fullWidth size="small" value={winnerTeamId} onChange={(e) => onWinnerTeamId(e.target.value)} className={styles.selectDark} sx={{ mt: 1.5 }}>
-              <MenuItem value={match.teamAId}>{match.teamAName}</MenuItem>
-              <MenuItem value={match.teamBId}>{match.teamBName}</MenuItem>
+              <MenuItem value={match.teamAId}>{teamName(match.teamAId, match.teamAName)}</MenuItem>
+              <MenuItem value={match.teamBId}>{teamName(match.teamBId, match.teamBName)}</MenuItem>
             </Select>
           )}
 
           {predictionType === 'exact_score' && match && (
             <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-              <TextField size="small" label={match.teamAName} value={scoreA} onChange={(e) => onScoreA(e.target.value)} type="number" className={styles.inputDark} />
-              <TextField size="small" label={match.teamBName} value={scoreB} onChange={(e) => onScoreB(e.target.value)} type="number" className={styles.inputDark} />
+              <TextField size="small" label={teamName(match.teamAId, match.teamAName)} value={scoreA} onChange={(e) => onScoreA(e.target.value)} type="number" className={styles.inputDark} />
+              <TextField size="small" label={teamName(match.teamBId, match.teamBName)} value={scoreB} onChange={(e) => onScoreB(e.target.value)} type="number" className={styles.inputDark} />
             </Stack>
           )}
 

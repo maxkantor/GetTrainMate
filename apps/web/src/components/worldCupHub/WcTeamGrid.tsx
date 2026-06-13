@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import styles from '@/pages/EventHub.module.css';
 
@@ -17,6 +18,7 @@ export const WcTeamGrid: React.FC<Props> = ({
   eventId, onFollow, onFindFans, onAuthRequired, isAuthenticated,
 }) => {
   const { t } = useI18n();
+  const { teamName } = useWcDisplay();
   const { data: teams = [] } = useQuery({
     queryKey: ['team-stats', eventId],
     queryFn: () => sportsEventLayerService.getTeamStats(eventId),
@@ -35,7 +37,7 @@ export const WcTeamGrid: React.FC<Props> = ({
           {teams.map((team) => (
             <Box key={team.teamId} className={styles.teamCard}>
               <Typography className={styles.teamFlag}>{team.flagEmoji}</Typography>
-              <Typography className={styles.teamName}>{team.name}</Typography>
+              <Typography className={styles.teamName}>{teamName(team.teamId, team.name)}</Typography>
               <Typography className={styles.teamStats}>
                 {team.predictionsCount} {t('event_hub.picks')} · {team.fanCount} {t('event_hub.fans')}
               </Typography>

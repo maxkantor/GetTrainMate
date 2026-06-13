@@ -2,6 +2,8 @@ import React, { useCallback, useState } from 'react';
 import { Alert, Box, Button, Snackbar, Stack, Typography } from '@mui/material';
 import type { EventMatch, EventPrediction } from '@/services/sportsEventLayerService';
 import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 
 type Props = {
   match: EventMatch;
@@ -10,8 +12,8 @@ type Props = {
 };
 
 function renderShareCardToCanvas(
-  match: EventMatch,
-  prediction: EventPrediction,
+  scoreLine: string,
+  reason: string | undefined,
   title: string,
   footer: string
 ): HTMLCanvasElement {
@@ -33,13 +35,6 @@ function renderShareCardToCanvas(
   ctx.font = 'bold 42px Inter, sans-serif';
   ctx.fillText(title, 100, 180);
 
-  const scoreLine =
-    prediction.predictionType === 'exact_score' && prediction.predictedScoreA != null
-      ? `${match.teamAFlag ?? ''} ${match.teamAName} ${prediction.predictedScoreA} - ${prediction.predictedScoreB} ${match.teamBName} ${match.teamBFlag ?? ''}`
-      : prediction.predictionType === 'draw'
-        ? `${match.teamAFlag ?? ''} ${match.teamAName} vs ${match.teamBName} ${match.teamBFlag ?? ''} — Draw`
-        : `${match.teamAFlag ?? ''} ${match.teamAName} vs ${match.teamBName} ${match.teamBFlag ?? ''}`;
-
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 56px Inter, sans-serif';
   const words = scoreLine.split(' ');
@@ -57,10 +52,10 @@ function renderShareCardToCanvas(
   }
   if (line) ctx.fillText(line, 100, y);
 
-  if (prediction.reason) {
+  if (reason) {
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.font = '32px Inter, sans-serif';
-    ctx.fillText(`"${prediction.reason.slice(0, 80)}${prediction.reason.length > 80 ? '…' : ''}"`, 100, y + 100);
+    ctx.fillText(`"${reason.slice(0, 80)}${reason.length > 80 ? '…' : ''}"`, 100, y + 100);
   }
 
   ctx.fillStyle = '#6366f1';
@@ -79,28 +74,55 @@ function canShareWithFiles(file: File): boolean {
   }
 }
 
-function buildShareText(match: EventMatch, prediction: EventPrediction, footer: string): string {
-  const pick =
-    prediction.predictionType === 'draw'
-      ? 'Draw'
-      : prediction.predictionType === 'exact_score' && prediction.predictedScoreA != null
-        ? `${prediction.predictedScoreA}-${prediction.predictedScoreB}`
-        : prediction.predictedWinnerTeamId === match.teamAId
-          ? match.teamAName
-          : match.teamBName;
-  return `My World Cup pick: ${match.teamAName} vs ${match.teamBName} → ${pick}. ${footer}`;
-}
-
 export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShared }) => {
   const { t } = useI18n();
+  const { teamName, matchLine } = useWcDisplay();
   const [notice, setNotice] = useState<string | null>(null);
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/world-cup` : '';
+  const teamADisplay = teamName(match.teamAId, match.teamAName);
+  const teamBDisplay = teamName(match.teamBId, match.teamBName);
+  const vs = t('event_hub.vs');
+
+  const pickLabel =
+    prediction.predictionType === 'draw'
+      ? t('event_hub.pick_draw')
+      : prediction.predictionType === 'exact_score' && prediction.predictedScoreA != null
+        ? `${prediction.predictedScoreA}-${prediction.predictedScoreB}`
+        : prediction.predictedWinnerTeamId === match.teamAId
+          ? teamADisplay
+          : teamBDisplay;
+
+  const buildShareText = useCallback((footer: string) =>
+    formatI18n(t('event_hub.share_pick_text'), {
+      teamA: teamADisplay,
+      vs,
+      teamB: teamBDisplay,
+      pick: pickLabel,
+      footer,
+    }), [teamADisplay, teamBDisplay, vs, pickLabel, t]);
+
+  const buildCanvasScoreLine = useCallback(() => {
+    if (prediction.predictionType === 'exact_score' && prediction.predictedScoreA != null) {
+      return `${match.teamAFlag ?? ''} ${teamADisplay} ${prediction.predictedScoreA} - ${prediction.predictedScoreB} ${teamBDisplay} ${match.teamBFlag ?? ''}`;
+    }
+    if (prediction.predictionType === 'draw') {
+      return formatI18n(t('event_hub.share_canvas_draw'), {
+        teamAFlag: match.teamAFlag ?? '',
+        teamA: teamADisplay,
+        vs,
+        teamB: teamBDisplay,
+        teamBFlag: match.teamBFlag ?? '',
+        draw: t('event_hub.pick_draw'),
+      });
+    }
+    return `${match.teamAFlag ?? ''} ${teamADisplay} ${vs} ${teamBDisplay} ${match.teamBFlag ?? ''}`;
+  }, [match, prediction, teamADisplay, teamBDisplay, vs, t]);
 
   const handleDownload = useCallback(() => {
     const canvas = renderShareCardToCanvas(
-      match,
-      prediction,
+      buildCanvasScoreLine(),
+      prediction.reason,
       t('event_hub.share_card_title'),
       t('event_hub.share_card_footer')
     );
@@ -110,7 +132,7 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
     link.click();
     setNotice(t('event_hub.image_downloaded'));
     onShared?.();
-  }, [match, prediction, t, onShared]);
+  }, [buildCanvasScoreLine, prediction.reason, t, onShared]);
 
   const handleCopyLink = useCallback(async () => {
     try {
@@ -123,11 +145,11 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
   }, [shareUrl, t, onShared]);
 
   const handleWebShare = useCallback(async () => {
-    const text = buildShareText(match, prediction, t('event_hub.share_card_footer'));
+    const text = buildShareText(t('event_hub.share_card_footer'));
     try {
       const canvas = renderShareCardToCanvas(
-        match,
-        prediction,
+        buildCanvasScoreLine(),
+        prediction.reason,
         t('event_hub.share_card_title'),
         t('event_hub.share_card_footer')
       );
@@ -155,16 +177,16 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
     }
     await handleCopyLink();
     setNotice((prev) => prev ?? t('event_hub.share_fallback'));
-  }, [match, prediction, shareUrl, t, onShared, handleCopyLink]);
+  }, [buildCanvasScoreLine, buildShareText, prediction.reason, shareUrl, t, onShared, handleCopyLink]);
 
   const handleShareTwitter = () => {
-    const text = encodeURIComponent(buildShareText(match, prediction, 'gettrainmate.com/world-cup'));
+    const text = encodeURIComponent(buildShareText('gettrainmate.com/world-cup'));
     window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank', 'noopener,noreferrer');
     onShared?.();
   };
 
   const handleShareWhatsApp = () => {
-    const text = encodeURIComponent(`${buildShareText(match, prediction, '')} ${shareUrl}`);
+    const text = encodeURIComponent(`${buildShareText('')} ${shareUrl}`);
     window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
     onShared?.();
   };
@@ -175,7 +197,7 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
         {t('event_hub.share_card_title')}
       </Typography>
       <Typography variant="body1" sx={{ mb: 0.5, fontWeight: 600 }}>
-        {match.teamAFlag} {match.teamAName} vs {match.teamBName} {match.teamBFlag}
+        {match.teamAFlag} {matchLine(match.teamAId, match.teamAName, match.teamBId, match.teamBName)} {match.teamBFlag}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
         {t('event_hub.share_card_hint')}

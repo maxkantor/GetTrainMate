@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Chip, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 import type { EventMatch } from '@/services/sportsEventLayerService';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { MatchKickoffDisplay } from '@/components/worldCupHub/MatchKickoffDisplay';
@@ -24,9 +25,9 @@ const statusClass = (status: EventMatch['status']) => {
 };
 
 const statusLabel = (status: EventMatch['status'], t: (k: string) => string) => {
-  if (status === 'Live') return 'LIVE';
+  if (status === 'Live') return t('event_hub.status_live');
   if (status === 'Completed') return t('event_hub.status_final');
-  if (status === 'Postponed') return 'POSTPONED';
+  if (status === 'Postponed') return t('event_hub.status_postponed');
   return t('event_hub.status_upcoming');
 };
 
@@ -34,6 +35,7 @@ export const WcMatchCard: React.FC<Props> = ({
   eventId, match, groupLabel, isAuthenticated, onAuthRequired, showPredict = true,
 }) => {
   const { t } = useI18n();
+  const { teamName } = useWcDisplay();
   const isFinal = match.status === 'Completed';
   const isLive = match.status === 'Live';
   const isTbd = isTbdMatch(match);
@@ -57,7 +59,7 @@ export const WcMatchCard: React.FC<Props> = ({
             </Typography>
           </Box>
           <Box sx={{ textAlign: 'center' }}>
-            <Typography className={styles.matchVs}>VS</Typography>
+            <Typography className={styles.matchVs}>{t('event_hub.vs').toUpperCase()}</Typography>
           </Box>
           <Box className={styles.matchTeam}>
             <span className={`${styles.matchFlag} ${styles.matchFlagTbd}`}>❔</span>
@@ -78,7 +80,7 @@ export const WcMatchCard: React.FC<Props> = ({
           <Box className={styles.matchTopChips}>
             <Chip
               size="small"
-              label={isLive ? 'LIVE' : statusLabel(match.status, t)}
+              label={statusLabel(match.status, t)}
               className={isLive ? styles.statusLive : statusClass(match.status)}
             />
             {match.isFeatured && (
@@ -92,8 +94,8 @@ export const WcMatchCard: React.FC<Props> = ({
 
       <Box className={styles.matchTeams}>
         <Box className={styles.matchTeam}>
-          <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={40} className={styles.matchFlag} alt={match.teamAName ?? ''} />
-          <Typography className={styles.matchTeamName}>{match.teamAName}</Typography>
+          <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={40} className={styles.matchFlag} alt={teamName(match.teamAId, match.teamAName)} />
+          <Typography className={styles.matchTeamName}>{teamName(match.teamAId, match.teamAName)}</Typography>
         </Box>
         <Box sx={{ textAlign: 'center' }}>
           {isFinal || isLive ? (
@@ -101,12 +103,12 @@ export const WcMatchCard: React.FC<Props> = ({
               {match.scoreA ?? 0} – {match.scoreB ?? 0}
             </Typography>
           ) : (
-            <Typography className={styles.matchVs}>VS</Typography>
+            <Typography className={styles.matchVs}>{t('event_hub.vs').toUpperCase()}</Typography>
           )}
         </Box>
         <Box className={styles.matchTeam}>
-          <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={40} className={styles.matchFlag} alt={match.teamBName ?? ''} />
-          <Typography className={styles.matchTeamName}>{match.teamBName}</Typography>
+          <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={40} className={styles.matchFlag} alt={teamName(match.teamBId, match.teamBName)} />
+          <Typography className={styles.matchTeamName}>{teamName(match.teamBId, match.teamBName)}</Typography>
         </Box>
       </Box>
 

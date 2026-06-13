@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Button, MenuItem, Select, TextField, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import type { Fixture } from '@/types/worldCupHub';
 import styles from '@/pages/EventHub.module.css';
@@ -21,6 +22,7 @@ export const WcFanOpinions: React.FC<Props> = ({
   eventId, fixtures, threadId, onThreadChange, isAuthenticated, onAuthRequired,
 }) => {
   const { t } = useI18n();
+  const { matchLine } = useWcDisplay();
   const queryClient = useQueryClient();
   const [body, setBody] = useState('');
 
@@ -52,7 +54,9 @@ export const WcFanOpinions: React.FC<Props> = ({
       {fixtures.length > 1 && (
         <Select fullWidth size="small" value={threadId} onChange={(e) => onThreadChange(e.target.value)} className={styles.selectDark} sx={{ mb: 2 }}>
           {fixtures.map((f) => (
-            <MenuItem key={f.matchId} value={f.matchId}>{f.teamAName} vs {f.teamBName}</MenuItem>
+            <MenuItem key={f.matchId} value={f.matchId}>
+              {matchLine(f.teamAId, f.teamAName, f.teamBId, f.teamBName)}
+            </MenuItem>
           ))}
         </Select>
       )}

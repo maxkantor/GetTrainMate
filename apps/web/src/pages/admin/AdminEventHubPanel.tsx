@@ -37,6 +37,7 @@ type EventConfigExt = {
   icon?: string;
   activities?: string[];
   tags?: string[];
+  localizedCopyJson?: string;
 };
 
 type Props = {
@@ -223,6 +224,16 @@ export const AdminEventHubPanel: React.FC<Props> = ({ eventId, config, onConfigS
           <label>CTA Primary <input value={settings.homepageCtaPrimary ?? ''} onChange={(e) => setSettings({ ...settings, homepageCtaPrimary: e.target.value })} /></label>
           <label>CTA Secondary <input value={settings.homepageCtaSecondary ?? ''} onChange={(e) => setSettings({ ...settings, homepageCtaSecondary: e.target.value })} /></label>
           <label>Promo Text <input value={settings.homepagePromoText ?? ''} onChange={(e) => setSettings({ ...settings, homepagePromoText: e.target.value })} /></label>
+          <label style={{ gridColumn: '1 / -1' }}>
+            Localized Copy JSON (per locale: en, ru, es, fr, de, ua)
+            <textarea
+              rows={6}
+              style={{ width: '100%', marginTop: 4, fontFamily: 'monospace', fontSize: 12 }}
+              value={settings.localizedCopyJson ?? ''}
+              placeholder={'{\n  "ru": { "label": "...", "homepageHeadline": "..." },\n  "es": { "description": "..." }\n}'}
+              onChange={(e) => setSettings({ ...settings, localizedCopyJson: e.target.value })}
+            />
+          </label>
           <label>Predictions <input type="checkbox" checked={settings.predictionsEnabled !== false} onChange={(e) => setSettings({ ...settings, predictionsEnabled: e.target.checked })} /></label>
           <label>Exact Scores <input type="checkbox" checked={settings.exactScoreEnabled !== false} onChange={(e) => setSettings({ ...settings, exactScoreEnabled: e.target.checked })} /></label>
           <label>Comments <input type="checkbox" checked={settings.commentsEnabled !== false} onChange={(e) => setSettings({ ...settings, commentsEnabled: e.target.checked })} /></label>

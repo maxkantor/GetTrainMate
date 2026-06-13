@@ -4,6 +4,8 @@ import {
   appMessagesUa,
   chatUiUa,
 } from './partials/localeBundle.ua';
+import { en } from './en';
+import { eventHubUa } from './partials/eventHub.ua';
 
 export const ua = {
   common: {
@@ -507,6 +509,7 @@ export const ua = {
       launch_body: 'Готуємо міські фітнес-зустрічі та RSVP-потік. Долучайтесь до листа очікування.',
     },
   },
+  event_hub: { ...en.event_hub, ...eventHubUa },
   admin: {
     dashboard: 'Адмін-панель',
     content: 'Контент',

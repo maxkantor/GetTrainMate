@@ -3,6 +3,8 @@ import { Box, Typography } from '@mui/material';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { TeamExploreCard } from '@/components/worldCupHub/TeamExploreCard';
 import { useI18n } from '@/hooks/useI18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
+import { formatI18n } from '@/i18n';
 import type { EventGroup, EventTeam } from '@/services/sportsEventLayerService';
 import type { WcHubProps } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
@@ -11,6 +13,7 @@ type Props = Pick<WcHubProps, 'hub' | 'onTeamPage'>;
 
 const GroupTable: React.FC<{ teams: EventTeam[]; onTeamPage: (id: string) => void }> = ({ teams, onTeamPage }) => {
   const { t } = useI18n();
+  const { teamName } = useWcDisplay();
   const sorted = [...teams].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference);
 
   return (
@@ -18,66 +21,87 @@ const GroupTable: React.FC<{ teams: EventTeam[]; onTeamPage: (id: string) => voi
       <thead>
         <tr>
           <th>{t('event_hub.col_team')}</th>
-          <th>P</th>
-          <th>W</th>
-          <th>D</th>
-          <th>L</th>
+          <th>{t('event_hub.col_played_abbr')}</th>
+          <th>{t('event_hub.col_wins_abbr')}</th>
+          <th>{t('event_hub.col_draws_abbr')}</th>
+          <th>{t('event_hub.col_losses_abbr')}</th>
           <th>{t('event_hub.col_goals')}</th>
           <th>{t('event_hub.col_pts')}</th>
         </tr>
       </thead>
       <tbody>
-        {sorted.map((team) => (
-          <tr key={team.teamId}>
-            <td>
-              <button
-                type="button"
-                className={styles.teamCell}
-                style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}
-                onClick={() => onTeamPage(team.teamId)}
-              >
-                <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={24} alt={team.name} />
-                {team.name}
-              </button>
-            </td>
-            <td>{team.played}</td>
-            <td>{team.wins}</td>
-            <td>{team.draws}</td>
-            <td>{team.losses}</td>
-            <td>{team.goalsFor}:{team.goalsAgainst}</td>
-            <td className={styles.ptsCell}>{team.points}</td>
-          </tr>
-        ))}
+        {sorted.map((team) => {
+          const displayName = teamName(team.teamId, team.name);
+          return (
+            <tr key={team.teamId}>
+              <td>
+                <button
+                  type="button"
+                  className={styles.teamCell}
+                  style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}
+                  onClick={() => onTeamPage(team.teamId)}
+                >
+                  <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={24} alt={displayName} />
+                  {displayName}
+                </button>
+              </td>
+              <td>{team.played}</td>
+              <td>{team.wins}</td>
+              <td>{team.draws}</td>
+              <td>{team.losses}</td>
+              <td>{team.goalsFor}:{team.goalsAgainst}</td>
+              <td className={styles.ptsCell}>{team.points}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
 };
 
 const GroupCards: React.FC<{ teams: EventTeam[] }> = ({ teams }) => {
+  const { t } = useI18n();
+  const { teamName } = useWcDisplay();
   const sorted = [...teams].sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference);
 
   return (
     <>
-      {sorted.map((team, i) => (
-        <Box key={team.teamId} className={styles.cardStandingRow}>
-          <Box className={styles.teamCell}>
-            <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={28} alt={team.name} />
-            <Box>
-              <Typography sx={{ fontWeight: 700, fontSize: '0.88rem' }}>{team.name}</Typography>
-              <Typography className={styles.cardStandingStats}>
-                {team.played}P · {team.wins}W {team.draws}D {team.losses}L · {team.goalsFor}:{team.goalsAgainst}
-              </Typography>
+      {sorted.map((team) => {
+        const displayName = teamName(team.teamId, team.name);
+        const standingLine = formatI18n(t('event_hub.card_standing_line'), {
+          played: team.played,
+          pAbbr: t('event_hub.col_played_abbr'),
+          wins: team.wins,
+          wAbbr: t('event_hub.col_wins_abbr'),
+          draws: team.draws,
+          dAbbr: t('event_hub.col_draws_abbr'),
+          losses: team.losses,
+          lAbbr: t('event_hub.col_losses_abbr'),
+          gf: team.goalsFor,
+          ga: team.goalsAgainst,
+        });
+        return (
+          <Box key={team.teamId} className={styles.cardStandingRow}>
+            <Box className={styles.teamCell}>
+              <CountryFlag teamId={team.teamId} flagEmoji={team.flagEmoji} size={28} alt={displayName} />
+              <Box>
+                <Typography sx={{ fontWeight: 700, fontSize: '0.88rem' }}>{displayName}</Typography>
+                <Typography className={styles.cardStandingStats}>{standingLine}</Typography>
+              </Box>
             </Box>
+            <Typography className={styles.ptsCell}>
+              {team.points} {t('event_hub.points_suffix')}
+            </Typography>
           </Box>
-          <Typography className={styles.ptsCell}>{team.points} pts</Typography>
-        </Box>
-      ))}
+        );
+      })}
     </>
   );
 };
 
 export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
   const { t } = useI18n();
+  const { teamName, groupLabel } = useWcDisplay();
   const [view, setView] = useState<'table' | 'card'>('table');
   const { groups, teams, settings } = hub;
   const enabled = settings.standingsEnabled;
@@ -128,7 +152,9 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
               const groupTeams = teams.filter((tm) => tm.groupId === g.groupId);
               return (
                 <Box key={g.groupId} className={styles.groupCard}>
-                  <Typography className={styles.groupLabel}>{g.label}</Typography>
+                  <Typography className={styles.groupLabel}>
+                    {groupLabel(g.groupId, g.label)}
+                  </Typography>
                   {view === 'table' ? (
                     <GroupTable teams={groupTeams} onTeamPage={onTeamPage} />
                   ) : (
@@ -148,7 +174,7 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
               <TeamExploreCard
                 key={team.teamId}
                 teamId={team.teamId}
-                name={team.name}
+                name={teamName(team.teamId, team.name)}
                 flagEmoji={team.flagEmoji}
                 onClick={() => onTeamPage(team.teamId)}
               />

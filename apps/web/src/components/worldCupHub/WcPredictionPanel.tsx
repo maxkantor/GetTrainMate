@@ -3,6 +3,7 @@ import { Box, Button, TextField, Typography } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import type { Fixture, Prediction, WinnerPick } from '@/types/worldCupHub';
 import { arePredictionsOpen } from '@/utils/eventMatchUtils';
@@ -40,6 +41,7 @@ export const WcPredictionPanel: React.FC<Props> = ({
   onSubmit, onAuthRequired, onFindFans, onFindNearby, onShared,
 }) => {
   const { t } = useI18n();
+  const { teamName, matchLine, outcomeLabel } = useWcDisplay();
   const open = fixture ? arePredictionsOpen(fixture) : false;
 
   const { data: breakdown } = useQuery({
@@ -79,14 +81,16 @@ export const WcPredictionPanel: React.FC<Props> = ({
 
       <Box className={styles.predictPanel}>
         <Typography className={styles.predictMatchLabel}>
-          {fixture?.teamAFlag} {fixture?.teamAName} vs {fixture?.teamBName} {fixture?.teamBFlag}
+          {fixture?.teamAFlag}{' '}
+          {fixture ? matchLine(fixture.teamAId, fixture.teamAName, fixture.teamBId, fixture.teamBName) : ''}{' '}
+          {fixture?.teamBFlag}
         </Typography>
 
         <Box className={styles.pickGrid}>
           {([
-            ['teamA', fixture?.teamAName, fixture?.teamAFlag],
+            ['teamA', teamName(fixture?.teamAId, fixture?.teamAName), fixture?.teamAFlag],
             ['draw', t('event_hub.pick_draw'), '⚖️'],
-            ['teamB', fixture?.teamBName, fixture?.teamBFlag],
+            ['teamB', teamName(fixture?.teamBId, fixture?.teamBName), fixture?.teamBFlag],
           ] as const).map(([pick, label, flag]) => (
             <motion.button
               key={pick}
@@ -108,9 +112,9 @@ export const WcPredictionPanel: React.FC<Props> = ({
 
         {showScore && fixture && (
           <Box className={styles.scoreRow}>
-            <TextField size="small" label={fixture.teamAName ?? 'A'} value={scoreA} onChange={(e) => onScoreA(e.target.value)} type="number" className={styles.inputDark} />
+            <TextField size="small" label={teamName(fixture.teamAId, fixture.teamAName)} value={scoreA} onChange={(e) => onScoreA(e.target.value)} type="number" className={styles.inputDark} />
             <Typography sx={{ alignSelf: 'center', opacity: 0.5 }}>–</Typography>
-            <TextField size="small" label={fixture.teamBName ?? 'B'} value={scoreB} onChange={(e) => onScoreB(e.target.value)} type="number" className={styles.inputDark} />
+            <TextField size="small" label={teamName(fixture.teamBId, fixture.teamBName)} value={scoreB} onChange={(e) => onScoreB(e.target.value)} type="number" className={styles.inputDark} />
           </Box>
         )}
 
@@ -130,7 +134,7 @@ export const WcPredictionPanel: React.FC<Props> = ({
             <Typography className={styles.communityLabel}>{t('event_hub.community_picks')}</Typography>
             {breakdown.outcomes.map((o) => (
               <Box key={o.label} className={styles.barRow}>
-                <Typography className={styles.barLabel}>{o.label}</Typography>
+                <Typography className={styles.barLabel}>{outcomeLabel(o)}</Typography>
                 <Box className={styles.barTrack}>
                   <motion.div className={styles.barFill} initial={{ width: 0 }} animate={{ width: `${o.percent}%` }} />
                 </Box>

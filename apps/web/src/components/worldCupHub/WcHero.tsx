@@ -18,7 +18,7 @@ export const WcHero: React.FC<Props> = ({ lastUpdated, onPredict, onViewMatches 
       <Box className={styles.heroGlow} aria-hidden />
       <Container maxWidth="lg" className={styles.heroInner}>
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
-          <Typography className={styles.heroEyebrow}>⚽ World Cup 2026</Typography>
+          <Typography className={styles.heroEyebrow}>⚽ {t('event_hub.hero_eyebrow')}</Typography>
           <Typography component="h1" className={styles.heroHeadline}>
             {t('event_hub.hero_title_v2')}
           </Typography>

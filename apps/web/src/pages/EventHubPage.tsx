@@ -14,7 +14,7 @@ import { trackSportsEventAnalytics } from '@/utils/analytics';
 const POLL_MS = 45_000;
 
 export const EventHubPage: React.FC<{ eventId?: string }> = ({ eventId = WORLD_CUP_EVENT_ID }) => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthContext();
 
@@ -45,6 +45,7 @@ export const EventHubPage: React.FC<{ eventId?: string }> = ({ eventId = WORLD_C
 
   return (
     <WcShell
+      key={locale}
       eventId={eventId}
       hub={hub}
       isAuthenticated={isAuthenticated}

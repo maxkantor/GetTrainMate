@@ -1,5 +1,7 @@
 import { pricingRu } from './partials/pricing.ru';
 import { discoverExpandedRu, appMessagesRu, chatUiRu } from './partials/discover.expanded.ru';
+import { en } from './en';
+import { eventHubRu } from './partials/eventHub.ru';
 
 export const ru = {
   common: {
@@ -547,6 +549,7 @@ export const ru = {
       launch_body: 'Мы готовим городские фитнес-встречи и RSVP-поток. Вступайте в лист ожидания, чтобы узнать о запуске в вашем городе.',
     },
   },
+  event_hub: { ...en.event_hub, ...eventHubRu },
   admin: {
     dashboard: 'Админ-панель',
     content: 'Содержание',

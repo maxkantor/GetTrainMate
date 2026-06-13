@@ -60,6 +60,8 @@ public class EventConfig
     public bool SharingEnabled { get; set; } = true;
     public bool StandingsEnabled { get; set; }
     public bool StandingsPublished { get; set; }
+    /// <summary>Per-locale admin copy overrides (JSON object keyed by locale code).</summary>
+    public string? LocalizedCopyJson { get; set; }
     /// <summary>One-time purge of legacy auto-seeded fake tournament data.</summary>
     public bool LegacySeedPurged { get; set; }
     public string? FixturesLastUpdatedAt { get; set; }

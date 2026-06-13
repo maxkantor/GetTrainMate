@@ -2,6 +2,8 @@ import React from 'react';
 import { Box, Button, Chip, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
+import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import type { Fixture } from '@/types/worldCupHub';
 import { arePredictionsOpen, formatMatchMeta } from '@/utils/eventMatchUtils';
@@ -15,13 +17,6 @@ type Props = {
   onDiscuss: (matchId: string) => void;
 };
 
-const statusLabel = (status: Fixture['status']) => {
-  if (status === 'Live') return 'LIVE';
-  if (status === 'Completed') return 'FINAL';
-  if (status === 'Postponed') return 'POSTPONED';
-  return 'UPCOMING';
-};
-
 const MatchRailCard: React.FC<{
   fixture: Fixture;
   eventId: string;
@@ -29,9 +24,17 @@ const MatchRailCard: React.FC<{
   onDiscuss: () => void;
 }> = ({ fixture, eventId, onPredict, onDiscuss }) => {
   const { t } = useI18n();
+  const { teamName, matchLine } = useWcDisplay();
   const hasKickoff = Boolean(fixture.matchDate?.trim() && fixture.matchTime?.trim());
   const countdown = useMatchCountdown(hasKickoff ? fixture.matchDate : '', hasKickoff ? fixture.matchTime : undefined);
   const open = arePredictionsOpen(fixture);
+
+  const statusLabel = (status: Fixture['status']) => {
+    if (status === 'Live') return t('event_hub.status_live');
+    if (status === 'Completed') return t('event_hub.status_final');
+    if (status === 'Postponed') return t('event_hub.status_postponed');
+    return t('event_hub.status_upcoming');
+  };
 
   const { data: breakdown } = useQuery({
     queryKey: ['prediction-breakdown', eventId, fixture.matchId],
@@ -43,6 +46,8 @@ const MatchRailCard: React.FC<{
   const teamB = breakdown?.outcomes.find((o) => o.teamId === fixture.teamBId);
   const draw = breakdown?.outcomes.find((o) => o.outcomeType === 'draw');
   const total = breakdown?.totalPredictions ?? 0;
+  const teamADisplay = teamName(fixture.teamAId, fixture.teamAName);
+  const teamBDisplay = teamName(fixture.teamBId, fixture.teamBName);
 
   return (
     <Box className={styles.railCard}>
@@ -57,12 +62,12 @@ const MatchRailCard: React.FC<{
       <Box className={styles.railTeams}>
         <Box className={styles.railTeam}>
           <span className={styles.railFlag}>{fixture.teamAFlag}</span>
-          <Typography className={styles.railTeamName}>{fixture.teamAName}</Typography>
+          <Typography className={styles.railTeamName}>{teamADisplay}</Typography>
         </Box>
-        <Typography className={styles.railVs}>vs</Typography>
+        <Typography className={styles.railVs}>{t('event_hub.vs')}</Typography>
         <Box className={styles.railTeam}>
           <span className={styles.railFlag}>{fixture.teamBFlag}</span>
-          <Typography className={styles.railTeamName}>{fixture.teamBName}</Typography>
+          <Typography className={styles.railTeamName}>{teamBDisplay}</Typography>
         </Box>
       </Box>
       {total > 0 && (
@@ -74,7 +79,14 @@ const MatchRailCard: React.FC<{
       )}
       {total > 0 && (
         <Typography className={styles.splitLabels}>
-          {fixture.teamAName} {teamA?.percent ?? 0}% · Draw {draw?.percent ?? 0}% · {fixture.teamBName} {teamB?.percent ?? 0}%
+          {formatI18n(t('event_hub.community_picks_line'), {
+            teamA: teamADisplay,
+            pctA: teamA?.percent ?? 0,
+            draw: t('event_hub.pick_draw'),
+            pctDraw: draw?.percent ?? 0,
+            teamB: teamBDisplay,
+            pctB: teamB?.percent ?? 0,
+          })}
         </Typography>
       )}
       <Box className={styles.railActions}>

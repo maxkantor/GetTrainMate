@@ -22,7 +22,7 @@ export const WcNav: React.FC<Props> = ({ active, onChange }) => {
   const { t } = useI18n();
 
   return (
-    <nav className={styles.navWrap} aria-label="World Cup Fan Hub">
+    <nav className={styles.navWrap} aria-label={t('event_hub.nav_aria')}>
       <div className={styles.navInner}>
         {WC_TABS.map((tab) => (
           <button
