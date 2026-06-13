@@ -9,7 +9,6 @@ import type { EventMatch, EventPrediction } from '@/services/sportsEventLayerSer
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import { authService } from '@/services/authService';
 import {
-  canvasToPngBlob,
   renderTodayPicksCanvas,
   type TodayPickRow,
 } from '@/utils/todayPredictionsShareCanvas';
@@ -25,13 +24,25 @@ type Props = {
   onAuthRequired: () => void;
 };
 
-function canShareWithFiles(file: File): boolean {
-  if (!navigator.share || !navigator.canShare) return false;
-  try {
-    return navigator.canShare({ files: [file] });
-  } catch {
-    return false;
+function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+function downloadCanvasImage(canvas: HTMLCanvasElement, filename: string) {
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function openWhatsAppWithText(text: string) {
+  const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  if (isMobileDevice()) {
+    window.location.assign(url);
+    return;
   }
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function buildPickRow(
@@ -138,45 +149,32 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
     return [header, '', ...lines, '', t('event_hub.share_card_footer'), shareUrl].join('\n');
   }, [fanName, todayPicks, t, shareUrl]);
 
+  const imageFilename = `world-cup-picks-${fanName.replace(/\s+/g, '-').toLowerCase()}.png`;
+
   const handleDownload = useCallback(async () => {
     const canvas = await buildCanvas();
-    const link = document.createElement('a');
-    link.download = `world-cup-picks-${fanName.replace(/\s+/g, '-').toLowerCase()}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+    downloadCanvasImage(canvas, imageFilename);
     setNotice(t('event_hub.image_downloaded'));
     for (const { match } of todayPicks) {
       sportsEventLayerService.sharePrediction(eventId, match.matchId).catch(() => {});
     }
-  }, [buildCanvas, fanName, todayPicks, eventId, t]);
+  }, [buildCanvas, imageFilename, todayPicks, eventId, t]);
 
   const handleWhatsApp = useCallback(async () => {
     const text = buildWhatsAppText();
-    try {
-      const blob = await canvasToPngBlob(await buildCanvas());
-      if (blob) {
-        const file = new File([blob], 'world-cup-today-picks.png', { type: 'image/png' });
-        if (canShareWithFiles(file)) {
-          await navigator.share({
-            title: formatI18n(t('event_hub.share_today_sheet_title'), { name: fanName }),
-            text,
-            files: [file],
-          });
-          for (const { match } of todayPicks) {
-            sportsEventLayerService.sharePrediction(eventId, match.matchId).catch(() => {});
-          }
-          return;
-        }
-      }
-    } catch (e) {
-      if ((e as Error)?.name === 'AbortError') return;
+    const canvas = await buildCanvas();
+    downloadCanvasImage(canvas, imageFilename);
+    const openWhatsApp = () => openWhatsAppWithText(text);
+    if (isMobileDevice()) {
+      window.setTimeout(openWhatsApp, 350);
+    } else {
+      openWhatsApp();
     }
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
     setNotice(t('event_hub.share_today_whatsapp_hint'));
     for (const { match } of todayPicks) {
       sportsEventLayerService.sharePrediction(eventId, match.matchId).catch(() => {});
     }
-  }, [buildCanvas, buildWhatsAppText, fanName, todayPicks, eventId, t]);
+  }, [buildCanvas, buildWhatsAppText, imageFilename, todayPicks, eventId, t]);
 
   if (!isAuthenticated) {
     return (

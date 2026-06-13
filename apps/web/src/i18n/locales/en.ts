@@ -518,7 +518,7 @@ export const en = {
     share_today_login: 'Sign in to share your World Cup picks with friends.',
     share_today_whatsapp: 'Share on WhatsApp',
     share_today_whatsapp_header: '🏆 {name}\'s World Cup picks — today',
-    share_today_whatsapp_hint: 'Tip: attach the downloaded image in WhatsApp for the full card.',
+    share_today_whatsapp_hint: 'Image saved! WhatsApp is opening — tap attach to add your picks card.',
     share_today_event_title: 'World Cup 2026',
     share_today_subtitle: 'Today\'s predictions',
     share_today_picks_heading: 'My picks',

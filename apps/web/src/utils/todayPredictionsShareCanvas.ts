@@ -126,6 +126,40 @@ function drawMatchupLine(
   drawFlag(pick.teamBId);
 }
 
+/** Measured line box height — avoids canvas font metrics overlapping the next line. */
+function textLineHeight(ctx: CanvasRenderingContext2D, font: string, sample = 'Ag') {
+  ctx.font = font;
+  const m = ctx.measureText(sample);
+  const ascent = m.actualBoundingBoxAscent;
+  const descent = m.actualBoundingBoxDescent;
+  if (ascent > 0 && descent >= 0) {
+    return ascent + descent;
+  }
+  const size = Number.parseInt(font, 10) || 24;
+  return Math.ceil(size * 1.45);
+}
+
+function pickCardHeight(
+  ctx: CanvasRenderingContext2D,
+  pick: TodayPickRow,
+): number {
+  const cardPadTop = 34;
+  const cardPadBottom = 48;
+  const pickFont = 'bold 28px Inter, system-ui, sans-serif';
+  const scoreFont = '500 22px Inter, system-ui, sans-serif';
+  const pickLineGap = 32;
+  const matchupBlock = 56;
+
+  let contentBottom = cardPadTop + matchupBlock
+    + textLineHeight(ctx, pickFont, `→ ${pick.pickLabel}`);
+
+  if (pick.scoreLine) {
+    contentBottom += pickLineGap + textLineHeight(ctx, scoreFont, pick.scoreLine);
+  }
+
+  return contentBottom + cardPadBottom;
+}
+
 /** Premium vertical share card for all of today's World Cup picks (WhatsApp / stories). */
 export async function renderTodayPicksCanvas(
   fanName: string,
@@ -135,9 +169,21 @@ export async function renderTodayPicksCanvas(
   avatarImg?: HTMLImageElement | null,
 ): Promise<HTMLCanvasElement> {
   const width = 1080;
-  const rowHeight = 148;
+  const cardGap = 28;
   const headerHeight = 400;
-  const height = Math.min(2400, Math.max(1280, headerHeight + picks.length * rowHeight + 120));
+  const pickFont = 'bold 28px Inter, system-ui, sans-serif';
+  const scoreFont = '500 22px Inter, system-ui, sans-serif';
+  const cardPadX = 108;
+  const cardPadTop = 34;
+  const pickLineGap = 32;
+  const matchupBlock = 56;
+
+  const measureCtx = document.createElement('canvas').getContext('2d')!;
+  const picksBlockHeight = picks.reduce(
+    (sum, pick) => sum + pickCardHeight(measureCtx, pick) + cardGap,
+    0,
+  );
+  const height = Math.min(2400, Math.max(1280, headerHeight + picksBlockHeight + 120));
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -198,7 +244,9 @@ export async function renderTodayPicksCanvas(
 
   let y = 360;
   for (const pick of picks) {
-    roundRect(ctx, 80, y, width - 160, rowHeight - 16, 22);
+    const cardHeight = pickCardHeight(ctx, pick);
+
+    roundRect(ctx, 80, y, width - 160, cardHeight, 22);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
     ctx.fill();
     ctx.strokeStyle = 'rgba(99, 102, 241, 0.35)';
@@ -207,19 +255,24 @@ export async function renderTodayPicksCanvas(
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 34px Inter, system-ui, sans-serif';
-    drawMatchupLine(ctx, pick, flagMap, 108, y + 52);
+    drawMatchupLine(ctx, pick, flagMap, cardPadX, y + cardPadTop + 18);
 
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+
+    const pickY = y + cardPadTop + matchupBlock;
     ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 32px Inter, system-ui, sans-serif';
-    ctx.fillText(`→ ${pick.pickLabel}`, 108, y + 98);
+    ctx.font = pickFont;
+    ctx.fillText(`→ ${pick.pickLabel}`, cardPadX, pickY);
 
     if (pick.scoreLine) {
+      const scoreY = pickY + textLineHeight(ctx, pickFont, `→ ${pick.pickLabel}`) + pickLineGap;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-      ctx.font = '500 26px Inter, system-ui, sans-serif';
-      ctx.fillText(pick.scoreLine, 108, y + 128);
+      ctx.font = scoreFont;
+      ctx.fillText(pick.scoreLine, cardPadX, scoreY);
     }
 
-    y += rowHeight;
+    y += cardHeight + cardGap;
   }
 
   ctx.fillStyle = '#6366f1';
