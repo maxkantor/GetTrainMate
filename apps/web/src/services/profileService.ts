@@ -156,6 +156,18 @@ class ProfileService {
     return response.data.url;
   }
 
+  async fetchPhotoBlob(token: string, photoKey: string): Promise<Blob> {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/profile/me/photos/content`,
+      {
+        params: { key: photoKey },
+        ...this.getHeaders(token),
+        responseType: 'blob',
+      },
+    );
+    return response.data;
+  }
+
   async addPhoto(token: string, url: string): Promise<UserProfile> {
     const response = await axios.post<UserProfile>(
       `${API_BASE_URL}/api/profile/me/photos`,

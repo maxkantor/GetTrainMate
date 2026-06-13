@@ -23,6 +23,13 @@ function isAppRoute(pathname: string): boolean {
   return pathname.startsWith('/app');
 }
 
+/** World Cup hub pages use their own soccer cinematic backdrop. */
+function isSoccerRoute(pathname: string): boolean {
+  if (pathname === '/world-cup' || pathname.startsWith('/world-cup/')) return true;
+  if (pathname.startsWith('/events/') && pathname.includes('world-cup')) return true;
+  return false;
+}
+
 /** Admin CRM uses its own AppBar + sidebar; skip global marketing header/footer. */
 function isAdminRoute(pathname: string): boolean {
   return pathname.startsWith('/admin');
@@ -35,9 +42,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isAdmin = isAdminRoute(pathname);
   const { user } = useAuthContext();
   const showAppShell = isApp && !isAdmin;
+  const showLoggedInHero = Boolean(user) && !isAdmin && !isSoccerRoute(pathname);
   const appShellClassName = showAppShell
-    ? `${styles.mainApp} ${user ? styles.mainAppWithBottomNav : ''} app-auth-bg premium-page-bg`
-    : styles.main;
+    ? `${styles.mainApp} ${user ? styles.mainAppWithBottomNav : ''} ${showLoggedInHero ? 'app-hero-bg app-auth-bg' : 'premium-page-bg'}`
+    : showLoggedInHero
+      ? `${styles.main} app-hero-bg app-auth-bg`
+      : styles.main;
 
   return (
     <div className={styles.wrapper}>

@@ -2,20 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { authService } from '@/services/authService';
 import { profileService } from '@/services/profileService';
-import { getRealPrimaryPhotoUrl, resolveProfilePhotoUrl } from '@/utils/profilePhotos';
-
-function photoStorageKey(url: string): string | null {
-  const trimmed = url.trim();
-  if (!trimmed) return null;
-  if (!/^https?:\/\//i.test(trimmed)) return trimmed.replace(/^\//, '');
-  try {
-    const host = new URL(trimmed).hostname;
-    if (!host.includes('amazonaws.com')) return null;
-    return new URL(trimmed).pathname.replace(/^\//, '');
-  } catch {
-    return null;
-  }
-}
+import { getRealPrimaryPhotoUrl, profilePhotoStorageKey, resolveProfilePhotoUrl } from '@/utils/profilePhotos';
 
 /** Resolves header avatar — public S3 URL first, presigned fallback for private bucket keys. */
 export function useHeaderAvatarPhoto(photoUrls: string[] | undefined | null): string | null {
@@ -33,7 +20,7 @@ export function useHeaderAvatarPhoto(photoUrls: string[] | undefined | null): st
     setSrc(publicUrl);
 
     if (!isAuthenticated) return;
-    const key = photoStorageKey(raw);
+    const key = profilePhotoStorageKey(raw);
     if (!key) return;
 
     let cancelled = false;

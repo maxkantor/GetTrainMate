@@ -35,43 +35,6 @@ function roundRect(
   ctx.closePath();
 }
 
-function loadCanvasImage(url: string): Promise<HTMLImageElement | null> {
-  const loadBitmap = (src: string, revoke?: string) => new Promise<HTMLImageElement | null>((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      if (revoke) URL.revokeObjectURL(revoke);
-      resolve(img);
-    };
-    img.onerror = () => {
-      if (revoke) URL.revokeObjectURL(revoke);
-      resolve(null);
-    };
-    img.src = src;
-  });
-
-  return (async () => {
-    try {
-      const res = await fetch(url);
-      if (res.ok) {
-        const blob = await res.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        const img = await loadBitmap(objectUrl, objectUrl);
-        if (img) return img;
-      }
-    } catch {
-      /* try direct load below */
-    }
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    return new Promise<HTMLImageElement | null>((resolve) => {
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = url;
-    });
-  })();
-}
-
 function drawAvatar(
   ctx: CanvasRenderingContext2D,
   fanName: string,
@@ -129,7 +92,7 @@ export async function renderTodayPicksCanvas(
   dateLabel: string,
   picks: TodayPickRow[],
   labels: TodayPicksCanvasLabels,
-  avatarUrl?: string | null,
+  avatarImg?: HTMLImageElement | null,
 ): Promise<HTMLCanvasElement> {
   const width = 1080;
   const rowHeight = 148;
@@ -139,8 +102,6 @@ export async function renderTodayPicksCanvas(
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d')!;
-
-  const avatarImg = avatarUrl ? await loadCanvasImage(avatarUrl) : null;
 
   const bg = ctx.createLinearGradient(0, 0, width, height);
   bg.addColorStop(0, '#030712');
@@ -169,7 +130,7 @@ export async function renderTodayPicksCanvas(
   const avatarRadius = 54;
   const avatarCx = 96 + avatarRadius;
   const avatarCy = 200;
-  drawAvatar(ctx, fanName, avatarImg, avatarCx, avatarCy, avatarRadius);
+  drawAvatar(ctx, fanName, avatarImg ?? null, avatarCx, avatarCy, avatarRadius);
 
   const textX = avatarCx + avatarRadius + 36;
   const nameLine = fanName.trim() || 'Fan';

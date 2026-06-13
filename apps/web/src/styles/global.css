@@ -202,10 +202,28 @@ button:disabled {
 
 .premium-page-bg,
 .premium-section-bg,
-.app-auth-bg {
+.app-auth-bg,
+.app-hero-bg {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+}
+
+.app-hero-bg {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(3, 5, 18, 0.9) 0%,
+      rgba(8, 7, 28, 0.74) 34%,
+      rgba(8, 7, 28, 0.42) 62%,
+      rgba(3, 5, 18, 0.78) 100%
+    ),
+    linear-gradient(180deg, rgba(3, 5, 18, 0.35) 0%, rgba(3, 5, 18, 0.62) 55%, rgba(3, 5, 18, 0.88) 100%),
+    radial-gradient(900px 520px at 22% 38%, rgba(91, 33, 182, 0.22), transparent 58%),
+    radial-gradient(760px 420px at 84% 68%, rgba(217, 70, 239, 0.14), transparent 62%),
+    url('/images/hero-couples-night-waterfront.png') center 38% / cover no-repeat,
+    linear-gradient(180deg, #030512, #08071c 46%, #030512);
+  background-attachment: fixed;
 }
 
 .premium-page-bg {
@@ -237,15 +255,6 @@ button:disabled {
     linear-gradient(180deg, rgba(3, 5, 18, 0.94), rgba(8, 7, 28, 0.82), rgba(3, 5, 18, 0.96)),
     radial-gradient(760px 420px at 18% 10%, rgba(99, 102, 241, 0.16), transparent 66%),
     radial-gradient(680px 380px at 84% 82%, rgba(244, 114, 182, 0.1), transparent 72%);
-}
-
-.app-auth-bg {
-  background:
-    linear-gradient(180deg, rgba(3, 5, 18, 0.82), rgba(8, 7, 28, 0.72), rgba(3, 5, 18, 0.88)),
-    radial-gradient(900px 520px at 18% 0%, rgba(99, 102, 241, 0.16), transparent 68%),
-    radial-gradient(760px 420px at 86% 16%, rgba(217, 70, 239, 0.1), transparent 72%),
-    url('/images/app-premium-bg.png') center center / cover no-repeat,
-    linear-gradient(180deg, #030512, #08071c 46%, #030512);
 }
 
 .app-auth-bg :where(.MuiCard-root, .MuiPaper-root) {
@@ -301,13 +310,21 @@ button:disabled {
     background-size: cover;
   }
 
-  .app-auth-bg {
+  .app-hero-bg {
     background:
-      linear-gradient(180deg, rgba(3, 5, 18, 0.9), rgba(8, 7, 28, 0.78), rgba(3, 5, 18, 0.92)),
-      radial-gradient(620px 360px at 24% 0%, rgba(99, 102, 241, 0.16), transparent 70%),
-      radial-gradient(520px 320px at 84% 18%, rgba(244, 114, 182, 0.09), transparent 74%),
-      url('/images/app-premium-bg.png') center center / cover no-repeat,
+      linear-gradient(
+        90deg,
+        rgba(3, 5, 18, 0.94) 0%,
+        rgba(8, 7, 28, 0.82) 38%,
+        rgba(8, 7, 28, 0.52) 68%,
+        rgba(3, 5, 18, 0.86) 100%
+      ),
+      linear-gradient(180deg, rgba(3, 5, 18, 0.5) 0%, rgba(3, 5, 18, 0.78) 100%),
+      radial-gradient(620px 360px at 24% 28%, rgba(99, 102, 241, 0.18), transparent 68%),
+      radial-gradient(560px 320px at 84% 72%, rgba(244, 114, 182, 0.1), transparent 72%),
+      url('/images/hero-couples-night-waterfront.png') center 32% / cover no-repeat,
       linear-gradient(180deg, #030512, #08071c 46%, #030512);
+    background-attachment: scroll;
   }
 }
 

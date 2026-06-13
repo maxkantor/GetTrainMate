@@ -7,12 +7,14 @@ import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { formatI18n } from '@/i18n';
 import type { EventMatch, EventPrediction } from '@/services/sportsEventLayerService';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
+import { authService } from '@/services/authService';
 import {
   canvasToPngBlob,
   renderTodayPicksCanvas,
   type TodayPickRow,
 } from '@/utils/todayPredictionsShareCanvas';
 import { useHeaderAvatarPhoto } from '@/hooks/useHeaderAvatarPhoto';
+import { fetchProfilePhotoForCanvas } from '@/utils/profilePhotos';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
@@ -106,18 +108,25 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/world-cup` : '';
 
-  const buildCanvas = useCallback(() => renderTodayPicksCanvas(
-    fanName,
-    dateLabel,
-    todayPicks.map((p) => p.row),
-    {
-      eventTitle: t('event_hub.share_today_event_title'),
-      subtitle: t('event_hub.share_today_subtitle'),
-      picksHeading: t('event_hub.share_today_picks_heading'),
-      footer: t('event_hub.share_card_footer'),
-    },
-    profilePhotoUrl,
-  ), [fanName, dateLabel, todayPicks, t, profilePhotoUrl]);
+  const buildCanvas = useCallback(async () => {
+    const token = await authService.getJWT();
+    const avatarImg = await fetchProfilePhotoForCanvas(me?.profile?.photoUrls, {
+      token,
+      displayUrl: profilePhotoUrl,
+    });
+    return renderTodayPicksCanvas(
+      fanName,
+      dateLabel,
+      todayPicks.map((p) => p.row),
+      {
+        eventTitle: t('event_hub.share_today_event_title'),
+        subtitle: t('event_hub.share_today_subtitle'),
+        picksHeading: t('event_hub.share_today_picks_heading'),
+        footer: t('event_hub.share_card_footer'),
+      },
+      avatarImg,
+    );
+  }, [fanName, dateLabel, todayPicks, t, profilePhotoUrl, me?.profile?.photoUrls]);
 
   const buildWhatsAppText = useCallback(() => {
     const header = formatI18n(t('event_hub.share_today_whatsapp_header'), { name: fanName });

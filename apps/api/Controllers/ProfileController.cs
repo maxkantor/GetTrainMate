@@ -151,6 +151,34 @@ public class ProfileController : ControllerBase
         }
     }
 
+    [HttpGet("me/photos/content")]
+    public async Task<IActionResult> GetPhotoContent([FromQuery] string key, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetUserIdFromToken();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = "Invalid token" });
+
+            if (string.IsNullOrWhiteSpace(key))
+                return BadRequest(new { message = "Key is required" });
+
+            if (!key.StartsWith($"profiles/{userId}/", StringComparison.Ordinal))
+                return StatusCode(403, new { message = "You can only access your own photos" });
+
+            var blob = await _storageService.TryReadMediaObjectAsync(key, cancellationToken);
+            if (blob == null || blob.Body.Length == 0)
+                return NotFound(new { message = "Photo not found" });
+
+            return File(blob.Body, blob.ContentType);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error streaming profile photo");
+            return StatusCode(500, new { message = "Error loading photo" });
+        }
+    }
+
     public class AddPhotoRequest
     {
         public string Url { get; set; } = string.Empty;

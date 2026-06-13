@@ -39,6 +39,77 @@ export function getRealPrimaryPhotoUrl(photoUrls: string[] | undefined | null): 
   return null;
 }
 
+/** Extract S3 object key from a profile photo URL or raw key string. */
+export function profilePhotoStorageKey(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (!/^https?:\/\//i.test(trimmed)) return trimmed.replace(/^\//, '');
+  try {
+    const host = new URL(trimmed).hostname;
+    if (!host.includes('amazonaws.com')) return null;
+    return new URL(trimmed).pathname.replace(/^\//, '');
+  } catch {
+    return null;
+  }
+}
+
+function loadImageFromBlob(blob: Blob): Promise<HTMLImageElement | null> {
+  const objectUrl = URL.createObjectURL(blob);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(null);
+    };
+    img.src = objectUrl;
+  });
+}
+
+/** Load a profile photo for canvas export — uses same-origin API to avoid S3 CORS. */
+export async function fetchProfilePhotoForCanvas(
+  photoUrls: string[] | undefined | null,
+  options?: { token?: string | null; displayUrl?: string | null },
+): Promise<HTMLImageElement | null> {
+  const raw = getRealPrimaryPhotoUrl(photoUrls);
+  const key = raw ? profilePhotoStorageKey(raw) : null;
+
+  if (options?.token && key) {
+    try {
+      const { profileService } = await import('@/services/profileService');
+      const blob = await profileService.fetchPhotoBlob(options.token, key);
+      const img = await loadImageFromBlob(blob);
+      if (img) return img;
+    } catch {
+      /* try direct URL below */
+    }
+  }
+
+  const url = options?.displayUrl || (raw ? resolveProfilePhotoUrl(raw) : null);
+  if (!url) return null;
+
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const img = await loadImageFromBlob(await res.blob());
+      if (img) return img;
+    }
+  } catch {
+    /* fall through */
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
 /** Returns true if URL is a backend placeholder (random person), not the user's real photo. */
 export function isBackendPlaceholderPhotoUrl(url: string | undefined): boolean {
   if (!url || typeof url !== 'string') return false;
