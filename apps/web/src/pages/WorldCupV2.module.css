@@ -1906,3 +1906,71 @@
   color: #fde68a;
   font-size: 0.92rem;
 }
+
+/* ── Quick Insight (compact) ── */
+.quickInsightWrap {
+  margin-top: 0.75rem;
+}
+.quickInsightToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border-radius: 12px;
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  background: rgba(0, 0, 0, 0.22);
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 700;
+  font-size: 0.84rem;
+  cursor: pointer;
+  text-align: left;
+}
+.quickInsightToggle:hover {
+  border-color: rgba(167, 139, 250, 0.45);
+  background: rgba(99, 102, 241, 0.12);
+}
+.quickInsightToggleIcon {
+  font-size: 1rem;
+}
+.quickInsightPanel {
+  margin-top: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.28);
+}
+.quickInsightBlock + .quickInsightBlock {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.quickInsightLabel {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(167, 139, 250, 0.95);
+  margin-bottom: 0.3rem;
+}
+.quickInsightValue {
+  font-size: 0.86rem;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.45;
+}
+.quickInsightMuted {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.4;
+}
+.quickInsightPopular {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.quickInsightScore {
+  font-weight: 800;
+  color: #fde68a;
+  font-size: 0.9rem;
+}

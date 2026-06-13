@@ -298,6 +298,15 @@ public sealed class TeamFormLine
     public int Points { get; set; }
 }
 
+public sealed class MostPopularPrediction
+{
+    public int? ScoreA { get; set; }
+    public int? ScoreB { get; set; }
+    public bool IsDraw { get; set; }
+    public string? WinnerTeamId { get; set; }
+    public int Count { get; set; }
+}
+
 public sealed class MatchIntelligence
 {
     public string MatchId { get; set; } = string.Empty;
@@ -317,6 +326,7 @@ public sealed class MatchIntelligence
     public string? FanSentimentLabel { get; set; }
     public string UpsetWatchLevel { get; set; } = "Low";
     public string QuickInsight { get; set; } = string.Empty;
+    public MostPopularPrediction? MostPopular { get; set; }
 }
 
 public sealed class PublicFanPick

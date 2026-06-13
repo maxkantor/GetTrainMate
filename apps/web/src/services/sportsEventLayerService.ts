@@ -222,6 +222,14 @@ export interface TeamFormLine {
   points: number;
 }
 
+export interface MostPopularPrediction {
+  scoreA?: number;
+  scoreB?: number;
+  isDraw: boolean;
+  winnerTeamId?: string;
+  count: number;
+}
+
 export interface MatchIntelligence {
   matchId: string;
   totalPredictions: number;
@@ -238,6 +246,7 @@ export interface MatchIntelligence {
   fanSentimentLabel?: string;
   upsetWatchLevel?: string;
   quickInsight?: string;
+  mostPopular?: MostPopularPrediction;
 }
 
 export interface PublicFanPick {

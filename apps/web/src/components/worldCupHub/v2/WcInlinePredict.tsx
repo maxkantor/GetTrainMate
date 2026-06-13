@@ -15,12 +15,10 @@ import {
 import { WcTeamLabel } from '@/components/worldCupHub/WcTeamLabel';
 import { arePredictionsOpen, parseKickoffUtc } from '@/utils/eventMatchUtils';
 import { PredictionShareCard } from '@/components/eventHub/PredictionShareCard';
-import { WcMatchIntelligence } from './WcMatchIntelligence';
+import { WcQuickInsight } from './WcQuickInsight';
 import { WcFanPickFeed } from './WcFanPickFeed';
 import type { WinnerPick } from '@/types/worldCupHub';
 import styles from '@/pages/WorldCupV2.module.css';
-
-const MIN_COMMUNITY_PICKS = 10;
 
 type Props = {
   eventId: string;
@@ -88,11 +86,6 @@ export const WcInlinePredict: React.FC<Props> = ({
   const activePred = submitted ?? existing ?? null;
   const hasExact = activePred?.predictedScoreA != null && activePred?.predictedScoreB != null;
   const total = breakdown?.totalPredictions ?? 0;
-  const showCommunityPct = total >= MIN_COMMUNITY_PICKS;
-
-  const teamA = breakdown?.outcomes.find((o) => o.teamId === match.teamAId);
-  const teamB = breakdown?.outcomes.find((o) => o.teamId === match.teamBId);
-  const draw = breakdown?.outcomes.find((o) => o.outcomeType === 'draw');
 
   const scoreNumA = parseScore(scoreA);
   const scoreNumB = parseScore(scoreB);
@@ -159,37 +152,13 @@ export const WcInlinePredict: React.FC<Props> = ({
     setEditing(true);
   };
 
-  const communityBlock = (
+  const communityBlock = total > 0 ? (
     <Box className={styles.communityBlock}>
-      {showCommunityPct ? (
-        <>
-          <Typography className={styles.pollKicker}>{t('event_hub.community_split')}</Typography>
-          <Box className={styles.pollBar}>
-            <Box className={styles.pollSegA} style={{ width: `${teamA?.percent ?? 0}%` }} />
-            <Box className={styles.pollSegD} style={{ width: `${draw?.percent ?? 0}%` }} />
-            <Box className={styles.pollSegB} style={{ width: `${teamB?.percent ?? 0}%` }} />
-          </Box>
-          <Typography className={styles.pollLabels}>
-            {formatI18n(t('event_hub.community_picks_line'), {
-              teamA: teamName(match.teamAId, match.teamAName),
-              pctA: teamA?.percent ?? 0,
-              draw: t('event_hub.pick_draw'),
-              pctDraw: draw?.percent ?? 0,
-              teamB: teamName(match.teamBId, match.teamBName),
-              pctB: teamB?.percent ?? 0,
-            })}
-          </Typography>
-        </>
-      ) : (
-        <Typography className={styles.communityEmpty}>{t('event_hub.be_first_to_predict')}</Typography>
-      )}
-      {total > 0 && (
-        <Typography className={styles.communityCount}>
-          {formatI18n(t('event_hub.community_activity'), { count: total })}
-        </Typography>
-      )}
+      <Typography className={styles.communityCount}>
+        {formatI18n(t('event_hub.community_activity'), { count: total })}
+      </Typography>
     </Box>
-  );
+  ) : null;
 
   const fanPicksSection = fanFeedEnabled && (
     <>
@@ -209,8 +178,8 @@ export const WcInlinePredict: React.FC<Props> = ({
     </>
   );
 
-  const intelligenceSection = intelEnabled && !compact && (
-    <WcMatchIntelligence eventId={eventId} match={match} enabled />
+  const quickInsightSection = intelEnabled && !compact && (
+    <WcQuickInsight eventId={eventId} match={match} enabled />
   );
 
   if (!predictionsEnabled) {
@@ -269,7 +238,7 @@ export const WcInlinePredict: React.FC<Props> = ({
           </>
         )}
 
-        {intelligenceSection}
+        {quickInsightSection}
       </Box>
     );
   }
@@ -364,7 +333,7 @@ export const WcInlinePredict: React.FC<Props> = ({
         </Typography>
       )}
 
-      {intelligenceSection}
+      {quickInsightSection}
     </Box>
   );
 };

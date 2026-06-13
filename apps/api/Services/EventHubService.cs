@@ -1164,79 +1164,75 @@ public class EventHubService : IEventHubService
         var teams = await GetTeamsAsync(eventId);
         var teamA = teams.FirstOrDefault(t => t.TeamId == match.TeamAId);
         var teamB = teams.FirstOrDefault(t => t.TeamId == match.TeamBId);
+        var predictions = (await GetPredictionsForMatchAsync(eventId, matchId)).ToList();
         var breakdown = await GetMatchPredictionBreakdownAsync(eventId, matchId);
 
-        var pctA = breakdown.Outcomes.FirstOrDefault(o => o.TeamId == match.TeamAId)?.Percent ?? 0;
-        var pctB = breakdown.Outcomes.FirstOrDefault(o => o.TeamId == match.TeamBId)?.Percent ?? 0;
-        var pctDraw = breakdown.Outcomes.FirstOrDefault(o => o.OutcomeType == EventPredictionType.Draw)?.Percent ?? 0;
-        var favoritePct = Math.Max(pctA, pctB);
-        var underdogPct = Math.Min(pctA, pctB);
-        var upsetProbability = breakdown.TotalPredictions == 0
-            ? 0
-            : Math.Clamp((int)Math.Round(underdogPct * 0.6 + pctDraw * 0.25), 5, 45);
-
-        var favoriteName = pctA >= pctB ? match.TeamAName ?? teamA?.Name : match.TeamBName ?? teamB?.Name;
-        var underdogName = pctA < pctB ? match.TeamAName ?? teamA?.Name : match.TeamBName ?? teamB?.Name;
-
-        var neutralInsight = breakdown.TotalPredictions == 0
-            ? "Be the first fan to make a pick — community intelligence builds as fans submit their own predictions."
-            : favoritePct >= 60
-                ? $"{favoriteName} is the popular pick ({favoritePct}%), but {underdogName} still has enough support ({Math.Min(pctA, pctB)}%) to keep this interesting."
-                : $"Community split is tight — {match.TeamAName} {pctA}%, Draw {pctDraw}%, {match.TeamBName} {pctB}%.";
-
-        string? WhyFans(string name, int pct, EventTeam? team)
-        {
-            if (pct <= 0 || breakdown.TotalPredictions == 0) return null;
-            var formBit = team?.Played > 0 ? $" {team.Wins} win(s) so far." : "";
-            return pct >= 50
-                ? $"Fans back {name} ({pct}%) for momentum and name value.{formBit}"
-                : $"A loyal {pct}% still trust {name}'s path — often citing form and matchups.{formBit}";
-        }
-
-        var upsetWatch = upsetProbability >= 20
-            ? $"Upset Watch: {underdogName} at {Math.Min(pctA, pctB)}% — set pieces, early goals, or a red card could flip this."
-            : null;
-
+        const int minCommunity = 10;
         var teamAName = teamA?.Name ?? match.TeamAName ?? "Team A";
         var teamBName = teamB?.Name ?? match.TeamBName ?? "Team B";
-        var rankA = ResolveFifaRank(match.TeamAId);
-        var rankB = ResolveFifaRank(match.TeamBId);
-
-        string fanSentiment;
-        if (breakdown.TotalPredictions < 10)
-            fanSentiment = "Not enough fan picks yet";
-        else if (pctA > pctB + 8)
-            fanSentiment = $"{pctA}% leaning {teamAName}";
-        else if (pctB > pctA + 8)
-            fanSentiment = $"{pctB}% leaning {teamBName}";
-        else
-            fanSentiment = "Fans are split on this one";
-
-        var upsetLevel = upsetProbability >= 30 ? "High" : upsetProbability >= 18 ? "Medium" : "Low";
-
-        var quickInsight = breakdown.TotalPredictions < 10
-            ? $"{teamAName} and {teamBName} meet with everything still to play for — make your own call before kickoff."
-            : favoritePct >= 55
-                ? $"{favoriteName} enters as the fan favorite, but {underdogName} has enough support to keep this dangerous."
-                : $"A tight fan split makes this a classic coin-flip mood — trust your football instinct.";
+        var hasCommunity = breakdown.TotalPredictions >= minCommunity;
 
         return new MatchIntelligence
         {
             MatchId = matchId,
             TotalPredictions = breakdown.TotalPredictions,
-            CommunityPicks = breakdown.Outcomes,
-            UpsetProbabilityPercent = upsetProbability,
-            NeutralInsight = neutralInsight,
-            WhyFansPickTeamA = WhyFans(teamAName, pctA, teamA),
-            WhyFansPickTeamB = WhyFans(teamBName, pctB, teamB),
-            UpsetWatch = upsetWatch,
             TeamAName = teamAName,
             TeamBName = teamBName,
-            TeamAFifaRank = rankA,
-            TeamBFifaRank = rankB,
-            FanSentimentLabel = fanSentiment,
-            UpsetWatchLevel = upsetLevel,
-            QuickInsight = quickInsight,
+            TeamAFifaRank = ResolveFifaRank(match.TeamAId),
+            TeamBFifaRank = ResolveFifaRank(match.TeamBId),
+            CommunityPicks = hasCommunity ? breakdown.Outcomes : new List<PredictionOutcomeShare>(),
+            MostPopular = hasCommunity ? ResolveMostPopularPrediction(predictions, match) : null,
+        };
+    }
+
+    private static MostPopularPrediction? ResolveMostPopularPrediction(List<EventPrediction> predictions, EventMatch match)
+    {
+        if (predictions.Count == 0) return null;
+
+        var scored = predictions
+            .Where(p => p.PredictedScoreA != null && p.PredictedScoreB != null)
+            .GroupBy(p => (p.PredictedScoreA!.Value, p.PredictedScoreB!.Value))
+            .OrderByDescending(g => g.Count())
+            .ThenByDescending(g => g.Key.Item1 + g.Key.Item2)
+            .FirstOrDefault();
+
+        if (scored != null)
+        {
+            var (a, b) = scored.Key;
+            return new MostPopularPrediction
+            {
+                ScoreA = a,
+                ScoreB = b,
+                IsDraw = a == b,
+                WinnerTeamId = a == b ? null : a > b ? match.TeamAId : match.TeamBId,
+                Count = scored.Count(),
+            };
+        }
+
+        var outcomeGroups = predictions
+            .Select(p =>
+            {
+                if (p.PredictionType == EventPredictionType.Draw) return "draw";
+                if (!string.IsNullOrEmpty(p.PredictedWinnerTeamId)) return $"win:{p.PredictedWinnerTeamId}";
+                return null;
+            })
+            .Where(k => k != null)
+            .GroupBy(k => k!)
+            .OrderByDescending(g => g.Count())
+            .FirstOrDefault();
+
+        if (outcomeGroups == null) return null;
+
+        if (outcomeGroups.Key == "draw")
+        {
+            return new MostPopularPrediction { IsDraw = true, Count = outcomeGroups.Count() };
+        }
+
+        var teamId = outcomeGroups.Key["win:".Length..];
+        return new MostPopularPrediction
+        {
+            WinnerTeamId = teamId,
+            Count = outcomeGroups.Count(),
         };
     }
 
