@@ -54,6 +54,8 @@ export const es = {
     sent: 'Enviados',
     skipped: 'Omitidos',
     ai_coach: 'Coach IA',
+    bottom_hub: 'Hub',
+    bottom_bar: 'Navegación de la app',
   },
   modes: {
     train: 'Train',
@@ -424,7 +426,8 @@ export const es = {
       welcome_back: 'Bienvenido de nuevo',
       credit_hint: '1 crédito por envío',
       credits_left: 'créditos restantes',
-      quick_access: 'Acceso rápido a Discover, matches y mensajes. Usa el logo para volver aquí.',
+      free_connections: 'Tienes {{count}} conexiones gratis',
+      quick_access: 'Toca GetTrainMate para volver al inicio. Discover, matches y chat están abajo.',
       matches_label: 'Matches',
       pending_sent_label: 'Pendientes enviados',
       unread_chats_label: 'Chats sin leer',

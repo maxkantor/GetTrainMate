@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { AppHeader } from './AppHeader/AppHeader';
+import { AppBottomNav } from './layout/AppBottomNav';
 import { Footer } from './layout/Footer';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useActivityHeartbeat } from '@/hooks/useActivityHeartbeat';
@@ -33,20 +34,24 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isApp = isAppRoute(pathname);
   const isAdmin = isAdminRoute(pathname);
   const { user } = useAuthContext();
-  const appShellClassName = isApp && !isAdmin ? `${styles.mainApp} app-auth-bg premium-page-bg` : styles.main;
+  const showAppShell = isApp && !isAdmin;
+  const appShellClassName = showAppShell
+    ? `${styles.mainApp} ${user ? styles.mainAppWithBottomNav : ''} app-auth-bg premium-page-bg`
+    : styles.main;
 
   return (
     <div className={styles.wrapper}>
       <ChatPresenceProvider>
         <CreditsUsageModalProvider>
-          {user && isApp && !isAdmin && <AppActivityHeartbeat />}
+          {user && showAppShell && <AppActivityHeartbeat />}
           {!isAdmin && <AppHeader />}
           <main className={appShellClassName}>
-            {isApp && !isAdmin ? <div className={styles.appContainer}>{children}</div> : children}
+            {showAppShell ? <div className={styles.appContainer}>{children}</div> : children}
           </main>
+          {showAppShell && user ? <AppBottomNav /> : null}
         </CreditsUsageModalProvider>
       </ChatPresenceProvider>
-      {!isAdmin && <Footer compact={isApp && !isAdmin} />}
+      {!isAdmin && <Footer compact={showAppShell} hideOnMobileApp={showAppShell && !!user} />}
     </div>
   );
 };

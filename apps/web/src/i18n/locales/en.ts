@@ -50,6 +50,8 @@ export const en = {
     sent: 'Sent',
     skipped: 'Skipped',
     ai_coach: 'AI Coach',
+    bottom_hub: 'Hub',
+    bottom_bar: 'App navigation',
   },
   modes: {
     train: 'Train',
@@ -714,7 +716,8 @@ export const en = {
       welcome_back: 'Welcome back',
       credit_hint: '1 credit per send',
       credits_left: 'credits left',
-      quick_access: 'Quick access to Discover, matches, and messages. Use the logo anytime to return here.',
+      free_connections: 'You have {{count}} free connections',
+      quick_access: 'Tap GetTrainMate anytime to return home. Discover, matches, and chat are one tap away below.',
       matches_label: 'Matches',
       pending_sent_label: 'Pending sent',
       unread_chats_label: 'Unread chats',

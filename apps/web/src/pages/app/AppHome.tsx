@@ -19,6 +19,7 @@ import ForwardToInboxOutlinedIcon from '@mui/icons-material/ForwardToInboxOutlin
 import PsychologyOutlinedIcon from '@mui/icons-material/PsychologyOutlined';
 import SkipNextOutlinedIcon from '@mui/icons-material/SkipNextOutlined';
 import { useI18n } from '@/hooks/useI18n';
+import { formatI18n } from '@/i18n';
 import { useMe } from '@/hooks/useMe';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMatchStatusForHeader } from '@/hooks/useMatchStatusForHeader';
@@ -26,6 +27,7 @@ import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
 import { matchQueryKeys } from '@/lib/queryKeys';
 import { fetchSentRequestsForUser, fetchSkippedProfilesForUser } from '@/services/matchExploreQueries';
 import { DashboardQuickSetup } from '@/components/dashboard/DashboardQuickSetup';
+import { DashboardStatCards } from '@/components/dashboard/DashboardStatCards';
 import {
   consumePostVerifyWelcome,
   peekNewUserDashboardGreeting,
@@ -257,7 +259,7 @@ export const AppHomePage: React.FC = () => {
           color="text.secondary"
           sx={{ display: 'inline-block', mb: 2, cursor: 'default', borderBottom: '1px dotted', borderColor: 'divider' }}
         >
-          You have {credits} free connections
+          {formatI18n(t('app_pages.home.free_connections'), { count: credits })}
         </Typography>
       </Tooltip>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -286,54 +288,29 @@ export const AppHomePage: React.FC = () => {
       {needsQuickSetup ? <DashboardQuickSetup /> : null}
 
       {!needsQuickSetup ? (
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 1.5,
-            mb: 2,
-            typography: 'caption',
-            color: 'text.secondary',
-          }}
-        >
-          <Box component="span">
-            {t('app_pages.home.matches_label')}:{' '}
-            <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
-              {matchesCount == null ? '…' : matchesCount}
-            </Box>
-          </Box>
-          <Box component="span" sx={{ opacity: 0.4 }}>
-            ·
-          </Box>
-          <Box component="span">
-            {t('app_pages.home.pending_sent_label')}:{' '}
-            <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
-              {sentPending == null ? '…' : sentPending}
-            </Box>
-          </Box>
-          {skippedEnabled ? (
-            <>
-              <Box component="span" sx={{ opacity: 0.4 }}>
-                ·
-              </Box>
-              <Box component="span">
-                {t('nav.skipped')}:{' '}
-                <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>
-                  {skippedCount == null ? '…' : skippedCount}
-                </Box>
-              </Box>
-            </>
-          ) : null}
-          <Box component="span" sx={{ opacity: 0.4 }}>
-            ·
-          </Box>
-          <Box component="span">
-            {t('app_pages.home.unread_chats_label')}:{' '}
-            <Box component="span" sx={{ color: chatUnread > 0 ? 'primary.main' : 'text.primary', fontWeight: 700 }}>
-              {chatUnread}
-            </Box>
-          </Box>
-        </Box>
+        <DashboardStatCards
+          stats={[
+            {
+              label: t('app_pages.home.matches_label'),
+              value: matchesCount == null ? '…' : matchesCount,
+            },
+            {
+              label: t('app_pages.home.pending_sent_label'),
+              value: sentPending == null ? '…' : sentPending,
+            },
+            ...(skippedEnabled
+              ? [{
+                  label: t('nav.skipped'),
+                  value: skippedCount == null ? '…' : skippedCount,
+                }]
+              : []),
+            {
+              label: t('app_pages.home.unread_chats_label'),
+              value: chatUnread,
+              highlight: chatUnread > 0,
+            },
+          ]}
+        />
       ) : null}
 
       {!needsQuickSetup ? (

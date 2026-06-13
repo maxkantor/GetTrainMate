@@ -130,26 +130,40 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 800;
   color: rgba(255, 255, 255, 0.96) !important;
   text-decoration: none;
   padding: 0;
   flex-shrink: 0;
   letter-spacing: -0.02em;
+  min-width: 0;
 }
 
 .logoCompact .logoIcon {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
+  flex-shrink: 0;
 }
 
 .logoCompact .logoText {
-  display: none;
+  display: inline;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 34vw;
 }
 
 @media (min-width: 480px) {
+  .logoCompact {
+    font-size: 1.05rem;
+  }
+
+  .logoCompact .logoIcon {
+    font-size: 1.35rem;
+  }
+
   .logoCompact .logoText {
-    display: inline;
+    max-width: none;
   }
 }
 
@@ -296,6 +310,14 @@
   font-weight: 800;
 }
 
+.headerCreditsMini {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
 .headerCreditsWord {
   margin-left: 4px;
   font-weight: 700;
@@ -410,8 +432,38 @@
     display: none !important;
   }
 
-  .signedRight .userWrap {
+  .signedLeft {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .signedRight {
+    gap: 4px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .headerCredits {
+    padding: 4px 9px;
+    font-size: 0.75rem;
+  }
+
+  .headerCredits .headerCreditsTight {
     display: none !important;
+  }
+
+  .headerCredits .headerCreditsMini {
+    display: inline-flex !important;
+  }
+
+  .avatarBtn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .headerAvatar {
+    width: 36px;
+    height: 36px;
   }
 }
 
@@ -852,6 +904,25 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.mobileBrand {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.96) !important;
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.mobileBrandIcon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
 .mobileNav {
   display: flex;
   flex-direction: column;
@@ -1013,14 +1084,17 @@
 
 @media (max-width: 767px) {
   .inner {
-    grid-template-columns: 1fr auto;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
   }
+
   .root { height: 56px; min-height: 56px; }
-  .inner { height: 56px; padding: 0 16px; }
+  .inner { height: 56px; padding: 0 12px; }
   .logo { font-size: 1.125rem; }
   .logoIcon { font-size: 1.25rem; }
   .nav { display: none; }
   .langWrap { display: none; }
-  .authWrap, .userWrap { display: none; }
-  .mobileBtn { display: flex; align-items: center; justify-content: center; }
+  .authWrap { display: none; }
+  .mobileBtn { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 }

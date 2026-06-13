@@ -54,6 +54,8 @@ export const hi = {
     sent: 'भेजे गए',
     skipped: 'छोड़े गए',
     ai_coach: 'AI कोच',
+    bottom_hub: 'हब',
+    bottom_bar: 'ऐप नेविगेशन',
   },
   modes: {
     train: 'Train',
@@ -424,7 +426,8 @@ export const hi = {
       welcome_back: 'वापसी पर स्वागत है',
       credit_hint: 'प्रति भेजने पर 1 क्रेडिट',
       credits_left: 'क्रेडिट बचे हैं',
-      quick_access: 'Discover, मैच और संदेश के लिए तेज़ एक्सेस।',
+      free_connections: 'आपके पास {{count}} मुफ़्त कनेक्शन हैं',
+      quick_access: 'होम पर लौटने के लिए GetTrainMate टैप करें। नीचे Discover, मैच और चैट हैं।',
       matches_label: 'मैच',
       pending_sent_label: 'भेजे गए पेंडिंग',
       unread_chats_label: 'अनरीड चैट',

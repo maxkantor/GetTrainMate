@@ -54,6 +54,8 @@ export const zh = {
     sent: '已发送',
     skipped: '已跳过',
     ai_coach: 'AI 教练',
+    bottom_hub: '专区',
+    bottom_bar: '应用导航',
   },
   modes: {
     train: 'Train',
@@ -419,7 +421,8 @@ export const zh = {
       welcome_back: '欢迎回来',
       credit_hint: '每次发送消耗 1 积分',
       credits_left: '剩余积分',
-      quick_access: '快速进入 Discover、匹配和消息。',
+      free_connections: '您还有 {{count}} 次免费连接',
+      quick_access: '随时点击 GetTrainMate 返回首页。发现、匹配和聊天在下方。',
       matches_label: '匹配',
       pending_sent_label: '已发送待处理',
       unread_chats_label: '未读聊天',

@@ -33,9 +33,17 @@
   flex: 1;
 }
 
+.mainAppWithBottomNav {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+}
+
 @media (max-width: 640px) {
   .mainApp {
     padding-top: var(--space-3);
     padding-bottom: var(--space-4);
+  }
+
+  .mainAppWithBottomNav {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
   }
 }

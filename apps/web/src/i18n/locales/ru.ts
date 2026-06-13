@@ -50,6 +50,8 @@ export const ru = {
     sent: 'Отправленные',
     skipped: 'Пропущенные',
     ai_coach: 'ИИ-коуч',
+    bottom_hub: 'Хаб',
+    bottom_bar: 'Навигация приложения',
   },
   modes: {
     train: 'Train',
@@ -478,7 +480,8 @@ export const ru = {
       welcome_back: 'С возвращением',
       credit_hint: '1 кредит за отправку интереса',
       credits_left: 'кредитов осталось',
-      quick_access: 'Быстрый доступ к поиску, совпадениям и сообщениям. Логотип всегда вернёт вас сюда.',
+      free_connections: 'У вас {{count}} бесплатных подключений',
+      quick_access: 'Нажмите GetTrainMate, чтобы вернуться домой. Discover, матчи и чат — внизу.',
       matches_label: 'Совпадения',
       pending_sent_label: 'Ожидают ответа',
       unread_chats_label: 'Непрочитанные чаты',

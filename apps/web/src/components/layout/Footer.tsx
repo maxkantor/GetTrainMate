@@ -10,9 +10,11 @@ import styles from './Footer.module.css';
 interface FooterProps {
   /** When true, show compact footer (for /app/* routes). No giant marketing footer. */
   compact?: boolean;
+  /** Hide compact footer on mobile when bottom nav is shown. */
+  hideOnMobileApp?: boolean;
 }
 
-export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
+export const Footer: React.FC<FooterProps> = ({ compact = false, hideOnMobileApp = false }) => {
   const { t } = useI18n();
   const { isAuthenticated } = useAuthContext();
   const brandHref = isAuthenticated ? '/app' : '/';
@@ -25,7 +27,9 @@ export const Footer: React.FC<FooterProps> = ({ compact = false }) => {
 
   if (compact) {
     return (
-      <footer className={`${styles.footer} ${styles.footerCompact}`}>
+      <footer
+        className={`${styles.footer} ${styles.footerCompact} ${hideOnMobileApp ? styles.footerCompactHiddenMobile : ''}`}
+      >
         <div className={styles.footerCompactInner}>
           <FooterLegalLinksRow variant="compact" />
           <p className={styles.footerCompactCopyright}>

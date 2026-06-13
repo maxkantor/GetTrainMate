@@ -54,6 +54,8 @@ export const ua = {
     sent: 'Надіслані',
     skipped: 'Пропущені',
     ai_coach: 'ІІ-коуч',
+    bottom_hub: 'Хаб',
+    bottom_bar: 'Навігація застосунку',
   },
   modes: {
     train: 'Train',
@@ -438,7 +440,8 @@ export const ua = {
       welcome_back: 'З поверненням',
       credit_hint: '1 кредит за надсилання',
       credits_left: 'кредитів залишилось',
-      quick_access: 'Швидкий доступ до Discover, збігів і повідомлень.',
+      free_connections: 'У вас {{count}} безкоштовних підключень',
+      quick_access: 'Торкніться GetTrainMate, щоб повернутися додому. Discover, матчі й чат — внизу.',
       matches_label: 'Збіги',
       pending_sent_label: 'Очікують відповіді',
       unread_chats_label: 'Непрочитані чати',

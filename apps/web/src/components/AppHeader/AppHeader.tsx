@@ -299,6 +299,9 @@ export const AppHeader: React.FC = () => {
                     <span className={styles.headerCreditsTight} aria-hidden>
                       {credits}/{creditCap} {t('credits.word_credits')}
                     </span>
+                    <span className={styles.headerCreditsMini} aria-hidden>
+                      {credits}
+                    </span>
                   </button>
                 </span>
               </Tooltip>
@@ -392,6 +395,14 @@ export const AppHeader: React.FC = () => {
         <>
           <div className={styles.overlay} onClick={() => setMobileOpen(false)} aria-hidden />
           <div className={styles.mobileMenu}>
+            <RouterLink
+              to={isLoggedIn ? '/app' : '/'}
+              className={styles.mobileBrand}
+              onClick={() => setMobileOpen(false)}
+            >
+              <span className={styles.mobileBrandIcon} aria-hidden>⚡</span>
+              {t('common.appName')}
+            </RouterLink>
             <nav className={styles.mobileNav}>
               {!isLoggedIn ? (
                 <>
