@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box } from '@mui/material';
 import { WcNav } from './WcNav';
 import { WcHeroV2 } from './WcHeroV2';
@@ -13,6 +13,7 @@ import { WcAuthGateModal } from '@/components/worldCupHub/WcAuthGateModal';
 import { WcCinematicBackdrop } from './WcCinematicBackdrop';
 import type { EventHubSnapshot } from '@/services/sportsEventLayerService';
 import { parseWcTab, type WcTab } from './wcTypes';
+import { computeStandingsFromMatches, mergeOfficialResultsIntoMatches } from '@/utils/eventMatchUtils';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
@@ -42,9 +43,18 @@ export const WcShell: React.FC<Props> = ({
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
+  const liveHub = useMemo<EventHubSnapshot>(() => {
+    const matches = mergeOfficialResultsIntoMatches(hub.matches, hub.teams);
+    return {
+      ...hub,
+      matches,
+      teams: computeStandingsFromMatches(hub.teams, matches),
+    };
+  }, [hub]);
+
   const hubProps = {
     eventId,
-    hub,
+    hub: liveHub,
     isAuthenticated,
     onAuthRequired: () => setAuthModalOpen(true),
     onTabChange: goTab,
@@ -56,7 +66,7 @@ export const WcShell: React.FC<Props> = ({
   return (
     <Box
       className={styles.shell}
-      sx={{ '--wc-accent': hub.config.themeColor || '#6366f1' } as React.CSSProperties}
+      sx={{ '--wc-accent': liveHub.config.themeColor || '#6366f1' } as React.CSSProperties}
     >
       <WcCinematicBackdrop />
       {tab === 'overview' && (
@@ -70,11 +80,11 @@ export const WcShell: React.FC<Props> = ({
 
       <Box className={styles.body}>
         {tab === 'overview' && <WcOverviewTab {...hubProps} />}
-        {tab === 'groups' && <WcGroupsTab hub={hub} onTeamPage={onTeamPage} />}
+        {tab === 'groups' && <WcGroupsTab hub={liveHub} onTeamPage={onTeamPage} />}
         {tab === 'matches' && (
           <WcMatchesTab
             eventId={eventId}
-            hub={hub}
+            hub={liveHub}
             isAuthenticated={isAuthenticated}
             onAuthRequired={hubProps.onAuthRequired}
           />
@@ -82,7 +92,7 @@ export const WcShell: React.FC<Props> = ({
         {tab === 'predictions' && (
           <WcPredictionsTab
             eventId={eventId}
-            hub={hub}
+            hub={liveHub}
             isAuthenticated={isAuthenticated}
             onAuthRequired={hubProps.onAuthRequired}
           />
@@ -92,7 +102,7 @@ export const WcShell: React.FC<Props> = ({
         {tab === 'my-picks' && (
           <WcMyPicksTab
             eventId={eventId}
-            hub={hub}
+            hub={liveHub}
             isAuthenticated={isAuthenticated}
             onAuthRequired={hubProps.onAuthRequired}
           />

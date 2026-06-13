@@ -4,6 +4,7 @@ import {
   categorizeMatches,
   compareMatchesChronological,
   computeStandingsFromMatches,
+  mergeOfficialResultsIntoMatches,
   formatKickoffFriendly,
   formatKickoffCompact,
   formatKickoffCard,
@@ -111,6 +112,34 @@ describe('eventMatchUtils', () => {
     expect(upcoming.map((m) => m.matchId)).toEqual(['gs-soon', 'gs-late', 'r16-1', 'final']);
   });
 
+  it('mergeOfficialResultsIntoMatches applies catalog scores to scheduled fixtures', () => {
+    const teams: EventTeam[] = [
+      {
+        eventId: 'world-cup-2026', teamId: 'canada', name: 'Canada', country: 'Canada',
+        flagEmoji: '🇨🇦', groupId: 'group-b', sortOrder: 0, played: 0, wins: 0, draws: 0, losses: 0,
+        goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0,
+      },
+      {
+        eventId: 'world-cup-2026', teamId: 'bosnia-herzegovina', name: 'Bosnia', country: 'Bosnia',
+        flagEmoji: '🇧🇦', groupId: 'group-b', sortOrder: 1, played: 0, wins: 0, draws: 0, losses: 0,
+        goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0,
+      },
+    ];
+    const matches: EventMatch[] = [
+      matchFixture({
+        matchId: 'gs-canada-vs-bosnia-herzegovina',
+        teamAId: 'canada',
+        teamBId: 'bosnia-herzegovina',
+        groupId: 'group-b',
+        status: 'Scheduled',
+      }),
+    ];
+    const merged = mergeOfficialResultsIntoMatches(matches, teams);
+    expect(merged[0].status).toBe('Completed');
+    expect(merged[0].scoreA).toBe(1);
+    expect(merged[0].scoreB).toBe(1);
+  });
+
   it('computeStandingsFromMatches reflects completed group fixtures', () => {
     const teams: EventTeam[] = [
       {
@@ -144,5 +173,32 @@ describe('eventMatchUtils', () => {
     expect(canada?.goalsFor).toBe(1);
     expect(bosnia?.played).toBe(1);
     expect(bosnia?.points).toBe(1);
+  });
+
+  it('computeStandingsFromMatches uses official catalog when API match is still scheduled', () => {
+    const teams: EventTeam[] = [
+      {
+        eventId: 'world-cup-2026', teamId: 'usa', name: 'United States', country: 'USA',
+        flagEmoji: '🇺🇸', groupId: 'group-d', sortOrder: 0, played: 0, wins: 0, draws: 0, losses: 0,
+        goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0,
+      },
+      {
+        eventId: 'world-cup-2026', teamId: 'paraguay', name: 'Paraguay', country: 'Paraguay',
+        flagEmoji: '🇵🇾', groupId: 'group-d', sortOrder: 1, played: 0, wins: 0, draws: 0, losses: 0,
+        goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0,
+      },
+    ];
+    const matches: EventMatch[] = [
+      matchFixture({
+        matchId: 'gs-usa-vs-paraguay',
+        teamAId: 'usa',
+        teamBId: 'paraguay',
+        groupId: 'group-d',
+        status: 'Scheduled',
+      }),
+    ];
+    const standings = computeStandingsFromMatches(teams, matches);
+    expect(standings.find((t) => t.teamId === 'usa')?.points).toBe(3);
+    expect(standings.find((t) => t.teamId === 'paraguay')?.points).toBe(0);
   });
 });

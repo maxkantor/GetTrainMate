@@ -13,7 +13,7 @@ import {
   sportsEventLayerService,
   WORLD_CUP_EVENT_ID,
 } from '@/services/sportsEventLayerService';
-import { computeStandingsFromMatches } from '@/utils/eventMatchUtils';
+import { computeStandingsFromMatches, mergeOfficialResultsIntoMatches } from '@/utils/eventMatchUtils';
 import styles from '@/pages/WorldCupV2.module.css';
 
 export const WorldCupTeamPage: React.FC = () => {
@@ -48,12 +48,13 @@ export const WorldCupTeamPage: React.FC = () => {
   }
   if (isError || !hub?.effectivelyEnabled) return <Navigate to="/" replace />;
 
-  const team = computeStandingsFromMatches(hub.teams, hub.matches).find((tm) => tm.teamId === teamId);
+  const liveMatches = mergeOfficialResultsIntoMatches(hub.matches, hub.teams);
+  const team = computeStandingsFromMatches(hub.teams, liveMatches).find((tm) => tm.teamId === teamId);
   if (!team) return <Navigate to="/world-cup" replace />;
 
   const stats = teamStats.find((s) => s.teamId === teamId);
   const group = hub.groups.find((g) => g.groupId === team.groupId);
-  const teamMatches = hub.matches.filter((m) => m.teamAId === teamId || m.teamBId === teamId);
+  const teamMatches = liveMatches.filter((m) => m.teamAId === teamId || m.teamBId === teamId);
   const upcoming = teamMatches.filter((m) => m.status === 'Scheduled' || m.status === 'Live');
   const fanPosts = opinions.filter((o) => teamMatches.some((m) => m.matchId === o.threadId)).slice(0, 8);
 

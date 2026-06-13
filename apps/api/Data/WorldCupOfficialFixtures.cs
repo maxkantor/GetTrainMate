@@ -129,6 +129,7 @@ public static class WorldCupOfficialFixtures
     public static readonly IReadOnlyList<OfficialPairResult> CompletedGroupResults =
     [
         new("canada", "bosnia-herzegovina", 1, 1),
+        new("usa", "paraguay", 2, 0),
     ];
 
     /// <summary>

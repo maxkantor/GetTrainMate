@@ -38,3 +38,11 @@ export const WORLD_CUP_OFFICIAL_MATCH_IDS = [
   'opening-mexico-vs-south-africa',
   'opening-south-korea-vs-czechia',
 ] as const;
+
+/** Completed group-stage scores — keep in sync with WorldCupOfficialFixtures.CompletedGroupResults */
+export const WORLD_CUP_COMPLETED_GROUP_RESULTS = [
+  { teamAId: 'canada', teamBId: 'bosnia-herzegovina', scoreA: 1, scoreB: 1 },
+  { teamAId: 'usa', teamBId: 'paraguay', scoreA: 2, scoreB: 0 },
+] as const;
+
+export type OfficialPairResult = (typeof WORLD_CUP_COMPLETED_GROUP_RESULTS)[number];
