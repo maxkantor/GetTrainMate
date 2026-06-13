@@ -15,7 +15,8 @@ function renderShareCardToCanvas(
   scoreLine: string,
   reason: string | undefined,
   title: string,
-  footer: string
+  footer: string,
+  joinCta: string,
 ): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = 1080;
@@ -58,8 +59,12 @@ function renderShareCardToCanvas(
     ctx.fillText(`"${reason.slice(0, 80)}${reason.length > 80 ? '…' : ''}"`, 100, y + 100);
   }
 
+  ctx.fillStyle = '#a78bfa';
+  ctx.font = '26px Inter, sans-serif';
+  ctx.fillText(joinCta, 100, 860);
+
   ctx.fillStyle = '#6366f1';
-  ctx.font = 'bold 36px Inter, sans-serif';
+  ctx.font = 'bold 32px Inter, sans-serif';
   ctx.fillText(footer, 100, 920);
 
   return canvas;
@@ -124,7 +129,8 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
       buildCanvasScoreLine(),
       prediction.reason,
       t('event_hub.share_card_title'),
-      t('event_hub.share_card_footer')
+      t('event_hub.share_card_footer'),
+      t('event_hub.share_card_join_cta'),
     );
     const link = document.createElement('a');
     link.download = 'world-cup-prediction.png';
@@ -151,7 +157,8 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
         buildCanvasScoreLine(),
         prediction.reason,
         t('event_hub.share_card_title'),
-        t('event_hub.share_card_footer')
+        t('event_hub.share_card_footer'),
+        t('event_hub.share_card_join_cta'),
       );
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
       if (blob) {

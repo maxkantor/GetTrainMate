@@ -125,6 +125,7 @@ export const WorldCupTeamPage: React.FC = () => {
               <WcMatchCard
                 key={m.matchId}
                 eventId={eventId}
+                hub={hub}
                 match={m}
                 isAuthenticated={isAuthenticated}
                 onAuthRequired={() => setAuthOpen(true)}

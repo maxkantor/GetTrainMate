@@ -1593,3 +1593,164 @@
 @media (max-width: 768px) {
   .teamPageGrid { grid-template-columns: 1fr; }
 }
+
+/* ── Match Intelligence ── */
+.intelWrap { margin: 0.75rem 0 0.5rem; }
+.intelToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(99, 102, 241, 0.12));
+  color: #fde68a;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.intelToggleIcon { font-size: 1rem; }
+.intelChevron { margin-left: auto; opacity: 0.7; }
+.intelPanel {
+  margin-top: 0.55rem;
+  padding: 1rem 1.05rem;
+  border-radius: 16px;
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  background: rgba(8, 12, 28, 0.72);
+  backdrop-filter: blur(10px);
+}
+.intelKicker {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(167, 139, 250, 0.95);
+  margin-bottom: 0.55rem;
+}
+.intelSplitGrid { display: grid; gap: 0.35rem; margin-bottom: 0.75rem; }
+.intelSplitRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.86rem;
+  color: rgba(255, 255, 255, 0.82);
+}
+.intelUpsetBadge {
+  display: inline-block;
+  margin-bottom: 0.65rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.15);
+  color: #fcd34d;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.intelInsight {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.88);
+  margin-bottom: 0.75rem;
+}
+.intelFormGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-bottom: 0.75rem; }
+.intelFormCard {
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.intelFormTitle { font-size: 0.82rem; font-weight: 800; margin-bottom: 0.25rem; }
+.intelFormLine { font-size: 0.76rem; color: rgba(255, 255, 255, 0.58); line-height: 1.35; }
+.intelReasonLine, .intelUpsetLine {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.62);
+  margin-bottom: 0.45rem;
+  line-height: 1.4;
+}
+.intelUpsetLine { color: #fbbf24; }
+.intelMuted { font-size: 0.82rem; color: rgba(255, 255, 255, 0.45); }
+.intelDisclaimer {
+  margin-top: 0.65rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.makePickTitle {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+.freeBadge {
+  display: inline-block;
+  margin: 0.35rem 0 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.reasonField .MuiInputBase-root {
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 12px;
+  color: #fff;
+}
+
+/* ── Fan Picks Feed ── */
+.fanPickFeed { margin-bottom: 1.5rem; }
+.fanPickFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+.fanPickMatchSelect {
+  margin-left: auto;
+  min-width: 180px;
+  padding: 0.35rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 0.82rem;
+}
+.fanPickList { display: grid; gap: 0.65rem; }
+.fanPickCard {
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+}
+.fanPickHeader { display: flex; align-items: flex-start; gap: 0.65rem; }
+.fanPickName { font-size: 0.88rem; font-weight: 700; color: #f8fafc; }
+.fanPickMeta { font-size: 0.74rem; color: rgba(255, 255, 255, 0.45); }
+.fanPickTime { font-size: 0.72rem; color: rgba(255, 255, 255, 0.38); white-space: nowrap; }
+.fanPickTeams {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.62);
+}
+.fanPickReason {
+  margin-top: 0.45rem;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-style: italic;
+}
+.fanPickActions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.55rem;
+}
+.fanPickStat { font-size: 0.74rem; color: rgba(255, 255, 255, 0.45); }
+.fanPickReplyBox { margin-top: 0.65rem; }
+.lbTeamBadge { margin-left: 0.35rem; }
+
+@media (max-width: 640px) {
+  .intelFormGrid { grid-template-columns: 1fr; }
+  .fanPickMatchSelect { width: 100%; margin-left: 0; }
+}

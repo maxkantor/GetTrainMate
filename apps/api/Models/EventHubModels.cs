@@ -110,6 +110,7 @@ public class EventPrediction
     public int? PredictedScoreA { get; set; }
     public int? PredictedScoreB { get; set; }
     public string? Reason { get; set; }
+    public bool ReasonHidden { get; set; }
     public int ShareCount { get; set; }
     public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("O");
     public string UpdatedAt { get; set; } = DateTime.UtcNow.ToString("O");
@@ -170,6 +171,8 @@ public sealed class EventHubSettings
     public bool SharingEnabled { get; set; } = true;
     public bool StandingsEnabled { get; set; }
     public bool StandingsPublished { get; set; }
+    public bool MatchIntelligenceEnabled { get; set; } = true;
+    public bool FanFeedEnabled { get; set; } = true;
 }
 
 public sealed class EventHubLiveStats
@@ -271,8 +274,63 @@ public sealed class EventLeaderboardEntry
     public int Score { get; set; }
     public int PredictionsCount { get; set; }
     public int CorrectCount { get; set; }
+    public int ExactScoreCount { get; set; }
+    public int UpsetBonusCount { get; set; }
+    public int CurrentStreak { get; set; }
     public int ShareCount { get; set; }
     public int CommentCount { get; set; }
+    public string? FavoriteTeamId { get; set; }
+    public string? FavoriteTeamFlag { get; set; }
+}
+
+public sealed class TeamFormLine
+{
+    public string TeamId { get; set; } = string.Empty;
+    public string TeamName { get; set; } = string.Empty;
+    public string? FlagEmoji { get; set; }
+    public string FormSummary { get; set; } = string.Empty;
+    public int Played { get; set; }
+    public int Wins { get; set; }
+    public int Draws { get; set; }
+    public int Losses { get; set; }
+    public int GoalsFor { get; set; }
+    public int GoalsAgainst { get; set; }
+    public int Points { get; set; }
+}
+
+public sealed class MatchIntelligence
+{
+    public string MatchId { get; set; } = string.Empty;
+    public int TotalPredictions { get; set; }
+    public List<PredictionOutcomeShare> CommunityPicks { get; set; } = new();
+    public int UpsetProbabilityPercent { get; set; }
+    public string NeutralInsight { get; set; } = string.Empty;
+    public string? WhyFansPickTeamA { get; set; }
+    public string? WhyFansPickTeamB { get; set; }
+    public string? UpsetWatch { get; set; }
+    public TeamFormLine? TeamAForm { get; set; }
+    public TeamFormLine? TeamBForm { get; set; }
+}
+
+public sealed class PublicFanPick
+{
+    public string MatchId { get; set; } = string.Empty;
+    public string? MatchLabel { get; set; }
+    public string? TeamAId { get; set; }
+    public string? TeamBId { get; set; }
+    public string? TeamAName { get; set; }
+    public string? TeamBName { get; set; }
+    public string? TeamAFlag { get; set; }
+    public string? TeamBFlag { get; set; }
+    public string? UserDisplayName { get; set; }
+    public string PredictionType { get; set; } = string.Empty;
+    public string? PredictedWinnerTeamId { get; set; }
+    public int? PredictedScoreA { get; set; }
+    public int? PredictedScoreB { get; set; }
+    public string? Reason { get; set; }
+    public int ShareCount { get; set; }
+    public int ReplyCount { get; set; }
+    public string CreatedAt { get; set; } = string.Empty;
 }
 
 public sealed class EventHubAnalytics

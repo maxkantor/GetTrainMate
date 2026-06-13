@@ -89,6 +89,7 @@ export const WcPredictionsTab: React.FC<Props> = ({ eventId, hub, isAuthenticate
                 <WcMatchCard
                   key={m.matchId}
                   eventId={eventId}
+                  hub={hub}
                   match={m}
                   groupLabel={groupLabel(m.groupId ?? undefined)}
                   isAuthenticated={isAuthenticated}

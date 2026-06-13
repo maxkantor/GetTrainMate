@@ -15,16 +15,28 @@ const TAB_I18N: Record<WcTab, string> = {
 
 type Props = {
   active: WcTab;
+  settings: import('@/services/sportsEventLayerService').EventHubSettings;
   onChange: (tab: WcTab) => void;
 };
 
-export const WcNav: React.FC<Props> = ({ active, onChange }) => {
+const TAB_SETTINGS: Partial<Record<WcTab, (s: import('@/services/sportsEventLayerService').EventHubSettings) => boolean>> = {
+  predictions: (s) => s.predictionsEnabled !== false,
+  leaderboard: () => true,
+  fans: (s) => s.commentsEnabled !== false || s.fanFeedEnabled !== false,
+  groups: (s) => s.standingsEnabled === true,
+};
+
+export const WcNav: React.FC<Props> = ({ active, settings, onChange }) => {
   const { t } = useI18n();
+  const visibleTabs = WC_TABS.filter((tab) => {
+    const gate = TAB_SETTINGS[tab];
+    return gate ? gate(settings) : true;
+  });
 
   return (
     <nav className={styles.navWrap} aria-label={t('event_hub.nav_aria')}>
       <div className={styles.navInner}>
-        {WC_TABS.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab}
             type="button"

@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Chip, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { useWcDisplay } from '@/hooks/useWcDisplay';
-import type { EventMatch } from '@/services/sportsEventLayerService';
+import type { EventHubSnapshot, EventMatch } from '@/services/sportsEventLayerService';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { MatchKickoffDisplay } from '@/components/worldCupHub/MatchKickoffDisplay';
 import { isTbdMatch } from '@/utils/eventMatchUtils';
@@ -11,6 +11,7 @@ import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
   eventId: string;
+  hub: EventHubSnapshot;
   match: EventMatch;
   groupLabel?: string;
   isAuthenticated: boolean;
@@ -32,7 +33,7 @@ const statusLabel = (status: EventMatch['status'], t: (k: string) => string) => 
 };
 
 export const WcMatchCard: React.FC<Props> = ({
-  eventId, match, groupLabel, isAuthenticated, onAuthRequired, showPredict = true,
+  eventId, hub, match, groupLabel, isAuthenticated, onAuthRequired, showPredict = true,
 }) => {
   const { t } = useI18n();
   const { teamName } = useWcDisplay();
@@ -119,6 +120,7 @@ export const WcMatchCard: React.FC<Props> = ({
       {showPredict && (
         <WcInlinePredict
           eventId={eventId}
+          hub={hub}
           match={match}
           isAuthenticated={isAuthenticated}
           onAuthRequired={onAuthRequired}

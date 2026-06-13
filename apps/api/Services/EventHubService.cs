@@ -68,6 +68,8 @@ public class EventHubService : IEventHubService
         SharingEnabled = config.SharingEnabled,
         StandingsEnabled = config.StandingsEnabled,
         StandingsPublished = config.StandingsPublished,
+        MatchIntelligenceEnabled = config.MatchIntelligenceEnabled,
+        FanFeedEnabled = config.FanFeedEnabled,
     };
 
     public async Task<EventHubSnapshot?> GetHubSnapshotAsync(string eventId, bool allowDisabledForAdmin = false)
@@ -619,6 +621,16 @@ public class EventHubService : IEventHubService
         if (!match.PredictionsOpen)
             throw new InvalidOperationException("Predictions are closed for this match.");
 
+        if (request.PredictionType == EventPredictionType.ExactScore && !config.ExactScoreEnabled)
+            throw new InvalidOperationException("Exact score predictions are disabled.");
+        if (request.PredictionType == EventPredictionType.Draw && !config.DrawPickEnabled)
+            throw new InvalidOperationException("Draw predictions are disabled.");
+        if (request.PredictionType == EventPredictionType.Winner && !config.WinnerPickEnabled)
+            throw new InvalidOperationException("Winner predictions are disabled.");
+
+        if (!string.IsNullOrWhiteSpace(request.Reason) && request.Reason.Length > 280)
+            request.Reason = request.Reason.Trim()[..280];
+
         var key = PredictionKey(request.MatchId, userId);
         var existing = await GetUserPredictionAsync(eventId, request.MatchId, userId);
         var pred = existing ?? new EventPrediction
@@ -740,8 +752,15 @@ public class EventHubService : IEventHubService
         var comments = await QueryEventItemsAsync(_commentsTable, eventId, MapComment);
         var matches = await GetMatchesAsync(eventId);
         var teams = await GetTeamsAsync(eventId);
+        var teamFlags = teams.ToDictionary(t => t.TeamId, t => t.FlagEmoji, StringComparer.OrdinalIgnoreCase);
 
         var completed = matches.Where(m => m.Status == EventMatchStatus.Completed).ToList();
+        var breakdownByMatch = new Dictionary<string, MatchPredictionBreakdown>(StringComparer.OrdinalIgnoreCase);
+        foreach (var match in completed)
+        {
+            breakdownByMatch[match.MatchId] = await GetMatchPredictionBreakdownAsync(eventId, match.MatchId);
+        }
+
         var predictorScores = new Dictionary<string, EventLeaderboardEntry>();
 
         foreach (var pred in predictions)
@@ -761,12 +780,46 @@ public class EventHubService : IEventHubService
             var match = completed.FirstOrDefault(m => m.MatchId == pred.MatchId);
             if (match == null || match.ScoreA == null || match.ScoreB == null) continue;
 
-            var correct = ScorePrediction(pred, match);
-            if (correct > 0)
+            var breakdown = breakdownByMatch.GetValueOrDefault(match.MatchId);
+            var scored = ScorePredictionDetailed(pred, match, breakdown);
+            if (scored.Points <= 0) continue;
+
+            entry.CorrectCount++;
+            entry.Score += scored.Points;
+            if (scored.IsExact) entry.ExactScoreCount++;
+            if (scored.IsUpset) entry.UpsetBonusCount++;
+        }
+
+        foreach (var entry in predictorScores.Values)
+        {
+            var userPreds = predictions
+                .Where(p => p.UserId == entry.UserId)
+                .Select(p => (pred: p, match: completed.FirstOrDefault(m => m.MatchId == p.MatchId)))
+                .Where(x => x.match != null && x.match.ScoreA != null && x.match.ScoreB != null)
+                .OrderBy(x => x.match!.MatchDate)
+                .ThenBy(x => x.match!.MatchTime ?? string.Empty)
+                .ToList();
+
+            var streak = 0;
+            for (var i = userPreds.Count - 1; i >= 0; i--)
             {
-                entry.CorrectCount++;
-                entry.Score += correct;
+                var breakdown = breakdownByMatch.GetValueOrDefault(userPreds[i].match!.MatchId);
+                var scored = ScorePredictionDetailed(userPreds[i].pred, userPreds[i].match!, breakdown);
+                if (scored.Points <= 0) break;
+                streak++;
             }
+            entry.CurrentStreak = streak;
+            entry.Score += Math.Min(streak, 5);
+
+            var favorite = predictions
+                .Where(p => p.UserId == entry.UserId && !string.IsNullOrWhiteSpace(p.PredictedWinnerTeamId))
+                .GroupBy(p => p.PredictedWinnerTeamId!)
+                .OrderByDescending(g => g.Count())
+                .Select(g => g.Key)
+                .FirstOrDefault();
+            entry.FavoriteTeamId = favorite;
+            if (favorite != null && teamFlags.TryGetValue(favorite, out var flag))
+                entry.FavoriteTeamFlag = flag;
         }
 
         var commentCounts = comments.Where(c => !c.Deleted)
@@ -812,28 +865,71 @@ public class EventHubService : IEventHubService
         };
     }
 
-    private static int ScorePrediction(EventPrediction pred, EventMatch match)
+    private sealed class PredictionScoreResult
     {
-        if (match.ScoreA == null || match.ScoreB == null) return 0;
+        public int Points { get; init; }
+        public bool IsExact { get; init; }
+        public bool IsUpset { get; init; }
+    }
+
+    private static PredictionScoreResult ScorePredictionDetailed(
+        EventPrediction pred,
+        EventMatch match,
+        MatchPredictionBreakdown? breakdown)
+    {
+        if (match.ScoreA == null || match.ScoreB == null) return new PredictionScoreResult();
         var sa = match.ScoreA.Value;
         var sb = match.ScoreB.Value;
 
-        if (pred.PredictionType == EventPredictionType.ExactScore
-            && pred.PredictedScoreA == sa && pred.PredictedScoreB == sb)
-            return 3;
+        var isExact = pred.PredictionType == EventPredictionType.ExactScore
+            && pred.PredictedScoreA == sa && pred.PredictedScoreB == sb;
+        var isDraw = sa == sb;
+        var winnerId = sa > sb ? match.TeamAId : sb > sa ? match.TeamBId : null;
 
-        if (pred.PredictionType == EventPredictionType.Draw && sa == sb)
-            return 2;
+        var winnerCorrect = winnerId != null && (
+            (pred.PredictionType == EventPredictionType.Winner && pred.PredictedWinnerTeamId == winnerId)
+            || (pred.PredictionType == EventPredictionType.ExactScore
+                && ((pred.PredictedScoreA > pred.PredictedScoreB && winnerId == match.TeamAId)
+                    || (pred.PredictedScoreB > pred.PredictedScoreA && winnerId == match.TeamBId)))
+        );
+        var drawCorrect = isDraw && (
+            pred.PredictionType == EventPredictionType.Draw
+            || (pred.PredictionType == EventPredictionType.ExactScore && pred.PredictedScoreA == pred.PredictedScoreB)
+        );
 
-        if (pred.PredictionType == EventPredictionType.Winner)
+        var points = 0;
+        if (isExact) points = 5;
+        else if (drawCorrect) points = 2;
+        else if (winnerCorrect) points = 1;
+        else return new PredictionScoreResult();
+
+        var pickedTeamId = pred.PredictedWinnerTeamId;
+        if (pred.PredictionType == EventPredictionType.ExactScore && pred.PredictedScoreA != null && pred.PredictedScoreB != null)
         {
-            var winnerId = sa > sb ? match.TeamAId : sb > sa ? match.TeamBId : null;
-            if (winnerId != null && winnerId == pred.PredictedWinnerTeamId)
-                return 1;
+            pickedTeamId = pred.PredictedScoreA > pred.PredictedScoreB ? match.TeamAId
+                : pred.PredictedScoreB > pred.PredictedScoreA ? match.TeamBId
+                : null;
         }
 
-        return 0;
+        var isUpset = false;
+        if (pickedTeamId != null && breakdown != null && breakdown.TotalPredictions > 0)
+        {
+            var pickedPct = breakdown.Outcomes.FirstOrDefault(o => o.TeamId == pickedTeamId)?.Percent ?? 50;
+            var otherPct = breakdown.Outcomes
+                .Where(o => o.TeamId != null && !string.Equals(o.TeamId, pickedTeamId, StringComparison.OrdinalIgnoreCase))
+                .Select(o => o.Percent)
+                .DefaultIfEmpty(0)
+                .Max();
+            if (pickedPct < 40 && pickedPct <= otherPct) isUpset = true;
+        }
+
+        if (isUpset) points += 2;
+
+        return new PredictionScoreResult { Points = points, IsExact = isExact, IsUpset = isUpset };
     }
+
+    private static int ScorePrediction(EventPrediction pred, EventMatch match) =>
+        ScorePredictionDetailed(pred, match, null).Points;
 
     private async Task<List<T>> QueryEventItemsAsync<T>(string tableName, string eventId, Func<Document, T> mapper)
     {
@@ -1056,6 +1152,146 @@ public class EventHubService : IEventHubService
         };
     }
 
+    public async Task<MatchIntelligence> GetMatchIntelligenceAsync(string eventId, string matchId)
+    {
+        var config = await _sportsLayer.GetEventConfigAsync(eventId);
+        if (config == null || !config.MatchIntelligenceEnabled)
+            return new MatchIntelligence { MatchId = matchId };
+
+        var match = (await GetMatchesAsync(eventId)).FirstOrDefault(m => m.MatchId == matchId);
+        if (match == null) return new MatchIntelligence { MatchId = matchId };
+
+        var teams = await GetTeamsAsync(eventId);
+        var teamA = teams.FirstOrDefault(t => t.TeamId == match.TeamAId);
+        var teamB = teams.FirstOrDefault(t => t.TeamId == match.TeamBId);
+        var breakdown = await GetMatchPredictionBreakdownAsync(eventId, matchId);
+
+        static TeamFormLine? BuildForm(EventTeam? team)
+        {
+            if (team == null) return null;
+            var form = team.Played == 0
+                ? "No tournament matches yet"
+                : $"{team.Wins}W-{team.Draws}D-{team.Losses}L · {team.GoalsFor} GF / {team.GoalsAgainst} GA · {team.Points} pts";
+            return new TeamFormLine
+            {
+                TeamId = team.TeamId,
+                TeamName = team.Name,
+                FlagEmoji = team.FlagEmoji,
+                FormSummary = form,
+                Played = team.Played,
+                Wins = team.Wins,
+                Draws = team.Draws,
+                Losses = team.Losses,
+                GoalsFor = team.GoalsFor,
+                GoalsAgainst = team.GoalsAgainst,
+                Points = team.Points,
+            };
+        }
+
+        var pctA = breakdown.Outcomes.FirstOrDefault(o => o.TeamId == match.TeamAId)?.Percent ?? 0;
+        var pctB = breakdown.Outcomes.FirstOrDefault(o => o.TeamId == match.TeamBId)?.Percent ?? 0;
+        var pctDraw = breakdown.Outcomes.FirstOrDefault(o => o.OutcomeType == EventPredictionType.Draw)?.Percent ?? 0;
+        var favoritePct = Math.Max(pctA, pctB);
+        var underdogPct = Math.Min(pctA, pctB);
+        var upsetProbability = breakdown.TotalPredictions == 0
+            ? 0
+            : Math.Clamp((int)Math.Round(underdogPct * 0.6 + pctDraw * 0.25), 5, 45);
+
+        var favoriteName = pctA >= pctB ? match.TeamAName ?? teamA?.Name : match.TeamBName ?? teamB?.Name;
+        var underdogName = pctA < pctB ? match.TeamAName ?? teamA?.Name : match.TeamBName ?? teamB?.Name;
+
+        var neutralInsight = breakdown.TotalPredictions == 0
+            ? "Be the first fan to make a pick — community intelligence builds as fans submit their own predictions."
+            : favoritePct >= 60
+                ? $"{favoriteName} is the popular pick ({favoritePct}%), but {underdogName} still has enough support ({Math.Min(pctA, pctB)}%) to keep this interesting."
+                : $"Community split is tight — {match.TeamAName} {pctA}%, Draw {pctDraw}%, {match.TeamBName} {pctB}%.";
+
+        string? WhyFans(string name, int pct, EventTeam? team)
+        {
+            if (pct <= 0 || breakdown.TotalPredictions == 0) return null;
+            var formBit = team?.Played > 0 ? $" {team.Wins} win(s) so far." : "";
+            return pct >= 50
+                ? $"Fans back {name} ({pct}%) for momentum and name value.{formBit}"
+                : $"A loyal {pct}% still trust {name}'s path — often citing form and matchups.{formBit}";
+        }
+
+        var upsetWatch = upsetProbability >= 20
+            ? $"Upset Watch: {underdogName} at {Math.Min(pctA, pctB)}% — set pieces, early goals, or a red card could flip this."
+            : null;
+
+        return new MatchIntelligence
+        {
+            MatchId = matchId,
+            TotalPredictions = breakdown.TotalPredictions,
+            CommunityPicks = breakdown.Outcomes,
+            UpsetProbabilityPercent = upsetProbability,
+            NeutralInsight = neutralInsight,
+            WhyFansPickTeamA = WhyFans(match.TeamAName ?? teamA?.Name ?? "Team A", pctA, teamA),
+            WhyFansPickTeamB = WhyFans(match.TeamBName ?? teamB?.Name ?? "Team B", pctB, teamB),
+            UpsetWatch = upsetWatch,
+            TeamAForm = BuildForm(teamA),
+            TeamBForm = BuildForm(teamB),
+        };
+    }
+
+    public async Task<List<PublicFanPick>> GetFanPicksFeedAsync(
+        string eventId, string? matchId = null, string sort = "recent", int limit = 50)
+    {
+        var config = await _sportsLayer.GetEventConfigAsync(eventId);
+        if (config == null || !config.FanFeedEnabled) return new List<PublicFanPick>();
+
+        var predictions = await QueryEventItemsAsync(_predictionsTable, eventId, MapPrediction);
+        if (!string.IsNullOrWhiteSpace(matchId))
+            predictions = predictions.Where(p => p.MatchId == matchId).ToList();
+
+        var matches = await GetMatchesAsync(eventId);
+        var matchMap = matches.ToDictionary(m => m.MatchId, StringComparer.OrdinalIgnoreCase);
+        var comments = await QueryEventItemsAsync(_commentsTable, eventId, MapComment);
+        var replyCounts = comments
+            .Where(c => !c.Deleted && !c.Hidden && c.ThreadType == "match")
+            .GroupBy(c => c.ThreadId)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+
+        IEnumerable<EventPrediction> ordered = sort.Equals("trending", StringComparison.OrdinalIgnoreCase)
+            ? predictions.OrderByDescending(p => p.ShareCount).ThenByDescending(p => p.CreatedAt)
+            : predictions.OrderByDescending(p => p.CreatedAt);
+
+        return ordered.Take(Math.Clamp(limit, 1, 100)).Select(p =>
+        {
+            matchMap.TryGetValue(p.MatchId, out var m);
+            return new PublicFanPick
+            {
+                MatchId = p.MatchId,
+                MatchLabel = m != null ? $"{m.TeamAName} vs {m.TeamBName}" : p.MatchId,
+                TeamAId = m?.TeamAId,
+                TeamBId = m?.TeamBId,
+                TeamAName = m?.TeamAName,
+                TeamBName = m?.TeamBName,
+                TeamAFlag = m?.TeamAFlag,
+                TeamBFlag = m?.TeamBFlag,
+                UserDisplayName = p.UserDisplayName,
+                PredictionType = p.PredictionType,
+                PredictedWinnerTeamId = p.PredictedWinnerTeamId,
+                PredictedScoreA = p.PredictedScoreA,
+                PredictedScoreB = p.PredictedScoreB,
+                Reason = p.ReasonHidden ? null : p.Reason,
+                ShareCount = p.ShareCount,
+                ReplyCount = replyCounts.GetValueOrDefault(p.MatchId),
+                CreatedAt = p.CreatedAt,
+            };
+        }).ToList();
+    }
+
+    public async Task HidePredictionReasonAsync(string eventId, string matchId, string userId)
+    {
+        var pred = await GetUserPredictionAsync(eventId, matchId, userId);
+        if (pred == null) return;
+        pred.ReasonHidden = true;
+        pred.UpdatedAt = DateTime.UtcNow.ToString("O");
+        var table = Table.LoadTable(_dynamoDb, _predictionsTable);
+        await table.PutItemAsync(PredictionToDoc(pred));
+    }
+
     public async Task<List<TeamExplorerStats>> GetTeamExplorerStatsAsync(string eventId)
     {
         var teams = await GetTeamsAsync(eventId);
@@ -1138,7 +1374,7 @@ public class EventHubService : IEventHubService
         ["userId"] = p.UserId, ["userDisplayName"] = p.UserDisplayName ?? "",
         ["predictionType"] = p.PredictionType, ["predictedWinnerTeamId"] = p.PredictedWinnerTeamId ?? "",
         ["predictedScoreA"] = p.PredictedScoreA ?? -1, ["predictedScoreB"] = p.PredictedScoreB ?? -1,
-        ["reason"] = p.Reason ?? "", ["shareCount"] = p.ShareCount,
+        ["reason"] = p.Reason ?? "", ["reasonHidden"] = p.ReasonHidden, ["shareCount"] = p.ShareCount,
         ["createdAt"] = p.CreatedAt, ["updatedAt"] = p.UpdatedAt,
     };
 
@@ -1224,6 +1460,7 @@ public class EventHubService : IEventHubService
             PredictedScoreA = sa >= 0 ? sa : null,
             PredictedScoreB = sb >= 0 ? sb : null,
             Reason = d.ContainsKey("reason") ? d["reason"].AsString() : null,
+            ReasonHidden = d.ContainsKey("reasonHidden") && d["reasonHidden"].AsBoolean(),
             ShareCount = d.ContainsKey("shareCount") ? (int)d["shareCount"].AsLong() : 0,
             CreatedAt = d.ContainsKey("createdAt") ? d["createdAt"].AsString() : "",
             UpdatedAt = d.ContainsKey("updatedAt") ? d["updatedAt"].AsString() : "",

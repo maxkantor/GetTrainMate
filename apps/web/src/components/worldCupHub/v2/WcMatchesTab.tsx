@@ -63,6 +63,7 @@ export const WcMatchesTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
             <WcMatchCard
               key={m.matchId}
               eventId={eventId}
+              hub={hub}
               match={m}
               isAuthenticated={isAuthenticated}
               onAuthRequired={onAuthRequired}

@@ -170,6 +170,22 @@ public class AdminSportsEventsController : ControllerBase
         return Ok(new { hidden = true });
     }
 
+    [HttpPost("{eventId}/predictions/{matchId}/users/{userId}/hide-reason")]
+    public async Task<ActionResult> HidePredictionReason(string eventId, string matchId, string userId)
+    {
+        await _eventHubService.HidePredictionReasonAsync(eventId, matchId, userId);
+        await _auditLog.LogActionAsync(GetAdminIdentity(), "sports_event.hide_prediction_reason", "event_prediction", $"{matchId}#{userId}");
+        return Ok(new { hidden = true });
+    }
+
+    [HttpPost("{eventId}/leaderboard/recalculate")]
+    public async Task<ActionResult<EventHubAnalytics>> RecalculateLeaderboard(string eventId)
+    {
+        var analytics = await _eventHubService.GetAnalyticsAsync(eventId);
+        await _auditLog.LogActionAsync(GetAdminIdentity(), "sports_event.recalculate_leaderboard", "event", eventId);
+        return Ok(analytics);
+    }
+
     [HttpDelete("{eventId}/comments/{commentKey}")]
     public async Task<ActionResult> DeleteComment(string eventId, string commentKey)
     {

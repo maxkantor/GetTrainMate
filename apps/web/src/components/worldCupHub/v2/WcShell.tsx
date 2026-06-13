@@ -72,7 +72,7 @@ export const WcShell: React.FC<Props> = ({
           onViewGroups={() => goTab('groups')}
         />
       )}
-      <WcNav active={tab} onChange={goTab} />
+      <WcNav active={tab} settings={liveHub.settings} onChange={goTab} />
 
       <Box className={styles.body}>
         {tab === 'overview' && <WcOverviewTab {...hubProps} />}
@@ -93,8 +93,10 @@ export const WcShell: React.FC<Props> = ({
             onAuthRequired={hubProps.onAuthRequired}
           />
         )}
-        {tab === 'leaderboard' && <WcLeaderboardTab eventId={eventId} />}
-        {tab === 'fans' && <WcFansTab {...hubProps} />}
+        {tab === 'leaderboard' && <WcLeaderboardTab eventId={eventId} hub={liveHub} />}
+        {tab === 'fans' && (liveHub.settings.commentsEnabled !== false || liveHub.settings.fanFeedEnabled !== false) && (
+          <WcFansTab {...hubProps} />
+        )}
         {tab === 'my-picks' && (
           <WcMyPicksTab
             eventId={eventId}

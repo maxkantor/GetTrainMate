@@ -6,6 +6,7 @@ import { TeamExploreCard } from '@/components/worldCupHub/TeamExploreCard';
 import { useI18n } from '@/hooks/useI18n';
 import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
+import { WcFanPickFeed } from './WcFanPickFeed';
 import type { WcHubProps } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -80,6 +81,17 @@ export const WcFansTab: React.FC<Props> = ({
 
   return (
     <Box className={styles.tabPanel}>
+      {hub.settings.fanFeedEnabled !== false && (
+        <WcFanPickFeed
+          eventId={eventId}
+          hub={hub}
+          isAuthenticated={isAuthenticated}
+          onAuthRequired={onAuthRequired}
+        />
+      )}
+
+      {hub.settings.commentsEnabled !== false && (
+        <>
       <Typography className={styles.sectionTitle}>{t('event_hub.fan_wall_title')}</Typography>
       <Typography className={styles.sectionLead}>{t('event_hub.fan_wall_lead')}</Typography>
 
@@ -239,6 +251,9 @@ export const WcFansTab: React.FC<Props> = ({
             />
           ))}
         </Box>
+      )}
+
+        </>
       )}
 
       <Snackbar open={Boolean(toast)} autoHideDuration={3000} onClose={() => setToast(null)}>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Collapse, Typography } from '@mui/material';
+import { Box, Button, Collapse, TextField, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
 import { useWcDisplay } from '@/hooks/useWcDisplay';
@@ -7,42 +7,56 @@ import { formatI18n } from '@/i18n';
 import {
   sportsEventLayerService,
   type CreatePredictionPayload,
+  type EventHubSettings,
   type EventMatch,
   type EventPrediction,
 } from '@/services/sportsEventLayerService';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { arePredictionsOpen, parseKickoffUtc } from '@/utils/eventMatchUtils';
 import { PredictionShareCard } from '@/components/eventHub/PredictionShareCard';
+import { WcMatchIntelligence } from './WcMatchIntelligence';
+import { WcFanPickFeed } from './WcFanPickFeed';
 import type { WinnerPick } from '@/types/worldCupHub';
+import type { EventHubSnapshot } from '@/services/sportsEventLayerService';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
   eventId: string;
   match: EventMatch;
+  hub: EventHubSnapshot;
   isAuthenticated: boolean;
   onAuthRequired: () => void;
   compact?: boolean;
 };
 
 export const WcInlinePredict: React.FC<Props> = ({
-  eventId, match, isAuthenticated, onAuthRequired, compact,
+  eventId, match, hub, isAuthenticated, onAuthRequired, compact,
 }) => {
+  const settings: EventHubSettings = hub.settings;
   const { t } = useI18n();
   const { teamName } = useWcDisplay();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const [showScore, setShowScore] = useState(false);
+  const [showFanPicks, setShowFanPicks] = useState(false);
   const [scoreA, setScoreA] = useState('1');
   const [scoreB, setScoreB] = useState('0');
+  const [reason, setReason] = useState('');
   const [winnerPick, setWinnerPick] = useState<WinnerPick | null>(null);
   const [submitted, setSubmitted] = useState<EventPrediction | null>(null);
   const [saveError, setSaveError] = useState(false);
   const [, setLockTick] = useState(0);
 
-  const open = arePredictionsOpen(match);
+  const predictionsEnabled = settings.predictionsEnabled !== false;
+  const sharingEnabled = settings.sharingEnabled !== false;
+  const intelEnabled = settings.matchIntelligenceEnabled !== false;
+  const fanFeedEnabled = settings.fanFeedEnabled !== false;
+  const exactEnabled = settings.exactScoreEnabled !== false;
+  const winnerEnabled = settings.winnerPickEnabled !== false;
+  const drawEnabled = settings.drawPickEnabled !== false;
 
-  // Flip the card to "closed" the moment kickoff passes, even without a data refresh.
+  const open = predictionsEnabled && arePredictionsOpen(match);
   const kickoff = parseKickoffUtc(match.matchDate, match.matchTime);
+
   useEffect(() => {
     if (kickoff == null) return;
     const delay = kickoff - Date.now();
@@ -75,12 +89,12 @@ export const WcInlinePredict: React.FC<Props> = ({
       setSaveError(false);
       queryClient.invalidateQueries({ queryKey: ['my-prediction', eventId, match.matchId] });
       queryClient.invalidateQueries({ queryKey: ['prediction-breakdown', eventId, match.matchId] });
+      queryClient.invalidateQueries({ queryKey: ['fan-picks-feed', eventId] });
       queryClient.invalidateQueries({ queryKey: ['live-stats', eventId] });
       queryClient.invalidateQueries({ queryKey: ['community-pulse', eventId] });
       queryClient.invalidateQueries({ queryKey: ['my-picks', eventId] });
     },
     onError: () => {
-      // Server rejects picks for live/finished/locked matches — refresh so the card reflects it.
       setSaveError(true);
       queryClient.invalidateQueries({ queryKey: ['event-hub', eventId] });
     },
@@ -95,19 +109,18 @@ export const WcInlinePredict: React.FC<Props> = ({
   const scoreNumB = parseInt(scoreB, 10);
   const scoresValid = Number.isInteger(scoreNumA) && Number.isInteger(scoreNumB)
     && scoreNumA >= 0 && scoreNumB >= 0;
-  /** With the score panel open, the score itself decides the outcome — no separate tap required. */
   const derivedPick: WinnerPick | null = scoresValid
     ? (scoreNumA === scoreNumB ? 'draw' : scoreNumA > scoreNumB ? 'teamA' : 'teamB')
     : null;
-  const activeChoice = showScore ? derivedPick : winnerPick;
 
-  const submit = (pick: WinnerPick, exact = false) => {
+  const submitPick = (pick: WinnerPick, exact: boolean, reasonText?: string) => {
     if (!isAuthenticated) { onAuthRequired(); return; }
     if (!open) return;
 
     const payload: CreatePredictionPayload = {
       matchId: match.matchId,
       predictionType: exact ? 'exact_score' : pick === 'draw' ? 'draw' : 'winner',
+      reason: reasonText?.trim() || undefined,
     };
     if (payload.predictionType === 'winner') {
       payload.predictedWinnerTeamId = pick === 'teamA' ? match.teamAId : match.teamBId;
@@ -121,39 +134,35 @@ export const WcInlinePredict: React.FC<Props> = ({
     predictMutation.mutate(payload);
   };
 
-  const handlePick = (pick: WinnerPick) => {
-    setWinnerPick(pick);
-    if (!showScore) {
-      submit(pick);
-      return;
-    }
-    // Score panel open: tapping a side flips the score to match the chosen outcome.
-    if (!scoresValid) return;
-    if (pick === 'draw' && scoreNumA !== scoreNumB) {
-      setScoreB(scoreA);
-    } else if (pick === 'teamA' && scoreNumA < scoreNumB) {
-      setScoreA(scoreB);
-      setScoreB(scoreA);
-    } else if (pick === 'teamB' && scoreNumA > scoreNumB) {
-      setScoreA(scoreB);
-      setScoreB(scoreA);
-    }
+  const handleSubmitScore = () => {
+    if (!derivedPick) return;
+    if (derivedPick === 'draw' && !drawEnabled) return;
+    if (derivedPick !== 'draw' && !winnerEnabled) return;
+    submitPick(derivedPick, exactEnabled, reason);
   };
 
-  /** Reopen the pick UI prefilled from the saved prediction (change pick / add exact score). */
-  const startEdit = (withScore: boolean) => {
+  const handleQuickPick = (pick: WinnerPick) => {
+    setWinnerPick(pick);
+    if (pick === 'draw') {
+      setScoreA('0');
+      setScoreB('0');
+    } else if (pick === 'teamA') {
+      setScoreA('2');
+      setScoreB('1');
+    } else {
+      setScoreA('1');
+      setScoreB('2');
+    }
+    if (!exactEnabled) submitPick(pick, false, reason);
+  };
+
+  const startEdit = () => {
     if (activePred) {
-      const pick: WinnerPick | null =
-        activePred.predictedWinnerTeamId === match.teamAId ? 'teamA'
-        : activePred.predictedWinnerTeamId === match.teamBId ? 'teamB'
-        : activePred.predictionType === 'draw' ? 'draw'
-        : null;
-      setWinnerPick(pick);
       if (hasExact) {
         setScoreA(String(activePred.predictedScoreA));
         setScoreB(String(activePred.predictedScoreB));
       }
-      setShowScore(withScore || hasExact);
+      setReason(activePred.reason ?? '');
     }
     setEditing(true);
   };
@@ -178,6 +187,12 @@ export const WcInlinePredict: React.FC<Props> = ({
     </>
   );
 
+  if (!predictionsEnabled) {
+    return (
+      <Typography className={styles.lockedReason}>{t('event_hub.predictions_coming_soon')}</Typography>
+    );
+  }
+
   if (activePred && !editing) {
     const pickLabel =
       activePred.predictedWinnerTeamId === match.teamAId ? `${match.teamAFlag} ${teamName(match.teamAId, match.teamAName)}`
@@ -189,28 +204,28 @@ export const WcInlinePredict: React.FC<Props> = ({
         <Box className={styles.predBadgeRow}>
           <span className={styles.predBadge}>✓ {t('event_hub.your_pick_in')}</span>
           {open && (
-            <button type="button" className={styles.predActionBtn} onClick={() => startEdit(false)}>
-              {t('event_hub.edit_pick')}
+            <button type="button" className={styles.predActionBtn} onClick={startEdit}>
+              {t('event_hub.change_pick')}
             </button>
           )}
         </Box>
 
         <Box className={styles.predPickLine}>
           <span className={styles.predPickLabel}>{pickLabel}</span>
-          {hasExact ? (
+          {hasExact && (
             <span className={styles.predScoreChip}>
               {activePred.predictedScoreA} – {activePred.predictedScoreB}
             </span>
-          ) : open ? (
-            <button type="button" className={styles.predAddScoreBtn} onClick={() => startEdit(true)}>
-              + {t('event_hub.add_exact_score')}
-            </button>
-          ) : null}
+          )}
         </Box>
+
+        {activePred.reason && (
+          <Typography className={styles.fanPickReason}>&ldquo;{activePred.reason}&rdquo;</Typography>
+        )}
 
         {pollBlock}
 
-        {!compact && (
+        {!compact && sharingEnabled && (
           <Box sx={{ mt: 1.5 }}>
             <PredictionShareCard
               match={match}
@@ -219,112 +234,145 @@ export const WcInlinePredict: React.FC<Props> = ({
             />
           </Box>
         )}
+
+        {fanFeedEnabled && (
+          <button type="button" className={styles.predActionBtn} onClick={() => setShowFanPicks((v) => !v)}>
+            {showFanPicks ? t('event_hub.hide_fan_picks') : t('event_hub.view_fan_picks')}
+          </button>
+        )}
+
+        <Collapse in={showFanPicks}>
+          <WcFanPickFeed
+            eventId={eventId}
+            hub={hub}
+            matchId={match.matchId}
+            isAuthenticated={isAuthenticated}
+            onAuthRequired={onAuthRequired}
+            compact
+          />
+        </Collapse>
       </Box>
     );
   }
 
   return (
     <Box>
+      <WcMatchIntelligence eventId={eventId} match={match} enabled={intelEnabled && !compact} />
+
       {total > 0 && (
-        <Typography className={styles.pollKicker}>
-          {t('event_hub.community_picks')}
-        </Typography>
+        <Typography className={styles.pollKicker}>{t('event_hub.community_split')}</Typography>
       )}
       {pollBlock}
 
       {open ? (
         <Box sx={{ mt: total > 0 ? 1 : 0 }}>
+          <Typography className={styles.makePickTitle}>{t('event_hub.make_your_pick')}</Typography>
+          <Typography className={styles.freeBadge}>{t('event_hub.free_fan_predictions')}</Typography>
+
           {saveError && (
             <Typography className={styles.saveError}>{t('event_hub.predict_save_failed')}</Typography>
           )}
-          <Box className={styles.pickRow}>
-            <Button
-              className={`${styles.pickBtn} ${activeChoice === 'teamA' ? styles.pickBtnActive : ''}`}
-              onClick={() => handlePick('teamA')}
-              disabled={predictMutation.isPending}
-            >
-              <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={22} className={styles.pickBtnFlag} />
-              <span className={styles.pickBtnName}>{teamName(match.teamAId, match.teamAName)}</span>
-            </Button>
-            <Button
-              className={`${styles.pickBtn} ${activeChoice === 'draw' ? styles.pickBtnActive : ''}`}
-              onClick={() => handlePick('draw')}
-              disabled={predictMutation.isPending}
-            >
-              <span className={styles.pickBtnFlag}>🤝</span>
-              <span className={styles.pickBtnName}>{t('event_hub.pick_draw')}</span>
-            </Button>
-            <Button
-              className={`${styles.pickBtn} ${activeChoice === 'teamB' ? styles.pickBtnActive : ''}`}
-              onClick={() => handlePick('teamB')}
-              disabled={predictMutation.isPending}
-            >
-              <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={22} className={styles.pickBtnFlag} />
-              <span className={styles.pickBtnName}>{teamName(match.teamBId, match.teamBName)}</span>
-            </Button>
-          </Box>
 
-          <Box className={styles.predFootRow}>
-            <button type="button" className={styles.predActionBtn} onClick={() => setShowScore((v) => !v)}>
-              {showScore ? t('event_hub.hide_score') : `+ ${t('event_hub.add_exact_score')}`}
-            </button>
-            {editing && (
-              <button
-                type="button"
-                className={styles.predActionBtnMuted}
-                onClick={() => { setEditing(false); setShowScore(false); }}
-              >
-                {t('common.cancel')}
-              </button>
+          <Box className={styles.scorePanel}>
+            <Box className={styles.scoreRow}>
+              <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={24} className={styles.scoreFlag} />
+              <input
+                className={styles.scoreInput}
+                type="number"
+                min={0}
+                max={20}
+                value={scoreA}
+                onChange={(e) => setScoreA(e.target.value)}
+                aria-label={`${teamName(match.teamAId, match.teamAName)} score`}
+              />
+              <span className={styles.scoreDash}>–</span>
+              <input
+                className={styles.scoreInput}
+                type="number"
+                min={0}
+                max={20}
+                value={scoreB}
+                onChange={(e) => setScoreB(e.target.value)}
+                aria-label={`${teamName(match.teamBId, match.teamBName)} score`}
+              />
+              <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={24} className={styles.scoreFlag} />
+            </Box>
+
+            {derivedPick && (
+              <Typography className={styles.scoreSummary}>
+                {derivedPick === 'draw'
+                  ? `🤝 ${t('event_hub.pick_draw')} · ${scoreNumA}–${scoreNumB}`
+                  : derivedPick === 'teamA'
+                    ? `${match.teamAFlag} ${teamName(match.teamAId, match.teamAName)} · ${scoreNumA}–${scoreNumB}`
+                    : `${match.teamBFlag} ${teamName(match.teamBId, match.teamBName)} · ${scoreNumA}–${scoreNumB}`}
+              </Typography>
             )}
           </Box>
 
-          <Collapse in={showScore}>
-            <Box className={styles.scorePanel}>
-              <Box className={styles.scoreRow}>
-                <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={24} className={styles.scoreFlag} />
-                <input
-                  className={styles.scoreInput}
-                  type="number"
-                  min={0}
-                  max={20}
-                  value={scoreA}
-                  onChange={(e) => setScoreA(e.target.value)}
-                  aria-label={`${teamName(match.teamAId, match.teamAName)} score`}
-                />
-                <span className={styles.scoreDash}>–</span>
-                <input
-                  className={styles.scoreInput}
-                  type="number"
-                  min={0}
-                  max={20}
-                  value={scoreB}
-                  onChange={(e) => setScoreB(e.target.value)}
-                  aria-label={`${teamName(match.teamBId, match.teamBName)} score`}
-                />
-                <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={24} className={styles.scoreFlag} />
-              </Box>
-              {derivedPick && (
-                <Typography className={styles.scoreSummary}>
-                  {derivedPick === 'draw'
-                    ? `🤝 ${t('event_hub.pick_draw')} · ${scoreNumA}–${scoreNumB}`
-                    : derivedPick === 'teamA'
-                      ? `${match.teamAFlag} ${teamName(match.teamAId, match.teamAName)} · ${scoreNumA}–${scoreNumB}`
-                      : `${match.teamBFlag} ${teamName(match.teamBId, match.teamBName)} · ${scoreNumA}–${scoreNumB}`}
-                </Typography>
+          <TextField
+            fullWidth
+            size="small"
+            multiline
+            minRows={2}
+            placeholder={t('event_hub.why_optional')}
+            value={reason}
+            onChange={(e) => setReason(e.target.value.slice(0, 280))}
+            className={styles.reasonField}
+            sx={{ mt: 1.25 }}
+          />
+
+          <Button
+            size="small"
+            variant="contained"
+            className={styles.ctaPrimary}
+            fullWidth
+            disabled={!derivedPick || predictMutation.isPending}
+            onClick={handleSubmitScore}
+            sx={{ mt: 1.25 }}
+          >
+            {t('event_hub.save_prediction')}
+          </Button>
+
+          {(winnerEnabled || drawEnabled) && (
+            <Box className={styles.pickRow} sx={{ mt: 1.25 }}>
+              {winnerEnabled && (
+                <Button
+                  className={`${styles.pickBtn} ${winnerPick === 'teamA' ? styles.pickBtnActive : ''}`}
+                  onClick={() => handleQuickPick('teamA')}
+                  disabled={predictMutation.isPending}
+                >
+                  <CountryFlag teamId={match.teamAId} flagEmoji={match.teamAFlag} size={20} className={styles.pickBtnFlag} />
+                  <span className={styles.pickBtnName}>{teamName(match.teamAId, match.teamAName)}</span>
+                </Button>
               )}
-              <Button
-                size="small"
-                variant="contained"
-                className={styles.ctaPrimary}
-                fullWidth
-                disabled={!derivedPick || predictMutation.isPending}
-                onClick={() => derivedPick && submit(derivedPick, true)}
-              >
-                {t('event_hub.save_prediction')}
-              </Button>
+              {drawEnabled && (
+                <Button
+                  className={`${styles.pickBtn} ${winnerPick === 'draw' ? styles.pickBtnActive : ''}`}
+                  onClick={() => handleQuickPick('draw')}
+                  disabled={predictMutation.isPending}
+                >
+                  <span className={styles.pickBtnFlag}>🤝</span>
+                  <span className={styles.pickBtnName}>{t('event_hub.pick_draw')}</span>
+                </Button>
+              )}
+              {winnerEnabled && (
+                <Button
+                  className={`${styles.pickBtn} ${winnerPick === 'teamB' ? styles.pickBtnActive : ''}`}
+                  onClick={() => handleQuickPick('teamB')}
+                  disabled={predictMutation.isPending}
+                >
+                  <CountryFlag teamId={match.teamBId} flagEmoji={match.teamBFlag} size={20} className={styles.pickBtnFlag} />
+                  <span className={styles.pickBtnName}>{teamName(match.teamBId, match.teamBName)}</span>
+                </Button>
+              )}
             </Box>
-          </Collapse>
+          )}
+
+          {editing && (
+            <button type="button" className={styles.predActionBtnMuted} onClick={() => setEditing(false)}>
+              {t('common.cancel')}
+            </button>
+          )}
         </Box>
       ) : (
         <Typography className={styles.lockedReason}>

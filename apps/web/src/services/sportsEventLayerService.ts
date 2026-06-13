@@ -46,6 +46,8 @@ export interface SportsEventConfig {
   sharingEnabled?: boolean;
   standingsEnabled?: boolean;
   standingsPublished?: boolean;
+  matchIntelligenceEnabled?: boolean;
+  fanFeedEnabled?: boolean;
   localizedCopy?: import('@/utils/eventLocalizedCopy').EventLocalizedCopyMap;
   localizedCopyJson?: string;
 }
@@ -68,6 +70,8 @@ export interface EventHubSettings {
   sharingEnabled: boolean;
   standingsEnabled: boolean;
   standingsPublished: boolean;
+  matchIntelligenceEnabled: boolean;
+  fanFeedEnabled: boolean;
 }
 
 export interface EventHubLiveStats {
@@ -195,8 +199,60 @@ export interface EventLeaderboardEntry {
   score: number;
   predictionsCount: number;
   correctCount: number;
+  exactScoreCount?: number;
+  upsetBonusCount?: number;
+  currentStreak?: number;
   shareCount: number;
   commentCount: number;
+  favoriteTeamId?: string;
+  favoriteTeamFlag?: string;
+}
+
+export interface TeamFormLine {
+  teamId: string;
+  teamName: string;
+  flagEmoji?: string;
+  formSummary: string;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  points: number;
+}
+
+export interface MatchIntelligence {
+  matchId: string;
+  totalPredictions: number;
+  communityPicks: PredictionOutcomeShare[];
+  upsetProbabilityPercent: number;
+  neutralInsight: string;
+  whyFansPickTeamA?: string;
+  whyFansPickTeamB?: string;
+  upsetWatch?: string;
+  teamAForm?: TeamFormLine;
+  teamBForm?: TeamFormLine;
+}
+
+export interface PublicFanPick {
+  matchId: string;
+  matchLabel?: string;
+  teamAId?: string;
+  teamBId?: string;
+  teamAName?: string;
+  teamBName?: string;
+  teamAFlag?: string;
+  teamBFlag?: string;
+  userDisplayName?: string;
+  predictionType: string;
+  predictedWinnerTeamId?: string;
+  predictedScoreA?: number;
+  predictedScoreB?: number;
+  reason?: string;
+  shareCount: number;
+  replyCount: number;
+  createdAt: string;
 }
 
 export interface EventHubSnapshot {
@@ -388,6 +444,36 @@ class SportsEventLayerService {
       `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/matches/${encodeURIComponent(matchId)}/prediction-breakdown`
     );
     return res.data;
+  }
+
+  async getMatchIntelligence(eventId: string, matchId: string): Promise<MatchIntelligence> {
+    const res = await axios.get<MatchIntelligence>(
+      `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/matches/${encodeURIComponent(matchId)}/intelligence`
+    );
+    return res.data;
+  }
+
+  async getFanPicksFeed(
+    eventId: string,
+    opts?: { matchId?: string; sort?: 'recent' | 'trending'; limit?: number },
+  ): Promise<PublicFanPick[]> {
+    const res = await axios.get<PublicFanPick[]>(
+      `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/predictions/feed`,
+      { params: { matchId: opts?.matchId, sort: opts?.sort ?? 'recent', limit: opts?.limit ?? 50 } },
+    );
+    return res.data ?? [];
+  }
+
+  async getMatchFanPicks(
+    eventId: string,
+    matchId: string,
+    sort: 'recent' | 'trending' = 'recent',
+  ): Promise<PublicFanPick[]> {
+    const res = await axios.get<PublicFanPick[]>(
+      `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/matches/${encodeURIComponent(matchId)}/predictions`,
+      { params: { sort, limit: 30 } },
+    );
+    return res.data ?? [];
   }
 
   async getTeamStats(eventId: string): Promise<TeamExplorerStats[]> {

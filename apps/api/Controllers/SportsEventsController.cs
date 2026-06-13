@@ -122,6 +122,32 @@ public class SportsEventsController : ControllerBase
         return Ok(await _eventHubService.GetMatchPredictionBreakdownAsync(eventId, matchId));
     }
 
+    [HttpGet("{eventId}/matches/{matchId}/intelligence")]
+    public async Task<ActionResult<MatchIntelligence>> GetMatchIntelligence(string eventId, string matchId)
+    {
+        if (!await IsHubAccessible(eventId)) return NotFound();
+        return Ok(await _eventHubService.GetMatchIntelligenceAsync(eventId, matchId));
+    }
+
+    [HttpGet("{eventId}/predictions/feed")]
+    public async Task<ActionResult<List<PublicFanPick>>> GetFanPicksFeed(
+        string eventId,
+        [FromQuery] string? matchId = null,
+        [FromQuery] string sort = "recent",
+        [FromQuery] int limit = 50)
+    {
+        if (!await IsHubAccessible(eventId)) return NotFound();
+        return Ok(await _eventHubService.GetFanPicksFeedAsync(eventId, matchId, sort, limit));
+    }
+
+    [HttpGet("{eventId}/matches/{matchId}/predictions")]
+    public async Task<ActionResult<List<PublicFanPick>>> GetMatchFanPicks(
+        string eventId, string matchId, [FromQuery] string sort = "recent", [FromQuery] int limit = 30)
+    {
+        if (!await IsHubAccessible(eventId)) return NotFound();
+        return Ok(await _eventHubService.GetFanPicksFeedAsync(eventId, matchId, sort, limit));
+    }
+
     [HttpGet("{eventId}/teams/stats")]
     public async Task<ActionResult<List<TeamExplorerStats>>> GetTeamStats(string eventId)
     {

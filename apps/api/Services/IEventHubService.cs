@@ -40,6 +40,9 @@ public interface IEventHubService
     Task<CommunityPulse> GetCommunityPulseAsync(string eventId);
     Task<List<PredictionExportRow>> ExportPredictionsAsync(string eventId);
     Task<MatchPredictionBreakdown> GetMatchPredictionBreakdownAsync(string eventId, string matchId);
+    Task<MatchIntelligence> GetMatchIntelligenceAsync(string eventId, string matchId);
+    Task<List<PublicFanPick>> GetFanPicksFeedAsync(string eventId, string? matchId = null, string sort = "recent", int limit = 50);
+    Task HidePredictionReasonAsync(string eventId, string matchId, string userId);
     Task<List<TeamExplorerStats>> GetTeamExplorerStatsAsync(string eventId);
     Task<List<EventComment>> GetTrendingCommentsAsync(string eventId, string sort = "trending");
     Task LikeCommentAsync(string eventId, string commentKey);

@@ -32,6 +32,8 @@ type EventConfigExt = {
   sharingEnabled?: boolean;
   standingsEnabled?: boolean;
   standingsPublished?: boolean;
+  matchIntelligenceEnabled?: boolean;
+  fanFeedEnabled?: boolean;
   themeColor?: string;
   description?: string;
   icon?: string;
@@ -236,6 +238,10 @@ export const AdminEventHubPanel: React.FC<Props> = ({ eventId, config, onConfigS
           </label>
           <label>Predictions <input type="checkbox" checked={settings.predictionsEnabled !== false} onChange={(e) => setSettings({ ...settings, predictionsEnabled: e.target.checked })} /></label>
           <label>Exact Scores <input type="checkbox" checked={settings.exactScoreEnabled !== false} onChange={(e) => setSettings({ ...settings, exactScoreEnabled: e.target.checked })} /></label>
+          <label>Winner Picks <input type="checkbox" checked={settings.winnerPickEnabled !== false} onChange={(e) => setSettings({ ...settings, winnerPickEnabled: e.target.checked })} /></label>
+          <label>Draw Picks <input type="checkbox" checked={settings.drawPickEnabled !== false} onChange={(e) => setSettings({ ...settings, drawPickEnabled: e.target.checked })} /></label>
+          <label>Match Intelligence <input type="checkbox" checked={settings.matchIntelligenceEnabled !== false} onChange={(e) => setSettings({ ...settings, matchIntelligenceEnabled: e.target.checked })} /></label>
+          <label>Fan Picks Feed <input type="checkbox" checked={settings.fanFeedEnabled !== false} onChange={(e) => setSettings({ ...settings, fanFeedEnabled: e.target.checked })} /></label>
           <label>Comments <input type="checkbox" checked={settings.commentsEnabled !== false} onChange={(e) => setSettings({ ...settings, commentsEnabled: e.target.checked })} /></label>
           <label>Sharing <input type="checkbox" checked={settings.sharingEnabled !== false} onChange={(e) => setSettings({ ...settings, sharingEnabled: e.target.checked })} /></label>
           <label>Standings Enabled <input type="checkbox" checked={settings.standingsEnabled === true} onChange={(e) => setSettings({ ...settings, standingsEnabled: e.target.checked })} /></label>
