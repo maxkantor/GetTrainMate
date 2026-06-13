@@ -1,8 +1,10 @@
+import { loadFlagImageMap } from '@/utils/teamFlags';
+
 export type TodayPickRow = {
-  teamAFlag: string;
+  teamAId: string;
+  teamBId: string;
   teamAName: string;
   teamBName: string;
-  teamBFlag: string;
   pickLabel: string;
   scoreLine?: string;
 };
@@ -86,6 +88,44 @@ function drawAvatar(
   ctx.stroke();
 }
 
+function drawMatchupLine(
+  ctx: CanvasRenderingContext2D,
+  pick: TodayPickRow,
+  flagMap: Map<string, HTMLImageElement>,
+  x: number,
+  y: number,
+) {
+  const flagH = 30;
+  const gap = 12;
+  let cursorX = x;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 34px Inter, system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+
+  const shorten = (name: string, max = 20) => (name.length > max ? `${name.slice(0, max - 1)}…` : name);
+
+  const drawFlag = (teamId: string) => {
+    const img = flagMap.get(teamId.trim().toLowerCase());
+    if (!img) return;
+    const w = flagH * (img.width / img.height);
+    ctx.drawImage(img, cursorX, y - flagH / 2, w, flagH);
+    cursorX += w + gap;
+  };
+
+  const drawText = (text: string) => {
+    ctx.fillText(text, cursorX, y);
+    cursorX += ctx.measureText(text).width + gap;
+  };
+
+  drawFlag(pick.teamAId);
+  drawText(shorten(pick.teamAName));
+  drawText('vs');
+  drawText(shorten(pick.teamBName));
+  drawFlag(pick.teamBId);
+}
+
 /** Premium vertical share card for all of today's World Cup picks (WhatsApp / stories). */
 export async function renderTodayPicksCanvas(
   fanName: string,
@@ -102,6 +142,11 @@ export async function renderTodayPicksCanvas(
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d')!;
+
+  const flagMap = await loadFlagImageMap(
+    picks.flatMap((p) => [p.teamAId, p.teamBId]),
+    40,
+  );
 
   const bg = ctx.createLinearGradient(0, 0, width, height);
   bg.addColorStop(0, '#030712');
@@ -162,8 +207,7 @@ export async function renderTodayPicksCanvas(
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 34px Inter, system-ui, sans-serif';
-    const matchup = `${pick.teamAFlag} ${pick.teamAName}  vs  ${pick.teamBName} ${pick.teamBFlag}`;
-    ctx.fillText(matchup.length > 42 ? `${matchup.slice(0, 39)}…` : matchup, 108, y + 52);
+    drawMatchupLine(ctx, pick, flagMap, 108, y + 52);
 
     ctx.fillStyle = '#fbbf24';
     ctx.font = 'bold 32px Inter, system-ui, sans-serif';

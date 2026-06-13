@@ -15,6 +15,7 @@ import {
 } from '@/utils/todayPredictionsShareCanvas';
 import { useHeaderAvatarPhoto } from '@/hooks/useHeaderAvatarPhoto';
 import { fetchProfilePhotoForCanvas } from '@/utils/profilePhotos';
+import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
@@ -54,9 +55,9 @@ function buildPickRow(
   }
 
   return {
-    teamAFlag: match.teamAFlag ?? '',
+    teamAId: match.teamAId,
+    teamBId: match.teamBId,
     teamAName: teamADisplay,
-    teamBFlag: match.teamBFlag ?? '',
     teamBName: teamBDisplay,
     pickLabel,
     scoreLine,
@@ -132,7 +133,7 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
     const header = formatI18n(t('event_hub.share_today_whatsapp_header'), { name: fanName });
     const lines = todayPicks.map(({ row }) => {
       const score = row.scoreLine ? ` (${row.scoreLine})` : '';
-      return `• ${row.teamAFlag} ${row.teamAName} vs ${row.teamBName} ${row.teamBFlag} → ${row.pickLabel}${score}`;
+      return `• ${row.teamAName} vs ${row.teamBName} → ${row.pickLabel}${score}`;
     });
     return [header, '', ...lines, '', t('event_hub.share_card_footer'), shareUrl].join('\n');
   }, [fanName, todayPicks, t, shareUrl]);
@@ -216,9 +217,13 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
       <Box className={styles.todaySharePreview}>
         {todayPicks.map(({ match, row }) => (
           <Box key={match.matchId} className={styles.todaySharePickRow}>
-            <Typography className={styles.todayShareMatchup}>
-              {row.teamAFlag} {row.teamAName} {t('event_hub.vs')} {row.teamBName} {row.teamBFlag}
-            </Typography>
+            <Box className={styles.todayShareMatchup}>
+              <CountryFlag teamId={match.teamAId} size={22} alt={row.teamAName} />
+              <span>{row.teamAName}</span>
+              <span className={styles.todayShareVs}>{t('event_hub.vs')}</span>
+              <span>{row.teamBName}</span>
+              <CountryFlag teamId={match.teamBId} size={22} alt={row.teamBName} />
+            </Box>
             <Typography className={styles.todaySharePick}>
               → {row.pickLabel}
             </Typography>

@@ -62,3 +62,29 @@ export function flagCdnUrl(teamId?: string | null, displayPx = 32): string | nul
   const w = displayPx <= 24 ? 40 : displayPx <= 40 ? 80 : 160;
   return `https://flagcdn.com/w${w}/${iso}.png`;
 }
+
+/** Load a team flag image for canvas export (flagcdn allows cross-origin). */
+export function loadFlagImage(teamId?: string | null, displayPx = 40): Promise<HTMLImageElement | null> {
+  const url = flagCdnUrl(teamId, displayPx);
+  if (!url) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+export async function loadFlagImageMap(
+  teamIds: string[],
+  displayPx = 40,
+): Promise<Map<string, HTMLImageElement>> {
+  const map = new Map<string, HTMLImageElement>();
+  const unique = [...new Set(teamIds.map((id) => id.trim().toLowerCase()).filter(Boolean))];
+  await Promise.all(unique.map(async (id) => {
+    const img = await loadFlagImage(id, displayPx);
+    if (img) map.set(id, img);
+  }));
+  return map;
+}
