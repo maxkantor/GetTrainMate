@@ -96,7 +96,7 @@ public class EventHubService : IEventHubService
         };
     }
 
-    /// <summary>Stamp known full-time scores onto group fixtures and refresh standings.</summary>
+    /// <summary>Bootstrap group scores from catalog when DynamoDB is still scheduled or in-play.</summary>
     private async Task ApplyOfficialCompletedResultsAsync()
     {
         var resultByPair = WorldCupOfficialFixtures.ScoreOverrides
@@ -117,8 +117,7 @@ public class EventHubService : IEventHubService
             var scoreA = teamAIsCatalogA ? official.ScoreA : official.ScoreB;
             var scoreB = teamAIsCatalogA ? official.ScoreB : official.ScoreA;
 
-            if (string.Equals(match.Status, official.Status, StringComparison.OrdinalIgnoreCase)
-                && match.ScoreA == scoreA && match.ScoreB == scoreB)
+            if (!EventMatchRules.ShouldApplyOfficialScoreOverride(match, official.Status, scoreA, scoreB))
                 continue;
 
             match.Status = official.Status;

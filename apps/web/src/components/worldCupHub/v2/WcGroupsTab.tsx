@@ -6,7 +6,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { formatI18n } from '@/i18n';
 import type { EventGroup, EventTeam } from '@/services/sportsEventLayerService';
-import { computeStandingsFromMatches, mergeOfficialResultsIntoMatches } from '@/utils/eventMatchUtils';
+import { computeStandingsFromMatches } from '@/utils/eventMatchUtils';
 import type { WcHubProps } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -117,10 +117,9 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
   const { teamName, groupLabel } = useWcDisplay();
   const [view, setView] = useState<'table' | 'card'>('table');
   const { groups, teams: rawTeams, matches, settings } = hub;
-  const mergedMatches = mergeOfficialResultsIntoMatches(matches, rawTeams);
   const teams = computeStandingsFromMatches(rawTeams, matches);
   const liveTeamIds = new Set(
-    mergedMatches
+    matches
       .filter((m) => m.status === 'Live' && m.groupId)
       .flatMap((m) => [m.teamAId.toLowerCase(), m.teamBId.toLowerCase()]),
   );

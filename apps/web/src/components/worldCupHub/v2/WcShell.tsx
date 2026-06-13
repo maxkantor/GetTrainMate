@@ -13,7 +13,7 @@ import { WcAuthGateModal } from '@/components/worldCupHub/WcAuthGateModal';
 import { WcCinematicBackdrop } from './WcCinematicBackdrop';
 import type { EventHubSnapshot } from '@/services/sportsEventLayerService';
 import { parseWcTab, type WcTab } from './wcTypes';
-import { computeStandingsFromMatches, mergeOfficialResultsIntoMatches } from '@/utils/eventMatchUtils';
+import { computeStandingsFromMatches } from '@/utils/eventMatchUtils';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
@@ -43,14 +43,10 @@ export const WcShell: React.FC<Props> = ({
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  const liveHub = useMemo<EventHubSnapshot>(() => {
-    const matches = mergeOfficialResultsIntoMatches(hub.matches, hub.teams);
-    return {
-      ...hub,
-      matches,
-      teams: computeStandingsFromMatches(hub.teams, matches),
-    };
-  }, [hub]);
+  const liveHub = useMemo<EventHubSnapshot>(() => ({
+    ...hub,
+    teams: computeStandingsFromMatches(hub.teams, hub.matches),
+  }), [hub]);
 
   const hubProps = {
     eventId,

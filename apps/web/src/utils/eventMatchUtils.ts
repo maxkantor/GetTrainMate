@@ -1,5 +1,4 @@
 import type { EventMatch, EventTeam } from '@/services/sportsEventLayerService';
-import { WORLD_CUP_SCORE_OVERRIDES } from '@/data/worldCupOfficial';
 
 export function parseKickoffUtc(matchDate?: string, matchTime?: string): number | null {
   if (!matchDate?.trim() || !matchTime?.trim()) return null;
@@ -214,61 +213,6 @@ export function formatLastUpdated(iso?: string | null): string | null {
 
 const sameTeam = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
-const pairKey = (teamAId: string, teamBId: string) => {
-  const a = teamAId.trim().toLowerCase();
-  const b = teamBId.trim().toLowerCase();
-  return a <= b ? `${a}|${b}` : `${b}|${a}`;
-};
-
-/** Overlay authoritative scores when the API fixture is still Scheduled or stale. */
-export function mergeOfficialResultsIntoMatches(matches: EventMatch[], teams: EventTeam[]): EventMatch[] {
-  const resultByPair = new Map(
-    WORLD_CUP_SCORE_OVERRIDES.map((r) => [pairKey(r.teamAId, r.teamBId), r]),
-  );
-  const teamById = new Map(teams.map((t) => [t.teamId.toLowerCase(), t]));
-  const seenPairs = new Set<string>();
-
-  const merged = matches.map((match) => {
-    if (!match.groupId?.trim()) return match;
-    const key = pairKey(match.teamAId, match.teamBId);
-    seenPairs.add(key);
-    const official = resultByPair.get(key);
-    if (!official) return match;
-
-    const aIsCatalogA = sameTeam(match.teamAId, official.teamAId);
-    const scoreA = aIsCatalogA ? official.scoreA : official.scoreB;
-    const scoreB = aIsCatalogA ? official.scoreB : official.scoreA;
-    if (match.status === official.status && match.scoreA === scoreA && match.scoreB === scoreB) return match;
-    return { ...match, status: official.status, scoreA, scoreB };
-  });
-
-  for (const official of WORLD_CUP_SCORE_OVERRIDES) {
-    const key = pairKey(official.teamAId, official.teamBId);
-    if (seenPairs.has(key)) continue;
-    const teamA = teamById.get(official.teamAId.toLowerCase());
-    const teamB = teamById.get(official.teamBId.toLowerCase());
-    if (!teamA?.groupId) continue;
-    merged.push({
-      eventId: teamA.eventId,
-      matchId: `gs-${official.teamAId}-vs-${official.teamBId}`,
-      teamAId: official.teamAId,
-      teamBId: official.teamBId,
-      teamAName: teamA.name,
-      teamBName: teamB?.name,
-      teamAFlag: teamA.flagEmoji,
-      teamBFlag: teamB?.flagEmoji,
-      groupId: teamA.groupId,
-      matchDate: '',
-      venue: '',
-      status: official.status,
-      scoreA: official.scoreA,
-      scoreB: official.scoreB,
-    });
-  }
-
-  return merged;
-}
-
 const standingsMatches = (matches: EventMatch[]) => matches.filter(
   (m) => (m.status === 'Completed' || m.status === 'Live')
     && m.scoreA != null
@@ -276,10 +220,9 @@ const standingsMatches = (matches: EventMatch[]) => matches.filter(
     && Boolean(m.groupId?.trim()),
 );
 
-/** Derive group standings from completed and in-play fixtures. */
+/** Derive group standings from API match scores (completed and in-play). */
 export function computeStandingsFromMatches(teams: EventTeam[], matches: EventMatch[]): EventTeam[] {
-  const effectiveMatches = mergeOfficialResultsIntoMatches(matches, teams);
-  const counted = standingsMatches(effectiveMatches);
+  const counted = standingsMatches(matches);
 
   return teams.map((team) => {
     let played = 0;
@@ -322,7 +265,6 @@ export function computeStandingsFromMatches(teams: EventTeam[], matches: EventMa
 
 /** Poll faster while matches are live or recently finished. */
 export function hubRefetchIntervalMs(matches: EventMatch[] | undefined, baseMs = 45_000): number {
-  if (WORLD_CUP_SCORE_OVERRIDES.some((r) => r.status === 'Live')) return 10_000;
   if (!matches?.length) return baseMs;
   if (matches.some((m) => m.status === 'Live')) return 10_000;
   const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;

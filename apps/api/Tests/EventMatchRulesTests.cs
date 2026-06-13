@@ -85,4 +85,48 @@ public class EventMatchRulesTests
         var final = new EventMatch { MatchId = "final", Stage = "Final" };
         Assert.True(EventMatchRules.CompareChronological(r16, final) < 0);
     }
+
+    [Fact]
+    public void ShouldApplyOfficialScoreOverride_AppliesWhenFixtureStillScheduled()
+    {
+        var match = new EventMatch { Status = EventMatchStatus.Scheduled };
+        Assert.True(EventMatchRules.ShouldApplyOfficialScoreOverride(match, EventMatchStatus.Completed, 4, 1));
+    }
+
+    [Fact]
+    public void ShouldApplyOfficialScoreOverride_DoesNotOverwriteStoredFullTimeResult()
+    {
+        var match = new EventMatch
+        {
+            Status = EventMatchStatus.Completed,
+            ScoreA = 4,
+            ScoreB = 1,
+        };
+        Assert.False(EventMatchRules.ShouldApplyOfficialScoreOverride(match, EventMatchStatus.Live, 2, 0));
+        Assert.False(EventMatchRules.ShouldApplyOfficialScoreOverride(match, EventMatchStatus.Completed, 2, 0));
+    }
+
+    [Fact]
+    public void ShouldApplyOfficialScoreOverride_AdvancesLiveToCompleted()
+    {
+        var match = new EventMatch
+        {
+            Status = EventMatchStatus.Live,
+            ScoreA = 2,
+            ScoreB = 0,
+        };
+        Assert.True(EventMatchRules.ShouldApplyOfficialScoreOverride(match, EventMatchStatus.Completed, 4, 1));
+    }
+
+    [Fact]
+    public void ShouldApplyOfficialScoreOverride_SkipsWhenAlreadyInSync()
+    {
+        var match = new EventMatch
+        {
+            Status = EventMatchStatus.Completed,
+            ScoreA = 1,
+            ScoreB = 1,
+        };
+        Assert.False(EventMatchRules.ShouldApplyOfficialScoreOverride(match, EventMatchStatus.Completed, 1, 1));
+    }
 }

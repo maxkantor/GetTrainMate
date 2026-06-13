@@ -14,7 +14,7 @@ import {
 import { arePredictionsOpen } from '@/utils/eventMatchUtils';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { trackEvent } from '@/utils/analytics';
-import { compareMatchesChronological, computeStandingsFromMatches, mergeOfficialResultsIntoMatches } from '@/utils/eventMatchUtils';
+import { compareMatchesChronological, computeStandingsFromMatches } from '@/utils/eventMatchUtils';
 import { normalizePublicAssetUrl } from '@/utils/publicAssetUrl';
 import { resolveEventCopy } from '@/utils/eventLocalizedCopy';
 import styles from './EventPromoSection.module.css';
@@ -54,7 +54,7 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
   });
 
   // Knockout placeholders (TBD slots) are seeded ahead of time — never feature them on the homepage.
-  const matches = mergeOfficialResultsIntoMatches(hub?.matches ?? [], hub?.teams ?? []).filter(
+  const matches = (hub?.matches ?? []).filter(
     (m) => !m.teamAId.startsWith('tbd-') && !m.teamBId.startsWith('tbd-'),
   );
   const liveMatch = matches.find((m) => m.status === 'Live');

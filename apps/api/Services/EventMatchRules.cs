@@ -78,4 +78,36 @@ public static class EventMatchRules
         if (cmp != 0) return cmp;
         return string.Compare(a.MatchId, b.MatchId, StringComparison.OrdinalIgnoreCase);
     }
+
+    public static int MatchStatusOrder(string? status)
+    {
+        if (string.Equals(status, EventMatchStatus.Completed, StringComparison.OrdinalIgnoreCase)) return 2;
+        if (string.Equals(status, EventMatchStatus.Live, StringComparison.OrdinalIgnoreCase)) return 1;
+        return 0;
+    }
+
+    /// <summary>
+    /// Apply catalog scores only when DynamoDB is behind — never overwrite a stored full-time result.
+    /// </summary>
+    public static bool ShouldApplyOfficialScoreOverride(
+        EventMatch match,
+        string officialStatus,
+        int officialScoreA,
+        int officialScoreB)
+    {
+        if (string.Equals(match.Status, officialStatus, StringComparison.OrdinalIgnoreCase)
+            && match.ScoreA == officialScoreA
+            && match.ScoreB == officialScoreB)
+            return false;
+
+        if (string.Equals(match.Status, EventMatchStatus.Completed, StringComparison.OrdinalIgnoreCase)
+            && match.ScoreA.HasValue
+            && match.ScoreB.HasValue)
+            return false;
+
+        if (MatchStatusOrder(officialStatus) < MatchStatusOrder(match.Status))
+            return false;
+
+        return true;
+    }
 }

@@ -94,7 +94,7 @@ export async function renderTodayPicksCanvas(
   const width = 1080;
   const rowHeight = 148;
   const headerHeight = 400;
-  const height = Math.min(2400, Math.max(1280, headerHeight + picks.length * rowHeight + 120);
+  const height = Math.min(2400, Math.max(1280, headerHeight + picks.length * rowHeight + 120));
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
