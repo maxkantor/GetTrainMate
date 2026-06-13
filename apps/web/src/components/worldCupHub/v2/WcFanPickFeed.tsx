@@ -3,10 +3,9 @@ import { Box, Button, TextField, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
 import { useWcDisplay } from '@/hooks/useWcDisplay';
-import { formatI18n } from '@/i18n';
 import type { EventHubSnapshot, PublicFanPick } from '@/services/sportsEventLayerService';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
-import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
+import { WcTeamLabel } from '@/components/worldCupHub/WcTeamLabel';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
@@ -23,16 +22,59 @@ type FeedSort = 'recent' | 'trending';
 const initials = (name?: string) =>
   (name?.trim()?.split(/\s+/).map((w) => w[0]?.toUpperCase()).join('').slice(0, 2) || 'F');
 
-function formatPickLine(pick: PublicFanPick, t: (k: string) => string, teamName: (id: string, n?: string) => string) {
-  const a = teamName(pick.teamAId ?? '', pick.teamAName);
-  const b = teamName(pick.teamBId ?? '', pick.teamBName);
+function PickScoreLine({ pick }: { pick: PublicFanPick }) {
+  const { t } = useI18n();
+
   if (pick.predictedScoreA != null && pick.predictedScoreB != null) {
-    return `${a} ${pick.predictedScoreA}–${pick.predictedScoreB} ${b}`;
+    const winnerId =
+      pick.predictedScoreA === pick.predictedScoreB
+        ? null
+        : pick.predictedScoreA > pick.predictedScoreB
+          ? pick.teamAId
+          : pick.teamBId;
+
+    return (
+      <Box className={styles.fanPickScoreLine}>
+        {winnerId ? (
+          <>
+            <WcTeamLabel
+              teamId={winnerId}
+              fallbackName={winnerId === pick.teamAId ? pick.teamAName : pick.teamBName}
+              flagEmoji={winnerId === pick.teamAId ? pick.teamAFlag : pick.teamBFlag}
+              size={18}
+            />
+            <span className={styles.fanPickScoreChip}>
+              {pick.predictedScoreA}–{pick.predictedScoreB}
+            </span>
+          </>
+        ) : (
+          <span className={styles.fanPickScoreChip}>
+            {pick.predictedScoreA}–{pick.predictedScoreB} {t('event_hub.pick_draw')}
+          </span>
+        )}
+      </Box>
+    );
   }
-  if (pick.predictionType === 'draw') return `${a} vs ${b} · ${t('event_hub.pick_draw')}`;
-  const winner = pick.predictedWinnerTeamId === pick.teamAId ? a : b;
-  const flag = pick.predictedWinnerTeamId === pick.teamAId ? pick.teamAFlag : pick.teamBFlag;
-  return `${flag ?? ''} ${winner}`;
+
+  if (pick.predictionType === 'draw') {
+    return (
+      <Typography className={styles.fanPickScoreLine}>
+        🤝 {t('event_hub.pick_draw')}
+      </Typography>
+    );
+  }
+
+  const winnerId = pick.predictedWinnerTeamId;
+  if (!winnerId) return null;
+
+  return (
+    <WcTeamLabel
+      teamId={winnerId}
+      fallbackName={winnerId === pick.teamAId ? pick.teamAName : pick.teamBName}
+      flagEmoji={winnerId === pick.teamAId ? pick.teamAFlag : pick.teamBFlag}
+      size={18}
+    />
+  );
 }
 
 function timeAgo(iso: string, locale: string) {
@@ -93,44 +135,46 @@ export const WcFanPickFeed: React.FC<Props> = ({
 
   return (
     <Box className={styles.fanPickFeed}>
+      <Typography className={compact ? styles.fanPickCompactTitle : styles.sectionTitle}>
+        {compact ? t('event_hub.recent_fan_picks') : t('event_hub.fan_picks_feed')}
+      </Typography>
       {!compact && (
-        <>
-          <Typography className={styles.sectionTitle}>{t('event_hub.fan_picks_feed')}</Typography>
-          <Typography className={styles.sectionLead}>{t('event_hub.fan_picks_feed_lead')}</Typography>
-        </>
+        <Typography className={styles.sectionLead}>{t('event_hub.fan_picks_feed_lead')}</Typography>
       )}
 
-      <Box className={styles.fanPickFilters}>
-        <Button
-          size="small"
-          className={sort === 'recent' ? styles.subTabActive : styles.subTab}
-          onClick={() => setSort('recent')}
-        >
-          {t('event_hub.most_recent')}
-        </Button>
-        <Button
-          size="small"
-          className={sort === 'trending' ? styles.subTabActive : styles.subTab}
-          onClick={() => setSort('trending')}
-        >
-          {t('event_hub.trending')}
-        </Button>
-        {!matchId && (
-          <select
-            className={styles.fanPickMatchSelect}
-            value={matchFilter}
-            onChange={(e) => setMatchFilter(e.target.value)}
-            aria-label={t('event_hub.filter_by_match')}
+      {!compact && (
+        <Box className={styles.fanPickFilters}>
+          <Button
+            size="small"
+            className={sort === 'recent' ? styles.subTabActive : styles.subTab}
+            onClick={() => setSort('recent')}
           >
-            <option value="">{t('event_hub.all_matches')}</option>
-            {matchOptions.map((m) => (
-              <option key={m.matchId} value={m.matchId}>
-                {teamName(m.teamAId, m.teamAName)} vs {teamName(m.teamBId, m.teamBName)}
-              </option>
-            ))}
-          </select>
-        )}
-      </Box>
+            {t('event_hub.most_recent')}
+          </Button>
+          <Button
+            size="small"
+            className={sort === 'trending' ? styles.subTabActive : styles.subTab}
+            onClick={() => setSort('trending')}
+          >
+            {t('event_hub.trending')}
+          </Button>
+          {!matchId && (
+            <select
+              className={styles.fanPickMatchSelect}
+              value={matchFilter}
+              onChange={(e) => setMatchFilter(e.target.value)}
+              aria-label={t('event_hub.filter_by_match')}
+            >
+              <option value="">{t('event_hub.all_matches')}</option>
+              {matchOptions.map((m) => (
+                <option key={m.matchId} value={m.matchId}>
+                  {teamName(m.teamAId, m.teamAName)} vs {teamName(m.teamBId, m.teamBName)}
+                </option>
+              ))}
+            </select>
+          )}
+        </Box>
+      )}
 
       {picks.length === 0 ? (
         <Box className={styles.emptyPremium}>
@@ -144,10 +188,7 @@ export const WcFanPickFeed: React.FC<Props> = ({
                 <Box className={styles.lbAvatarSm}>{initials(pick.userDisplayName)}</Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography className={styles.fanPickName}>
-                    {formatI18n(t('event_hub.fan_pick_line'), {
-                      name: pick.userDisplayName ?? t('event_hub.fan'),
-                      pick: formatPickLine(pick, t, teamName),
-                    })}
+                    {pick.userDisplayName ?? t('event_hub.fan')}
                   </Typography>
                   {pick.matchLabel && !matchId && (
                     <Typography className={styles.fanPickMeta}>{pick.matchLabel}</Typography>
@@ -157,12 +198,12 @@ export const WcFanPickFeed: React.FC<Props> = ({
               </Box>
 
               <Box className={styles.fanPickTeams}>
-                {pick.teamAId && <CountryFlag teamId={pick.teamAId} flagEmoji={pick.teamAFlag} size={18} />}
-                <span>{teamName(pick.teamAId ?? '', pick.teamAName)}</span>
+                <WcTeamLabel teamId={pick.teamAId ?? ''} fallbackName={pick.teamAName} flagEmoji={pick.teamAFlag} size={16} />
                 <span className={styles.todayShareVs}>{t('event_hub.vs')}</span>
-                <span>{teamName(pick.teamBId ?? '', pick.teamBName)}</span>
-                {pick.teamBId && <CountryFlag teamId={pick.teamBId} flagEmoji={pick.teamBFlag} size={18} />}
+                <WcTeamLabel teamId={pick.teamBId ?? ''} fallbackName={pick.teamBName} flagEmoji={pick.teamBFlag} size={16} />
               </Box>
+
+              <PickScoreLine pick={pick} />
 
               {pick.reason && (
                 <Typography className={styles.fanPickReason}>&ldquo;{pick.reason}&rdquo;</Typography>

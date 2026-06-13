@@ -55,14 +55,24 @@ const TEAM_NAMES: Record<string, NameMap> = {
   panama: { ru: 'Панама', es: 'Panamá', ua: 'Панама', fr: 'Panama', de: 'Panama' },
 };
 
+/** Strip admin/API prefixes like "KR South Korea" → "South Korea". */
+export function cleanTeamDisplayName(name: string | undefined): string {
+  if (!name?.trim()) return '';
+  return name.trim().replace(/^[A-Z]{2,3}\s+(?=[A-Za-z])/u, '');
+}
+
 export function getLocalizedTeamName(
   teamId: string | undefined,
   fallbackName: string | undefined,
   locale: Locale
 ): string {
-  if (!teamId) return fallbackName?.trim() || '';
+  if (!teamId) return cleanTeamDisplayName(fallbackName);
   const localized = TEAM_NAMES[teamId.toLowerCase()]?.[locale];
-  return localized || fallbackName?.trim() || teamId;
+  if (localized) return localized;
+  const cleaned = cleanTeamDisplayName(fallbackName);
+  if (cleaned) return cleaned;
+  const fromId = teamId.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return fromId;
 }
 
 export function getLocalizedGroupLabel(

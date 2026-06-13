@@ -8,6 +8,7 @@ import {
   type EventHubSnapshot,
   type EventLeaderboardEntry,
 } from '@/services/sportsEventLayerService';
+import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import type { WcHubProps } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -77,7 +78,9 @@ export const WcLeaderboardTab: React.FC<Props> = ({ eventId }) => {
                   <Box className={styles.lbAvatar}>{initials(name(e))}</Box>
                   <Typography className={styles.lbPodiumName}>
                     {name(e)}
-                    {e.favoriteTeamFlag && <span className={styles.lbTeamBadge}>{e.favoriteTeamFlag}</span>}
+                    {e.favoriteTeamId && (
+                      <CountryFlag teamId={e.favoriteTeamId} flagEmoji={e.favoriteTeamFlag} size={16} className={styles.lbTeamBadge} />
+                    )}
                     {e.userId === myUserId && <span className={styles.lbYouTag}>{t('event_hub.lb_you')}</span>}
                   </Typography>
                   <Typography className={styles.lbPodiumPts}>
@@ -109,7 +112,9 @@ export const WcLeaderboardTab: React.FC<Props> = ({ eventId }) => {
                   <span className={styles.lbNameCell}>
                     <Box className={styles.lbAvatarSm}>{initials(name(e))}</Box>
                     <span className={styles.lbName}>{name(e)}</span>
-                    {e.favoriteTeamFlag && <span>{e.favoriteTeamFlag}</span>}
+                    {e.favoriteTeamId && (
+                      <CountryFlag teamId={e.favoriteTeamId} flagEmoji={e.favoriteTeamFlag} size={14} />
+                    )}
                     {e.userId === myUserId && <span className={styles.lbYouTag}>{t('event_hub.lb_you')}</span>}
                   </span>
                   {lbType === 'predictors' && <span className={styles.lbStat}>{e.exactScoreCount ?? 0}</span>}

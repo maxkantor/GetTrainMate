@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { Box, Collapse, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
-import { useWcDisplay } from '@/hooks/useWcDisplay';
-import { formatI18n } from '@/i18n';
 import type { EventMatch } from '@/services/sportsEventLayerService';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
+import { WcTeamLabel } from '@/components/worldCupHub/WcTeamLabel';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
@@ -16,7 +15,6 @@ type Props = {
 
 export const WcMatchIntelligence: React.FC<Props> = ({ eventId, match, enabled = true }) => {
   const { t } = useI18n();
-  const { teamName } = useWcDisplay();
   const [open, setOpen] = useState(false);
 
   const { data: intel } = useQuery({
@@ -27,9 +25,6 @@ export const WcMatchIntelligence: React.FC<Props> = ({ eventId, match, enabled =
   });
 
   if (!enabled) return null;
-
-  const teamADisplay = teamName(match.teamAId, match.teamAName);
-  const teamBDisplay = teamName(match.teamBId, match.teamBName);
 
   return (
     <Box className={styles.intelWrap}>
@@ -45,62 +40,48 @@ export const WcMatchIntelligence: React.FC<Props> = ({ eventId, match, enabled =
             <Typography className={styles.intelMuted}>{t('common.loading')}</Typography>
           ) : (
             <>
-              <Typography className={styles.intelKicker}>{t('event_hub.community_split')}</Typography>
-              {intel.communityPicks.length > 0 ? (
-                <Box className={styles.intelSplitGrid}>
-                  {intel.communityPicks.map((o) => (
-                    <Box key={`${o.outcomeType}-${o.teamId ?? 'draw'}`} className={styles.intelSplitRow}>
-                      <span>{o.label}</span>
-                      <strong>{o.percent}%</strong>
-                    </Box>
-                  ))}
-                </Box>
-              ) : (
-                <Typography className={styles.intelMuted}>{t('event_hub.intel_no_picks_yet')}</Typography>
-              )}
-
-              {intel.upsetProbabilityPercent > 0 && (
-                <Box className={styles.intelUpsetBadge}>
-                  {t('event_hub.upset_watch')}: {intel.upsetProbabilityPercent}%
+              {(intel.teamAFifaRank || intel.teamBFifaRank) && (
+                <Box className={styles.intelSimpleRow}>
+                  <span className={styles.intelSimpleIcon}>🏆</span>
+                  <Box>
+                    <Typography className={styles.intelSimpleTitle}>{t('event_hub.intel_fifa_rank')}</Typography>
+                    <Typography className={styles.intelSimpleBody}>
+                      <WcTeamLabel teamId={match.teamAId} fallbackName={intel.teamAName ?? match.teamAName} flagEmoji={match.teamAFlag} size={18} />
+                      {' '}#{intel.teamAFifaRank}
+                    </Typography>
+                    <Typography className={styles.intelSimpleBody} sx={{ mt: 0.35 }}>
+                      <WcTeamLabel teamId={match.teamBId} fallbackName={intel.teamBName ?? match.teamBName} flagEmoji={match.teamBFlag} size={18} />
+                      {' '}#{intel.teamBFifaRank}
+                    </Typography>
+                  </Box>
                 </Box>
               )}
 
-              <Typography className={styles.intelInsight}>{intel.neutralInsight}</Typography>
-
-              {(intel.teamAForm || intel.teamBForm) && (
-                <Box className={styles.intelFormGrid}>
-                  {intel.teamAForm && (
-                    <Box className={styles.intelFormCard}>
-                      <Typography className={styles.intelFormTitle}>
-                        {intel.teamAForm.flagEmoji} {teamADisplay}
-                      </Typography>
-                      <Typography className={styles.intelFormLine}>{intel.teamAForm.formSummary}</Typography>
-                    </Box>
-                  )}
-                  {intel.teamBForm && (
-                    <Box className={styles.intelFormCard}>
-                      <Typography className={styles.intelFormTitle}>
-                        {intel.teamBForm.flagEmoji} {teamBDisplay}
-                      </Typography>
-                      <Typography className={styles.intelFormLine}>{intel.teamBForm.formSummary}</Typography>
-                    </Box>
-                  )}
+              {intel.fanSentimentLabel && (
+                <Box className={styles.intelSimpleRow}>
+                  <span className={styles.intelSimpleIcon}>🔥</span>
+                  <Box>
+                    <Typography className={styles.intelSimpleTitle}>{t('event_hub.intel_fan_sentiment')}</Typography>
+                    <Typography className={styles.intelSimpleBody}>{intel.fanSentimentLabel}</Typography>
+                  </Box>
                 </Box>
               )}
 
-              {intel.whyFansPickTeamA && (
-                <Typography className={styles.intelReasonLine}>
-                  {formatI18n(t('event_hub.why_fans_pick'), { team: teamADisplay })} {intel.whyFansPickTeamA}
-                </Typography>
-              )}
-              {intel.whyFansPickTeamB && (
-                <Typography className={styles.intelReasonLine}>
-                  {formatI18n(t('event_hub.why_fans_pick'), { team: teamBDisplay })} {intel.whyFansPickTeamB}
-                </Typography>
-              )}
-              {intel.upsetWatch && (
-                <Typography className={styles.intelUpsetLine}>{intel.upsetWatch}</Typography>
-              )}
+              <Box className={styles.intelSimpleRow}>
+                <span className={styles.intelSimpleIcon}>⚠️</span>
+                <Box>
+                  <Typography className={styles.intelSimpleTitle}>{t('event_hub.upset_watch')}</Typography>
+                  <Typography className={styles.intelSimpleBody}>{intel.upsetWatchLevel ?? 'Low'}</Typography>
+                </Box>
+              </Box>
+
+              <Box className={styles.intelSimpleRow}>
+                <span className={styles.intelSimpleIcon}>💬</span>
+                <Box>
+                  <Typography className={styles.intelSimpleTitle}>{t('event_hub.intel_quick_insight')}</Typography>
+                  <Typography className={styles.intelSimpleBody}>{intel.quickInsight || intel.neutralInsight}</Typography>
+                </Box>
+              </Box>
 
               <Typography className={styles.intelDisclaimer}>{t('event_hub.intel_disclaimer')}</Typography>
             </>

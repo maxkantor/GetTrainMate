@@ -4,6 +4,7 @@ import type { EventMatch, EventPrediction } from '@/services/sportsEventLayerSer
 import { useI18n } from '@/hooks/useI18n';
 import { formatI18n } from '@/i18n';
 import { useWcDisplay } from '@/hooks/useWcDisplay';
+import { WcTeamLabel } from '@/components/worldCupHub/WcTeamLabel';
 
 type Props = {
   match: EventMatch;
@@ -81,7 +82,7 @@ function canShareWithFiles(file: File): boolean {
 
 export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShared }) => {
   const { t } = useI18n();
-  const { teamName, matchLine } = useWcDisplay();
+  const { teamName } = useWcDisplay();
   const [notice, setNotice] = useState<string | null>(null);
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/world-cup` : '';
@@ -109,19 +110,12 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
 
   const buildCanvasScoreLine = useCallback(() => {
     if (prediction.predictionType === 'exact_score' && prediction.predictedScoreA != null) {
-      return `${match.teamAFlag ?? ''} ${teamADisplay} ${prediction.predictedScoreA} - ${prediction.predictedScoreB} ${teamBDisplay} ${match.teamBFlag ?? ''}`;
+      return `${teamADisplay} ${prediction.predictedScoreA} – ${prediction.predictedScoreB} ${teamBDisplay}`;
     }
     if (prediction.predictionType === 'draw') {
-      return formatI18n(t('event_hub.share_canvas_draw'), {
-        teamAFlag: match.teamAFlag ?? '',
-        teamA: teamADisplay,
-        vs,
-        teamB: teamBDisplay,
-        teamBFlag: match.teamBFlag ?? '',
-        draw: t('event_hub.pick_draw'),
-      });
+      return `${teamADisplay} ${vs} ${teamBDisplay} · ${t('event_hub.pick_draw')}`;
     }
-    return `${match.teamAFlag ?? ''} ${teamADisplay} ${vs} ${teamBDisplay} ${match.teamBFlag ?? ''}`;
+    return `${teamADisplay} ${vs} ${teamBDisplay}`;
   }, [match, prediction, teamADisplay, teamBDisplay, vs, t]);
 
   const handleDownload = useCallback(() => {
@@ -203,8 +197,10 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
       <Typography variant="subtitle2" color="primary.light" gutterBottom>
         {t('event_hub.share_card_title')}
       </Typography>
-      <Typography variant="body1" sx={{ mb: 0.5, fontWeight: 600 }}>
-        {match.teamAFlag} {matchLine(match.teamAId, match.teamAName, match.teamBId, match.teamBName)} {match.teamBFlag}
+      <Typography variant="body1" sx={{ mb: 0.5, fontWeight: 600, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+        <WcTeamLabel teamId={match.teamAId} fallbackName={match.teamAName} flagEmoji={match.teamAFlag} size={20} />
+        <span>{vs}</span>
+        <WcTeamLabel teamId={match.teamBId} fallbackName={match.teamBName} flagEmoji={match.teamBFlag} size={20} />
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
         {t('event_hub.share_card_hint')}

@@ -231,8 +231,13 @@ export interface MatchIntelligence {
   whyFansPickTeamA?: string;
   whyFansPickTeamB?: string;
   upsetWatch?: string;
-  teamAForm?: TeamFormLine;
-  teamBForm?: TeamFormLine;
+  teamAName?: string;
+  teamBName?: string;
+  teamAFifaRank?: number;
+  teamBFifaRank?: number;
+  fanSentimentLabel?: string;
+  upsetWatchLevel?: string;
+  quickInsight?: string;
 }
 
 export interface PublicFanPick {

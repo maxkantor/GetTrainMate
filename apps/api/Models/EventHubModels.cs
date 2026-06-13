@@ -310,6 +310,13 @@ public sealed class MatchIntelligence
     public string? UpsetWatch { get; set; }
     public TeamFormLine? TeamAForm { get; set; }
     public TeamFormLine? TeamBForm { get; set; }
+    public string? TeamAName { get; set; }
+    public string? TeamBName { get; set; }
+    public int? TeamAFifaRank { get; set; }
+    public int? TeamBFifaRank { get; set; }
+    public string? FanSentimentLabel { get; set; }
+    public string UpsetWatchLevel { get; set; } = "Low";
+    public string QuickInsight { get; set; } = string.Empty;
 }
 
 public sealed class PublicFanPick
