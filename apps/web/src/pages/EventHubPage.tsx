@@ -20,6 +20,7 @@ export const EventHubPage: React.FC<{ eventId?: string }> = ({ eventId = WORLD_C
   const { data: hub, isLoading, isError } = useQuery({
     queryKey: ['event-hub', eventId],
     queryFn: () => sportsEventLayerService.getHubSnapshot(eventId),
+    staleTime: 0,
     refetchInterval: (query) => hubRefetchIntervalMs(query.state.data?.matches),
     refetchOnWindowFocus: true,
     retry: 1,

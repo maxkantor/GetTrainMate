@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Box, Button, Snackbar, Stack, Typography } from '@mui/material';
+import { Alert, Avatar, Box, Button, Snackbar, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
 import { useMe } from '@/hooks/useMe';
@@ -12,6 +12,7 @@ import {
   renderTodayPicksCanvas,
   type TodayPickRow,
 } from '@/utils/todayPredictionsShareCanvas';
+import { getRealPrimaryPhotoUrl } from '@/utils/profilePhotos';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
@@ -95,6 +96,8 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
     || summary?.predictions[0]?.userDisplayName?.trim()
     || t('event_hub.share_fan_fallback');
 
+  const profilePhotoUrl = getRealPrimaryPhotoUrl(me?.profile?.photoUrls);
+
   const dateLabel = new Intl.DateTimeFormat(locale, {
     weekday: 'long',
     month: 'long',
@@ -113,7 +116,8 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
       picksHeading: t('event_hub.share_today_picks_heading'),
       footer: t('event_hub.share_card_footer'),
     },
-  ), [fanName, dateLabel, todayPicks, t]);
+    profilePhotoUrl,
+  ), [fanName, dateLabel, todayPicks, t, profilePhotoUrl]);
 
   const buildWhatsAppText = useCallback(() => {
     const header = formatI18n(t('event_hub.share_today_whatsapp_header'), { name: fanName });
@@ -125,7 +129,7 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
   }, [fanName, todayPicks, t, shareUrl]);
 
   const handleDownload = useCallback(async () => {
-    const canvas = buildCanvas();
+    const canvas = await buildCanvas();
     const link = document.createElement('a');
     link.download = `world-cup-picks-${fanName.replace(/\s+/g, '-').toLowerCase()}.png`;
     link.href = canvas.toDataURL('image/png');
@@ -139,7 +143,7 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
   const handleWhatsApp = useCallback(async () => {
     const text = buildWhatsAppText();
     try {
-      const blob = await canvasToPngBlob(buildCanvas());
+      const blob = await canvasToPngBlob(await buildCanvas());
       if (blob) {
         const file = new File([blob], 'world-cup-today-picks.png', { type: 'image/png' });
         if (canShareWithFiles(file)) {
@@ -181,12 +185,23 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
   return (
     <Box className={styles.todaySharePanel}>
       <Box className={styles.todayShareHeader}>
-        <Typography className={styles.todayShareTitle}>
-          {formatI18n(t('event_hub.share_today_title_named'), { name: fanName })}
-        </Typography>
-        <Typography className={styles.todayShareLead}>
-          {formatI18n(t('event_hub.share_today_lead'), { count: todayPicks.length })}
-        </Typography>
+        <Box className={styles.todayShareIdentity}>
+          <Avatar
+            src={profilePhotoUrl ?? undefined}
+            alt={fanName}
+            className={styles.todayShareAvatar}
+          >
+            {fanName.charAt(0).toUpperCase()}
+          </Avatar>
+          <Box>
+            <Typography className={styles.todayShareTitle}>
+              {formatI18n(t('event_hub.share_today_title_named'), { name: fanName })}
+            </Typography>
+            <Typography className={styles.todayShareLead}>
+              {formatI18n(t('event_hub.share_today_lead'), { count: todayPicks.length })}
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
       <Box className={styles.todaySharePreview}>

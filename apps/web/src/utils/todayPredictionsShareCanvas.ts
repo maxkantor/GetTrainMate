@@ -35,20 +35,72 @@ function roundRect(
   ctx.closePath();
 }
 
+function loadCanvasImage(url: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+function drawAvatar(
+  ctx: CanvasRenderingContext2D,
+  fanName: string,
+  avatarImg: HTMLImageElement | null,
+  cx: number,
+  cy: number,
+  radius: number,
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+
+  if (avatarImg) {
+    ctx.drawImage(avatarImg, cx - radius, cy - radius, radius * 2, radius * 2);
+  } else {
+    const grad = ctx.createLinearGradient(cx - radius, cy - radius, cx + radius, cy + radius);
+    grad.addColorStop(0, '#6366f1');
+    grad.addColorStop(1, '#a855f7');
+    ctx.fillStyle = grad;
+    ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.round(radius * 1.1)}px Inter, system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const initial = (fanName.trim().charAt(0) || '?').toUpperCase();
+    ctx.fillText(initial, cx, cy + 2);
+  }
+  ctx.restore();
+
+  ctx.strokeStyle = 'rgba(251, 191, 36, 0.85)';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
 /** Premium vertical share card for all of today's World Cup picks (WhatsApp / stories). */
-export function renderTodayPicksCanvas(
+export async function renderTodayPicksCanvas(
   fanName: string,
   dateLabel: string,
   picks: TodayPickRow[],
   labels: TodayPicksCanvasLabels,
-): HTMLCanvasElement {
+  avatarUrl?: string | null,
+): Promise<HTMLCanvasElement> {
   const width = 1080;
   const rowHeight = 148;
-  const height = Math.min(2400, Math.max(1280, 520 + picks.length * rowHeight));
+  const headerHeight = 400;
+  const height = Math.min(2400, Math.max(1280, headerHeight + picks.length * rowHeight + 120);
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d')!;
+
+  const avatarImg = avatarUrl ? await loadCanvasImage(avatarUrl) : null;
 
   const bg = ctx.createLinearGradient(0, 0, width, height);
   bg.addColorStop(0, '#030712');
@@ -58,11 +110,11 @@ export function renderTodayPicksCanvas(
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
 
-  const glow = ctx.createRadialGradient(width * 0.5, 180, 40, width * 0.5, 180, 420);
+  const glow = ctx.createRadialGradient(width * 0.5, 200, 40, width * 0.5, 200, 460);
   glow.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
   glow.addColorStop(1, 'rgba(99, 102, 241, 0)');
   ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, width, 520);
+  ctx.fillRect(0, 0, width, 560);
 
   ctx.strokeStyle = 'rgba(251, 191, 36, 0.55)';
   ctx.lineWidth = 3;
@@ -71,26 +123,34 @@ export function renderTodayPicksCanvas(
 
   ctx.fillStyle = 'rgba(251, 191, 36, 0.9)';
   ctx.font = 'bold 28px Inter, system-ui, sans-serif';
-  ctx.fillText(labels.eventTitle.toUpperCase(), 96, 120);
+  ctx.textAlign = 'left';
+  ctx.fillText(labels.eventTitle.toUpperCase(), 96, 108);
+
+  const avatarRadius = 54;
+  const avatarCx = 96 + avatarRadius;
+  const avatarCy = 200;
+  drawAvatar(ctx, fanName, avatarImg, avatarCx, avatarCy, avatarRadius);
+
+  const textX = avatarCx + avatarRadius + 36;
+  const nameLine = fanName.trim() || 'Fan';
 
   ctx.fillStyle = '#f8fafc';
-  ctx.font = 'bold 64px Inter, system-ui, sans-serif';
-  const nameLine = fanName.trim() || 'Fan';
-  ctx.fillText(nameLine, 96, 210);
+  ctx.font = 'bold 52px Inter, system-ui, sans-serif';
+  ctx.fillText(nameLine.length > 14 ? `${nameLine.slice(0, 13)}…` : nameLine, textX, 178);
 
   ctx.fillStyle = 'rgba(167, 139, 250, 0.95)';
-  ctx.font = '600 36px Inter, system-ui, sans-serif';
-  ctx.fillText(labels.subtitle, 96, 268);
+  ctx.font = '600 32px Inter, system-ui, sans-serif';
+  ctx.fillText(labels.subtitle, textX, 228);
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-  ctx.font = '500 30px Inter, system-ui, sans-serif';
-  ctx.fillText(dateLabel, 96, 318);
+  ctx.font = '500 26px Inter, system-ui, sans-serif';
+  ctx.fillText(dateLabel, textX, 268);
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
   ctx.font = 'bold 26px Inter, system-ui, sans-serif';
-  ctx.fillText(labels.picksHeading.toUpperCase(), 96, 380);
+  ctx.fillText(labels.picksHeading.toUpperCase(), 96, 330);
 
-  let y = 420;
+  let y = 360;
   for (const pick of picks) {
     roundRect(ctx, 80, y, width - 160, rowHeight - 16, 22);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
