@@ -174,6 +174,7 @@ export const eventHubFr: Partial<TranslationKeys['event_hub']> = {
   status_upcoming: 'À venir',
   status_live_now: 'En cours',
   starts_in: 'Début dans {time}',
+  kickoff_awaiting: 'En attente du coup d’envoi',
   predictions_hub_title: 'Pronostics',
   predictions_hub_lead:
     'Appuyez sur une équipe pour pronostiquer — gratuit, instantané, avec les pourcentages de la communauté en direct.',

@@ -143,7 +143,7 @@ public static class WorldCupOfficialFixtures
         new("south-korea", "czechia", "2026-06-12", "02:00"),
         new("canada", "bosnia-herzegovina", "2026-06-12", "19:00"),
         new("usa", "paraguay", "2026-06-13", "01:00"),
-        new("australia", "turkiye", "2026-06-13", "04:00"),
+        new("australia", "turkiye", "2026-06-14", "04:00"),
         new("qatar", "switzerland", "2026-06-13", "19:00"),
         new("brazil", "morocco", "2026-06-13", "22:00"),
         new("haiti", "scotland", "2026-06-14", "01:00"),

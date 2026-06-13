@@ -166,6 +166,7 @@ export const eventHubEs: Partial<TranslationKeys['event_hub']> = {
   status_upcoming: 'Próximo',
   status_live_now: 'En curso ahora',
   starts_in: 'Empieza en {time}',
+  kickoff_awaiting: 'Esperando el pitido inicial',
   predictions_hub_title: 'Predicciones',
   predictions_hub_lead: 'Toca un equipo para predecir — gratis, al instante, con porcentajes en vivo de la comunidad.',
   leaderboard_lead: 'Sube en la clasificación con aciertos y marcadores exactos.',

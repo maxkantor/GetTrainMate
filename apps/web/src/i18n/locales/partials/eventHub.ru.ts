@@ -173,6 +173,7 @@ export const eventHubRu: Partial<TranslationKeys['event_hub']> = {
   status_upcoming: 'Предстоящий',
   status_live_now: 'Идёт сейчас',
   starts_in: 'Начало через {time}',
+  kickoff_awaiting: 'Ожидаем начало',
   predictions_hub_title: 'Прогнозы',
   predictions_hub_lead:
     'Нажмите на команду для прогноза — бесплатно, мгновенно, с процентами сообщества в реальном времени.',

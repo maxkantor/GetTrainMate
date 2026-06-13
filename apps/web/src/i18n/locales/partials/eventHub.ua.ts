@@ -166,6 +166,7 @@ export const eventHubUa: Partial<TranslationKeys['event_hub']> = {
   status_upcoming: 'Майбутній',
   status_live_now: 'Триває зараз',
   starts_in: 'Початок через {time}',
+  kickoff_awaiting: 'Очікуємо початок',
   predictions_hub_title: 'Прогнози',
   predictions_hub_lead: 'Торкніться команди, щоб зробити прогноз — безкоштовно, миттєво, з відсотками спільноти наживо.',
   leaderboard_lead: 'Піднімайтеся в рейтингу завдяки вірним прогнозам і точним рахункам.',

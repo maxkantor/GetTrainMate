@@ -438,6 +438,7 @@ export const en = {
     status_upcoming: 'Upcoming',
     status_live_now: 'In progress now',
     starts_in: 'Starts in {time}',
+    kickoff_awaiting: 'Awaiting kickoff',
     predictions_hub_title: 'Predictions',
     predictions_hub_lead: 'Tap a team to predict — free, instant, with live community percentages.',
     leaderboard_lead: 'Climb the ranks with correct picks and exact scores.',

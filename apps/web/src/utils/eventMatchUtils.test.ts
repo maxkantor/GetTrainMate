@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   arePredictionsOpen,
   categorizeMatches,
@@ -83,6 +83,30 @@ describe('eventMatchUtils', () => {
     expect(card!.dateLabel.length).toBeGreaterThan(0);
     expect(card!.timeLabel).toMatch(/\d/);
     expect(card!.fullLabel).toContain(card!.dateLabel);
+  });
+
+  it('formatKickoffCard labels Australia vs Türkiye as tomorrow on Saturday night (EDT)', () => {
+    // Sat Jun 13, 2026 ~12:30 AM EDT — one night before the Vancouver midnight ET kickoff
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-13T04:30:00Z'));
+    const card = formatKickoffCard('2026-06-14', '04:00');
+    expect(card?.dateLabel).toBe('Tomorrow');
+    vi.useRealTimers();
+  });
+
+  it('arePredictionsOpen stays true before Australia vs Türkiye kickoff', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-13T01:00:00Z'));
+    const match = matchFixture({
+      matchId: 'gs-australia-vs-turkiye',
+      teamAId: 'australia',
+      teamBId: 'turkiye',
+      groupId: 'group-d',
+      matchDate: '2026-06-14',
+      matchTime: '04:00',
+    });
+    expect(arePredictionsOpen(match)).toBe(true);
+    vi.useRealTimers();
   });
 
   it('compareMatchesChronological puts dated fixtures before undated knockout TBD slots', () => {

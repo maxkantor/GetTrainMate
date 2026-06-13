@@ -1,17 +1,13 @@
 import { useEffect, useState } from 'react';
+import { parseKickoffUtc } from '@/utils/eventMatchUtils';
 
-function parseKickoff(matchDate: string, matchTime?: string): number | null {
-  const time = matchTime?.trim() || '00:00';
-  const iso = `${matchDate}T${time.length === 5 ? `${time}:00` : time}Z`;
-  const ms = Date.parse(iso);
-  return Number.isNaN(ms) ? null : ms;
-}
+export const MATCH_COUNTDOWN_IN_PROGRESS = 'In progress';
 
 export function useMatchCountdown(matchDate: string, matchTime?: string): string {
   const [label, setLabel] = useState('');
 
   useEffect(() => {
-    const kickoff = parseKickoff(matchDate, matchTime);
+    const kickoff = parseKickoffUtc(matchDate, matchTime);
     if (kickoff == null) {
       setLabel('');
       return;
@@ -19,7 +15,7 @@ export function useMatchCountdown(matchDate: string, matchTime?: string): string
     const update = () => {
       const diff = kickoff - Date.now();
       if (diff <= 0) {
-        setLabel('In progress');
+        setLabel(MATCH_COUNTDOWN_IN_PROGRESS);
         return;
       }
       const d = Math.floor(diff / 86400000);

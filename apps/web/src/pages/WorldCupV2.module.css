@@ -734,6 +734,13 @@
   margin-top: 0.2rem;
 }
 
+.matchKickoffAwaiting {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(251, 191, 36, 0.9);
+  margin-top: 0.2rem;
+}
+
 .matchKickoffLive {
   font-size: 0.72rem;
   font-weight: 700;

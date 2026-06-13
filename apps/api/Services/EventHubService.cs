@@ -78,6 +78,7 @@ public class EventHubService : IEventHubService
 
         if (string.Equals(eventId, WorldCupEventId, StringComparison.OrdinalIgnoreCase))
         {
+            await ApplyOfficialKickoffsAsync();
             await ApplyOfficialCompletedResultsAsync();
             await RecalculateStandingsAsync(eventId);
         }
