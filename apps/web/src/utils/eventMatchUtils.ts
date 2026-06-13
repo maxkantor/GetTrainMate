@@ -1,4 +1,4 @@
-import type { EventMatch } from '@/services/sportsEventLayerService';
+import type { EventMatch, EventTeam } from '@/services/sportsEventLayerService';
 
 export function parseKickoffUtc(matchDate?: string, matchTime?: string): number | null {
   if (!matchDate?.trim() || !matchTime?.trim()) return null;
@@ -211,4 +211,67 @@ export function formatLastUpdated(iso?: string | null): string | null {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(ms));
+}
+
+const sameTeam = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** Derive group standings from completed fixtures — always in sync with match scores on poll. */
+export function computeStandingsFromMatches(teams: EventTeam[], matches: EventMatch[]): EventTeam[] {
+  const completed = matches.filter(
+    (m) => m.status === 'Completed'
+      && m.scoreA != null
+      && m.scoreB != null
+      && Boolean(m.groupId?.trim()),
+  );
+
+  return teams.map((team) => {
+    let played = 0;
+    let wins = 0;
+    let draws = 0;
+    let losses = 0;
+    let goalsFor = 0;
+    let goalsAgainst = 0;
+
+    for (const m of completed) {
+      const isA = sameTeam(m.teamAId, team.teamId);
+      const isB = sameTeam(m.teamBId, team.teamId);
+      if (!isA && !isB) continue;
+
+      const scored = isA ? m.scoreA! : m.scoreB!;
+      const conceded = isA ? m.scoreB! : m.scoreA!;
+      played += 1;
+      goalsFor += scored;
+      goalsAgainst += conceded;
+      if (scored > conceded) wins += 1;
+      else if (scored === conceded) draws += 1;
+      else losses += 1;
+    }
+
+    const goalDifference = goalsFor - goalsAgainst;
+    const points = wins * 3 + draws;
+    return {
+      ...team,
+      played,
+      wins,
+      draws,
+      losses,
+      goalsFor,
+      goalsAgainst,
+      goalDifference,
+      points,
+    };
+  });
+}
+
+/** Poll faster while matches are live or recently finished. */
+export function hubRefetchIntervalMs(matches: EventMatch[] | undefined, baseMs = 45_000): number {
+  if (!matches?.length) return baseMs;
+  if (matches.some((m) => m.status === 'Live')) return 10_000;
+  const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+  const recentResult = matches.some((m) => {
+    if (m.status !== 'Completed' || m.updatedAt == null) return false;
+    const ms = Date.parse(m.updatedAt);
+    return !Number.isNaN(ms) && ms >= twoHoursAgo;
+  });
+  return recentResult ? 15_000 : baseMs;
 }

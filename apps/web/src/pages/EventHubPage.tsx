@@ -9,9 +9,8 @@ import {
   sportsEventLayerService,
   WORLD_CUP_EVENT_ID,
 } from '@/services/sportsEventLayerService';
+import { computeStandingsFromMatches, hubRefetchIntervalMs } from '@/utils/eventMatchUtils';
 import { trackSportsEventAnalytics } from '@/utils/analytics';
-
-const POLL_MS = 45_000;
 
 export const EventHubPage: React.FC<{ eventId?: string }> = ({ eventId = WORLD_CUP_EVENT_ID }) => {
   const { t, locale } = useI18n();
@@ -21,7 +20,8 @@ export const EventHubPage: React.FC<{ eventId?: string }> = ({ eventId = WORLD_C
   const { data: hub, isLoading, isError } = useQuery({
     queryKey: ['event-hub', eventId],
     queryFn: () => sportsEventLayerService.getHubSnapshot(eventId),
-    refetchInterval: POLL_MS,
+    refetchInterval: (query) => hubRefetchIntervalMs(query.state.data?.matches),
+    refetchOnWindowFocus: true,
     retry: 1,
   });
 

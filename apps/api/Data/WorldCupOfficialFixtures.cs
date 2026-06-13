@@ -123,6 +123,15 @@ public static class WorldCupOfficialFixtures
     ];
 
     /// <summary>
+    /// Completed group-stage scores keyed by team pair (order-independent).
+    /// Synced on every hub load so standings update as official results land.
+    /// </summary>
+    public static readonly IReadOnlyList<OfficialPairResult> CompletedGroupResults =
+    [
+        new("canada", "bosnia-herzegovina", 1, 1),
+    ];
+
+    /// <summary>
     /// Official kickoff times for all 72 group-stage fixtures (FIFA schedule, stored in UTC —
     /// ET kickoffs are UTC-4 in June). Looked up by team pair, so generated fixture order doesn't matter.
     /// </summary>
@@ -243,6 +252,8 @@ public sealed record OfficialTeam(string TeamId, string Name, string Country, st
 public sealed record OfficialMatch(string MatchId, string TeamAId, string TeamBId, string Stage, string GroupId, int SortOrder);
 
 public sealed record OfficialResult(string MatchId, int ScoreA, int ScoreB);
+
+public sealed record OfficialPairResult(string TeamAId, string TeamBId, int ScoreA, int ScoreB);
 
 public sealed record OfficialKickoff(string TeamAId, string TeamBId, string DateUtc, string TimeUtc);
 

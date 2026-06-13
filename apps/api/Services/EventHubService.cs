@@ -76,6 +76,12 @@ public class EventHubService : IEventHubService
         if (config == null) return null;
         if (!allowDisabledForAdmin && !IsEventEffectivelyEnabled(config)) return null;
 
+        if (string.Equals(eventId, WorldCupEventId, StringComparison.OrdinalIgnoreCase))
+        {
+            await ApplyOfficialCompletedResultsAsync();
+            await RecalculateStandingsAsync(eventId);
+        }
+
         var matches = await GetMatchesAsync(eventId);
         return new EventHubSnapshot
         {
@@ -87,6 +93,42 @@ public class EventHubService : IEventHubService
             Matches = matches,
             FixturesLastUpdatedAt = ResolveFixturesLastUpdatedAt(config, matches),
         };
+    }
+
+    /// <summary>Stamp known full-time scores onto group fixtures and refresh standings.</summary>
+    private async Task ApplyOfficialCompletedResultsAsync()
+    {
+        var resultByPair = WorldCupOfficialFixtures.CompletedGroupResults
+            .ToDictionary(
+                r => EventMatchRules.NormalizePairKey(r.TeamAId, r.TeamBId),
+                r => r,
+                StringComparer.OrdinalIgnoreCase);
+        if (resultByPair.Count == 0) return;
+
+        var matches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
+        var changed = false;
+        foreach (var match in matches.Where(m => !string.IsNullOrWhiteSpace(m.GroupId)))
+        {
+            var key = EventMatchRules.NormalizePairKey(match.TeamAId, match.TeamBId);
+            if (!resultByPair.TryGetValue(key, out var official)) continue;
+
+            var teamAIsCatalogA = string.Equals(match.TeamAId, official.TeamAId, StringComparison.OrdinalIgnoreCase);
+            var scoreA = teamAIsCatalogA ? official.ScoreA : official.ScoreB;
+            var scoreB = teamAIsCatalogA ? official.ScoreB : official.ScoreA;
+
+            if (string.Equals(match.Status, EventMatchStatus.Completed, StringComparison.OrdinalIgnoreCase)
+                && match.ScoreA == scoreA && match.ScoreB == scoreB)
+                continue;
+
+            match.Status = EventMatchStatus.Completed;
+            match.ScoreA = scoreA;
+            match.ScoreB = scoreB;
+            await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
+            changed = true;
+        }
+
+        if (changed)
+            await TouchFixturesTimestampAsync(WorldCupEventId);
     }
 
     /// <summary>Bootstrap config, purge legacy fake seed data once, sync official opening fixtures.</summary>
@@ -214,6 +256,7 @@ public class EventHubService : IEventHubService
 
         await GenerateGroupStageFixturesAsync();
         await ApplyOfficialKickoffsAsync();
+        await ApplyOfficialCompletedResultsAsync();
         await SeedKnockoutPlaceholdersAsync();
         await SyncMatchTeamMetadataAsync();
     }

@@ -14,7 +14,7 @@ import {
 import { arePredictionsOpen } from '@/utils/eventMatchUtils';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { trackEvent } from '@/utils/analytics';
-import { compareMatchesChronological } from '@/utils/eventMatchUtils';
+import { compareMatchesChronological, computeStandingsFromMatches } from '@/utils/eventMatchUtils';
 import { normalizePublicAssetUrl } from '@/utils/publicAssetUrl';
 import { resolveEventCopy } from '@/utils/eventLocalizedCopy';
 import styles from './EventPromoSection.module.css';
@@ -65,7 +65,7 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
     .filter((m) => m.status === 'Scheduled' && arePredictionsOpen(m))
     .sort(compareMatchesChronological)[0];
 
-  const leader = (hub?.teams ?? [])
+  const leader = computeStandingsFromMatches(hub?.teams ?? [], matches)
     .filter((tm) => tm.played > 0)
     .sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference)[0];
   const leaderGroup = leader

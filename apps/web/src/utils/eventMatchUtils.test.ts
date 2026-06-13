@@ -3,13 +3,14 @@ import {
   arePredictionsOpen,
   categorizeMatches,
   compareMatchesChronological,
+  computeStandingsFromMatches,
   formatKickoffFriendly,
   formatKickoffCompact,
   formatKickoffCard,
   isMatchUpcoming,
   parseKickoffUtc,
 } from './eventMatchUtils';
-import type { EventMatch } from '@/services/sportsEventLayerService';
+import type { EventMatch, EventTeam } from '@/services/sportsEventLayerService';
 
 function matchFixture(overrides: Partial<EventMatch> & Pick<EventMatch, 'matchId'>): EventMatch {
   return {
@@ -108,5 +109,40 @@ describe('eventMatchUtils', () => {
     ];
     const { upcoming } = categorizeMatches(matches);
     expect(upcoming.map((m) => m.matchId)).toEqual(['gs-soon', 'gs-late', 'r16-1', 'final']);
+  });
+
+  it('computeStandingsFromMatches reflects completed group fixtures', () => {
+    const teams: EventTeam[] = [
+      {
+        eventId: 'world-cup-2026', teamId: 'canada', name: 'Canada', country: 'Canada',
+        flagEmoji: '🇨🇦', groupId: 'group-b', sortOrder: 0, played: 0, wins: 0, draws: 0, losses: 0,
+        goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0,
+      },
+      {
+        eventId: 'world-cup-2026', teamId: 'bosnia-herzegovina', name: 'Bosnia', country: 'Bosnia',
+        flagEmoji: '🇧🇦', groupId: 'group-b', sortOrder: 1, played: 0, wins: 0, draws: 0, losses: 0,
+        goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0,
+      },
+    ];
+    const matches: EventMatch[] = [
+      matchFixture({
+        matchId: 'gs-canada-vs-bosnia-herzegovina',
+        teamAId: 'canada',
+        teamBId: 'bosnia-herzegovina',
+        groupId: 'group-b',
+        status: 'Completed',
+        scoreA: 1,
+        scoreB: 1,
+      }),
+    ];
+    const standings = computeStandingsFromMatches(teams, matches);
+    const canada = standings.find((t) => t.teamId === 'canada');
+    const bosnia = standings.find((t) => t.teamId === 'bosnia-herzegovina');
+    expect(canada?.played).toBe(1);
+    expect(canada?.draws).toBe(1);
+    expect(canada?.points).toBe(1);
+    expect(canada?.goalsFor).toBe(1);
+    expect(bosnia?.played).toBe(1);
+    expect(bosnia?.points).toBe(1);
   });
 });

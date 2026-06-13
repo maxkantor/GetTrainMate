@@ -13,6 +13,7 @@ import {
   sportsEventLayerService,
   WORLD_CUP_EVENT_ID,
 } from '@/services/sportsEventLayerService';
+import { computeStandingsFromMatches } from '@/utils/eventMatchUtils';
 import styles from '@/pages/WorldCupV2.module.css';
 
 export const WorldCupTeamPage: React.FC = () => {
@@ -47,7 +48,7 @@ export const WorldCupTeamPage: React.FC = () => {
   }
   if (isError || !hub?.effectivelyEnabled) return <Navigate to="/" replace />;
 
-  const team = hub.teams.find((tm) => tm.teamId === teamId);
+  const team = computeStandingsFromMatches(hub.teams, hub.matches).find((tm) => tm.teamId === teamId);
   if (!team) return <Navigate to="/world-cup" replace />;
 
   const stats = teamStats.find((s) => s.teamId === teamId);

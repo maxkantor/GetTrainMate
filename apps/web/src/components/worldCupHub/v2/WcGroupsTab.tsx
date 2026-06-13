@@ -6,6 +6,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { formatI18n } from '@/i18n';
 import type { EventGroup, EventTeam } from '@/services/sportsEventLayerService';
+import { computeStandingsFromMatches } from '@/utils/eventMatchUtils';
 import type { WcHubProps } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -103,7 +104,8 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
   const { t } = useI18n();
   const { teamName, groupLabel } = useWcDisplay();
   const [view, setView] = useState<'table' | 'card'>('table');
-  const { groups, teams, settings } = hub;
+  const { groups, teams: rawTeams, matches, settings } = hub;
+  const teams = computeStandingsFromMatches(rawTeams, matches);
   const enabled = settings.standingsEnabled;
   const published = settings.standingsPublished;
   const hasData = groups.length > 0;

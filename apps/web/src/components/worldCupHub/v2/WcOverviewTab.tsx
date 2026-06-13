@@ -5,7 +5,7 @@ import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { useI18n } from '@/hooks/useI18n';
 import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
-import { categorizeMatches } from '@/utils/eventMatchUtils';
+import { categorizeMatches, computeStandingsFromMatches } from '@/utils/eventMatchUtils';
 import type { WcHubProps } from './wcTypes';
 import { WcMatchCard } from './WcMatchCard';
 import styles from '@/pages/WorldCupV2.module.css';
@@ -17,6 +17,7 @@ export const WcOverviewTab: React.FC<Props> = ({
 }) => {
   const { t } = useI18n();
   const { teamName, groupLabel, matchLine } = useWcDisplay();
+  const standingsTeams = computeStandingsFromMatches(hub.teams, hub.matches);
   const { today, upcoming } = categorizeMatches(hub.matches);
   const featured = [...today, ...upcoming]
     .filter((m) => m.isFeatured || today.includes(m))
@@ -127,7 +128,7 @@ export const WcOverviewTab: React.FC<Props> = ({
             {previewGroups.map((g) => (
               <Box key={g.groupId} className={styles.groupCard}>
                 <Typography className={styles.groupLabel}>{groupLabel(g.groupId, g.label)}</Typography>
-                {hub.teams
+                {standingsTeams
                   .filter((tm) => tm.groupId === g.groupId)
                   .sort((a, b) => b.points - a.points)
                   .slice(0, 4)
