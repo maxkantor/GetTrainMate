@@ -115,23 +115,11 @@ public static class WorldCupOfficialFixtures
         new("opening-south-korea-vs-czechia", "south-korea", "czechia", "Opening Match", "group-a", 1),
     ];
 
-    /// <summary>Authoritative full-time scores for opening fixtures (admin CRM can override later).</summary>
-    public static readonly IReadOnlyList<OfficialResult> OpeningResults =
-    [
-        new("opening-mexico-vs-south-africa", 2, 0),
-        new("opening-south-korea-vs-czechia", 2, 1),
-    ];
+    /// <summary>Authoritative opening fixtures only — scores sync from live feeds on hub load.</summary>
+    public static readonly IReadOnlyList<OfficialResult> OpeningResults = [];
 
-    /// <summary>
-    /// Authoritative in-play and full-time scores keyed by team pair (order-independent).
-    /// Synced on every hub load — set Status to Live while a match is on, Completed at full time.
-    /// </summary>
-    public static readonly IReadOnlyList<OfficialPairResult> ScoreOverrides =
-    [
-        new("canada", "bosnia-herzegovina", 1, 1, "Completed"),
-        new("usa", "paraguay", 4, 1, "Completed"),
-        new("qatar", "switzerland", 0, 3, "Completed"),
-    ];
+    /// <summary>Deprecated — scores sync from ESPN + openfootball on every hub refresh.</summary>
+    public static readonly IReadOnlyList<OfficialPairResult> ScoreOverrides = [];
 
     /// <summary>
     /// Official kickoff times for all 72 group-stage fixtures (FIFA schedule, stored in UTC —

@@ -120,6 +120,11 @@ public class Startup
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<ICreditsService, CreditsService>();
         services.AddScoped<ISportsEventLayerService, SportsEventLayerService>();
+        services.AddHttpClient("WorldCupScores", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("GetTrainMate/1.0 (World Cup fan hub)");
+        });
         services.AddScoped<IEventHubService, EventHubService>();
 
         // Bedrock & AI: config-driven (stub when Bedrock:ModelId not set)

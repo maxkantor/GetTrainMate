@@ -12,6 +12,7 @@ public class EventHubService : IEventHubService
     private readonly IAmazonDynamoDB _dynamoDb;
     private readonly ISportsEventLayerService _sportsLayer;
     private readonly IProfileService _profiles;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<EventHubService> _logger;
     private readonly string _groupsTable;
     private readonly string _teamsTable;
@@ -24,12 +25,14 @@ public class EventHubService : IEventHubService
         IAmazonDynamoDB dynamoDb,
         ISportsEventLayerService sportsLayer,
         IProfileService profiles,
+        IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         ILogger<EventHubService> logger)
     {
         _dynamoDb = dynamoDb;
         _sportsLayer = sportsLayer;
         _profiles = profiles;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
         var prefix = configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
         _groupsTable = configuration["DYNAMODB_TABLE_EVENT_GROUPS"] ?? $"{prefix}event-groups";
@@ -81,8 +84,7 @@ public class EventHubService : IEventHubService
         if (string.Equals(eventId, WorldCupEventId, StringComparison.OrdinalIgnoreCase))
         {
             await ApplyOfficialKickoffsAsync();
-            await ApplyKickoffDrivenLiveStatusAsync();
-            await ApplyOfficialCompletedResultsAsync();
+            await SyncWorldCupLiveScoresAsync();
             await RecalculateStandingsAsync(eventId);
         }
 
@@ -99,31 +101,56 @@ public class EventHubService : IEventHubService
         };
     }
 
-    /// <summary>Bootstrap group scores from catalog when DynamoDB is still scheduled or in-play.</summary>
-    private async Task ApplyOfficialCompletedResultsAsync()
+    /// <summary>Fetch live/final scores from ESPN + openfootball on every hub load.</summary>
+    private async Task SyncWorldCupLiveScoresAsync()
     {
-        var resultByPair = WorldCupOfficialFixtures.ScoreOverrides
-            .ToDictionary(
-                r => EventMatchRules.NormalizePairKey(r.TeamAId, r.TeamBId),
-                r => r,
-                StringComparer.OrdinalIgnoreCase);
-        if (resultByPair.Count == 0) return;
+        var http = _httpClientFactory.CreateClient("WorldCupScores");
+        var sync = new WorldCupLiveScoreSync();
+        IReadOnlyDictionary<string, ExternalMatchScore> external;
+        try
+        {
+            external = await sync.FetchScoresAsync(http, DateTime.UtcNow);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "World Cup live score sync failed — using stored fixtures");
+            await ApplyKickoffDrivenLiveStatusAsync();
+            return;
+        }
+
+        if (external.Count == 0)
+        {
+            await ApplyKickoffDrivenLiveStatusAsync();
+            return;
+        }
 
         var matches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
         var changed = false;
         foreach (var match in matches.Where(m => !string.IsNullOrWhiteSpace(m.GroupId)))
         {
             var key = EventMatchRules.NormalizePairKey(match.TeamAId, match.TeamBId);
-            if (!resultByPair.TryGetValue(key, out var official)) continue;
+            if (!external.TryGetValue(key, out var feed)) continue;
 
-            var teamAIsCatalogA = string.Equals(match.TeamAId, official.TeamAId, StringComparison.OrdinalIgnoreCase);
-            var scoreA = teamAIsCatalogA ? official.ScoreA : official.ScoreB;
-            var scoreB = teamAIsCatalogA ? official.ScoreB : official.ScoreA;
+            var teamAIsFeed1 = string.Equals(match.TeamAId, feed.Team1Id, StringComparison.OrdinalIgnoreCase);
+            var scoreA = teamAIsFeed1 ? feed.Score1 : feed.Score2;
+            var scoreB = teamAIsFeed1 ? feed.Score2 : feed.Score1;
 
-            if (!EventMatchRules.ShouldApplyOfficialScoreOverride(match, official.Status, scoreA, scoreB))
+            if (scoreA == null || scoreB == null)
+            {
+                if (string.Equals(feed.Status, EventMatchStatus.Live, StringComparison.OrdinalIgnoreCase)
+                    && EventMatchRules.MatchStatusOrder(match.Status) < EventMatchRules.MatchStatusOrder(EventMatchStatus.Live))
+                {
+                    match.Status = EventMatchStatus.Live;
+                    await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
+                    changed = true;
+                }
+                continue;
+            }
+
+            if (!EventMatchRules.ShouldApplyOfficialScoreOverride(match, feed.Status, scoreA.Value, scoreB.Value))
                 continue;
 
-            match.Status = official.Status;
+            match.Status = feed.Status;
             match.ScoreA = scoreA;
             match.ScoreB = scoreB;
             await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
@@ -134,7 +161,7 @@ public class EventHubService : IEventHubService
             await TouchFixturesTimestampAsync(WorldCupEventId);
     }
 
-    /// <summary>Flip scheduled fixtures to Live once kickoff passes (until full-time score arrives).</summary>
+    /// <summary>Flip scheduled fixtures to Live once kickoff passes (fallback when feeds are unavailable).</summary>
     private async Task ApplyKickoffDrivenLiveStatusAsync()
     {
         var now = DateTime.UtcNow;
@@ -250,8 +277,6 @@ public class EventHubService : IEventHubService
 
             var existing = allMatches
                 .FirstOrDefault(m => string.Equals(m.MatchId, official.MatchId, StringComparison.OrdinalIgnoreCase));
-            var officialResult = WorldCupOfficialFixtures.OpeningResults
-                .FirstOrDefault(r => string.Equals(r.MatchId, official.MatchId, StringComparison.OrdinalIgnoreCase));
 
             await UpsertMatchAsync(new EventMatch
             {
@@ -266,9 +291,9 @@ public class EventHubService : IEventHubService
                 MatchDate = existing?.MatchDate ?? string.Empty,
                 MatchTime = existing?.MatchTime,
                 Venue = existing?.Venue ?? string.Empty,
-                Status = officialResult != null ? EventMatchStatus.Completed : existing?.Status ?? EventMatchStatus.Scheduled,
-                ScoreA = officialResult?.ScoreA ?? existing?.ScoreA,
-                ScoreB = officialResult?.ScoreB ?? existing?.ScoreB,
+                Status = existing?.Status ?? EventMatchStatus.Scheduled,
+                ScoreA = existing?.ScoreA,
+                ScoreB = existing?.ScoreB,
                 GroupId = official.GroupId,
                 Stage = official.Stage,
                 IsFeatured = true,
@@ -279,7 +304,7 @@ public class EventHubService : IEventHubService
 
         await GenerateGroupStageFixturesAsync();
         await ApplyOfficialKickoffsAsync();
-        await ApplyOfficialCompletedResultsAsync();
+        await SyncWorldCupLiveScoresAsync();
         await SeedKnockoutPlaceholdersAsync();
         await SyncMatchTeamMetadataAsync();
     }
