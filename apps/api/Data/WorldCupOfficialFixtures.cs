@@ -130,6 +130,7 @@ public static class WorldCupOfficialFixtures
     [
         new("canada", "bosnia-herzegovina", 1, 1, "Completed"),
         new("usa", "paraguay", 4, 1, "Completed"),
+        new("qatar", "switzerland", 0, 3, "Completed"),
     ];
 
     /// <summary>

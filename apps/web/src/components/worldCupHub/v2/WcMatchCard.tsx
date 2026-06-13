@@ -5,7 +5,7 @@ import { useWcDisplay } from '@/hooks/useWcDisplay';
 import type { EventHubSnapshot, EventMatch } from '@/services/sportsEventLayerService';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import { MatchKickoffDisplay } from '@/components/worldCupHub/MatchKickoffDisplay';
-import { isTbdMatch } from '@/utils/eventMatchUtils';
+import { isTbdMatch, parseKickoffUtc } from '@/utils/eventMatchUtils';
 import { WcInlinePredict } from './WcInlinePredict';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -39,6 +39,11 @@ export const WcMatchCard: React.FC<Props> = ({
   const { teamName } = useWcDisplay();
   const isFinal = match.status === 'Completed';
   const isLive = match.status === 'Live';
+  const kickoffMs = parseKickoffUtc(match.matchDate, match.matchTime);
+  const kickoffPassed = kickoffMs != null && kickoffMs <= Date.now();
+  const showAsLive = isLive || (match.status === 'Scheduled' && kickoffPassed && !isFinal);
+  const displayStatus: EventMatch['status'] = showAsLive ? 'Live' : match.status;
+  const showScore = isFinal || showAsLive;
   const isTbd = isTbdMatch(match);
 
   if (isTbd) {
@@ -81,8 +86,8 @@ export const WcMatchCard: React.FC<Props> = ({
           <Box className={styles.matchTopChips}>
             <Chip
               size="small"
-              label={statusLabel(match.status, t)}
-              className={isLive ? styles.statusLive : statusClass(match.status)}
+              label={statusLabel(displayStatus, t)}
+              className={showAsLive ? styles.statusLive : statusClass(displayStatus)}
             />
             {match.isFeatured && (
               <Chip size="small" label="★" sx={{ bgcolor: 'rgba(251,191,36,0.2)', color: '#fde68a' }} />
@@ -99,7 +104,7 @@ export const WcMatchCard: React.FC<Props> = ({
           <Typography className={styles.matchTeamName}>{teamName(match.teamAId, match.teamAName)}</Typography>
         </Box>
         <Box sx={{ textAlign: 'center' }}>
-          {isFinal || isLive ? (
+          {showScore ? (
             <Typography className={styles.matchScore}>
               {match.scoreA ?? 0} – {match.scoreB ?? 0}
             </Typography>

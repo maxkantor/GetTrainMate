@@ -81,6 +81,7 @@ public class EventHubService : IEventHubService
         if (string.Equals(eventId, WorldCupEventId, StringComparison.OrdinalIgnoreCase))
         {
             await ApplyOfficialKickoffsAsync();
+            await ApplyKickoffDrivenLiveStatusAsync();
             await ApplyOfficialCompletedResultsAsync();
             await RecalculateStandingsAsync(eventId);
         }
@@ -125,6 +126,26 @@ public class EventHubService : IEventHubService
             match.Status = official.Status;
             match.ScoreA = scoreA;
             match.ScoreB = scoreB;
+            await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
+            changed = true;
+        }
+
+        if (changed)
+            await TouchFixturesTimestampAsync(WorldCupEventId);
+    }
+
+    /// <summary>Flip scheduled fixtures to Live once kickoff passes (until full-time score arrives).</summary>
+    private async Task ApplyKickoffDrivenLiveStatusAsync()
+    {
+        var now = DateTime.UtcNow;
+        var matches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
+        var changed = false;
+
+        foreach (var match in matches.Where(m => !string.IsNullOrWhiteSpace(m.GroupId)))
+        {
+            if (!EventMatchRules.ShouldMarkLiveFromKickoff(match, now)) continue;
+
+            match.Status = EventMatchStatus.Live;
             await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
             changed = true;
         }

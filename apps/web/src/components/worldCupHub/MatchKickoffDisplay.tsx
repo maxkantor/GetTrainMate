@@ -37,7 +37,7 @@ export const MatchKickoffDisplay: React.FC<Props> = ({ match }) => {
       </Box>
       {match.status === 'Scheduled' && countdown && (
         countdown === MATCH_COUNTDOWN_IN_PROGRESS ? (
-          <span className={styles.matchKickoffAwaiting}>{t('event_hub.kickoff_awaiting')}</span>
+          <span className={styles.matchKickoffLive}>{t('event_hub.status_live_now')}</span>
         ) : (
           <span className={styles.matchKickoffCountdown}>
             {formatI18n(t('event_hub.starts_in'), { time: countdown })}

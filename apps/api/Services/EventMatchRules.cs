@@ -110,4 +110,16 @@ public static class EventMatchRules
 
         return true;
     }
+
+    /// <summary>Scheduled fixtures past kickoff but still within a typical match window should show as Live.</summary>
+    public static bool ShouldMarkLiveFromKickoff(EventMatch match, DateTime utcNow, int matchDurationMinutes = 105)
+    {
+        if (!string.Equals(match.Status, EventMatchStatus.Scheduled, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var kickoff = ParseKickoffUtc(match.MatchDate, match.MatchTime);
+        if (!kickoff.HasValue) return false;
+
+        return utcNow >= kickoff.Value && utcNow < kickoff.Value.AddMinutes(matchDurationMinutes);
+    }
 }

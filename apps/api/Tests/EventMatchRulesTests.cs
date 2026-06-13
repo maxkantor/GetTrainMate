@@ -119,14 +119,28 @@ public class EventMatchRulesTests
     }
 
     [Fact]
-    public void ShouldApplyOfficialScoreOverride_SkipsWhenAlreadyInSync()
+    public void ShouldMarkLiveFromKickoff_ReturnsTrue_WithinMatchWindow()
     {
+        var kickoff = DateTime.UtcNow.AddMinutes(-30);
+        var match = new EventMatch
+        {
+            Status = EventMatchStatus.Scheduled,
+            MatchDate = kickoff.ToString("yyyy-MM-dd"),
+            MatchTime = kickoff.ToString("HH:mm"),
+        };
+        Assert.True(EventMatchRules.ShouldMarkLiveFromKickoff(match, DateTime.UtcNow));
+    }
+
+    [Fact]
+    public void ShouldMarkLiveFromKickoff_ReturnsFalse_WhenAlreadyCompleted()
+    {
+        var kickoff = DateTime.UtcNow.AddMinutes(-30);
         var match = new EventMatch
         {
             Status = EventMatchStatus.Completed,
-            ScoreA = 1,
-            ScoreB = 1,
+            MatchDate = kickoff.ToString("yyyy-MM-dd"),
+            MatchTime = kickoff.ToString("HH:mm"),
         };
-        Assert.False(EventMatchRules.ShouldApplyOfficialScoreOverride(match, EventMatchStatus.Completed, 1, 1));
+        Assert.False(EventMatchRules.ShouldMarkLiveFromKickoff(match, DateTime.UtcNow));
     }
 }

@@ -267,7 +267,19 @@ export function computeStandingsFromMatches(teams: EventTeam[], matches: EventMa
 export function hubRefetchIntervalMs(matches: EventMatch[] | undefined, baseMs = 45_000): number {
   if (!matches?.length) return baseMs;
   if (matches.some((m) => m.status === 'Live')) return 10_000;
-  const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+
+  const now = Date.now();
+  const kickoffWindowMs = 2 * 60 * 60 * 1000;
+  const inProgress = matches.some((m) => {
+    if (m.status !== 'Scheduled') return false;
+    const kickoff = parseKickoffUtc(m.matchDate, m.matchTime);
+    if (kickoff == null) return false;
+    const elapsed = now - kickoff;
+    return elapsed > 0 && elapsed < kickoffWindowMs;
+  });
+  if (inProgress) return 15_000;
+
+  const twoHoursAgo = now - kickoffWindowMs;
   const recentResult = matches.some((m) => {
     if (m.status !== 'Completed' || m.updatedAt == null) return false;
     const ms = Date.parse(m.updatedAt);
