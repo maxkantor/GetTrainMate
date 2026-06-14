@@ -19,12 +19,14 @@ import {
   downloadCanvasImage,
   shareContent,
 } from '@/utils/nativeShare';
+import { compareMatchesChronological, isMatchToday } from '@/utils/eventMatchUtils';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
   eventId: string;
-  todayMatches: EventMatch[];
+  /** Full hub fixture list — share includes every pick for matches kicking off today (incl. finished). */
+  matches: EventMatch[];
   isAuthenticated: boolean;
   onAuthRequired: () => void;
 };
@@ -61,7 +63,7 @@ function buildPickRow(
 
 export const TodayPredictionsSharePanel: React.FC<Props> = ({
   eventId,
-  todayMatches,
+  matches,
   isAuthenticated,
   onAuthRequired,
 }) => {
@@ -74,21 +76,27 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
     queryKey: ['my-picks', eventId],
     queryFn: () => sportsEventLayerService.getMyPicksSummary(eventId),
     enabled: isAuthenticated,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
-  const todayIds = useMemo(() => new Set(todayMatches.map((m) => m.matchId)), [todayMatches]);
+  const todayFixtureIds = useMemo(
+    () => new Set(matches.filter(isMatchToday).map((m) => m.matchId)),
+    [matches],
+  );
 
   const todayPicks = useMemo(() => {
     if (!summary?.predictions.length) return [];
     return summary.predictions
-      .filter((p) => todayIds.has(p.matchId))
+      .filter((p) => todayFixtureIds.has(p.matchId))
       .map((pred) => {
-        const match = todayMatches.find((m) => m.matchId === pred.matchId);
+        const match = matches.find((m) => m.matchId === pred.matchId);
         if (!match) return null;
         return { match, pred, row: buildPickRow(match, pred, teamName, t) };
       })
-      .filter((x): x is NonNullable<typeof x> => x != null);
-  }, [summary, todayIds, todayMatches, teamName, t]);
+      .filter((x): x is NonNullable<typeof x> => x != null)
+      .sort((a, b) => compareMatchesChronological(a.match, b.match));
+  }, [summary, todayFixtureIds, matches, teamName, t]);
 
   const fanName = me?.profile?.name?.trim()
     || summary?.predictions[0]?.userDisplayName?.trim()

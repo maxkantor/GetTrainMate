@@ -94,13 +94,14 @@ function drawMatchupLine(
   flagMap: Map<string, HTMLImageElement>,
   x: number,
   y: number,
+  layout: PickCardLayout,
 ) {
-  const flagH = 30;
+  const flagH = layout.flagH;
   const gap = 12;
   let cursorX = x;
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 34px Inter, system-ui, sans-serif';
+  ctx.font = layout.matchupFont;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 
@@ -139,25 +140,71 @@ function textLineHeight(ctx: CanvasRenderingContext2D, font: string, sample = 'A
   return Math.ceil(size * 1.45);
 }
 
+type PickCardLayout = {
+  cardPadTop: number;
+  cardPadBottom: number;
+  pickFont: string;
+  scoreFont: string;
+  matchupFont: string;
+  pickLineGap: number;
+  matchupBlock: number;
+  cardGap: number;
+  flagH: number;
+};
+
+function layoutForPickCount(count: number): PickCardLayout {
+  if (count >= 6) {
+    return {
+      cardPadTop: 20,
+      cardPadBottom: 28,
+      pickFont: 'bold 22px Inter, system-ui, sans-serif',
+      scoreFont: '500 18px Inter, system-ui, sans-serif',
+      matchupFont: 'bold 28px Inter, system-ui, sans-serif',
+      pickLineGap: 20,
+      matchupBlock: 44,
+      cardGap: 16,
+      flagH: 24,
+    };
+  }
+  if (count >= 4) {
+    return {
+      cardPadTop: 26,
+      cardPadBottom: 36,
+      pickFont: 'bold 24px Inter, system-ui, sans-serif',
+      scoreFont: '500 20px Inter, system-ui, sans-serif',
+      matchupFont: 'bold 30px Inter, system-ui, sans-serif',
+      pickLineGap: 24,
+      matchupBlock: 50,
+      cardGap: 20,
+      flagH: 26,
+    };
+  }
+  return {
+    cardPadTop: 34,
+    cardPadBottom: 48,
+    pickFont: 'bold 28px Inter, system-ui, sans-serif',
+    scoreFont: '500 22px Inter, system-ui, sans-serif',
+    matchupFont: 'bold 34px Inter, system-ui, sans-serif',
+    pickLineGap: 32,
+    matchupBlock: 56,
+    cardGap: 28,
+    flagH: 30,
+  };
+}
+
 function pickCardHeight(
   ctx: CanvasRenderingContext2D,
   pick: TodayPickRow,
+  layout: PickCardLayout,
 ): number {
-  const cardPadTop = 34;
-  const cardPadBottom = 48;
-  const pickFont = 'bold 28px Inter, system-ui, sans-serif';
-  const scoreFont = '500 22px Inter, system-ui, sans-serif';
-  const pickLineGap = 32;
-  const matchupBlock = 56;
-
-  let contentBottom = cardPadTop + matchupBlock
-    + textLineHeight(ctx, pickFont, `→ ${pick.pickLabel}`);
+  let contentBottom = layout.cardPadTop + layout.matchupBlock
+    + textLineHeight(ctx, layout.pickFont, `→ ${pick.pickLabel}`);
 
   if (pick.scoreLine) {
-    contentBottom += pickLineGap + textLineHeight(ctx, scoreFont, pick.scoreLine);
+    contentBottom += layout.pickLineGap + textLineHeight(ctx, layout.scoreFont, pick.scoreLine);
   }
 
-  return contentBottom + cardPadBottom;
+  return contentBottom + layout.cardPadBottom;
 }
 
 /** Premium vertical share card for all of today's World Cup picks (WhatsApp / stories). */
@@ -169,21 +216,26 @@ export async function renderTodayPicksCanvas(
   avatarImg?: HTMLImageElement | null,
 ): Promise<HTMLCanvasElement> {
   const width = 1080;
-  const cardGap = 28;
   const headerHeight = 400;
-  const pickFont = 'bold 28px Inter, system-ui, sans-serif';
-  const scoreFont = '500 22px Inter, system-ui, sans-serif';
+  const footerSpace = 120;
   const cardPadX = 108;
-  const cardPadTop = 34;
-  const pickLineGap = 32;
-  const matchupBlock = 56;
+  const layout = layoutForPickCount(picks.length);
+
+  const {
+    cardPadTop,
+    pickFont,
+    scoreFont,
+    pickLineGap,
+    matchupBlock,
+    cardGap,
+  } = layout;
 
   const measureCtx = document.createElement('canvas').getContext('2d')!;
   const picksBlockHeight = picks.reduce(
-    (sum, pick) => sum + pickCardHeight(measureCtx, pick) + cardGap,
+    (sum, pick) => sum + pickCardHeight(measureCtx, pick, layout) + cardGap,
     0,
-  );
-  const height = Math.min(2400, Math.max(1280, headerHeight + picksBlockHeight + 120));
+  ) - (picks.length > 0 ? cardGap : 0);
+  const height = headerHeight + picksBlockHeight + footerSpace;
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -244,7 +296,7 @@ export async function renderTodayPicksCanvas(
 
   let y = 360;
   for (const pick of picks) {
-    const cardHeight = pickCardHeight(ctx, pick);
+    const cardHeight = pickCardHeight(ctx, pick, layout);
 
     roundRect(ctx, 80, y, width - 160, cardHeight, 22);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
@@ -253,9 +305,7 @@ export async function renderTodayPicksCanvas(
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 34px Inter, system-ui, sans-serif';
-    drawMatchupLine(ctx, pick, flagMap, cardPadX, y + cardPadTop + 18);
+    drawMatchupLine(ctx, pick, flagMap, cardPadX, y + cardPadTop + 18, layout);
 
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
@@ -275,9 +325,10 @@ export async function renderTodayPicksCanvas(
     y += cardHeight + cardGap;
   }
 
+  const footerY = y - (picks.length > 0 ? cardGap : 0) + 48;
   ctx.fillStyle = '#6366f1';
   ctx.font = 'bold 32px Inter, system-ui, sans-serif';
-  ctx.fillText(labels.footer, 96, height - 88);
+  ctx.fillText(labels.footer, 96, footerY);
 
   return canvas;
 }
