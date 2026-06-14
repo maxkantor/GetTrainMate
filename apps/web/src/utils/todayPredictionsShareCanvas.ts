@@ -150,6 +150,8 @@ type PickCardLayout = {
   matchupBlock: number;
   cardGap: number;
   flagH: number;
+  pickLineH: number;
+  scoreLineH: number;
 };
 
 function layoutForPickCount(count: number): PickCardLayout {
@@ -164,6 +166,8 @@ function layoutForPickCount(count: number): PickCardLayout {
       matchupBlock: 44,
       cardGap: 16,
       flagH: 24,
+      pickLineH: 30,
+      scoreLineH: 24,
     };
   }
   if (count >= 4) {
@@ -177,6 +181,8 @@ function layoutForPickCount(count: number): PickCardLayout {
       matchupBlock: 50,
       cardGap: 20,
       flagH: 26,
+      pickLineH: 32,
+      scoreLineH: 26,
     };
   }
   return {
@@ -189,21 +195,16 @@ function layoutForPickCount(count: number): PickCardLayout {
     matchupBlock: 56,
     cardGap: 28,
     flagH: 30,
+    pickLineH: 36,
+    scoreLineH: 28,
   };
 }
 
-function pickCardHeight(
-  ctx: CanvasRenderingContext2D,
-  pick: TodayPickRow,
-  layout: PickCardLayout,
-): number {
-  let contentBottom = layout.cardPadTop + layout.matchupBlock
-    + textLineHeight(ctx, layout.pickFont, `→ ${pick.pickLabel}`);
-
+function pickCardHeight(pick: TodayPickRow, layout: PickCardLayout): number {
+  let contentBottom = layout.cardPadTop + layout.matchupBlock + layout.pickLineH;
   if (pick.scoreLine) {
-    contentBottom += layout.pickLineGap + textLineHeight(ctx, layout.scoreFont, pick.scoreLine);
+    contentBottom += layout.pickLineGap + layout.scoreLineH;
   }
-
   return contentBottom + layout.cardPadBottom;
 }
 
@@ -230,9 +231,8 @@ export async function renderTodayPicksCanvas(
     cardGap,
   } = layout;
 
-  const measureCtx = document.createElement('canvas').getContext('2d')!;
   const picksBlockHeight = picks.reduce(
-    (sum, pick) => sum + pickCardHeight(measureCtx, pick, layout) + cardGap,
+    (sum, pick) => sum + pickCardHeight(pick, layout) + cardGap,
     0,
   ) - (picks.length > 0 ? cardGap : 0);
   const height = headerHeight + picksBlockHeight + footerSpace;
@@ -296,7 +296,7 @@ export async function renderTodayPicksCanvas(
 
   let y = 360;
   for (const pick of picks) {
-    const cardHeight = pickCardHeight(ctx, pick, layout);
+    const cardHeight = pickCardHeight(pick, layout);
 
     roundRect(ctx, 80, y, width - 160, cardHeight, 22);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
@@ -316,7 +316,7 @@ export async function renderTodayPicksCanvas(
     ctx.fillText(`→ ${pick.pickLabel}`, cardPadX, pickY);
 
     if (pick.scoreLine) {
-      const scoreY = pickY + textLineHeight(ctx, pickFont, `→ ${pick.pickLabel}`) + pickLineGap;
+      const scoreY = pickY + layout.pickLineH + pickLineGap;
       ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
       ctx.font = scoreFont;
       ctx.fillText(pick.scoreLine, cardPadX, scoreY);

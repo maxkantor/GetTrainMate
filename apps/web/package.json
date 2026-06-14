@@ -21,7 +21,6 @@
     "aws-amplify": "^6.1.0",
     "axios": "^1.6.0",
     "framer-motion": "^11.18.2",
-    "html-to-image": "^1.11.13",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-easy-crop": "^5.5.7",

@@ -49,19 +49,25 @@ export async function fetchTodaySharePicks(
   const todayMatches = matches.filter(isMatchToday).sort(compareMatchesChronological);
   if (todayMatches.length === 0) return [];
 
-  const entries = await Promise.all(
-    todayMatches.map(async (match) => {
-      const pred = await sportsEventLayerService.getMyPrediction(eventId, match.matchId);
-      if (!pred) return null;
+  const todayIds = new Set(todayMatches.map((m) => m.matchId));
+  const matchById = new Map(todayMatches.map((m) => [m.matchId, m]));
+
+  const summary = await sportsEventLayerService.getMyPicksSummary(eventId);
+  if (!summary?.predictions.length) return [];
+
+  return summary.predictions
+    .filter((p) => todayIds.has(p.matchId))
+    .map((pred) => {
+      const match = matchById.get(pred.matchId);
+      if (!match) return null;
       return {
         match,
         pred,
         row: buildTodayPickRow(match, pred, teamName, t),
       };
-    }),
-  );
-
-  return entries.filter((x): x is TodaySharePick => x != null);
+    })
+    .filter((x): x is TodaySharePick => x != null)
+    .sort((a, b) => compareMatchesChronological(a.match, b.match));
 }
 
 export function todaySharePicksQueryKey(eventId: string, matches: EventMatch[]) {
