@@ -142,12 +142,8 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
 
   const buildWhatsAppText = useCallback(() => {
     const header = formatI18n(t('event_hub.share_today_whatsapp_header'), { name: fanName });
-    const lines = todayPicks.map(({ row }) => {
-      const score = row.scoreLine ? ` (${row.scoreLine})` : '';
-      return `• ${row.teamAName} vs ${row.teamBName} → ${row.pickLabel}${score}`;
-    });
-    return [header, '', ...lines, '', t('event_hub.share_card_footer'), shareUrl].join('\n');
-  }, [fanName, todayPicks, t, shareUrl]);
+    return `${header}\n${shareUrl}`;
+  }, [fanName, t, shareUrl]);
 
   const imageFilename = `world-cup-picks-${fanName.replace(/\s+/g, '-').toLowerCase()}.png`;
 
