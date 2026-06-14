@@ -5,6 +5,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { formatI18n } from '@/i18n';
 import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { WcTeamLabel } from '@/components/worldCupHub/WcTeamLabel';
+import { canvasToShareFile, shareContent } from '@/utils/nativeShare';
 
 type Props = {
   match: EventMatch;
@@ -69,15 +70,6 @@ function renderShareCardToCanvas(
   ctx.fillText(footer, 100, 920);
 
   return canvas;
-}
-
-function canShareWithFiles(file: File): boolean {
-  if (!navigator.share || !navigator.canShare) return false;
-  try {
-    return navigator.canShare({ files: [file] });
-  } catch {
-    return false;
-  }
 }
 
 export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShared }) => {
@@ -145,40 +137,26 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
   }, [shareUrl, t, onShared]);
 
   const handleWebShare = useCallback(async () => {
-    const text = buildShareText(t('event_hub.share_card_footer'));
-    try {
-      const canvas = renderShareCardToCanvas(
-        buildCanvasScoreLine(),
-        prediction.reason,
-        t('event_hub.share_card_title'),
-        t('event_hub.share_card_footer'),
-        t('event_hub.share_card_join_cta'),
-      );
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-      if (blob) {
-        const file = new File([blob], 'world-cup-prediction.png', { type: 'image/png' });
-        if (canShareWithFiles(file)) {
-          await navigator.share({
-            title: t('event_hub.share_card_title'),
-            text,
-            url: shareUrl,
-            files: [file],
-          });
-          onShared?.();
-          return;
-        }
-      }
-      if (navigator.share) {
-        await navigator.share({ title: t('event_hub.share_card_title'), text, url: shareUrl });
-        onShared?.();
-        return;
-      }
-    } catch (e) {
-      if ((e as Error)?.name === 'AbortError') return;
+    const title = t('event_hub.share_card_title');
+    const canvas = renderShareCardToCanvas(
+      buildCanvasScoreLine(),
+      prediction.reason,
+      title,
+      `${t('event_hub.share_card_footer')} · ${shareUrl.replace(/^https?:\/\//, '')}`,
+      t('event_hub.share_card_join_cta'),
+    );
+    const file = await canvasToShareFile(canvas, 'world-cup-prediction.png');
+    const result = await shareContent({ title, url: shareUrl, file });
+
+    if (result === 'shared') {
+      onShared?.();
+      return;
     }
+    if (result === 'aborted') return;
+
     await handleCopyLink();
     setNotice((prev) => prev ?? t('event_hub.share_fallback'));
-  }, [buildCanvasScoreLine, buildShareText, prediction.reason, shareUrl, t, onShared, handleCopyLink]);
+  }, [buildCanvasScoreLine, prediction.reason, shareUrl, t, onShared, handleCopyLink]);
 
   const handleShareTwitter = () => {
     const text = encodeURIComponent(buildShareText('gettrainmate.com/world-cup'));

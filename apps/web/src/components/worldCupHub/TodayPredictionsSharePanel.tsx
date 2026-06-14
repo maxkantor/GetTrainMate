@@ -14,6 +14,11 @@ import {
 } from '@/utils/todayPredictionsShareCanvas';
 import { useHeaderAvatarPhoto } from '@/hooks/useHeaderAvatarPhoto';
 import { fetchProfilePhotoForCanvas } from '@/utils/profilePhotos';
+import {
+  canvasToShareFile,
+  downloadCanvasImage,
+  shareContent,
+} from '@/utils/nativeShare';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -23,22 +28,6 @@ type Props = {
   isAuthenticated: boolean;
   onAuthRequired: () => void;
 };
-
-function canShareWithFiles(file: File): boolean {
-  if (typeof navigator === 'undefined' || !navigator.share || !navigator.canShare) return false;
-  try {
-    return navigator.canShare({ files: [file] });
-  } catch {
-    return false;
-  }
-}
-
-function downloadCanvasImage(canvas: HTMLCanvasElement, filename: string) {
-  const link = document.createElement('a');
-  link.download = filename;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-}
 
 function buildPickRow(
   match: EventMatch,
@@ -114,6 +103,7 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
   }).format(new Date());
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/world-cup` : '';
+  const shareLinkLabel = shareUrl.replace(/^https?:\/\//, '');
 
   const buildCanvas = useCallback(async () => {
     const token = await authService.getJWT();
@@ -129,11 +119,11 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
         eventTitle: t('event_hub.share_today_event_title'),
         subtitle: t('event_hub.share_today_subtitle'),
         picksHeading: t('event_hub.share_today_picks_heading'),
-        footer: t('event_hub.share_card_footer'),
+        footer: `${t('event_hub.share_card_footer')} · ${shareLinkLabel}`,
       },
       avatarImg,
     );
-  }, [fanName, dateLabel, todayPicks, t, profilePhotoUrl, me?.profile?.photoUrls]);
+  }, [fanName, dateLabel, todayPicks, t, profilePhotoUrl, me?.profile?.photoUrls, shareLinkLabel]);
 
   const buildSharePayload = useCallback(() => {
     const title = formatI18n(t('event_hub.share_today_whatsapp_header'), { name: fanName });
@@ -158,23 +148,14 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
   const handleShare = useCallback(async () => {
     const canvas = await buildCanvas();
     const { title, url } = buildSharePayload();
+    const file = await canvasToShareFile(canvas, imageFilename);
+    const result = await shareContent({ title, url, file });
 
-    try {
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-      if (blob && typeof navigator !== 'undefined' && navigator.share) {
-        const file = new File([blob], imageFilename, { type: 'image/png' });
-        if (canShareWithFiles(file)) {
-          await navigator.share({ title, text: url, url, files: [file] });
-          recordShares();
-          return;
-        }
-        await navigator.share({ title, text: `${title}\n${url}`, url });
-        recordShares();
-        return;
-      }
-    } catch (e) {
-      if ((e as Error)?.name === 'AbortError') return;
+    if (result === 'shared') {
+      recordShares();
+      return;
     }
+    if (result === 'aborted') return;
 
     downloadCanvasImage(canvas, imageFilename);
     try {
