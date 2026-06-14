@@ -24,9 +24,13 @@ type Props = {
   onAuthRequired: () => void;
 };
 
-function isMobileDevice(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return /Android|webOS|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent);
+function canShareWithFiles(file: File): boolean {
+  if (typeof navigator === 'undefined' || !navigator.share || !navigator.canShare) return false;
+  try {
+    return navigator.canShare({ files: [file] });
+  } catch {
+    return false;
+  }
 }
 
 function downloadCanvasImage(canvas: HTMLCanvasElement, filename: string) {
@@ -34,15 +38,6 @@ function downloadCanvasImage(canvas: HTMLCanvasElement, filename: string) {
   link.download = filename;
   link.href = canvas.toDataURL('image/png');
   link.click();
-}
-
-function openWhatsAppWithText(text: string) {
-  const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-  if (isMobileDevice()) {
-    window.location.assign(url);
-    return;
-  }
-  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function buildPickRow(
@@ -140,37 +135,56 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
     );
   }, [fanName, dateLabel, todayPicks, t, profilePhotoUrl, me?.profile?.photoUrls]);
 
-  const buildWhatsAppText = useCallback(() => {
-    const header = formatI18n(t('event_hub.share_today_whatsapp_header'), { name: fanName });
-    return `${header}\n${shareUrl}`;
+  const buildSharePayload = useCallback(() => {
+    const title = formatI18n(t('event_hub.share_today_whatsapp_header'), { name: fanName });
+    return { title, url: shareUrl };
   }, [fanName, t, shareUrl]);
 
   const imageFilename = `world-cup-picks-${fanName.replace(/\s+/g, '-').toLowerCase()}.png`;
+
+  const recordShares = useCallback(() => {
+    for (const { match } of todayPicks) {
+      sportsEventLayerService.sharePrediction(eventId, match.matchId).catch(() => {});
+    }
+  }, [todayPicks, eventId]);
 
   const handleDownload = useCallback(async () => {
     const canvas = await buildCanvas();
     downloadCanvasImage(canvas, imageFilename);
     setNotice(t('event_hub.image_downloaded'));
-    for (const { match } of todayPicks) {
-      sportsEventLayerService.sharePrediction(eventId, match.matchId).catch(() => {});
-    }
-  }, [buildCanvas, imageFilename, todayPicks, eventId, t]);
+    recordShares();
+  }, [buildCanvas, imageFilename, recordShares, t]);
 
-  const handleWhatsApp = useCallback(async () => {
-    const text = buildWhatsAppText();
+  const handleShare = useCallback(async () => {
     const canvas = await buildCanvas();
+    const { title, url } = buildSharePayload();
+
+    try {
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (blob && typeof navigator !== 'undefined' && navigator.share) {
+        const file = new File([blob], imageFilename, { type: 'image/png' });
+        if (canShareWithFiles(file)) {
+          await navigator.share({ title, text: url, url, files: [file] });
+          recordShares();
+          return;
+        }
+        await navigator.share({ title, text: `${title}\n${url}`, url });
+        recordShares();
+        return;
+      }
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return;
+    }
+
     downloadCanvasImage(canvas, imageFilename);
-    const openWhatsApp = () => openWhatsAppWithText(text);
-    if (isMobileDevice()) {
-      window.setTimeout(openWhatsApp, 350);
-    } else {
-      openWhatsApp();
+    try {
+      await navigator.clipboard.writeText(`${title}\n${url}`);
+      setNotice(t('event_hub.share_fallback'));
+    } catch {
+      setNotice(t('event_hub.image_downloaded'));
     }
-    setNotice(t('event_hub.share_today_whatsapp_hint'));
-    for (const { match } of todayPicks) {
-      sportsEventLayerService.sharePrediction(eventId, match.matchId).catch(() => {});
-    }
-  }, [buildCanvas, buildWhatsAppText, imageFilename, todayPicks, eventId, t]);
+    recordShares();
+  }, [buildCanvas, buildSharePayload, imageFilename, recordShares, t]);
 
   if (!isAuthenticated) {
     return (
@@ -226,8 +240,8 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
       </Box>
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap className={styles.todayShareActions}>
-        <Button variant="contained" className={styles.ctaPrimary} onClick={handleWhatsApp}>
-          {t('event_hub.share_today_whatsapp')}
+        <Button variant="contained" className={styles.ctaPrimary} onClick={handleShare}>
+          {t('event_hub.share')}
         </Button>
         <Button variant="outlined" className={styles.ctaSecondary} onClick={handleDownload}>
           {t('event_hub.download_image')}
