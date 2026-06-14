@@ -570,6 +570,33 @@
     0 0 60px rgba(99, 102, 241, 0.12);
 }
 
+.todayShareCapture {
+  width: 100%;
+}
+
+.todayShareEventBadge {
+  margin: 0 0 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: rgba(251, 191, 36, 0.92);
+}
+
+.todayShareDate {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.todayShareFooter {
+  margin-top: 0.9rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(99, 102, 241, 0.28);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #818cf8;
+}
+
 .todayShareHeader {
   margin-bottom: 1rem;
 }

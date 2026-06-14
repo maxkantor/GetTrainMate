@@ -26,6 +26,7 @@ export const CountryFlag: React.FC<Props> = ({
         className={`${styles.flagImg} ${className}`.trim()}
         loading="lazy"
         decoding="async"
+        crossOrigin="anonymous"
       />
     );
   }

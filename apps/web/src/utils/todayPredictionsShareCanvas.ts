@@ -330,6 +330,15 @@ export async function renderTodayPicksCanvas(
   ctx.font = 'bold 32px Inter, system-ui, sans-serif';
   ctx.fillText(labels.footer, 96, footerY);
 
+  const finalHeight = Math.ceil(footerY + textLineHeight(ctx, 'bold 32px Inter, system-ui, sans-serif') + 56);
+  if (finalHeight < height) {
+    const trimmed = document.createElement('canvas');
+    trimmed.width = width;
+    trimmed.height = finalHeight;
+    trimmed.getContext('2d')!.drawImage(canvas, 0, 0, width, finalHeight, 0, 0, width, finalHeight);
+    return trimmed;
+  }
+
   return canvas;
 }
 
