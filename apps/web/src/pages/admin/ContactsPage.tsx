@@ -254,7 +254,12 @@ export const ContactsPage: React.FC = () => {
       </TableContainer>
 
       <Dialog open={contactDialogOpen} onClose={() => setContactDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{selectedContact?.name}</DialogTitle>
+        <DialogTitle>
+          {selectedContact?.name}
+          <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+            CRM v2
+          </Typography>
+        </DialogTitle>
         <DialogContent>
           <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
             <Tab label="Details" />
