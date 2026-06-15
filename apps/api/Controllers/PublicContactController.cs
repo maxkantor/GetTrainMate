@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Net;
 using Amazon.DynamoDBv2.DataModel;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
@@ -68,6 +69,36 @@ public class PublicContactController : ControllerBase
                 SoftDeleted = false,
             };
             await _db.SaveAsync(contact, cancellationToken);
+
+            var threadSubject = $"[GetTrainMate] Contact: {subject}";
+            var threadId = Guid.NewGuid().ToString();
+            var now = DateTime.UtcNow;
+            var thread = new ContactEmailThread
+            {
+                ContactId = contactId,
+                ThreadId = threadId,
+                Subject = threadSubject,
+                LastMessageAt = now,
+                LastFrom = email,
+                MessageCount = 1,
+                Status = "open",
+                Labels = new List<string> { "inbound", "website" },
+            };
+            await _db.SaveAsync(thread, cancellationToken);
+
+            var inbound = new ContactEmailMessage
+            {
+                ThreadId = threadId,
+                MessageId = $"{now:yyyy-MM-ddTHH:mm:ss.fffZ}#{Guid.NewGuid()}",
+                From = $"{name} <{email}>",
+                To = new List<string>(),
+                Subject = threadSubject,
+                BodyText = message,
+                BodyHtml = $"<p>{WebUtility.HtmlEncode(message).Replace("\n", "<br>", StringComparison.Ordinal)}</p>",
+                Direction = "inbound",
+                CreatedAt = now,
+            };
+            await _db.SaveAsync(inbound, cancellationToken);
         }
         catch (Exception ex)
         {

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
 using Amazon.DynamoDBv2.DataModel;
+using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -286,9 +287,16 @@ public class AdminContactsController : ControllerBase
     {
         try
         {
-            var threads = await _context.QueryAsync<ContactEmailThread>(contactId)
-                .GetRemainingAsync();
-            
+            var threads = (await _context.QueryAsync<ContactEmailThread>(contactId)
+                .GetRemainingAsync()).ToList();
+
+            if (threads.Count == 0)
+            {
+                var backfilled = await TryBackfillInboundThreadAsync(contactId);
+                if (backfilled != null)
+                    threads.Add(backfilled);
+            }
+
             return Ok(threads.OrderByDescending(t => t.LastMessageAt).ToList());
         }
         catch (Exception ex)
@@ -296,6 +304,50 @@ public class AdminContactsController : ControllerBase
             _logger.LogError(ex, "Error getting threads for contact {ContactId}", contactId);
             return StatusCode(500, new { error = "Failed to get threads" });
         }
+    }
+
+    /// <summary>Legacy contact-form rows stored message in Notes only — create a thread on first read.</summary>
+    private async Task<ContactEmailThread?> TryBackfillInboundThreadAsync(string contactId)
+    {
+        var contact = await _context.LoadAsync<Contact>(contactId);
+        if (contact == null || contact.SoftDeleted || string.IsNullOrWhiteSpace(contact.Notes))
+            return null;
+
+        var topic = contact.Tags?
+            .FirstOrDefault(t => !string.Equals(t, "website", StringComparison.OrdinalIgnoreCase))
+            ?? "general";
+        var threadSubject = $"[GetTrainMate] Contact: {topic}";
+        var threadId = Guid.NewGuid().ToString();
+        var created = contact.CreatedAt == default ? DateTime.UtcNow : contact.CreatedAt;
+
+        var thread = new ContactEmailThread
+        {
+            ContactId = contactId,
+            ThreadId = threadId,
+            Subject = threadSubject,
+            LastMessageAt = created,
+            LastFrom = contact.Email,
+            MessageCount = 1,
+            Status = "open",
+            Labels = new List<string> { "inbound", "website", "backfill" },
+        };
+
+        var inbound = new ContactEmailMessage
+        {
+            ThreadId = threadId,
+            MessageId = $"{created:yyyy-MM-ddTHH:mm:ss.fffZ}#{Guid.NewGuid()}",
+            From = $"{contact.Name} <{contact.Email}>",
+            To = new List<string>(),
+            Subject = threadSubject,
+            BodyText = contact.Notes.Trim(),
+            BodyHtml = $"<p>{WebUtility.HtmlEncode(contact.Notes.Trim()).Replace("\n", "<br>", StringComparison.Ordinal)}</p>",
+            Direction = "inbound",
+            CreatedAt = created,
+        };
+
+        await _context.SaveAsync(thread);
+        await _context.SaveAsync(inbound);
+        return thread;
     }
 
     /// <summary>

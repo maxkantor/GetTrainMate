@@ -169,3 +169,91 @@ export function normalizeAdminMetrics(raw: unknown): {
     recentActivity,
   };
 }
+
+export function normalizeContactDetail(raw: unknown): {
+  contactId: string;
+  name: string;
+  email: string;
+  phone?: string;
+  status: string;
+  tags: string[];
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+} {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const created = o.createdAt ?? o.CreatedAt;
+  const updated = o.updatedAt ?? o.UpdatedAt;
+  const notesRaw = o.notes ?? o.Notes;
+  const phoneRaw = o.phone ?? o.Phone;
+  return {
+    contactId: String(o.contactId ?? o.ContactId ?? ''),
+    name: String(o.name ?? o.Name ?? ''),
+    email: String(o.email ?? o.Email ?? ''),
+    phone: phoneRaw != null && String(phoneRaw).trim() ? String(phoneRaw).trim() : undefined,
+    status: String(o.status ?? o.Status ?? 'active'),
+    tags: pickStringList(o, 'tags', 'Tags'),
+    notes: notesRaw != null && String(notesRaw).trim() ? String(notesRaw).trim() : undefined,
+    createdAt:
+      created instanceof Date
+        ? created.toISOString()
+        : typeof created === 'string'
+          ? created
+          : new Date().toISOString(),
+    updatedAt:
+      updated instanceof Date
+        ? updated.toISOString()
+        : typeof updated === 'string'
+          ? updated
+          : undefined,
+  };
+}
+
+export function normalizeEmailThread(raw: unknown): {
+  threadId: string;
+  subject: string;
+  lastMessageAt: string;
+  lastFrom?: string;
+  messageCount: number;
+  status: string;
+} {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const last = o.lastMessageAt ?? o.LastMessageAt;
+  return {
+    threadId: String(o.threadId ?? o.ThreadId ?? ''),
+    subject: String(o.subject ?? o.Subject ?? ''),
+    lastMessageAt:
+      last instanceof Date ? last.toISOString() : String(last ?? new Date().toISOString()),
+    lastFrom: (o.lastFrom ?? o.LastFrom) != null ? String(o.lastFrom ?? o.LastFrom) : undefined,
+    messageCount: Number(o.messageCount ?? o.MessageCount ?? 0) || 0,
+    status: String(o.status ?? o.Status ?? 'open'),
+  };
+}
+
+export function normalizeEmailMessage(raw: unknown): {
+  messageId: string;
+  from: string;
+  subject: string;
+  bodyText: string;
+  bodyHtml?: string;
+  direction: string;
+  createdAt: string;
+} {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const created = o.createdAt ?? o.CreatedAt;
+  const html = o.bodyHtml ?? o.BodyHtml;
+  return {
+    messageId: String(o.messageId ?? o.MessageId ?? ''),
+    from: String(o.from ?? o.From ?? ''),
+    subject: String(o.subject ?? o.Subject ?? ''),
+    bodyText: String(o.bodyText ?? o.BodyText ?? ''),
+    bodyHtml: html != null && String(html).trim() ? String(html) : undefined,
+    direction: String(o.direction ?? o.Direction ?? 'outbound'),
+    createdAt:
+      created instanceof Date
+        ? created.toISOString()
+        : typeof created === 'string'
+          ? created
+          : new Date().toISOString(),
+  };
+}
