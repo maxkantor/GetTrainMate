@@ -26,28 +26,26 @@ async function tryShare(data: ShareData): Promise<ShareResult> {
 }
 
 /**
- * Native share that avoids WhatsApp duplicating links.
- * Never pass `url` alongside `text` when attaching files — WhatsApp emits extra bubbles.
+ * Native share sheet.
+ * When attaching an image, omit URL/text — the PNG already has branding + link.
+ * Including the URL makes SMS/iMessage/WhatsApp unfurl gettrainmate.com (duplicate OG previews).
  */
 export async function shareContent({ title, url, file }: ShareContent): Promise<ShareResult> {
   if (typeof navigator === 'undefined' || !navigator.share) return 'unsupported';
 
-  const caption = `${title}\n${url}`;
-
   if (file) {
-    const withCaption: ShareData = { files: [file], text: caption };
-    if (canShareData(withCaption)) {
-      const result = await tryShare(withCaption);
-      if (result !== 'unsupported') return result;
-    }
-
-    const imageOnly: ShareData = { files: [file] };
-    if (canShareData(imageOnly)) {
-      const result = await tryShare(imageOnly);
+    const imagePayloads: ShareData[] = [
+      { files: [file], title },
+      { files: [file] },
+    ];
+    for (const data of imagePayloads) {
+      if (!canShareData(data)) continue;
+      const result = await tryShare(data);
       if (result !== 'unsupported') return result;
     }
   }
 
+  const caption = `${title}\n${url}`;
   const textPayload: ShareData = { title, text: caption };
   if (canShareData(textPayload)) {
     const result = await tryShare(textPayload);

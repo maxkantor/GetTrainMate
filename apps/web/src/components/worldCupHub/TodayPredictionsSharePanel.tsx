@@ -212,24 +212,22 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
   return (
     <Box className={styles.todaySharePanel}>
       <Box className={styles.todayShareHeader}>
-        <WcTrophyLogo size="md" glow />
-        <Box className={styles.todayShareIdentity}>
-          <Avatar
-            src={profilePhotoUrl ?? undefined}
-            alt={fanName}
-            className={styles.todayShareAvatar}
-          >
-            {fanName.charAt(0).toUpperCase()}
-          </Avatar>
-          <Box>
-            <Typography className={styles.todayShareTitle}>
-              {formatI18n(t(titleKey), { name: fanName })}
-            </Typography>
-            <Typography className={styles.todayShareLead}>
-              {formatI18n(t(leadKey), { count: sharePicks.length })}
-            </Typography>
-          </Box>
+        <WcTrophyLogo size="sm" glow className={styles.todayShareHeaderTrophy} />
+        <Box className={styles.todayShareHeaderBody}>
+          <Typography className={styles.todayShareTitle}>
+            {formatI18n(t(titleKey), { name: fanName })}
+          </Typography>
+          <Typography className={styles.todayShareLead}>
+            {formatI18n(t(leadKey), { count: sharePicks.length })}
+          </Typography>
         </Box>
+        <Avatar
+          src={profilePhotoUrl ?? undefined}
+          alt={fanName}
+          className={styles.todayShareAvatar}
+        >
+          {fanName.charAt(0).toUpperCase()}
+        </Avatar>
       </Box>
 
       <Box className={styles.todaySharePreview}>

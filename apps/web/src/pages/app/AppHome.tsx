@@ -264,12 +264,17 @@ export const AppHomePage: React.FC = () => {
           {formatI18n(t('app_pages.home.free_connections'), { count: credits })}
         </Typography>
       </Tooltip>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {featuredEvent?.eventId === 'world-cup-2026'
-          ? `🏆 ${t('event_hub.home_wc_connect')}`
-          : featuredEvent
-            ? `Perfect for connecting during ${featuredEvent.label}`
-            : 'Start connecting now'}
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+        {featuredEvent?.eventId === 'world-cup-2026' ? (
+          <>
+            <WcTrophyLogo size="nav" />
+            <span>{t('event_hub.home_wc_connect')}</span>
+          </>
+        ) : featuredEvent ? (
+          `Perfect for connecting during ${featuredEvent.label}`
+        ) : (
+          'Start connecting now'
+        )}
       </Typography>
       {!needsQuickSetup ? (
         <Typography
