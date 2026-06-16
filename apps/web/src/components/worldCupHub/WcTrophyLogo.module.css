@@ -1,0 +1,89 @@
+.root {
+  display: inline-block;
+  flex-shrink: 0;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.img {
+  display: block;
+  width: auto;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.45));
+  transition: transform 0.25s ease, filter 0.25s ease;
+}
+
+.nav {
+  height: 22px;
+}
+
+.sm {
+  height: 32px;
+}
+
+.md {
+  height: 48px;
+}
+
+.hero {
+  height: 60px;
+}
+
+.lg {
+  height: 88px;
+}
+
+.xl {
+  height: 120px;
+}
+
+.glow::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.35) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.glow {
+  position: relative;
+}
+
+.hoverable:hover .img {
+  transform: scale(1.06) translateY(-1px);
+  filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.7));
+}
+
+.spin .img {
+  animation: wcTrophySpin 2.4s linear infinite;
+}
+
+@keyframes wcTrophySpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.faded {
+  opacity: 0.22;
+  filter: grayscale(0.15) drop-shadow(0 0 20px rgba(251, 191, 36, 0.15));
+}
+
+.podiumGold .img {
+  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.85));
+}
+
+.podiumSilver .img {
+  filter: drop-shadow(0 0 8px rgba(192, 192, 192, 0.75));
+}
+
+.podiumBronze .img {
+  filter: drop-shadow(0 0 8px rgba(205, 127, 50, 0.75));
+}
+
+@media (min-width: 768px) {
+  .hero {
+    height: 100px;
+  }
+}

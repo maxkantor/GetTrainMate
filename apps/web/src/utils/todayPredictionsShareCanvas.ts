@@ -1,4 +1,5 @@
 import { loadFlagImageMap } from '@/utils/teamFlags';
+import { loadWcTrophyImage } from '@/utils/wcTrophyAsset';
 
 export type TodayPickRow = {
   teamAId: string;
@@ -14,6 +15,7 @@ export type TodayPicksCanvasLabels = {
   subtitle: string;
   picksHeading: string;
   footer: string;
+  footerMadeOn?: string;
 };
 
 function roundRect(
@@ -217,8 +219,8 @@ export async function renderTodayPicksCanvas(
   avatarImg?: HTMLImageElement | null,
 ): Promise<HTMLCanvasElement> {
   const width = 1080;
-  const headerHeight = 400;
-  const footerSpace = 120;
+  const headerHeight = 460;
+  const footerSpace = 140;
   const cardPadX = 108;
   const layout = layoutForPickCount(picks.length);
 
@@ -245,6 +247,7 @@ export async function renderTodayPicksCanvas(
     picks.flatMap((p) => [p.teamAId, p.teamBId]),
     40,
   );
+  const trophyImg = await loadWcTrophyImage();
 
   const bg = ctx.createLinearGradient(0, 0, width, height);
   bg.addColorStop(0, '#030712');
@@ -265,36 +268,48 @@ export async function renderTodayPicksCanvas(
   roundRect(ctx, 48, 48, width - 96, height - 96, 36);
   ctx.stroke();
 
-  ctx.fillStyle = 'rgba(251, 191, 36, 0.9)';
-  ctx.font = 'bold 28px Inter, system-ui, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(labels.eventTitle.toUpperCase(), 96, 108);
+  if (trophyImg) {
+    const trophyH = 96;
+    const trophyW = trophyH * (trophyImg.width / trophyImg.height);
+    const trophyX = (width - trophyW) / 2;
+    ctx.save();
+    ctx.shadowColor = 'rgba(251, 191, 36, 0.65)';
+    ctx.shadowBlur = 28;
+    ctx.drawImage(trophyImg, trophyX, 72, trophyW, trophyH);
+    ctx.restore();
+  }
 
-  const avatarRadius = 54;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(251, 191, 36, 0.95)';
+  ctx.font = 'bold 30px Inter, system-ui, sans-serif';
+  ctx.fillText(labels.eventTitle.toUpperCase(), width / 2, 200);
+
+  const avatarRadius = 48;
   const avatarCx = 96 + avatarRadius;
-  const avatarCy = 200;
+  const avatarCy = 292;
   drawAvatar(ctx, fanName, avatarImg ?? null, avatarCx, avatarCy, avatarRadius);
 
-  const textX = avatarCx + avatarRadius + 36;
+  const textX = avatarCx + avatarRadius + 32;
   const nameLine = fanName.trim() || 'Fan';
 
+  ctx.textAlign = 'left';
   ctx.fillStyle = '#f8fafc';
-  ctx.font = 'bold 52px Inter, system-ui, sans-serif';
-  ctx.fillText(nameLine.length > 14 ? `${nameLine.slice(0, 13)}…` : nameLine, textX, 178);
+  ctx.font = 'bold 48px Inter, system-ui, sans-serif';
+  ctx.fillText(nameLine.length > 14 ? `${nameLine.slice(0, 13)}…` : nameLine, textX, 272);
 
   ctx.fillStyle = 'rgba(167, 139, 250, 0.95)';
-  ctx.font = '600 32px Inter, system-ui, sans-serif';
-  ctx.fillText(labels.subtitle, textX, 228);
+  ctx.font = '600 30px Inter, system-ui, sans-serif';
+  ctx.fillText(labels.picksHeading, textX, 318);
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-  ctx.font = '500 26px Inter, system-ui, sans-serif';
-  ctx.fillText(dateLabel, textX, 268);
+  ctx.font = '500 24px Inter, system-ui, sans-serif';
+  ctx.fillText(dateLabel, textX, 354);
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-  ctx.font = 'bold 26px Inter, system-ui, sans-serif';
-  ctx.fillText(labels.picksHeading.toUpperCase(), 96, 330);
+  ctx.font = 'bold 24px Inter, system-ui, sans-serif';
+  ctx.fillText(labels.subtitle.toUpperCase(), 96, 392);
 
-  let y = 360;
+  let y = 420;
   for (const pick of picks) {
     const cardHeight = pickCardHeight(pick, layout);
 
@@ -326,9 +341,14 @@ export async function renderTodayPicksCanvas(
   }
 
   const footerY = y - (picks.length > 0 ? cardGap : 0) + 48;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#a78bfa';
+  ctx.font = '600 28px Inter, system-ui, sans-serif';
+  ctx.fillText(labels.footerMadeOn ?? 'Made on GetTrainMate', 96, footerY);
+
   ctx.fillStyle = '#6366f1';
-  ctx.font = 'bold 32px Inter, system-ui, sans-serif';
-  ctx.fillText(labels.footer, 96, footerY);
+  ctx.font = 'bold 30px Inter, system-ui, sans-serif';
+  ctx.fillText(labels.footer, 96, footerY + 42);
 
   const finalHeight = Math.ceil(footerY + textLineHeight(ctx, 'bold 32px Inter, system-ui, sans-serif') + 56);
   if (finalHeight < height) {

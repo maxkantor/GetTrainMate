@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Avatar, Box, Button, CircularProgress, Snackbar, Stack, Typography } from '@mui/material';
+import { Avatar, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
+import { WcToast } from '@/components/worldCupHub/WcToast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
 import { useMe } from '@/hooks/useMe';
@@ -24,6 +25,7 @@ import {
   type TodaySharePick,
 } from '@/utils/todaySharePicks';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
+import { WcTrophyLogo } from '@/components/worldCupHub/WcTrophyLogo';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type ShareVariant = 'today' | 'upcoming';
@@ -123,7 +125,8 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
           ? t('event_hub.share_upcoming_subtitle')
           : t('event_hub.share_today_subtitle'),
         picksHeading: t('event_hub.share_today_picks_heading'),
-        footer: `${t('event_hub.share_card_footer')} · ${shareLinkLabel}`,
+        footer: shareLinkLabel,
+        footerMadeOn: t('event_hub.share_card_footer'),
       },
       avatarImg,
     );
@@ -209,6 +212,7 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
   return (
     <Box className={styles.todaySharePanel}>
       <Box className={styles.todayShareHeader}>
+        <WcTrophyLogo size="md" glow />
         <Box className={styles.todayShareIdentity}>
           <Avatar
             src={profilePhotoUrl ?? undefined}
@@ -265,16 +269,7 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
         </Button>
       </Stack>
 
-      <Snackbar
-        open={!!notice}
-        autoHideDuration={4000}
-        onClose={() => setNotice(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="success" onClose={() => setNotice(null)} sx={{ width: '100%' }}>
-          {notice}
-        </Alert>
-      </Snackbar>
+      <WcToast open={!!notice} message={notice} onClose={() => setNotice(null)} />
     </Box>
   );
 };

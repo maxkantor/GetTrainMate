@@ -6,6 +6,8 @@ import { useWcDisplay } from '@/hooks/useWcDisplay';
 import type { EventHubSnapshot, PublicFanPick } from '@/services/sportsEventLayerService';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import { WcTeamLabel } from '@/components/worldCupHub/WcTeamLabel';
+import { WcFanBadge } from '@/components/worldCupHub/WcFanBadge';
+import { WcEmptyState } from '@/components/worldCupHub/WcEmptyState';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
@@ -177,9 +179,7 @@ export const WcFanPickFeed: React.FC<Props> = ({
       )}
 
       {picks.length === 0 ? (
-        <Box className={styles.emptyPremium}>
-          <Typography className={styles.emptyTitle}>{t('event_hub.no_fan_picks')}</Typography>
-        </Box>
+        <WcEmptyState title={t('event_hub.no_fan_picks')} />
       ) : (
         <Box className={styles.fanPickList}>
           {picks.map((pick, idx) => (
@@ -190,6 +190,7 @@ export const WcFanPickFeed: React.FC<Props> = ({
                   <Typography className={styles.fanPickName}>
                     {pick.userDisplayName ?? t('event_hub.fan')}
                   </Typography>
+                  <WcFanBadge kind="fan" />
                   {pick.matchLabel && !matchId && (
                     <Typography className={styles.fanPickMeta}>{pick.matchLabel}</Typography>
                   )}

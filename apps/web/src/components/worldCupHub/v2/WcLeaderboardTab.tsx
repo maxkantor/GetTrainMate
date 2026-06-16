@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import {
@@ -9,13 +8,19 @@ import {
   type EventLeaderboardEntry,
 } from '@/services/sportsEventLayerService';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
+import { WcSectionTitle } from '@/components/worldCupHub/WcSectionTitle';
+import { WcEmptyState } from '@/components/worldCupHub/WcEmptyState';
+import { WcTrophyLogo } from '@/components/worldCupHub/WcTrophyLogo';
+import { WcFanBadge } from '@/components/worldCupHub/WcFanBadge';
+import { resolveWcFanBadge } from '@/utils/wcFanBadges';
 import type { WcHubProps } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
+import { useQuery } from '@tanstack/react-query';
 
 type Props = Pick<WcHubProps, 'eventId'> & { hub: EventHubSnapshot };
 type LbType = 'predictors' | 'active' | 'shared';
 
-const MEDALS = ['🥇', '🥈', '🥉'];
+const PODIUM_TROPHY: Array<'gold' | 'silver' | 'bronze'> = ['gold', 'silver', 'bronze'];
 
 const initials = (name: string) =>
   name
@@ -44,9 +49,14 @@ export const WcLeaderboardTab: React.FC<Props> = ({ eventId }) => {
   const podium = entries.slice(0, 3);
   const rest = entries.slice(3);
 
+  const renderFanBadge = (e: EventLeaderboardEntry, rank: number) => {
+    const kind = resolveWcFanBadge(e.predictionsCount, rank);
+    return kind ? <WcFanBadge kind={kind} /> : null;
+  };
+
   return (
     <Box className={styles.tabPanel}>
-      <Typography className={styles.sectionTitle}>{t('event_hub.leaderboard_title')}</Typography>
+      <WcSectionTitle>{t('event_hub.leaderboard_title')}</WcSectionTitle>
       <Typography className={styles.sectionLead}>{t('event_hub.leaderboard_lead_v2')}</Typography>
 
       <Box className={styles.subTabs} sx={{ mb: 2 }}>
@@ -62,9 +72,7 @@ export const WcLeaderboardTab: React.FC<Props> = ({ eventId }) => {
       </Box>
 
       {entries.length === 0 ? (
-        <Box className={styles.emptyPremium}>
-          <Typography className={styles.emptyTitle}>{t('event_hub.no_leaderboard')}</Typography>
-        </Box>
+        <WcEmptyState title={t('event_hub.no_leaderboard')} />
       ) : (
         <>
           {lbType === 'predictors' && (
@@ -74,7 +82,7 @@ export const WcLeaderboardTab: React.FC<Props> = ({ eventId }) => {
                   key={e.userId}
                   className={`${styles.lbPodiumCard} ${i === 0 ? styles.lbPodiumGold : i === 1 ? styles.lbPodiumSilver : styles.lbPodiumBronze} ${e.userId === myUserId ? styles.lbMine : ''}`}
                 >
-                  <span className={styles.lbMedal}>{MEDALS[i]}</span>
+                  <WcTrophyLogo size="md" podium={PODIUM_TROPHY[i]} className={styles.lbMedal} />
                   <Box className={styles.lbAvatar}>{initials(name(e))}</Box>
                   <Typography className={styles.lbPodiumName}>
                     {name(e)}
@@ -83,6 +91,7 @@ export const WcLeaderboardTab: React.FC<Props> = ({ eventId }) => {
                     )}
                     {e.userId === myUserId && <span className={styles.lbYouTag}>{t('event_hub.lb_you')}</span>}
                   </Typography>
+                  {renderFanBadge(e, i + 1)}
                   <Typography className={styles.lbPodiumPts}>
                     {e.score} <small>{t('event_hub.col_points').toLowerCase()}</small>
                   </Typography>

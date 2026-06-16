@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Box } from '@mui/material';
+import { WcLoadingSpinner } from '@/components/worldCupHub/WcLoadingSpinner';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useI18n } from '@/hooks/useI18n';
@@ -37,7 +37,7 @@ export const EventHubPage: React.FC<{ eventId?: string }> = ({ eventId = WORLD_C
   }, [hub]);
 
   if (isLoading) {
-    return <Box sx={{ py: 8, textAlign: 'center', bgcolor: '#02040a', color: '#fff', minHeight: '60vh' }}>{t('common.loading')}</Box>;
+    return <WcLoadingSpinner label={t('common.loading')} />;
   }
 
   if (isError || !hub || !hub.effectivelyEnabled) {

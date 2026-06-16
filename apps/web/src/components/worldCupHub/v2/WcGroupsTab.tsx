@@ -7,6 +7,8 @@ import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { formatI18n } from '@/i18n';
 import type { EventGroup, EventTeam } from '@/services/sportsEventLayerService';
 import { computeStandingsFromMatches } from '@/utils/eventMatchUtils';
+import { WcSectionTitle } from '@/components/worldCupHub/WcSectionTitle';
+import { WcEmptyState } from '@/components/worldCupHub/WcEmptyState';
 import type { WcHubProps } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -132,11 +134,8 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
   if (!enabled && !hasData && teams.length === 0) {
     return (
       <Box className={styles.tabPanel}>
-        <Typography className={styles.sectionTitle}>{t('event_hub.groups_title')}</Typography>
-        <Box className={styles.emptyPremium}>
-          <Typography className={styles.emptyTitle}>{t('event_hub.standings_coming_soon')}</Typography>
-          <Typography className={styles.emptyDesc}>{t('event_hub.standings_admin_only')}</Typography>
-        </Box>
+        <WcSectionTitle>{t('event_hub.groups_title')}</WcSectionTitle>
+        <WcEmptyState title={t('event_hub.standings_coming_soon')} description={t('event_hub.standings_admin_only')} />
       </Box>
     );
   }
@@ -144,7 +143,7 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
   return (
     <Box className={styles.tabPanel}>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mb: 1 }}>
-        <Typography className={styles.sectionTitle} sx={{ mb: 0 }}>{t('event_hub.groups_title')}</Typography>
+        <WcSectionTitle className={styles.groupsTitleRow}>{t('event_hub.groups_title')}</WcSectionTitle>
         {hasData && (
           <Box className={styles.viewToggle}>
             <button type="button" className={`${styles.subTab} ${view === 'table' ? styles.subTabActive : ''}`} onClick={() => setView('table')}>
@@ -159,10 +158,10 @@ export const WcGroupsTab: React.FC<Props> = ({ hub, onTeamPage }) => {
       <Typography className={styles.sectionLead}>{t('event_hub.groups_lead')}</Typography>
 
       {!canShowStandings ? (
-        <Box className={styles.emptyPremium}>
-          <Typography className={styles.emptyTitle}>{t('event_hub.standings_not_published')}</Typography>
-          <Typography className={styles.emptyDesc}>{t('event_hub.standings_wait')}</Typography>
-        </Box>
+        <WcEmptyState
+          title={t('event_hub.standings_not_published')}
+          description={t('event_hub.standings_wait')}
+        />
       ) : (
         <Box className={styles.groupsGrid}>
           {groups

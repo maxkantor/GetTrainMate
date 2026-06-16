@@ -12,6 +12,8 @@ interface HeaderNavLinkProps {
   /** Unread count badge (e.g. chat). */
   badgeCount?: number;
   onClick?: React.MouseEventHandler<HTMLAnchorElement>;
+  /** Premium World Cup nav styling — trophy ecosystem only. */
+  accent?: 'worldCup';
 }
 
 export const HeaderNavLink: React.FC<HeaderNavLinkProps> = ({
@@ -22,6 +24,7 @@ export const HeaderNavLink: React.FC<HeaderNavLinkProps> = ({
   alsoActiveOnPaths,
   badgeCount,
   onClick,
+  accent,
 }) => {
   const location = useLocation();
   const resolved = useResolvedPath(to);
@@ -42,9 +45,16 @@ export const HeaderNavLink: React.FC<HeaderNavLinkProps> = ({
       to={to}
       end={exact}
       onClick={handleClick}
-      className={({ isActive }) =>
-        `${styles.headerNavLink} ${isActive || extraActive ? styles.headerNavLinkActive : ''}`
-      }
+      className={({ isActive }) => {
+        const active = isActive || extraActive;
+        const parts = [styles.headerNavLink];
+        if (accent === 'worldCup') parts.push(styles.headerNavLinkWorldCup);
+        if (active) {
+          parts.push(styles.headerNavLinkActive);
+          if (accent === 'worldCup') parts.push(styles.headerNavLinkWorldCupActive);
+        }
+        return parts.join(' ');
+      }}
     >
       {icon != null && <span className={styles.headerNavLinkIcon} aria-hidden>{icon}</span>}
       <span className={styles.headerNavLinkLabel}>{label}</span>

@@ -9,6 +9,7 @@ import { useMe } from '@/hooks/useMe';
 import { analytics } from '@/utils/analytics';
 import { LanguageDropdown } from '@/components/layout/LanguageDropdown';
 import { HeaderNavLink } from './HeaderNavLink';
+import { WcTrophyLogo } from '@/components/worldCupHub/WcTrophyLogo';
 import { useMatchStatusForHeader } from '@/hooks/useMatchStatusForHeader';
 import { DAILY_LIKE_LIMIT } from '@/config/appLimits';
 import { useChatUnreadCount } from '@/hooks/useChatUnreadCount';
@@ -120,6 +121,7 @@ export const AppHeader: React.FC = () => {
     label: string;
     href: string;
     icon?: string;
+    worldCup?: boolean;
     exact?: boolean;
     alsoActiveOnPaths?: string[];
   }[] = useMemo(() => {
@@ -127,6 +129,7 @@ export const AppHeader: React.FC = () => {
       label: string;
       href: string;
       icon?: string;
+      worldCup?: boolean;
       exact?: boolean;
       alsoActiveOnPaths?: string[];
     }[] = [
@@ -146,7 +149,7 @@ export const AppHeader: React.FC = () => {
       { label: t('nav.ai_coach'), href: '/app/ai-coach' }
     );
     if (showWorldCupNav) {
-      items.push({ label: t('event_hub.nav_label'), href: hubRoute, icon: '⚽' });
+      items.push({ label: t('event_hub.nav_label'), href: hubRoute, worldCup: true });
     }
     return items;
   }, [me?.profile, t, showWorldCupNav, hubRoute]);
@@ -213,7 +216,13 @@ export const AppHeader: React.FC = () => {
               </a>
               <HeaderNavLink to="/pricing" label={t('header.pricing')} icon="💰" exact />
               {showWorldCupNav && (
-                <HeaderNavLink to={hubRoute} label={t('event_hub.nav_label')} icon="⚽" exact />
+                <HeaderNavLink
+                  to={hubRoute}
+                  label={t('event_hub.nav_label')}
+                  icon={<WcTrophyLogo size="nav" hoverable />}
+                  accent="worldCup"
+                  exact
+                />
               )}
             </nav>
 
@@ -260,7 +269,8 @@ export const AppHeader: React.FC = () => {
                     key={item.href}
                     to={item.href}
                     label={item.label}
-                    icon={item.icon}
+                    icon={item.worldCup ? <WcTrophyLogo size="nav" hoverable /> : item.icon}
+                    accent={item.worldCup ? 'worldCup' : undefined}
                     exact={item.exact ?? false}
                     alsoActiveOnPaths={item.alsoActiveOnPaths}
                     badgeCount={item.href === '/app/chat' ? chatUnread : undefined}
@@ -413,8 +423,8 @@ export const AppHeader: React.FC = () => {
                     💰 {t('header.pricing')}
                   </SamePathScrollLink>
                   {showWorldCupNav && (
-                    <RouterLink to={hubRoute} className={styles.mobileLink} onClick={() => setMobileOpen(false)}>
-                      ⚽ {t('event_hub.nav_label')}
+                    <RouterLink to={hubRoute} className={`${styles.mobileLink} ${styles.mobileLinkWorldCup}`} onClick={() => setMobileOpen(false)}>
+                      <WcTrophyLogo size="nav" /> {t('event_hub.nav_label')}
                     </RouterLink>
                   )}
                 </>
@@ -423,19 +433,19 @@ export const AppHeader: React.FC = () => {
                   {centerStatus ? (
                     <div className={styles.mobileStatus}>{centerStatus}</div>
                   ) : null}
-                  {navItems.map(({ label, href, icon, exact, alsoActiveOnPaths }) => {
+                  {navItems.map(({ label, href, icon, worldCup, exact, alsoActiveOnPaths }) => {
                     const navActive = isAppNavItemActive(location.pathname, href, { exact, alsoActiveOnPaths });
                     return (
                       <RouterLink
                         key={href}
                         to={href}
-                        className={`${styles.mobileLink} ${navActive ? styles.mobileLinkActive : ''}`}
+                        className={`${styles.mobileLink} ${navActive ? styles.mobileLinkActive : ''} ${worldCup ? styles.mobileLinkWorldCup : ''}`}
                         onClick={() => {
                           setMobileOpen(false);
                           if (href === '/app/chat') requestChatNavScrollTop();
                         }}
                       >
-                        {icon ? `${icon} ` : ''}{label}
+                        {worldCup ? <><WcTrophyLogo size="nav" /> {label}</> : `${icon ? `${icon} ` : ''}${label}`}
                       </RouterLink>
                     );
                   })}

@@ -240,6 +240,9 @@
 }
 
 .heroEyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.2em;
@@ -598,6 +601,9 @@
 }
 
 .todayShareHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
   margin-bottom: 1rem;
 }
 
@@ -1525,6 +1531,143 @@
   color: rgba(255, 255, 255, 0.5);
   max-width: 28rem;
   margin: 0 auto;
+}
+
+.emptyPremium > :first-child {
+  margin-bottom: 1rem;
+}
+
+/* ── World Cup branding ── */
+.wcPageHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding: 1rem 0 0.25rem;
+}
+
+.wcPageHeaderCompact {
+  margin-bottom: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.wcPageHeaderTitle {
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  background: linear-gradient(135deg, #fff 20%, #fde68a 55%, #fbbf24 90%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.wcPageHeaderTagline {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(251, 191, 36, 0.85);
+  margin-top: 0.2rem;
+}
+
+.wcSectionTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.wcLoadingWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: #02040a;
+  color: #fff;
+  text-align: center;
+  padding: 2rem;
+}
+
+.wcLoadingLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.04em;
+}
+
+.wcFanBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem 0.2rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.wcFanBadgeText {
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.03em;
+  color: #fde68a !important;
+}
+
+.wcToast :global(.MuiAlert-icon) {
+  margin-right: 0.35rem;
+  padding: 0;
+  align-items: center;
+}
+
+.groupsTitleRow {
+  margin-bottom: 0 !important;
+}
+
+.heroTrophyWrap {
+  margin-bottom: 1rem;
+}
+
+.ctaPrimaryGold {
+  background: linear-gradient(135deg, #ffe9a3, #f5d061 45%, #dfb544) !important;
+  color: #181000 !important;
+  font-weight: 800 !important;
+  border-radius: 12px !important;
+  text-transform: none !important;
+  box-shadow: 0 8px 28px rgba(245, 208, 97, 0.35) !important;
+  padding: 0.65rem 1.5rem !important;
+}
+
+.ctaPrimaryGold:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 10px 32px rgba(245, 208, 97, 0.45) !important;
+}
+
+.ctaWithTrophy {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.dashboardPromoTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 800;
+}
+
+.dashboardPromoGlow {
+  position: relative;
+  display: inline-flex;
+  padding: 0.15rem;
+}
+
+.dashboardPromoGlow::before {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.4), transparent 70%);
+  pointer-events: none;
 }
 
 /* ── Overview grid ── */

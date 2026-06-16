@@ -13,6 +13,7 @@ import {
 } from '@/services/sportsEventLayerService';
 import { arePredictionsOpen } from '@/utils/eventMatchUtils';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
+import { WcTrophyLogo } from '@/components/worldCupHub/WcTrophyLogo';
 import { trackEvent } from '@/utils/analytics';
 import { compareMatchesChronological, computeStandingsFromMatches } from '@/utils/eventMatchUtils';
 import { normalizePublicAssetUrl } from '@/utils/publicAssetUrl';
@@ -143,8 +144,20 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
         >
           <span className={styles.kicker}>
             <span className={styles.kickerDot} aria-hidden />
-            {event.icon} {isWorldCup ? `${t('event_hub.nav_label')} · ${t('event_hub.promo_kicker')}` : (resolveEventCopy(event, locale, 'label') ?? event.label)}
+            {isWorldCup ? (
+              <>
+                <WcTrophyLogo size="nav" glow />
+                {t('event_hub.nav_label')} · {t('event_hub.promo_kicker')}
+              </>
+            ) : (
+              <>{event.icon} {resolveEventCopy(event, locale, 'label') ?? event.label}</>
+            )}
           </span>
+          {isWorldCup && (
+            <div className={styles.promoTrophyHero} aria-hidden>
+              <WcTrophyLogo size="hero" glow hoverable />
+            </div>
+          )}
           <h2 className={styles.title}>{title}</h2>
           <p className={styles.copy}>{copy}</p>
 
@@ -160,6 +173,7 @@ export const EventPromoSection: React.FC<EventPromoSectionProps> = ({ event }) =
 
           <div className={styles.ctas}>
             <Link to={hubLink} className={styles.btnPrimary} onClick={onPrimaryClick}>
+              {isWorldCup && <WcTrophyLogo size="nav" />}
               {resolveEventCopy(event, locale, 'homepageCtaPrimary')
                 ?? resolveEventCopy(event, locale, 'ctaLabel')
                 ?? t('event_hub.cta_predict')}

@@ -28,6 +28,8 @@ import { matchQueryKeys } from '@/lib/queryKeys';
 import { fetchSentRequestsForUser, fetchSkippedProfilesForUser } from '@/services/matchExploreQueries';
 import { DashboardQuickSetup } from '@/components/dashboard/DashboardQuickSetup';
 import { DashboardStatCards } from '@/components/dashboard/DashboardStatCards';
+import { WcTrophyLogo } from '@/components/worldCupHub/WcTrophyLogo';
+import wcStyles from '@/pages/WorldCupV2.module.css';
 import {
   consumePostVerifyWelcome,
   peekNewUserDashboardGreeting,
@@ -263,7 +265,11 @@ export const AppHomePage: React.FC = () => {
         </Typography>
       </Tooltip>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {featuredEvent ? `Perfect for connecting during ${featuredEvent.label}` : 'Start connecting now'}
+        {featuredEvent?.eventId === 'world-cup-2026'
+          ? `🏆 ${t('event_hub.home_wc_connect')}`
+          : featuredEvent
+            ? `Perfect for connecting during ${featuredEvent.label}`
+            : 'Start connecting now'}
       </Typography>
       {!needsQuickSetup ? (
         <Typography
@@ -346,8 +352,10 @@ export const AppHomePage: React.FC = () => {
           }}
         >
           <Box sx={{ p: { xs: 2, sm: 2.5 } }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-              {featuredEvent.icon}{' '}
+            <Typography variant="subtitle1" className={wcStyles.dashboardPromoTitle}>
+              <span className={wcStyles.dashboardPromoGlow}>
+                <WcTrophyLogo size="sm" glow />
+              </span>
               {featuredEvent.eventId === 'world-cup-2026' ? t('event_hub.promo_home_title') : featuredEvent.label}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
@@ -361,6 +369,7 @@ export const AppHomePage: React.FC = () => {
                 to={`${featuredEvent.hubRoute?.trim() || '/world-cup'}#predictions`}
                 variant="contained"
                 size="small"
+                className={wcStyles.ctaWithTrophy}
                 onClick={() =>
                   trackEvent('event_banner_click', {
                     eventId: featuredEvent.eventId,
@@ -377,7 +386,8 @@ export const AppHomePage: React.FC = () => {
                   '&:hover': { background: 'linear-gradient(135deg, #ffe9a3, #f5d061 45%, #dfb544)', filter: 'brightness(1.05)' },
                 }}
               >
-                ⚽ {t('event_hub.cta_predict')}
+                <WcTrophyLogo size="nav" />
+                {t('event_hub.cta_predict')}
               </Button>
               <Button
                 component={RouterLink}

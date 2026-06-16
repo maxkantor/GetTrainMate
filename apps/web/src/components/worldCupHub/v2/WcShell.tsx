@@ -10,6 +10,7 @@ import { WcLeaderboardTab } from './WcLeaderboardTab';
 import { WcFansTab } from './WcFansTab';
 import { WcMyPicksTab } from './WcMyPicksTab';
 import { WcAuthGateModal } from '@/components/worldCupHub/WcAuthGateModal';
+import { WcPageHeader } from '@/components/worldCupHub/WcPageHeader';
 import { WcCinematicBackdrop } from './WcCinematicBackdrop';
 import type { EventHubSnapshot } from '@/services/sportsEventLayerService';
 import { parseWcTab, type WcTab } from './wcTypes';
@@ -75,6 +76,7 @@ export const WcShell: React.FC<Props> = ({
       <WcNav active={tab} settings={liveHub.settings} onChange={goTab} />
 
       <Box className={styles.body}>
+        {tab !== 'overview' && <WcPageHeader compact />}
         {tab === 'overview' && <WcOverviewTab {...hubProps} />}
         {tab === 'groups' && <WcGroupsTab hub={liveHub} onTeamPage={onTeamPage} />}
         {tab === 'matches' && (

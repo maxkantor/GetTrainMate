@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { TodayPredictionsSharePanel } from '@/components/worldCupHub/TodayPredictionsSharePanel';
 import { categorizeMatches } from '@/utils/eventMatchUtils';
+import { WcEmptyState } from '@/components/worldCupHub/WcEmptyState';
 import type { WcHubProps } from './wcTypes';
 import { WcMatchCard } from './WcMatchCard';
 import styles from '@/pages/WorldCupV2.module.css';
@@ -54,10 +55,10 @@ export const WcMatchesTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
       )}
 
       {active.length === 0 ? (
-        <Box className={styles.emptyPremium}>
-          <Typography className={styles.emptyTitle}>{t('event_hub.matches_coming_soon')}</Typography>
-          <Typography className={styles.emptyDesc}>{t('event_hub.matches_coming_soon_desc')}</Typography>
-        </Box>
+        <WcEmptyState
+          title={t('event_hub.matches_coming_soon')}
+          description={t('event_hub.matches_coming_soon_desc')}
+        />
       ) : (
         <Box className={styles.matchGrid}>
           {active.map((m) => (

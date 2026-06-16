@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useI18n } from '@/hooks/useI18n';
 import { WC_BACKDROP_IMAGES } from '@/config/worldCupMedia';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
+import { WcTrophyLogo } from '@/components/worldCupHub/WcTrophyLogo';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = {
@@ -46,7 +47,12 @@ export const WcHeroV2: React.FC<Props> = ({ eventId, onPredict, onViewGroups }) 
       <Box className={styles.heroGrain} aria-hidden />
       <Box className={styles.heroInner}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <Typography className={styles.heroEyebrow}>⚽ {t('event_hub.hero_eyebrow')}</Typography>
+          <Box className={styles.heroTrophyWrap}>
+            <WcTrophyLogo size="hero" glow hoverable />
+          </Box>
+          <Typography className={styles.heroEyebrow}>
+            {t('event_hub.hero_eyebrow')}
+          </Typography>
           <Typography component="h1" className={styles.heroHeadline}>
             {t('event_hub.v2_hero_title')}
           </Typography>
@@ -62,7 +68,13 @@ export const WcHeroV2: React.FC<Props> = ({ eventId, onPredict, onViewGroups }) 
           </Box>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} className={styles.heroCtas}>
-            <Button variant="contained" size="large" className={styles.ctaPrimary} onClick={onPredict}>
+            <Button
+              variant="contained"
+              size="large"
+              className={`${styles.ctaPrimaryGold} ${styles.ctaWithTrophy}`}
+              onClick={onPredict}
+            >
+              <WcTrophyLogo size="nav" />
               {t('event_hub.cta_predict')}
             </Button>
             <Button variant="outlined" size="large" className={styles.ctaSecondary} onClick={onViewGroups}>

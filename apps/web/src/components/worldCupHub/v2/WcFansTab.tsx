@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Box, Button, Snackbar, TextField, Typography } from '@mui/material';
+import { Box, Button, TextField, Typography } from '@mui/material';
+import { WcToast } from '@/components/worldCupHub/WcToast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MatchFlagPair } from '@/components/worldCupHub/MatchFlagPair';
 import { TeamExploreCard } from '@/components/worldCupHub/TeamExploreCard';
@@ -256,9 +257,7 @@ export const WcFansTab: React.FC<Props> = ({
         </>
       )}
 
-      <Snackbar open={Boolean(toast)} autoHideDuration={3000} onClose={() => setToast(null)}>
-        <Alert severity="success" onClose={() => setToast(null)}>{toast}</Alert>
-      </Snackbar>
+      <WcToast open={Boolean(toast)} message={toast} onClose={() => setToast(null)} />
     </Box>
   );
 };

@@ -6,6 +6,8 @@ import { useI18n } from '@/hooks/useI18n';
 import { useWcDisplay } from '@/hooks/useWcDisplay';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
 import { parseKickoffUtc } from '@/utils/eventMatchUtils';
+import { WcEmptyState } from '@/components/worldCupHub/WcEmptyState';
+import { WcSectionTitle } from '@/components/worldCupHub/WcSectionTitle';
 import type { WcHubProps } from './wcTypes';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -72,9 +74,10 @@ export const WcMyPicksTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
       </Box>
 
       {!summary?.predictions.length ? (
-        <Box className={styles.emptyPremium}>
-          <Typography className={styles.emptyTitle}>{t('event_hub.no_picks_yet')}</Typography>
-        </Box>
+        <WcEmptyState
+          title={t('event_hub.empty_no_predictions_title')}
+          description={t('event_hub.empty_no_predictions_desc')}
+        />
       ) : (
         <Box className={styles.matchGrid}>
           {summary.predictions.map((pred) => {

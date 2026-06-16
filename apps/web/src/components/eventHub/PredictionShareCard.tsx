@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Box, Button, CircularProgress, Snackbar, Stack, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
+import { WcToast } from '@/components/worldCupHub/WcToast';
 import type { EventMatch, EventPrediction } from '@/services/sportsEventLayerService';
 import { useI18n } from '@/hooks/useI18n';
 import { formatI18n } from '@/i18n';
@@ -72,7 +73,8 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
         eventTitle: t('event_hub.share_today_event_title'),
         subtitle: t('event_hub.share_card_title'),
         picksHeading: t('event_hub.share_today_picks_heading'),
-        footer: `${t('event_hub.share_card_footer')} · ${shareLinkLabel}`,
+        footer: shareLinkLabel,
+        footerMadeOn: t('event_hub.share_card_footer'),
       },
       avatarImg,
     );
@@ -157,16 +159,7 @@ export const PredictionShareCard: React.FC<Props> = ({ match, prediction, onShar
         </Button>
       </Stack>
 
-      <Snackbar
-        open={!!notice}
-        autoHideDuration={4000}
-        onClose={() => setNotice(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="success" onClose={() => setNotice(null)} sx={{ width: '100%' }}>
-          {notice}
-        </Alert>
-      </Snackbar>
+      <WcToast open={!!notice} message={notice} onClose={() => setNotice(null)} />
     </Box>
   );
 };

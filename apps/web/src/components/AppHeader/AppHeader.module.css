@@ -576,6 +576,25 @@
   outline-offset: 2px;
 }
 
+.headerNavLinkWorldCup {
+  background: rgba(251, 191, 36, 0.12) !important;
+  border-color: rgba(251, 191, 36, 0.35) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.12);
+}
+
+.headerNavLinkWorldCup:hover {
+  background: rgba(251, 191, 36, 0.18) !important;
+  border-color: rgba(251, 191, 36, 0.55) !important;
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.22);
+}
+
+.headerNavLinkWorldCupActive {
+  background: rgba(251, 191, 36, 0.15) !important;
+  border-color: rgba(251, 191, 36, 0.75) !important;
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.35), 0 0 18px rgba(251, 191, 36, 0.2);
+}
+
 .headerNavLinkIcon {
   line-height: 1;
   font-size: 1em;
@@ -1012,6 +1031,19 @@
 .mobileLinkActive {
   background: rgba(255, 255, 255, 0.11);
   border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.mobileLinkWorldCup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.mobileLinkWorldCup.mobileLinkActive {
+  border-color: rgba(251, 191, 36, 0.65);
+  background: rgba(251, 191, 36, 0.14);
 }
 
 .mobileUser {
