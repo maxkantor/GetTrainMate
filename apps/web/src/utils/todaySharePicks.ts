@@ -9,6 +9,12 @@ export type TodaySharePick = {
   row: TodayPickRow;
 };
 
+/** Matches shown on the Upcoming tab (not today, live, or completed). */
+export function isMatchUpcomingTab(match: EventMatch): boolean {
+  if (match.status === 'Completed' || match.status === 'Live') return false;
+  return !isMatchToday(match);
+}
+
 export function buildTodayPickRow(
   match: EventMatch,
   prediction: EventPrediction,
@@ -46,17 +52,45 @@ export async function fetchTodaySharePicks(
   teamName: (id: string, name?: string) => string,
   t: (key: string) => string,
 ): Promise<TodaySharePick[]> {
-  const todayMatches = matches.filter(isMatchToday).sort(compareMatchesChronological);
-  if (todayMatches.length === 0) return [];
+  return fetchSharePicksForMatches(
+    eventId,
+    matches.filter(isMatchToday).sort(compareMatchesChronological),
+    teamName,
+    t,
+  );
+}
 
-  const todayIds = new Set(todayMatches.map((m) => m.matchId));
-  const matchById = new Map(todayMatches.map((m) => [m.matchId, m]));
+/** Every upcoming-tab fixture the user has saved a pick for. */
+export async function fetchUpcomingSharePicks(
+  eventId: string,
+  matches: EventMatch[],
+  teamName: (id: string, name?: string) => string,
+  t: (key: string) => string,
+): Promise<TodaySharePick[]> {
+  return fetchSharePicksForMatches(
+    eventId,
+    matches.filter(isMatchUpcomingTab).sort(compareMatchesChronological),
+    teamName,
+    t,
+  );
+}
+
+async function fetchSharePicksForMatches(
+  eventId: string,
+  tabMatches: EventMatch[],
+  teamName: (id: string, name?: string) => string,
+  t: (key: string) => string,
+): Promise<TodaySharePick[]> {
+  if (tabMatches.length === 0) return [];
+
+  const tabIds = new Set(tabMatches.map((m) => m.matchId));
+  const matchById = new Map(tabMatches.map((m) => [m.matchId, m]));
 
   const summary = await sportsEventLayerService.getMyPicksSummary(eventId);
   if (!summary?.predictions.length) return [];
 
   return summary.predictions
-    .filter((p) => todayIds.has(p.matchId))
+    .filter((p) => tabIds.has(p.matchId))
     .map((pred) => {
       const match = matchById.get(pred.matchId);
       if (!match) return null;
@@ -75,5 +109,13 @@ export function todaySharePicksQueryKey(eventId: string, matches: EventMatch[]) 
     'today-share-picks',
     eventId,
     matches.filter(isMatchToday).map((m) => m.matchId).sort().join('|'),
+  ] as const;
+}
+
+export function upcomingSharePicksQueryKey(eventId: string, matches: EventMatch[]) {
+  return [
+    'upcoming-share-picks',
+    eventId,
+    matches.filter(isMatchUpcomingTab).map((m) => m.matchId).sort().join('|'),
   ] as const;
 }

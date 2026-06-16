@@ -43,12 +43,13 @@ export const WcMatchesTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
         ))}
       </Box>
 
-      {filter === 'today' && (
+      {(filter === 'today' || filter === 'upcoming') && (
         <TodayPredictionsSharePanel
           eventId={eventId}
           matches={hub.matches}
           isAuthenticated={isAuthenticated}
           onAuthRequired={onAuthRequired}
+          variant={filter === 'upcoming' ? 'upcoming' : 'today'}
         />
       )}
 

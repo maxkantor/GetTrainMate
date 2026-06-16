@@ -18,17 +18,22 @@ import {
 } from '@/utils/nativeShare';
 import {
   fetchTodaySharePicks,
+  fetchUpcomingSharePicks,
   todaySharePicksQueryKey,
+  upcomingSharePicksQueryKey,
   type TodaySharePick,
 } from '@/utils/todaySharePicks';
 import { CountryFlag } from '@/components/worldCupHub/CountryFlag';
 import styles from '@/pages/WorldCupV2.module.css';
+
+type ShareVariant = 'today' | 'upcoming';
 
 type Props = {
   eventId: string;
   matches: EventMatch[];
   isAuthenticated: boolean;
   onAuthRequired: () => void;
+  variant?: ShareVariant;
 };
 
 export const TodayPredictionsSharePanel: React.FC<Props> = ({
@@ -36,6 +41,7 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
   matches,
   isAuthenticated,
   onAuthRequired,
+  variant = 'today',
 }) => {
   const { t, locale } = useI18n();
   const { me } = useMe();
@@ -44,47 +50,62 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
   const [notice, setNotice] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
 
+  const isUpcoming = variant === 'upcoming';
+
   const picksQueryKey = useMemo(
-    () => todaySharePicksQueryKey(eventId, matches),
-    [eventId, matches],
+    () => (isUpcoming
+      ? upcomingSharePicksQueryKey(eventId, matches)
+      : todaySharePicksQueryKey(eventId, matches)),
+    [isUpcoming, eventId, matches],
   );
 
-  const { data: todayPicks = [], isFetching: picksLoading } = useQuery({
+  const { data: sharePicks = [], isFetching: picksLoading } = useQuery({
     queryKey: picksQueryKey,
-    queryFn: () => fetchTodaySharePicks(eventId, matches, teamName, t),
+    queryFn: () => (isUpcoming
+      ? fetchUpcomingSharePicks(eventId, matches, teamName, t)
+      : fetchTodaySharePicks(eventId, matches, teamName, t)),
     enabled: isAuthenticated,
     staleTime: 0,
     refetchOnMount: 'always',
   });
 
   const fanName = me?.profile?.name?.trim()
-    || todayPicks[0]?.pred.userDisplayName?.trim()
+    || sharePicks[0]?.pred.userDisplayName?.trim()
     || t('event_hub.share_fan_fallback');
 
   const profilePhotoUrl = useHeaderAvatarPhoto(me?.profile?.photoUrls);
 
-  const dateLabel = new Intl.DateTimeFormat(locale, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date());
+  const dateLabel = isUpcoming
+    ? t('event_hub.share_upcoming_date_label')
+    : new Intl.DateTimeFormat(locale, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    }).format(new Date());
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/world-cup` : '';
   const shareLinkLabel = shareUrl.replace(/^https?:\/\//, '');
 
   const buildSharePayload = useCallback(() => {
-    const title = formatI18n(t('event_hub.share_today_whatsapp_header'), { name: fanName });
+    const titleKey = isUpcoming
+      ? 'event_hub.share_upcoming_whatsapp_header'
+      : 'event_hub.share_today_whatsapp_header';
+    const title = formatI18n(t(titleKey), { name: fanName });
     return { title, url: shareUrl };
-  }, [fanName, t, shareUrl]);
+  }, [fanName, isUpcoming, t, shareUrl]);
 
-  const imageFilename = `world-cup-picks-${fanName.replace(/\s+/g, '-').toLowerCase()}.png`;
+  const imageFilename = isUpcoming
+    ? `world-cup-upcoming-picks-${fanName.replace(/\s+/g, '-').toLowerCase()}.png`
+    : `world-cup-picks-${fanName.replace(/\s+/g, '-').toLowerCase()}.png`;
 
   const loadFreshPicks = useCallback(async () => {
     return queryClient.fetchQuery({
       queryKey: picksQueryKey,
-      queryFn: () => fetchTodaySharePicks(eventId, matches, teamName, t),
+      queryFn: () => (isUpcoming
+        ? fetchUpcomingSharePicks(eventId, matches, teamName, t)
+        : fetchTodaySharePicks(eventId, matches, teamName, t)),
     });
-  }, [queryClient, picksQueryKey, eventId, matches, teamName, t]);
+  }, [queryClient, picksQueryKey, isUpcoming, eventId, matches, teamName, t]);
 
   const renderShareCanvas = useCallback(async (picks: TodaySharePick[]) => {
     const token = await authService.getJWT();
@@ -98,13 +119,15 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
       picks.map((p) => p.row),
       {
         eventTitle: t('event_hub.share_today_event_title'),
-        subtitle: t('event_hub.share_today_subtitle'),
+        subtitle: isUpcoming
+          ? t('event_hub.share_upcoming_subtitle')
+          : t('event_hub.share_today_subtitle'),
         picksHeading: t('event_hub.share_today_picks_heading'),
         footer: `${t('event_hub.share_card_footer')} · ${shareLinkLabel}`,
       },
       avatarImg,
     );
-  }, [fanName, dateLabel, t, profilePhotoUrl, me?.profile?.photoUrls, shareLinkLabel]);
+  }, [fanName, dateLabel, isUpcoming, t, profilePhotoUrl, me?.profile?.photoUrls, shareLinkLabel]);
 
   const recordShares = useCallback((picks: TodaySharePick[]) => {
     for (const { match } of picks) {
@@ -157,10 +180,16 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
   }, [loadFreshPicks, renderShareCanvas, buildSharePayload, imageFilename, recordShares, t]);
 
   if (!isAuthenticated) {
+    const loginKey = isUpcoming
+      ? 'event_hub.share_upcoming_login'
+      : 'event_hub.share_today_login';
+    const titleKey = isUpcoming
+      ? 'event_hub.share_upcoming_title'
+      : 'event_hub.share_today_title';
     return (
       <Box className={styles.todaySharePanel}>
-        <Typography className={styles.todayShareTitle}>{t('event_hub.share_today_title')}</Typography>
-        <Typography className={styles.todayShareLead}>{t('event_hub.share_today_login')}</Typography>
+        <Typography className={styles.todayShareTitle}>{t(titleKey)}</Typography>
+        <Typography className={styles.todayShareLead}>{t(loginKey)}</Typography>
         <Button variant="contained" className={styles.ctaPrimary} onClick={onAuthRequired}>
           {t('event_hub.signup_free')}
         </Button>
@@ -168,7 +197,14 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
     );
   }
 
-  if (!picksLoading && todayPicks.length === 0) return null;
+  if (!picksLoading && sharePicks.length === 0) return null;
+
+  const titleKey = isUpcoming
+    ? 'event_hub.share_upcoming_title_named'
+    : 'event_hub.share_today_title_named';
+  const leadKey = isUpcoming
+    ? 'event_hub.share_upcoming_lead'
+    : 'event_hub.share_today_lead';
 
   return (
     <Box className={styles.todaySharePanel}>
@@ -183,17 +219,17 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
           </Avatar>
           <Box>
             <Typography className={styles.todayShareTitle}>
-              {formatI18n(t('event_hub.share_today_title_named'), { name: fanName })}
+              {formatI18n(t(titleKey), { name: fanName })}
             </Typography>
             <Typography className={styles.todayShareLead}>
-              {formatI18n(t('event_hub.share_today_lead'), { count: todayPicks.length })}
+              {formatI18n(t(leadKey), { count: sharePicks.length })}
             </Typography>
           </Box>
         </Box>
       </Box>
 
       <Box className={styles.todaySharePreview}>
-        {todayPicks.map(({ match, row }) => (
+        {sharePicks.map(({ match, row }) => (
           <Box key={match.matchId} className={styles.todaySharePickRow}>
             <Box className={styles.todayShareMatchup}>
               <CountryFlag teamId={match.teamAId} size={22} alt={row.teamAName} />
@@ -214,7 +250,7 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
           variant="contained"
           className={styles.ctaPrimary}
           onClick={handleShare}
-          disabled={sharing || picksLoading || todayPicks.length === 0}
+          disabled={sharing || picksLoading || sharePicks.length === 0}
           startIcon={sharing ? <CircularProgress size={18} color="inherit" /> : undefined}
         >
           {t('event_hub.share')}
@@ -223,7 +259,7 @@ export const TodayPredictionsSharePanel: React.FC<Props> = ({
           variant="outlined"
           className={styles.ctaSecondary}
           onClick={handleDownload}
-          disabled={sharing || picksLoading || todayPicks.length === 0}
+          disabled={sharing || picksLoading || sharePicks.length === 0}
         >
           {t('event_hub.download_image')}
         </Button>

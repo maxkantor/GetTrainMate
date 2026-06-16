@@ -107,6 +107,7 @@ export const WcInlinePredict: React.FC<Props> = ({
       queryClient.invalidateQueries({ queryKey: ['live-stats', eventId] });
       queryClient.invalidateQueries({ queryKey: ['my-picks', eventId] });
       queryClient.invalidateQueries({ queryKey: ['today-share-picks', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['upcoming-share-picks', eventId] });
     },
     onError: () => {
       setSaveError(true);
