@@ -1,3 +1,4 @@
+using GetTrainMate.Api.Data;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
 using Xunit;
@@ -142,5 +143,29 @@ public class EventMatchRulesTests
             MatchTime = kickoff.ToString("HH:mm"),
         };
         Assert.False(EventMatchRules.ShouldMarkLiveFromKickoff(match, DateTime.UtcNow));
+    }
+
+    [Fact]
+    public void ShouldRevertPrematureLive_ReturnsTrue_WhenKickoffStillFuture()
+    {
+        var kickoff = DateTime.UtcNow.AddHours(6);
+        var match = new EventMatch
+        {
+            Status = EventMatchStatus.Live,
+            MatchDate = kickoff.ToString("yyyy-MM-dd"),
+            MatchTime = kickoff.ToString("HH:mm"),
+            ScoreA = 0,
+            ScoreB = 0,
+        };
+        Assert.True(EventMatchRules.ShouldRevertPrematureLive(match, DateTime.UtcNow));
+    }
+
+    [Fact]
+    public void AustriaJordanKickoff_IsJune17MidnightEastern()
+    {
+        var kickoff = WorldCupOfficialFixtures.GroupKickoffs
+            .First(k => k.TeamAId == "austria" && k.TeamBId == "jordan");
+        Assert.Equal("2026-06-17", kickoff.DateUtc);
+        Assert.Equal("04:00", kickoff.TimeUtc);
     }
 }

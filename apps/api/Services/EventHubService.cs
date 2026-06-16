@@ -85,6 +85,7 @@ public class EventHubService : IEventHubService
         {
             await ApplyOfficialKickoffsAsync();
             await SyncWorldCupLiveScoresAsync();
+            await ApplyKickoffDrivenLiveStatusAsync();
             await RecalculateStandingsAsync(eventId);
         }
 
@@ -170,6 +171,19 @@ public class EventHubService : IEventHubService
 
         foreach (var match in matches.Where(m => !string.IsNullOrWhiteSpace(m.GroupId)))
         {
+            if (EventMatchRules.ShouldRevertPrematureLive(match, now))
+            {
+                match.Status = EventMatchStatus.Scheduled;
+                if (match.ScoreA == 0 && match.ScoreB == 0)
+                {
+                    match.ScoreA = null;
+                    match.ScoreB = null;
+                }
+                await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
+                changed = true;
+                continue;
+            }
+
             if (!EventMatchRules.ShouldMarkLiveFromKickoff(match, now)) continue;
 
             match.Status = EventMatchStatus.Live;

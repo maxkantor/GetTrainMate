@@ -122,4 +122,16 @@ public static class EventMatchRules
 
         return utcNow >= kickoff.Value && utcNow < kickoff.Value.AddMinutes(matchDurationMinutes);
     }
+
+    /// <summary>Undo Live status when kickoff is still in the future (bad fixture date or early flip).</summary>
+    public static bool ShouldRevertPrematureLive(EventMatch match, DateTime utcNow)
+    {
+        if (!string.Equals(match.Status, EventMatchStatus.Live, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var kickoff = ParseKickoffUtc(match.MatchDate, match.MatchTime);
+        if (!kickoff.HasValue) return false;
+
+        return utcNow < kickoff.Value;
+    }
 }

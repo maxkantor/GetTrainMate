@@ -144,7 +144,7 @@ public static class WorldCupOfficialFixtures
         new("belgium", "egypt", "2026-06-15", "19:00"),
         new("saudi-arabia", "uruguay", "2026-06-15", "22:00"),
         new("iran", "new-zealand", "2026-06-16", "01:00"),
-        new("austria", "jordan", "2026-06-16", "04:00"),
+        new("austria", "jordan", "2026-06-17", "04:00"),
         new("france", "senegal", "2026-06-16", "19:00"),
         new("iraq", "norway", "2026-06-16", "22:00"),
         new("argentina", "algeria", "2026-06-17", "01:00"),
