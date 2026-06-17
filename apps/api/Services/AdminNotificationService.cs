@@ -39,7 +39,7 @@ public class AdminNotificationService : IAdminNotificationService
             .ToList();
     }
 
-    private async Task SendToAllAsync(
+    private async Task<int> SendToAllAsync(
         string subject,
         string text,
         string? html,
@@ -48,20 +48,24 @@ public class AdminNotificationService : IAdminNotificationService
     {
         var to = AdminRecipients();
         if (to.Count == 0)
-            return;
+            return 0;
 
+        var sent = 0;
         foreach (var address in to)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 await _email.SendEmailAsync(address, subject, text, html, replyToAddresses: replyToAddresses);
+                sent++;
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Admin notification to {Email} failed for subject {Subject}", address, subject);
             }
         }
+
+        return sent;
     }
 
     public Task NotifyNewSignupAsync(
@@ -113,8 +117,15 @@ public class AdminNotificationService : IAdminNotificationService
         var to = (stripePayerEmail ?? "").Trim();
         if (string.IsNullOrEmpty(to) || !to.Contains('@', StringComparison.Ordinal))
         {
-            _logger.LogDebug("Customer purchase confirmation skipped: no payer email from Stripe checkout.");
-            return;
+            to = (accountEmail ?? "").Trim();
+            if (string.IsNullOrEmpty(to) || !to.Contains('@', StringComparison.Ordinal))
+            {
+                _logger.LogDebug("Customer purchase confirmation skipped: no payer or account email.");
+                return;
+            }
+
+            _logger.LogInformation(
+                "Customer purchase confirmation using app account email (Stripe payer email missing).");
         }
 
         var amountFormatted = CreditsPurchaseEmailTemplates.FormatMoney(amountTotalCents, currency);
@@ -140,7 +151,7 @@ public class AdminNotificationService : IAdminNotificationService
         }
     }
 
-    public Task NotifyCreditsPurchaseAdminAsync(
+    public async Task<bool> NotifyCreditsPurchaseAdminAsync(
         string userId,
         string? stripePayerEmail,
         string? accountEmail,
@@ -164,7 +175,10 @@ public class AdminNotificationService : IAdminNotificationService
             paymentIntentId,
             amountTotalCents,
             currency);
-        return SendToAllAsync(subject, text, html, cancellationToken, replyToAddresses: null);
+        var sent = await SendToAllAsync(subject, text, html, cancellationToken, replyToAddresses: null);
+        if (sent == 0)
+            _logger.LogWarning("Credits purchase admin notification was not sent (no admin recipients or SES failure). Session={SessionId}", stripeSessionId);
+        return sent > 0;
     }
 
     public Task NotifyContactFormAsync(

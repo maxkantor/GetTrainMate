@@ -27,8 +27,8 @@ public interface IAdminNotificationService
         string? accountEmail,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Operational alert to SES admin inbox (Stripe references, internal user id).</summary>
-    Task NotifyCreditsPurchaseAdminAsync(
+    /// <summary>Operational alert to SES admin inbox (Stripe references, internal user id). Returns true when at least one admin inbox accepted the message.</summary>
+    Task<bool> NotifyCreditsPurchaseAdminAsync(
         string userId,
         string? stripePayerEmail,
         string? accountEmail,

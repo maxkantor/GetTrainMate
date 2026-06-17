@@ -18,7 +18,7 @@ namespace GetTrainMate.Api.Services;
 /// Credits for all users: single source of truth is the user-credits table (Balance per UserId).
 /// Balance = stored value; grants (free signup, purchase) and spends (like, chat unlock) update it.
 /// Purchases are applied either when the user hits the success page (ConfirmCreditsPurchaseAsync) or when the Stripe webhook runs (ProcessCheckoutSessionCompletedAsync); both are idempotent. No webhook timing dependency.
-/// Purchase notification emails are deduped with a conditional DynamoDB row per Stripe Checkout session so the success path and webhook cannot each send a full customer+admin pair when they race.
+/// Purchase notification emails are deduped with a DynamoDB row per Stripe Checkout session, written only after the admin inbox accepts the message so SES failures can retry on confirm/webhook.
 /// </summary>
 public class CreditsService : ICreditsService
 {
@@ -90,18 +90,35 @@ public class CreditsService : ICreditsService
 
     /// <summary>
     /// Ensures customer + admin purchase emails are sent at most once per checkout session.
-    /// Without this, ConfirmCreditsPurchaseAsync and ProcessCheckoutSessionCompletedAsync can both pass the
-    /// "existing transaction" scan before either write completes, crediting twice and sending duplicate emails.
+    /// The sent marker is written only after the admin notification succeeds so a failed SES send can retry.
     /// </summary>
-    private async Task<bool> TryAcquirePurchaseEmailNotificationLockAsync(string stripeCheckoutSessionId)
+    private static string PurchaseEmailNotificationLockId(string stripeCheckoutSessionId) =>
+        "purchase_email_lock_" + stripeCheckoutSessionId.Trim();
+
+    private async Task<bool> HasPurchaseEmailNotificationBeenSentAsync(string stripeCheckoutSessionId)
     {
         if (string.IsNullOrWhiteSpace(stripeCheckoutSessionId))
-        {
-            _logger.LogWarning("Purchase email dedupe skipped: empty Stripe Checkout session id.");
-            return true;
-        }
+            return false;
 
-        var lockId = "purchase_email_lock_" + stripeCheckoutSessionId.Trim();
+        try
+        {
+            var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
+            var doc = await txTable.GetItemAsync(PurchaseEmailNotificationLockId(stripeCheckoutSessionId));
+            return doc is { Count: > 0 };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not read purchase email sent marker for session {SessionId}", stripeCheckoutSessionId);
+            return false;
+        }
+    }
+
+    private async Task MarkPurchaseEmailNotificationSentAsync(string stripeCheckoutSessionId)
+    {
+        if (string.IsNullOrWhiteSpace(stripeCheckoutSessionId))
+            return;
+
+        var lockId = PurchaseEmailNotificationLockId(stripeCheckoutSessionId);
         try
         {
             await _dynamoDb.PutItemAsync(new PutItemRequest
@@ -113,23 +130,71 @@ public class CreditsService : ICreditsService
                     ["UserId"] = new AttributeValue { S = "_system" },
                     ["Type"] = new AttributeValue { S = CreditTransactionType.PurchaseEmailNotificationLock },
                     ["CreditsDelta"] = new AttributeValue { N = "0" },
-                    ["Reason"] = new AttributeValue { S = "purchase_email_dedupe" },
+                    ["Reason"] = new AttributeValue { S = "purchase_email_sent" },
                     ["StripeCheckoutSessionId"] = new AttributeValue { S = stripeCheckoutSessionId.Trim() },
                     ["CreatedAt"] = new AttributeValue { S = DateTime.UtcNow.ToString("O") },
                 },
                 ConditionExpression = "attribute_not_exists(Id)",
             });
-            return true;
         }
         catch (ConditionalCheckFailedException)
         {
-            return false;
+            // Another request already marked this session.
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not write purchase email lock for session {SessionId}; sending notifications anyway.", stripeCheckoutSessionId);
-            return true;
+            _logger.LogWarning(ex, "Could not write purchase email sent marker for session {SessionId}", stripeCheckoutSessionId);
         }
+    }
+
+    private async Task<Session> EnsureSessionWithPayerEmailAsync(Session session)
+    {
+        if (!string.IsNullOrWhiteSpace(ResolveStripePayerEmail(session)))
+            return session;
+
+        try
+        {
+            var sessionService = new SessionService();
+            return await sessionService.GetAsync(session.Id, StripeSessionGetWithReceiptFields());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not reload Stripe session {SessionId} for payer email.", session.Id);
+            return session;
+        }
+    }
+
+    private async Task EnsurePurchaseEmailsSentForCreditedSessionAsync(
+        string sessionId,
+        string userId,
+        List<Document> existingTxDocs)
+    {
+        if (await HasPurchaseEmailNotificationBeenSentAsync(sessionId))
+            return;
+
+        var purchaseDoc = existingTxDocs.FirstOrDefault(d =>
+            d.Contains("Type") && d["Type"].AsString() == CreditTransactionType.Purchase);
+        if (purchaseDoc == null)
+            return;
+
+        var packKey = purchaseDoc.Contains("Reason") ? purchaseDoc["Reason"].AsString() : "";
+        var credits = purchaseDoc.Contains("CreditsDelta") ? purchaseDoc["CreditsDelta"].AsInt() : 0;
+        if (string.IsNullOrEmpty(packKey) || credits <= 0)
+            return;
+
+        Session session;
+        try
+        {
+            var sessionService = new SessionService();
+            session = await sessionService.GetAsync(sessionId, StripeSessionGetWithReceiptFields());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not load Stripe session {SessionId} for purchase email retry.", sessionId);
+            return;
+        }
+
+        await NotifyPurchaseEmailsAsync(session, userId, packKey, credits);
     }
 
     private async Task NotifyPurchaseEmailsAsync(
@@ -138,6 +203,16 @@ public class CreditsService : ICreditsService
         string packKey,
         int credits)
     {
+        if (await HasPurchaseEmailNotificationBeenSentAsync(session.Id))
+        {
+            _logger.LogInformation(
+                "Skipping purchase notification emails for session {SessionId} (already sent).",
+                session.Id);
+            return;
+        }
+
+        session = await EnsureSessionWithPayerEmailAsync(session);
+
         var appBase = ResolveAppMarketingBaseUrl();
         string packTitle;
         try
@@ -149,14 +224,6 @@ public class CreditsService : ICreditsService
         {
             _logger.LogDebug(ex, "Could not load pack title for email; using humanized key.");
             packTitle = HumanizePackKey(packKey);
-        }
-
-        if (!await TryAcquirePurchaseEmailNotificationLockAsync(session.Id))
-        {
-            _logger.LogInformation(
-                "Skipping purchase notification emails for session {SessionId} (already sent or lock held).",
-                session.Id);
-            return;
         }
 
         string? accountEmail = null;
@@ -177,31 +244,58 @@ public class CreditsService : ICreditsService
             !string.Equals(accountEmail, stripePayerEmail, StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogInformation(
-                "Credit purchase: Stripe payer email differs from app profile email (user {UserId}). Receipt uses Stripe only.",
+                "Credit purchase: Stripe payer email differs from app profile email (user {UserId}). Receipt uses Stripe when present.",
                 userId);
         }
 
-        await _adminNotify.SendCreditsPurchaseConfirmationToCustomerAsync(
-            stripePayerEmail,
-            credits,
-            packTitle,
-            session.AmountTotal,
-            session.Currency,
-            appBase,
-            accountEmail,
-            CancellationToken.None);
-        await _adminNotify.NotifyCreditsPurchaseAdminAsync(
-            userId,
-            stripePayerEmail,
-            accountEmail,
-            credits,
-            packKey,
-            packTitle,
-            session.Id,
-            session.PaymentIntentId,
-            session.AmountTotal,
-            session.Currency,
-            CancellationToken.None);
+        try
+        {
+            await _adminNotify.SendCreditsPurchaseConfirmationToCustomerAsync(
+                stripePayerEmail,
+                credits,
+                packTitle,
+                session.AmountTotal,
+                session.Currency,
+                appBase,
+                accountEmail,
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Customer purchase confirmation email failed for session {SessionId}", session.Id);
+        }
+
+        var adminSent = false;
+        try
+        {
+            adminSent = await _adminNotify.NotifyCreditsPurchaseAdminAsync(
+                userId,
+                stripePayerEmail,
+                accountEmail,
+                credits,
+                packKey,
+                packTitle,
+                session.Id,
+                session.PaymentIntentId,
+                session.AmountTotal,
+                session.Currency,
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Admin purchase notification failed for session {SessionId}", session.Id);
+        }
+
+        if (adminSent)
+        {
+            await MarkPurchaseEmailNotificationSentAsync(session.Id);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Purchase admin notification was not delivered for session {SessionId}; will retry on next confirm/webhook.",
+                session.Id);
+        }
     }
 
     /// <summary>Preserves entitlement and daily-free-like counters when rewriting the user-credits item (full PutItem).</summary>
@@ -494,6 +588,7 @@ public class CreditsService : ICreditsService
         if (existingTx.Count > 0)
         {
             _logger.LogInformation("ConfirmCreditsPurchase: session {SessionId} already credited (idempotent).", session.Id);
+            await EnsurePurchaseEmailsSentForCreditedSessionAsync(session.Id, userId, existingTx);
             return await GetCreditsBalanceAsync(userId);
         }
 
@@ -610,6 +705,7 @@ public class CreditsService : ICreditsService
         if (existingTx.Count > 0)
         {
             _logger.LogInformation("Checkout session {SessionId} already credited (idempotent skip).", session.Id);
+            await EnsurePurchaseEmailsSentForCreditedSessionAsync(session.Id, userId, existingTx);
             await MarkWebhookEventProcessedAsync(eventsTable, stripeEventId, null);
             return true;
         }
@@ -651,19 +747,6 @@ public class CreditsService : ICreditsService
 
             await MarkWebhookEventProcessedAsync(eventsTable, stripeEventId, null);
             _logger.LogInformation("Credited user {UserId} with {Credits} credits (session {SessionId}).", userId, credits, session.Id);
-            if (string.IsNullOrWhiteSpace(ResolveStripePayerEmail(session)))
-            {
-                try
-                {
-                    var ss = new SessionService();
-                    session = await ss.GetAsync(session.Id, StripeSessionGetWithReceiptFields());
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Webhook: could not reload session with expanded customer_details for payer email.");
-                }
-            }
-
             await NotifyPurchaseEmailsAsync(session, userId, packKey, credits);
             return true;
         }
