@@ -787,6 +787,99 @@ public class AdminUsersController : ControllerBase
     }
 
     /// <summary>
+    /// POST /api/admin/users/{userId}/photos/upload — upload an image and attach it to the user's profile (CRM).
+    /// Optional <paramref name="replaceIndex"/> (0-based) replaces that slot; otherwise adds as cover or replaces cover when full.
+    /// </summary>
+    [HttpPost("{userId}/photos/upload")]
+    [RequestSizeLimit(16 * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 16 * 1024 * 1024)]
+    public async Task<ActionResult<UserDetail>> UploadUserProfilePhoto(
+        string userId,
+        IFormFile? file,
+        [FromQuery] int? replaceIndex,
+        CancellationToken ct)
+    {
+        try
+        {
+            var admin = GetAdminIdentity();
+            var normalizedUserId = (userId ?? string.Empty).Trim();
+            if (normalizedUserId.Length == 0)
+                return BadRequest(new { error = "userId is required" });
+            if (file == null || file.Length == 0)
+                return BadRequest(new { error = "Image file is required." });
+
+            var profile = await _profileService.GetProfileForAdminAsync(normalizedUserId);
+            if (profile == null)
+                return NotFound(new { error = "User not found" });
+            if (await _profileService.IsAccountClosedAsync(normalizedUserId))
+                return BadRequest(new { error = "Closed accounts cannot be edited." });
+
+            var uploaded = await StoreUploadedProfileImageAsync(normalizedUserId, file, ct);
+            ApplyUploadedPhotoToProfile(profile, uploaded.Key, uploaded.PublicUrl, replaceIndex);
+            await _profileService.CreateProfileAsync(profile);
+            await _auditLogService.LogActionAsync(
+                admin,
+                "user.profile.photo.upload",
+                "user",
+                normalizedUserId,
+                after: new { slot = replaceIndex ?? 0, key = uploaded.Key });
+
+            return await GetUser(normalizedUserId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "User photo upload rejected for {UserId}", userId);
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading profile photo for user {UserId}", userId);
+            return StatusCode(500, new { error = "Failed to upload image" });
+        }
+    }
+
+    /// <summary>DELETE /api/admin/users/{userId}/photos?index=0 — remove a profile photo slot.</summary>
+    [HttpDelete("{userId}/photos")]
+    public async Task<ActionResult<UserDetail>> RemoveUserProfilePhoto(string userId, [FromQuery] int index)
+    {
+        try
+        {
+            var admin = GetAdminIdentity();
+            var normalizedUserId = (userId ?? string.Empty).Trim();
+            if (normalizedUserId.Length == 0)
+                return BadRequest(new { error = "userId is required" });
+            if (index < 0)
+                return BadRequest(new { error = "index must be 0 or greater." });
+
+            var profile = await _profileService.GetProfileForAdminAsync(normalizedUserId);
+            if (profile == null)
+                return NotFound(new { error = "User not found" });
+            if (await _profileService.IsAccountClosedAsync(normalizedUserId))
+                return BadRequest(new { error = "Closed accounts cannot be edited." });
+
+            var beforeCount = Math.Max(profile.PhotoKeys?.Count ?? 0, profile.PhotoUrls?.Count ?? 0);
+            if (index >= beforeCount)
+                return BadRequest(new { error = "Photo slot not found." });
+
+            RemovePhotoFromProfile(profile, index);
+            await _profileService.CreateProfileAsync(profile);
+            await _auditLogService.LogActionAsync(
+                admin,
+                "user.profile.photo.remove",
+                "user",
+                normalizedUserId,
+                after: new { index });
+
+            return await GetUser(normalizedUserId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing profile photo for user {UserId}", userId);
+            return StatusCode(500, new { error = "Failed to remove photo" });
+        }
+    }
+
+    /// <summary>
     /// DELETE /api/admin/users/{userId}
     /// Soft-deletes the profile (row kept with <c>accountClosed</c> for CRM); attempts Cognito <c>AdminDeleteUser</c>.
     /// </summary>
@@ -1247,21 +1340,8 @@ public class AdminUsersController : ControllerBase
             if (file == null || file.Length == 0)
                 return BadRequest(new { error = "Image file is required." });
 
-            var contentType = (file.ContentType ?? string.Empty).Trim();
-            if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-                return BadRequest(new { error = "Only image content types are allowed." });
-
-            var extension = InferImageExtension(contentType, file.FileName);
-            var key = $"profiles/{normalizedUserId}/admin-{Guid.NewGuid():N}{extension}";
-
-            await using (var stream = file.OpenReadStream())
-            {
-                await _storageService.PutMediaObjectAsync(key, stream, contentType, ct).ConfigureAwait(false);
-            }
-
-            var publicUrl = _storageService.GetPublicUrl(key);
-            var previewUrl = _storageService.GetPresignedDownloadUrl(key, TimeSpan.FromHours(24));
-            return Ok(new { key, publicUrl, previewUrl });
+            var uploaded = await StoreUploadedProfileImageAsync(normalizedUserId, file, ct);
+            return Ok(new { key = uploaded.Key, publicUrl = uploaded.PublicUrl, previewUrl = uploaded.PreviewUrl });
         }
         catch (InvalidOperationException ex)
         {
@@ -1522,6 +1602,83 @@ public class AdminUsersController : ControllerBase
 
     private static bool IsTestUserId(string userId) =>
         !string.IsNullOrWhiteSpace(userId) && userId.StartsWith("dummy-user-", StringComparison.OrdinalIgnoreCase);
+
+    private const int MaxAdminProfilePhotos = 6;
+
+    private sealed record AdminUploadedPhoto(string Key, string PublicUrl, string PreviewUrl);
+
+    private async Task<AdminUploadedPhoto> StoreUploadedProfileImageAsync(
+        string normalizedUserId,
+        IFormFile file,
+        CancellationToken ct)
+    {
+        var contentType = (file.ContentType ?? string.Empty).Trim();
+        if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Only image content types are allowed.");
+
+        var extension = InferImageExtension(contentType, file.FileName);
+        var key = $"profiles/{normalizedUserId}/admin-{Guid.NewGuid():N}{extension}";
+
+        await using (var stream = file.OpenReadStream())
+        {
+            await _storageService.PutMediaObjectAsync(key, stream, contentType, ct).ConfigureAwait(false);
+        }
+
+        var publicUrl = _storageService.GetPublicUrl(key);
+        var previewUrl = _storageService.GetPresignedDownloadUrl(key, TimeSpan.FromHours(24));
+        return new AdminUploadedPhoto(key, publicUrl, previewUrl);
+    }
+
+    private static void ApplyUploadedPhotoToProfile(UserProfile profile, string key, string publicUrl, int? replaceIndex)
+    {
+        var keys = profile.PhotoKeys?.ToList() ?? new List<string>();
+        var urls = profile.PhotoUrls?.ToList() ?? new List<string>();
+        var slotCount = Math.Max(keys.Count, urls.Count);
+
+        if (replaceIndex is int ri && ri >= 0 && ri < slotCount)
+        {
+            while (keys.Count <= ri) keys.Add(string.Empty);
+            while (urls.Count <= ri) urls.Add(string.Empty);
+            keys[ri] = key;
+            urls[ri] = publicUrl;
+        }
+        else if (slotCount == 0)
+        {
+            keys.Add(key);
+            urls.Add(publicUrl);
+        }
+        else if (slotCount < MaxAdminProfilePhotos)
+        {
+            keys.Insert(0, key);
+            urls.Insert(0, publicUrl);
+        }
+        else
+        {
+            while (keys.Count < 1) keys.Add(string.Empty);
+            while (urls.Count < 1) urls.Add(string.Empty);
+            keys[0] = key;
+            urls[0] = publicUrl;
+        }
+
+        profile.PhotoKeys = keys;
+        profile.PhotoUrls = urls;
+        profile.PhotoKey = key;
+        profile.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private static void RemovePhotoFromProfile(UserProfile profile, int index)
+    {
+        var keys = profile.PhotoKeys?.ToList() ?? new List<string>();
+        var urls = profile.PhotoUrls?.ToList() ?? new List<string>();
+        if (index < keys.Count)
+            keys.RemoveAt(index);
+        if (index < urls.Count)
+            urls.RemoveAt(index);
+        profile.PhotoKeys = keys;
+        profile.PhotoUrls = urls;
+        profile.PhotoKey = keys.FirstOrDefault();
+        profile.UpdatedAt = DateTime.UtcNow;
+    }
 
     private static string GenerateDummyUserId(string name)
     {

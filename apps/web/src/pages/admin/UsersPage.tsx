@@ -9,6 +9,10 @@ import {
 import { adminApiService } from '@/services/adminApiService';
 import { pickPagedItems, pickPagedMeta, normalizeAdminUserRow, normalizeAdminUserDetail } from '@/utils/adminApiNormalize';
 import { resolveAdminCrmPhotoSrc } from '@/utils/adminCrmPhotos';
+import {
+  removeAdminUserProfilePhoto,
+  uploadAdminUserProfilePhoto,
+} from '@/utils/adminUserPhotoUpload';
 import { AdminNoAccessPage } from './AdminNoAccess';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
@@ -81,6 +85,8 @@ function userStatusBadgeVariant(status: string): 'success' | 'error' | 'warning'
   return 'neutral';
 }
 
+const MAX_ADMIN_PROFILE_PHOTOS = 6;
+
 export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,6 +116,11 @@ export const UsersPage: React.FC = () => {
   const [creditTxLoading, setCreditTxLoading] = useState(false);
   const [ageInput, setAgeInput] = useState('');
   const [ageSaving, setAgeSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoActionMsg, setPhotoActionMsg] = useState<string | null>(null);
+  const replacePhotoIndexRef = useRef<number | null>(null);
+  const photoUploadInputRef = useRef<HTMLInputElement>(null);
+  const replacePhotoInputRef = useRef<HTMLInputElement>(null);
   /** Prevents an older in-flight detail fetch from overwriting a newer row selection. */
   const detailFetchGen = useRef(0);
 
@@ -199,6 +210,41 @@ export const UsersPage: React.FC = () => {
   };
 
   const detailIsDeleted = (detailUser?.status ?? '').toLowerCase() === 'deleted';
+
+  const handlePhotoUpload = async (file: File, replaceIndex?: number) => {
+    if (!detailUser || detailIsDeleted) return;
+    setPhotoUploading(true);
+    setPhotoActionMsg(null);
+    setError(null);
+    try {
+      const updated = await uploadAdminUserProfilePhoto(detailUser.userId, file, replaceIndex);
+      setDetailUser(normalizeAdminUserDetail(updated) as User);
+      setPhotoActionMsg('Profile photo saved.');
+      await loadUsers();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Photo upload failed.');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const handleRemovePhoto = async (index: number) => {
+    if (!detailUser || detailIsDeleted) return;
+    if (!confirm('Remove this profile photo?')) return;
+    setPhotoUploading(true);
+    setPhotoActionMsg(null);
+    setError(null);
+    try {
+      const updated = await removeAdminUserProfilePhoto(detailUser.userId, index);
+      setDetailUser(normalizeAdminUserDetail(updated) as User);
+      setPhotoActionMsg('Photo removed.');
+      await loadUsers();
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Failed to remove photo.');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
 
   const patchDiscoverLifecycle = async (patch: Partial<DiscoverLifecycleFlags>) => {
     if (!detailUser || detailIsDeleted) return;
@@ -559,36 +605,103 @@ export const UsersPage: React.FC = () => {
           <div className={styles.detailLoading}>Loading…</div>
         ) : detailUser ? (
           <div className={styles.detailContent}>
-            {(detailUser.photoUrls?.length ?? 0) > 0 || (detailUser.bio && detailUser.bio.trim()) ? (
-              <section className={styles.profileSection} aria-label="Profile">
-                <h3 className={styles.profileSectionTitle}>Profile</h3>
-                {detailUser.bio?.trim() ? <p className={styles.bioText}>{detailUser.bio}</p> : null}
-                {(detailUser.photoUrls?.length ?? 0) > 0 ? (
-                  <div className={styles.photoGrid}>
-                    {detailUser.photoUrls!.map((canon, i) => (
-                      <figure key={`${detailUser.userId}-ph-${i}`} className={styles.photoCell}>
-                        <img
-                          src={resolveAdminCrmPhotoSrc(
-                            detailUser.userId,
-                            i,
-                            canon,
-                            detailUser.photoPreviewUrls?.[i]
-                          )}
-                          alt={`Profile ${i + 1}`}
-                          className={styles.detailPhoto}
-                          loading="lazy"
-                          decoding="async"
-                        />
-                        {i === 0 ? <figcaption className={styles.coverBadge}>Cover</figcaption> : null}
-                      </figure>
-                    ))}
-                  </div>
-                ) : null}
-                <p className={styles.photoHint}>
-                  Same-origin stream or presigned preview when the media bucket is private.
-                </p>
-              </section>
-            ) : null}
+            <section className={styles.profileSection} aria-label="Profile">
+              <h3 className={styles.profileSectionTitle}>Profile</h3>
+              {detailUser.bio?.trim() ? <p className={styles.bioText}>{detailUser.bio}</p> : null}
+
+              {!detailIsDeleted ? (
+                <div className={styles.photoUploadRow}>
+                  <input
+                    ref={photoUploadInputRef}
+                    type="file"
+                    accept="image/*"
+                    className={styles.hiddenFileInput}
+                    disabled={photoUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (file) void handlePhotoUpload(file);
+                    }}
+                  />
+                  <input
+                    ref={replacePhotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className={styles.hiddenFileInput}
+                    disabled={photoUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      const idx = replacePhotoIndexRef.current;
+                      e.target.value = '';
+                      replacePhotoIndexRef.current = null;
+                      if (file && idx != null) void handlePhotoUpload(file, idx);
+                    }}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={photoUploading}
+                    onClick={() => photoUploadInputRef.current?.click()}
+                  >
+                    {photoUploading ? 'Uploading…' : 'Upload photo'}
+                  </Button>
+                  <span className={styles.photoHint}>
+                    First image is the Discover cover. Max {MAX_ADMIN_PROFILE_PHOTOS} photos.
+                  </span>
+                </div>
+              ) : null}
+
+              {(detailUser.photoUrls?.length ?? 0) > 0 ? (
+                <div className={styles.photoGrid}>
+                  {detailUser.photoUrls!.map((canon, i) => (
+                    <figure key={`${detailUser.userId}-ph-${i}`} className={styles.photoCell}>
+                      <img
+                        src={resolveAdminCrmPhotoSrc(
+                          detailUser.userId,
+                          i,
+                          canon,
+                          detailUser.photoPreviewUrls?.[i]
+                        )}
+                        alt={`Profile ${i + 1}`}
+                        className={styles.detailPhoto}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      {i === 0 ? <figcaption className={styles.coverBadge}>Cover</figcaption> : null}
+                      {!detailIsDeleted ? (
+                        <div className={styles.photoCellActions}>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={photoUploading}
+                            onClick={() => {
+                              replacePhotoIndexRef.current = i;
+                              replacePhotoInputRef.current?.click();
+                            }}
+                          >
+                            Replace
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={photoUploading}
+                            onClick={() => void handleRemovePhoto(i)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ) : null}
+                    </figure>
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.photoHint}>No profile photo yet.</p>
+              )}
+
+              {photoActionMsg ? (
+                <p className={styles.photoActionSuccess}>{photoActionMsg}</p>
+              ) : null}
+            </section>
             <dl className={styles.detailList}>
               <dt>User ID</dt>
               <dd className={styles.mono}>{detailUser.userId}</dd>
