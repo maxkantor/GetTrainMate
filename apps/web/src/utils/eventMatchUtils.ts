@@ -191,9 +191,17 @@ export function categorizeMatches(matches: EventMatch[]) {
   const upcoming: EventMatch[] = [];
   const completed: EventMatch[] = [];
   for (const m of matches) {
-    if (m.status === 'Completed') completed.push(m);
-    else if (m.status === 'Live' || isMatchToday(m)) today.push(m);
-    else upcoming.push(m);
+    if (m.status === 'Completed') {
+      completed.push(m);
+      // Finished earlier today (e.g. midnight kickoff) stays on Today + share.
+      if (isMatchToday(m)) {
+        today.push(m);
+      }
+    } else if (m.status === 'Live' || isMatchToday(m)) {
+      today.push(m);
+    } else {
+      upcoming.push(m);
+    }
   }
   today.sort(compareMatchesChronological);
   upcoming.sort(compareMatchesChronological);
@@ -202,21 +210,10 @@ export function categorizeMatches(matches: EventMatch[]) {
 }
 
 /**
- * Fixtures for the Today-tab share card: same as the Today tab, plus completed
- * matches that kicked off on the viewer's local calendar day (picks still shareable).
+ * Fixtures for the Today-tab share card — mirrors the Today tab (incl. final scores today).
  */
 export function getMatchesForTodayShare(matches: EventMatch[]): EventMatch[] {
-  const { today, completed } = categorizeMatches(matches);
-  const byId = new Map<string, EventMatch>();
-  for (const m of today) {
-    byId.set(m.matchId, m);
-  }
-  for (const m of completed) {
-    if (isMatchToday(m)) {
-      byId.set(m.matchId, m);
-    }
-  }
-  return [...byId.values()].sort(compareMatchesChronological);
+  return categorizeMatches(matches).today;
 }
 
 /** Fixtures on the Upcoming tab — used for the upcoming share card. */

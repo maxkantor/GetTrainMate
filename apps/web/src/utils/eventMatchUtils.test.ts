@@ -269,11 +269,11 @@ describe('eventMatchUtils', () => {
       matchTime: '16:00',
       status: 'Scheduled',
     });
-    const share = getMatchesForTodayShare([finished, tonight, tomorrow]);
-    expect(share.map((m) => m.matchId).sort()).toEqual([
-      'gs-austria-jordan',
-      'gs-colombia-uzbekistan',
-    ]);
+    const { today, completed } = categorizeMatches([finished, tonight, tomorrow]);
+    expect(today.map((m) => m.matchId)).toEqual(['gs-austria-jordan', 'gs-colombia-uzbekistan']);
+    expect(completed.map((m) => m.matchId)).toEqual(['gs-austria-jordan']);
+    expect(getMatchesForTodayShare([finished, tonight, tomorrow]).map((m) => m.matchId))
+      .toEqual(['gs-austria-jordan', 'gs-colombia-uzbekistan']);
     vi.useRealTimers();
   });
 
