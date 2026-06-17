@@ -19,7 +19,11 @@ public interface ICreditsService
     Task<bool> ProcessCheckoutSessionCompletedAsync(string stripeEventId, Stripe.Checkout.Session session);
     Task<CreditsBalanceDto> GetCreditsBalanceAsync(string userId);
     /// <param name="signupEmail">Cognito email claim when available (for admin notification).</param>
-    Task<GrantFreeSignupCreditsResult> GrantFreeSignupCreditsAsync(string userId, string? signupEmail = null);
+    /// <param name="signupName">Display name from Cognito when available (for admin notification).</param>
+    Task<GrantFreeSignupCreditsResult> GrantFreeSignupCreditsAsync(
+        string userId,
+        string? signupEmail = null,
+        string? signupName = null);
     /// <summary>True if the user already has a FREE_SIGNUP grant in the credit transaction ledger.</summary>
     Task<bool> HasReceivedFreeSignupCreditsAsync(string userId);
     /// <summary>Admin: grant credits to a user (compensation, promo, etc.).</summary>

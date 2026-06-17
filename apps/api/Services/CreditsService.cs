@@ -716,7 +716,10 @@ public class CreditsService : ICreditsService
         return existing.Any(d => d.Contains("Reason") && d["Reason"].AsString() == FreeSignupReason);
     }
 
-    public async Task<GrantFreeSignupCreditsResult> GrantFreeSignupCreditsAsync(string userId, string? signupEmail = null)
+    public async Task<GrantFreeSignupCreditsResult> GrantFreeSignupCreditsAsync(
+        string userId,
+        string? signupEmail = null,
+        string? signupName = null)
     {
         var txTable = Table.LoadTable(_dynamoDb, CreditTransactionsTable);
         var userTable = Table.LoadTable(_dynamoDb, UserCreditsTable);
@@ -757,7 +760,31 @@ public class CreditsService : ICreditsService
             });
 
             _logger.LogInformation("Granted {Credits} free signup credits to user {UserId}.", FreeSignupCredits, userId);
-            _ = _adminNotify.NotifyNewSignupAsync(userId, signupEmail, CancellationToken.None);
+
+            var notifyName = signupName;
+            if (string.IsNullOrWhiteSpace(notifyName))
+            {
+                try
+                {
+                    var profile = await _profileService.GetProfileAsync(userId);
+                    if (!string.IsNullOrWhiteSpace(profile?.Name))
+                        notifyName = profile.Name.Trim();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Profile name lookup for signup notification failed for {UserId}", userId);
+                }
+            }
+
+            try
+            {
+                await _adminNotify.NotifyNewSignupAsync(userId, signupEmail, notifyName, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Admin new-signup notification failed for user {UserId}", userId);
+            }
+
             return new GrantFreeSignupCreditsResult { Success = true, AlreadyGranted = false };
         }
         catch (Exception ex)

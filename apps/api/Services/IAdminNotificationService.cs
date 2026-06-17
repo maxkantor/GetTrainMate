@@ -7,7 +7,11 @@ namespace GetTrainMate.Api.Services;
 /// </summary>
 public interface IAdminNotificationService
 {
-    Task NotifyNewSignupAsync(string userId, string? userEmail = null, CancellationToken cancellationToken = default);
+    Task NotifyNewSignupAsync(
+        string userId,
+        string? userEmail = null,
+        string? userName = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Branded confirmation sent only to the <b>Stripe checkout / payer</b> address (never the account email when they differ).

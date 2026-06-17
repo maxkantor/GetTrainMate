@@ -76,6 +76,13 @@ public class MeController : ControllerBase
 
             var credits = await _creditsService.GetCreditsBalanceAsync(userId);
             var email = profile?.Email ?? GetEmailFromToken() ?? "";
+
+            if (credits.Balance == 0 && credits.LifetimeEarned == 0)
+            {
+                var grant = await _creditsService.GrantFreeSignupCreditsAsync(userId, email, GetNameFromToken());
+                if (grant.Success && !grant.AlreadyGranted)
+                    credits = await _creditsService.GetCreditsBalanceAsync(userId);
+            }
             var isAdmin = IsAdminEmail(email);
             if (profile != null && string.IsNullOrWhiteSpace(profile.Name))
             {

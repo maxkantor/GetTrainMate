@@ -97,7 +97,8 @@ public class BillingController : ControllerBase
         if (string.IsNullOrEmpty(userId))
             return Unauthorized(new { error = "Valid authentication required." });
         var email = GetEmailFromToken();
-        var result = await _creditsService.GrantFreeSignupCreditsAsync(userId, email);
+        var name = GetNameFromToken();
+        var result = await _creditsService.GrantFreeSignupCreditsAsync(userId, email, name);
         if (!result.Success)
             return BadRequest(new { error = "Could not grant free credits." });
         return Ok(new
@@ -473,6 +474,32 @@ public class BillingController : ControllerBase
             var jsonToken = handler.ReadJwtToken(token);
             return jsonToken.Claims.FirstOrDefault(c =>
                 c.Type == "email" || c.Type == ClaimTypes.Email)?.Value;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string? GetNameFromToken()
+    {
+        var name = User.FindFirst(ClaimTypes.Name)?.Value
+            ?? User.FindFirst("name")?.Value
+            ?? User.FindFirst("given_name")?.Value;
+        if (!string.IsNullOrWhiteSpace(name)) return name.Trim();
+
+        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+            return null;
+
+        var token = authHeader.Substring("Bearer ".Length).Trim();
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var jsonToken = handler.ReadJwtToken(token);
+            name = jsonToken.Claims.FirstOrDefault(c =>
+                c.Type == "name" || c.Type == "given_name" || c.Type == ClaimTypes.Name)?.Value;
+            return string.IsNullOrWhiteSpace(name) ? null : name.Trim();
         }
         catch
         {

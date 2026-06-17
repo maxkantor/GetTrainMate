@@ -26,7 +26,8 @@ public class AdminNotificationService : IAdminNotificationService
             ?? "").Trim();
         if (string.IsNullOrEmpty(raw))
         {
-            _logger.LogDebug("Admin notifications skipped: no SES admin email (SES:AdminEmail / SES_ADMIN_EMAIL / SSM /gettrainmate/ses-admin-email).");
+            _logger.LogWarning(
+                "Admin notifications skipped: no SES admin email (SES:AdminEmail / SES_ADMIN_EMAIL / SSM /gettrainmate/ses-admin-email).");
             return Array.Empty<string>();
         }
 
@@ -63,17 +64,27 @@ public class AdminNotificationService : IAdminNotificationService
         }
     }
 
-    public Task NotifyNewSignupAsync(string userId, string? userEmail = null, CancellationToken cancellationToken = default)
+    public Task NotifyNewSignupAsync(
+        string userId,
+        string? userEmail = null,
+        string? userName = null,
+        CancellationToken cancellationToken = default)
     {
         var subject = "[GetTrainMate] New user signup";
         var lines = new List<string>
         {
-            "A user completed free signup (free credits grant path).",
+            "A new user signed up and received free starter credits.",
             $"User ID (Cognito sub): {userId}",
         };
+        if (!string.IsNullOrWhiteSpace(userName))
+            lines.Add($"Name: {userName.Trim()}");
         if (!string.IsNullOrWhiteSpace(userEmail))
-            lines.Add($"Email: {userEmail}");
+            lines.Add($"Email: {userEmail.Trim()}");
         lines.Add($"Time (UTC): {DateTime.UtcNow:O}");
+        var appBase = (_configuration["Frontend:BaseUrl"]
+            ?? Environment.GetEnvironmentVariable("FRONTEND_URL")
+            ?? "https://gettrainmate.com").Trim().TrimEnd('/');
+        lines.Add($"Admin CRM: {appBase}/admin/users");
         var text = string.Join(Environment.NewLine, lines);
         var html = $"<p>{string.Join("</p><p>", lines.Select(System.Net.WebUtility.HtmlEncode))}</p>";
         var signupReplyTrim = (userEmail ?? "").Trim();
