@@ -255,7 +255,7 @@ export const eventHubFr: Partial<TranslationKeys['event_hub']> = {
   share_today_lead: 'Envoyez vos {count} pronostics en une carte premium à votre groupe.',
   share_today_login: 'Connectez-vous pour partager vos pronos avec vos amis.',
   share_today_whatsapp: 'Partager sur WhatsApp',
-  share_today_whatsapp_header: '🏆 Pronos du jour de {name} — Coupe du monde',
+  share_today_whatsapp_header: 'Pronos du jour de {name} — Coupe du monde',
   share_today_whatsapp_hint: 'Astuce : joignez l’image téléchargée sur WhatsApp pour la carte complète.',
   share_today_event_title: 'Coupe du monde 2026',
   share_today_subtitle: 'Pronostics du jour',

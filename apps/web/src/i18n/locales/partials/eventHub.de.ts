@@ -254,7 +254,7 @@ export const eventHubDe: Partial<TranslationKeys['event_hub']> = {
   share_today_lead: 'Sende alle {count} Tipps als eine Premium-Karte an deine Gruppe.',
   share_today_login: 'Melde dich an, um deine WM-Tipps zu teilen.',
   share_today_whatsapp: 'Auf WhatsApp teilen',
-  share_today_whatsapp_header: '🏆 {name}s WM-Tipps — heute',
+  share_today_whatsapp_header: '{name}s WM-Tipps — heute',
   share_today_whatsapp_hint: 'Tipp: Hänge das heruntergeladene Bild in WhatsApp für die volle Karte an.',
   share_today_event_title: 'WM 2026',
   share_today_subtitle: 'Heutige Tipps',

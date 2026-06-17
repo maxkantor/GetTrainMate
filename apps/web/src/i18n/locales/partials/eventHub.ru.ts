@@ -253,7 +253,7 @@ export const eventHubRu: Partial<TranslationKeys['event_hub']> = {
   share_today_lead: 'Отправьте все {count} прогноза одной премиум-карточкой в группу.',
   share_today_login: 'Войдите, чтобы делиться прогнозами с друзьями.',
   share_today_whatsapp: 'Поделиться в WhatsApp',
-  share_today_whatsapp_header: '🏆 Прогнозы {name} на сегодня — ЧМ',
+  share_today_whatsapp_header: 'Прогнозы {name} на сегодня — ЧМ',
   share_today_whatsapp_hint: 'Совет: прикрепите скачанное изображение в WhatsApp для полной карточки.',
   share_today_event_title: 'ЧМ 2026',
   share_today_subtitle: 'Прогнозы на сегодня',

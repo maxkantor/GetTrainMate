@@ -245,7 +245,7 @@ export const eventHubEs: Partial<TranslationKeys['event_hub']> = {
   share_today_lead: 'Envía las {count} predicciones en una tarjeta premium a tu grupo.',
   share_today_login: 'Inicia sesión para compartir tus picks del Mundial.',
   share_today_whatsapp: 'Compartir en WhatsApp',
-  share_today_whatsapp_header: '🏆 Picks de hoy de {name} — Mundial',
+  share_today_whatsapp_header: 'Picks de hoy de {name} — Mundial',
   share_today_whatsapp_hint: 'Consejo: adjunta la imagen descargada en WhatsApp para la tarjeta completa.',
   share_today_event_title: 'Mundial 2026',
   share_today_subtitle: 'Predicciones de hoy',

@@ -27,20 +27,16 @@ async function tryShare(data: ShareData): Promise<ShareResult> {
 
 /**
  * Native share sheet.
- * When attaching an image, omit URL/text — the PNG already has branding + link.
- * Including the URL makes SMS/iMessage/WhatsApp unfurl gettrainmate.com (duplicate OG previews).
+ * Image shares are file-only — the PNG has trophy branding, picks, and link.
+ * Title/text/URL cause WhatsApp and iMessage to add a redundant caption or link preview.
  */
 export async function shareContent({ title, url, file }: ShareContent): Promise<ShareResult> {
   if (typeof navigator === 'undefined' || !navigator.share) return 'unsupported';
 
   if (file) {
-    const imagePayloads: ShareData[] = [
-      { files: [file], title },
-      { files: [file] },
-    ];
-    for (const data of imagePayloads) {
-      if (!canShareData(data)) continue;
-      const result = await tryShare(data);
+    const imageOnly: ShareData = { files: [file] };
+    if (canShareData(imageOnly)) {
+      const result = await tryShare(imageOnly);
       if (result !== 'unsupported') return result;
     }
   }

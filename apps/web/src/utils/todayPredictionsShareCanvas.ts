@@ -157,14 +157,14 @@ type PickCardLayout = {
 };
 
 function layoutForPickCount(count: number): PickCardLayout {
-  if (count >= 6) {
+  if (count >= 5) {
     return {
       cardPadTop: 20,
       cardPadBottom: 28,
       pickFont: 'bold 22px Inter, system-ui, sans-serif',
       scoreFont: '500 18px Inter, system-ui, sans-serif',
       matchupFont: 'bold 28px Inter, system-ui, sans-serif',
-      pickLineGap: 20,
+      pickLineGap: 18,
       matchupBlock: 44,
       cardGap: 16,
       flagH: 24,
@@ -219,7 +219,6 @@ export async function renderTodayPicksCanvas(
   avatarImg?: HTMLImageElement | null,
 ): Promise<HTMLCanvasElement> {
   const width = 1080;
-  const headerHeight = 460;
   const footerSpace = 140;
   const cardPadX = 108;
   const layout = layoutForPickCount(picks.length);
@@ -232,6 +231,19 @@ export async function renderTodayPicksCanvas(
     matchupBlock,
     cardGap,
   } = layout;
+
+  const borderInset = 48;
+  const topPad = 36;
+  const trophyH = 88;
+  const trophyTop = borderInset + topPad;
+  const eventTitleY = trophyTop + trophyH + 28;
+  const dividerY = eventTitleY + 28;
+  const avatarRadius = 44;
+  const identityRowY = dividerY + 36 + avatarRadius;
+  const textX = borderInset + avatarRadius * 2 + 40;
+  const sectionHeadingY = identityRowY + avatarRadius + 36;
+  const picksStartY = sectionHeadingY + 40;
+  const headerHeight = picksStartY;
 
   const picksBlockHeight = picks.reduce(
     (sum, pick) => sum + pickCardHeight(pick, layout) + cardGap,
@@ -257,59 +269,64 @@ export async function renderTodayPicksCanvas(
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
 
-  const glow = ctx.createRadialGradient(width * 0.5, 200, 40, width * 0.5, 200, 460);
-  glow.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
+  const glowCenterY = trophyTop + trophyH / 2;
+  const glow = ctx.createRadialGradient(width * 0.5, glowCenterY, 20, width * 0.5, glowCenterY, 320);
+  glow.addColorStop(0, 'rgba(251, 191, 36, 0.22)');
+  glow.addColorStop(0.45, 'rgba(99, 102, 241, 0.28)');
   glow.addColorStop(1, 'rgba(99, 102, 241, 0)');
   ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, width, 560);
+  ctx.fillRect(0, 0, width, headerHeight + 80);
 
   ctx.strokeStyle = 'rgba(251, 191, 36, 0.55)';
   ctx.lineWidth = 3;
-  roundRect(ctx, 48, 48, width - 96, height - 96, 36);
+  roundRect(ctx, borderInset, borderInset, width - borderInset * 2, height - borderInset * 2, 36);
   ctx.stroke();
 
   if (trophyImg) {
-    const trophyH = 96;
     const trophyW = trophyH * (trophyImg.width / trophyImg.height);
     const trophyX = (width - trophyW) / 2;
     ctx.save();
-    ctx.shadowColor = 'rgba(251, 191, 36, 0.65)';
-    ctx.shadowBlur = 28;
-    ctx.drawImage(trophyImg, trophyX, 72, trophyW, trophyH);
+    ctx.shadowColor = 'rgba(251, 191, 36, 0.75)';
+    ctx.shadowBlur = 32;
+    ctx.drawImage(trophyImg, trophyX, trophyTop, trophyW, trophyH);
     ctx.restore();
   }
 
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   ctx.fillStyle = 'rgba(251, 191, 36, 0.95)';
-  ctx.font = 'bold 30px Inter, system-ui, sans-serif';
-  ctx.fillText(labels.eventTitle.toUpperCase(), width / 2, 200);
+  ctx.font = 'bold 28px Inter, system-ui, sans-serif';
+  ctx.fillText(labels.eventTitle.toUpperCase(), width / 2, eventTitleY);
 
-  const avatarRadius = 48;
-  const avatarCx = 96 + avatarRadius;
-  const avatarCy = 292;
-  drawAvatar(ctx, fanName, avatarImg ?? null, avatarCx, avatarCy, avatarRadius);
+  ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(96, dividerY);
+  ctx.lineTo(width - 96, dividerY);
+  ctx.stroke();
 
-  const textX = avatarCx + avatarRadius + 32;
+  const avatarCx = borderInset + avatarRadius + 8;
+  drawAvatar(ctx, fanName, avatarImg ?? null, avatarCx, identityRowY, avatarRadius);
+
   const nameLine = fanName.trim() || 'Fan';
+  const displayName = nameLine.length > 16 ? `${nameLine.slice(0, 15)}…` : nameLine;
 
   ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
   ctx.fillStyle = '#f8fafc';
-  ctx.font = 'bold 48px Inter, system-ui, sans-serif';
-  ctx.fillText(nameLine.length > 14 ? `${nameLine.slice(0, 13)}…` : nameLine, textX, 272);
+  ctx.font = 'bold 42px Inter, system-ui, sans-serif';
+  ctx.fillText(displayName, textX, identityRowY - 14);
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.font = '500 24px Inter, system-ui, sans-serif';
+  ctx.fillText(`${labels.picksHeading} · ${dateLabel}`, textX, identityRowY + 28);
 
   ctx.fillStyle = 'rgba(167, 139, 250, 0.95)';
-  ctx.font = '600 30px Inter, system-ui, sans-serif';
-  ctx.fillText(labels.picksHeading, textX, 318);
+  ctx.font = 'bold 22px Inter, system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(labels.subtitle.toUpperCase(), borderInset + 8, sectionHeadingY);
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-  ctx.font = '500 24px Inter, system-ui, sans-serif';
-  ctx.fillText(dateLabel, textX, 354);
-
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-  ctx.font = 'bold 24px Inter, system-ui, sans-serif';
-  ctx.fillText(labels.subtitle.toUpperCase(), 96, 392);
-
-  let y = 420;
+  let y = picksStartY;
   for (const pick of picks) {
     const cardHeight = pickCardHeight(pick, layout);
 

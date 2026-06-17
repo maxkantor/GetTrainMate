@@ -245,7 +245,7 @@ export const eventHubUa: Partial<TranslationKeys['event_hub']> = {
   share_today_lead: 'Надішліть усі {count} прогнози однією преміум-карткою в групу.',
   share_today_login: 'Увійдіть, щоб поділитися прогнозами з друзями.',
   share_today_whatsapp: 'Поділитися в WhatsApp',
-  share_today_whatsapp_header: '🏆 Прогнози {name} на сьогодні — ЧС',
+  share_today_whatsapp_header: 'Прогнози {name} на сьогодні — ЧС',
   share_today_whatsapp_hint: 'Порада: додайте завантажене зображення в WhatsApp для повної картки.',
   share_today_event_title: 'ЧС 2026',
   share_today_subtitle: 'Сьогоднішні прогнози',
