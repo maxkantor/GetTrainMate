@@ -7,6 +7,8 @@ import {
   formatKickoffFriendly,
   formatKickoffCompact,
   formatKickoffCard,
+  getMatchesForTodayShare,
+  getMatchesForUpcomingShare,
   isMatchToday,
   isMatchUpcoming,
   parseKickoffUtc,
@@ -236,5 +238,68 @@ describe('eventMatchUtils', () => {
     const standings = computeStandingsFromMatches(teams, matches);
     expect(standings.find((t) => t.teamId === 'usa')?.points).toBe(0);
     expect(standings.find((t) => t.teamId === 'paraguay')?.points).toBe(0);
+  });
+
+  it('getMatchesForTodayShare matches Today tab plus completed kickoffs today', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-17T18:00:00Z'));
+    const finished = matchFixture({
+      matchId: 'gs-austria-jordan',
+      teamAId: 'austria',
+      teamBId: 'jordan',
+      matchDate: '2026-06-17',
+      matchTime: '04:00',
+      status: 'Completed',
+      scoreA: 1,
+      scoreB: 2,
+    });
+    const tonight = matchFixture({
+      matchId: 'gs-colombia-uzbekistan',
+      teamAId: 'colombia',
+      teamBId: 'uzbekistan',
+      matchDate: '2026-06-17',
+      matchTime: '22:00',
+      status: 'Scheduled',
+    });
+    const tomorrow = matchFixture({
+      matchId: 'gs-france-senegal',
+      teamAId: 'france',
+      teamBId: 'senegal',
+      matchDate: '2026-06-18',
+      matchTime: '16:00',
+      status: 'Scheduled',
+    });
+    const share = getMatchesForTodayShare([finished, tonight, tomorrow]);
+    expect(share.map((m) => m.matchId).sort()).toEqual([
+      'gs-austria-jordan',
+      'gs-colombia-uzbekistan',
+    ]);
+    vi.useRealTimers();
+  });
+
+  it('getMatchesForTodayShare excludes upcoming-tab picks (e.g. tomorrow midnight)', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-16T20:00:00-04:00'));
+    const austriaTomorrow = matchFixture({
+      matchId: 'gs-austria-jordan',
+      teamAId: 'austria',
+      teamBId: 'jordan',
+      matchDate: '2026-06-17',
+      matchTime: '04:00',
+      status: 'Scheduled',
+    });
+    const portugalToday = matchFixture({
+      matchId: 'gs-portugal-congo',
+      teamAId: 'portugal',
+      teamBId: 'dr-congo',
+      matchDate: '2026-06-16',
+      matchTime: '17:00',
+      status: 'Scheduled',
+    });
+    const share = getMatchesForTodayShare([austriaTomorrow, portugalToday]);
+    expect(share.map((m) => m.matchId)).toEqual(['gs-portugal-congo']);
+    expect(getMatchesForUpcomingShare([austriaTomorrow, portugalToday]).map((m) => m.matchId))
+      .toEqual(['gs-austria-jordan']);
+    vi.useRealTimers();
   });
 });

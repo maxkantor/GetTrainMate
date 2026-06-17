@@ -1,6 +1,10 @@
 import type { EventMatch, EventPrediction } from '@/services/sportsEventLayerService';
 import { sportsEventLayerService } from '@/services/sportsEventLayerService';
-import { compareMatchesChronological, isMatchToday } from '@/utils/eventMatchUtils';
+import {
+  compareMatchesChronological,
+  getMatchesForTodayShare,
+  getMatchesForUpcomingShare,
+} from '@/utils/eventMatchUtils';
 import type { TodayPickRow } from '@/utils/todayPredictionsShareCanvas';
 
 export type TodaySharePick = {
@@ -8,12 +12,6 @@ export type TodaySharePick = {
   pred: EventPrediction;
   row: TodayPickRow;
 };
-
-/** Matches shown on the Upcoming tab (not today, live, or completed). */
-export function isMatchUpcomingTab(match: EventMatch): boolean {
-  if (match.status === 'Completed' || match.status === 'Live') return false;
-  return !isMatchToday(match);
-}
 
 export function buildTodayPickRow(
   match: EventMatch,
@@ -45,7 +43,7 @@ export function buildTodayPickRow(
   };
 }
 
-/** Every local-calendar-day fixture the user has saved a pick for (incl. finished today). */
+/** Picks for fixtures on the Today tab (+ finished today), matching the match list. */
 export async function fetchTodaySharePicks(
   eventId: string,
   matches: EventMatch[],
@@ -54,13 +52,13 @@ export async function fetchTodaySharePicks(
 ): Promise<TodaySharePick[]> {
   return fetchSharePicksForMatches(
     eventId,
-    matches.filter(isMatchToday).sort(compareMatchesChronological),
+    getMatchesForTodayShare(matches),
     teamName,
     t,
   );
 }
 
-/** Every upcoming-tab fixture the user has saved a pick for. */
+/** Picks for fixtures on the Upcoming tab. */
 export async function fetchUpcomingSharePicks(
   eventId: string,
   matches: EventMatch[],
@@ -69,7 +67,7 @@ export async function fetchUpcomingSharePicks(
 ): Promise<TodaySharePick[]> {
   return fetchSharePicksForMatches(
     eventId,
-    matches.filter(isMatchUpcomingTab).sort(compareMatchesChronological),
+    getMatchesForUpcomingShare(matches),
     teamName,
     t,
   );
@@ -108,7 +106,7 @@ export function todaySharePicksQueryKey(eventId: string, matches: EventMatch[]) 
   return [
     'today-share-picks',
     eventId,
-    matches.filter(isMatchToday).map((m) => m.matchId).sort().join('|'),
+    getMatchesForTodayShare(matches).map((m) => m.matchId).sort().join('|'),
   ] as const;
 }
 
@@ -116,6 +114,6 @@ export function upcomingSharePicksQueryKey(eventId: string, matches: EventMatch[
   return [
     'upcoming-share-picks',
     eventId,
-    matches.filter(isMatchUpcomingTab).map((m) => m.matchId).sort().join('|'),
+    getMatchesForUpcomingShare(matches).map((m) => m.matchId).sort().join('|'),
   ] as const;
 }

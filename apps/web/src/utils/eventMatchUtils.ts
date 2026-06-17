@@ -201,6 +201,29 @@ export function categorizeMatches(matches: EventMatch[]) {
   return { today, upcoming, completed };
 }
 
+/**
+ * Fixtures for the Today-tab share card: same as the Today tab, plus completed
+ * matches that kicked off on the viewer's local calendar day (picks still shareable).
+ */
+export function getMatchesForTodayShare(matches: EventMatch[]): EventMatch[] {
+  const { today, completed } = categorizeMatches(matches);
+  const byId = new Map<string, EventMatch>();
+  for (const m of today) {
+    byId.set(m.matchId, m);
+  }
+  for (const m of completed) {
+    if (isMatchToday(m)) {
+      byId.set(m.matchId, m);
+    }
+  }
+  return [...byId.values()].sort(compareMatchesChronological);
+}
+
+/** Fixtures on the Upcoming tab — used for the upcoming share card. */
+export function getMatchesForUpcomingShare(matches: EventMatch[]): EventMatch[] {
+  return categorizeMatches(matches).upcoming;
+}
+
 export function formatLastUpdated(iso?: string | null): string | null {
   if (!iso?.trim()) return null;
   const ms = Date.parse(iso);
