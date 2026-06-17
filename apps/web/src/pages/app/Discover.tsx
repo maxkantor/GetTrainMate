@@ -20,9 +20,6 @@ import {
 import { handleApiError, getErrorMessage, isNetworkError } from '@/utils/apiErrorHandler';
 import {
   getMultiplePhotoUrls,
-  placeholderPhotoUrl,
-  fallbackPlaceholderPhotoUrl,
-  inferGenderFromName,
   isLikelyStockDiscoverPhoto,
   NO_PHOTO_PLACEHOLDER,
 } from '@/utils/profilePhotos';
@@ -107,8 +104,7 @@ function toPhotoUrl(
   if (avatarUrl && /randomuser\.me/i.test(avatarUrl)) return '';
   if (avatarUrl?.startsWith('http://') || avatarUrl?.startsWith('https://')) return avatarUrl;
   if (avatarUrl) return `${IMAGE_BUCKET_BASE}/${avatarUrl.replace(/^\//, '')}`;
-  const gender = displayName ? inferGenderFromName(displayName) : 'male';
-  return placeholderPhotoUrl(userId, 0, gender);
+  return '';
 }
 
 type GraphqlDiscoverCandidate = {
@@ -236,7 +232,6 @@ export const DiscoverPage: React.FC = () => {
     experienceLevel: 'Any',
   });
   const [onboardingModalOpen, setOnboardingModalOpen] = useState(false);
-  const [photoFallbackUrls, setPhotoFallbackUrls] = useState<Record<string, string>>({});
   const [insightMap, setInsightMap] = useState<Record<string, MatchInsightResponse>>({});
   const [loadingInsightFor, setLoadingInsightFor] = useState<string | null>(null);
   const [aiInsightCost, setAiInsightCost] = useState(2);
@@ -340,7 +335,6 @@ export const DiscoverPage: React.FC = () => {
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
-        setPhotoFallbackUrls({});
       } else {
         const token = await authService.getJWT(isRetryAfter401);
         if (!token) {
@@ -369,7 +363,6 @@ export const DiscoverPage: React.FC = () => {
         setUserLocationLabel(location.label);
         setCurrentIndex(0);
         setPhotoErrorForIndex(null);
-        setPhotoFallbackUrls({});
       }
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
@@ -401,7 +394,6 @@ export const DiscoverPage: React.FC = () => {
               });
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
-              setPhotoFallbackUrls({});
             } else {
               const [feedFromApi, locationRaw] = await Promise.all([
                 matchService.getDiscoveryFeed(freshToken!, 50),
@@ -424,7 +416,6 @@ export const DiscoverPage: React.FC = () => {
               setUserLocationLabel(location.label);
               setCurrentIndex(0);
               setPhotoErrorForIndex(null);
-              setPhotoFallbackUrls({});
             }
             if (!stale()) setLoading(false);
             return;
@@ -503,11 +494,9 @@ export const DiscoverPage: React.FC = () => {
       return;
     }
 
-    const celebrationPhoto = (() => {
-      const urls = getMultiplePhotoUrls(currentCard.photoUrls, currentCard.userId, 4, currentCard.name);
-      const g = inferGenderFromName(currentCard.name);
-      return urls[0] || placeholderPhotoUrl(currentCard.userId, 0, g);
-    })();
+    const celebrationPhoto =
+      getMultiplePhotoUrls(currentCard.photoUrls, currentCard.userId, 4, currentCard.name)[0]
+      || NO_PHOTO_PLACEHOLDER;
 
     const likedUserId = currentCard.userId;
     const likedAtIndex = currentIndex;
@@ -915,18 +904,8 @@ export const DiscoverPage: React.FC = () => {
   }, [currentIndex, feed, me, aiInsightCost, refreshMe, t]);
 
   const handlePhotoError = useCallback(() => {
-    const currentCard = feed[currentIndex];
-    if (!currentCard) return;
-    const cardPhotoKey = `${currentCard.userId}-${currentPhotoIndex}`;
-    if (photoFallbackUrls[cardPhotoKey]) {
-      setPhotoErrorForIndex(currentIndex);
-    } else {
-      setPhotoFallbackUrls((prev) => ({
-        ...prev,
-        [cardPhotoKey]: fallbackPlaceholderPhotoUrl(currentCard.userId, currentPhotoIndex),
-      }));
-    }
-  }, [currentIndex, currentPhotoIndex, feed, photoFallbackUrls]);
+    setPhotoErrorForIndex(currentIndex);
+  }, [currentIndex]);
 
   if (loading) {
     return (
@@ -1031,11 +1010,9 @@ export const DiscoverPage: React.FC = () => {
   const progress = feed.length > 0 ? ((currentIndex + 1) / feed.length) * 100 : 0;
   const photoFailed = photoErrorForIndex === currentIndex;
   const allPhotos = getMultiplePhotoUrls(currentCard.photoUrls, currentCard.userId, 4, currentCard.name);
-  const photoIndex = Math.min(currentPhotoIndex, allPhotos.length - 1);
+  const photoIndex = allPhotos.length > 0 ? Math.min(currentPhotoIndex, allPhotos.length - 1) : 0;
   const primaryPhotoUrl = allPhotos[photoIndex] || NO_PHOTO_PLACEHOLDER;
-  const cardPhotoKey = `${currentCard.userId}-${photoIndex}`;
-  const fallbackUrl = photoFallbackUrls[cardPhotoKey];
-  const displayPhotoUrl = photoFailed ? NO_PHOTO_PLACEHOLDER : fallbackUrl || primaryPhotoUrl;
+  const displayPhotoUrl = photoFailed ? NO_PHOTO_PLACEHOLDER : primaryPhotoUrl;
   const isDummy = isDummyNearbyProfile(currentCard.userId);
 
   const viewerModeList =

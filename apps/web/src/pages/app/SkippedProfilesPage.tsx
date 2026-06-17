@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useI18n } from '@/hooks/useI18n';
-import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER, fallbackPlaceholderPhotoUrl } from '@/utils/profilePhotos';
+import { getMultiplePhotoUrls, NO_PHOTO_PLACEHOLDER } from '@/utils/profilePhotos';
 import { GraphQLApiError } from '@/services/graphqlService';
 import { matchQueryKeys } from '@/lib/queryKeys';
 import { fetchSkippedProfilesForUser } from '@/services/matchExploreQueries';
@@ -95,17 +95,7 @@ export const SkippedProfilesPage: React.FC = () => {
                     className={styles.gridAvatar}
                     onError={(e) => {
                       const el = e.currentTarget;
-                      if (el.dataset.fallback === '2') {
-                        el.src = NO_PHOTO_PLACEHOLDER;
-                        return;
-                      }
-                      if (el.dataset.fallback === '1') {
-                        el.dataset.fallback = '2';
-                        el.src = NO_PHOTO_PLACEHOLDER;
-                        return;
-                      }
-                      el.dataset.fallback = '1';
-                      el.src = fallbackPlaceholderPhotoUrl(row.userId, 0);
+                      el.src = NO_PHOTO_PLACEHOLDER;
                     }}
                   />
                   <Box sx={{ minWidth: 0 }}>

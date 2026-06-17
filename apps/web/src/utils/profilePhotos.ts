@@ -19,6 +19,7 @@ export function resolveProfilePhotoUrl(url: string | undefined | null): string |
   if (!url?.trim()) return null;
   const u = url.trim();
   if (isBackendPlaceholderPhotoUrl(u)) return null;
+  if (isStockProfilePhotoUrl(u)) return null;
   if (/^https?:\/\//i.test(u) || u.startsWith('data:')) return u;
   return `${IMAGE_BUCKET_BASE}/${u.replace(/^\//, '')}`;
 }
@@ -29,9 +30,9 @@ export function photoUrlsFromAvatarField(avatarUrl: string | undefined | null): 
   return resolved ? [resolved] : [];
 }
 
-/** First real uploaded photo — excludes backend randomuser.me placeholders. */
+/** First real uploaded photo — excludes backend randomuser.me and stock/demo URLs. */
 export function getRealPrimaryPhotoUrl(photoUrls: string[] | undefined | null): string | null {
-  const real = (photoUrls ?? []).filter((u) => u?.trim() && !isBackendPlaceholderPhotoUrl(u));
+  const real = (photoUrls ?? []).filter((u) => u?.trim() && !isStockProfilePhotoUrl(u));
   for (const u of real) {
     const resolved = resolveProfilePhotoUrl(u);
     if (resolved) return resolved;
@@ -119,6 +120,14 @@ export function isBackendPlaceholderPhotoUrl(url: string | undefined): boolean {
   } catch {
     return false;
   }
+}
+
+/** Stock/demo faces (Unsplash, picsum, randomuser) — not the user's real upload. */
+export function isStockProfilePhotoUrl(url: string | undefined): boolean {
+  if (!url || typeof url !== 'string') return false;
+  if (isBackendPlaceholderPhotoUrl(url)) return true;
+  if (/images\.unsplash\.com|picsum\.photos/i.test(url)) return true;
+  return false;
 }
 
 /** Discover showed Unsplash/dummy when CRM had real S3 photos — use to trigger REST hydration. */
@@ -210,22 +219,20 @@ export function fallbackPlaceholderPhotoUrl(userId: string, index: number): stri
 }
 
 /**
- * Returns an array of photo URLs for the carousel.
- * - If profile has real photos: return ONLY those — never pad with placeholders.
- *   (Padding caused "another person" bug when swiping to slots 2–4.)
- * - Backend placeholder URLs (randomuser.me) are filtered out — they show random people, not the user.
- * - If profile has zero real photos: return Unsplash placeholder (user will see a face; onError can try picsum fallback).
+ * Returns photo URLs for the carousel.
+ * - Real uploads only — never invent a stock face for profiles without photos.
+ * - Seeded dummy/test users keep their fixed demo covers.
  */
 export function getMultiplePhotoUrls(
   existingUrls: string[] | undefined,
   userId: string,
   _count: number = DEFAULT_PHOTO_COUNT,
-  displayName?: string
+  _displayName?: string
 ): string[] {
   const raw = (existingUrls ?? []).filter(Boolean);
-  const existing = raw.filter((u) => !isBackendPlaceholderPhotoUrl(u));
+  const existing = raw.filter((u) => !isStockProfilePhotoUrl(u));
   if (existing.length > 0) return existing;
   const dummy = userId && DUMMY_USER_PRIMARY_PHOTO[userId];
   if (dummy) return [dummy];
-  return [placeholderPhotoUrl(userId, 0, inferGenderFromName(displayName || 'Guest'))];
+  return [];
 }
