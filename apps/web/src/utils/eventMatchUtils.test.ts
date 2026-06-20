@@ -302,4 +302,28 @@ describe('eventMatchUtils', () => {
       .toEqual(['gs-austria-jordan']);
     vi.useRealTimers();
   });
+
+  it('TunisiaJapan on Sat Jun 20 morning is Tomorrow (FIFA 21 Jun 04:00 UTC), not Today in progress', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-20T08:42:00-04:00'));
+
+    const tunisiaJapan = matchFixture({
+      matchId: 'gs-tunisia-japan',
+      teamAId: 'tunisia',
+      teamBId: 'japan',
+      matchDate: '2026-06-21',
+      matchTime: '04:00',
+      status: 'Scheduled',
+    });
+
+    expect(isMatchToday(tunisiaJapan)).toBe(false);
+    expect(isMatchUpcoming(tunisiaJapan)).toBe(true);
+    expect(formatKickoffCard('2026-06-21', '04:00')?.dateLabel).toBe('Tomorrow');
+
+    const { today, upcoming } = categorizeMatches([tunisiaJapan]);
+    expect(today).toHaveLength(0);
+    expect(upcoming.map((m) => m.matchId)).toEqual(['gs-tunisia-japan']);
+
+    vi.useRealTimers();
+  });
 });

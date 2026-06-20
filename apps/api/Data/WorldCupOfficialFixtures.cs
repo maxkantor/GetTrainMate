@@ -122,8 +122,8 @@ public static class WorldCupOfficialFixtures
     public static readonly IReadOnlyList<OfficialPairResult> ScoreOverrides = [];
 
     /// <summary>
-    /// Official kickoff times for all 72 group-stage fixtures (FIFA schedule, stored in UTC —
-    /// ET kickoffs are UTC-4 in June). Looked up by team pair, so generated fixture order doesn't matter.
+    /// Official kickoff times for all 72 group-stage fixtures (FIFA UTC calendar date + time —
+    /// e.g. Sun 21 Jun 04:00 UTC for a Sun 12:00 AM ET kickoff, not the prior US listing day).
     /// </summary>
     public static readonly IReadOnlyList<OfficialKickoff> GroupKickoffs =
     [
@@ -161,7 +161,8 @@ public static class WorldCupOfficialFixtures
         new("scotland", "morocco", "2026-06-19", "22:00"),
         new("brazil", "haiti", "2026-06-20", "00:30"),
         new("turkiye", "paraguay", "2026-06-20", "03:00"),
-        new("tunisia", "japan", "2026-06-20", "04:00"),
+        // FIFA: Sun 21 Jun 2026 04:00 UTC = Sun 12:00 AM ET (not Sat 20 Jun — US listing day ≠ UTC date)
+        new("tunisia", "japan", "2026-06-21", "04:00"),
         new("netherlands", "sweden", "2026-06-20", "17:00"),
         new("germany", "ivory-coast", "2026-06-20", "20:00"),
         new("ecuador", "curacao", "2026-06-21", "00:00"),
