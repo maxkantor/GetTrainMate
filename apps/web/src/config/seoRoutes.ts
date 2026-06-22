@@ -84,21 +84,40 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
   },
 };
 
-const WC_SPORTS_EVENT_LD: Record<string, unknown> = {
-  '@context': 'https://schema.org',
-  '@type': 'SportsEvent',
-  name: 'FIFA World Cup 2026',
-  sport: 'Soccer',
-  startDate: '2026-06-11',
-  endDate: '2026-07-19',
-  location: {
-    '@type': 'Place',
-    name: 'United States, Canada, Mexico',
-    address: { '@type': 'PostalAddress', addressCountry: 'US' },
-  },
-  organizer: { '@type': 'Organization', name: 'FIFA' },
-  url: absoluteUrl('/world-cup'),
-};
+const WC_EVENT_IMAGE_PATH = '/images/event-banner.png';
+
+const WC_EVENT_DESCRIPTION =
+  'FIFA World Cup 2026 — hosted across the United States, Canada, and Mexico. Follow the tournament, make free fan predictions, and connect with supporters on GetTrainMate.';
+
+/** SportsEvent JSON-LD for Google Event rich results (world-cup hub + event landing). */
+function buildWorldCupSportsEventLd(canonicalPath: string): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'SportsEvent',
+    name: 'FIFA World Cup 2026',
+    description: WC_EVENT_DESCRIPTION,
+    sport: 'Soccer',
+    startDate: '2026-06-11',
+    endDate: '2026-07-19',
+    eventStatus: 'https://schema.org/EventScheduled',
+    image: absoluteUrl(WC_EVENT_IMAGE_PATH),
+    url: absoluteUrl(canonicalPath),
+    location: {
+      '@type': 'Place',
+      name: 'United States, Canada, Mexico',
+      address: { '@type': 'PostalAddress', addressCountry: 'US' },
+    },
+    organizer: {
+      '@type': 'Organization',
+      name: 'FIFA',
+      url: 'https://www.fifa.com/',
+    },
+    performer: {
+      '@type': 'SportsTeam',
+      name: 'FIFA World Cup 2026 national teams',
+    },
+  };
+}
 
 const AUTH_PATHS = new Set(['/login', '/signup', '/verify-email', '/admin/login']);
 
@@ -143,7 +162,7 @@ export function getRouteSeo(pathname: string): RouteSeo {
       ogTitle: p.ogTitle,
       ogDescription: p.ogDescription,
       ogImagePath: p.ogImagePath,
-      jsonLd: path === '/world-cup' ? [WC_SPORTS_EVENT_LD] : undefined,
+      jsonLd: path === '/world-cup' ? [buildWorldCupSportsEventLd('/world-cup')] : undefined,
     });
   }
 
@@ -167,16 +186,22 @@ export function getRouteSeo(pathname: string): RouteSeo {
   }
 
   if (path.startsWith('/events/')) {
+    const eventSlug = decodeURIComponent(path.split('/').filter(Boolean).at(1) ?? '').trim();
     const eventLabel = eventLabelFromPath(path);
+    const isWorldCupLanding = eventSlug === 'world-cup-2026';
     return base({
       title: `${eventLabel} on ${BRAND}`,
-      description:
-        'Find fans, training partners, watch parties, sports meetups, and real connections around featured events on GetTrainMate.',
+      description: isWorldCupLanding
+        ? WC_EVENT_DESCRIPTION
+        : 'Find fans, training partners, watch parties, sports meetups, and real connections around featured events on GetTrainMate.',
       canonicalPath: path,
       noindex: false,
       ogTitle: `${eventLabel} on ${BRAND}`,
-      ogDescription:
-        'Do not watch alone. Meet fans nearby, connect around the event, and start free on GetTrainMate.',
+      ogDescription: isWorldCupLanding
+        ? WC_EVENT_DESCRIPTION
+        : 'Do not watch alone. Meet fans nearby, connect around the event, and start free on GetTrainMate.',
+      ogImagePath: isWorldCupLanding ? WC_EVENT_IMAGE_PATH : undefined,
+      jsonLd: isWorldCupLanding ? [buildWorldCupSportsEventLd(path)] : undefined,
     });
   }
 
