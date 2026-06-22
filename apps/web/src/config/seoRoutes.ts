@@ -116,6 +116,15 @@ function buildWorldCupSportsEventLd(canonicalPath: string): Record<string, unkno
       '@type': 'SportsTeam',
       name: 'FIFA World Cup 2026 national teams',
     },
+    offers: {
+      '@type': 'Offer',
+      name: 'Free GetTrainMate fan hub',
+      url: absoluteUrl(canonicalPath),
+      price: '0',
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+      validFrom: '2026-01-01T00:00:00Z',
+    },
   };
 }
 
