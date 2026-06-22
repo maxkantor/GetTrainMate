@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { prerenderSeoPlugin } from './vite-plugin-prerender-seo'
 
 const ogTitle = 'GetTrainMate | Find Your Perfect Training Partner'
 const ogDescription = 'Match, train, and connect with people who fit your goals and vibe.'
@@ -24,6 +25,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
+      prerenderSeoPlugin(),
       {
         name: 'inject-og-meta',
         transformIndexHtml(html) {

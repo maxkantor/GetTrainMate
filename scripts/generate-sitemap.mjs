@@ -28,6 +28,7 @@ const STATIC = [
   { loc: '/faq', changefreq: 'monthly', priority: '0.8' },
   { loc: '/contact', changefreq: 'monthly', priority: '0.8' },
   { loc: '/world-cup', changefreq: 'daily', priority: '0.95' },
+  { loc: '/events/world-cup-2026', changefreq: 'daily', priority: '0.9' },
   { loc: '/gear', changefreq: 'monthly', priority: '0.7' },
   { loc: '/platform', changefreq: 'monthly', priority: '0.7' },
   { loc: '/login', changefreq: 'monthly', priority: '0.6' },

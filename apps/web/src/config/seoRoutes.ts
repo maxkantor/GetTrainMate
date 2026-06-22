@@ -1,5 +1,10 @@
 import { absoluteUrl } from '@/config/site';
 import { getWcTeamById } from '@/config/wcTeams';
+import {
+  buildWorldCupSportsEventLd,
+  WC_EVENT_DESCRIPTION,
+  WC_EVENT_IMAGE_PATH,
+} from '@/config/worldCupSportsEventLd';
 
 export type RouteSeo = {
   title: string;
@@ -83,50 +88,6 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
     ogImagePath: '/images/event-banner.png',
   },
 };
-
-const WC_EVENT_IMAGE_PATH = '/images/event-banner.png';
-
-const WC_EVENT_DESCRIPTION =
-  'FIFA World Cup 2026 — hosted across the United States, Canada, and Mexico. Follow the tournament, make free fan predictions, and connect with supporters on GetTrainMate.';
-
-/** SportsEvent JSON-LD for Google Event rich results (world-cup hub + event landing). */
-function buildWorldCupSportsEventLd(canonicalPath: string): Record<string, unknown> {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'SportsEvent',
-    name: 'FIFA World Cup 2026',
-    description: WC_EVENT_DESCRIPTION,
-    sport: 'Soccer',
-    startDate: '2026-06-11',
-    endDate: '2026-07-19',
-    eventStatus: 'https://schema.org/EventScheduled',
-    image: absoluteUrl(WC_EVENT_IMAGE_PATH),
-    url: absoluteUrl(canonicalPath),
-    location: {
-      '@type': 'Place',
-      name: 'United States, Canada, Mexico',
-      address: { '@type': 'PostalAddress', addressCountry: 'US' },
-    },
-    organizer: {
-      '@type': 'Organization',
-      name: 'FIFA',
-      url: 'https://www.fifa.com/',
-    },
-    performer: {
-      '@type': 'SportsTeam',
-      name: 'FIFA World Cup 2026 national teams',
-    },
-    offers: {
-      '@type': 'Offer',
-      name: 'Free GetTrainMate fan hub',
-      url: absoluteUrl(canonicalPath),
-      price: '0',
-      priceCurrency: 'USD',
-      availability: 'https://schema.org/InStock',
-      validFrom: '2026-01-01T00:00:00Z',
-    },
-  };
-}
 
 const AUTH_PATHS = new Set(['/login', '/signup', '/verify-email', '/admin/login']);
 
