@@ -1,28 +1,22 @@
 /**
- * GetTrainMate — “TriMerge” mark
- * One continuous stroke: three entry paths converge, one exit (Connection).
- * Stroke-only (Bélo / Swoosh lineage) — no nodes, pins, droplets, or filled blobs.
+ * GetTrainMate brand mark — “T-Mark”
+ * Bold custom lettermark (TrainMate / Tesla lineage). One filled silhouette.
+ * Brand recognition first — not literal mode iconography.
  */
 export type GtmMarkVariant = 'main' | 'favicon' | 'transparent' | 'navbar';
 
 export const GTM_MARK_VIEWBOX = 48;
 
-/** Train (top) · Vibe (left-low) · Date (left-high) → meet → Connection (right) */
-export const MARK_STROKE =
-  'M 6 34 C 14 32, 20 28, 24 26 C 18 20, 10 14, 6 12 C 16 18, 22 23, 24 26 C 24 10, 24 23, 24 26 C 32 26, 40 26, 44 24';
+/** Custom T: arched crossbar + tapered stem — single closed path */
+export const MARK_SILHOUETTE =
+  'M 10 17 C 14 10.5, 34 10.5, 38 17 L 38 20 L 29.5 20 L 29.5 37.5 C 29.5 40.4, 27.1 42.5, 24 42.5 C 20.9 42.5, 18.5 40.4, 18.5 37.5 L 18.5 20 L 10 20 Z';
 
-/** Fewer bends — clearer at 16×16 */
-export const MARK_STROKE_FAVICON =
-  'M 6 34 C 15 31, 21 28, 24 26 C 17 19, 9 13, 6 12 C 17 18, 23 24, 24 26 C 24 9, 24 24, 24 26 C 33 26, 41 25, 44 24';
+/** Bolder proportions for 16×16 rasterization */
+export const MARK_SILHOUETTE_FAVICON =
+  'M 9 17.5 C 13.5 10, 34.5 10, 39 17.5 L 39 21 L 30 21 L 30 38 C 30 41, 27.2 43, 24 43 C 20.8 43, 18 41, 18 38 L 18 21 L 9 21 Z';
 
-export function markStrokePath(variant: GtmMarkVariant): string {
-  return variant === 'favicon' ? MARK_STROKE_FAVICON : MARK_STROKE;
-}
-
-export function strokeWidthFor(variant: GtmMarkVariant): number {
-  if (variant === 'favicon') return 4.25;
-  if (variant === 'navbar' || variant === 'transparent') return 3.65;
-  return 3.5;
+export function markPath(variant: GtmMarkVariant): string {
+  return variant === 'favicon' ? MARK_SILHOUETTE_FAVICON : MARK_SILHOUETTE;
 }
 
 export function showBackground(variant: GtmMarkVariant): boolean {

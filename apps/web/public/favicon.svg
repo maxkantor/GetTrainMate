@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="GetTrainMate">
   <defs>
-    <linearGradient id="s" x1="6" y1="12" x2="44" y2="34" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7C5CFF"/><stop offset="0.5" stop-color="#A855F7"/><stop offset="1" stop-color="#FFB347"/>
+    <linearGradient id="g" x1="10" y1="10" x2="38" y2="43" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C5CFF"/><stop offset="0.55" stop-color="#A855F7"/><stop offset="1" stop-color="#FFB347"/>
     </linearGradient>
   </defs>
   <rect x="1" y="1" width="46" height="46" rx="11" fill="#0B1020"/>
-  <path d="M 6 34 C 15 31, 21 28, 24 26 C 17 19, 9 13, 6 12 C 17 18, 23 24, 24 26 C 24 9, 24 24, 24 26 C 33 26, 41 25, 44 24" stroke="url(#s)" stroke-width="4.25" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 9 17.5 C 13.5 10, 34.5 10, 39 17.5 L 39 21 L 30 21 L 30 38 C 30 41, 27.2 43, 24 43 C 20.8 43, 18 41, 18 38 L 18 21 L 9 21 Z" fill="url(#g)"/>
 </svg>

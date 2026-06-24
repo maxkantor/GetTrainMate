@@ -1,11 +1,5 @@
 import React, { useId } from 'react';
-import {
-  GTM_MARK_VIEWBOX,
-  markStrokePath,
-  showBackground,
-  strokeWidthFor,
-  type GtmMarkVariant,
-} from './gtmMarkArt';
+import { GTM_MARK_VIEWBOX, markPath, showBackground, type GtmMarkVariant } from './gtmMarkArt';
 
 export type GtmMarkSvgProps = {
   size?: number;
@@ -14,9 +8,7 @@ export type GtmMarkSvgProps = {
   title?: string;
 };
 
-/**
- * GetTrainMate TriMerge — one continuous path, three modes → connection.
- */
+/** GetTrainMate T-Mark — premium lettermark silhouette */
 export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
   size = 32,
   className,
@@ -24,9 +16,8 @@ export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
   title,
 }) => {
   const uid = useId().replace(/:/g, '');
-  const strokeGrad = `gtm-s-${uid}`;
+  const fillGrad = `gtm-t-${uid}`;
   const withBg = showBackground(variant);
-  const sw = strokeWidthFor(variant);
 
   return (
     <svg
@@ -41,23 +32,16 @@ export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
       aria-label={title}
     >
       <defs>
-        <linearGradient id={strokeGrad} x1="6" y1="12" x2="44" y2="34" gradientUnits="userSpaceOnUse">
+        <linearGradient id={fillGrad} x1="10" y1="10" x2="38" y2="43" gradientUnits="userSpaceOnUse">
           <stop stopColor="#7C5CFF" />
-          <stop offset="0.5" stopColor="#A855F7" />
+          <stop offset="0.55" stopColor="#A855F7" />
           <stop offset="1" stopColor="#FFB347" />
         </linearGradient>
       </defs>
 
       {withBg ? <rect x="1" y="1" width="46" height="46" rx="11" fill="#0B1020" /> : null}
 
-      <path
-        d={markStrokePath(variant)}
-        stroke={`url(#${strokeGrad})`}
-        strokeWidth={sw}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
+      <path d={markPath(variant)} fill={`url(#${fillGrad})`} />
     </svg>
   );
 };
