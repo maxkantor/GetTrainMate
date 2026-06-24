@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="GetTrainMate">
+  <defs>
+    <linearGradient id="primary" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C5CFF"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="26" y1="26" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB347"/>
+      <stop offset="1" stop-color="#FF8A00"/>
+    </linearGradient>
+    <linearGradient id="pathGrad" x1="10" y1="12" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C5CFF"/>
+      <stop offset="0.5" stop-color="#A855F7"/>
+      <stop offset="1" stop-color="#FF8A00"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 16.2 C20.5 21.5 14.5 28.5 11.8 32.2" stroke="url(#primary)" stroke-width="2.9" stroke-linecap="round" fill="none"/>
+  <path d="M11.8 32.2 C19.5 37.8 28.5 37.8 36.2 32.2" stroke="url(#pathGrad)" stroke-width="2.9" stroke-linecap="round" fill="none"/>
+  <path d="M36.2 32.2 C33 25.5 28 19.5 24 16.2" stroke="url(#primary)" stroke-width="2.9" stroke-linecap="round" fill="none"/>
+  <path d="M24 18.5v7.2M20.2 24h7.6" stroke="#7C5CFF" stroke-opacity="0.16" stroke-width="1.4" stroke-linecap="round"/>
+  <circle cx="24" cy="11.5" r="5.2" fill="url(#primary)"/>
+  <path d="M24 5.8v2.2" stroke="url(#accent)" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
+  <circle cx="24" cy="11.5" r="2.1" fill="#EDE9FE" fill-opacity="0.45"/>
+  <circle cx="10.5" cy="35" r="4.8" fill="url(#primary)"/>
+  <circle cx="10.5" cy="35" r="6.6" stroke="#7C5CFF" stroke-opacity="0.28" stroke-width="1" fill="none"/>
+  <circle cx="37.5" cy="35" r="4.8" fill="url(#primary)"/>
+  <circle cx="37.5" cy="35" r="6.9" stroke="url(#accent)" stroke-opacity="0.88" stroke-width="1.35" fill="none"/>
+</svg>

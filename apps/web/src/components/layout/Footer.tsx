@@ -51,6 +51,7 @@ export const Footer: React.FC<FooterProps> = ({ compact = false, hideOnMobileApp
               <LogoFull
                 label={t('common.appName')}
                 size="lg"
+                variant="main"
                 iconClassName={styles.logoIcon}
                 textClassName={styles.logoText}
               />

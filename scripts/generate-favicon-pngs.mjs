@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SVG_PATH = join(ROOT, 'apps/web/public/favicon.svg');
+const SVG_PATH = join(ROOT, 'apps/web/public/brand/gtm-icon-favicon.svg');
 const OUT_DIR = join(ROOT, 'apps/web/public');
 const svg = readFileSync(SVG_PATH, 'utf8');
 

@@ -1,34 +1,53 @@
 import React, { useId } from 'react';
+import {
+  GTM_MARK_VIEWBOX,
+  HIDDEN_T,
+  NODE_DATE,
+  NODE_TRAIN,
+  NODE_VIBE,
+  PATH_DATE_TRAIN,
+  PATH_TRAIN_VIBE,
+  PATH_VIBE_DATE,
+  type GtmMarkVariant,
+  showBackground,
+  showHiddenDetails,
+  showNodeRings,
+  strokeWidthFor,
+} from './gtmMarkArt';
 
 export type GtmMarkSvgProps = {
   size?: number;
   className?: string;
-  /** Slightly bolder strokes for favicon-scale rendering */
-  bold?: boolean;
+  variant?: GtmMarkVariant;
   title?: string;
 };
 
 /**
- * GetTrainMate brand mark — two connected figures + energy spark (fitness + connection).
+ * GetTrainMate — three-node connection mark (Train · Vibe · Date).
  */
 export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
   size = 32,
   className,
-  bold = false,
+  variant = 'navbar',
   title,
 }) => {
   const uid = useId().replace(/:/g, '');
-  const grad = `gtm-grad-${uid}`;
-  const glow = `gtm-glow-${uid}`;
-  const stroke = bold ? 2.4 : 2;
-  const headR = bold ? 3.6 : 3.2;
+  const primary = `gtm-p-${uid}`;
+  const accent = `gtm-a-${uid}`;
+  const pathGrad = `gtm-pg-${uid}`;
+  const glass = `gtm-g-${uid}`;
+  const glow = `gtm-gl-${uid}`;
+  const sw = strokeWidthFor(variant);
+  const withBg = showBackground(variant);
+  const details = showHiddenDetails(variant);
+  const rings = showNodeRings(variant);
 
   return (
     <svg
       className={className}
       width={size}
       height={size}
-      viewBox="0 0 40 40"
+      viewBox={`0 0 ${GTM_MARK_VIEWBOX} ${GTM_MARK_VIEWBOX}`}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       role={title ? 'img' : 'presentation'}
@@ -36,67 +55,140 @@ export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
       aria-label={title}
     >
       <defs>
-        <linearGradient id={grad} x1="6" y1="4" x2="34" y2="36" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#8B5CF6" />
-          <stop offset="0.45" stopColor="#D946EF" />
-          <stop offset="1" stopColor="#F97316" />
+        <linearGradient id={primary} x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#7C5CFF" />
+          <stop offset="1" stopColor="#A855F7" />
         </linearGradient>
-        <radialGradient id={glow} cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(20 18) rotate(90) scale(18)">
-          <stop stopColor="#A78BFA" stopOpacity="0.35" />
-          <stop offset="1" stopColor="#F97316" stopOpacity="0" />
-        </radialGradient>
+        <linearGradient id={accent} x1="26" y1="26" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FFB347" />
+          <stop offset="1" stopColor="#FF8A00" />
+        </linearGradient>
+        <linearGradient id={pathGrad} x1="10" y1="12" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#7C5CFF" />
+          <stop offset="0.5" stopColor="#A855F7" />
+          <stop offset="1" stopColor="#FF8A00" />
+        </linearGradient>
+        <linearGradient id={glass} x1="24" y1="2" x2="24" y2="46" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FFFFFF" stopOpacity="0.1" />
+          <stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.02" />
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+        </linearGradient>
+        <filter id={glow} x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="1.1" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
 
-      <rect x="3" y="3" width="34" height="34" rx="10" fill={`url(#${glow})`} />
-      <rect
-        x="3"
-        y="3"
-        width="34"
-        height="34"
-        rx="10"
-        stroke={`url(#${grad})`}
-        strokeWidth="1.6"
-        fill="rgba(12, 10, 28, 0.55)"
-      />
+      {withBg ? (
+        <>
+          <rect x="1" y="1" width="46" height="46" rx="11" fill="#0B1020" />
+          <rect x="1" y="1" width="46" height="46" rx="11" fill={`url(#${glass})`} />
+          <rect
+            x="1"
+            y="1"
+            width="46"
+            height="46"
+            rx="11"
+            stroke={`url(#${primary})`}
+            strokeOpacity={0.32}
+            strokeWidth="1"
+          />
+        </>
+      ) : null}
 
-      {/* Left figure */}
-      <circle cx="13.5" cy="13.5" r={headR} fill={`url(#${grad})`} />
       <path
-        d="M8.5 28.5c0.8-4.2 3.2-6.5 5-6.5s4.2 2.3 5 6.5"
-        stroke={`url(#${grad})`}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        fill="none"
-      />
-
-      {/* Right figure */}
-      <circle cx="26.5" cy="13.5" r={headR} fill={`url(#${grad})`} />
-      <path
-        d="M21.5 28.5c0.8-4.2 3.2-6.5 5-6.5s4.2 2.3 5 6.5"
-        stroke={`url(#${grad})`}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        fill="none"
-      />
-
-      {/* Connection + energy */}
-      <path
-        d="M16.5 20.5c1.2 1.4 2.8 2.1 3.5 2.1s2.3-0.7 3.5-2.1"
-        stroke={`url(#${grad})`}
-        strokeWidth={stroke}
+        d={PATH_TRAIN_VIBE}
+        stroke={`url(#${primary})`}
+        strokeWidth={sw}
         strokeLinecap="round"
         fill="none"
       />
       <path
-        d="M20 15.5v3.5M18.25 17.25h3.5"
-        stroke="#FBBF24"
-        strokeWidth={bold ? 2 : 1.6}
+        d={PATH_VIBE_DATE}
+        stroke={`url(#${pathGrad})`}
+        strokeWidth={sw}
         strokeLinecap="round"
+        fill="none"
       />
       <path
-        d="M20 22.5l-1.4 2.4h2.8L20 22.5Z"
-        fill="#FBBF24"
+        d={PATH_DATE_TRAIN}
+        stroke={`url(#${primary})`}
+        strokeWidth={sw}
+        strokeLinecap="round"
+        fill="none"
       />
+
+      {details ? (
+        <path
+          d={HIDDEN_T}
+          stroke="#7C5CFF"
+          strokeOpacity={0.16}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+      ) : null}
+
+      {/* TRAIN — energy / growth */}
+      <circle
+        cx={NODE_TRAIN.cx}
+        cy={NODE_TRAIN.cy}
+        r={variant === 'favicon' ? 5.6 : NODE_TRAIN.r}
+        fill={`url(#${primary})`}
+        filter={withBg ? `url(#${glow})` : undefined}
+      />
+      {details ? (
+        <path
+          d="M24 5.8v2.2"
+          stroke={`url(#${accent})`}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          opacity={0.9}
+        />
+      ) : null}
+      {rings && variant !== 'favicon' ? (
+        <circle cx={NODE_TRAIN.cx} cy={NODE_TRAIN.cy} r="2.1" fill="#EDE9FE" fillOpacity={0.45} />
+      ) : null}
+
+      {/* VIBE — community */}
+      <circle
+        cx={NODE_VIBE.cx}
+        cy={NODE_VIBE.cy}
+        r={variant === 'favicon' ? 5.2 : NODE_VIBE.r}
+        fill={`url(#${primary})`}
+      />
+      {rings ? (
+        <circle
+          cx={NODE_VIBE.cx}
+          cy={NODE_VIBE.cy}
+          r={variant === 'favicon' ? 0 : 6.6}
+          stroke="#7C5CFF"
+          strokeOpacity={0.28}
+          strokeWidth="1"
+          fill="none"
+        />
+      ) : null}
+
+      {/* DATE — chemistry */}
+      <circle
+        cx={NODE_DATE.cx}
+        cy={NODE_DATE.cy}
+        r={variant === 'favicon' ? 5.2 : NODE_DATE.r}
+        fill={`url(#${primary})`}
+      />
+      {rings ? (
+        <circle
+          cx={NODE_DATE.cx}
+          cy={NODE_DATE.cy}
+          r={variant === 'favicon' ? 7.2 : 6.9}
+          stroke={`url(#${accent})`}
+          strokeOpacity={variant === 'favicon' ? 1 : 0.88}
+          strokeWidth={variant === 'favicon' ? 1.6 : 1.35}
+          fill="none"
+        />
+      ) : null}
     </svg>
   );
 };
