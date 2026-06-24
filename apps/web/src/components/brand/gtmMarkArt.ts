@@ -1,25 +1,28 @@
 /**
- * GetTrainMate brand mark — “Apex Confluence”
- * One continuous filled silhouette: three paths (Train · Vibe · Date) merge to a single apex (Connection).
- * No nodes, circles, figures, or network strokes.
+ * GetTrainMate — “TriMerge” mark
+ * One continuous stroke: three entry paths converge, one exit (Connection).
+ * Stroke-only (Bélo / Swoosh lineage) — no nodes, pins, droplets, or filled blobs.
  */
 export type GtmMarkVariant = 'main' | 'favicon' | 'transparent' | 'navbar';
 
 export const GTM_MARK_VIEWBOX = 48;
 
-/**
- * Single closed path — trilobate base converging to top apex.
- * Optimized for bold silhouette at 16×16.
- */
-export const MARK_SILHOUETTE =
-  'M24 4.5 C31.2 8.8 40.5 19.5 39.8 29.5 C39.2 36.2 33.8 41.8 27.2 42.2 C25.4 42.3 24.6 39.8 24 37.8 C23.4 39.8 22.6 42.3 20.8 42.2 C14.2 41.8 8.8 36.2 8.2 29.5 C7.5 19.5 16.8 8.8 24 4.5 Z';
+/** Train (top) · Vibe (left-low) · Date (left-high) → meet → Connection (right) */
+export const MARK_STROKE =
+  'M 6 34 C 14 32, 20 28, 24 26 C 18 20, 10 14, 6 12 C 16 18, 22 23, 24 26 C 24 10, 24 23, 24 26 C 32 26, 40 26, 44 24';
 
-/** Slightly simplified for favicon rasterization */
-export const MARK_SILHOUETTE_FAVICON =
-  'M24 5 C31 9.5 40 20 39.5 30 C39 36.5 34 41.5 27.5 42 C25.5 42 24.5 39.5 24 38 C22.5 39.5 21.5 42 19.5 42 C13 41.5 8 36.5 8.5 30 C8 20 17 9.5 24 5 Z';
+/** Fewer bends — clearer at 16×16 */
+export const MARK_STROKE_FAVICON =
+  'M 6 34 C 15 31, 21 28, 24 26 C 17 19, 9 13, 6 12 C 17 18, 23 24, 24 26 C 24 9, 24 24, 24 26 C 33 26, 41 25, 44 24';
 
-export function markPath(variant: GtmMarkVariant): string {
-  return variant === 'favicon' ? MARK_SILHOUETTE_FAVICON : MARK_SILHOUETTE;
+export function markStrokePath(variant: GtmMarkVariant): string {
+  return variant === 'favicon' ? MARK_STROKE_FAVICON : MARK_STROKE;
+}
+
+export function strokeWidthFor(variant: GtmMarkVariant): number {
+  if (variant === 'favicon') return 4.25;
+  if (variant === 'navbar' || variant === 'transparent') return 3.65;
+  return 3.5;
 }
 
 export function showBackground(variant: GtmMarkVariant): boolean {

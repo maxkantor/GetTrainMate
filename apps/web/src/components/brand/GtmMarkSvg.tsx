@@ -1,5 +1,11 @@
 import React, { useId } from 'react';
-import { GTM_MARK_VIEWBOX, markPath, showBackground, type GtmMarkVariant } from './gtmMarkArt';
+import {
+  GTM_MARK_VIEWBOX,
+  markStrokePath,
+  showBackground,
+  strokeWidthFor,
+  type GtmMarkVariant,
+} from './gtmMarkArt';
 
 export type GtmMarkSvgProps = {
   size?: number;
@@ -9,7 +15,7 @@ export type GtmMarkSvgProps = {
 };
 
 /**
- * GetTrainMate — Apex Confluence: one continuous mark, three paths → connection.
+ * GetTrainMate TriMerge — one continuous path, three modes → connection.
  */
 export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
   size = 32,
@@ -18,10 +24,9 @@ export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
   title,
 }) => {
   const uid = useId().replace(/:/g, '');
-  const fillGrad = `gtm-fill-${uid}`;
-  const glass = `gtm-glass-${uid}`;
+  const strokeGrad = `gtm-s-${uid}`;
   const withBg = showBackground(variant);
-  const d = markPath(variant);
+  const sw = strokeWidthFor(variant);
 
   return (
     <svg
@@ -36,26 +41,23 @@ export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
       aria-label={title}
     >
       <defs>
-        <linearGradient id={fillGrad} x1="12" y1="4" x2="36" y2="44" gradientUnits="userSpaceOnUse">
+        <linearGradient id={strokeGrad} x1="6" y1="12" x2="44" y2="34" gradientUnits="userSpaceOnUse">
           <stop stopColor="#7C5CFF" />
-          <stop offset="0.55" stopColor="#A855F7" />
+          <stop offset="0.5" stopColor="#A855F7" />
           <stop offset="1" stopColor="#FFB347" />
-        </linearGradient>
-        <linearGradient id={glass} x1="24" y1="2" x2="24" y2="46" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#FFFFFF" stopOpacity="0.12" />
-          <stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.03" />
-          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
         </linearGradient>
       </defs>
 
-      {withBg ? (
-        <>
-          <rect x="1" y="1" width="46" height="46" rx="11" fill="#0B1020" />
-          {variant === 'main' ? <rect x="1" y="1" width="46" height="46" rx="11" fill={`url(#${glass})`} /> : null}
-        </>
-      ) : null}
+      {withBg ? <rect x="1" y="1" width="46" height="46" rx="11" fill="#0B1020" /> : null}
 
-      <path d={d} fill={`url(#${fillGrad})`} />
+      <path
+        d={markStrokePath(variant)}
+        stroke={`url(#${strokeGrad})`}
+        strokeWidth={sw}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
     </svg>
   );
 };
