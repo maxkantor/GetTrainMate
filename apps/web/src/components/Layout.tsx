@@ -61,7 +61,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           {showAppShell && user ? <AppBottomNav /> : null}
         </CreditsUsageModalProvider>
       </ChatPresenceProvider>
-      {!isAdmin && <Footer compact={showAppShell} hideOnMobileApp={showAppShell && !!user} />}
+      {!isAdmin && <Footer reserveBottomNav={showAppShell && !!user} />}
     </div>
   );
 };

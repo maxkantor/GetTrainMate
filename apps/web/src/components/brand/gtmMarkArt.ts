@@ -1,24 +1,81 @@
 /**
- * GetTrainMate brand mark — “T-Mark”
- * Bold custom lettermark (TrainMate / Tesla lineage). One filled silhouette.
- * Brand recognition first — not literal mode iconography.
+ * GetTrainMate brand mark — Interlock Rings
+ * Two overlapping rings: connection, partnership, continuity — not literal infinity.
+ * Favicon geometry is tuned separately (larger fill, less padding).
  */
-export type GtmMarkVariant = 'main' | 'favicon' | 'transparent' | 'navbar';
+export type GtmMarkVariant =
+  | 'main'
+  | 'favicon'
+  | 'transparent'
+  | 'navbar'
+  | 'app'
+  | 'monochrome'
+  | 'dark';
 
 export const GTM_MARK_VIEWBOX = 48;
 
-/** Custom T: arched crossbar + tapered stem — single closed path */
-export const MARK_SILHOUETTE =
-  'M 10 17 C 14 10.5, 34 10.5, 38 17 L 38 20 L 29.5 20 L 29.5 37.5 C 29.5 40.4, 27.1 42.5, 24 42.5 C 20.9 42.5, 18.5 40.4, 18.5 37.5 L 18.5 20 L 10 20 Z';
+export type RingSpec = {
+  cx: number;
+  cy: number;
+  outerR: number;
+  innerR: number;
+};
 
-/** Bolder proportions for 16×16 rasterization */
-export const MARK_SILHOUETTE_FAVICON =
-  'M 9 17.5 C 13.5 10, 34.5 10, 39 17.5 L 39 21 L 30 21 L 30 38 C 30 41, 27.2 43, 24 43 C 20.8 43, 18 41, 18 38 L 18 21 L 9 21 Z';
+/** Navbar / app / transparent — balanced overlap with subtle vertical flow */
+const STANDARD_RINGS: RingSpec[] = [
+  { cx: 18.8, cy: 23.55, outerR: 11.25, innerR: 6.35 },
+  { cx: 29.2, cy: 24.45, outerR: 11.25, innerR: 6.35 },
+];
 
-export function markPath(variant: GtmMarkVariant): string {
-  return variant === 'favicon' ? MARK_SILHOUETTE_FAVICON : MARK_SILHOUETTE;
+/** Favicon — ~18% thicker band, rings scaled to fill canvas */
+const FAVICON_RINGS: RingSpec[] = [
+  { cx: 16.55, cy: 23.35, outerR: 13.15, innerR: 7.05 },
+  { cx: 31.45, cy: 24.65, outerR: 13.15, innerR: 7.05 },
+];
+
+export function getRings(variant: GtmMarkVariant): RingSpec[] {
+  return variant === 'favicon' ? FAVICON_RINGS : STANDARD_RINGS;
+}
+
+/** Donut ring as even-odd compound path — crisp at 16×16 */
+export function ringDonutPath(ring: RingSpec): string {
+  const { cx, cy, outerR, innerR } = ring;
+  return [
+    `M ${cx + outerR} ${cy}`,
+    `A ${outerR} ${outerR} 0 1 1 ${cx - outerR} ${cy}`,
+    `A ${outerR} ${outerR} 0 1 1 ${cx + outerR} ${cy}`,
+    `Z`,
+    `M ${cx + innerR} ${cy}`,
+    `A ${innerR} ${innerR} 0 1 0 ${cx - innerR} ${cy}`,
+    `A ${innerR} ${innerR} 0 1 0 ${cx + innerR} ${cy}`,
+    `Z`,
+  ].join(' ');
 }
 
 export function showBackground(variant: GtmMarkVariant): boolean {
-  return variant === 'main' || variant === 'favicon';
+  return variant === 'main' || variant === 'favicon' || variant === 'app' || variant === 'dark';
 }
+
+export function backgroundFill(variant: GtmMarkVariant): string {
+  return variant === 'dark' ? '#070B1A' : '#0B1020';
+}
+
+export function backgroundRadius(variant: GtmMarkVariant): number {
+  return variant === 'app' ? 12 : 11;
+}
+
+export function isMonochrome(variant: GtmMarkVariant): boolean {
+  return variant === 'monochrome';
+}
+
+export const BRAND_GRADIENT = {
+  start: '#7C5CFF',
+  mid: '#C084FC',
+  accent: '#FFB347',
+} as const;
+
+export const DARK_GRADIENT = {
+  start: '#9B7FFF',
+  mid: '#D8B4FE',
+  accent: '#FFCC80',
+} as const;

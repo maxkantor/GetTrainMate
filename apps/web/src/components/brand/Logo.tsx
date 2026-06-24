@@ -38,7 +38,7 @@ export type LogoFullProps = {
   variant?: GtmMarkSvgProps['variant'];
 };
 
-/** Icon + GetTrainMate wordmark */
+/** Icon + GetTrainMate wordmark — Interlock Rings (navbar | favicon | main | app | monochrome | dark) */
 export const LogoFull: React.FC<LogoFullProps> = ({
   label = 'GetTrainMate',
   size = 'md',

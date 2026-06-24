@@ -8,10 +8,16 @@
   "theme_color": "#070b1a",
   "icons": [
     {
-      "src": "/brand/gtm-icon-main.svg",
+      "src": "/brand/gtm-icon-app.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "/brand/gtm-icon-main.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     },
     {
       "src": "/favicon-48.png",

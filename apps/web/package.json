@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "node ../../scripts/generate-sitemap.mjs && node ../../scripts/generate-favicon-pngs.mjs && tsc && vite build",
+    "build": "node ../../scripts/generate-sitemap.mjs && node ../../scripts/generate-brand-svgs.mjs && node ../../scripts/generate-favicon-pngs.mjs && tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

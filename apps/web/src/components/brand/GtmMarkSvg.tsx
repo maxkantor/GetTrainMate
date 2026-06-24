@@ -1,5 +1,16 @@
 import React, { useId } from 'react';
-import { GTM_MARK_VIEWBOX, markPath, showBackground, type GtmMarkVariant } from './gtmMarkArt';
+import {
+  BRAND_GRADIENT,
+  DARK_GRADIENT,
+  GTM_MARK_VIEWBOX,
+  backgroundFill,
+  backgroundRadius,
+  getRings,
+  isMonochrome,
+  ringDonutPath,
+  showBackground,
+  type GtmMarkVariant,
+} from './gtmMarkArt';
 
 export type GtmMarkSvgProps = {
   size?: number;
@@ -8,7 +19,7 @@ export type GtmMarkSvgProps = {
   title?: string;
 };
 
-/** GetTrainMate T-Mark — premium lettermark silhouette */
+/** GetTrainMate Interlock Rings — official brand mark */
 export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
   size = 32,
   className,
@@ -16,8 +27,12 @@ export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
   title,
 }) => {
   const uid = useId().replace(/:/g, '');
-  const fillGrad = `gtm-t-${uid}`;
+  const gradId = `gtm-rings-${uid}`;
   const withBg = showBackground(variant);
+  const mono = isMonochrome(variant);
+  const dark = variant === 'dark';
+  const palette = dark ? DARK_GRADIENT : BRAND_GRADIENT;
+  const rings = getRings(variant);
 
   return (
     <svg
@@ -31,17 +46,36 @@ export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
       aria-hidden={title ? undefined : true}
       aria-label={title}
     >
-      <defs>
-        <linearGradient id={fillGrad} x1="10" y1="10" x2="38" y2="43" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#7C5CFF" />
-          <stop offset="0.55" stopColor="#A855F7" />
-          <stop offset="1" stopColor="#FFB347" />
-        </linearGradient>
-      </defs>
+      {!mono ? (
+        <defs>
+          <linearGradient id={gradId} x1="11" y1="12" x2="37" y2="40" gradientUnits="userSpaceOnUse">
+            <stop stopColor={palette.start} />
+            <stop offset="0.72" stopColor={palette.mid} />
+            <stop offset="1" stopColor={palette.accent} stopOpacity={dark ? 0.85 : 0.65} />
+          </linearGradient>
+        </defs>
+      ) : null}
 
-      {withBg ? <rect x="1" y="1" width="46" height="46" rx="11" fill="#0B1020" /> : null}
+      {withBg ? (
+        <rect
+          x="1"
+          y="1"
+          width="46"
+          height="46"
+          rx={backgroundRadius(variant)}
+          fill={backgroundFill(variant)}
+        />
+      ) : null}
 
-      <path d={markPath(variant)} fill={`url(#${fillGrad})`} />
+      {rings.map((ring, i) => (
+        <path
+          key={i}
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d={ringDonutPath(ring)}
+          fill={mono ? '#FFFFFF' : `url(#${gradId})`}
+        />
+      ))}
     </svg>
   );
 };

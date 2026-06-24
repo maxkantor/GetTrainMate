@@ -1,6 +1,7 @@
 .footer {
   position: relative;
   overflow: hidden;
+  margin-top: auto;
   background:
     linear-gradient(180deg, rgba(5, 7, 18, 0.92), rgba(7, 11, 26, 0.96)),
     radial-gradient(620px 260px at 16% 0%, rgba(99, 102, 241, 0.14), transparent 70%),
@@ -29,32 +30,11 @@
   z-index: 1;
 }
 
-/* Compact footer for /app/* – minimal links, no giant marketing section */
-.footerCompact {
-  padding: var(--space-4) 0;
-  margin-top: auto;
-  background:
-    linear-gradient(180deg, rgba(3, 5, 18, 0.94), rgba(8, 7, 28, 0.88)),
-    url('/images/app-premium-bg.png') center center / cover no-repeat,
-    #070b1a;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
+/* App shell: clear fixed bottom nav on mobile */
 @media (max-width: 767px) {
-  .footerCompactHiddenMobile {
-    display: none;
+  .footerReserveBottomNav {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
-}
-
-.footerCompactInner {
-  max-width: var(--container-app, 1180px);
-  margin: 0 auto;
-  padding: 0 var(--page-inner-padding);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
 }
 
 .footerCompactLinks {
@@ -82,12 +62,6 @@
 
 .footerModalLink {
   font-size: 0.75rem;
-}
-
-.footerCompactCopyright {
-  font-size: var(--font-xs);
-  color: var(--color-neutral-500);
-  margin: 0;
 }
 
 .footerContent {

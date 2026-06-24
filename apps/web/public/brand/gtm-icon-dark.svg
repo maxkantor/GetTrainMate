@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="GetTrainMate">
   <defs>
     <linearGradient id="g" x1="11" y1="12" x2="37" y2="40" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7C5CFF"/>
-      <stop offset="0.72" stop-color="#C084FC"/>
-      <stop offset="1" stop-color="#FFB347" stop-opacity="0.65"/>
+      <stop stop-color="#9B7FFF"/>
+      <stop offset="0.72" stop-color="#D8B4FE"/>
+      <stop offset="1" stop-color="#FFCC80" stop-opacity="0.85"/>
     </linearGradient>
   </defs>
-  
+  <rect x="1" y="1" width="46" height="46" rx="11" fill="#070B1A"/>
   <path fill-rule="evenodd" clip-rule="evenodd" d="M 30.05 23.55 A 11.25 11.25 0 1 1 7.550000000000001 23.55 A 11.25 11.25 0 1 1 30.05 23.55 Z M 25.15 23.55 A 6.35 6.35 0 1 0 12.450000000000001 23.55 A 6.35 6.35 0 1 0 25.15 23.55 Z" fill="url(#g)"/>
   <path fill-rule="evenodd" clip-rule="evenodd" d="M 40.45 24.45 A 11.25 11.25 0 1 1 17.95 24.45 A 11.25 11.25 0 1 1 40.45 24.45 Z M 35.55 24.45 A 6.35 6.35 0 1 0 22.85 24.45 A 6.35 6.35 0 1 0 35.55 24.45 Z" fill="url(#g)"/>
 </svg>

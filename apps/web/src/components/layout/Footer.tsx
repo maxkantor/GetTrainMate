@@ -3,19 +3,16 @@ import { SamePathScrollLink } from '@/components/SamePathScrollLink';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { useI18n } from '@/hooks/useI18n';
 import { FOOTER_SECTIONS } from '@/config/footerLinks';
-import { FooterLegalLinksRow } from './FooterLegalLinksRow';
 import { LogoFull } from '@/components/brand/Logo';
 import { Container } from './Container';
 import styles from './Footer.module.css';
 
 interface FooterProps {
-  /** When true, show compact footer (for /app/* routes). No giant marketing footer. */
-  compact?: boolean;
-  /** Hide compact footer on mobile when bottom nav is shown. */
-  hideOnMobileApp?: boolean;
+  /** Extra bottom padding on mobile when the fixed app bottom nav is visible. */
+  reserveBottomNav?: boolean;
 }
 
-export const Footer: React.FC<FooterProps> = ({ compact = false, hideOnMobileApp = false }) => {
+export const Footer: React.FC<FooterProps> = ({ reserveBottomNav = false }) => {
   const { t } = useI18n();
   const { isAuthenticated } = useAuthContext();
   const brandHref = isAuthenticated ? '/app' : '/';
@@ -26,23 +23,8 @@ export const Footer: React.FC<FooterProps> = ({ compact = false, hideOnMobileApp
     legal: FOOTER_SECTIONS.legal.map((link) => ({ label: t(link.labelKey), href: link.to })),
   };
 
-  if (compact) {
-    return (
-      <footer
-        className={`${styles.footer} ${styles.footerCompact} ${hideOnMobileApp ? styles.footerCompactHiddenMobile : ''}`}
-      >
-        <div className={styles.footerCompactInner}>
-          <FooterLegalLinksRow variant="compact" />
-          <p className={styles.footerCompactCopyright}>
-            © {new Date().getFullYear()} {t('common.appName')}. {t('footer.all_rights_reserved')}
-          </p>
-        </div>
-      </footer>
-    );
-  }
-
   return (
-    <footer className={styles.footer}>
+    <footer className={`${styles.footer} ${reserveBottomNav ? styles.footerReserveBottomNav : ''}`}>
       <Container>
         <div className={styles.footerContent}>
           {/* Brand: marketing home when logged out; app dashboard when logged in */}
