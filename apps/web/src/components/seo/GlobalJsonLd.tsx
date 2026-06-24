@@ -9,7 +9,7 @@ const organization = {
   url: SITE_ORIGIN,
   description:
     'Train, vibe, or date with active people worldwide. TRAIN, VIBE, and DATE modes with modern matching and chat.',
-  logo: `${SITE_ORIGIN}/vite.svg`,
+  logo: `${SITE_ORIGIN}/favicon.svg`,
 };
 
 const website = {

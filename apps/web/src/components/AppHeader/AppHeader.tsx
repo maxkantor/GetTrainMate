@@ -17,6 +17,7 @@ import { requestChatNavScrollTop } from '@/utils/chatNav';
 import { useCreditsUsageModal } from '@/contexts/CreditsUsageModalContext';
 import { useWorldCupHubNav } from '@/hooks/useWorldCupHubNav';
 import { Avatar } from '@/components/ui/Avatar';
+import { LogoFull, LogoIcon } from '@/components/brand/Logo';
 import { useHeaderAvatarPhoto } from '@/hooks/useHeaderAvatarPhoto';
 import styles from './AppHeader.module.css';
 
@@ -202,8 +203,12 @@ export const AppHeader: React.FC = () => {
               aria-label={t('common.appName')}
               onClick={handleLogoClick}
             >
-              <span className={styles.logoIcon}>⚡</span>
-              <span className={styles.logoText}>{t('common.appName')}</span>
+              <LogoFull
+                label={t('common.appName')}
+                size="nav"
+                iconClassName={styles.logoIcon}
+                textClassName={styles.logoText}
+              />
             </RouterLink>
 
             <nav className={styles.nav} aria-label="Main navigation">
@@ -260,8 +265,13 @@ export const AppHeader: React.FC = () => {
                 to="/app"
                 aria-label={`${t('common.appName')} — dashboard`}
               >
-                <span className={styles.logoIcon}>⚡</span>
-                <span className={styles.logoText}>{t('common.appName')}</span>
+                <LogoFull
+                  label={t('common.appName')}
+                  size="nav"
+                  compact
+                  iconClassName={styles.logoIcon}
+                  textClassName={styles.logoText}
+                />
               </RouterLink>
               <nav className={styles.navApp} aria-label="App">
                 {navItems.map((item) => (
@@ -410,7 +420,7 @@ export const AppHeader: React.FC = () => {
               className={styles.mobileBrand}
               onClick={() => setMobileOpen(false)}
             >
-              <span className={styles.mobileBrandIcon} aria-hidden>⚡</span>
+              <LogoIcon size="sm" className={styles.mobileBrandIcon} />
               {t('common.appName')}
             </RouterLink>
             <nav className={styles.mobileNav}>

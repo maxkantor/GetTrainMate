@@ -125,7 +125,11 @@
 }
 
 .logoIcon {
-  font-size: var(--font-3xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
 }
 
 .logoText {

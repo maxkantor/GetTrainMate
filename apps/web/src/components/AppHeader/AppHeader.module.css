@@ -141,7 +141,6 @@
 }
 
 .logoCompact .logoIcon {
-  font-size: 1.25rem;
   flex-shrink: 0;
 }
 
@@ -159,7 +158,7 @@
   }
 
   .logoCompact .logoIcon {
-    font-size: 1.35rem;
+    flex-shrink: 0;
   }
 
   .logoCompact .logoText {
@@ -486,9 +485,11 @@
 }
 
 .logoIcon {
-  font-size: 1.5rem;
-  line-height: 1;
-  color: #111827 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
 }
 
 .logoText {
@@ -938,8 +939,11 @@
 }
 
 .mobileBrandIcon {
-  font-size: 1.35rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
 }
 
 .mobileNav {
@@ -1124,7 +1128,6 @@
   .root { height: 56px; min-height: 56px; }
   .inner { height: 56px; padding: 0 12px; }
   .logo { font-size: 1.125rem; }
-  .logoIcon { font-size: 1.25rem; }
   .nav { display: none; }
   .langWrap { display: none; }
   .authWrap { display: none; }

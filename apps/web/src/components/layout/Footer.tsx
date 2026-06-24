@@ -4,6 +4,7 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { useI18n } from '@/hooks/useI18n';
 import { FOOTER_SECTIONS } from '@/config/footerLinks';
 import { FooterLegalLinksRow } from './FooterLegalLinksRow';
+import { LogoFull } from '@/components/brand/Logo';
 import { Container } from './Container';
 import styles from './Footer.module.css';
 
@@ -47,8 +48,12 @@ export const Footer: React.FC<FooterProps> = ({ compact = false, hideOnMobileApp
           {/* Brand: marketing home when logged out; app dashboard when logged in */}
           <div className={styles.brandColumn}>
             <SamePathScrollLink to={brandHref} className={`${styles.logo} ${styles.brandLogoLink}`}>
-              <span className={styles.logoIcon}>⚡</span>
-              <span className={styles.logoText}>{t('common.appName')}</span>
+              <LogoFull
+                label={t('common.appName')}
+                size="lg"
+                iconClassName={styles.logoIcon}
+                textClassName={styles.logoText}
+              />
             </SamePathScrollLink>
             <p className={styles.tagline}>
               {t('footer.tagline')}
