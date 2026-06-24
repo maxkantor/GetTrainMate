@@ -1,26 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="GetTrainMate">
   <defs>
     <linearGradient id="primary" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7C5CFF"/>
-      <stop offset="1" stop-color="#A855F7"/>
+      <stop stop-color="#7C5CFF"/><stop offset="1" stop-color="#A855F7"/>
     </linearGradient>
-    <linearGradient id="accent" x1="26" y1="26" x2="42" y2="42" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFB347"/>
-      <stop offset="1" stop-color="#FF8A00"/>
+    <linearGradient id="accent" x1="22" y1="28" x2="38" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB347"/><stop offset="1" stop-color="#FF8A00"/>
     </linearGradient>
-    <linearGradient id="pathGrad" x1="10" y1="12" x2="38" y2="38" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7C5CFF"/>
-      <stop offset="0.5" stop-color="#A855F7"/>
-      <stop offset="1" stop-color="#FF8A00"/>
+    <linearGradient id="pathGrad" x1="8" y1="8" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C5CFF"/><stop offset="0.45" stop-color="#A855F7"/><stop offset="1" stop-color="#FFB347"/>
     </linearGradient>
+    <radialGradient id="orb" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(24 23.5) scale(7)">
+      <stop stop-color="#C4B5FD"/><stop offset="0.55" stop-color="#A855F7"/><stop offset="1" stop-color="#7C5CFF"/>
+    </radialGradient>
   </defs>
-  <path d="M24 16.2 C20.5 21.5 14.5 28.5 11.8 32.2" stroke="url(#primary)" stroke-width="2.9" stroke-linecap="round" fill="none"/>
-  <path d="M11.8 32.2 C19.5 37.8 28.5 37.8 36.2 32.2" stroke="url(#pathGrad)" stroke-width="2.9" stroke-linecap="round" fill="none"/>
-  <path d="M36.2 32.2 C33 25.5 28 19.5 24 16.2" stroke="url(#primary)" stroke-width="2.9" stroke-linecap="round" fill="none"/>
-  <path d="M24 18.5v7.2M20.2 24h7.6" stroke="#7C5CFF" stroke-opacity="0.16" stroke-width="1.4" stroke-linecap="round"/>
-  <circle cx="24" cy="11.5" r="5.2" fill="url(#primary)"/>
-  <path d="M24 5.8v2.2" stroke="url(#accent)" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
-  <circle cx="10.5" cy="35" r="4.8" fill="url(#primary)"/>
-  <circle cx="37.5" cy="35" r="4.8" fill="url(#primary)"/>
-  <circle cx="37.5" cy="35" r="6.9" stroke="url(#accent)" stroke-opacity="0.88" stroke-width="1.35" fill="none"/>
+  <path d="M24 6 C24 11.5 24 15.5 24 17.6" stroke="url(#primary)" stroke-width="3.1" stroke-linecap="round" fill="none"/>
+  <path d="M7.5 38.5 C11.2 31.5 15.8 26.2 19 24" stroke="url(#primary)" stroke-width="3.1" stroke-linecap="round" fill="none"/>
+  <path d="M40.5 38.5 C36.8 31.5 32.2 26.2 29 24" stroke="url(#pathGrad)" stroke-width="3.1" stroke-linecap="round" fill="none"/>
+  <path d="M24 29.6 C24 33.2 24 36.2 24 39.2" stroke="url(#accent)" stroke-width="2.6" stroke-linecap="round" fill="none" opacity="0.92"/>
+  <path d="M24 17.8v5.4M20.4 23.5h7.2" stroke="#7C5CFF" stroke-opacity="0.13" stroke-width="1.3" stroke-linecap="round"/>
+  <circle cx="24" cy="23.5" r="6" fill="url(#orb)"/>
+  <circle cx="24" cy="23.5" r="7.2" stroke="url(#accent)" stroke-opacity="0.35" stroke-width="0.9" fill="none"/>
+  <circle cx="24" cy="23.5" r="3.6" fill="#F5F3FF" fill-opacity="0.55"/>
 </svg>

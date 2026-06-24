@@ -1,17 +1,21 @@
 import React, { useId } from 'react';
 import {
   GTM_MARK_VIEWBOX,
-  HIDDEN_T,
-  NODE_DATE,
-  NODE_TRAIN,
-  NODE_VIBE,
-  PATH_DATE_TRAIN,
-  PATH_TRAIN_VIBE,
-  PATH_VIBE_DATE,
+  HIDDEN_GLYPH,
+  MEETPOINT,
+  ORIGIN_DATE,
+  ORIGIN_TRAIN,
+  ORIGIN_VIBE,
+  PATH_DATE,
+  PATH_FORWARD,
+  PATH_TRAIN,
+  PATH_VIBE,
   type GtmMarkVariant,
+  meetRadius,
   showBackground,
-  showHiddenDetails,
-  showNodeRings,
+  showForwardPath,
+  showHiddenGlyphs,
+  showOriginMarks,
   strokeWidthFor,
 } from './gtmMarkArt';
 
@@ -23,7 +27,7 @@ export type GtmMarkSvgProps = {
 };
 
 /**
- * GetTrainMate — three-node connection mark (Train · Vibe · Date).
+ * GetTrainMate — three paths converging at one meetpoint (Train · Vibe · Date).
  */
 export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
   size = 32,
@@ -39,8 +43,7 @@ export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
   const glow = `gtm-gl-${uid}`;
   const sw = strokeWidthFor(variant);
   const withBg = showBackground(variant);
-  const details = showHiddenDetails(variant);
-  const rings = showNodeRings(variant);
+  const orbR = meetRadius(variant);
 
   return (
     <svg
@@ -59,22 +62,27 @@ export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
           <stop stopColor="#7C5CFF" />
           <stop offset="1" stopColor="#A855F7" />
         </linearGradient>
-        <linearGradient id={accent} x1="26" y1="26" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+        <linearGradient id={accent} x1="22" y1="28" x2="38" y2="42" gradientUnits="userSpaceOnUse">
           <stop stopColor="#FFB347" />
           <stop offset="1" stopColor="#FF8A00" />
         </linearGradient>
-        <linearGradient id={pathGrad} x1="10" y1="12" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+        <linearGradient id={pathGrad} x1="8" y1="8" x2="40" y2="40" gradientUnits="userSpaceOnUse">
           <stop stopColor="#7C5CFF" />
-          <stop offset="0.5" stopColor="#A855F7" />
-          <stop offset="1" stopColor="#FF8A00" />
+          <stop offset="0.45" stopColor="#A855F7" />
+          <stop offset="1" stopColor="#FFB347" />
         </linearGradient>
         <linearGradient id={glass} x1="24" y1="2" x2="24" y2="46" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#FFFFFF" stopOpacity="0.1" />
-          <stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.02" />
+          <stop stopColor="#FFFFFF" stopOpacity="0.11" />
+          <stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.02" />
           <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
         </linearGradient>
-        <filter id={glow} x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="1.1" result="b" />
+        <radialGradient id={`${uid}-orb`} cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(24 23.5) scale(7)">
+          <stop stopColor="#C4B5FD" />
+          <stop offset="0.55" stopColor="#A855F7" />
+          <stop offset="1" stopColor="#7C5CFF" />
+        </radialGradient>
+        <filter id={glow} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="1.25" result="b" />
           <feMerge>
             <feMergeNode in="b" />
             <feMergeNode in="SourceGraphic" />
@@ -93,102 +101,69 @@ export const GtmMarkSvg: React.FC<GtmMarkSvgProps> = ({
             height="46"
             rx="11"
             stroke={`url(#${primary})`}
-            strokeOpacity={0.32}
+            strokeOpacity={0.3}
             strokeWidth="1"
           />
         </>
       ) : null}
 
-      <path
-        d={PATH_TRAIN_VIBE}
-        stroke={`url(#${primary})`}
-        strokeWidth={sw}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path
-        d={PATH_VIBE_DATE}
-        stroke={`url(#${pathGrad})`}
-        strokeWidth={sw}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path
-        d={PATH_DATE_TRAIN}
-        stroke={`url(#${primary})`}
-        strokeWidth={sw}
-        strokeLinecap="round"
-        fill="none"
-      />
+      {showOriginMarks(variant) ? (
+        <>
+          <circle cx={ORIGIN_TRAIN.cx} cy={ORIGIN_TRAIN.cy} r={ORIGIN_TRAIN.r} fill={`url(#${primary})`} />
+          <circle cx={ORIGIN_VIBE.cx} cy={ORIGIN_VIBE.cy} r={ORIGIN_VIBE.r} fill={`url(#${primary})`} />
+          <circle cx={ORIGIN_DATE.cx} cy={ORIGIN_DATE.cy} r={ORIGIN_DATE.r} fill={`url(#${accent})`} />
+        </>
+      ) : null}
 
-      {details ? (
+      <path d={PATH_TRAIN} stroke={`url(#${primary})`} strokeWidth={sw} strokeLinecap="round" fill="none" />
+      <path d={PATH_VIBE} stroke={`url(#${primary})`} strokeWidth={sw} strokeLinecap="round" fill="none" />
+      <path d={PATH_DATE} stroke={`url(#${pathGrad})`} strokeWidth={sw} strokeLinecap="round" fill="none" />
+
+      {showForwardPath(variant) ? (
         <path
-          d={HIDDEN_T}
+          d={PATH_FORWARD}
+          stroke={`url(#${accent})`}
+          strokeWidth={variant === 'navbar' ? 2.6 : 2.4}
+          strokeLinecap="round"
+          fill="none"
+          opacity={0.92}
+        />
+      ) : null}
+
+      {showHiddenGlyphs(variant) ? (
+        <path
+          d={HIDDEN_GLYPH}
           stroke="#7C5CFF"
-          strokeOpacity={0.16}
-          strokeWidth="1.4"
+          strokeOpacity={0.13}
+          strokeWidth="1.3"
           strokeLinecap="round"
         />
       ) : null}
 
-      {/* TRAIN — energy / growth */}
+      {/* Destination orb — union of three modes */}
       <circle
-        cx={NODE_TRAIN.cx}
-        cy={NODE_TRAIN.cy}
-        r={variant === 'favicon' ? 5.6 : NODE_TRAIN.r}
-        fill={`url(#${primary})`}
+        cx={MEETPOINT.cx}
+        cy={MEETPOINT.cy}
+        r={orbR}
+        fill={`url(#${uid}-orb)`}
         filter={withBg ? `url(#${glow})` : undefined}
       />
-      {details ? (
-        <path
-          d="M24 5.8v2.2"
-          stroke={`url(#${accent})`}
-          strokeWidth="1.6"
-          strokeLinecap="round"
-          opacity={0.9}
-        />
-      ) : null}
-      {rings && variant !== 'favicon' ? (
-        <circle cx={NODE_TRAIN.cx} cy={NODE_TRAIN.cy} r="2.1" fill="#EDE9FE" fillOpacity={0.45} />
-      ) : null}
-
-      {/* VIBE — community */}
       <circle
-        cx={NODE_VIBE.cx}
-        cy={NODE_VIBE.cy}
-        r={variant === 'favicon' ? 5.2 : NODE_VIBE.r}
-        fill={`url(#${primary})`}
+        cx={MEETPOINT.cx}
+        cy={MEETPOINT.cy}
+        r={orbR + 1.2}
+        stroke={`url(#${accent})`}
+        strokeOpacity={variant === 'favicon' ? 0.55 : 0.35}
+        strokeWidth={variant === 'favicon' ? 1.2 : 0.9}
+        fill="none"
       />
-      {rings ? (
-        <circle
-          cx={NODE_VIBE.cx}
-          cy={NODE_VIBE.cy}
-          r={variant === 'favicon' ? 0 : 6.6}
-          stroke="#7C5CFF"
-          strokeOpacity={0.28}
-          strokeWidth="1"
-          fill="none"
-        />
-      ) : null}
-
-      {/* DATE — chemistry */}
       <circle
-        cx={NODE_DATE.cx}
-        cy={NODE_DATE.cy}
-        r={variant === 'favicon' ? 5.2 : NODE_DATE.r}
-        fill={`url(#${primary})`}
+        cx={MEETPOINT.cx}
+        cy={MEETPOINT.cy}
+        r={variant === 'favicon' ? 2.4 : MEETPOINT.coreR}
+        fill="#F5F3FF"
+        fillOpacity={0.55}
       />
-      {rings ? (
-        <circle
-          cx={NODE_DATE.cx}
-          cy={NODE_DATE.cy}
-          r={variant === 'favicon' ? 7.2 : 6.9}
-          stroke={`url(#${accent})`}
-          strokeOpacity={variant === 'favicon' ? 1 : 0.88}
-          strokeWidth={variant === 'favicon' ? 1.6 : 1.35}
-          fill="none"
-        />
-      ) : null}
     </svg>
   );
 };
