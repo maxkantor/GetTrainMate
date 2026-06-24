@@ -1,24 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="GetTrainMate">
   <defs>
-    <linearGradient id="primary" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7C5CFF"/><stop offset="1" stop-color="#A855F7"/>
+    <linearGradient id="fill" x1="12" y1="4" x2="36" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C5CFF"/><stop offset="0.55" stop-color="#A855F7"/><stop offset="1" stop-color="#FFB347"/>
     </linearGradient>
-    <linearGradient id="accent" x1="22" y1="28" x2="38" y2="42" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFB347"/><stop offset="1" stop-color="#FF8A00"/>
-    </linearGradient>
-    <linearGradient id="pathGrad" x1="8" y1="8" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7C5CFF"/><stop offset="0.45" stop-color="#A855F7"/><stop offset="1" stop-color="#FFB347"/>
-    </linearGradient>
-    <radialGradient id="orb" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(24 23.5) scale(7)">
-      <stop stop-color="#C4B5FD"/><stop offset="0.55" stop-color="#A855F7"/><stop offset="1" stop-color="#7C5CFF"/>
-    </radialGradient>
   </defs>
-  <path d="M24 6 C24 11.5 24 15.5 24 17.6" stroke="url(#primary)" stroke-width="3.1" stroke-linecap="round" fill="none"/>
-  <path d="M7.5 38.5 C11.2 31.5 15.8 26.2 19 24" stroke="url(#primary)" stroke-width="3.1" stroke-linecap="round" fill="none"/>
-  <path d="M40.5 38.5 C36.8 31.5 32.2 26.2 29 24" stroke="url(#pathGrad)" stroke-width="3.1" stroke-linecap="round" fill="none"/>
-  <path d="M24 29.6 C24 33.2 24 36.2 24 39.2" stroke="url(#accent)" stroke-width="2.6" stroke-linecap="round" fill="none" opacity="0.92"/>
-  <path d="M24 17.8v5.4M20.4 23.5h7.2" stroke="#7C5CFF" stroke-opacity="0.13" stroke-width="1.3" stroke-linecap="round"/>
-  <circle cx="24" cy="23.5" r="6" fill="url(#orb)"/>
-  <circle cx="24" cy="23.5" r="7.2" stroke="url(#accent)" stroke-opacity="0.35" stroke-width="0.9" fill="none"/>
-  <circle cx="24" cy="23.5" r="3.6" fill="#F5F3FF" fill-opacity="0.55"/>
+  <path d="M24 4.5 C31.2 8.8 40.5 19.5 39.8 29.5 C39.2 36.2 33.8 41.8 27.2 42.2 C25.4 42.3 24.6 39.8 24 37.8 C23.4 39.8 22.6 42.3 20.8 42.2 C14.2 41.8 8.8 36.2 8.2 29.5 C7.5 19.5 16.8 8.8 24 4.5 Z" fill="url(#fill)"/>
 </svg>

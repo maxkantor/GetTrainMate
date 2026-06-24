@@ -1,24 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="GetTrainMate">
   <defs>
-    <linearGradient id="primary" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7C5CFF"/><stop offset="1" stop-color="#A855F7"/>
+    <linearGradient id="fill" x1="12" y1="4" x2="36" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C5CFF"/><stop offset="0.55" stop-color="#A855F7"/><stop offset="1" stop-color="#FFB347"/>
     </linearGradient>
-    <linearGradient id="accent" x1="22" y1="28" x2="38" y2="42" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFB347"/><stop offset="1" stop-color="#FF8A00"/>
-    </linearGradient>
-    <linearGradient id="pathGrad" x1="8" y1="8" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7C5CFF"/><stop offset="0.45" stop-color="#A855F7"/><stop offset="1" stop-color="#FFB347"/>
-    </linearGradient>
-    <radialGradient id="orb" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(24 23.5) scale(7)">
-      <stop stop-color="#C4B5FD"/><stop offset="0.55" stop-color="#A855F7"/><stop offset="1" stop-color="#7C5CFF"/>
-    </radialGradient>
   </defs>
   <rect x="1" y="1" width="46" height="46" rx="11" fill="#0B1020"/>
-  <rect x="1" y="1" width="46" height="46" rx="11" stroke="url(#primary)" stroke-opacity="0.32" stroke-width="1"/>
-  <path d="M24 6 C24 11.5 24 15.5 24 17.6" stroke="url(#primary)" stroke-width="3.75" stroke-linecap="round" fill="none"/>
-  <path d="M7.5 38.5 C11.2 31.5 15.8 26.2 19 24" stroke="url(#primary)" stroke-width="3.75" stroke-linecap="round" fill="none"/>
-  <path d="M40.5 38.5 C36.8 31.5 32.2 26.2 29 24" stroke="url(#pathGrad)" stroke-width="3.75" stroke-linecap="round" fill="none"/>
-  <circle cx="24" cy="23.5" r="6.8" fill="url(#orb)"/>
-  <circle cx="24" cy="23.5" r="8" stroke="url(#accent)" stroke-opacity="0.55" stroke-width="1.2" fill="none"/>
-  <circle cx="24" cy="23.5" r="2.4" fill="#F5F3FF" fill-opacity="0.6"/>
+  <path d="M24 5 C31 9.5 40 20 39.5 30 C39 36.5 34 41.5 27.5 42 C25.5 42 24.5 39.5 24 38 C22.5 39.5 21.5 42 19.5 42 C13 41.5 8 36.5 8.5 30 C8 20 17 9.5 24 5 Z" fill="url(#fill)"/>
 </svg>

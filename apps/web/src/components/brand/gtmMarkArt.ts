@@ -1,55 +1,27 @@
 /**
- * GetTrainMate mark — “Meetpoint”: three paths (Train · Vibe · Date) converge at one destination.
- * 48×48 viewBox — tuned for favicon through app icon.
+ * GetTrainMate brand mark — “Apex Confluence”
+ * One continuous filled silhouette: three paths (Train · Vibe · Date) merge to a single apex (Connection).
+ * No nodes, circles, figures, or network strokes.
  */
 export type GtmMarkVariant = 'main' | 'favicon' | 'transparent' | 'navbar';
 
 export const GTM_MARK_VIEWBOX = 48;
 
-/** Unified meeting point — where paths converge */
-export const MEETPOINT = { cx: 24, cy: 23.5, r: 6, coreR: 3.6 } as const;
+/**
+ * Single closed path — trilobate base converging to top apex.
+ * Optimized for bold silhouette at 16×16.
+ */
+export const MARK_SILHOUETTE =
+  'M24 4.5 C31.2 8.8 40.5 19.5 39.8 29.5 C39.2 36.2 33.8 41.8 27.2 42.2 C25.4 42.3 24.6 39.8 24 37.8 C23.4 39.8 22.6 42.3 20.8 42.2 C14.2 41.8 8.8 36.2 8.2 29.5 C7.5 19.5 16.8 8.8 24 4.5 Z';
 
-/** TRAIN — path from top (momentum / growth) */
-export const PATH_TRAIN = 'M24 6 C24 11.5 24 15.5 24 17.6';
+/** Slightly simplified for favicon rasterization */
+export const MARK_SILHOUETTE_FAVICON =
+  'M24 5 C31 9.5 40 20 39.5 30 C39 36.5 34 41.5 27.5 42 C25.5 42 24.5 39.5 24 38 C22.5 39.5 21.5 42 19.5 42 C13 41.5 8 36.5 8.5 30 C8 20 17 9.5 24 5 Z';
 
-/** VIBE — path from bottom-left (community) */
-export const PATH_VIBE = 'M7.5 38.5 C11.2 31.5 15.8 26.2 19 24';
-
-/** DATE — path from bottom-right (chemistry) */
-export const PATH_DATE = 'M40.5 38.5 C36.8 31.5 32.2 26.2 29 24';
-
-/** Unified journey after convergence */
-export const PATH_FORWARD = 'M24 29.6 C24 33.2 24 36.2 24 39.2';
-
-/** Hidden compass cross + T for TrainMate */
-export const HIDDEN_GLYPH = 'M24 17.8v5.4M20.4 23.5h7.2';
-
-export const ORIGIN_TRAIN = { cx: 24, cy: 6, r: 1.6 } as const;
-export const ORIGIN_VIBE = { cx: 7.5, cy: 38.5, r: 1.6 } as const;
-export const ORIGIN_DATE = { cx: 40.5, cy: 38.5, r: 1.6 } as const;
-
-export function strokeWidthFor(variant: GtmMarkVariant): number {
-  if (variant === 'favicon') return 3.75;
-  if (variant === 'transparent' || variant === 'navbar') return 3.1;
-  return 2.85;
-}
-
-export function meetRadius(variant: GtmMarkVariant): number {
-  return variant === 'favicon' ? 6.8 : MEETPOINT.r;
+export function markPath(variant: GtmMarkVariant): string {
+  return variant === 'favicon' ? MARK_SILHOUETTE_FAVICON : MARK_SILHOUETTE;
 }
 
 export function showBackground(variant: GtmMarkVariant): boolean {
   return variant === 'main' || variant === 'favicon';
-}
-
-export function showForwardPath(variant: GtmMarkVariant): boolean {
-  return variant !== 'favicon';
-}
-
-export function showHiddenGlyphs(variant: GtmMarkVariant): boolean {
-  return variant === 'main' || variant === 'navbar';
-}
-
-export function showOriginMarks(variant: GtmMarkVariant): boolean {
-  return variant === 'main';
 }
