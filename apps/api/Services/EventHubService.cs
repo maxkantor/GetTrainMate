@@ -346,8 +346,7 @@ public class EventHubService : IEventHubService
     }
 
     /// <summary>
-    /// Stamps the official FIFA kickoff date/time (UTC) onto group-stage fixtures so predictions
-    /// lock automatically at kickoff. Matched by team pair — fixture team order doesn't matter.
+    /// Stamps official FIFA kickoff date/time and home/away order (team A = home, team B = away).
     /// </summary>
     private async Task ApplyOfficialKickoffsAsync()
     {
@@ -357,15 +356,43 @@ public class EventHubService : IEventHubService
             StringComparer.OrdinalIgnoreCase);
 
         var matches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
+        var predictionsTable = Table.LoadTable(_dynamoDb, _predictionsTable);
+        var allPredictions = await QueryEventItemsAsync(_predictionsTable, WorldCupEventId, MapPrediction);
+        var predictionsByMatch = allPredictions.GroupBy(p => p.MatchId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
         foreach (var match in matches.Where(m => !string.IsNullOrWhiteSpace(m.GroupId)))
         {
             if (!kickoffByPair.TryGetValue(EventMatchRules.NormalizePairKey(match.TeamAId, match.TeamBId), out var kickoff))
                 continue;
-            if (match.MatchDate == kickoff.DateUtc && match.MatchTime == kickoff.TimeUtc)
-                continue;
 
-            match.MatchDate = kickoff.DateUtc;
-            match.MatchTime = kickoff.TimeUtc;
+            var needsSwap = EventMatchRules.IsReversedFromOfficialHomeAway(match, kickoff.TeamAId, kickoff.TeamBId);
+            var needsKickoff = match.MatchDate != kickoff.DateUtc || match.MatchTime != kickoff.TimeUtc;
+            if (!needsSwap && !needsKickoff) continue;
+
+            if (needsSwap)
+            {
+                EventMatchRules.SwapHomeAwaySides(match);
+                if (predictionsByMatch.TryGetValue(match.MatchId, out var preds))
+                {
+                    foreach (var pred in preds)
+                    {
+                        if (pred.PredictedScoreA != null || pred.PredictedScoreB != null)
+                        {
+                            EventMatchRules.SwapPredictionScores(pred);
+                            pred.UpdatedAt = DateTime.UtcNow.ToString("O");
+                            await predictionsTable.PutItemAsync(PredictionToDoc(pred));
+                        }
+                    }
+                }
+            }
+
+            if (needsKickoff)
+            {
+                match.MatchDate = kickoff.DateUtc;
+                match.MatchTime = kickoff.TimeUtc;
+            }
+
             await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
         }
     }
@@ -376,10 +403,16 @@ public class EventHubService : IEventHubService
     /// </summary>
     private async Task GenerateGroupStageFixturesAsync()
     {
+        var kickoffByPair = WorldCupOfficialFixtures.GroupKickoffs.ToDictionary(
+            k => EventMatchRules.NormalizePairKey(k.TeamAId, k.TeamBId),
+            k => k,
+            StringComparer.OrdinalIgnoreCase);
+
         var teams = (await GetTeamsAsync(WorldCupEventId))
             .Where(t => !string.IsNullOrWhiteSpace(t.GroupId))
             .OrderBy(t => t.SortOrder)
             .ToList();
+        var teamById = teams.ToDictionary(t => t.TeamId, StringComparer.OrdinalIgnoreCase);
         var matches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
         var existingPairs = matches
             .Where(m => !string.IsNullOrWhiteSpace(m.GroupId))
@@ -398,16 +431,23 @@ public class EventHubService : IEventHubService
                     var pairKey = $"{group.Key.ToLowerInvariant()}|{EventMatchRules.NormalizePairKey(a.TeamId, b.TeamId)}";
                     if (!existingPairs.Add(pairKey)) continue;
 
+                    var kickoff = kickoffByPair.GetValueOrDefault(
+                        EventMatchRules.NormalizePairKey(a.TeamId, b.TeamId));
+                    var homeId = kickoff?.TeamAId ?? a.TeamId;
+                    var awayId = kickoff?.TeamBId ?? b.TeamId;
+                    if (!teamById.TryGetValue(homeId, out var teamA) || !teamById.TryGetValue(awayId, out var teamB))
+                        continue;
+
                     await UpsertMatchAsync(new EventMatch
                     {
                         EventId = WorldCupEventId,
-                        MatchId = $"gs-{a.TeamId}-vs-{b.TeamId}",
-                        TeamAId = a.TeamId,
-                        TeamBId = b.TeamId,
-                        TeamAName = a.Name,
-                        TeamBName = b.Name,
-                        TeamAFlag = a.FlagEmoji,
-                        TeamBFlag = b.FlagEmoji,
+                        MatchId = $"gs-{homeId}-vs-{awayId}",
+                        TeamAId = teamA.TeamId,
+                        TeamBId = teamB.TeamId,
+                        TeamAName = teamA.Name,
+                        TeamBName = teamB.Name,
+                        TeamAFlag = teamA.FlagEmoji,
+                        TeamBFlag = teamB.FlagEmoji,
                         GroupId = group.Key,
                         Stage = EventMatchStage.GroupStage,
                         Status = EventMatchStatus.Scheduled,

@@ -45,6 +45,28 @@ public static class EventMatchRules
         return true;
     }
 
+    /// <summary>True when stored fixture has home/away reversed vs official FIFA kickoff catalog.</summary>
+    public static bool IsReversedFromOfficialHomeAway(EventMatch match, string officialHomeTeamId, string officialAwayTeamId)
+    {
+        return string.Equals(match.TeamAId, officialAwayTeamId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(match.TeamBId, officialHomeTeamId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Swap team A/B columns and mirrored scores (home becomes team A).</summary>
+    public static void SwapHomeAwaySides(EventMatch match)
+    {
+        (match.TeamAId, match.TeamBId) = (match.TeamBId, match.TeamAId);
+        (match.TeamAName, match.TeamBName) = (match.TeamBName, match.TeamAName);
+        (match.TeamAFlag, match.TeamBFlag) = (match.TeamBFlag, match.TeamAFlag);
+        (match.ScoreA, match.ScoreB) = (match.ScoreB, match.ScoreA);
+    }
+
+    public static void SwapPredictionScores(EventPrediction prediction)
+    {
+        (prediction.PredictedScoreA, prediction.PredictedScoreB) =
+            (prediction.PredictedScoreB, prediction.PredictedScoreA);
+    }
+
     public static EventMatch Enrich(EventMatch match)
     {
         match.PredictionsOpen = ArePredictionsOpen(match);

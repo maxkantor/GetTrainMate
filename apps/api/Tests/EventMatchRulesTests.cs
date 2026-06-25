@@ -66,6 +66,42 @@ public class EventMatchRulesTests
     }
 
     [Fact]
+    public void IsReversedFromOfficialHomeAway_DetectsSwappedFixture()
+    {
+        var match = new EventMatch { TeamAId = "germany", TeamBId = "ecuador" };
+        Assert.True(EventMatchRules.IsReversedFromOfficialHomeAway(match, "ecuador", "germany"));
+        Assert.False(EventMatchRules.IsReversedFromOfficialHomeAway(match, "germany", "ecuador"));
+    }
+
+    [Fact]
+    public void SwapHomeAwaySides_MovesScoresWithTeams()
+    {
+        var match = new EventMatch
+        {
+            TeamAId = "germany",
+            TeamBId = "ecuador",
+            TeamAName = "Germany",
+            TeamBName = "Ecuador",
+            ScoreA = 1,
+            ScoreB = 2,
+        };
+        EventMatchRules.SwapHomeAwaySides(match);
+        Assert.Equal("ecuador", match.TeamAId);
+        Assert.Equal("germany", match.TeamBId);
+        Assert.Equal(2, match.ScoreA);
+        Assert.Equal(1, match.ScoreB);
+    }
+
+    [Fact]
+    public void GroupKickoffs_UseHomeTeamAsTeamA_ForMatchdayThreeSamples()
+    {
+        var kickoffs = WorldCupOfficialFixtures.GroupKickoffs;
+        Assert.Equal("ecuador", kickoffs.Single(k => k.TeamAId == "ecuador" && k.TeamBId == "germany").TeamAId);
+        Assert.Equal("tunisia", kickoffs.Single(k => k.TeamAId == "tunisia" && k.TeamBId == "netherlands").TeamAId);
+        Assert.Equal("turkiye", kickoffs.Single(k => k.TeamAId == "turkiye" && k.TeamBId == "usa").TeamAId);
+    }
+
+    [Fact]
     public void CompareChronological_PutsDatedFixturesBeforeUndatedKnockoutSlots()
     {
         var group = new EventMatch
