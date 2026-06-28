@@ -87,6 +87,7 @@ public class EventHubService : IEventHubService
             await SyncWorldCupLiveScoresAsync();
             await ApplyKickoffDrivenLiveStatusAsync();
             await RecalculateStandingsAsync(eventId);
+            await SyncKnockoutBracketAsync();
         }
 
         var matches = await GetMatchesAsync(eventId);
@@ -127,8 +128,12 @@ public class EventHubService : IEventHubService
 
         var matches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
         var changed = false;
-        foreach (var match in matches.Where(m => !string.IsNullOrWhiteSpace(m.GroupId)))
+        foreach (var match in matches)
         {
+            if (WorldCupOfficialFixtures.IsTbdTeamId(match.TeamAId)
+                || WorldCupOfficialFixtures.IsTbdTeamId(match.TeamBId))
+                continue;
+
             var key = EventMatchRules.NormalizePairKey(match.TeamAId, match.TeamBId);
             if (!external.TryGetValue(key, out var feed)) continue;
 
@@ -169,8 +174,12 @@ public class EventHubService : IEventHubService
         var matches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
         var changed = false;
 
-        foreach (var match in matches.Where(m => !string.IsNullOrWhiteSpace(m.GroupId)))
+        foreach (var match in matches)
         {
+            if (WorldCupOfficialFixtures.IsTbdTeamId(match.TeamAId)
+                || WorldCupOfficialFixtures.IsTbdTeamId(match.TeamBId))
+                continue;
+
             if (EventMatchRules.ShouldRevertPrematureLive(match, now))
             {
                 match.Status = EventMatchStatus.Scheduled;
@@ -319,7 +328,8 @@ public class EventHubService : IEventHubService
         await GenerateGroupStageFixturesAsync();
         await ApplyOfficialKickoffsAsync();
         await SyncWorldCupLiveScoresAsync();
-        await SeedKnockoutPlaceholdersAsync();
+        await RecalculateStandingsAsync(WorldCupEventId);
+        await SyncKnockoutBracketAsync();
         await SyncMatchTeamMetadataAsync();
     }
 
@@ -458,33 +468,121 @@ public class EventHubService : IEventHubService
     }
 
     /// <summary>
-    /// Seeds the knockout bracket (Round of 32 → Final) as locked TBD placeholders so fans see the
-    /// full road to the final. Existing matches are never touched — the Admin CRM assigns real teams
-    /// and unlocks predictions as qualifiers are confirmed.
+    /// Ensures knockout fixtures exist, fills teams from group standings / bracket advancement,
+    /// stamps official kickoffs, and unlocks predictions when both sides are known.
     /// </summary>
-    private async Task SeedKnockoutPlaceholdersAsync()
+    private async Task SyncKnockoutBracketAsync()
     {
-        var existingIds = (await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch))
-            .Select(m => m.MatchId)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var teams = await GetTeamsAsync(WorldCupEventId);
+        var teamById = teams.ToDictionary(t => t.TeamId, StringComparer.OrdinalIgnoreCase);
+        var matches = await QueryEventItemsAsync(_matchesTable, WorldCupEventId, MapMatch);
+        var matchById = matches.ToDictionary(m => m.MatchId, StringComparer.OrdinalIgnoreCase);
+        var changed = false;
 
         foreach (var ko in WorldCupOfficialFixtures.KnockoutMatches)
         {
-            if (existingIds.Contains(ko.MatchId)) continue;
-
-            await UpsertMatchAsync(new EventMatch
+            if (!matchById.ContainsKey(ko.MatchId))
             {
-                EventId = WorldCupEventId,
-                MatchId = ko.MatchId,
-                TeamAId = $"{WorldCupOfficialFixtures.TbdTeamPrefix}{ko.MatchId}-a",
-                TeamBId = $"{WorldCupOfficialFixtures.TbdTeamPrefix}{ko.MatchId}-b",
-                TeamAName = "TBD",
-                TeamBName = "TBD",
-                Stage = ko.Stage,
-                Status = EventMatchStatus.Scheduled,
-                PredictionsLocked = true,
-            }, touchTimestamp: false, skipDuplicateCheck: true);
+                var placeholder = new EventMatch
+                {
+                    EventId = WorldCupEventId,
+                    MatchId = ko.MatchId,
+                    TeamAId = $"{WorldCupOfficialFixtures.TbdTeamPrefix}{ko.MatchId}-a",
+                    TeamBId = $"{WorldCupOfficialFixtures.TbdTeamPrefix}{ko.MatchId}-b",
+                    TeamAName = "TBD",
+                    TeamBName = "TBD",
+                    Stage = ko.Stage,
+                    Status = EventMatchStatus.Scheduled,
+                    PredictionsLocked = true,
+                };
+                await UpsertMatchAsync(placeholder, touchTimestamp: false, skipDuplicateCheck: true);
+                matchById[ko.MatchId] = placeholder;
+                matches.Add(placeholder);
+                changed = true;
+            }
         }
+
+        foreach (var def in WorldCupKnockoutBracket.RoundOf32)
+        {
+            if (!matchById.TryGetValue(def.MatchId, out var match)) continue;
+
+            var (teamAId, teamBId) = WorldCupBracketResolver.ResolveRoundOf32Teams(def, teams, matches);
+            if (await ApplyKnockoutTeamSlotAsync(match, teamAId, teamBId, teamById, def.Stage, def.MatchId))
+            {
+                changed = true;
+                matchById[def.MatchId] = match;
+            }
+        }
+
+        var advancementSlots = WorldCupBracketResolver.BuildAdvancementTeams(matchById);
+        foreach (var (matchId, slot) in advancementSlots)
+        {
+            if (!matchById.TryGetValue(matchId, out var match)) continue;
+            var stage = match.Stage ?? WorldCupOfficialFixtures.KnockoutMatches
+                .FirstOrDefault(k => string.Equals(k.MatchId, matchId, StringComparison.OrdinalIgnoreCase))?.Stage
+                ?? string.Empty;
+            if (await ApplyKnockoutTeamSlotAsync(match, slot.TeamAId, slot.TeamBId, teamById, stage, matchId))
+            {
+                changed = true;
+                matchById[matchId] = match;
+            }
+        }
+
+        if (changed)
+            await TouchFixturesTimestampAsync(WorldCupEventId);
+    }
+
+    private async Task<bool> ApplyKnockoutTeamSlotAsync(
+        EventMatch match,
+        string? teamAId,
+        string? teamBId,
+        IReadOnlyDictionary<string, EventTeam> teamById,
+        string stage,
+        string matchId)
+    {
+        var resolvedA = WorldCupBracketResolver.IsKnownTeam(teamAId)
+            ? teamAId!
+            : $"{WorldCupOfficialFixtures.TbdTeamPrefix}{matchId}-a";
+        var resolvedB = WorldCupBracketResolver.IsKnownTeam(teamBId)
+            ? teamBId!
+            : $"{WorldCupOfficialFixtures.TbdTeamPrefix}{matchId}-b";
+
+        teamById.TryGetValue(resolvedA, out var teamA);
+        teamById.TryGetValue(resolvedB, out var teamB);
+        var nameA = teamA?.Name ?? (WorldCupOfficialFixtures.IsTbdTeamId(resolvedA) ? "TBD" : resolvedA);
+        var nameB = teamB?.Name ?? (WorldCupOfficialFixtures.IsTbdTeamId(resolvedB) ? "TBD" : resolvedB);
+        var flagA = teamA?.FlagEmoji;
+        var flagB = teamB?.FlagEmoji;
+
+        var kickoff = WorldCupBracketResolver.KnockoutKickoffFor(matchId);
+        var date = kickoff?.Date ?? match.MatchDate;
+        var time = kickoff?.Time ?? match.MatchTime;
+        var bothKnown = WorldCupBracketResolver.IsKnownTeam(resolvedA)
+            && WorldCupBracketResolver.IsKnownTeam(resolvedB);
+        var locked = !bothKnown;
+
+        if (match.TeamAId == resolvedA && match.TeamBId == resolvedB
+            && match.TeamAName == nameA && match.TeamBName == nameB
+            && match.TeamAFlag == flagA && match.TeamBFlag == flagB
+            && match.MatchDate == date && match.MatchTime == time
+            && match.Stage == stage && match.GroupId == null
+            && match.PredictionsLocked == locked)
+            return false;
+
+        match.TeamAId = resolvedA;
+        match.TeamBId = resolvedB;
+        match.TeamAName = nameA;
+        match.TeamBName = nameB;
+        match.TeamAFlag = flagA;
+        match.TeamBFlag = flagB;
+        match.MatchDate = date ?? string.Empty;
+        match.MatchTime = time;
+        match.Stage = stage;
+        match.GroupId = null;
+        match.PredictionsLocked = locked;
+
+        await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
+        return true;
     }
 
     private static string? ResolveFixturesLastUpdatedAt(EventConfig config, List<EventMatch> matches)
@@ -623,8 +721,9 @@ public class EventHubService : IEventHubService
         if (touchTimestamp)
         {
             await TouchFixturesTimestampAsync(match.EventId);
-            // Admin recorded a result (or reverted one) — keep group standings derived from matches.
             await RecalculateStandingsAsync(match.EventId);
+            if (string.Equals(match.EventId, WorldCupEventId, StringComparison.OrdinalIgnoreCase))
+                await SyncKnockoutBracketAsync();
         }
         return EventMatchRules.Enrich(match);
     }

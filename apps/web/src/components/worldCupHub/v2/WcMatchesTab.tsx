@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useI18n } from '@/hooks/useI18n';
 import { TodayPredictionsSharePanel } from '@/components/worldCupHub/TodayPredictionsSharePanel';
@@ -15,7 +15,16 @@ type MatchFilter = 'today' | 'upcoming' | 'completed';
 export const WcMatchesTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, onAuthRequired }) => {
   const { t } = useI18n();
   const [filter, setFilter] = useState<MatchFilter>('today');
-  const { today, upcoming, completed } = categorizeMatches(hub.matches);
+  const { today, upcoming, completed } = useMemo(
+    () => categorizeMatches(hub.matches),
+    [hub.matches],
+  );
+
+  useEffect(() => {
+    if (filter === 'today' && today.length === 0 && upcoming.length > 0) {
+      setFilter('upcoming');
+    }
+  }, [filter, today.length, upcoming.length]);
 
   const lists: Record<MatchFilter, typeof hub.matches> = { today, upcoming, completed };
   const active = lists[filter];
@@ -56,8 +65,20 @@ export const WcMatchesTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
 
       {active.length === 0 ? (
         <WcEmptyState
-          title={t('event_hub.matches_coming_soon')}
-          description={t('event_hub.matches_coming_soon_desc')}
+          title={
+            filter === 'today' && (upcoming.length > 0 || completed.length > 0)
+              ? t('event_hub.no_matches_today')
+              : filter === 'completed'
+                ? t('event_hub.no_completed_matches')
+                : t('event_hub.matches_coming_soon')
+          }
+          description={
+            filter === 'today' && upcoming.length > 0
+              ? t('event_hub.no_matches_today_desc')
+              : filter === 'completed'
+                ? t('event_hub.no_completed_matches_desc')
+                : t('event_hub.matches_coming_soon_desc')
+          }
         />
       ) : (
         <Box className={styles.matchGrid}>
