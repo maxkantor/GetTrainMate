@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatI18n } from '@/i18n';
 import { useI18n } from '@/hooks/useI18n';
 import { WcTeamLabel } from '@/components/worldCupHub/WcTeamLabel';
 import {
@@ -8,6 +9,12 @@ import {
   type EventHubSnapshot,
 } from '@/services/sportsEventLayerService';
 import { getBracketEligibleTeams } from '@/utils/eventMatchUtils';
+import {
+  canAllReachSemifinals,
+  findCollisionPartner,
+  hasGroupWinnerPathCollision,
+  wouldBreakSemifinalPaths,
+} from '@/utils/tournamentBracketPathRules';
 import { WcTournamentPickShare } from './WcTournamentPickShare';
 import styles from '@/pages/WorldCupV2.module.css';
 
@@ -81,6 +88,22 @@ export const WcTournamentPickPanel: React.FC<Props> = ({
         return next;
       }
       if (prev.length >= SEMIFINAL_COUNT) return prev;
+      if (wouldBreakSemifinalPaths(prev, teamId)) {
+        const partnerId = findCollisionPartner(prev, teamId);
+        const partner = partnerId
+          ? eligibleTeams.find((t) => sameTeam(t.teamId, partnerId))
+          : null;
+        const team = eligibleTeams.find((t) => sameTeam(t.teamId, teamId));
+        setSaveError(
+          partner && team
+            ? formatI18n(t('event_hub.tournament_pick_path_conflict_pair'), {
+                teamA: team.name,
+                teamB: partner.name,
+              })
+            : t('event_hub.tournament_pick_path_conflict'),
+        );
+        return prev;
+      }
       return [...prev, teamId];
     });
   };
@@ -109,7 +132,11 @@ export const WcTournamentPickPanel: React.FC<Props> = ({
     setThirdPlace(teamId);
   };
 
-  const canSave = semifinals.length === SEMIFINAL_COUNT && champion && thirdPlace && picksOpen;
+  const canSave = semifinals.length === SEMIFINAL_COUNT
+    && champion
+    && thirdPlace
+    && picksOpen
+    && canAllReachSemifinals(semifinals);
 
   const saveMutation = useMutation({
     mutationFn: () => sportsEventLayerService.saveTournamentPick(eventId, {
@@ -174,16 +201,22 @@ export const WcTournamentPickPanel: React.FC<Props> = ({
         <Box className={styles.tournamentPickGrid} role="list">
           {eligibleTeams.map((team) => {
             const selected = semifinals.some((id) => sameTeam(id, team.teamId));
-            const disabled = locked || (!selected && semifinals.length >= SEMIFINAL_COUNT);
+            const pathBlocked = !selected
+              && semifinals.length < SEMIFINAL_COUNT
+              && semifinals.some((id) => hasGroupWinnerPathCollision(id, team.teamId));
+            const disabled = locked
+              || (!selected && semifinals.length >= SEMIFINAL_COUNT)
+              || pathBlocked;
             return (
               <button
                 key={team.teamId}
                 type="button"
                 role="listitem"
-                className={`${styles.tournamentPickChip} ${selected ? styles.tournamentPickChipActive : ''}`}
+                className={`${styles.tournamentPickChip} ${selected ? styles.tournamentPickChipActive : ''} ${pathBlocked ? styles.tournamentPickChipBlocked : ''}`}
                 disabled={disabled}
                 onClick={() => toggleSemifinal(team.teamId)}
                 aria-pressed={selected}
+                title={pathBlocked ? t('event_hub.tournament_pick_path_blocked_hint') : undefined}
               >
                 <WcTeamLabel teamId={team.teamId} fallbackName={team.name} flagEmoji={team.flagEmoji} size={20} />
               </button>

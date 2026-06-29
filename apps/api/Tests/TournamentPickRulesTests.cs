@@ -11,17 +11,37 @@ public class TournamentPickRulesTests
     {
         var eligible = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "brazil", "france", "germany", "spain", "argentina", "england",
+            "mexico", "canada", "usa", "germany", "spain", "argentina",
         };
 
         var request = new UpsertTournamentPickRequest
         {
-            SemifinalTeamIds = ["brazil", "france", "germany", "spain"],
-            ChampionTeamId = "brazil",
-            ThirdPlaceTeamId = "france",
+            SemifinalTeamIds = ["mexico", "canada", "usa", "germany"],
+            ChampionTeamId = "usa",
+            ThirdPlaceTeamId = "canada",
         };
 
         TournamentPickRules.Validate(request, eligible);
+    }
+
+    [Fact]
+    public void Validate_rejects_germany_and_france_both_semifinalists()
+    {
+        var eligible = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "germany", "france", "spain", "argentina",
+        };
+
+        var request = new UpsertTournamentPickRequest
+        {
+            SemifinalTeamIds = ["germany", "france", "spain", "argentina"],
+            ChampionTeamId = "germany",
+            ThirdPlaceTeamId = "france",
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => TournamentPickRules.Validate(request, eligible));
+        Assert.Contains("Germany", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("France", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -492,6 +492,21 @@ export const en = {
     tournament_pick_saved: 'Bracket pick saved — good luck!',
     tournament_pick_locked: 'Bracket picks locked — semi-finals have started.',
     tournament_pick_save_failed: "Couldn't save your bracket pick.",
+    tournament_pick_path_conflict:
+      'These teams could meet before the semi-finals if both win their groups — choose four teams on different bracket paths.',
+    tournament_pick_path_conflict_pair:
+      '{teamA} and {teamB} could meet before the semi-finals if both win their groups.',
+    tournament_pick_path_blocked_hint:
+      'Could meet one of your picks before the semi-finals on this bracket path.',
+    knockout_bracket_title: 'Knockout bracket',
+    knockout_bracket_lead: 'Live tournament tree — teams advance automatically after each result.',
+    knockout_bracket_teams: '{count} teams placed',
+    knockout_bracket_updated: 'Updated {time}',
+    bracket_col_r32: 'Round of 32',
+    bracket_col_r16: 'Round of 16',
+    bracket_col_qf: 'Quarter-finals',
+    bracket_col_sf: 'Semi-finals',
+    bracket_col_final: 'Final',
     saving: 'Saving…',
     tournament_share_title: "{name}'s World Cup bracket",
     tournament_share_lead: 'Share your semi-finalists, champion, and third-place pick as a premium card.',

@@ -83,5 +83,27 @@ public static class TournamentPickRules
             throw new InvalidOperationException("Third place must be one of your semi-final picks.");
         if (string.Equals(champion, third, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Champion and third place must be different teams.");
+
+        ValidateBracketPaths(semifinals);
+    }
+
+    public static void ValidateBracketPaths(IReadOnlyList<string> semifinalTeamIds)
+    {
+        if (!TournamentBracketPathRules.CanAllReachSemifinals(semifinalTeamIds))
+        {
+            var names = WorldCupOfficialFixtures.Teams.ToDictionary(
+                t => t.TeamId,
+                t => t.Name,
+                StringComparer.OrdinalIgnoreCase);
+            var pair = TournamentBracketPathRules.FindCollisionPairLabel(semifinalTeamIds, names);
+            if (!string.IsNullOrWhiteSpace(pair))
+            {
+                throw new InvalidOperationException(
+                    $"{pair} could meet before the semi-finals if both win their groups — pick teams on different bracket paths.");
+            }
+
+            throw new InvalidOperationException(
+                "These semi-final picks cannot all reach the semi-finals on the official bracket.");
+        }
     }
 }

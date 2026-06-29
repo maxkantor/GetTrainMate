@@ -2294,6 +2294,11 @@
   cursor: not-allowed;
 }
 
+.tournamentPickChipBlocked:not(.tournamentPickChipActive) {
+  opacity: 0.32;
+  border-style: dashed;
+}
+
 .tournamentPickFinalRow {
   display: flex;
   flex-wrap: wrap;
@@ -2406,4 +2411,238 @@
 .tournamentShareChampionName {
   color: #fde68a !important;
   font-weight: 700 !important;
+}
+
+/* Knockout bracket tree */
+.bracketPanel {
+  margin: 1.25rem 0 1.75rem;
+  padding: 1.15rem 1rem 1.25rem;
+  border-radius: 20px;
+  background: linear-gradient(165deg, rgba(10, 14, 30, 0.88) 0%, rgba(6, 8, 18, 0.82) 100%);
+  border: 1px solid rgba(130, 140, 255, 0.22);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+
+.bracketHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.bracketTitle {
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  color: #fff !important;
+  letter-spacing: 0.02em;
+}
+
+.bracketLead {
+  font-size: 0.82rem !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  margin-top: 0.2rem !important;
+  max-width: 36rem;
+}
+
+.bracketMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.bracketMetaChip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+}
+
+.bracketMetaUpdated {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.bracketScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.35rem;
+}
+
+.bracketColumnLabels {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 58rem;
+  margin-bottom: 0.45rem;
+  padding: 0 0.15rem;
+}
+
+.bracketColumnLabels span {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.38);
+  text-align: center;
+}
+
+.bracketGrid {
+  display: grid;
+  gap: 0.35rem 0.5rem;
+  min-width: 58rem;
+  align-items: center;
+  position: relative;
+}
+
+.bracketMatch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  min-height: 2.6rem;
+  justify-content: center;
+}
+
+.bracketMatch::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 0.5rem;
+  height: 1px;
+  background: rgba(251, 191, 36, 0.35);
+  pointer-events: none;
+}
+
+.bracketMatch[data-col='0']::after,
+.bracketMatch[data-col='1']::after,
+.bracketMatch[data-col='2']::after,
+.bracketMatch[data-col='3']::after {
+  right: -0.5rem;
+}
+
+.bracketMatch[data-col='5']::after,
+.bracketMatch[data-col='6']::after,
+.bracketMatch[data-col='7']::after,
+.bracketMatch[data-col='8']::after {
+  left: -0.5rem;
+}
+
+.bracketMatch[data-col='4']::after {
+  display: none;
+}
+
+.bracketMatchLive {
+  border-color: rgba(248, 113, 113, 0.55);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.2);
+}
+
+.bracketMatchFinal {
+  border-color: rgba(251, 191, 36, 0.55);
+  background: linear-gradient(165deg, rgba(251, 191, 36, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+  padding: 0.65rem 0.55rem;
+}
+
+.bracketMatchThird {
+  opacity: 0.88;
+  border-style: dashed;
+}
+
+.bracketMatchCompact {
+  padding: 0.35rem 0.4rem;
+}
+
+.bracketLiveBadge {
+  position: absolute;
+  top: -0.45rem;
+  right: 0.35rem;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fecaca;
+  background: rgba(220, 38, 38, 0.85);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.bracketTeamRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.bracketTeamWinner {
+  color: #fde68a;
+  font-weight: 800;
+}
+
+.bracketTeamLoser {
+  opacity: 0.42;
+}
+
+.bracketFlag {
+  flex-shrink: 0;
+}
+
+.bracketTbdFlag {
+  width: 1.125rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+}
+
+.bracketTeamName {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bracketScore {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #fff;
+  min-width: 1rem;
+  text-align: right;
+}
+
+.bracketKickoff {
+  font-size: 0.58rem;
+  color: rgba(255, 255, 255, 0.38);
+  margin-top: 0.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 720px) {
+  .bracketPanel {
+    padding: 0.9rem 0.65rem 1rem;
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+    border-radius: 16px;
+  }
+
+  .bracketMeta {
+    align-items: flex-start;
+  }
+
+  .bracketTeamName {
+    font-size: 0.68rem;
+  }
 }
