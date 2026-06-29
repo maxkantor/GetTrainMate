@@ -854,6 +854,70 @@ public class EventHubService : IEventHubService
         return pred;
     }
 
+    public async Task<EventTournamentPick?> GetUserTournamentPickAsync(string eventId, string userId)
+    {
+        var table = Table.LoadTable(_dynamoDb, _predictionsTable);
+        var doc = await table.GetItemAsync(eventId, TournamentBracketPick.PredictionKey(userId));
+        if (doc == null) return null;
+        return MapTournamentPick(doc, TournamentPickRules.ArePicksOpen(DateTime.UtcNow));
+    }
+
+    public async Task<List<string>> GetTournamentEligibleTeamIdsAsync(string eventId)
+    {
+        var matches = await GetMatchesAsync(eventId);
+        return TournamentPickRules.GetEligibleTeamIds(matches).OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    public async Task<EventTournamentPick> CreateOrUpdateTournamentPickAsync(
+        string eventId, string userId, UpsertTournamentPickRequest request)
+    {
+        if (await IsUserBannedAsync(eventId, userId))
+            throw new InvalidOperationException("User is banned from this event.");
+
+        var config = await _sportsLayer.GetEventConfigAsync(eventId);
+        if (config == null || !IsEventEffectivelyEnabled(config) || !config.PredictionsEnabled)
+            throw new InvalidOperationException("Predictions are not enabled.");
+
+        if (!TournamentPickRules.ArePicksOpen(DateTime.UtcNow))
+            throw new InvalidOperationException("Tournament bracket picks are locked.");
+
+        var matches = await GetMatchesAsync(eventId);
+        var eligible = TournamentPickRules.GetEligibleTeamIds(matches);
+        TournamentPickRules.Validate(request, eligible);
+
+        var existing = await GetUserTournamentPickAsync(eventId, userId);
+        var pick = existing ?? new EventTournamentPick
+        {
+            EventId = eventId,
+            UserId = userId,
+            CreatedAt = DateTime.UtcNow.ToString("O"),
+        };
+
+        pick.SemifinalTeamIds = request.SemifinalTeamIds
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        pick.ChampionTeamId = request.ChampionTeamId.Trim();
+        pick.ThirdPlaceTeamId = request.ThirdPlaceTeamId.Trim();
+        pick.Locked = false;
+        pick.PicksOpen = true;
+        pick.UpdatedAt = DateTime.UtcNow.ToString("O");
+
+        var table = Table.LoadTable(_dynamoDb, _predictionsTable);
+        await table.PutItemAsync(TournamentPickToDoc(pick));
+        return pick;
+    }
+
+    public async Task IncrementTournamentPickShareAsync(string eventId, string userId)
+    {
+        var pick = await GetUserTournamentPickAsync(eventId, userId);
+        if (pick == null) return;
+        pick.ShareCount++;
+        pick.UpdatedAt = DateTime.UtcNow.ToString("O");
+        var table = Table.LoadTable(_dynamoDb, _predictionsTable);
+        await table.PutItemAsync(TournamentPickToDoc(pick));
+    }
+
     public async Task IncrementPredictionShareAsync(string eventId, string matchId, string userId)
     {
         var pred = await GetUserPredictionAsync(eventId, matchId, userId);
@@ -964,6 +1028,8 @@ public class EventHubService : IEventHubService
 
         foreach (var pred in predictions)
         {
+            if (string.Equals(pred.MatchId, TournamentBracketPick.MatchId, StringComparison.OrdinalIgnoreCase))
+                continue;
             if (!predictorScores.ContainsKey(pred.UserId))
             {
                 predictorScores[pred.UserId] = new EventLeaderboardEntry
@@ -1182,7 +1248,8 @@ public class EventHubService : IEventHubService
     public async Task<UserPicksSummary> GetUserPicksSummaryAsync(string eventId, string userId)
     {
         var predictions = (await QueryEventItemsAsync(_predictionsTable, eventId, MapPrediction))
-            .Where(p => p.UserId == userId)
+            .Where(p => p.UserId == userId
+                        && !string.Equals(p.MatchId, TournamentBracketPick.MatchId, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(p => p.UpdatedAt)
             .ToList();
         var matches = await GetMatchesAsync(eventId);
@@ -1590,6 +1657,49 @@ public class EventHubService : IEventHubService
         ["isFeatured"] = m.IsFeatured, ["predictionsLocked"] = m.PredictionsLocked,
         ["createdAt"] = m.CreatedAt, ["updatedAt"] = m.UpdatedAt,
     };
+
+    private static Document TournamentPickToDoc(EventTournamentPick p) => new()
+    {
+        ["eventId"] = p.EventId,
+        ["predictionKey"] = TournamentBracketPick.PredictionKey(p.UserId),
+        ["matchId"] = TournamentBracketPick.MatchId,
+        ["userId"] = p.UserId,
+        ["predictionType"] = "tournament_bracket",
+        ["semifinalTeamIds"] = new DynamoDBList(p.SemifinalTeamIds.Select(id => new Primitive(id)).ToList()),
+        ["championTeamId"] = p.ChampionTeamId ?? "",
+        ["thirdPlaceTeamId"] = p.ThirdPlaceTeamId ?? "",
+        ["locked"] = p.Locked,
+        ["shareCount"] = p.ShareCount,
+        ["createdAt"] = p.CreatedAt,
+        ["updatedAt"] = p.UpdatedAt,
+    };
+
+    private static EventTournamentPick MapTournamentPick(Document d, bool picksOpen)
+    {
+        var semifinals = new List<string>();
+        if (d.ContainsKey("semifinalTeamIds") && d["semifinalTeamIds"] is DynamoDBList list)
+        {
+            foreach (var entry in list.Entries)
+            {
+                var id = entry.AsString();
+                if (!string.IsNullOrWhiteSpace(id)) semifinals.Add(id);
+            }
+        }
+
+        return new EventTournamentPick
+        {
+            EventId = d["eventId"].AsString(),
+            UserId = d.ContainsKey("userId") ? d["userId"].AsString() : "",
+            SemifinalTeamIds = semifinals,
+            ChampionTeamId = d.ContainsKey("championTeamId") ? d["championTeamId"].AsString() : null,
+            ThirdPlaceTeamId = d.ContainsKey("thirdPlaceTeamId") ? d["thirdPlaceTeamId"].AsString() : null,
+            Locked = d.ContainsKey("locked") && d["locked"].AsBoolean(),
+            ShareCount = d.ContainsKey("shareCount") ? (int)d["shareCount"].AsLong() : 0,
+            PicksOpen = picksOpen && !(d.ContainsKey("locked") && d["locked"].AsBoolean()),
+            CreatedAt = d.ContainsKey("createdAt") ? d["createdAt"].AsString() : "",
+            UpdatedAt = d.ContainsKey("updatedAt") ? d["updatedAt"].AsString() : "",
+        };
+    }
 
     private static Document PredictionToDoc(EventPrediction p) => new()
     {

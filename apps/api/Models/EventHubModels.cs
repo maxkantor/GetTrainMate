@@ -380,3 +380,24 @@ public sealed class CreateCommentRequest
     public string Body { get; set; } = string.Empty;
     public string? ParentCommentKey { get; set; }
 }
+
+public sealed class EventTournamentPick
+{
+    public string EventId { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
+    public List<string> SemifinalTeamIds { get; set; } = new();
+    public string? ChampionTeamId { get; set; }
+    public string? ThirdPlaceTeamId { get; set; }
+    public bool Locked { get; set; }
+    public bool PicksOpen { get; set; } = true;
+    public int ShareCount { get; set; }
+    public string CreatedAt { get; set; } = string.Empty;
+    public string UpdatedAt { get; set; } = string.Empty;
+}
+
+public sealed class UpsertTournamentPickRequest
+{
+    public List<string> SemifinalTeamIds { get; set; } = new();
+    public string ChampionTeamId { get; set; } = string.Empty;
+    public string ThirdPlaceTeamId { get; set; } = string.Empty;
+}

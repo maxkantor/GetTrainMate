@@ -29,6 +29,11 @@ public interface IEventHubService
     Task<EventPrediction> CreateOrUpdatePredictionAsync(string eventId, string userId, string? displayName, CreatePredictionRequest request);
     Task IncrementPredictionShareAsync(string eventId, string matchId, string userId);
 
+    Task<EventTournamentPick?> GetUserTournamentPickAsync(string eventId, string userId);
+    Task<EventTournamentPick> CreateOrUpdateTournamentPickAsync(string eventId, string userId, UpsertTournamentPickRequest request);
+    Task IncrementTournamentPickShareAsync(string eventId, string userId);
+    Task<List<string>> GetTournamentEligibleTeamIdsAsync(string eventId);
+
     Task<EventComment> CreateCommentAsync(string eventId, string userId, string? displayName, CreateCommentRequest request);
     Task HideCommentAsync(string eventId, string commentKey);
     Task DeleteCommentAsync(string eventId, string commentKey);

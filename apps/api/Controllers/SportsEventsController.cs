@@ -230,6 +230,63 @@ public class SportsEventsController : ControllerBase
         return Ok(new { shared = true });
     }
 
+    [HttpGet("{eventId}/tournament-pick/mine")]
+    public async Task<ActionResult<EventTournamentPick>> GetMyTournamentPick(string eventId)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+        if (!await IsHubAccessible(eventId)) return NotFound();
+
+        var pick = await _eventHubService.GetUserTournamentPickAsync(eventId, userId);
+        if (pick == null)
+        {
+            return Ok(new EventTournamentPick
+            {
+                EventId = eventId,
+                UserId = userId,
+                PicksOpen = TournamentPickRules.ArePicksOpen(DateTime.UtcNow),
+            });
+        }
+        return Ok(pick);
+    }
+
+    [HttpGet("{eventId}/tournament-pick/eligible-teams")]
+    public async Task<ActionResult<List<string>>> GetTournamentEligibleTeams(string eventId)
+    {
+        if (!await IsHubAccessible(eventId)) return NotFound();
+        return Ok(await _eventHubService.GetTournamentEligibleTeamIdsAsync(eventId));
+    }
+
+    [HttpPost("{eventId}/tournament-pick")]
+    public async Task<ActionResult<EventTournamentPick>> SaveTournamentPick(
+        string eventId, [FromBody] UpsertTournamentPickRequest request)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+        if (!await IsHubAccessible(eventId)) return NotFound();
+
+        try
+        {
+            var pick = await _eventHubService.CreateOrUpdateTournamentPickAsync(eventId, userId, request);
+            return Ok(pick);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{eventId}/tournament-pick/share")]
+    public async Task<ActionResult> ShareTournamentPick(string eventId)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+        if (!await IsHubAccessible(eventId)) return NotFound();
+
+        await _eventHubService.IncrementTournamentPickShareAsync(eventId, userId);
+        return Ok(new { shared = true });
+    }
+
     [HttpPost("{eventId}/comments")]
     public async Task<ActionResult<EventComment>> CreateComment(string eventId, [FromBody] CreateCommentRequest request)
     {

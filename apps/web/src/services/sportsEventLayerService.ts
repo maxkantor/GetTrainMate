@@ -92,6 +92,25 @@ export interface UserPicksSummary {
   accuracyPercent: number;
 }
 
+export interface EventTournamentPick {
+  eventId: string;
+  userId: string;
+  semifinalTeamIds: string[];
+  championTeamId?: string | null;
+  thirdPlaceTeamId?: string | null;
+  locked: boolean;
+  picksOpen: boolean;
+  shareCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UpsertTournamentPickPayload {
+  semifinalTeamIds: string[];
+  championTeamId: string;
+  thirdPlaceTeamId: string;
+}
+
 export interface PredictionOutcomeShare {
   label: string;
   teamId?: string;
@@ -418,6 +437,44 @@ class SportsEventLayerService {
       { headers: { Authorization: `Bearer ${token}` } }
     );
     return res.data;
+  }
+
+  async getMyTournamentPick(eventId: string): Promise<EventTournamentPick | null> {
+    const token = await authService.getJWT();
+    if (!token) return null;
+    try {
+      const res = await axios.get<EventTournamentPick>(
+        `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/tournament-pick/mine`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return res.data;
+    } catch {
+      return null;
+    }
+  }
+
+  async saveTournamentPick(
+    eventId: string,
+    payload: UpsertTournamentPickPayload,
+  ): Promise<EventTournamentPick> {
+    const token = await authService.getJWT();
+    if (!token) throw new Error('Sign in required');
+    const res = await axios.post<EventTournamentPick>(
+      `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/tournament-pick`,
+      payload,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return res.data;
+  }
+
+  async shareTournamentPick(eventId: string): Promise<void> {
+    const token = await authService.getJWT();
+    if (!token) throw new Error('Sign in required');
+    await axios.post(
+      `${API_BASE_URL}/api/events/${encodeURIComponent(eventId)}/tournament-pick/share`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
   }
 
   async sharePrediction(eventId: string, matchId: string): Promise<void> {

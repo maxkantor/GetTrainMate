@@ -10,6 +10,7 @@ import {
 import type { EventMatch } from '@/services/sportsEventLayerService';
 import type { WcHubProps } from './wcTypes';
 import { WcMatchCard } from './WcMatchCard';
+import { WcTournamentPickPanel } from './WcTournamentPickPanel';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = Pick<WcHubProps, 'eventId' | 'hub' | 'isAuthenticated' | 'onAuthRequired'>;
@@ -71,6 +72,13 @@ export const WcPredictionsTab: React.FC<Props> = ({ eventId, hub, isAuthenticate
     <Box className={styles.tabPanel}>
       <Typography className={styles.sectionTitle}>{t('event_hub.predictions_hub_title')}</Typography>
       <Typography className={styles.sectionLead}>{t('event_hub.predictions_hub_lead')}</Typography>
+
+      <WcTournamentPickPanel
+        eventId={eventId}
+        hub={hub}
+        isAuthenticated={isAuthenticated}
+        onAuthRequired={onAuthRequired}
+      />
 
       {ordered.length === 0 ? (
         <Box className={styles.emptyPremium}>

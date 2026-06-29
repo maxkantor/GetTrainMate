@@ -2207,3 +2207,203 @@
   color: #fde68a;
   font-size: 0.9rem;
 }
+
+/* ── Tournament bracket pick (semi-finals + champion + 3rd) ── */
+.tournamentPickPanel {
+  margin-bottom: 2rem;
+  padding: 1.25rem 1.35rem;
+  border-radius: 16px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  background: linear-gradient(145deg, rgba(15, 18, 35, 0.92), rgba(8, 10, 22, 0.88));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.tournamentPickTitle {
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+  color: #fde68a;
+  margin-bottom: 0.35rem;
+}
+
+.tournamentPickLead {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.45;
+  margin-bottom: 1.1rem;
+}
+
+.tournamentPickLocked {
+  font-size: 0.82rem;
+  color: rgba(251, 191, 36, 0.85);
+  margin-bottom: 0.85rem;
+}
+
+.tournamentPickStep {
+  margin-bottom: 1.15rem;
+}
+
+.tournamentPickStepTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 0.65rem;
+}
+
+.tournamentPickCounter {
+  color: var(--wc-gold, #fbbf24);
+  font-weight: 800;
+}
+
+.tournamentPickGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 0.5rem;
+}
+
+.tournamentPickChip {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.12s;
+  text-align: left;
+}
+
+.tournamentPickChip:hover:not(:disabled) {
+  border-color: rgba(99, 102, 241, 0.45);
+  background: rgba(99, 102, 241, 0.12);
+}
+
+.tournamentPickChipActive {
+  border-color: rgba(251, 191, 36, 0.65);
+  background: rgba(251, 191, 36, 0.12);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.25);
+}
+
+.tournamentPickChip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tournamentPickFinalRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.tournamentPickFinalBtn {
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.tournamentPickFinalBtn:hover:not(:disabled) {
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.tournamentPickFinalBtnActive {
+  border-color: rgba(251, 191, 36, 0.75);
+  background: rgba(251, 191, 36, 0.16);
+}
+
+.tournamentPickFinalBtnBronze {
+  border-color: rgba(180, 130, 90, 0.75);
+  background: rgba(180, 130, 90, 0.14);
+}
+
+.tournamentPickFinalBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tournamentPickError {
+  font-size: 0.84rem;
+  color: #fca5a5;
+  margin-bottom: 0.65rem;
+}
+
+.tournamentPickSaved {
+  font-size: 0.86rem;
+  color: #86efac;
+  margin-bottom: 0.65rem;
+}
+
+.tournamentPickSaveBtn {
+  margin-top: 0.25rem;
+  margin-right: 0.65rem;
+  background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+}
+
+.tournamentPickEditBtn {
+  margin-top: 0.25rem;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  text-transform: none !important;
+}
+
+.tournamentSharePanel {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tournamentShareTitle {
+  font-weight: 800;
+  font-size: 1rem;
+  color: #f8fafc;
+  margin-bottom: 0.35rem;
+}
+
+.tournamentShareLead {
+  font-size: 0.84rem;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.45;
+  margin-bottom: 0.85rem;
+}
+
+.tournamentSharePreview {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 0.85rem;
+}
+
+.tournamentSharePreviewLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0.65rem 0 0.35rem;
+}
+
+.tournamentSharePreviewLabel:first-of-type {
+  margin-top: 0;
+}
+
+.tournamentSharePreviewRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+}
+
+.tournamentShareChampionName {
+  color: #fde68a !important;
+  font-weight: 700 !important;
+}

@@ -23,6 +23,43 @@ export function arePredictionsOpen(match: EventMatch): boolean {
 }
 
 /** Knockout placeholder slots seeded by the API until real qualifiers are assigned. */
+const TBD_PREFIX = 'tbd-';
+
+export function isTbdTeamId(teamId?: string | null): boolean {
+  return Boolean(teamId?.trim().toLowerCase().startsWith(TBD_PREFIX));
+}
+
+/** Teams still alive in the knockout bracket (excludes eliminated sides). */
+export function getBracketEligibleTeams(
+  teams: EventTeam[],
+  matches: EventMatch[],
+): EventTeam[] {
+  const eliminated = new Set<string>();
+  for (const m of matches) {
+    if (m.groupId?.trim()) continue;
+    if (m.status !== 'Completed' || m.scoreA == null || m.scoreB == null) continue;
+    const winner = m.scoreA > m.scoreB ? m.teamAId : m.scoreB > m.scoreA ? m.teamBId : null;
+    if (!winner) continue;
+    const loser = winner === m.teamAId ? m.teamBId : m.teamAId;
+    if (!isTbdTeamId(loser)) eliminated.add(loser.trim().toLowerCase());
+  }
+
+  const eligibleIds = new Set<string>();
+  for (const m of matches) {
+    if (m.groupId?.trim()) continue;
+    for (const id of [m.teamAId, m.teamBId]) {
+      if (!id?.trim() || isTbdTeamId(id)) continue;
+      if (!eliminated.has(id.trim().toLowerCase())) eligibleIds.add(id.trim().toLowerCase());
+    }
+  }
+
+  if (eligibleIds.size === 0) return teams;
+
+  return teams
+    .filter((t) => eligibleIds.has(t.teamId.trim().toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function isTbdMatch(match: EventMatch): boolean {
   return match.teamAId.startsWith('tbd-') || match.teamBId.startsWith('tbd-');
 }
