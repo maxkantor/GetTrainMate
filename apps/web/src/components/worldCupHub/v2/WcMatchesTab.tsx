@@ -6,7 +6,6 @@ import { categorizeMatches } from '@/utils/eventMatchUtils';
 import { WcEmptyState } from '@/components/worldCupHub/WcEmptyState';
 import type { WcHubProps } from './wcTypes';
 import { WcMatchCard } from './WcMatchCard';
-import { WcKnockoutBracket } from './WcKnockoutBracket';
 import styles from '@/pages/WorldCupV2.module.css';
 
 type Props = Pick<WcHubProps, 'eventId' | 'hub' | 'isAuthenticated' | 'onAuthRequired'>;
@@ -40,8 +39,6 @@ export const WcMatchesTab: React.FC<Props> = ({ eventId, hub, isAuthenticated, o
     <Box className={styles.tabPanel}>
       <Typography className={styles.sectionTitle}>{t('event_hub.match_center')}</Typography>
       <Typography className={styles.sectionLead}>{t('event_hub.match_center_lead')}</Typography>
-
-      <WcKnockoutBracket hub={hub} compact />
 
       <Box className={styles.subTabs}>
         {filters.map((f) => (
