@@ -236,7 +236,7 @@ export const AppHomePage: React.FC = () => {
   ]);
 
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 3, sm: 5 } }}>
+    <Container maxWidth="md" className="app-dashboard-home" sx={{ py: { xs: 3, sm: 5 } }}>
       <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: '0.12em' }}>
         {t('app_pages.home.dashboard_label')}
       </Typography>
