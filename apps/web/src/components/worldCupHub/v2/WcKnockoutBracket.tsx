@@ -67,6 +67,9 @@ const BracketMatchCell: React.FC<{ cell: BracketMatchView; compact?: boolean }> 
       {!compact && kickoff && !cell.isCompleted && (
         <span className={styles.bracketKickoff}>{kickoff}</span>
       )}
+      {cell.decidedOnPenalties && (
+        <span className={styles.bracketPensBadge}>{t('event_hub.won_on_pens')}</span>
+      )}
     </Box>
   );
 };

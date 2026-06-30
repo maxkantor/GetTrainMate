@@ -56,4 +56,28 @@ public class WorldCupLiveScoreSyncTests
         Assert.Equal(1, merged[key].Score1);
         Assert.Equal(1, merged[key].Score2);
     }
+
+    [Fact]
+    public void MergeEspnScoreboard_ParsesPenaltyWinner()
+    {
+        const string json = """
+        {
+          "events": [{
+            "competitions": [{
+              "status": { "type": { "state": "post", "completed": true, "name": "STATUS_FINAL_PEN" } },
+              "competitors": [
+                { "homeAway": "home", "score": "1", "winner": false, "team": { "displayName": "Germany" } },
+                { "homeAway": "away", "score": "1", "winner": true, "team": { "displayName": "Paraguay" } }
+              ]
+            }]
+          }]
+        }
+        """;
+
+        var merged = new Dictionary<string, ExternalMatchScore>(StringComparer.OrdinalIgnoreCase);
+        WorldCupLiveScoreSync.MergeEspnScoreboard(new MemoryStream(Encoding.UTF8.GetBytes(json)), merged);
+
+        var key = EventMatchRules.NormalizePairKey("germany", "paraguay");
+        Assert.Equal("paraguay", merged[key].WinnerTeamId);
+    }
 }

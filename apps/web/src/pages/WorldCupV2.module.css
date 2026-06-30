@@ -2630,6 +2630,16 @@
   text-overflow: ellipsis;
 }
 
+.bracketPensBadge {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(251, 191, 36, 0.85);
+}
+
 @media (max-width: 720px) {
   .bracketPanel {
     padding: 0.9rem 0.65rem 1rem;

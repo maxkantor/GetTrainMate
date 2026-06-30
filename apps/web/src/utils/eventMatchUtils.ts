@@ -38,7 +38,13 @@ export function getBracketEligibleTeams(
   for (const m of matches) {
     if (m.groupId?.trim()) continue;
     if (m.status !== 'Completed' || m.scoreA == null || m.scoreB == null) continue;
-    const winner = m.scoreA > m.scoreB ? m.teamAId : m.scoreB > m.scoreA ? m.teamBId : null;
+    const winner = m.winnerTeamId?.trim()
+      ? m.winnerTeamId
+      : m.scoreA > m.scoreB
+        ? m.teamAId
+        : m.scoreB > m.scoreA
+          ? m.teamBId
+          : null;
     if (!winner) continue;
     const loser = winner === m.teamAId ? m.teamBId : m.teamAId;
     if (!isTbdTeamId(loser)) eliminated.add(loser.trim().toLowerCase());

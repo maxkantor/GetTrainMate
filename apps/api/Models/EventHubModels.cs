@@ -75,6 +75,8 @@ public class EventMatch
     public string Status { get; set; } = EventMatchStatus.Scheduled;
     public int? ScoreA { get; set; }
     public int? ScoreB { get; set; }
+    /// <summary>Knockout shootout winner when full-time scores are level.</summary>
+    public string? WinnerTeamId { get; set; }
     public string? GroupId { get; set; }
     public string? Stage { get; set; }
     public bool IsFeatured { get; set; }

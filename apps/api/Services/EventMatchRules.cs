@@ -108,6 +108,28 @@ public static class EventMatchRules
         return 0;
     }
 
+    /// <summary>Match winner from shootout id or full-time scores.</summary>
+    public static string? ResolveMatchWinner(EventMatch match)
+    {
+        if (!string.Equals(match.Status, EventMatchStatus.Completed, StringComparison.OrdinalIgnoreCase))
+            return null;
+        if (!string.IsNullOrWhiteSpace(match.WinnerTeamId))
+            return match.WinnerTeamId;
+        if (!match.ScoreA.HasValue || !match.ScoreB.HasValue) return null;
+        if (match.ScoreA.Value > match.ScoreB.Value) return match.TeamAId;
+        if (match.ScoreB.Value > match.ScoreA.Value) return match.TeamBId;
+        return null;
+    }
+
+    public static string? ResolveMatchLoser(EventMatch match)
+    {
+        var winner = ResolveMatchWinner(match);
+        if (winner == null) return null;
+        return string.Equals(winner, match.TeamAId, StringComparison.OrdinalIgnoreCase)
+            ? match.TeamBId
+            : match.TeamAId;
+    }
+
     /// <summary>
     /// Apply catalog scores only when DynamoDB is behind — never overwrite a stored full-time result.
     /// </summary>

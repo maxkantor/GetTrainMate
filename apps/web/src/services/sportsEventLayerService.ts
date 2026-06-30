@@ -177,6 +177,7 @@ export interface EventMatch {
   status: 'Scheduled' | 'Live' | 'Completed' | 'Postponed';
   scoreA?: number;
   scoreB?: number;
+  winnerTeamId?: string;
   groupId?: string;
   stage?: string;
   isFeatured?: boolean;

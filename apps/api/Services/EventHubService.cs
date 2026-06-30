@@ -140,6 +140,11 @@ public class EventHubService : IEventHubService
             var teamAIsFeed1 = string.Equals(match.TeamAId, feed.Team1Id, StringComparison.OrdinalIgnoreCase);
             var scoreA = teamAIsFeed1 ? feed.Score1 : feed.Score2;
             var scoreB = teamAIsFeed1 ? feed.Score2 : feed.Score1;
+            var feedWinner = !string.IsNullOrWhiteSpace(feed.WinnerTeamId)
+                && (string.Equals(feed.WinnerTeamId, match.TeamAId, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(feed.WinnerTeamId, match.TeamBId, StringComparison.OrdinalIgnoreCase))
+                ? feed.WinnerTeamId
+                : null;
 
             if (scoreA == null || scoreB == null)
             {
@@ -153,18 +158,29 @@ public class EventHubService : IEventHubService
                 continue;
             }
 
-            if (!EventMatchRules.ShouldApplyOfficialScoreOverride(match, feed.Status, scoreA.Value, scoreB.Value))
-                continue;
+            var applyScores = EventMatchRules.ShouldApplyOfficialScoreOverride(match, feed.Status, scoreA.Value, scoreB.Value);
+            var applyWinner = !string.IsNullOrWhiteSpace(feedWinner)
+                && !string.Equals(match.WinnerTeamId, feedWinner, StringComparison.OrdinalIgnoreCase);
+            if (!applyScores && !applyWinner) continue;
 
-            match.Status = feed.Status;
-            match.ScoreA = scoreA;
-            match.ScoreB = scoreB;
+            if (applyScores)
+            {
+                match.Status = feed.Status;
+                match.ScoreA = scoreA;
+                match.ScoreB = scoreB;
+            }
+            if (applyWinner)
+                match.WinnerTeamId = feedWinner;
+
             await UpsertMatchAsync(match, touchTimestamp: false, skipDuplicateCheck: true);
             changed = true;
         }
 
         if (changed)
+        {
             await TouchFixturesTimestampAsync(WorldCupEventId);
+            await SyncKnockoutBracketAsync();
+        }
     }
 
     /// <summary>Flip scheduled fixtures to Live once kickoff passes (fallback when feeds are unavailable).</summary>
@@ -1653,6 +1669,7 @@ public class EventHubService : IEventHubService
         ["teamAFlag"] = m.TeamAFlag ?? "", ["teamBFlag"] = m.TeamBFlag ?? "",
         ["matchDate"] = m.MatchDate, ["matchTime"] = m.MatchTime ?? "", ["venue"] = m.Venue,
         ["status"] = m.Status, ["scoreA"] = m.ScoreA ?? -1, ["scoreB"] = m.ScoreB ?? -1,
+        ["winnerTeamId"] = m.WinnerTeamId ?? "",
         ["groupId"] = m.GroupId ?? "", ["stage"] = m.Stage ?? "",
         ["isFeatured"] = m.IsFeatured, ["predictionsLocked"] = m.PredictionsLocked,
         ["createdAt"] = m.CreatedAt, ["updatedAt"] = m.UpdatedAt,
@@ -1769,6 +1786,9 @@ public class EventHubService : IEventHubService
             Status = d.ContainsKey("status") ? d["status"].AsString() : EventMatchStatus.Scheduled,
             ScoreA = scoreA >= 0 ? scoreA : null,
             ScoreB = scoreB >= 0 ? scoreB : null,
+            WinnerTeamId = d.ContainsKey("winnerTeamId") && !string.IsNullOrWhiteSpace(d["winnerTeamId"].AsString())
+                ? d["winnerTeamId"].AsString()
+                : null,
             GroupId = d.ContainsKey("groupId") ? d["groupId"].AsString() : null,
             Stage = d.ContainsKey("stage") ? d["stage"].AsString() : null,
             IsFeatured = d.ContainsKey("isFeatured") && d["isFeatured"].AsBoolean(),

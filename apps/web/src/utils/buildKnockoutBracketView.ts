@@ -23,6 +23,7 @@ export type BracketMatchView = {
   status: EventMatch['status'];
   isLive: boolean;
   isCompleted: boolean;
+  decidedOnPenalties: boolean;
   stage: string;
   matchDate?: string;
   matchTime?: string;
@@ -33,7 +34,9 @@ function norm(id: string) {
 }
 
 function getWinnerId(match: EventMatch): string | null {
-  if (match.status !== 'Completed' || match.scoreA == null || match.scoreB == null) return null;
+  if (match.status !== 'Completed') return null;
+  if (match.winnerTeamId?.trim()) return match.winnerTeamId;
+  if (match.scoreA == null || match.scoreB == null) return null;
   if (match.scoreA > match.scoreB) return match.teamAId;
   if (match.scoreB > match.scoreA) return match.teamBId;
   return null;
@@ -64,6 +67,13 @@ function enrichMatch(
   teamById: Map<string, EventTeam>,
 ): BracketMatchView {
   const winnerId = match ? getWinnerId(match) : null;
+  const decidedOnPenalties = Boolean(
+    match?.status === 'Completed'
+    && match.scoreA != null
+    && match.scoreB != null
+    && match.scoreA === match.scoreB
+    && winnerId,
+  );
   const teamAId = match?.teamAId ?? `tbd-${slot.matchId}-a`;
   const teamBId = match?.teamBId ?? `tbd-${slot.matchId}-b`;
   const teamA = teamById.get(norm(teamAId));
@@ -86,6 +96,7 @@ function enrichMatch(
     status: match?.status ?? 'Scheduled',
     isLive: match?.status === 'Live' || Boolean(kickoffPassed && match?.status === 'Scheduled'),
     isCompleted: match?.status === 'Completed',
+    decidedOnPenalties,
     stage: match?.stage ?? '',
     matchDate: match?.matchDate,
     matchTime: match?.matchTime,

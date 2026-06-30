@@ -31,6 +31,7 @@ const knockout = (partial: Partial<EventMatch> & Pick<EventMatch, 'matchId' | 't
   stage: partial.stage ?? 'Round of 16',
   scoreA: partial.scoreA,
   scoreB: partial.scoreB,
+  winnerTeamId: partial.winnerTeamId,
   groupId: undefined,
   matchDate: partial.matchDate ?? '',
   venue: partial.venue ?? '',
@@ -57,6 +58,29 @@ describe('buildKnockoutBracketView', () => {
     expect(r16?.teamA.isWinner).toBe(true);
     expect(r16?.teamB.isLoser).toBe(true);
     expect(r16?.scoreA).toBe(2);
+  });
+
+  it('marks penalty winner when full-time is tied', () => {
+    const matches = [
+      knockout({
+        matchId: 'r32-m03',
+        teamAId: 'germany',
+        teamBId: 'paraguay',
+        teamAName: 'Germany',
+        teamBName: 'Paraguay',
+        status: 'Completed',
+        scoreA: 1,
+        scoreB: 1,
+        winnerTeamId: 'paraguay',
+      }),
+    ];
+    const teams = [team('germany', 'Germany'), team('paraguay', 'Paraguay')];
+    const view = buildKnockoutBracketView(matches, teams);
+    const cell = view.find((c) => c.matchId === 'r32-m03');
+
+    expect(cell?.teamB.isWinner).toBe(true);
+    expect(cell?.teamA.isLoser).toBe(true);
+    expect(cell?.decidedOnPenalties).toBe(true);
   });
 
   it('renders all bracket slots including final', () => {

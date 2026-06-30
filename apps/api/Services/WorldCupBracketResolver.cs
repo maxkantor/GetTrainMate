@@ -101,24 +101,11 @@ public static class WorldCupBracketResolver
         return ranked[slot.Place - 1].TeamId;
     }
 
-    public static string? GetMatchWinner(EventMatch match)
-    {
-        if (!string.Equals(match.Status, EventMatchStatus.Completed, StringComparison.OrdinalIgnoreCase))
-            return null;
-        if (!match.ScoreA.HasValue || !match.ScoreB.HasValue) return null;
-        if (match.ScoreA.Value > match.ScoreB.Value) return match.TeamAId;
-        if (match.ScoreB.Value > match.ScoreA.Value) return match.TeamBId;
-        return null;
-    }
+    public static string? GetMatchWinner(EventMatch match) =>
+        EventMatchRules.ResolveMatchWinner(match);
 
-    public static string? GetMatchLoser(EventMatch match)
-    {
-        var winner = GetMatchWinner(match);
-        if (winner == null) return null;
-        return string.Equals(winner, match.TeamAId, StringComparison.OrdinalIgnoreCase)
-            ? match.TeamBId
-            : match.TeamAId;
-    }
+    public static string? GetMatchLoser(EventMatch match) =>
+        EventMatchRules.ResolveMatchLoser(match);
 
     public static bool IsKnownTeam(string? teamId) =>
         !string.IsNullOrWhiteSpace(teamId)

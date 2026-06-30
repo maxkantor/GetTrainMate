@@ -72,6 +72,7 @@ public sealed class WorldCupLiveScoreSync
 
             string? homeId = null, awayId = null;
             int? homeScore = null, awayScore = null;
+            string? winnerId = null;
             foreach (var c in competitors.EnumerateArray())
             {
                 var name = c.GetProperty("team").GetProperty("displayName").GetString() ?? "";
@@ -81,6 +82,9 @@ public sealed class WorldCupLiveScoreSync
                 var homeAway = c.TryGetProperty("homeAway", out var ha) ? ha.GetString() : null;
                 var scoreStr = c.TryGetProperty("score", out var sc) ? sc.GetString() : null;
                 int? score = int.TryParse(scoreStr, out var n) ? n : null;
+
+                if (c.TryGetProperty("winner", out var winnerEl) && winnerEl.ValueKind == JsonValueKind.True)
+                    winnerId = teamId;
 
                 if (string.Equals(homeAway, "home", StringComparison.OrdinalIgnoreCase))
                 {
@@ -111,7 +115,7 @@ public sealed class WorldCupLiveScoreSync
             if (status == EventMatchStatus.Scheduled && homeScore == null && awayScore == null)
                 continue;
 
-            Upsert(merged, homeId, awayId, homeScore, awayScore, status, "espn", priority: 2);
+            Upsert(merged, homeId, awayId, homeScore, awayScore, status, "espn", priority: 2, winnerId);
         }
     }
 
@@ -134,7 +138,7 @@ public sealed class WorldCupLiveScoreSync
 
             var s1 = ft[0].GetInt32();
             var s2 = ft[1].GetInt32();
-            Upsert(merged, id1, id2, s1, s2, EventMatchStatus.Completed, "openfootball", priority: 1);
+            Upsert(merged, id1, id2, s1, s2, EventMatchStatus.Completed, "openfootball", priority: 1, winnerId: s1 == s2 ? null : (s1 > s2 ? id1 : id2));
         }
     }
 
@@ -146,10 +150,11 @@ public sealed class WorldCupLiveScoreSync
         int? score2,
         string status,
         string source,
-        int priority)
+        int priority,
+        string? winnerId = null)
     {
         var key = EventMatchRules.NormalizePairKey(team1Id, team2Id);
-        var candidate = new ExternalMatchScore(team1Id, team2Id, score1, score2, status, source, priority);
+        var candidate = new ExternalMatchScore(team1Id, team2Id, score1, score2, status, source, priority, winnerId);
 
         if (!merged.TryGetValue(key, out var existing))
         {
@@ -158,7 +163,8 @@ public sealed class WorldCupLiveScoreSync
         }
 
         if (candidate.Priority > existing.Priority
-            || EventMatchRules.MatchStatusOrder(candidate.Status) > EventMatchRules.MatchStatusOrder(existing.Status))
+            || EventMatchRules.MatchStatusOrder(candidate.Status) > EventMatchRules.MatchStatusOrder(existing.Status)
+            || (!string.IsNullOrWhiteSpace(candidate.WinnerTeamId) && string.IsNullOrWhiteSpace(existing.WinnerTeamId)))
         {
             merged[key] = candidate;
         }
@@ -223,4 +229,5 @@ public sealed record ExternalMatchScore(
     int? Score2,
     string Status,
     string Source,
-    int Priority);
+    int Priority,
+    string? WinnerTeamId = null);

@@ -507,6 +507,7 @@ export const en = {
     bracket_col_qf: 'Quarter-finals',
     bracket_col_sf: 'Semi-finals',
     bracket_col_final: 'Final',
+    won_on_pens: 'Won on penalties',
     saving: 'Saving…',
     tournament_share_title: "{name}'s World Cup bracket",
     tournament_share_lead: 'Share your semi-finalists, champion, and third-place pick as a premium card.',
