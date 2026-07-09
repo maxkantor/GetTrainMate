@@ -85,6 +85,20 @@ public class WorldCupBracketResolverTests
         Assert.Equal("19:00", kickoff.Value.Time);
     }
 
+    [Fact]
+    public void KnockoutKickoffFor_july11_quarterfinals_match_fifa_et()
+    {
+        var norwayEngland = WorldCupBracketResolver.KnockoutKickoffFor("qf-m04");
+        Assert.NotNull(norwayEngland);
+        Assert.Equal("2026-07-11", norwayEngland.Value.Date);
+        Assert.Equal("21:00", norwayEngland.Value.Time);
+
+        var argSwitzerland = WorldCupBracketResolver.KnockoutKickoffFor("qf-m03");
+        Assert.NotNull(argSwitzerland);
+        Assert.Equal("2026-07-12", argSwitzerland.Value.Date);
+        Assert.Equal("01:00", argSwitzerland.Value.Time);
+    }
+
     private static IEnumerable<EventMatch> BuildCompleteGroupMatches(string groupId, string[] teamIds)
     {
         for (var i = 0; i < teamIds.Length; i++)
