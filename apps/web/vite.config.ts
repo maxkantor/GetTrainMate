@@ -3,8 +3,9 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import { prerenderSeoPlugin } from './vite-plugin-prerender-seo'
 
-const ogTitle = 'GetTrainMate | Find Your Perfect Training Partner'
-const ogDescription = 'Match, train, and connect with people who fit your goals and vibe.'
+const ogTitle = 'GetTrainMate | Train, Vibe, or Date'
+const ogDescription =
+  'Train, vibe, or date with active people worldwide. Choose your intent, swipe to match, then chat and meet — fitness-first, modern, and safe.'
 
 /** Must be absolute HTTPS for Facebook/LinkedIn og:image (relative URLs break link previews). */
 const DEFAULT_PUBLIC_SITE_URL = 'https://gettrainmate.com'

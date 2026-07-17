@@ -7,6 +7,7 @@ version: 1
 #   VITE_API_URL=https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com
 #   VITE_COGNITO_USER_POOL_ID / VITE_COGNITO_CLIENT_ID (same pool as production users)
 #   VITE_GA_MEASUREMENT_ID=G-xxxxxxxxxx (GA4 — required for analytics; set in Amplify, not hardcoded in app)
+#   VITE_GSC_VERIFICATION=xxxxx (Search Console HTML meta content value — optional if DNS-verified)
 # See docs/PRODUCTION_DOMAIN.md for Cognito callbacks, Stripe, and www→apex redirect.
 frontend:
   phases:
@@ -25,13 +26,54 @@ frontend:
       - node_modules/**/*
       - apps/web/node_modules/**/*
       - ~/.npm/**/*
-  customRedirects:
-    - source: '/app/<*>'
-      target: '/index.html'
-      status: '200'
-    - source: '/admin/<*>'
-      target: '/index.html'
-      status: '200'
-    - source: '/<*>'
-      target: '/index.html'
-      status: '200'
+
+# Redirects must live at amplify.yml root (customRules). Order matters.
+# 1) App/admin SPA shells
+# 2) Prerendered marketing/WC routes → nested index.html (unique canonical for Google)
+# 3) SPA fallback — exclude static extensions INCLUDING html so prerendered shells are served
+customRules:
+  - source: '/app'
+    target: '/index.html'
+    status: '200'
+  - source: '/app/<*>'
+    target: '/index.html'
+    status: '200'
+  - source: '/admin'
+    target: '/index.html'
+    status: '200'
+  - source: '/admin/<*>'
+    target: '/index.html'
+    status: '200'
+  - source: '/pricing'
+    target: '/pricing/index.html'
+    status: '200'
+  - source: '/about'
+    target: '/about/index.html'
+    status: '200'
+  - source: '/faq'
+    target: '/faq/index.html'
+    status: '200'
+  - source: '/contact'
+    target: '/contact/index.html'
+    status: '200'
+  - source: '/platform'
+    target: '/platform/index.html'
+    status: '200'
+  - source: '/privacy'
+    target: '/privacy/index.html'
+    status: '200'
+  - source: '/terms'
+    target: '/terms/index.html'
+    status: '200'
+  - source: '/world-cup'
+    target: '/world-cup/index.html'
+    status: '200'
+  - source: '/events/world-cup-2026'
+    target: '/events/world-cup-2026/index.html'
+    status: '200'
+  - source: '/world-cup/team/<teamId>'
+    target: '/world-cup/team/<teamId>/index.html'
+    status: '200'
+  - source: '</^[^.]+$|\\.(?!(css|gif|ico|jpg|jpeg|png|svg|js|mjs|map|json|txt|xml|html|webmanifest|woff|woff2|ttf|eot|mp4|webm|ogg|webp)$)([^.]+$)/>'
+    target: '/index.html'
+    status: '200'

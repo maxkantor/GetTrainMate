@@ -1,0 +1,77 @@
+[
+  {
+    "source": "/app",
+    "target": "/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/app/<*>",
+    "target": "/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/admin",
+    "target": "/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/admin/<*>",
+    "target": "/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/pricing",
+    "target": "/pricing/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/about",
+    "target": "/about/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/faq",
+    "target": "/faq/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/contact",
+    "target": "/contact/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/platform",
+    "target": "/platform/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/privacy",
+    "target": "/privacy/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/terms",
+    "target": "/terms/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/world-cup",
+    "target": "/world-cup/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/events/world-cup-2026",
+    "target": "/events/world-cup-2026/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/world-cup/team/<teamId>",
+    "target": "/world-cup/team/<teamId>/index.html",
+    "status": "200"
+  },
+  {
+    "source": "</^[^.]+$|\\.(?!(css|gif|ico|jpg|jpeg|png|svg|js|mjs|map|json|txt|xml|html|webmanifest|woff|woff2|ttf|eot|mp4|webm|ogg|webp)$)([^.]+$)/>",
+    "target": "/index.html",
+    "status": "200"
+  }
+]

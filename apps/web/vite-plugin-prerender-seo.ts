@@ -4,10 +4,83 @@ import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import { buildWorldCupSportsEventLd } from './src/config/worldCupSportsEventLd';
 import { SITE_ORIGIN } from './src/config/site';
+import { WC_TEAMS } from './src/config/wcTeams';
 
 const BRAND = 'GetTrainMate';
 
-const PRERENDER_PAGES = [
+type PrerenderPage = {
+  canonicalPath: string;
+  title: string;
+  description: string;
+  ogTitle: string;
+  ogDescription: string;
+  ogImagePath: string;
+  jsonLd?: Record<string, unknown>[];
+};
+
+const MARKETING_PAGES: PrerenderPage[] = [
+  {
+    canonicalPath: '/pricing',
+    title: `Pricing & Credits | ${BRAND}`,
+    description:
+      'Credit packs to unlock chats, AI insights, and boosts. Simple pricing — buy credits when you need them.',
+    ogTitle: `Pricing & Credits | ${BRAND}`,
+    ogDescription:
+      'Credit packs to unlock chats, AI insights, and boosts. Simple pricing — buy credits when you need them.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
+    canonicalPath: '/about',
+    title: `About Us | ${BRAND}`,
+    description:
+      'GetTrainMate helps active people connect worldwide — for training, social vibes, or dating — with flexible modes and safety-first design.',
+    ogTitle: `About Us | ${BRAND}`,
+    ogDescription:
+      'GetTrainMate helps active people connect worldwide — for training, social vibes, or dating — with flexible modes and safety-first design.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
+    canonicalPath: '/faq',
+    title: `FAQ | ${BRAND}`,
+    description:
+      'Answers about matching, credits, TRAIN/VIBE/DATE modes, safety, and how GetTrainMate works.',
+    ogTitle: `FAQ | ${BRAND}`,
+    ogDescription:
+      'Answers about matching, credits, TRAIN/VIBE/DATE modes, safety, and how GetTrainMate works.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
+    canonicalPath: '/contact',
+    title: `Contact | ${BRAND}`,
+    description: 'Contact the GetTrainMate team for support, partnerships, or feedback.',
+    ogTitle: `Contact | ${BRAND}`,
+    ogDescription: 'Contact the GetTrainMate team for support, partnerships, or feedback.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
+    canonicalPath: '/platform',
+    title: `Platform | ${BRAND}`,
+    description: 'How GetTrainMate works — matching, credits, chat, events, and intent (Train/Vibe/Date).',
+    ogTitle: `Platform | ${BRAND}`,
+    ogDescription: 'How GetTrainMate works — matching, credits, chat, events, and intent (Train/Vibe/Date).',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
+    canonicalPath: '/privacy',
+    title: `Privacy Policy | ${BRAND}`,
+    description: 'How GetTrainMate collects, uses, and protects your information.',
+    ogTitle: `Privacy Policy | ${BRAND}`,
+    ogDescription: 'How GetTrainMate collects, uses, and protects your information.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
+    canonicalPath: '/terms',
+    title: `Terms of Service | ${BRAND}`,
+    description: 'Terms of use for the GetTrainMate service.',
+    ogTitle: `Terms of Service | ${BRAND}`,
+    ogDescription: 'Terms of use for the GetTrainMate service.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
   {
     canonicalPath: '/world-cup',
     title: `World Cup 2026 Fan Hub | ${BRAND}`,
@@ -17,6 +90,7 @@ const PRERENDER_PAGES = [
     ogDescription:
       'Make free predictions, see live groups, share your picks, and find fans nearby. No betting — just football fans connecting worldwide.',
     ogImagePath: '/images/event-banner.png',
+    jsonLd: [buildWorldCupSportsEventLd('/world-cup')],
   },
   {
     canonicalPath: '/events/world-cup-2026',
@@ -27,8 +101,25 @@ const PRERENDER_PAGES = [
     ogDescription:
       'FIFA World Cup 2026 — hosted across the United States, Canada, and Mexico. Follow the tournament, make free fan predictions, and connect with supporters on GetTrainMate.',
     ogImagePath: '/images/event-banner.png',
+    jsonLd: [buildWorldCupSportsEventLd('/events/world-cup-2026')],
   },
-] as const;
+];
+
+function teamPages(): PrerenderPage[] {
+  return WC_TEAMS.map((team) => {
+    const canonicalPath = `/world-cup/team/${team.teamId}`;
+    return {
+      canonicalPath,
+      title: `${team.name} — World Cup 2026 Fan Hub | ${BRAND}`,
+      description:
+        `Follow ${team.name} at FIFA World Cup 2026. Free predictions, group standings, upcoming matches, fan wall, and connect with ${team.name} supporters on GetTrainMate.`,
+      ogTitle: `${team.name} World Cup 2026 — Predictions, Fans & Matches`,
+      ogDescription:
+        `Make free ${team.name} predictions, see standings and fixtures, and find fellow supporters worldwide.`,
+      ogImagePath: '/images/event-banner.png',
+    };
+  });
+}
 
 function escapeAttr(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
@@ -39,13 +130,11 @@ function canonicalHref(canonicalPath: string): string {
   return `${SITE_ORIGIN}${canonicalPath}`;
 }
 
-function injectRouteHtml(
-  baseHtml: string,
-  page: (typeof PRERENDER_PAGES)[number],
-): string {
+function injectRouteHtml(baseHtml: string, page: PrerenderPage): string {
   const canonical = canonicalHref(page.canonicalPath);
-  const ogImage = canonicalHref(page.ogImagePath);
-  const sportsEventLd = buildWorldCupSportsEventLd(page.canonicalPath);
+  const ogImage = page.ogImagePath.startsWith('http')
+    ? page.ogImagePath
+    : canonicalHref(page.ogImagePath);
   const webPageLd = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
@@ -86,14 +175,14 @@ function injectRouteHtml(
     )
     .replace(/<meta name="twitter:image" content="[^"]*" \/>/, `<meta name="twitter:image" content="${ogImage}" />`);
 
-  const jsonLdScripts = [webPageLd, sportsEventLd]
+  const jsonLdScripts = [webPageLd, ...(page.jsonLd ?? [])]
     .map((ld) => `<script type="application/ld+json">${JSON.stringify(ld)}</script>`)
     .join('\n    ');
 
   return html.replace('</head>', `    ${jsonLdScripts}\n  </head>`);
 }
 
-/** Static HTML shells with JSON-LD in <head> for crawlers (SPA routes). */
+/** Static HTML shells with unique canonical/OG/JSON-LD for crawlers (SPA routes). */
 export function prerenderSeoPlugin(): Plugin {
   const webRoot = dirname(fileURLToPath(import.meta.url));
 
@@ -102,13 +191,16 @@ export function prerenderSeoPlugin(): Plugin {
     closeBundle() {
       const outDir = join(webRoot, 'dist');
       const baseHtml = readFileSync(join(outDir, 'index.html'), 'utf8');
+      const pages = [...MARKETING_PAGES, ...teamPages()];
 
-      for (const page of PRERENDER_PAGES) {
+      for (const page of pages) {
         const html = injectRouteHtml(baseHtml, page);
         const routeDir = join(outDir, ...page.canonicalPath.replace(/^\//, '').split('/'));
         mkdirSync(routeDir, { recursive: true });
         writeFileSync(join(routeDir, 'index.html'), html, 'utf8');
       }
+
+      console.log(`[prerender-seo] wrote ${pages.length} static HTML shells`);
     },
   };
 }

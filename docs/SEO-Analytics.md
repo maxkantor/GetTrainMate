@@ -21,12 +21,27 @@ Production domain (canonical): **https://gettrainmate.com**
 
 ## Sitemap
 
-- Static file: `apps/web/public/sitemap.xml` (deployed as `/sitemap.xml`).
+- Generated at build: `scripts/generate-sitemap.mjs` → `apps/web/public/sitemap.xml` (deployed as `/sitemap.xml`).
 - In Search Console: **Sitemaps** → submit `https://gettrainmate.com/sitemap.xml`.
+
+## Prerendered HTML for crawlers (critical)
+
+Googlebot often does **not** wait for React. Marketing URLs must ship unique static HTML (title, description, canonical, OG, JSON-LD).
+
+- Plugin: `apps/web/vite-plugin-prerender-seo.ts` writes `dist/<route>/index.html` for pricing, about, FAQ, World Cup hub, team pages, etc.
+- Amplify `customRules` (root of `amplify.yml`) must:
+  1. Rewrite extensionless paths like `/world-cup` → `/world-cup/index.html`
+  2. **Exclude `.html`** from the SPA catch-all, or prerendered shells are overwritten by the homepage
+
+After deploy, verify with curl (or “View page source”) that `https://gettrainmate.com/world-cup` shows canonical `…/world-cup` — not `…/`.
 
 ## Request indexing for priority URLs
 
-In Search Console → **URL inspection**, enter a public URL (e.g. `https://gettrainmate.com/pricing`), then **Request indexing** if offered. Use for key landing pages after major content changes.
+In Search Console → **URL inspection**, enter a public URL (e.g. `https://gettrainmate.com/pricing` or `/world-cup`), then **Request indexing** if offered. Use for key landing pages after major content changes.
+
+## GA4 Key events (Admin)
+
+In GA4 Admin → **Events**, mark as Key events (if not already): `sign_up`, `login`, `begin_checkout`, `purchase`, `lead_submit`. Custom product events still appear under Events; Key events power the empty chart on the Reports snapshot.
 
 ## Google Analytics 4 — Realtime
 
