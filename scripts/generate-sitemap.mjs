@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 /**
- * Regenerate apps/web/public/sitemap.xml including all World Cup team pages.
+ * Regenerate apps/web/public/sitemap.xml.
+ * World Cup URLs are included only when WORLD_CUP_SEO is enabled (default true).
  * Run: node scripts/generate-sitemap.mjs
  */
 import { writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isWorldCupSeoEnabled } from './worldCupSeo.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'apps/web/public/sitemap.xml');
@@ -21,14 +23,13 @@ const WC_TEAMS = [
   'portugal', 'colombia', 'dr-congo', 'uzbekistan', 'england', 'croatia', 'ghana', 'panama',
 ];
 
+/** Core marketing URLs — always published. */
 const STATIC = [
   { loc: '/', changefreq: 'weekly', priority: '1.0' },
   { loc: '/pricing', changefreq: 'monthly', priority: '0.9' },
   { loc: '/about', changefreq: 'monthly', priority: '0.8' },
   { loc: '/faq', changefreq: 'monthly', priority: '0.8' },
   { loc: '/contact', changefreq: 'monthly', priority: '0.8' },
-  { loc: '/world-cup', changefreq: 'daily', priority: '0.95' },
-  { loc: '/events/world-cup-2026', changefreq: 'daily', priority: '0.9' },
   { loc: '/gear', changefreq: 'monthly', priority: '0.7' },
   { loc: '/platform', changefreq: 'monthly', priority: '0.7' },
   { loc: '/login', changefreq: 'monthly', priority: '0.6' },
@@ -37,13 +38,25 @@ const STATIC = [
   { loc: '/terms', changefreq: 'yearly', priority: '0.5' },
 ];
 
-const teamUrls = WC_TEAMS.map((id) => ({
-  loc: `/world-cup/team/${id}`,
-  changefreq: 'weekly',
-  priority: '0.85',
-}));
+const WORLD_CUP_STATIC = [
+  { loc: '/world-cup', changefreq: 'daily', priority: '0.95' },
+  { loc: '/events/world-cup-2026', changefreq: 'daily', priority: '0.9' },
+];
 
-const urls = [...STATIC, ...teamUrls];
+const includeWorldCup = isWorldCupSeoEnabled();
+const teamUrls = includeWorldCup
+  ? WC_TEAMS.map((id) => ({
+      loc: `/world-cup/team/${id}`,
+      changefreq: 'weekly',
+      priority: '0.85',
+    }))
+  : [];
+
+const urls = [
+  ...STATIC,
+  ...(includeWorldCup ? WORLD_CUP_STATIC : []),
+  ...teamUrls,
+];
 
 const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -57,4 +70,7 @@ ${urls.map((u) => `  <url>
 `;
 
 writeFileSync(OUT, xml, 'utf8');
-console.log(`Wrote ${urls.length} URLs → ${OUT}`);
+console.log(
+  `Wrote ${urls.length} URLs → ${OUT}`
+  + (includeWorldCup ? ' (includes World Cup)' : ' (World Cup omitted — WORLD_CUP_SEO=false)'),
+);

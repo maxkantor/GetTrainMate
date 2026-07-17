@@ -22,6 +22,11 @@ export type RouteSeo = {
 
 const BRAND = 'GetTrainMate';
 
+function isWorldCupPublicSeoEnabled(): boolean {
+  const raw = (import.meta.env.VITE_WORLD_CUP_SEO ?? 'true').trim().toLowerCase();
+  return !(raw === '0' || raw === 'false' || raw === 'off' || raw === 'no');
+}
+
 const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?: string }> = {
   '/': {
     title: `${BRAND} | Train, Vibe, or Date`,
@@ -81,7 +86,7 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
     title: `World Cup 2026 Fan Hub | ${BRAND}`,
     description:
       'Predict. Connect. Experience Together. Free World Cup 2026 predictions, live group standings, match schedule, and connect with fans near you on GetTrainMate.',
-    noindex: false,
+    noindex: !isWorldCupPublicSeoEnabled(),
     ogTitle: 'World Cup 2026 Fan Hub — Predict. Connect. Experience Together.',
     ogDescription:
       'Make free predictions, see live groups, share your picks, and find fans nearby. No betting — just football fans connecting worldwide.',
@@ -132,7 +137,9 @@ export function getRouteSeo(pathname: string): RouteSeo {
       ogTitle: p.ogTitle,
       ogDescription: p.ogDescription,
       ogImagePath: p.ogImagePath,
-      jsonLd: path === '/world-cup' ? [buildWorldCupSportsEventLd('/world-cup')] : undefined,
+      jsonLd: path === '/world-cup' && isWorldCupPublicSeoEnabled()
+        ? [buildWorldCupSportsEventLd('/world-cup')]
+        : undefined,
     });
   }
 
@@ -146,7 +153,7 @@ export function getRouteSeo(pathname: string): RouteSeo {
         description:
           `Follow ${team.name} at FIFA World Cup 2026. Free predictions, group standings, upcoming matches, fan wall, and connect with ${team.name} supporters on GetTrainMate.`,
         canonicalPath,
-        noindex: false,
+        noindex: !isWorldCupPublicSeoEnabled(),
         ogTitle: `${team.name} World Cup 2026 — Predictions, Fans & Matches`,
         ogDescription:
           `Make free ${team.name} predictions, see standings and fixtures, and find fellow supporters worldwide.`,
@@ -165,13 +172,15 @@ export function getRouteSeo(pathname: string): RouteSeo {
         ? WC_EVENT_DESCRIPTION
         : 'Find fans, training partners, watch parties, sports meetups, and real connections around featured events on GetTrainMate.',
       canonicalPath: path,
-      noindex: false,
+      noindex: isWorldCupLanding ? !isWorldCupPublicSeoEnabled() : false,
       ogTitle: `${eventLabel} on ${BRAND}`,
       ogDescription: isWorldCupLanding
         ? WC_EVENT_DESCRIPTION
         : 'Do not watch alone. Meet fans nearby, connect around the event, and start free on GetTrainMate.',
       ogImagePath: isWorldCupLanding ? WC_EVENT_IMAGE_PATH : undefined,
-      jsonLd: isWorldCupLanding ? [buildWorldCupSportsEventLd(path)] : undefined,
+      jsonLd: isWorldCupLanding && isWorldCupPublicSeoEnabled()
+        ? [buildWorldCupSportsEventLd(path)]
+        : undefined,
     });
   }
 

@@ -1,10 +1,16 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import { buildWorldCupSportsEventLd } from './src/config/worldCupSportsEventLd';
 import { SITE_ORIGIN } from './src/config/site';
 import { WC_TEAMS } from './src/config/wcTeams';
+
+const require = createRequire(import.meta.url);
+const { isWorldCupSeoEnabled } = require('../../scripts/worldCupSeo.mjs') as {
+  isWorldCupSeoEnabled: (env?: NodeJS.ProcessEnv) => boolean;
+};
 
 const BRAND = 'GetTrainMate';
 
@@ -18,6 +24,7 @@ type PrerenderPage = {
   jsonLd?: Record<string, unknown>[];
 };
 
+/** Always prerendered — core marketing SEO must survive after World Cup retirement. */
 const MARKETING_PAGES: PrerenderPage[] = [
   {
     canonicalPath: '/pricing',
@@ -81,6 +88,9 @@ const MARKETING_PAGES: PrerenderPage[] = [
     ogDescription: 'Terms of use for the GetTrainMate service.',
     ogImagePath: '/images/og-image.jpg?v=2',
   },
+];
+
+const WORLD_CUP_PAGES: PrerenderPage[] = [
   {
     canonicalPath: '/world-cup',
     title: `World Cup 2026 Fan Hub | ${BRAND}`,
@@ -191,7 +201,10 @@ export function prerenderSeoPlugin(): Plugin {
     closeBundle() {
       const outDir = join(webRoot, 'dist');
       const baseHtml = readFileSync(join(outDir, 'index.html'), 'utf8');
-      const pages = [...MARKETING_PAGES, ...teamPages()];
+      const includeWorldCup = isWorldCupSeoEnabled();
+      const pages = includeWorldCup
+        ? [...MARKETING_PAGES, ...WORLD_CUP_PAGES, ...teamPages()]
+        : [...MARKETING_PAGES];
 
       for (const page of pages) {
         const html = injectRouteHtml(baseHtml, page);
@@ -200,7 +213,10 @@ export function prerenderSeoPlugin(): Plugin {
         writeFileSync(join(routeDir, 'index.html'), html, 'utf8');
       }
 
-      console.log(`[prerender-seo] wrote ${pages.length} static HTML shells`);
+      console.log(
+        `[prerender-seo] wrote ${pages.length} static HTML shells`
+        + (includeWorldCup ? ' (marketing + World Cup)' : ' (marketing only — WORLD_CUP_SEO=false)'),
+      );
     },
   };
 }

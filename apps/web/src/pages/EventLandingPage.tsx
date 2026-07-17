@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Box, Button, Chip, Container, Snackbar, Stack, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { BackLink } from '@/components/ui/BackLink';
@@ -29,10 +29,11 @@ export const EventLandingPage: React.FC = () => {
   const navigate = useNavigate();
   const { locale, t } = useI18n();
   const [toast, setToast] = useState<string | null>(null);
-  const { data } = useQuery({
+  const { data, isError, isLoading } = useQuery({
     queryKey: ['sports-event', eventId],
     queryFn: () => sportsEventLayerService.getEvent(eventId),
     enabled: !!eventId,
+    retry: 1,
   });
 
   useEffect(() => {
@@ -64,6 +65,11 @@ export const EventLandingPage: React.FC = () => {
   const eventDescription = crmDescription && (locale === 'en' || !isSeededEnglishEventCopy(crmDescription))
     ? crmDescription
     : t('sports_event_layer.default_description');
+
+  /** Retired / disabled World Cup landing should not stay as a soft page. */
+  if (!isLoading && (isError || !data) && eventId === 'world-cup-2026') {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <Container maxWidth="md" sx={{ py: 5 }}>

@@ -39,9 +39,40 @@ After deploy, verify with curl (or “View page source”) that `https://gettrai
 
 In Search Console → **URL inspection**, enter a public URL (e.g. `https://gettrainmate.com/pricing` or `/world-cup`), then **Request indexing** if offered. Use for key landing pages after major content changes.
 
-## GA4 Key events (Admin)
+## World Cup retirement (keep marketing SEO at 100%)
 
-In GA4 Admin → **Events**, mark as Key events (if not already): `sign_up`, `login`, `begin_checkout`, `purchase`, `lead_submit`. Custom product events still appear under Events; Key events power the empty chart on the Reports snapshot.
+Product off (Admin) and SEO off (build/CDN) are **separate**.
+
+### While the tournament is live (now)
+
+- Leave Amplify env `WORLD_CUP_SEO` unset or `true`
+- Keep `deploy/amplify-custom-rules.json` / `amplify.yml` WC → nested `index.html` (200)
+- Marketing pages (`/`, `/pricing`, `/about`, …) are always prerendered independently of WC
+
+### When you turn the hub off next week
+
+1. **Product (immediate):** Admin → disable `sports_event_layer` and/or `world-cup-2026` `enabled` (hides nav, promo, hub UI).
+2. **SEO (required deploy):**
+   - Amplify Console → set `WORLD_CUP_SEO=false` (also sets `VITE_WORLD_CUP_SEO` via `amplify.yml`)
+   - Apply retired redirects:
+     ```bash
+     aws amplify update-app --app-id d3tocp1533tn5q --custom-rules file://deploy/amplify-custom-rules-wc-retired.json
+     ```
+     (301 `/world-cup*`, `/events/world-cup-2026` → `/`; marketing 200s unchanged)
+   - Push/redeploy so sitemap + prerender omit WC shells
+3. **Search Console:** resubmit `sitemap.xml`; URL Inspection on `/world-cup` should show 301 to `/`
+4. Optional: Removals tool for old WC URLs if Google still shows stale snippets
+
+Do **not** rely on Admin toggle alone for SEO — crawlers would still get live WC HTML and sitemap entries until steps 2–3.
+
+### Env reference
+
+| Variable | Effect |
+|----------|--------|
+| `WORLD_CUP_SEO=true` (default) | Sitemap + prerender include WC hub/teams |
+| `WORLD_CUP_SEO=false` | Sitemap + prerender = marketing only; client WC routes get `noindex` |
+
+Marketing SEO (`/pricing`, `/about`, `/faq`, `/contact`, `/platform`, `/privacy`, `/terms`) is **never** gated by this flag.
 
 ## Google Analytics 4 — Realtime
 

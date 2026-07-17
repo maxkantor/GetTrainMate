@@ -8,7 +8,10 @@ version: 1
 #   VITE_COGNITO_USER_POOL_ID / VITE_COGNITO_CLIENT_ID (same pool as production users)
 #   VITE_GA_MEASUREMENT_ID=G-xxxxxxxxxx (GA4 — required for analytics; set in Amplify, not hardcoded in app)
 #   VITE_GSC_VERIFICATION=xxxxx (Search Console HTML meta content value — optional if DNS-verified)
-# See docs/PRODUCTION_DOMAIN.md for Cognito callbacks, Stripe, and www→apex redirect.
+#   WORLD_CUP_SEO=true|false (default true) — when false, build omits WC sitemap/prerender shells
+#     After the tournament: set WORLD_CUP_SEO=false, apply deploy/amplify-custom-rules-wc-retired.json
+#     (301 /world-cup* → /), then redeploy. Marketing SEO (/pricing, /about, …) stays unchanged.
+# See docs/PRODUCTION_DOMAIN.md and docs/SEO-Analytics.md (World Cup retirement).
 frontend:
   phases:
     preBuild:
@@ -16,7 +19,7 @@ frontend:
         - npm ci --ignore-scripts
     build:
       commands:
-        - VITE_API_URL="${VITE_API_URL//us-cast-1/us-east-1}" npm run web:build
+        - WORLD_CUP_SEO="${WORLD_CUP_SEO:-true}" VITE_WORLD_CUP_SEO="${WORLD_CUP_SEO:-true}" VITE_API_URL="${VITE_API_URL//us-cast-1/us-east-1}" npm run web:build
   artifacts:
     baseDirectory: apps/web/dist
     files:
