@@ -4,7 +4,8 @@
   "type": "module",
   "description": "Local/CLI growth measurement helpers (GA4 + Stripe) for GetTrainMate.",
   "dependencies": {
-    "gettrainmate-monorepo": "file:../..",
+    "@aws-sdk/client-ses": "^3.0.0",
+    "@aws-sdk/client-ssm": "^3.0.0",
     "google-auth-library": "^10.1.0"
   }
 }
