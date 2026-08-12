@@ -58,4 +58,8 @@ apps/api/releases/
 
 # Secrets (DO NOT COMMIT)
 secrets.json
+
+# Growth snapshots (generated locally / by automation)
+docs/growth/snapshots/funnel-*.json
+scripts/growth/node_modules/
 .DS_Store
