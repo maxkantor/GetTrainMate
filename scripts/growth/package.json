@@ -4,7 +4,6 @@
   "type": "module",
   "description": "Local/CLI growth measurement helpers (GA4 + Stripe) for GetTrainMate.",
   "dependencies": {
-    "gettrainmate-monorepo": "file:../..",
     "google-auth-library": "^10.1.0"
   }
 }
