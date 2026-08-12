@@ -27,8 +27,8 @@ Agents must append every experiment here. Do not delete history.
 | Continue/stop rule | If page 404s, prerender/canonical broken, or signup path fails within 48h → rollback. Continue if URL is indexed and captures any signup starts. |
 | Rollback procedure | `git revert` EXP-001 commit on `main` and push; Amplify redeploys. |
 | Commit | `4c8612a` |
-| Deployment status | Amplify deploying |
-| Production verification | pending post-deploy |
+| Deployment status | Amplify jobs 460–462 SUCCEED; custom rules applied |
+| Production verification | `/atlanta-training-partners` canonical OK (2026-08-12) |
 | Verified purchase result | n/a (acquisition experiment) |
 
 ### 2026-08-12 — SETUP Growth infrastructure bootstrap
