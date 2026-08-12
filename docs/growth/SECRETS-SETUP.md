@@ -9,6 +9,8 @@ Never commit credential files or paste secrets into git, chat logs, or experimen
 | `GA4_PROPERTY_ID` | `/gettrainmate/growth/ga4-property-id` | String |
 | `GOOGLE_ANALYTICS_CREDENTIALS_JSON` | `/gettrainmate/growth/google-analytics-credentials-json` | SecureString |
 | `STRIPE_RESTRICTED_READ_KEY` | `/gettrainmate/growth/stripe-restricted-read-key` | SecureString |
+| `AWS_ACCESS_KEY_ID` | `/gettrainmate/growth/aws-access-key-id` | String |
+| `AWS_SECRET_ACCESS_KEY` | `/gettrainmate/growth/aws-secret-access-key` | SecureString |
 
 Measurement ID on the site remains **`G-C29M8NWNY4`** (set as `VITE_GA_MEASUREMENT_ID` in Amplify — not a secret). **Property ID** is the numeric GA4 property (Admin → Property settings).
 
@@ -26,11 +28,15 @@ Existing app SES paths (used by growth email scripts):
 $env:GA4_PROPERTY_ID = "123456789"   # numeric property id
 $env:GOOGLE_ANALYTICS_CREDENTIALS_JSON = Get-Content -Raw path\to\ga4-sa.json
 $env:STRIPE_RESTRICTED_READ_KEY = "rk_live_..."  # restricted read-only key
+$env:AWS_ACCESS_KEY_ID = "AKIA..."
+$env:AWS_SECRET_ACCESS_KEY = "..."
 
 cd C:\Apps\GetTrainMate
 .\scripts\growth\put-ssm-secrets.ps1
 node .\scripts\growth\verify-secrets.mjs
 ```
+
+**Note:** `ssm:PutParameter` requires an admin or deployer IAM user. The read-only growth user (`cursor-gettrainmate-growth`) can **read** these params but cannot create them. If `put-ssm-secrets.ps1` fails with AccessDenied, run it from a shell using your admin AWS profile, or paste the keys into [Cursor Cloud Agents → Environment → Secrets](https://cursor.com/dashboard/cloud-agents) instead.
 
 ## Stripe restricted key (read-only)
 

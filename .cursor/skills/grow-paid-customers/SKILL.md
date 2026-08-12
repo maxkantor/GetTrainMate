@@ -188,6 +188,8 @@ API Lambda deploy is separate (`npm run deploy:full` or `deploy:push-zip`) — *
 | `GA4_PROPERTY_ID` | `/gettrainmate/growth/ga4-property-id` |
 | `GOOGLE_ANALYTICS_CREDENTIALS_JSON` | `/gettrainmate/growth/google-analytics-credentials-json` |
 | `STRIPE_RESTRICTED_READ_KEY` | `/gettrainmate/growth/stripe-restricted-read-key` |
+| `AWS_ACCESS_KEY_ID` | `/gettrainmate/growth/aws-access-key-id` (optional; Cursor env preferred for cloud agents) |
+| `AWS_SECRET_ACCESS_KEY` | `/gettrainmate/growth/aws-secret-access-key` (optional) |
 
 Admin inbox: `/gettrainmate/ses-admin-email` · SES from: `/gettrainmate/ses-from-email`
 

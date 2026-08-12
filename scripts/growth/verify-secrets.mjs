@@ -16,6 +16,12 @@ const PARAMS = [
     env: 'STRIPE_RESTRICTED_READ_KEY',
     name: '/gettrainmate/growth/stripe-restricted-read-key',
     expect: 'SecureString'
+  },
+  { env: 'AWS_ACCESS_KEY_ID', name: '/gettrainmate/growth/aws-access-key-id', expect: 'String' },
+  {
+    env: 'AWS_SECRET_ACCESS_KEY',
+    name: '/gettrainmate/growth/aws-secret-access-key',
+    expect: 'SecureString'
   }
 ];
 

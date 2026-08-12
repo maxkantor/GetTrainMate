@@ -11,7 +11,9 @@ const REGION = process.env.AWS_REGION || 'us-east-1';
 const MAP = [
   ['GA4_PROPERTY_ID', '/gettrainmate/growth/ga4-property-id', false],
   ['GOOGLE_ANALYTICS_CREDENTIALS_JSON', '/gettrainmate/growth/google-analytics-credentials-json', true],
-  ['STRIPE_RESTRICTED_READ_KEY', '/gettrainmate/growth/stripe-restricted-read-key', true]
+  ['STRIPE_RESTRICTED_READ_KEY', '/gettrainmate/growth/stripe-restricted-read-key', true],
+  ['AWS_ACCESS_KEY_ID', '/gettrainmate/growth/aws-access-key-id', false],
+  ['AWS_SECRET_ACCESS_KEY', '/gettrainmate/growth/aws-secret-access-key', true]
 ];
 
 export function loadSsmSecretsIntoEnv() {

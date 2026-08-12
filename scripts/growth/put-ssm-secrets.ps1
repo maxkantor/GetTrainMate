@@ -6,7 +6,9 @@ $Region = if ($env:AWS_REGION) { $env:AWS_REGION } else { "us-east-1" }
 $Pairs = @(
     @{ Env = "GA4_PROPERTY_ID"; Param = "/gettrainmate/growth/ga4-property-id"; Secure = $false },
     @{ Env = "GOOGLE_ANALYTICS_CREDENTIALS_JSON"; Param = "/gettrainmate/growth/google-analytics-credentials-json"; Secure = $true },
-    @{ Env = "STRIPE_RESTRICTED_READ_KEY"; Param = "/gettrainmate/growth/stripe-restricted-read-key"; Secure = $true }
+    @{ Env = "STRIPE_RESTRICTED_READ_KEY"; Param = "/gettrainmate/growth/stripe-restricted-read-key"; Secure = $true },
+    @{ Env = "AWS_ACCESS_KEY_ID"; Param = "/gettrainmate/growth/aws-access-key-id"; Secure = $false },
+    @{ Env = "AWS_SECRET_ACCESS_KEY"; Param = "/gettrainmate/growth/aws-secret-access-key"; Secure = $true }
 )
 
 Write-Host "GetTrainMate growth SSM setup ($Region)" -ForegroundColor Cyan
