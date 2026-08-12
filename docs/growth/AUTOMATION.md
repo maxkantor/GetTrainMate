@@ -1,4 +1,4 @@
-# Cursor Automation — GetTrainMate Wednesday Customer Growth
+# Cursor Automation — GetTrainMate Customer Growth
 
 **Name:** GetTrainMate Wednesday Customer Growth  
 **Schedule:** **Wednesday 8:00 AM America/New_York**  
@@ -19,18 +19,23 @@ Do **not** activate a weekday (Mon–Fri) schedule — **Wednesday only**.
 
 ---
 
+
+
 ## Automation secret *names* (values from SSM / IAM — not in git)
 
-| Secret name | Source |
-|-------------|--------|
-| `GA4_PROPERTY_ID` | SSM `/gettrainmate/growth/ga4-property-id` |
-| `GOOGLE_ANALYTICS_CREDENTIALS_JSON` | SSM `/gettrainmate/growth/google-analytics-credentials-json` |
-| `STRIPE_RESTRICTED_READ_KEY` | SSM `/gettrainmate/growth/stripe-restricted-read-key` (`rk_…` only) |
-| `AWS_ACCESS_KEY_ID` | SSM `/gettrainmate/growth/aws-access-key-id` or Cursor env (required for cloud agent cold start) |
-| `AWS_SECRET_ACCESS_KEY` | SSM `/gettrainmate/growth/aws-secret-access-key` or Cursor env |
-| `AWS_REGION` | `us-east-1` |
-| `ADMIN_EMAIL` or `SES_ADMIN_EMAIL` | Optional (else SSM `/gettrainmate/ses-admin-email`) |
-| `SES_FROM_EMAIL` | Optional (else SSM `/gettrainmate/ses-from-email`) |
+
+| Secret name                         | Source                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `GA4_PROPERTY_ID`                   | SSM `/gettrainmate/growth/ga4-property-id`                                                       |
+| `GOOGLE_ANALYTICS_CREDENTIALS_JSON` | SSM `/gettrainmate/growth/google-analytics-credentials-json`                                     |
+| `STRIPE_RESTRICTED_READ_KEY`        | SSM `/gettrainmate/growth/stripe-restricted-read-key` (`rk_…` only)                              |
+| `AWS_ACCESS_KEY_ID`                 | SSM `/gettrainmate/growth/aws-access-key-id` or Cursor env (required for cloud agent cold start) |
+| `AWS_SECRET_ACCESS_KEY`             | SSM `/gettrainmate/growth/aws-secret-access-key` or Cursor env                                   |
+| `AWS_REGION`                        | `us-east-1`                                                                                      |
+| `ADMIN_EMAIL` or `SES_ADMIN_EMAIL`  | Optional (else SSM `/gettrainmate/ses-admin-email`)                                              |
+| `SES_FROM_EMAIL`                    | Optional (else SSM `/gettrainmate/ses-from-email`)                                               |
+
+IAM user `cursor-gettrainmate-growth` needs `ses:SendEmail` **and** `ssm:GetParameter` on `/gettrainmate/growth/*`, `/gettrainmate/ses-from-email`, `/gettrainmate/ses-admin-email`. Without SSM read, Admin email fails unless `SES_FROM_EMAIL` + `SES_ADMIN_EMAIL` are also in Cursor Environment secrets.
 
 Copy from SSM when needed:
 
@@ -41,6 +46,8 @@ aws ssm get-parameter --name /gettrainmate/growth/stripe-restricted-read-key --w
 ```
 
 ---
+
+
 
 ## Prompt (paste into Automations → Agent instructions)
 
@@ -71,6 +78,8 @@ Load secrets from Automation env / SSM via scripts/growth/load-ssm-secrets-into-
 
 ---
 
+
+
 ## Cloud Agent Environment (Install script)
 
 Paste into Cursor → Environment → **Install script**:
@@ -86,6 +95,8 @@ export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ---
+
+
 
 ## First-time local verify
 
