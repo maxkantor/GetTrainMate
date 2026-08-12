@@ -26,8 +26,8 @@ Do **not** activate a weekday (Mon–Fri) schedule — **Wednesday only**.
 | `GA4_PROPERTY_ID` | SSM `/gettrainmate/growth/ga4-property-id` |
 | `GOOGLE_ANALYTICS_CREDENTIALS_JSON` | SSM `/gettrainmate/growth/google-analytics-credentials-json` |
 | `STRIPE_RESTRICTED_READ_KEY` | SSM `/gettrainmate/growth/stripe-restricted-read-key` (`rk_…` only) |
-| `AWS_ACCESS_KEY_ID` | IAM (cloud agent) |
-| `AWS_SECRET_ACCESS_KEY` | IAM |
+| `AWS_ACCESS_KEY_ID` | SSM `/gettrainmate/growth/aws-access-key-id` or Cursor env (required for cloud agent cold start) |
+| `AWS_SECRET_ACCESS_KEY` | SSM `/gettrainmate/growth/aws-secret-access-key` or Cursor env |
 | `AWS_REGION` | `us-east-1` |
 | `ADMIN_EMAIL` or `SES_ADMIN_EMAIL` | Optional (else SSM `/gettrainmate/ses-admin-email`) |
 | `SES_FROM_EMAIL` | Optional (else SSM `/gettrainmate/ses-from-email`) |
