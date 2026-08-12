@@ -88,11 +88,13 @@ Secrets do **not** live on the Automations Settings page alone. They live here:
    node scripts/growth/compose-and-send-growth-email.mjs --notes "Manual setup smoke test"
    ```
 
-### IAM permissions (growth automation user)
+### IAM permissions (growth automation user `cursor-gettrainmate-growth`)
 
-- `ssm:GetParameter` on `/gettrainmate/growth/*`, `/gettrainmate/ses-admin-email`, `/gettrainmate/ses-from-email`
-- `ses:SendEmail` for verified `gettrainmate.com` identity
-- `kms:Decrypt` via SSM for SecureString params
+- `ses:SendEmail` / `ses:SendRawEmail`
+- `ssm:GetParameter` / `ssm:GetParameters` on `/gettrainmate/growth/*`, `/gettrainmate/ses-admin-email`, `/gettrainmate/ses-from-email`
+- `kms:Decrypt` via `ssm.us-east-1.amazonaws.com` for SecureString params
+
+If Admin email fails in Automations with “SSM get failed”, either fix that IAM policy or add Cursor Environment secrets `SES_FROM_EMAIL` and `SES_ADMIN_EMAIL` (same values as the SSM params).
 
 ## Verify SSM from your laptop (safe)
 
