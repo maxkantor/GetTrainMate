@@ -343,63 +343,65 @@ const invokedAsCli =
   process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 
 if (invokedAsCli) {
-  const args = parseArgs(process.argv.slice(2));
-  let notes = args.notes;
-  if (args.notesFile) notes = fs.readFileSync(args.notesFile, 'utf8');
+  (async () => {
+    const args = parseArgs(process.argv.slice(2));
+    let notes = args.notes;
+    if (args.notesFile) notes = fs.readFileSync(args.notesFile, 'utf8');
 
-  const health = runHealth();
-  const collectMeta = ensureSnapshot();
-  const snapPath = args.snapshot || latestSnapshotPath();
-  let snapshot = null;
-  if (snapPath && fs.existsSync(snapPath)) {
-    snapshot = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
-  } else if (collectMeta?.error) {
-    snapshot = { error: collectMeta.error, sources: {}, notes: [collectMeta.error] };
-  }
+    const health = runHealth();
+    const collectMeta = ensureSnapshot();
+    const snapPath = args.snapshot || latestSnapshotPath();
+    let snapshot = null;
+    if (snapPath && fs.existsSync(snapPath)) {
+      snapshot = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
+    } else if (collectMeta?.error) {
+      snapshot = { error: collectMeta.error, sources: {}, notes: [collectMeta.error] };
+    }
 
-  const logMd = fs.existsSync(LOG_PATH) ? fs.readFileSync(LOG_PATH, 'utf8') : '';
-  const experiments = parseActiveExperiments(logMd);
-  const now = new Date();
-  const date = now.toISOString().slice(0, 10);
-  const timeEt = now.toLocaleString('en-US', {
-    timeZone: 'America/New_York',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  });
-  const { text, html } = composeGrowthEmailBody({
-    snapshot,
-    health,
-    experiments,
-    notes,
-    generatedAt: now
-  });
-  const subject = `[GetTrainMate] Growth run ${date} ${timeEt} ET`;
+    const logMd = fs.existsSync(LOG_PATH) ? fs.readFileSync(LOG_PATH, 'utf8') : '';
+    const experiments = parseActiveExperiments(logMd);
+    const now = new Date();
+    const date = now.toISOString().slice(0, 10);
+    const timeEt = now.toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    const { text, html } = composeGrowthEmailBody({
+      snapshot,
+      health,
+      experiments,
+      notes,
+      generatedAt: now
+    });
+    const subject = `[GetTrainMate] Growth run ${date} ${timeEt} ET`;
 
-  if (args.dryRun) {
-    console.log(subject);
-    console.log('--- TEXT ---');
-    console.log(text);
-    process.exit(0);
-  }
+    if (args.dryRun) {
+      console.log(subject);
+      console.log('--- TEXT ---');
+      console.log(text);
+      process.exit(0);
+    }
 
-  try {
-    const result = sendAdminGrowthEmail({ subject, body: text, htmlBody: html });
-    console.log(
-      JSON.stringify(
-        {
-          ok: true,
-          messageId: result.messageId,
-          subject: result.subjectSent ?? subject,
-          snapshotPath: snapPath,
-          activeExperiments: experiments.map((e) => e.idLine)
-        },
-        null,
-        2
-      )
-    );
-  } catch (e) {
-    console.error(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }));
-    process.exit(1);
-  }
+    try {
+      const result = await sendAdminGrowthEmail({ subject, body: text, htmlBody: html });
+      console.log(
+        JSON.stringify(
+          {
+            ok: true,
+            messageId: result.messageId,
+            subject: result.subjectSent ?? subject,
+            snapshotPath: snapPath,
+            activeExperiments: experiments.map((e) => e.idLine)
+          },
+          null,
+          2
+        )
+      );
+    } catch (e) {
+      console.error(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }));
+      process.exit(1);
+    }
+  })();
 }
