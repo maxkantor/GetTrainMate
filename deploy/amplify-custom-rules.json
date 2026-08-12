@@ -30,6 +30,11 @@
     "status": "200"
   },
   {
+    "source": "/atlanta-training-partners",
+    "target": "/atlanta-training-partners/index.html",
+    "status": "200"
+  },
+  {
     "source": "/faq",
     "target": "/faq/index.html",
     "status": "200"

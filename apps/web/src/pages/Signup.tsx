@@ -101,8 +101,16 @@ export const SignupPage: React.FC = () => {
     }
 
     startedRef.current = true;
-    trackEvent('signup_started', { source_page: '/signup' });
-    trackEvent('email_submitted', { source_page: '/signup' });
+    const src = searchParams.get('src') || undefined;
+    const metro = searchParams.get('metro') || undefined;
+    const mode = searchParams.get('mode') || undefined;
+    trackEvent('signup_started', {
+      source_page: '/signup',
+      ...(src ? { acquisition_source: src } : {}),
+      ...(metro ? { metro } : {}),
+      ...(mode ? { mode } : {}),
+    });
+    trackEvent('email_submitted', { source_page: '/signup', ...(src ? { acquisition_source: src } : {}) });
 
     try {
       // signup() runs check-email first; only calls Cognito signUp when email is available

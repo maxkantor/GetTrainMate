@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 /**
  * Compose a full Admin growth-run email from snapshot + health + experiment log, then send via SES.
+ * Layout mirrors YouTubeBooster Admin growth emails: notes → scoreboard → experiments → health → events.
  *
  * Usage:
  *   node scripts/growth/compose-and-send-growth-email.mjs
- *   node scripts/growth/compose-and-send-growth-email.mjs --notes "No ship; Atlanta density still low."
+ *   node scripts/growth/compose-and-send-growth-email.mjs --notes "..."
  *   node scripts/growth/compose-and-send-growth-email.mjs --dry-run
- *
- * REQUIRED after every automation run (including no-op weeks).
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -135,13 +134,10 @@ function ensureSnapshot() {
 function funnelKpis(w, funnelSummary) {
   const stages = funnelSummary?.stages ?? {};
   const events = sumEvents(w?.ga4);
-  const pick = (name, ...aliases) => {
-    let total = stages[name] ?? events[name] ?? 0;
-    for (const a of aliases) total += stages[a] ?? events[a] ?? 0;
-    return total;
-  };
+  const pick = (...names) => names.reduce((sum, n) => sum + (stages[n] ?? events[n] ?? 0), 0);
   return {
-    landing: pick('landing_page_view', 'page_view'),
+    sessions: pick('session_start') || pick('landing_page_view', 'page_view'),
+    landings: pick('landing_page_view', 'page_view'),
     signupStarted: pick('signup_started'),
     signupCompleted: pick('signup_completed', 'sign_up'),
     profileCompleted: pick('profile_completed', 'onboarding_completed'),
@@ -158,21 +154,14 @@ function funnelKpis(w, funnelSummary) {
   };
 }
 
-function formatMetroBlock(snapshot) {
-  const lines = [];
-  const md = snapshot?.marketplaceDensity;
-  if (md?.assumptionMetro) {
-    lines.push(`Assumption metro: ${ascii(md.assumptionMetro)}`);
-  }
-  if (md?.byMetro && Object.keys(md.byMetro).length) {
-    lines.push('GA4 metro signals (aggregated):');
-    for (const [metro, count] of Object.entries(md.byMetro).sort((a, b) => b[1] - a[1])) {
-      lines.push(`  - ${metro}: ${count}`);
-    }
-  } else {
-    lines.push('Metro data: unavailable in snapshot (wire customEvent:metro or use Admin CRM).');
-  }
-  return lines;
+function windowSummary(label, w) {
+  if (!w) return { label, range: '(missing)', events: [], stripe: null };
+  return {
+    label,
+    range: `${w.start} to ${w.end}`,
+    events: topEvents(sumEvents(w.ga4)),
+    stripe: w.stripe || null
+  };
 }
 
 export function composeGrowthEmailBody({ snapshot, health, experiments, notes, generatedAt }) {
@@ -180,12 +169,13 @@ export function composeGrowthEmailBody({ snapshot, health, experiments, notes, g
   const generated = (generatedAt || new Date()).toISOString();
   const noteText = ascii((notes && notes.trim()) || '(none - measure-only / no-op run)');
 
-  const w7 = snapshot?.windows?.['7d'];
-  const w30 = snapshot?.windows?.['30d'];
-  const fs7 = snapshot?.funnelSummary?.['7d'];
-  const fs30 = snapshot?.funnelSummary?.['30d'];
-  const k7 = funnelKpis(w7, fs7);
-  const k30 = funnelKpis(w30, fs30);
+  const w7raw = snapshot?.windows?.['7d'];
+  const w30raw = snapshot?.windows?.['30d'];
+  const w7 = windowSummary('7d', w7raw);
+  const w30 = windowSummary('30d', w30raw);
+  const k7 = funnelKpis(w7raw, snapshot?.funnelSummary?.['7d']);
+  const k30 = funnelKpis(w30raw, snapshot?.funnelSummary?.['30d']);
+  const md = snapshot?.marketplaceDensity;
 
   const t = [];
   t.push('GetTrainMate - Growth run summary');
@@ -194,56 +184,25 @@ export function composeGrowthEmailBody({ snapshot, health, experiments, notes, g
   t.push(`Generated (UTC): ${generated}`);
   t.push('Site: https://gettrainmate.com/');
   t.push('Admin: https://gettrainmate.com/admin');
-  t.push('GA4: G-C29M8NWNY4 (single install preserved)');
+  t.push('Focus metro (assumption until data wins): Atlanta, Georgia');
   t.push('');
   t.push('1) AGENT NOTES');
   t.push('--------------');
   t.push(noteText);
   t.push('');
-  t.push('2) PRODUCTION HEALTH');
-  t.push('--------------------');
-  if (health?.checks?.length) {
-    t.push(`Overall: ${health.ok ? 'OK' : 'FAILED'}`);
-    for (const c of health.checks) {
-      t.push(`- ${c.name}: ${c.ok ? 'ok' : 'FAIL'}`);
-    }
-  } else {
-    t.push('(health check unavailable)');
-  }
-  t.push('');
-  t.push('3) DATA SOURCES');
-  t.push('---------------');
-  t.push(`GA4: ${snapshot?.sources?.ga4 ?? 'unknown'}`);
-  t.push(`Stripe: ${snapshot?.sources?.stripe ?? 'unknown'}`);
-  t.push(`Admin CRM: ${snapshot?.sources?.adminCrm ?? 'not_queried'}`);
-  if (snapshot?.notes?.length) {
-    t.push('Notes:');
-    for (const n of snapshot.notes) t.push(`  - ${ascii(n)}`);
-  }
-  t.push('');
-  t.push('4) FUNNEL SCOREBOARD (7d / 30d)');
-  t.push('--------------------------------');
+  t.push('2) SCOREBOARD');
+  t.push('-------------');
   t.push(
-    `Landing: ${k7.landing} / ${k30.landing} | Signup start: ${k7.signupStarted} / ${k30.signupStarted} | Signup done: ${k7.signupCompleted} / ${k30.signupCompleted}`
+    `7d:  landings=${k7.landings}  signups=${k7.signupCompleted}  discover=${k7.discover}  live_paid=${k7.livePaid ?? '?'} ($${k7.liveRevenue.toFixed(2)})`
   );
   t.push(
-    `Profile done: ${k7.profileCompleted} / ${k30.profileCompleted} | Discover: ${k7.discover} / ${k30.discover} | Connections: ${k7.connections} / ${k30.connections}`
+    `30d: landings=${k30.landings}  signups=${k30.signupCompleted}  discover=${k30.discover}  live_paid=${k30.livePaid ?? '?'} ($${k30.liveRevenue.toFixed(2)})`
   );
   t.push(
-    `Matches: ${k7.matches} / ${k30.matches} | First msg: ${k7.messages} / ${k30.messages} | Return: ${k7.returnVisit} / ${k30.returnVisit}`
-  );
-  t.push(
-    `Pricing: ${k7.pricing} / ${k30.pricing} | Checkout: ${k7.checkout} / ${k30.checkout} | Purchase (GA4): ${k7.purchase} / ${k30.purchase}`
-  );
-  t.push(
-    `Stripe live paid: ${k7.livePaid ?? '?'} / ${k30.livePaid ?? '?'} | Revenue: $${k7.liveRevenue.toFixed(2)} / $${k30.liveRevenue.toFixed(2)}`
+    `30d detail: profiles=${k30.profileCompleted}  connections=${k30.connections}  matches=${k30.matches}  msgs=${k30.messages}  returns=${k30.returnVisit}  pricing=${k30.pricing}  checkout=${k30.checkout}`
   );
   t.push('');
-  t.push('5) MARKETPLACE DENSITY');
-  t.push('----------------------');
-  t.push(...formatMetroBlock(snapshot));
-  t.push('');
-  t.push('6) ACTIVE EXPERIMENTS');
+  t.push('3) ACTIVE EXPERIMENTS');
   t.push('---------------------');
   if (!experiments.length) {
     t.push('(none marked active)');
@@ -253,29 +212,50 @@ export function composeGrowthEmailBody({ snapshot, health, experiments, notes, g
       t.push(`  Status: ${ex.status} | Eval: ${ex.evalDate || 'n/a'} | Stage: ${ex.funnelStage || 'n/a'}`);
       if (ex.targetMetro) t.push(`  Metro/segment: ${ex.targetMetro}`);
       t.push(`  Metric: ${ex.primaryMetric || 'n/a'}`);
+      if (ex.hypothesis) t.push(`  Hypothesis: ${ex.hypothesis}`);
       if (ex.commit || ex.amplify) {
-        t.push(`  Ship: commit ${ex.commit || 'n/a'}; deploy ${ex.amplify || 'n/a'}`);
+        t.push(`  Ship: commit ${ex.commit || 'n/a'}; Amplify ${ex.amplify || 'n/a'}`);
       }
       t.push('');
     }
   }
-  t.push('7) GA4 TOP EVENTS (7d)');
-  t.push('----------------------');
-  if (!w7?.ga4) {
-    t.push('(GA4 rows unavailable)');
+  t.push('4) PRODUCTION HEALTH');
+  t.push('--------------------');
+  if (health?.checks?.length) {
+    t.push(`Overall: ${health.ok ? 'OK' : 'FAILED'}`);
+    for (const c of health.checks) t.push(`- ${c.name}: ${c.ok ? 'ok' : 'FAIL'}`);
   } else {
-    for (const [name, count] of topEvents(sumEvents(w7.ga4), 15)) {
-      t.push(`  - ${name}: ${count}`);
-    }
+    t.push('(health check unavailable)');
   }
   t.push('');
-  t.push('8) ROLLBACK');
-  t.push('-----------');
-  t.push('Revert the experiment commit on main and push; Amplify redeploys automatically.');
-  t.push('Record failure cause in docs/growth/EXPERIMENT-LOG.md.');
+  t.push('5) MARKETPLACE DENSITY');
+  t.push('----------------------');
+  t.push(`Assumption metro: ${ascii(md?.assumptionMetro || 'Atlanta, Georgia')}`);
+  if (md?.byMetro && Object.keys(md.byMetro).length) {
+    for (const [metro, count] of Object.entries(md.byMetro).sort((a, b) => b[1] - a[1])) {
+      t.push(`  - ${metro}: ${count}`);
+    }
+  } else {
+    t.push('Metro GA4 dimension: not populated yet - use Admin CRM city aggregates when available.');
+  }
+  t.push('');
+  t.push('6) GA4 TOP EVENTS');
+  t.push('-----------------');
+  t.push(`Sources: GA4=${snapshot?.sources?.ga4 ?? '?'}; Stripe=${snapshot?.sources?.stripe ?? '?'}`);
+  t.push(`7d (${w7.range}):`);
+  if (w7.events.length) for (const [name, count] of w7.events) t.push(`  - ${name}: ${count}`);
+  else t.push('  (no rows)');
+  t.push(`30d (${w30.range}):`);
+  if (w30.events.length) for (const [name, count] of w30.events) t.push(`  - ${name}: ${count}`);
+  else t.push('  (no rows)');
+  t.push('');
+  t.push('7) LINKS');
+  t.push('--------');
+  t.push('- Experiment log: docs/growth/EXPERIMENT-LOG.md');
+  t.push('- Growth skill: .cursor/skills/grow-paid-customers/SKILL.md');
+  t.push('- Atlanta landing: https://gettrainmate.com/atlanta-training-partners');
   t.push('');
   t.push('Truth rule: verified Stripe live payments are the revenue source of truth.');
-  t.push('Never include credentials, user records, private locations, or message content in this email.');
 
   const text = t.join('\n');
 
@@ -297,11 +277,28 @@ export function composeGrowthEmailBody({ snapshot, health, experiments, notes, g
           <div><b>Stage:</b> ${escapeHtml(ex.funnelStage || 'n/a')}</div>
           ${ex.targetMetro ? `<div><b>Metro:</b> ${escapeHtml(ex.targetMetro)}</div>` : ''}
           <div><b>Metric:</b> ${escapeHtml(ex.primaryMetric || 'n/a')}</div>
+          ${ex.hypothesis ? `<div style="margin-top:6px;"><b>Hypothesis:</b> ${escapeHtml(ex.hypothesis)}</div>` : ''}
+          <div style="margin-top:6px;color:#6b7280;">Commit ${escapeHtml(ex.commit || 'n/a')} · Amplify ${escapeHtml(ex.amplify || 'n/a')}</div>
         </div>
       </div>`
         )
         .join('')
     : '<p style="color:#6b7280;">(none marked active)</p>';
+
+  const eventTable = (label, range, events) => {
+    const rows = events
+      .map(
+        ([name, count]) =>
+          `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee;">${escapeHtml(name)}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right;">${count}</td></tr>`
+      )
+      .join('');
+    return `
+      <h3 style="margin:16px 0 6px;font-size:14px;">${escapeHtml(label)} <span style="font-weight:400;color:#6b7280;">(${escapeHtml(range)})</span></h3>
+      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:#f3f4f6;"><th align="left" style="padding:6px 8px;">Event</th><th align="right" style="padding:6px 8px;">Count</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="2" style="padding:6px 8px;">No rows</td></tr>'}</tbody>
+      </table>`;
+  };
 
   const html = `<!DOCTYPE html>
 <html>
@@ -315,22 +312,65 @@ export function composeGrowthEmailBody({ snapshot, health, experiments, notes, g
     <div style="padding:18px 20px;">
       <p style="margin:0 0 12px;font-size:13px;">
         <a href="https://gettrainmate.com/">Site</a> ·
-        <a href="https://gettrainmate.com/admin">Admin</a>
+        <a href="https://gettrainmate.com/admin">Admin</a> ·
+        <a href="https://gettrainmate.com/atlanta-training-partners">Atlanta landing</a>
       </p>
-      <h2 style="font-size:15px;margin:18px 0 8px;">Agent notes</h2>
+
+      <h2 style="font-size:15px;margin:18px 0 8px;">1) Agent notes</h2>
       <pre style="margin:0;padding:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;white-space:pre-wrap;font-size:13px;line-height:1.45;">${escapeHtml(noteText)}</pre>
-      <h2 style="font-size:15px;margin:18px 0 8px;">Funnel (7d / 30d)</h2>
+
+      <h2 style="font-size:15px;margin:18px 0 8px;">2) Scoreboard</h2>
       <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;">
-        <tr><td style="padding:4px 8px;">Signup completed</td><td style="padding:4px 8px;text-align:right;">${k7.signupCompleted} / ${k30.signupCompleted}</td></tr>
-        <tr><td style="padding:4px 8px;">Discover</td><td style="padding:4px 8px;text-align:right;">${k7.discover} / ${k30.discover}</td></tr>
-        <tr><td style="padding:4px 8px;">Matches</td><td style="padding:4px 8px;text-align:right;">${k7.matches} / ${k30.matches}</td></tr>
-        <tr><td style="padding:4px 8px;">Stripe live paid</td><td style="padding:4px 8px;text-align:right;">${k7.livePaid ?? '?'} / ${k30.livePaid ?? '?'} ($${k7.liveRevenue.toFixed(2)} / $${k30.liveRevenue.toFixed(2)})</td></tr>
+        <thead>
+          <tr style="background:#f3f4f6;">
+            <th align="left" style="padding:6px 8px;">Window</th>
+            <th align="right" style="padding:6px 8px;">Landings</th>
+            <th align="right" style="padding:6px 8px;">Signups</th>
+            <th align="right" style="padding:6px 8px;">Discover</th>
+            <th align="right" style="padding:6px 8px;">Live paid</th>
+            <th align="right" style="padding:6px 8px;">Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:6px 8px;border-bottom:1px solid #eee;">7d</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${k7.landings}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${k7.signupCompleted}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${k7.discover}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${k7.livePaid ?? '?'}</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">$${k7.liveRevenue.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 8px;">30d</td>
+            <td style="padding:6px 8px;text-align:right;">${k30.landings}</td>
+            <td style="padding:6px 8px;text-align:right;">${k30.signupCompleted}</td>
+            <td style="padding:6px 8px;text-align:right;">${k30.discover}</td>
+            <td style="padding:6px 8px;text-align:right;">${k30.livePaid ?? '?'}</td>
+            <td style="padding:6px 8px;text-align:right;">$${k30.liveRevenue.toFixed(2)}</td>
+          </tr>
+        </tbody>
       </table>
-      <h2 style="font-size:15px;margin:18px 0 8px;">Production health</h2>
-      <p style="margin:0 0 8px;font-size:13px;"><b>Overall:</b> ${health?.ok ? 'OK' : 'FAILED'}</p>
-      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;"><tbody>${healthRows}</tbody></table>
-      <h2 style="font-size:15px;margin:18px 0 8px;">Active experiments</h2>
+      <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">
+        30d: profiles ${k30.profileCompleted} · connections ${k30.connections} · matches ${k30.matches} · msgs ${k30.messages} · returns ${k30.returnVisit} · pricing ${k30.pricing} · checkout ${k30.checkout}
+      </p>
+
+      <h2 style="font-size:15px;margin:18px 0 8px;">3) Active experiments</h2>
       ${expHtml}
+
+      <h2 style="font-size:15px;margin:18px 0 8px;">4) Production health</h2>
+      <p style="margin:0 0 8px;font-size:13px;"><b>Overall:</b> ${health?.ok ? 'OK' : 'FAILED'}</p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;">
+        <tbody>${healthRows || '<tr><td style="padding:6px 8px;">(unavailable)</td></tr>'}</tbody>
+      </table>
+
+      <h2 style="font-size:15px;margin:18px 0 8px;">5) GA4 top events</h2>
+      <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Sources: GA4=${escapeHtml(snapshot?.sources?.ga4 ?? '?')}; Stripe=${escapeHtml(snapshot?.sources?.stripe ?? '?')} · Focus: Atlanta (assumption)</p>
+      ${eventTable('7d', w7.range, w7.events)}
+      ${eventTable('30d', w30.range, w30.events)}
+
+      <p style="margin:20px 0 0;font-size:12px;color:#6b7280;">
+        Truth rule: only Stripe live payments count as paid customers.
+      </p>
     </div>
   </div>
 </body>

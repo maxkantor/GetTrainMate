@@ -47,6 +47,16 @@ const MARKETING_PAGES: PrerenderPage[] = [
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {
+    canonicalPath: '/atlanta-training-partners',
+    title: `Find a Training Partner in Atlanta | ${BRAND}`,
+    description:
+      'Match with gym, running, Hyrox, and CrossFit partners in Atlanta. TRAIN-first on GetTrainMate — set your city and start Discover.',
+    ogTitle: `Find a Training Partner in Atlanta | ${BRAND}`,
+    ogDescription:
+      'Match with gym, running, Hyrox, and CrossFit partners in Atlanta. TRAIN-first on GetTrainMate — set your city and start Discover.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
     canonicalPath: '/faq',
     title: `FAQ | ${BRAND}`,
     description:

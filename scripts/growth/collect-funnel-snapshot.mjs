@@ -171,16 +171,43 @@ async function fetchStripe(key, startUnix) {
   return res.json();
 }
 
-function summarizeStripe(sessions) {
+async function fetchStripeCharges(key, startUnix) {
+  const params = new URLSearchParams({
+    'created[gte]': String(startUnix),
+    limit: '100'
+  });
+  const res = await fetch(`https://api.stripe.com/v1/charges?${params}`, {
+    headers: { Authorization: `Bearer ${key}` }
+  });
+  if (!res.ok) {
+    report.notes.push(`Stripe charges error ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    return null;
+  }
+  return res.json();
+}
+
+function summarizeStripe(sessions, charges) {
   const live = (sessions?.data ?? []).filter((s) => s.livemode && s.payment_status === 'paid');
   const test = (sessions?.data ?? []).filter((s) => !s.livemode && s.payment_status === 'paid');
-  const revenueLive = live.reduce((sum, s) => sum + (s.amount_total || 0), 0) / 100;
-  const revenueTest = test.reduce((sum, s) => sum + (s.amount_total || 0), 0) / 100;
+  let revenueLive = live.reduce((sum, s) => sum + (s.amount_total || 0), 0) / 100;
+  let revenueTest = test.reduce((sum, s) => sum + (s.amount_total || 0), 0) / 100;
+
+  // Fallback: some Checkout Sessions report amount_total=0; use live succeeded charges.
+  const liveCharges = (charges?.data ?? []).filter(
+    (c) => c.livemode && c.paid && c.status === 'succeeded' && !c.refunded
+  );
+  const chargeRevenueLive = liveCharges.reduce((sum, c) => sum + (c.amount || 0), 0) / 100;
+  if (revenueLive === 0 && chargeRevenueLive > 0) {
+    revenueLive = chargeRevenueLive;
+    report.notes.push('Stripe revenue from Charges API (Checkout Session amount_total was 0).');
+  }
+
   return {
-    livePaidSessions: live.length,
+    livePaidSessions: Math.max(live.length, liveCharges.length ? liveCharges.length : live.length),
     testPaidSessions: test.length,
     revenueLiveUsd: revenueLive,
-    revenueTestUsd: revenueTest
+    revenueTestUsd: revenueTest,
+    liveSucceededCharges: liveCharges.length
   };
 }
 
@@ -265,7 +292,8 @@ for (const w of windows) {
     try {
       const startUnix = Math.floor(new Date(w.start + 'T00:00:00Z').getTime() / 1000);
       const raw = await fetchStripe(stripeKey, startUnix);
-      entry.stripe = summarizeStripe(raw);
+      const charges = await fetchStripeCharges(stripeKey, startUnix);
+      entry.stripe = summarizeStripe(raw, charges);
       if (entry.stripe) report.sources.stripe = 'ok';
     } catch (e) {
       report.notes.push(`Stripe ${w.label} failed: ${e instanceof Error ? e.message : e}`);

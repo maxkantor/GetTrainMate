@@ -51,6 +51,16 @@ await check('robots', async () => {
   return { bytes: txt.length };
 });
 
+await check('atlanta_landing', async () => {
+  const res = await fetch(`${SITE}/atlanta-training-partners`);
+  if (!res.ok) throw new Error(`status ${res.status}`);
+  const html = await res.text();
+  if (!/gettrainmate\.com\/atlanta-training-partners/i.test(html)) {
+    throw new Error('atlanta landing canonical/shell missing');
+  }
+  return { bytes: html.length };
+});
+
 await check('signup_route', async () => {
   const res = await fetch(`${SITE}/signup`, { redirect: 'follow' });
   if (!res.ok) throw new Error(`status ${res.status}`);

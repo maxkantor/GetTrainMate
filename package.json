@@ -36,7 +36,7 @@
     "seed": "cd scripts && node seed.js",
     "env:sync": "node scripts/sync-env-from-aws.js",
     "env:sync-amplify": "node scripts/sync-env-from-amplify.js",
-    "growth:install": "npm i --prefix scripts/growth",
+    "growth:install": "npm i --prefix scripts/growth --ignore-scripts",
     "growth:snapshot": "node scripts/growth/collect-funnel-snapshot.mjs",
     "growth:health": "node scripts/growth/check-production-health.mjs",
     "growth:verify-secrets": "node scripts/growth/verify-secrets.mjs",

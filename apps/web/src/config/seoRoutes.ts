@@ -46,6 +46,12 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
       'GetTrainMate helps active people connect worldwide — for training, social vibes, or dating — with flexible modes and safety-first design.',
     noindex: false,
   },
+  '/atlanta-training-partners': {
+    title: `Find a Training Partner in Atlanta | ${BRAND}`,
+    description:
+      'Match with gym, running, Hyrox, and CrossFit partners in Atlanta. TRAIN-first on GetTrainMate — set your city and start Discover.',
+    noindex: false,
+  },
   '/faq': {
     title: `FAQ | ${BRAND}`,
     description:

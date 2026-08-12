@@ -85,7 +85,7 @@ Load secrets from Automation env / SSM via scripts/growth/load-ssm-secrets-into-
 Paste into Cursor → Environment → **Install script**:
 
 ```bash
-npm i --prefix scripts/growth
+npm i --prefix scripts/growth --ignore-scripts
 if ! command -v aws >/dev/null 2>&1; then
   curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
   unzip -q /tmp/awscliv2.zip -d /tmp
