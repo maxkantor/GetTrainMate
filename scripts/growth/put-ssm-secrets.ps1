@@ -18,8 +18,19 @@ foreach ($p in $Pairs) {
         continue
     }
     $type = if ($p.Secure) { "SecureString" } else { "String" }
-    aws ssm put-parameter --name $p.Param --value $val --type $type --overwrite --region $Region | Out-Null
-    Write-Host "OK $($p.Param) ($type)" -ForegroundColor Green
+    $tmp = $null
+    try {
+        if ($p.Env -eq "GOOGLE_ANALYTICS_CREDENTIALS_JSON") {
+            $tmp = Join-Path $env:TEMP ("gtm-growth-sa-" + [guid]::NewGuid().ToString() + ".json")
+            Set-Content -Path $tmp -Value $val -Encoding UTF8 -NoNewline
+            aws ssm put-parameter --name $p.Param --value "file://$($tmp.Replace('\','/'))" --type $type --overwrite --region $Region | Out-Null
+        } else {
+            aws ssm put-parameter --name $p.Param --value $val --type $type --overwrite --region $Region | Out-Null
+        }
+        Write-Host "OK $($p.Param) ($type)" -ForegroundColor Green
+    } finally {
+        if ($tmp -and (Test-Path $tmp)) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+    }
 }
 
 Write-Host "Done. Verify with: node scripts/growth/verify-secrets.mjs" -ForegroundColor Cyan
