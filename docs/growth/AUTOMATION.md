@@ -55,25 +55,21 @@ aws ssm get-parameter --name /gettrainmate/growth/stripe-restricted-read-key --w
 Before taking any action, read and follow:
 .cursor/skills/grow-paid-customers/SKILL.md
 
-Cost control: Prefer the cheapest capable model. On most runs: collect metrics, health-check, update experiment log notes if needed, email Admin, and stop. Only implement/deploy when there is a clear local-marketplace or conversion bottleneck, no same-stage conflict, and the change is tiny. Skip npm ci / full builds unless shipping.
+This is Atlanta marketplace-launch execution, not passive reporting.
+Every run must complete one meaningful marketplace-growth action (partner landing, invite codes, referral, empty-state, outreach prep, density reporting, tracking repair). Reading metrics + email alone does not count.
 
-Review GA4, Stripe, Admin CRM activity (when available), experiment history (docs/growth/EXPERIMENT-LOG.md), production health, marketplace density by metro, and recent main commits.
+Cost control: Prefer the cheapest capable model. Ship only when the action is reversible and justified. Skip npm ci / full builds unless shipping.
 
-Marketplace-density rule: optimize for one metro until activation is repeatable. If no city clearly leads, focus on Atlanta, Georgia and record that assumption. Do not spread acquisition equally across many cities when local density is the bottleneck.
+Focus: Atlanta + TRAIN. Do not spread cities or equal-weight DATE/VIBE acquisition. Verified external paying customers baseline = 0 until Stripe product reconciliation completes. Never attribute account-wide Stripe.
 
-Never run two simultaneous conversion experiments on the same funnel stage. While an experiment is gathering data, you may implement independent acquisition, SEO, reliability, tracking, or funnel-repair improvements that do not invalidate the active experiment.
+Preserve active experiments (e.g. EXP-001). Partner/referral infrastructure may ship in parallel.
 
-If traffic is too low to evaluate conversion, prioritize qualified local acquisition (Atlanta fitness communities, gyms/trainers, run clubs, pickleball, rec leagues, local events, referral loops, trackable partnerships, high-intent local SEO) before additional homepage redesign.
+Never fake users/activity. Never send outreach, create partner accounts, or activate founding-member pricing without Max approval. Prepare partner packages under docs/growth/partners/.
 
-Trust and safety: never fake users, profiles, matches, messages, or testimonials. Never automate social actions from user accounts. Never send PII to GA4. Treat DATE-related changes as higher-risk than TRAIN or VIBE.
+When shipping: one reversible change; tests + web:build; commit/push main; monitor Amplify; verify production paths; update EXPERIMENT-LOG.md.
 
-When shipping: select one small reversible change. Run tests, lint, and npm run web:build. Commit to main only when validation passes, push, monitor Amplify, verify production (signup, profile, discover, match, chat, pricing, checkout, analytics, safety). Revert on failure. Record docs/growth/EXPERIMENT-LOG.md.
-
-ALWAYS end the run by sending a FULL Admin email via:
-node scripts/growth/compose-and-send-growth-email.mjs --notes "<what was reviewed; what shipped or why not; blockers; target metro; next eval date>"
-Do this even on skipped or no-op weeks. A run without Admin email is incomplete.
-
-Load secrets from Automation env / SSM via scripts/growth/load-ssm-secrets-into-env.mjs (GA4_PROPERTY_ID, GOOGLE_ANALYTICS_CREDENTIALS_JSON, STRIPE_RESTRICTED_READ_KEY). Never commit credentials. Stripe key must remain read-only (rk_…). AWS credentials required for SSM + Admin email.
+ALWAYS end with full Admin email:
+node scripts/growth/compose-and-send-growth-email.mjs --notes "<marketplace action; segment; partner assets; outreach NOT sent vs drafts; blockers; next eval>"
 ```
 
 ---

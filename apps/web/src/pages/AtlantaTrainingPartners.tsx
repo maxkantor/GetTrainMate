@@ -61,6 +61,9 @@ export const AtlantaTrainingPartnersPage: React.FC = () => {
           <Button component={RouterLink} to="/pricing" variant="outlined" size="large">
             See pricing
           </Button>
+          <Button component={RouterLink} to="/partners/atlanta" variant="outlined" size="large">
+            Partner invites
+          </Button>
         </Box>
 
         <Typography variant="h4" component="h2" sx={{ mt: 6, mb: 2, fontSize: '1.25rem', fontWeight: 700 }}>

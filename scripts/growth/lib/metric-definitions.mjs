@@ -148,8 +148,10 @@ export const SITE = {
   origin: 'https://gettrainmate.com',
   admin: 'https://gettrainmate.com/admin',
   atlanta: 'https://gettrainmate.com/atlanta-training-partners',
+  partnersHub: 'https://gettrainmate.com/partners/atlanta',
   repo: 'https://github.com/maxkantor/GetTrainMate',
   experimentLogPath: 'docs/growth/EXPERIMENT-LOG.md',
+  partnerOutreachPath: 'docs/growth/partners/ATLANTA-PARTNER-OUTREACH.md',
   amplifyAppId: 'd3tocp1533tn5q'
 };
 

@@ -61,6 +61,26 @@ await check('atlanta_landing', async () => {
   return { bytes: html.length };
 });
 
+await check('atlanta_partners_hub', async () => {
+  const res = await fetch(`${SITE}/partners/atlanta`);
+  if (!res.ok) throw new Error(`status ${res.status}`);
+  const html = await res.text();
+  if (!/gettrainmate\.com\/partners\/atlanta/i.test(html) && !/Atlanta TRAIN partner/i.test(html)) {
+    throw new Error('partners hub shell missing');
+  }
+  return { bytes: html.length };
+});
+
+await check('atlanta_partner_invite', async () => {
+  const res = await fetch(`${SITE}/partners/atlanta/atl-track-club`);
+  if (!res.ok) throw new Error(`status ${res.status}`);
+  const html = await res.text();
+  if (!/atl-track-club|GetTrainMate/i.test(html)) {
+    throw new Error('partner invite landing missing content');
+  }
+  return { bytes: html.length };
+});
+
 await check('signup_route', async () => {
   const res = await fetch(`${SITE}/signup`, { redirect: 'follow' });
   if (!res.ok) throw new Error(`status ${res.status}`);

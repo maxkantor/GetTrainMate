@@ -16,6 +16,7 @@ const ALLOWED_KEYS = [
   'metro',
   'mode',
   'experiment_id',
+  'partner',
 ] as const;
 
 export type AcquisitionAttribution = Partial<Record<(typeof ALLOWED_KEYS)[number], string>>;
@@ -40,6 +41,9 @@ export function captureAcquisitionFromSearch(search: string | URLSearchParams): 
   // Landing path without src still marks EXP-001 when linked from Atlanta page CTAs.
   if (params.get('src') === 'atlanta-training-partners' && !next.experiment_id) {
     next.experiment_id = 'EXP-001';
+  }
+  if ((params.get('src') === 'partner' || params.get('partner')) && !next.experiment_id) {
+    next.experiment_id = 'EXP-002';
   }
   return next;
 }
@@ -99,5 +103,6 @@ export function attributionForCheckout(): Record<string, string> {
   if (a.utm_campaign) out.utm_campaign = a.utm_campaign;
   if (a.utm_content) out.utm_content = a.utm_content;
   if (a.utm_term) out.utm_term = a.utm_term;
+  if (a.partner) out.partner_code = a.partner;
   return out;
 }

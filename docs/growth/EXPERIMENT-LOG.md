@@ -5,8 +5,32 @@ Agents must append every experiment here. Do not delete history.
 ## Active
 
 - **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — funnel stage: acquisition / SEO
+- **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
 
 ## Log
+
+### 2026-08-13 — EXP-002 Atlanta partner invite landings + codes
+
+| Field | Value |
+|-------|--------|
+| Status | active |
+| Evidence | Marketplace density insufficient; verified external paying customers baseline 0; EXP-001 collecting but partner distribution infrastructure missing. Bottleneck = qualified Atlanta TRAIN acquisition via communities. |
+| Target metro and segment | Atlanta, Georgia · TRAIN · run clubs, trainers, pickleball, CrossFit/HYROX, rec sports |
+| Funnel stage | partner acquisition infrastructure |
+| Customer hypothesis | Unique partner invite landings + codes will produce attributable Atlanta TRAIN signups within 14 days when Max shares approved outreach. |
+| Exact change | `/partners/atlanta` hub, `/partners/atlanta/:partnerCode` template, `atlantaPartners` registry, attribution `partner`→`partner_code`, outreach package (not sent). |
+| Primary metric | Partner-landing `landing_page_view` + `signup_started` / completed profiles with `partner` attribution |
+| Guardrail metric | No fake users; EXP-001 URL remains healthy; no unsolicited outreach by automation |
+| Baseline | 0 partner invite URLs; 0 partner-attributed signups |
+| Target | ≥1 partner-attributed signup start within 14 days after first approved share; directional toward 30d density targets |
+| Required sample or duration | 14 days from first distributed link (eval 2026-08-27) |
+| Evaluation date | 2026-08-27 |
+| Continue/stop rule | Rollback if partner routes 404 or signup query broken. Continue while EXP-001 remains active. |
+| Rollback procedure | `git revert` EXP-002 commit; remove amplify partner rewrites if needed |
+| Commit | _(filled on ship)_ |
+| Deployment status | pending Amplify |
+| Production verification | pending |
+| Verified purchase result | n/a (density-first) |
 
 ### 2026-08-12 — EXP-001 Atlanta training partners landing page
 

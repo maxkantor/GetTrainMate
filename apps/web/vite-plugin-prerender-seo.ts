@@ -57,6 +57,34 @@ const MARKETING_PAGES: PrerenderPage[] = [
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {
+    canonicalPath: '/partners/atlanta',
+    title: `Atlanta TRAIN Partner Invites | ${BRAND}`,
+    description:
+      'Unique Atlanta TRAIN partner invite links for run clubs, gyms, pickleball, and trainers. No fake density claims.',
+    ogTitle: `Atlanta TRAIN Partner Invites | ${BRAND}`,
+    ogDescription:
+      'Unique Atlanta TRAIN partner invite links for run clubs, gyms, pickleball, and trainers. No fake density claims.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
+    canonicalPath: '/partners/atlanta/atl-track-club',
+    title: `Atlanta Track Club community invite | ${BRAND}`,
+    description:
+      'Join GetTrainMate with the Atlanta Track Club community invite. TRAIN mode, Atlanta metro.',
+    ogTitle: `Atlanta Track Club community invite | ${BRAND}`,
+    ogDescription:
+      'Join GetTrainMate with the Atlanta Track Club community invite. TRAIN mode, Atlanta metro.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
+    canonicalPath: '/partners/atlanta/atl-f3',
+    title: `F3 Atlanta community invite | ${BRAND}`,
+    description: 'Join GetTrainMate with the F3 Atlanta community invite. TRAIN mode, Atlanta metro.',
+    ogTitle: `F3 Atlanta community invite | ${BRAND}`,
+    ogDescription: 'Join GetTrainMate with the F3 Atlanta community invite. TRAIN mode, Atlanta metro.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
     canonicalPath: '/faq',
     title: `FAQ | ${BRAND}`,
     description:
@@ -164,7 +192,7 @@ function injectRouteHtml(baseHtml: string, page: PrerenderPage): string {
     isPartOf: { '@type': 'WebSite', url: SITE_ORIGIN, name: 'GetTrainMate' },
   };
 
-  let html = baseHtml
+  const html = baseHtml
     .replace(/<title>[^<]*<\/title>/, `<title>${escapeAttr(page.title)}</title>`)
     .replace(
       /<meta name="description" content="[^"]*" \/>/,

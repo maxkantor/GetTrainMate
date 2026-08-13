@@ -52,6 +52,12 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
       'Match with gym, running, Hyrox, and CrossFit partners in Atlanta. TRAIN-first on GetTrainMate — set your city and start Discover.',
     noindex: false,
   },
+  '/partners/atlanta': {
+    title: `Atlanta TRAIN Partner Invites | ${BRAND}`,
+    description:
+      'Unique Atlanta TRAIN partner invite links for run clubs, gyms, pickleball, and trainers. No fake density claims.',
+    noindex: false,
+  },
   '/faq': {
     title: `FAQ | ${BRAND}`,
     description:
@@ -146,6 +152,18 @@ export function getRouteSeo(pathname: string): RouteSeo {
       jsonLd: path === '/world-cup' && isWorldCupPublicSeoEnabled()
         ? [buildWorldCupSportsEventLd('/world-cup')]
         : undefined,
+    });
+  }
+
+  if (path.startsWith('/partners/atlanta/')) {
+    const code = decodeURIComponent(path.split('/').filter(Boolean).at(2) ?? '').trim();
+    const label = code || 'partner';
+    return base({
+      title: `Atlanta TRAIN invite (${label}) | ${BRAND}`,
+      description:
+        'Join GetTrainMate with an Atlanta TRAIN partner invite. Set your city, complete your profile, and start Discover.',
+      canonicalPath: path,
+      noindex: false,
     });
   }
 

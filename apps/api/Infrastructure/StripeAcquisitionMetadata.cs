@@ -20,6 +20,8 @@ public static class StripeAcquisitionMetadata
         "utm_content",
         "utm_term",
         "src",
+        "partner_code",
+        "partner",
     };
 
     private static readonly Regex SafeValue = new(@"^[a-zA-Z0-9.\-:%_]{1,64}$", RegexOptions.Compiled);
@@ -33,6 +35,7 @@ public static class StripeAcquisitionMetadata
                 continue;
             var key = kv.Key.Trim().ToLowerInvariant();
             if (key == "src") key = "acquisition_source";
+            if (key == "partner") key = "partner_code";
             var value = (kv.Value ?? string.Empty).Trim();
             if (value.Length > 64) value = value[..64];
             if (!SafeValue.IsMatch(value)) continue;

@@ -13,6 +13,8 @@ import { BillingSuccessPage } from '@/pages/BillingSuccess';
 import { BillingCancelPage } from '@/pages/BillingCancel';
 import { AboutPage } from '@/pages/About';
 import { AtlantaTrainingPartnersPage } from '@/pages/AtlantaTrainingPartners';
+import { AtlantaPartnersHubPage } from '@/pages/AtlantaPartnersHub';
+import { AtlantaPartnerLandingPage } from '@/pages/AtlantaPartnerLanding';
 import { FAQPage } from '@/pages/FAQ';
 import { ContactPage } from '@/pages/Contact';
 import { EventLandingPage } from '@/pages/EventLandingPage';
@@ -119,6 +121,8 @@ export const Router: React.FC = () => {
             <Route path="/billing/cancel" element={<BillingCancelPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/atlanta-training-partners" element={<AtlantaTrainingPartnersPage />} />
+            <Route path="/partners/atlanta" element={<AtlantaPartnersHubPage />} />
+            <Route path="/partners/atlanta/:partnerCode" element={<AtlantaPartnerLandingPage />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/world-cup" element={<EventHubPage eventId="world-cup-2026" />} />

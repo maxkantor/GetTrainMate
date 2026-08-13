@@ -152,26 +152,28 @@ function formatEt(date = new Date()) {
 
 function defaultDecision({ experiments, health, reconciliation, shipped }) {
   const exp001 = experiments.find((e) => /EXP-001/i.test(e.idLine));
-  const evalDate = exp001?.evalDate || EXP001.evaluationDate;
+  const exp002 = experiments.find((e) => /EXP-002/i.test(e.idLine));
+  const evalDate = exp002?.evalDate || exp001?.evalDate || EXP001.evaluationDate;
   const reconOk = reconciliation?.ok !== false;
   const healthOk = health?.ok !== false;
   if (shipped) {
-    return `A change was deployed this run. See Active Experiment for details. Production health: ${healthOk ? 'OK' : 'FAILED'}. Data quality: ${reconOk ? 'OK' : 'WARNING'}.`;
+    return (
+      `Marketplace action deployed: Atlanta TRAIN partner invite landings + codes (EXP-002). ` +
+      `EXP-001 remains active. Verified external paying customers baseline: 0. ` +
+      `Primary constraint remains Atlanta TRAIN density. Production: ${healthOk ? 'OK' : 'FAILED'}. Data: ${reconOk ? 'OK' : 'WARNING'}. ` +
+      `Owner must approve and send outreach drafts — automation does not send. Next partner eval: ${evalDate}.`
+    );
   }
   return (
-    `No new change was deployed. EXP-001 has been active for only a short period and does not yet have enough attributable Atlanta traffic for evaluation. ` +
-    `Production is ${healthOk ? 'healthy' : 'degraded'} and data connections are ${reconOk ? 'usable' : 'flagged'}. ` +
-    `The primary constraint remains qualified Atlanta acquisition. Next evaluation: ${evalDate}.`
+    `No marketplace product change this run. Continue EXP-001 / EXP-002 collection. ` +
+    `Verified external customers baseline remains 0. Production: ${healthOk ? 'OK' : 'FAILED'}. Next eval: ${evalDate}.`
   );
 }
 
 function subjectLine({ et, shipped, experiments, testEmail }) {
-  const exp001 = experiments.find((e) => /EXP-001/i.test(e.idLine));
   const status = shipped
-    ? 'Change deployed'
-    : exp001
-      ? 'No change deployed · EXP-001 collecting data'
-      : 'No change deployed';
+    ? 'Partner invites shipped · EXP-002'
+    : 'Marketplace run · collecting';
   const base = `GetTrainMate Growth — ${status} · ${et.dateStr}`;
   return testEmail ? `[TEST] GetTrainMate Growth Report — ${et.dateStr}` : base;
 }
@@ -223,6 +225,16 @@ export function composeGrowthEmailBody({
   t.push('1) DECISION');
   t.push('-----------');
   t.push(decisionText);
+  t.push('');
+  t.push('MARKETPLACE ACTION SUMMARY');
+  t.push('--------------------------');
+  t.push('Target segment: Atlanta · TRAIN (run clubs, trainers, pickleball, CrossFit/HYROX, rec sports)');
+  t.push(`Partner hub: ${SITE.partnersHub}`);
+  t.push(`Outreach package: ${SITE.repo}/blob/main/${SITE.partnerOutreachPath}`);
+  t.push('Distribution completed: product invite URLs shipped when this run deploys; outreach emails NOT sent.');
+  t.push('Owner outreach required: YES — send only approved drafts from the partner package.');
+  t.push('Verified product-specific customers: 0 (baseline until Stripe reconciliationComplete)');
+  t.push('Completed Atlanta TRAIN profiles / Discover / connections / matches: see scoreboard + CRM metro (Unavailable if not connected).');
   t.push('');
   if (dataQualityNeeded) {
     t.push('2) DATA QUALITY WARNING');
@@ -378,13 +390,24 @@ export function composeGrowthEmailBody({
       <p style="margin:0 0 14px;font-size:13px;line-height:1.5;">
         <a href="${SITE.origin}">Homepage</a> ·
         <a href="${SITE.admin}">Admin</a> ·
-        <a href="${SITE.atlanta}">Atlanta landing</a>
+        <a href="${SITE.atlanta}">Atlanta landing</a> ·
+        <a href="${SITE.partnersHub}">Partner invites</a>
         ${commitUrl ? ` · <a href="${commitUrl}">Commit</a>` : ''}
         · <a href="${SITE.repo}/blob/main/${SITE.experimentLogPath}">Experiment log</a>
+        · <a href="${SITE.repo}/blob/main/${SITE.partnerOutreachPath}">Partner outreach drafts</a>
       </p>
 
       <h2 style="font-size:15px;margin:0 0 8px;">1) Decision</h2>
       <p style="margin:0 0 16px;padding:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:14px;line-height:1.5;">${escapeHtml(decisionText)}</p>
+
+      <h2 style="font-size:15px;margin:18px 0 8px;">Marketplace action</h2>
+      <ul style="margin:0 0 16px;padding-left:18px;font-size:13px;line-height:1.5;">
+        <li><b>Segment:</b> Atlanta · TRAIN</li>
+        <li><b>Asset:</b> Partner hub + invite codes (<a href="${SITE.partnersHub}">${SITE.partnersHub}</a>)</li>
+        <li><b>Distribution:</b> Product URLs ship with deploy; <b>outreach NOT sent</b></li>
+        <li><b>Owner action:</b> Approve/send drafts in partner package</li>
+        <li><b>Verified customers:</b> 0 (baseline)</li>
+      </ul>
 
       ${qualityHtml}
 
