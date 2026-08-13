@@ -1,53 +1,24 @@
 #!/usr/bin/env node
 /**
  * Collect 7d + 30d funnel/revenue snapshot for GetTrainMate growth experiments.
+ * Uses canonical metric definitions — never sums duplicate event aliases.
  * Never prints secret values. Missing sources are reported, not invented.
- *
- * Env (or load from SSM first via load-ssm-secrets-into-env.mjs):
- *   GA4_PROPERTY_ID
- *   GOOGLE_ANALYTICS_CREDENTIALS_JSON  (full service-account JSON string)
- *   STRIPE_RESTRICTED_READ_KEY         (rk_… read-only restricted key)
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadSsmSecretsIntoEnv } from './load-ssm-secrets-into-env.mjs';
+import { GA4_FUNNEL_EVENT_NAMES, EXP001, SITE } from './lib/metric-definitions.mjs';
+import {
+  aggregateGa4ByEvent,
+  normalizeGa4Window,
+  normalizeStripe,
+  buildScoreboardRow
+} from './lib/normalize-metrics.mjs';
+import { reconcileSnapshot, applyReconciliationBlocks } from './lib/reconcile.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MEASUREMENT_ID = 'G-C29M8NWNY4';
-
-const FUNNEL_EVENTS = [
-  'landing_page_view',
-  'signup_started',
-  'signup_completed',
-  'sign_up',
-  'profile_started',
-  'profile_completed',
-  'onboarding_started',
-  'onboarding_completed',
-  'mode_selected',
-  'location_completed',
-  'discover_started',
-  'discover_viewed',
-  'match_search_clicked',
-  'find_my_matches_clicked',
-  'profile_viewed',
-  'request_sent',
-  'like_or_connection_sent',
-  'match_created',
-  'match_shown',
-  'first_message_sent',
-  'chat_started',
-  'message_cta_clicked',
-  'meaningful_conversation',
-  'return_visit',
-  'pricing_viewed',
-  'view_pricing',
-  'begin_checkout',
-  'checkout_started',
-  'purchase',
-  'login'
-];
 
 const ssmLoad = loadSsmSecretsIntoEnv();
 const outDir = path.join(__dirname, '../../docs/growth/snapshots');
@@ -69,26 +40,30 @@ const report = {
   generatedAt: now.toISOString(),
   product: 'GetTrainMate',
   measurementId: MEASUREMENT_ID,
+  site: SITE.origin,
   ssm: ssmLoad,
-  sources: { ga4: 'missing', stripe: 'missing', adminCrm: 'not_queried' },
+  sources: { ga4: 'missing', stripe: 'missing', adminCrm: 'unavailable' },
   marketplaceDensity: {
     assumptionMetro: 'Atlanta, Georgia',
     assumptionNote:
-      'Default focus metro until GA4/CRM data shows a clear leader. Validate on each growth run.',
-    byMetro: null
+      'Default focus metro until aggregated CRM/GA4 metro data is available. Validate on each growth run.',
+    byMetro: null,
+    status: 'unavailable',
+    reason:
+      'GA4 customEvent:metro not populated; Admin CRM metro aggregates require app datastore access not granted to the growth SES IAM user.'
   },
   windows: {},
-  funnelSummary: {},
+  scoreboard: {},
+  experimentAttribution: {},
+  reconciliation: null,
   notes: []
 };
 
-async function fetchGa4Report(propertyId, credentialsJson, startDate, endDate, body) {
+async function fetchGa4Report(propertyId, credentialsJson, body) {
   const creds = JSON.parse(credentialsJson);
   const { GoogleAuth } = await import('google-auth-library').catch(() => ({ GoogleAuth: null }));
   if (!GoogleAuth) {
-    report.notes.push(
-      'google-auth-library not installed; run: npm i --prefix scripts/growth'
-    );
+    report.notes.push('google-auth-library not installed; run: npm i --prefix scripts/growth --ignore-scripts');
     return null;
   }
   const auth = new GoogleAuth({
@@ -113,49 +88,51 @@ async function fetchGa4Report(propertyId, credentialsJson, startDate, endDate, b
   return res.json();
 }
 
+/** Event-only report (no channel) so totalUsers is safe. */
 async function fetchGa4Events(propertyId, credentialsJson, startDate, endDate) {
-  return fetchGa4Report(propertyId, credentialsJson, startDate, endDate, {
+  return fetchGa4Report(propertyId, credentialsJson, {
     dateRanges: [{ startDate, endDate }],
-    dimensions: [{ name: 'eventName' }, { name: 'sessionDefaultChannelGroup' }],
+    dimensions: [{ name: 'eventName' }],
     metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
     dimensionFilter: {
       filter: {
         fieldName: 'eventName',
-        inListFilter: { values: FUNNEL_EVENTS }
+        inListFilter: { values: GA4_FUNNEL_EVENT_NAMES }
       }
     }
   });
 }
 
-async function fetchGa4Metro(propertyId, credentialsJson, startDate, endDate) {
-  const body = {
+/** EXP-001: page views for Atlanta landing. */
+async function fetchGa4PagePath(propertyId, credentialsJson, startDate, endDate, pagePath) {
+  return fetchGa4Report(propertyId, credentialsJson, {
     dateRanges: [{ startDate, endDate }],
-    dimensions: [{ name: 'customEvent:metro' }],
-    metrics: [{ name: 'eventCount' }],
+    dimensions: [{ name: 'pagePath' }, { name: 'eventName' }],
+    metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
     dimensionFilter: {
-      filter: {
-        fieldName: 'eventName',
-        inListFilter: { values: ['signup_completed', 'onboarding_completed', 'discover_viewed', 'return_visit'] }
+      andGroup: {
+        expressions: [
+          {
+            filter: {
+              fieldName: 'pagePath',
+              stringFilter: { matchType: 'EXACT', value: pagePath }
+            }
+          },
+          {
+            filter: {
+              fieldName: 'eventName',
+              inListFilter: {
+                values: ['page_view', 'landing_page_view', 'signup_started', 'signup_completed', 'sign_up']
+              }
+            }
+          }
+        ]
       }
     }
-  };
-  const result = await fetchGa4Report(propertyId, credentialsJson, startDate, endDate, body);
-  if (!result?.rows?.length) {
-    report.notes.push(
-      'Metro segmentation unavailable (customEvent:metro not populated in GA4). Use Admin CRM city aggregates when wired.'
-    );
-    return null;
-  }
-  const byMetro = {};
-  for (const row of result.rows) {
-    const metro = row.dimensionValues?.[0]?.value ?? 'unknown';
-    if (metro === '(not set)' || metro === 'unknown') continue;
-    byMetro[metro] = Number(row.metricValues?.[0]?.value ?? 0);
-  }
-  return Object.keys(byMetro).length ? byMetro : null;
+  });
 }
 
-async function fetchStripe(key, startUnix) {
+async function fetchStripeSessions(key, startUnix) {
   const params = new URLSearchParams({
     'created[gte]': String(startUnix),
     limit: '100',
@@ -165,7 +142,7 @@ async function fetchStripe(key, startUnix) {
     headers: { Authorization: `Bearer ${key}` }
   });
   if (!res.ok) {
-    report.notes.push(`Stripe error ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    report.notes.push(`Stripe sessions error ${res.status}: ${(await res.text()).slice(0, 200)}`);
     return null;
   }
   return res.json();
@@ -186,73 +163,62 @@ async function fetchStripeCharges(key, startUnix) {
   return res.json();
 }
 
-function summarizeStripe(sessions, charges) {
-  const live = (sessions?.data ?? []).filter((s) => s.livemode && s.payment_status === 'paid');
-  const test = (sessions?.data ?? []).filter((s) => !s.livemode && s.payment_status === 'paid');
-  let revenueLive = live.reduce((sum, s) => sum + (s.amount_total || 0), 0) / 100;
-  let revenueTest = test.reduce((sum, s) => sum + (s.amount_total || 0), 0) / 100;
-
-  // Fallback: some Checkout Sessions report amount_total=0; use live succeeded charges.
-  const liveCharges = (charges?.data ?? []).filter(
-    (c) => c.livemode && c.paid && c.status === 'succeeded' && !c.refunded
-  );
-  const chargeRevenueLive = liveCharges.reduce((sum, c) => sum + (c.amount || 0), 0) / 100;
-  if (revenueLive === 0 && chargeRevenueLive > 0) {
-    revenueLive = chargeRevenueLive;
-    report.notes.push('Stripe revenue from Charges API (Checkout Session amount_total was 0).');
+function summarizeExp001(pagePathReport, windowLabel) {
+  const byEvent = {};
+  let pageViews = 0;
+  let pageViewUsers = null;
+  for (const row of pagePathReport?.rows ?? []) {
+    const pathDim = row.dimensionValues?.[0]?.value ?? '';
+    const eventName = row.dimensionValues?.[1]?.value ?? '';
+    const eventCount = Number(row.metricValues?.[0]?.value ?? 0);
+    const totalUsers = Number(row.metricValues?.[1]?.value ?? 0);
+    if (pathDim !== EXP001.path) continue;
+    byEvent[eventName] = (byEvent[eventName] || 0) + eventCount;
+    if (eventName === 'page_view' || eventName === 'landing_page_view') {
+      pageViews += eventCount;
+      pageViewUsers = (pageViewUsers ?? 0) + totalUsers;
+    }
   }
+
+  const signupStarts = byEvent.signup_started ?? 0;
+  // Prefer signup_completed; do not sum with sign_up.
+  const signupCompleted =
+    byEvent.signup_completed > 0 ? byEvent.signup_completed : byEvent.sign_up ?? 0;
+
+  const landings = pageViews;
+  const toStart =
+    landings > 0 ? Number((signupStarts / landings).toFixed(4)) : null;
+  const toComplete =
+    landings > 0 ? Number((signupCompleted / landings).toFixed(4)) : null;
 
   return {
-    livePaidSessions: Math.max(live.length, liveCharges.length ? liveCharges.length : live.length),
-    testPaidSessions: test.length,
-    revenueLiveUsd: revenueLive,
-    revenueTestUsd: revenueTest,
-    liveSucceededCharges: liveCharges.length
+    experimentId: EXP001.id,
+    window: windowLabel,
+    path: EXP001.path,
+    landings: { value: landings, unit: 'events', available: pagePathReport != null },
+    landing_users: {
+      value: pageViewUsers,
+      unit: 'users',
+      available: pageViewUsers != null
+    },
+    signup_starts: { value: signupStarts, unit: 'events', available: pagePathReport != null },
+    completed_signups: {
+      value: signupCompleted,
+      unit: 'events',
+      available: pagePathReport != null,
+      note: 'Attributed only when event fired on Atlanta path; may undercount if signup happens on /signup.'
+    },
+    landing_to_signup_start: toStart,
+    landing_to_completed_signup: toComplete,
+    attributed_paid_conversions: {
+      value: null,
+      available: false,
+      label: 'Unknown',
+      reason: 'No reliable Stripe metadata / UTM link from EXP-001 sessions to live payments.'
+    },
+    evaluationDate: EXP001.evaluationDate,
+    rawPathEvents: byEvent
   };
-}
-
-function sumEventsByName(ga4) {
-  const byEvent = {};
-  for (const row of ga4?.rows ?? []) {
-    const ev = row.dimensionValues?.[0]?.value ?? 'unknown';
-    const count = Number(row.metricValues?.[0]?.value ?? 0);
-    byEvent[ev] = (byEvent[ev] || 0) + count;
-  }
-  return byEvent;
-}
-
-function buildFunnelSummary(byEvent) {
-  const get = (name, ...aliases) => {
-    let total = byEvent[name] || 0;
-    for (const a of aliases) total += byEvent[a] || 0;
-    return total;
-  };
-  const stages = {
-    landing_page_view: get('landing_page_view', 'page_view'),
-    signup_started: get('signup_started'),
-    signup_completed: get('signup_completed', 'sign_up'),
-    profile_completed: get('profile_completed', 'onboarding_completed'),
-    mode_selected: get('mode_selected'),
-    location_completed: get('location_completed'),
-    discover_started: get('discover_started', 'discover_viewed', 'match_search_clicked'),
-    like_or_connection_sent: get('like_or_connection_sent', 'request_sent'),
-    match_created: get('match_created', 'match_shown'),
-    first_message_sent: get('first_message_sent', 'chat_started'),
-    meaningful_conversation: get('meaningful_conversation'),
-    return_visit: get('return_visit'),
-    pricing_viewed: get('pricing_viewed', 'view_pricing'),
-    checkout_started: get('checkout_started', 'begin_checkout'),
-    verified_purchase: get('purchase')
-  };
-  const rates = {};
-  const keys = Object.keys(stages);
-  for (let i = 1; i < keys.length; i++) {
-    const prev = stages[keys[i - 1]];
-    const curr = stages[keys[i]];
-    rates[`${keys[i - 1]}_to_${keys[i]}`] =
-      prev > 0 ? Number((curr / prev).toFixed(4)) : null;
-  }
-  return { stages, rates, missingStageEvents: FUNNEL_EVENTS.filter((e) => !(e in byEvent)) };
 }
 
 const ga4Id = process.env.GA4_PROPERTY_ID;
@@ -271,41 +237,117 @@ if (stripeKey) {
   report.notes.push('STRIPE_RESTRICTED_READ_KEY missing — use read-only restricted key only.');
 }
 
+report.notes.push(
+  'Admin CRM metro aggregates: unavailable to growth automation (SES/SSM-only IAM). Not expanding permissions.'
+);
+
 const ga4Ready = report.sources.ga4 === 'configured';
 const stripeReady = report.sources.stripe === 'configured';
 
 for (const w of windows) {
-  const entry = { start: w.start, end: w.end, ga4: null, stripe: null, metro: null };
+  const entry = {
+    start: w.start,
+    end: w.end,
+    ga4: null,
+    ga4ByEvent: null,
+    ga4Normalized: null,
+    stripe: null,
+    stripeNormalized: null,
+    exp001: null
+  };
+
   if (ga4Ready) {
     try {
       entry.ga4 = await fetchGa4Events(ga4Id, ga4Creds, w.start, w.end);
-      if (entry.ga4) report.sources.ga4 = 'ok';
-      entry.metro = await fetchGa4Metro(ga4Id, ga4Creds, w.start, w.end);
-      if (entry.metro && w.label === '7d') {
-        report.marketplaceDensity.byMetro = entry.metro;
+      if (entry.ga4) {
+        report.sources.ga4 = 'ok';
+        entry.ga4ByEvent = aggregateGa4ByEvent(entry.ga4, { hasChannelDimension: false });
+        entry.ga4Normalized = normalizeGa4Window(entry.ga4ByEvent);
+        for (const warn of entry.ga4Normalized.warnings) {
+          report.notes.push(`[${w.label}] ${warn}`);
+        }
       }
+      const pathReport = await fetchGa4PagePath(
+        ga4Id,
+        ga4Creds,
+        w.start,
+        w.end,
+        EXP001.path
+      );
+      entry.exp001 = summarizeExp001(pathReport, w.label);
     } catch (e) {
       report.notes.push(`GA4 ${w.label} failed: ${e instanceof Error ? e.message : e}`);
     }
   }
+
   if (stripeReady) {
     try {
-      const startUnix = Math.floor(new Date(w.start + 'T00:00:00Z').getTime() / 1000);
-      const raw = await fetchStripe(stripeKey, startUnix);
+      const startUnix = Math.floor(new Date(`${w.start}T00:00:00Z`).getTime() / 1000);
+      const sessions = await fetchStripeSessions(stripeKey, startUnix);
       const charges = await fetchStripeCharges(stripeKey, startUnix);
-      entry.stripe = summarizeStripe(raw, charges);
-      if (entry.stripe) report.sources.stripe = 'ok';
+      entry.stripeNormalized = normalizeStripe({ sessions, charges });
+      entry.stripe = {
+        livePaidSessions: entry.stripeNormalized.live_checkout_sessions,
+        livePayments: entry.stripeNormalized.live_payments,
+        uniquePayingCustomers: entry.stripeNormalized.unique_paying_customers,
+        uniquePayingCustomersAvailable: entry.stripeNormalized.unique_paying_customers_available,
+        revenueLiveUsd: entry.stripeNormalized.revenue_live_usd,
+        testPaidSessions: entry.stripeNormalized.test_paid_sessions,
+        liveSucceededCharges: entry.stripeNormalized.live_succeeded_charges
+      };
+      report.sources.stripe = 'ok';
+      for (const warn of entry.stripeNormalized.warnings) {
+        report.notes.push(`[${w.label}] ${warn}`);
+      }
     } catch (e) {
       report.notes.push(`Stripe ${w.label} failed: ${e instanceof Error ? e.message : e}`);
     }
   }
+
   report.windows[w.label] = entry;
-  if (entry.ga4) {
-    report.funnelSummary[w.label] = buildFunnelSummary(sumEventsByName(entry.ga4));
+  report.scoreboard[w.label] = buildScoreboardRow(
+    entry.ga4Normalized,
+    entry.stripeNormalized
+  );
+  if (entry.exp001) {
+    report.experimentAttribution[w.label] = entry.exp001;
   }
+}
+
+const recon = reconcileSnapshot({
+  scoreboard7d: report.scoreboard['7d'],
+  scoreboard30d: report.scoreboard['30d'],
+  stripe7d: report.windows['7d']?.stripeNormalized,
+  stripe30d: report.windows['30d']?.stripeNormalized
+});
+report.reconciliation = recon;
+if (!recon.ok) {
+  report.scoreboard['7d'] = applyReconciliationBlocks(
+    report.scoreboard['7d'],
+    recon.blockedMetrics,
+    '7d'
+  );
+  report.scoreboard['30d'] = applyReconciliationBlocks(
+    report.scoreboard['30d'],
+    recon.blockedMetrics,
+    '30d'
+  );
+  report.notes.push('Reconciliation failed — affected metrics marked Unknown.');
+  for (const w of recon.warnings) report.notes.push(`Reconcile: ${w}`);
 }
 
 fs.mkdirSync(outDir, { recursive: true });
 const outPath = path.join(outDir, `funnel-${stamp}.json`);
 fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
-console.log(JSON.stringify({ wrote: outPath, sources: report.sources, notes: report.notes }, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      wrote: outPath,
+      sources: report.sources,
+      reconciliationOk: recon.ok,
+      notes: report.notes
+    },
+    null,
+    2
+  )
+);

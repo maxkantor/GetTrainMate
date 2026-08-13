@@ -1,0 +1,46 @@
+{
+  "generatedAt": "2026-08-13T16:00:00.000Z",
+  "product": "GetTrainMate",
+  "measurementId": "G-C29M8NWNY4",
+  "sources": { "ga4": "ok", "stripe": "ok", "adminCrm": "unavailable" },
+  "marketplaceDensity": {
+    "assumptionMetro": "Atlanta, Georgia",
+    "status": "unavailable",
+    "reason": "GA4 metro dimension not populated; Admin CRM aggregates require datastore access not granted to growth SES IAM user."
+  },
+  "scoreboard": {
+    "7d": {
+      "landings": { "value": 3, "unit": "events", "available": true },
+      "completed_signups": { "value": 0, "unit": "users", "available": true },
+      "completed_profiles": { "value": 0, "unit": "users", "available": true },
+      "discover_users": { "value": 0, "unit": "users", "available": true },
+      "live_payments": { "value": 0, "unit": "payments", "available": true },
+      "unique_paying_customers": { "value": null, "unit": "customers", "available": false },
+      "revenue": { "value": 0, "unit": "usd", "available": true }
+    },
+    "30d": {
+      "landings": { "value": 16, "unit": "events", "available": true },
+      "completed_signups": { "value": 1, "unit": "users", "available": true },
+      "completed_profiles": { "value": 1, "unit": "users", "available": true },
+      "discover_users": { "value": 2, "unit": "users", "available": true },
+      "connections_sent": { "value": 2, "unit": "events", "available": true },
+      "matches_created": { "value": 0, "unit": "events", "available": true },
+      "live_payments": { "value": 1, "unit": "payments", "available": true },
+      "unique_paying_customers": { "value": 1, "unit": "customers", "available": true },
+      "revenue": { "value": 19.99, "unit": "usd", "available": true }
+    }
+  },
+  "reconciliation": { "ok": true, "warnings": [], "blockedMetrics": [] },
+  "experimentAttribution": {
+    "30d": {
+      "path": "/atlanta-training-partners",
+      "landings": { "value": 0, "available": true },
+      "signup_starts": { "value": 0, "available": true },
+      "completed_signups": { "value": 0, "available": true },
+      "landing_to_signup_start": null,
+      "landing_to_completed_signup": null,
+      "evaluationDate": "2026-08-26"
+    }
+  },
+  "notes": ["Sanitized fixture — no PII."]
+}

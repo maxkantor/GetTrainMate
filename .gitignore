@@ -61,5 +61,7 @@ secrets.json
 
 # Growth snapshots (generated locally / by automation)
 docs/growth/snapshots/funnel-*.json
+docs/growth/previews/*.html
+docs/growth/previews/*.txt
 scripts/growth/node_modules/
 .DS_Store

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * Compose a full Admin growth-run email from snapshot + health + experiment log, then send via SES.
- * Layout mirrors YouTubeBooster Admin growth emails: notes → scoreboard → experiments → health → events.
+ * Compose Admin growth-run email from finalized snapshot + health + experiment log.
+ * Decision-first. America/New_York times. Canonical metrics only.
  *
  * Usage:
- *   node scripts/growth/compose-and-send-growth-email.mjs
  *   node scripts/growth/compose-and-send-growth-email.mjs --notes "..."
  *   node scripts/growth/compose-and-send-growth-email.mjs --dry-run
+ *   node scripts/growth/compose-and-send-growth-email.mjs --preview-dir docs/growth/previews
+ *   node scripts/growth/compose-and-send-growth-email.mjs --test-email
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -14,6 +15,8 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadSsmSecretsIntoEnv } from './load-ssm-secrets-into-env.mjs';
 import { sendAdminGrowthEmail } from './notify-admin-email.mjs';
+import { SITE, EXP001, TIMEZONE } from './lib/metric-definitions.mjs';
+import { formatCell } from './lib/normalize-metrics.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '../..');
@@ -39,13 +42,26 @@ function escapeHtml(s) {
 }
 
 function parseArgs(argv) {
-  const out = { notes: '', notesFile: null, snapshot: null, dryRun: false };
+  const out = {
+    notes: '',
+    notesFile: null,
+    snapshot: null,
+    dryRun: false,
+    previewDir: null,
+    testEmail: false,
+    decision: null,
+    shipped: false
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--notes') out.notes = argv[++i] ?? '';
     else if (a === '--notes-file') out.notesFile = argv[++i];
     else if (a === '--snapshot') out.snapshot = argv[++i];
     else if (a === '--dry-run') out.dryRun = true;
+    else if (a === '--preview-dir') out.previewDir = argv[++i];
+    else if (a === '--test-email') out.testEmail = true;
+    else if (a === '--decision') out.decision = argv[++i] ?? '';
+    else if (a === '--shipped') out.shipped = true;
   }
   return out;
 }
@@ -60,22 +76,6 @@ function latestSnapshotPath() {
   return path.join(SNAP_DIR, files[files.length - 1]);
 }
 
-function sumEvents(ga4) {
-  const byEvent = {};
-  for (const row of ga4?.rows ?? []) {
-    const ev = row.dimensionValues?.[0]?.value ?? 'unknown';
-    const count = Number(row.metricValues?.[0]?.value ?? 0);
-    byEvent[ev] = (byEvent[ev] || 0) + count;
-  }
-  return byEvent;
-}
-
-function topEvents(byEvent, n = 12) {
-  return Object.entries(byEvent)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, n);
-}
-
 function parseActiveExperiments(md) {
   const active = [];
   const re =
@@ -86,7 +86,7 @@ function parseActiveExperiments(md) {
     if (!/\|\s*Status\s*\|\s*active\s*\|/i.test(block)) continue;
     const field = (name) => {
       const fm = block.match(new RegExp(`\\|\\s*${name}\\s*\\|\\s*([^|]+)\\s*\\|`, 'i'));
-      return fm ? ascii(fm[1].trim()) : '';
+      return fm ? ascii(fm[1].trim()).replace(/^`+|`+$/g, '') : '';
     };
     active.push({
       idLine: ascii(`${m[1]} - ${m[2].trim()}`),
@@ -97,7 +97,8 @@ function parseActiveExperiments(md) {
       primaryMetric: field('Primary metric'),
       hypothesis: field('Customer hypothesis') || field('Hypothesis'),
       commit: field('Commit'),
-      amplify: field('Amplify') || field('Deployment status')
+      amplify: field('Deployment status') || field('Amplify'),
+      requiredSample: field('Required sample or duration')
     });
   }
   return active;
@@ -131,79 +132,121 @@ function ensureSnapshot() {
   }
 }
 
-function funnelKpis(w, funnelSummary) {
-  const stages = funnelSummary?.stages ?? {};
-  const events = sumEvents(w?.ga4);
-  const pick = (...names) => names.reduce((sum, n) => sum + (stages[n] ?? events[n] ?? 0), 0);
-  return {
-    sessions: pick('session_start') || pick('landing_page_view', 'page_view'),
-    landings: pick('landing_page_view', 'page_view'),
-    signupStarted: pick('signup_started'),
-    signupCompleted: pick('signup_completed', 'sign_up'),
-    profileCompleted: pick('profile_completed', 'onboarding_completed'),
-    discover: pick('discover_started', 'discover_viewed', 'match_search_clicked'),
-    connections: pick('like_or_connection_sent', 'request_sent'),
-    matches: pick('match_created', 'match_shown'),
-    messages: pick('first_message_sent', 'chat_started'),
-    returnVisit: pick('return_visit'),
-    pricing: pick('pricing_viewed', 'view_pricing'),
-    checkout: pick('checkout_started', 'begin_checkout'),
-    purchase: pick('verified_purchase', 'purchase'),
-    livePaid: w?.stripe?.livePaidSessions ?? null,
-    liveRevenue: Number(w?.stripe?.revenueLiveUsd || 0)
-  };
+function formatEt(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  const dateStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: TIMEZONE,
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  }).format(d);
+  const timeStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: TIMEZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short'
+  }).format(d);
+  return { dateStr, timeStr, isoDate: d.toISOString().slice(0, 10) };
 }
 
-function windowSummary(label, w) {
-  if (!w) return { label, range: '(missing)', events: [], stripe: null };
-  return {
-    label,
-    range: `${w.start} to ${w.end}`,
-    events: topEvents(sumEvents(w.ga4)),
-    stripe: w.stripe || null
-  };
+function defaultDecision({ experiments, health, reconciliation, shipped }) {
+  const exp001 = experiments.find((e) => /EXP-001/i.test(e.idLine));
+  const evalDate = exp001?.evalDate || EXP001.evaluationDate;
+  const reconOk = reconciliation?.ok !== false;
+  const healthOk = health?.ok !== false;
+  if (shipped) {
+    return `A change was deployed this run. See Active Experiment for details. Production health: ${healthOk ? 'OK' : 'FAILED'}. Data quality: ${reconOk ? 'OK' : 'WARNING'}.`;
+  }
+  return (
+    `No new change was deployed. EXP-001 has been active for only a short period and does not yet have enough attributable Atlanta traffic for evaluation. ` +
+    `Production is ${healthOk ? 'healthy' : 'degraded'} and data connections are ${reconOk ? 'usable' : 'flagged'}. ` +
+    `The primary constraint remains qualified Atlanta acquisition. Next evaluation: ${evalDate}.`
+  );
 }
 
-export function composeGrowthEmailBody({ snapshot, health, experiments, notes, generatedAt }) {
-  const date = (generatedAt || new Date()).toISOString().slice(0, 10);
-  const generated = (generatedAt || new Date()).toISOString();
-  const noteText = ascii((notes && notes.trim()) || '(none - measure-only / no-op run)');
+function subjectLine({ et, shipped, experiments, testEmail }) {
+  const exp001 = experiments.find((e) => /EXP-001/i.test(e.idLine));
+  const status = shipped
+    ? 'Change deployed'
+    : exp001
+      ? 'No change deployed · EXP-001 collecting data'
+      : 'No change deployed';
+  const base = `GetTrainMate Growth — ${status} · ${et.dateStr}`;
+  return testEmail ? `[TEST] GetTrainMate Growth Report — ${et.dateStr}` : base;
+}
 
-  const w7raw = snapshot?.windows?.['7d'];
-  const w30raw = snapshot?.windows?.['30d'];
-  const w7 = windowSummary('7d', w7raw);
-  const w30 = windowSummary('30d', w30raw);
-  const k7 = funnelKpis(w7raw, snapshot?.funnelSummary?.['7d']);
-  const k30 = funnelKpis(w30raw, snapshot?.funnelSummary?.['30d']);
+function scoreboardValue(cell) {
+  return formatCell(cell);
+}
+
+export function composeGrowthEmailBody({
+  snapshot,
+  health,
+  experiments,
+  notes,
+  generatedAt,
+  decision,
+  shipped = false
+}) {
+  const et = formatEt(generatedAt || new Date());
+  const generatedUtc = (generatedAt || new Date()).toISOString();
+  const noteText = ascii((notes && notes.trim()) || '');
+  const board7 = snapshot?.scoreboard?.['7d'] || {};
+  const board30 = snapshot?.scoreboard?.['30d'] || {};
+  const recon = snapshot?.reconciliation;
+  const attr7 = snapshot?.experimentAttribution?.['7d'];
+  const attr30 = snapshot?.experimentAttribution?.['30d'];
   const md = snapshot?.marketplaceDensity;
+  const decisionText = ascii(
+    decision ||
+      defaultDecision({
+        experiments,
+        health,
+        reconciliation: recon,
+        shipped
+      })
+  );
 
+  const dataQualityNeeded = recon && recon.ok === false;
+  const qualityLines = dataQualityNeeded
+    ? (recon.warnings || []).map((w) => ascii(w))
+    : [];
+
+  // ---- plain text ----
   const t = [];
-  t.push('GetTrainMate - Growth run summary');
-  t.push('================================');
-  t.push(`Date: ${date}`);
-  t.push(`Generated (UTC): ${generated}`);
-  t.push('Site: https://gettrainmate.com/');
-  t.push('Admin: https://gettrainmate.com/admin');
-  t.push('Focus metro (assumption until data wins): Atlanta, Georgia');
+  t.push('GetTrainMate Growth Report');
+  t.push('==========================');
+  t.push(`Local time: ${et.dateStr} ${et.timeStr} (${TIMEZONE})`);
+  t.push(`Site: ${SITE.origin}`);
   t.push('');
-  t.push('1) AGENT NOTES');
-  t.push('--------------');
-  t.push(noteText);
+  t.push('1) DECISION');
+  t.push('-----------');
+  t.push(decisionText);
   t.push('');
-  t.push('2) SCOREBOARD');
+  if (dataQualityNeeded) {
+    t.push('2) DATA QUALITY WARNING');
+    t.push('-----------------------');
+    t.push('Measurement blocked for flagged metrics. Production health is separate.');
+    for (const w of qualityLines) t.push(`- ${w}`);
+    t.push('');
+  }
+  const n = dataQualityNeeded ? 3 : 2;
+  t.push(`${n}) SCOREBOARD`);
   t.push('-------------');
+  t.push('(Values are events, users, payments, or customers as labeled. Unavailable = cannot compute safely.)');
   t.push(
-    `7d:  landings=${k7.landings}  signups=${k7.signupCompleted}  discover=${k7.discover}  live_paid=${k7.livePaid ?? '?'} ($${k7.liveRevenue.toFixed(2)})`
+    `Window | Landings(events) | Signups | Profiles | Discover | Live payments | Unique customers | Revenue`
   );
   t.push(
-    `30d: landings=${k30.landings}  signups=${k30.signupCompleted}  discover=${k30.discover}  live_paid=${k30.livePaid ?? '?'} ($${k30.liveRevenue.toFixed(2)})`
+    `7d | ${scoreboardValue(board7.landings)} | ${scoreboardValue(board7.completed_signups)} | ${scoreboardValue(board7.completed_profiles)} | ${scoreboardValue(board7.discover_users)} | ${scoreboardValue(board7.live_payments)} | ${scoreboardValue(board7.unique_paying_customers)} | ${scoreboardValue(board7.revenue)}`
   );
   t.push(
-    `30d detail: profiles=${k30.profileCompleted}  connections=${k30.connections}  matches=${k30.matches}  msgs=${k30.messages}  returns=${k30.returnVisit}  pricing=${k30.pricing}  checkout=${k30.checkout}`
+    `30d | ${scoreboardValue(board30.landings)} | ${scoreboardValue(board30.completed_signups)} | ${scoreboardValue(board30.completed_profiles)} | ${scoreboardValue(board30.discover_users)} | ${scoreboardValue(board30.live_payments)} | ${scoreboardValue(board30.unique_paying_customers)} | ${scoreboardValue(board30.revenue)}`
   );
   t.push('');
-  t.push('3) ACTIVE EXPERIMENTS');
-  t.push('---------------------');
+  t.push(`${n + 1}) ACTIVE EXPERIMENT`);
+  t.push('--------------------');
   if (!experiments.length) {
     t.push('(none marked active)');
   } else {
@@ -212,171 +255,203 @@ export function composeGrowthEmailBody({ snapshot, health, experiments, notes, g
       t.push(`  Status: ${ex.status} | Eval: ${ex.evalDate || 'n/a'} | Stage: ${ex.funnelStage || 'n/a'}`);
       if (ex.targetMetro) t.push(`  Metro/segment: ${ex.targetMetro}`);
       t.push(`  Metric: ${ex.primaryMetric || 'n/a'}`);
-      if (ex.hypothesis) t.push(`  Hypothesis: ${ex.hypothesis}`);
-      if (ex.commit || ex.amplify) {
-        t.push(`  Ship: commit ${ex.commit || 'n/a'}; Amplify ${ex.amplify || 'n/a'}`);
-      }
-      t.push('');
+      if (ex.commit) t.push(`  Commit: ${SITE.repo}/commit/${ex.commit}`);
+      if (ex.amplify) t.push(`  Deployment: ${ascii(ex.amplify)}`);
     }
   }
-  t.push('4) PRODUCTION HEALTH');
-  t.push('--------------------');
-  if (health?.checks?.length) {
-    t.push(`Overall: ${health.ok ? 'OK' : 'FAILED'}`);
-    for (const c of health.checks) t.push(`- ${c.name}: ${c.ok ? 'ok' : 'FAIL'}`);
-  } else {
-    t.push('(health check unavailable)');
+  if (attr7 || attr30) {
+    t.push('');
+    t.push('EXP-001 attribution (Atlanta landing only):');
+    const a = attr30 || attr7;
+    t.push(`  Path: ${a.path}`);
+    t.push(`  30d landings: ${a.landings?.value ?? 'Unavailable'}`);
+    t.push(`  30d signup starts on path: ${a.signup_starts?.value ?? 'Unavailable'}`);
+    t.push(`  30d completed signups on path: ${a.completed_signups?.value ?? 'Unavailable'}`);
+    t.push(
+      `  Landing->signup start: ${a.landing_to_signup_start == null ? 'Unavailable' : a.landing_to_signup_start}`
+    );
+    t.push(
+      `  Landing->completed signup: ${a.landing_to_completed_signup == null ? 'Unavailable' : a.landing_to_completed_signup}`
+    );
+    t.push('  Attributed paid conversions: Unknown');
+    t.push(`  Evaluation date: ${a.evaluationDate}`);
   }
   t.push('');
-  t.push('5) MARKETPLACE DENSITY');
+  t.push(`${n + 2}) NEXT ACTION`);
+  t.push('---------------');
+  t.push('1. Keep canonical metric normalization as source of truth for all growth emails.');
+  t.push('2. Metro density: Unavailable until aggregated Admin CRM read is approved (do not expand SES IAM).');
+  t.push(`3. Continue EXP-001 until evaluation date ${EXP001.evaluationDate}.`);
+  t.push('4. Do not launch a conflicting acquisition experiment on the same funnel stage.');
+  t.push('Responsible: GetTrainMate Wednesday Customer Growth automation.');
+  t.push('');
+  t.push(`${n + 3}) PRODUCTION HEALTH`);
   t.push('----------------------');
-  t.push(`Assumption metro: ${ascii(md?.assumptionMetro || 'Atlanta, Georgia')}`);
-  if (md?.byMetro && Object.keys(md.byMetro).length) {
-    for (const [metro, count] of Object.entries(md.byMetro).sort((a, b) => b[1] - a[1])) {
-      t.push(`  - ${metro}: ${count}`);
-    }
-  } else {
-    t.push('Metro GA4 dimension: not populated yet - use Admin CRM city aggregates when available.');
+  t.push(`Overall: ${health?.ok ? 'OK' : 'FAILED'}`);
+  for (const c of health?.checks || []) {
+    t.push(`- ${c.name}: ${c.ok ? 'ok' : 'FAIL'}`);
   }
   t.push('');
-  t.push('6) GA4 TOP EVENTS');
-  t.push('-----------------');
-  t.push(`Sources: GA4=${snapshot?.sources?.ga4 ?? '?'}; Stripe=${snapshot?.sources?.stripe ?? '?'}`);
-  t.push(`7d (${w7.range}):`);
-  if (w7.events.length) for (const [name, count] of w7.events) t.push(`  - ${name}: ${count}`);
-  else t.push('  (no rows)');
-  t.push(`30d (${w30.range}):`);
-  if (w30.events.length) for (const [name, count] of w30.events) t.push(`  - ${name}: ${count}`);
-  else t.push('  (no rows)');
+  t.push(`${n + 4}) DATA SOURCES`);
+  t.push('----------------');
+  t.push(`GA4: ${snapshot?.sources?.ga4 ?? 'unknown'}`);
+  t.push(`Stripe: ${snapshot?.sources?.stripe ?? 'unknown'}`);
+  t.push(`Admin CRM / metro: ${md?.status ?? snapshot?.sources?.adminCrm ?? 'unavailable'}`);
+  if (md?.reason) t.push(`Metro reason: ${ascii(md.reason)}`);
   t.push('');
-  t.push('7) LINKS');
-  t.push('--------');
-  t.push('- Experiment log: docs/growth/EXPERIMENT-LOG.md');
-  t.push('- Growth skill: .cursor/skills/grow-paid-customers/SKILL.md');
-  t.push('- Atlanta landing: https://gettrainmate.com/atlanta-training-partners');
+  t.push(`${n + 5}) TECHNICAL DETAILS`);
+  t.push('---------------------');
+  t.push(`Generated UTC: ${generatedUtc}`);
+  t.push(`GA4 measurement: G-C29M8NWNY4`);
+  t.push(`Experiment log: ${SITE.repo}/blob/main/${SITE.experimentLogPath}`);
+  t.push(`Atlanta landing: ${SITE.atlanta}`);
+  if (noteText) {
+    t.push('Agent notes (sanitized):');
+    t.push(noteText);
+  }
   t.push('');
-  t.push('Truth rule: verified Stripe live payments are the revenue source of truth.');
+  t.push('Truth rule: Stripe live payments are revenue source of truth. Payments != unique customers.');
+  t.push('Never include credentials, user records, private locations, or message content.');
 
   const text = t.join('\n');
 
+  // ---- HTML ----
   const healthRows = (health?.checks || [])
     .map(
       (c) =>
-        `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee;">${escapeHtml(c.name)}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;">${c.ok ? 'OK' : 'FAIL'}</td></tr>`
+        `<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${escapeHtml(c.name)}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${c.ok ? 'OK' : 'FAIL'}</td></tr>`
     )
     .join('');
 
-  const expHtml = experiments.length
-    ? experiments
-        .map(
-          (ex) => `
-      <div style="margin:0 0 14px;padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;">
-        <div style="font-weight:700;margin-bottom:6px;">${escapeHtml(ex.idLine)}</div>
-        <div style="font-size:13px;line-height:1.45;color:#374151;">
-          <div><b>Status:</b> ${escapeHtml(ex.status)} &nbsp;|&nbsp; <b>Eval:</b> ${escapeHtml(ex.evalDate || 'n/a')}</div>
-          <div><b>Stage:</b> ${escapeHtml(ex.funnelStage || 'n/a')}</div>
-          ${ex.targetMetro ? `<div><b>Metro:</b> ${escapeHtml(ex.targetMetro)}</div>` : ''}
-          <div><b>Metric:</b> ${escapeHtml(ex.primaryMetric || 'n/a')}</div>
-          ${ex.hypothesis ? `<div style="margin-top:6px;"><b>Hypothesis:</b> ${escapeHtml(ex.hypothesis)}</div>` : ''}
-          <div style="margin-top:6px;color:#6b7280;">Commit ${escapeHtml(ex.commit || 'n/a')} · Amplify ${escapeHtml(ex.amplify || 'n/a')}</div>
-        </div>
-      </div>`
-        )
-        .join('')
-    : '<p style="color:#6b7280;">(none marked active)</p>';
+  const exp001 = experiments.find((e) => /EXP-001/i.test(e.idLine)) || experiments[0];
+  const commitUrl = exp001?.commit ? `${SITE.repo}/commit/${exp001.commit}` : null;
 
-  const eventTable = (label, range, events) => {
-    const rows = events
-      .map(
-        ([name, count]) =>
-          `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee;">${escapeHtml(name)}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right;">${count}</td></tr>`
-      )
-      .join('');
-    return `
-      <h3 style="margin:16px 0 6px;font-size:14px;">${escapeHtml(label)} <span style="font-weight:400;color:#6b7280;">(${escapeHtml(range)})</span></h3>
-      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;">
-        <thead><tr style="background:#f3f4f6;"><th align="left" style="padding:6px 8px;">Event</th><th align="right" style="padding:6px 8px;">Count</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="2" style="padding:6px 8px;">No rows</td></tr>'}</tbody>
-      </table>`;
-  };
+  const qualityHtml = dataQualityNeeded
+    ? `<h2 style="font-size:15px;margin:18px 0 8px;color:#b45309;">2) Data Quality Warning</h2>
+      <div style="padding:12px;border:1px solid #f59e0b;background:#fffbeb;border-radius:8px;font-size:13px;line-height:1.45;">
+        <p style="margin:0 0 8px;">Measurement blocked for flagged metrics. Production health is evaluated separately.</p>
+        <ul style="margin:0;padding-left:18px;">${qualityLines.map((w) => `<li>${escapeHtml(w)}</li>`).join('')}</ul>
+      </div>`
+    : '';
+
+  const sectionOffset = dataQualityNeeded ? 1 : 0;
 
   const html = `<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>GetTrainMate Growth run</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GetTrainMate Growth</title></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:Segoe UI,Arial,sans-serif;color:#111827;">
   <div style="max-width:640px;margin:24px auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="padding:18px 20px;background:#0f172a;color:#fff;">
-      <div style="font-size:18px;font-weight:700;">GetTrainMate - Growth run</div>
-      <div style="font-size:13px;opacity:0.85;margin-top:4px;">${escapeHtml(date)} · UTC ${escapeHtml(generated)}</div>
+      <div style="font-size:18px;font-weight:700;">GetTrainMate Growth</div>
+      <div style="font-size:13px;opacity:0.9;margin-top:4px;">${escapeHtml(et.dateStr)} · ${escapeHtml(et.timeStr)}</div>
     </div>
     <div style="padding:18px 20px;">
-      <p style="margin:0 0 12px;font-size:13px;">
-        <a href="https://gettrainmate.com/">Site</a> ·
-        <a href="https://gettrainmate.com/admin">Admin</a> ·
-        <a href="https://gettrainmate.com/atlanta-training-partners">Atlanta landing</a>
+      <p style="margin:0 0 14px;font-size:13px;line-height:1.5;">
+        <a href="${SITE.origin}">Homepage</a> ·
+        <a href="${SITE.admin}">Admin</a> ·
+        <a href="${SITE.atlanta}">Atlanta landing</a>
+        ${commitUrl ? ` · <a href="${commitUrl}">Commit</a>` : ''}
+        · <a href="${SITE.repo}/blob/main/${SITE.experimentLogPath}">Experiment log</a>
       </p>
 
-      <h2 style="font-size:15px;margin:18px 0 8px;">1) Agent notes</h2>
-      <pre style="margin:0;padding:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;white-space:pre-wrap;font-size:13px;line-height:1.45;">${escapeHtml(noteText)}</pre>
+      <h2 style="font-size:15px;margin:0 0 8px;">1) Decision</h2>
+      <p style="margin:0 0 16px;padding:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:14px;line-height:1.5;">${escapeHtml(decisionText)}</p>
 
-      <h2 style="font-size:15px;margin:18px 0 8px;">2) Scoreboard</h2>
-      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;">
+      ${qualityHtml}
+
+      <h2 style="font-size:15px;margin:18px 0 8px;">${2 + sectionOffset}) Scoreboard</h2>
+      <p style="margin:0 0 8px;font-size:12px;color:#6b7280;">Canonical metrics. Signups/profiles/discover prefer unique users when GA4 totalUsers is available; otherwise labeled as events. Payments ≠ customers.</p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead>
           <tr style="background:#f3f4f6;">
-            <th align="left" style="padding:6px 8px;">Window</th>
-            <th align="right" style="padding:6px 8px;">Landings</th>
-            <th align="right" style="padding:6px 8px;">Signups</th>
-            <th align="right" style="padding:6px 8px;">Discover</th>
-            <th align="right" style="padding:6px 8px;">Live paid</th>
-            <th align="right" style="padding:6px 8px;">Revenue</th>
+            <th align="left" style="padding:6px 4px;">Window</th>
+            <th align="right" style="padding:6px 4px;">Landings</th>
+            <th align="right" style="padding:6px 4px;">Signups</th>
+            <th align="right" style="padding:6px 4px;">Profiles</th>
+            <th align="right" style="padding:6px 4px;">Discover</th>
+            <th align="right" style="padding:6px 4px;">Payments</th>
+            <th align="right" style="padding:6px 4px;">Customers</th>
+            <th align="right" style="padding:6px 4px;">Revenue</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style="padding:6px 8px;border-bottom:1px solid #eee;">7d</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${k7.landings}</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${k7.signupCompleted}</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${k7.discover}</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">${k7.livePaid ?? '?'}</td>
-            <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">$${k7.liveRevenue.toFixed(2)}</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;">7d</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.landings))}</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.completed_signups))}</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.completed_profiles))}</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.discover_users))}</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.live_payments))}</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.unique_paying_customers))}</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.revenue))}</td>
           </tr>
           <tr>
-            <td style="padding:6px 8px;">30d</td>
-            <td style="padding:6px 8px;text-align:right;">${k30.landings}</td>
-            <td style="padding:6px 8px;text-align:right;">${k30.signupCompleted}</td>
-            <td style="padding:6px 8px;text-align:right;">${k30.discover}</td>
-            <td style="padding:6px 8px;text-align:right;">${k30.livePaid ?? '?'}</td>
-            <td style="padding:6px 8px;text-align:right;">$${k30.liveRevenue.toFixed(2)}</td>
+            <td style="padding:6px 4px;">30d</td>
+            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.landings))}</td>
+            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.completed_signups))}</td>
+            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.completed_profiles))}</td>
+            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.discover_users))}</td>
+            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.live_payments))}</td>
+            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.unique_paying_customers))}</td>
+            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.revenue))}</td>
           </tr>
         </tbody>
       </table>
-      <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">
-        30d: profiles ${k30.profileCompleted} · connections ${k30.connections} · matches ${k30.matches} · msgs ${k30.messages} · returns ${k30.returnVisit} · pricing ${k30.pricing} · checkout ${k30.checkout}
+
+      <h2 style="font-size:15px;margin:18px 0 8px;">${3 + sectionOffset}) Active Experiment</h2>
+      ${
+        exp001
+          ? `<div style="padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;font-size:13px;line-height:1.45;">
+        <div style="font-weight:700;margin-bottom:6px;">${escapeHtml(exp001.idLine)}</div>
+        <div><b>Status:</b> ${escapeHtml(exp001.status)} · <b>Eval:</b> ${escapeHtml(exp001.evalDate || EXP001.evaluationDate)}</div>
+        <div><b>Stage:</b> ${escapeHtml(exp001.funnelStage || 'n/a')}</div>
+        <div><b>Metro:</b> ${escapeHtml(exp001.targetMetro || 'Atlanta, Georgia · TRAIN')}</div>
+        <div style="margin-top:8px;"><b>EXP-001 30d attributable landings:</b> ${escapeHtml(String(attr30?.landings?.value ?? 'Unavailable'))}</div>
+        <div><b>Signup starts (path):</b> ${escapeHtml(String(attr30?.signup_starts?.value ?? 'Unavailable'))}</div>
+        <div><b>Completed signups (path):</b> ${escapeHtml(String(attr30?.completed_signups?.value ?? 'Unavailable'))}</div>
+        <div><b>Attributed paid conversions:</b> Unknown</div>
+        ${commitUrl ? `<div style="margin-top:8px;"><a href="${commitUrl}">Commit ${escapeHtml(exp001.commit)}</a></div>` : ''}
+        ${exp001.amplify ? `<div><b>Deployment:</b> ${escapeHtml(exp001.amplify)}</div>` : ''}
+      </div>`
+          : '<p style="color:#6b7280;">(none marked active)</p>'
+      }
+
+      <h2 style="font-size:15px;margin:18px 0 8px;">${4 + sectionOffset}) Next Action</h2>
+      <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.5;">
+        <li>Keep canonical metric normalization as the only scoreboard source.</li>
+        <li>Metro density remains Unavailable without approved CRM aggregate read (do not expand SES IAM).</li>
+        <li>Continue EXP-001 until <b>${escapeHtml(EXP001.evaluationDate)}</b>.</li>
+        <li>Do not launch a conflicting acquisition experiment.</li>
+      </ol>
+      <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">Responsible: GetTrainMate Wednesday Customer Growth automation.</p>
+
+      <h2 style="font-size:15px;margin:18px 0 8px;">${5 + sectionOffset}) Production Health</h2>
+      <p style="margin:0 0 8px;font-size:13px;"><b>Overall:</b> ${health?.ok ? 'OK' : 'FAILED'}</p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;"><tbody>${healthRows}</tbody></table>
+
+      <h2 style="font-size:15px;margin:18px 0 8px;">${6 + sectionOffset}) Data Sources</h2>
+      <p style="margin:0;font-size:13px;line-height:1.5;">
+        GA4: ${escapeHtml(snapshot?.sources?.ga4 ?? 'unknown')}<br/>
+        Stripe: ${escapeHtml(snapshot?.sources?.stripe ?? 'unknown')}<br/>
+        Metro / Admin CRM: ${escapeHtml(md?.status ?? 'unavailable')}
       </p>
 
-      <h2 style="font-size:15px;margin:18px 0 8px;">3) Active experiments</h2>
-      ${expHtml}
-
-      <h2 style="font-size:15px;margin:18px 0 8px;">4) Production health</h2>
-      <p style="margin:0 0 8px;font-size:13px;"><b>Overall:</b> ${health?.ok ? 'OK' : 'FAILED'}</p>
-      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;">
-        <tbody>${healthRows || '<tr><td style="padding:6px 8px;">(unavailable)</td></tr>'}</tbody>
-      </table>
-
-      <h2 style="font-size:15px;margin:18px 0 8px;">5) GA4 top events</h2>
-      <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Sources: GA4=${escapeHtml(snapshot?.sources?.ga4 ?? '?')}; Stripe=${escapeHtml(snapshot?.sources?.stripe ?? '?')} · Focus: Atlanta (assumption)</p>
-      ${eventTable('7d', w7.range, w7.events)}
-      ${eventTable('30d', w30.range, w30.events)}
-
-      <p style="margin:20px 0 0;font-size:12px;color:#6b7280;">
-        Truth rule: only Stripe live payments count as paid customers.
+      <h2 style="font-size:15px;margin:18px 0 8px;color:#6b7280;">${7 + sectionOffset}) Technical Details</h2>
+      <p style="margin:0;font-size:12px;color:#6b7280;line-height:1.45;">
+        Generated UTC: ${escapeHtml(generatedUtc)}<br/>
+        Measurement ID: G-C29M8NWNY4 (single install)<br/>
+        Focus metro assumption: Atlanta, Georgia<br/>
+        ${noteText ? `Notes: ${escapeHtml(noteText)}` : ''}
+      </p>
+      <p style="margin:16px 0 0;font-size:11px;color:#9ca3af;">
+        Truth rule: Stripe live payments are the revenue source of truth. Never confuse payments with unique customers.
       </p>
     </div>
   </div>
 </body>
 </html>`;
 
-  return { text, html };
+  return { text, html, et, subjectMeta: { shipped, dataQualityNeeded } };
 }
 
 const invokedAsCli =
@@ -387,39 +462,62 @@ if (invokedAsCli) {
   let notes = args.notes;
   if (args.notesFile) notes = fs.readFileSync(args.notesFile, 'utf8');
 
-  const health = runHealth();
-  const collectMeta = ensureSnapshot();
-  const snapPath = args.snapshot || latestSnapshotPath();
+  // Strip internal setup noise from notes for business report.
+  notes = String(notes || '')
+    .split('\n')
+    .filter((line) => !/aws cli|husky|npm install fails|install script/i.test(line))
+    .join('\n')
+    .trim();
+
+  const health = args.snapshot ? { ok: true, checks: [] } : runHealth();
   let snapshot = null;
+  let snapPath = args.snapshot;
+  if (!snapPath) {
+    ensureSnapshot();
+    snapPath = latestSnapshotPath();
+  }
   if (snapPath && fs.existsSync(snapPath)) {
     snapshot = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
-  } else if (collectMeta?.error) {
-    snapshot = { error: collectMeta.error, sources: {}, notes: [collectMeta.error] };
+  } else {
+    snapshot = { error: 'missing snapshot', sources: {}, scoreboard: {}, notes: [] };
   }
 
   const logMd = fs.existsSync(LOG_PATH) ? fs.readFileSync(LOG_PATH, 'utf8') : '';
   const experiments = parseActiveExperiments(logMd);
   const now = new Date();
-  const date = now.toISOString().slice(0, 10);
-  const timeEt = now.toLocaleString('en-US', {
-    timeZone: 'America/New_York',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  });
-  const { text, html } = composeGrowthEmailBody({
+  const { text, html, et } = composeGrowthEmailBody({
     snapshot,
     health,
     experiments,
     notes,
-    generatedAt: now
+    generatedAt: now,
+    decision: args.decision,
+    shipped: args.shipped
   });
-  const subject = `[GetTrainMate] Growth run ${date} ${timeEt} ET`;
+  const subject = subjectLine({
+    et,
+    shipped: args.shipped,
+    experiments,
+    testEmail: args.testEmail
+  });
 
-  if (args.dryRun) {
+  if (args.previewDir) {
+    fs.mkdirSync(args.previewDir, { recursive: true });
+    const base = path.join(args.previewDir, `growth-report-${et.isoDate}`);
+    fs.writeFileSync(`${base}.txt`, text, 'utf8');
+    fs.writeFileSync(`${base}.html`, html, 'utf8');
+    console.log(JSON.stringify({ wrote: [`${base}.txt`, `${base}.html`], subject }, null, 2));
+  }
+
+  if (args.dryRun && !args.testEmail) {
     console.log(subject);
     console.log('--- TEXT ---');
     console.log(text);
+    process.exit(0);
+  }
+
+  if (args.dryRun && args.testEmail) {
+    console.log(JSON.stringify({ ok: true, dryRun: true, subject }, null, 2));
     process.exit(0);
   }
 
@@ -430,9 +528,10 @@ if (invokedAsCli) {
         {
           ok: true,
           messageId: result.messageId,
-          subject: result.subjectSent ?? subject,
+          subject,
           snapshotPath: snapPath,
-          activeExperiments: experiments.map((e) => e.idLine)
+          activeExperiments: experiments.map((e) => e.idLine),
+          reconciliationOk: snapshot?.reconciliation?.ok ?? null
         },
         null,
         2

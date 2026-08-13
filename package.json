@@ -41,6 +41,7 @@
     "growth:health": "node scripts/growth/check-production-health.mjs",
     "growth:verify-secrets": "node scripts/growth/verify-secrets.mjs",
     "growth:email": "node scripts/growth/compose-and-send-growth-email.mjs",
+    "growth:test": "node --test scripts/growth/tests/*.test.mjs",
     "prepare": "husky install"
   },
   "devDependencies": {
