@@ -17,6 +17,7 @@ import {
   buildScoreboardRow,
   formatCell
 } from '../lib/normalize-metrics.mjs';
+import { loadStripeAllowlist } from '../lib/stripe-attribution.mjs';
 import {
   reconcileSnapshot,
   detectAliasDoubleCount,
@@ -95,16 +96,19 @@ describe('legacy bug detection', () => {
 });
 
 describe('normalizeStripe', () => {
-  it('excludes test payments and dedupes customers', () => {
+  it('excludes unattributed account-wide payments from revenue', () => {
     const s = normalizeStripe(stripeFixture);
-    assert.equal(s.live_payments, 1);
+    assert.equal(s.attributed_live_payments, 1);
+    assert.equal(s.unattributed_live_payments, 1);
     assert.equal(s.test_paid_sessions, 1);
-    assert.equal(s.unique_paying_customers, 1);
-    assert.equal(s.unique_paying_customers_available, true);
-    assert.equal(s.revenue_live_usd, 19.99);
+    assert.equal(s.revenue_live_usd, 9.99);
+    assert.equal(s.account_wide_live_sessions, 2);
+    // Baseline until reconciliationComplete
+    assert.equal(s.unique_paying_customers, 0);
+    assert.equal(s.unique_paying_customers_method, 'verified_business_baseline');
   });
 
-  it('reports unique customers unavailable when customer ids missing', () => {
+  it('does not count unknown-attribution sessions as this app', () => {
     const s = normalizeStripe({
       sessions: {
         data: [
@@ -113,17 +117,58 @@ describe('normalizeStripe', () => {
             livemode: true,
             status: 'complete',
             payment_status: 'paid',
-            amount_total: 999,
-            customer: null,
-            payment_intent: 'pi_2'
+            amount_total: 1999,
+            customer: 'cus_x',
+            payment_intent: 'pi_2',
+            metadata: {}
           }
         ]
       },
       charges: { data: [] }
     });
-    assert.equal(s.live_payments, 1);
-    assert.equal(s.unique_paying_customers_available, false);
-    assert.equal(s.unique_paying_customers, null);
+    assert.equal(s.attributed_live_payments, 0);
+    assert.equal(s.unattributed_live_payments, 1);
+    assert.equal(s.revenue_live_usd, 0);
+    assert.equal(s.unique_paying_customers, 0);
+  });
+
+  it('attributes gtm_source metadata and excludes owner customer ids', () => {
+    const allowlist = loadStripeAllowlist();
+    allowlist.excludeCustomerIds.add('cus_owner');
+    allowlist.reconciliationComplete = true;
+    const s = normalizeStripe(
+      {
+        sessions: {
+          data: [
+            {
+              id: 'cs_a',
+              livemode: true,
+              status: 'complete',
+              payment_status: 'paid',
+              amount_total: 599,
+              customer: 'cus_ext',
+              payment_intent: 'pi_a',
+              metadata: { gtm_source: 'gettrainmate' }
+            },
+            {
+              id: 'cs_b',
+              livemode: true,
+              status: 'complete',
+              payment_status: 'paid',
+              amount_total: 599,
+              customer: 'cus_owner',
+              payment_intent: 'pi_b',
+              metadata: { gtm_source: 'gettrainmate' }
+            }
+          ]
+        },
+        charges: { data: [] }
+      },
+      allowlist
+    );
+    assert.equal(s.attributed_live_payments, 1);
+    assert.equal(s.revenue_live_usd, 5.99);
+    assert.equal(s.unique_paying_customers, 1);
   });
 });
 
@@ -180,8 +225,9 @@ describe('buildScoreboardRow + compose email', () => {
     assert.equal(b30.matches_created.value, 0);
     assert.notEqual(b30.matches_created.value, 34);
     assert.equal(b30.live_payments.value, 1);
-    assert.equal(b30.unique_paying_customers.value, 1);
-    assert.equal(b30.revenue.value, 19.99);
+    assert.equal(b30.unattributed_live_payments.value, 1);
+    assert.equal(b30.unique_paying_customers.value, 0); // verified baseline until reconciliation
+    assert.equal(b30.revenue.value, 9.99);
 
     // 7d landings <= 30d
     assert.ok(b7.landings.value <= b30.landings.value);
@@ -276,7 +322,9 @@ describe('buildScoreboardRow + compose email', () => {
       generatedAt: new Date('2026-08-13T16:00:00Z')
     });
     assert.match(text, /Attributed paid conversions: Unknown/);
-    assert.match(text, /\$19\.99/); // sitewide revenue OK
+    assert.match(text, /\$9\.99/); // attributed GTM only
+    assert.doesNotMatch(text, /\$19\.99/); // unattributed must not appear as revenue
+    assert.match(text, /Unattributed Stripe payment/i);
   });
 });
 

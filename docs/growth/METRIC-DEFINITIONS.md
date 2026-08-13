@@ -9,6 +9,8 @@ Canonical definitions live in `scripts/growth/lib/metric-definitions.mjs` and ar
 3. **Label honestly:** if unique users are unavailable, show event counts and say so.
 4. **Stripe live payments ≠ unique customers.** Deduplicate by Stripe customer id when present; otherwise customers = Unavailable.
 5. **`match_shown` is not `match_created`.**
+6. **Never count account-wide Stripe as GetTrainMate.** Only conclusively attributed payments (`gtm_source=gettrainmate`, allowlisted Price/Product/Payment Link IDs, or legacy credits metadata). Everything else is **Unattributed Stripe payment** — not revenue, not customers. See `docs/growth/STRIPE-ATTRIBUTION.md`.
+7. **Verified external paying customers baseline = 0** for GetTrainMate (and YouTubeBooster) until `reconciliationComplete` is true in the allowlist.
 
 ## Canonical map (summary)
 
@@ -24,7 +26,8 @@ Canonical definitions live in `scripts/growth/lib/metric-definitions.mjs` and ar
 | returning_users | `return_visit` | — | users |
 | pricing_views | `pricing_viewed` | `view_pricing` | events |
 | checkout_starts | `begin_checkout` | `checkout_started` | events |
-| live_payments / revenue | Stripe live succeeded | — | payments / USD |
+| live_payments / revenue | Stripe **attributed** live succeeded only | — | payments / USD |
+| unattributed_live_payments | Live paid without conclusive GTM ownership | — | informational |
 
 ## Root cause of Aug 2026 email inconsistencies
 

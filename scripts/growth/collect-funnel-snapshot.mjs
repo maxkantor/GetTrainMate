@@ -138,7 +138,8 @@ async function fetchStripeSessions(key, startUnix) {
   const params = new URLSearchParams({
     'created[gte]': String(startUnix),
     limit: '100',
-    status: 'complete'
+    status: 'complete',
+    'expand[]': 'data.line_items'
   });
   const res = await fetch(`https://api.stripe.com/v1/checkout/sessions?${params}`, {
     headers: { Authorization: `Bearer ${key}` }
@@ -308,11 +309,17 @@ for (const w of windows) {
       entry.stripe = {
         livePaidSessions: entry.stripeNormalized.live_checkout_sessions,
         livePayments: entry.stripeNormalized.live_payments,
+        attributedLivePayments: entry.stripeNormalized.attributed_live_payments,
+        unattributedLivePayments: entry.stripeNormalized.unattributed_live_payments,
         uniquePayingCustomers: entry.stripeNormalized.unique_paying_customers,
         uniquePayingCustomersAvailable: entry.stripeNormalized.unique_paying_customers_available,
+        uniquePayingCustomersMethod: entry.stripeNormalized.unique_paying_customers_method,
         revenueLiveUsd: entry.stripeNormalized.revenue_live_usd,
         testPaidSessions: entry.stripeNormalized.test_paid_sessions,
-        liveSucceededCharges: entry.stripeNormalized.live_succeeded_charges
+        liveSucceededCharges: entry.stripeNormalized.live_succeeded_charges,
+        accountWideLiveSessions: entry.stripeNormalized.account_wide_live_sessions,
+        reconciliationComplete: entry.stripeNormalized.reconciliation_complete,
+        verifiedBaselineCustomers: entry.stripeNormalized.verified_baseline_customers
       };
       report.sources.stripe = 'ok';
       for (const warn of entry.stripeNormalized.warnings) {

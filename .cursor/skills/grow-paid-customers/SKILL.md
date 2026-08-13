@@ -9,7 +9,7 @@ Optimize for **qualified local users, marketplace activation, verified Stripe pu
 
 Product: https://gettrainmate.com/  
 Repository: `maxkantor/GetTrainMate` · branch `main`  
-Revenue source of truth: **verified Stripe live payments** (Admin CRM as secondary).  
+Revenue source of truth: **verified GetTrainMate-attributed Stripe live payments only** (shared Stripe accounts must not be summed account-wide). See `docs/growth/STRIPE-ATTRIBUTION.md`. Verified external paying customers baseline: **0** until reconciliation completes.  
 GA4 measurement ID: **`G-C29M8NWNY4`** via `VITE_GA_MEASUREMENT_ID` — **never add a second GA4 install**.
 
 ## Primary funnel

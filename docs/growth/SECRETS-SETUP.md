@@ -74,6 +74,10 @@ Secrets do **not** live on the Automations Settings page alone. They live here:
 | `GA4_PROPERTY_ID` | Yes (or load via SSM with AWS) |
 | `GOOGLE_ANALYTICS_CREDENTIALS_JSON` | Yes (or via SSM) |
 | `STRIPE_RESTRICTED_READ_KEY` | Yes (`rk_…` only) |
+| `STRIPE_GTM_PRICE_IDS` | Optional comma-separated Price IDs allowlist |
+| `STRIPE_GTM_PRODUCT_IDS` | Optional Product IDs allowlist |
+| `STRIPE_GTM_PAYMENT_LINK_IDS` | Optional Payment Link IDs allowlist |
+| `STRIPE_GTM_EXCLUDE_CUSTOMER_IDS` | Optional owner/self/smoke customer ids to exclude |
 | `GROWTH_METRO_READ_TOKEN` | Recommended — same value as API Lambda `GROWTH_METRO_READ_TOKEN` / SSM `/gettrainmate/growth/metro-read-token` |
 | `GROWTH_CRM_ADMIN_EMAIL` / `GROWTH_CRM_ADMIN_PASSWORD` | Optional fallback if metro read token not set |
 | `ADMIN_EMAIL` or `SES_ADMIN_EMAIL` | Optional (else SSM `/gettrainmate/ses-admin-email`) |

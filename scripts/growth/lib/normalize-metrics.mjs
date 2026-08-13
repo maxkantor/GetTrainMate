@@ -3,6 +3,10 @@
  * Never sums duplicate instrumentation aliases.
  */
 import { CANONICAL_METRICS } from './metric-definitions.mjs';
+import {
+  loadStripeAllowlist,
+  classifyStripeObject
+} from './stripe-attribution.mjs';
 
 /**
  * Aggregate GA4 runReport rows keyed by eventName.
@@ -147,82 +151,157 @@ export function normalizeGa4Window(byEvent, opts = {}) {
 }
 
 /**
- * Summarize Stripe Checkout Sessions + Charges into live payments / customers / revenue.
- * Excludes test mode, failed, refunded charges.
+ * Summarize Stripe into GetTrainMate-attributed live payments / customers / revenue.
+ * Never counts account-wide Stripe totals. Unattributed payments are reported separately
+ * and excluded from revenue and unique external customers.
  */
-export function normalizeStripe({ sessions, charges } = {}) {
+export function normalizeStripe({ sessions, charges } = {}, allowlist = loadStripeAllowlist()) {
   const warnings = [];
   const sessionList = sessions?.data ?? [];
   const chargeList = charges?.data ?? [];
 
-  const liveSessions = sessionList.filter(
+  const liveSessionsAll = sessionList.filter(
     (s) => s.livemode === true && s.payment_status === 'paid' && s.status === 'complete'
   );
   const testSessions = sessionList.filter(
     (s) => s.livemode === false && s.payment_status === 'paid'
   );
 
-  const liveCharges = chargeList.filter(
+  const liveChargesAll = chargeList.filter(
     (c) => c.livemode === true && c.paid === true && c.status === 'succeeded' && !c.refunded
   );
 
-  // Prefer charge amounts (authoritative); fall back to session amount_total.
-  let revenueCents = liveCharges.reduce((sum, c) => sum + (c.amount || 0) - (c.amount_refunded || 0), 0);
-  let revenueSource = 'charges';
-  if (liveCharges.length === 0 && liveSessions.length > 0) {
-    revenueCents = liveSessions.reduce((sum, s) => sum + (s.amount_total || 0), 0);
-    revenueSource = 'checkout_sessions';
-    if (revenueCents === 0) {
-      warnings.push('Live paid Checkout Sessions present but amount_total is 0; revenue Unknown without Charges.');
+  const attributedSessions = [];
+  const unattributedSessions = [];
+  for (const s of liveSessionsAll) {
+    const c = classifyStripeObject(s, allowlist);
+    if (c.attributed) attributedSessions.push({ ...s, _attribution: c.reason });
+    else unattributedSessions.push({ id: s.id, reason: c.reason, amount: s.amount_total });
+  }
+
+  const attributedPi = new Set(
+    attributedSessions.map((s) => String(s.payment_intent || '')).filter(Boolean)
+  );
+
+  const attributedCharges = [];
+  const unattributedCharges = [];
+  for (const ch of liveChargesAll) {
+    const byMeta = classifyStripeObject(ch, allowlist);
+    const pi = ch.payment_intent ? String(ch.payment_intent) : '';
+    const matchedSession = pi && attributedPi.has(pi);
+    if (byMeta.attributed || matchedSession) {
+      attributedCharges.push({
+        ...ch,
+        _attribution: byMeta.attributed ? byMeta.reason : 'matched_attributed_checkout_session'
+      });
+    } else {
+      unattributedCharges.push({ id: ch.id, reason: byMeta.reason, amount: ch.amount });
     }
   }
 
-  // Prefer Charges for payment count when available (Checkout Sessions often duplicate the same PI).
-  const livePayments =
-    liveCharges.length > 0
-      ? new Set(liveCharges.map((c) => String(c.payment_intent || c.id))).size
-      : liveSessions.length;
+  // Prefer attributed Charges for revenue; else attributed Checkout Session totals.
+  let revenueCents = attributedCharges.reduce(
+    (sum, c) => sum + (c.amount || 0) - (c.amount_refunded || 0),
+    0
+  );
+  let revenueSource = 'attributed_charges';
+  if (attributedCharges.length === 0 && attributedSessions.length > 0) {
+    revenueCents = attributedSessions.reduce((sum, s) => sum + (s.amount_total || 0), 0);
+    revenueSource = 'attributed_checkout_sessions';
+  }
 
-  // Unique customers from customer field when present.
+  // Deduplicate payment count: prefer charges PI, else sessions.
+  const livePayments =
+    attributedCharges.length > 0
+      ? new Set(attributedCharges.map((c) => String(c.payment_intent || c.id))).size
+      : attributedSessions.length;
+
   const customerIds = new Set();
   let customersMissing = 0;
-  for (const c of liveCharges) {
-    if (c.customer) customerIds.add(String(c.customer));
+  const attributedForCustomers =
+    attributedCharges.length > 0 ? attributedCharges : attributedSessions;
+  for (const row of attributedForCustomers) {
+    if (row.customer) customerIds.add(String(row.customer));
     else customersMissing += 1;
   }
-  for (const s of liveSessions) {
-    if (s.customer) customerIds.add(String(s.customer));
-    else if (!liveCharges.length) customersMissing += 1;
-  }
 
-  let uniquePayingCustomers = null;
+  let uniqueAttributedCustomers = null;
   let uniqueCustomersAvailable = false;
   if (customerIds.size > 0) {
-    uniquePayingCustomers = customerIds.size;
+    uniqueAttributedCustomers = customerIds.size;
     uniqueCustomersAvailable = true;
     if (customersMissing > 0) {
       warnings.push(
-        `${customersMissing} live payment(s) lack Stripe customer id — unique customer count may be understated.`
+        `${customersMissing} attributed payment(s) lack Stripe customer id — unique customer count may be understated.`
       );
     }
   } else if (livePayments > 0) {
-    warnings.push('Stripe customer ids unavailable — unique paying customers Unknown.');
+    warnings.push('Attributed payments lack Stripe customer ids — unique customers Unavailable.');
+  }
+
+  // Verified external baseline until reconciliation completes — never overwrite from account-wide query.
+  const baseline =
+    allowlist.verifiedBaselines?.gettrainmate?.verified_external_paying_customers ?? 0;
+  const reconciliationComplete = Boolean(allowlist.reconciliationComplete);
+  let uniqueExternalPayingCustomers = uniqueAttributedCustomers;
+  let uniqueExternalMethod = 'stripe_customer_dedupe_attributed';
+  if (!reconciliationComplete) {
+    uniqueExternalPayingCustomers = baseline;
+    uniqueCustomersAvailable = true;
+    uniqueExternalMethod = 'verified_business_baseline';
+    warnings.push(
+      `Verified external paying customers held at baseline ${baseline} until Stripe reconciliationComplete=true (see docs/growth/STRIPE-ATTRIBUTION.md).`
+    );
+  }
+
+  const unattributedCount = Math.max(
+    unattributedSessions.length,
+    // Prefer session-level unattributed count; charges without session match also noted
+    unattributedCharges.filter((c) => {
+      const pi = chargeList.find((x) => x.id === c.id)?.payment_intent;
+      return !pi || !attributedPi.has(String(pi));
+    }).length
+  );
+
+  if (unattributedSessions.length > 0 || unattributedCharges.length > 0) {
+    warnings.push(
+      `${unattributedSessions.length} unattributed live Checkout Session(s) and ${unattributedCharges.length} unattributed live Charge(s) excluded from GetTrainMate revenue (shared Stripe account risk).`
+    );
   }
 
   if (testSessions.length > 0) {
-    warnings.push(`${testSessions.length} test-mode paid session(s) excluded from live totals.`);
+    warnings.push(`${testSessions.length} test-mode paid session(s) excluded.`);
+  }
+
+  if (
+    allowlist.priceIds.size === 0 &&
+    allowlist.productIds.size === 0 &&
+    allowlist.paymentLinkIds.size === 0
+  ) {
+    warnings.push(
+      'Stripe Price/Product/PaymentLink allowlists are empty — attribution relies on gtm_source / legacy credits metadata only.'
+    );
   }
 
   return {
     live_payments: livePayments,
-    unique_paying_customers: uniquePayingCustomers,
+    attributed_live_payments: livePayments,
+    unattributed_live_payments: unattributedSessions.length,
+    unattributed_sessions: unattributedSessions,
+    unique_paying_customers: uniqueExternalPayingCustomers,
     unique_paying_customers_available: uniqueCustomersAvailable,
+    unique_paying_customers_method: uniqueExternalMethod,
+    unique_attributed_customers_raw: uniqueAttributedCustomers,
     revenue_live_usd: revenueCents / 100,
     revenue_source: revenueSource,
     test_paid_sessions: testSessions.length,
-    live_checkout_sessions: liveSessions.length,
-    live_succeeded_charges: liveCharges.length,
-    live_paid_sessions: liveSessions,
+    live_checkout_sessions: attributedSessions.length,
+    live_succeeded_charges: attributedCharges.length,
+    account_wide_live_sessions: liveSessionsAll.length,
+    account_wide_live_charges: liveChargesAll.length,
+    live_paid_sessions: attributedSessions,
+    reconciliation_complete: reconciliationComplete,
+    verified_baseline_customers: baseline,
     warnings
   };
 }
@@ -259,27 +338,35 @@ export function buildScoreboardRow(ga4Norm, stripeNorm) {
     pricing_views: cell('pricing_views'),
     checkout_starts: cell('checkout_starts'),
     live_payments: {
-      value: stripeNorm?.live_payments ?? null,
+      value: stripeNorm?.attributed_live_payments ?? stripeNorm?.live_payments ?? null,
       unit: 'payments',
-      label: 'payments',
+      label: 'attributed payments',
       available: stripeNorm != null,
-      method: 'stripe_live'
+      method: 'stripe_attributed_live'
+    },
+    unattributed_live_payments: {
+      value: stripeNorm?.unattributed_live_payments ?? null,
+      unit: 'payments',
+      label: 'unattributed',
+      available: stripeNorm != null,
+      method: 'stripe_unattributed'
     },
     unique_paying_customers: {
       value: stripeNorm?.unique_paying_customers_available
         ? stripeNorm.unique_paying_customers
         : null,
       unit: 'customers',
-      label: 'customers',
+      label: 'external customers',
       available: Boolean(stripeNorm?.unique_paying_customers_available),
-      method: stripeNorm?.unique_paying_customers_available
-        ? 'stripe_customer_dedupe'
-        : 'unavailable'
+      method: stripeNorm?.unique_paying_customers_method
+        || (stripeNorm?.unique_paying_customers_available
+          ? 'stripe_customer_dedupe'
+          : 'unavailable')
     },
     revenue: {
       value: stripeNorm != null ? stripeNorm.revenue_live_usd : null,
       unit: 'usd',
-      label: 'usd',
+      label: 'attributed usd',
       available: stripeNorm != null,
       method: stripeNorm?.revenue_source ?? 'stripe'
     }

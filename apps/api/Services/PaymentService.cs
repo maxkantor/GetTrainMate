@@ -65,6 +65,7 @@ public class PaymentService : IPaymentService
             var paymentId = Guid.NewGuid().ToString();
             var metadata = new Dictionary<string, string>
             {
+                { StripeSessionOwnership.AppSourceKey, StripeSessionOwnership.AppSourceValue },
                 { "userId", userId },
                 { "planType", planType },
                 { "paymentId", paymentId }

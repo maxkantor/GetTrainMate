@@ -1,0 +1,35 @@
+{
+  "app": "gettrainmate",
+  "displayName": "GetTrainMate",
+  "reconciliationComplete": false,
+  "verifiedBaselines": {
+    "gettrainmate": {
+      "verified_external_paying_customers": 0,
+      "note": "Do not overwrite from account-wide Stripe until reconciliationComplete is true."
+    },
+    "youtubebooster": {
+      "verified_external_paying_customers": 0,
+      "note": "Sibling product on a shared Stripe account. Never count its payments as GetTrainMate."
+    }
+  },
+  "metadata": {
+    "appSourceKey": "gtm_source",
+    "appSourceValue": "gettrainmate",
+    "legacyCreditsKeysAllOf": ["packKey", "credits", "priceUsd"],
+    "notes": "Checkout Sessions stamped by GetTrainMate API. Other apps must use their own source key."
+  },
+  "productIds": [],
+  "priceIds": [],
+  "paymentLinkIds": [],
+  "excludeCustomerIds": [],
+  "excludeCustomerIdsEnv": "STRIPE_GTM_EXCLUDE_CUSTOMER_IDS",
+  "productIdsEnv": "STRIPE_GTM_PRODUCT_IDS",
+  "priceIdsEnv": "STRIPE_GTM_PRICE_IDS",
+  "paymentLinkIdsEnv": "STRIPE_GTM_PAYMENT_LINK_IDS",
+  "notes": [
+    "Empty product/price allowlists are intentional until IDs are confirmed in Admin CRM / Stripe Dashboard.",
+    "Metadata gtm_source=gettrainmate is the primary conclusive ownership stamp.",
+    "Legacy credits sessions with packKey+credits+priceUsd (without another app source) are treated as GetTrainMate.",
+    "Owner/self and smoke-test customers belong in excludeCustomerIds or STRIPE_GTM_EXCLUDE_CUSTOMER_IDS."
+  ]
+}

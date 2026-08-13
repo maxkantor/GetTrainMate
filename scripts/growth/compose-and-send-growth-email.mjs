@@ -234,15 +234,18 @@ export function composeGrowthEmailBody({
   const n = dataQualityNeeded ? 3 : 2;
   t.push(`${n}) SCOREBOARD`);
   t.push('-------------');
-  t.push('(Values are events, users, payments, or customers as labeled. Unavailable = cannot compute safely.)');
+  t.push('(Values are events, users, attributed payments, or external customers as labeled.)');
   t.push(
-    `Window | Landings(events) | Signups | Profiles | Discover | Live payments | Unique customers | Revenue`
+    `Window | Landings(events) | Signups | Profiles | Discover | Attributed payments | Unattributed | External customers | Attributed revenue`
   );
   t.push(
-    `7d | ${scoreboardValue(board7.landings)} | ${scoreboardValue(board7.completed_signups)} | ${scoreboardValue(board7.completed_profiles)} | ${scoreboardValue(board7.discover_users)} | ${scoreboardValue(board7.live_payments)} | ${scoreboardValue(board7.unique_paying_customers)} | ${scoreboardValue(board7.revenue)}`
+    `7d | ${scoreboardValue(board7.landings)} | ${scoreboardValue(board7.completed_signups)} | ${scoreboardValue(board7.completed_profiles)} | ${scoreboardValue(board7.discover_users)} | ${scoreboardValue(board7.live_payments)} | ${scoreboardValue(board7.unattributed_live_payments)} | ${scoreboardValue(board7.unique_paying_customers)} | ${scoreboardValue(board7.revenue)}`
   );
   t.push(
-    `30d | ${scoreboardValue(board30.landings)} | ${scoreboardValue(board30.completed_signups)} | ${scoreboardValue(board30.completed_profiles)} | ${scoreboardValue(board30.discover_users)} | ${scoreboardValue(board30.live_payments)} | ${scoreboardValue(board30.unique_paying_customers)} | ${scoreboardValue(board30.revenue)}`
+    `30d | ${scoreboardValue(board30.landings)} | ${scoreboardValue(board30.completed_signups)} | ${scoreboardValue(board30.completed_profiles)} | ${scoreboardValue(board30.discover_users)} | ${scoreboardValue(board30.live_payments)} | ${scoreboardValue(board30.unattributed_live_payments)} | ${scoreboardValue(board30.unique_paying_customers)} | ${scoreboardValue(board30.revenue)}`
+  );
+  t.push(
+    'Note: Unattributed Stripe payments are excluded from GetTrainMate revenue (shared Stripe account). External customers use verified baseline until reconciliation completes.'
   );
   t.push('');
   t.push(`${n + 1}) ACTIVE EXPERIMENT`);
@@ -336,7 +339,7 @@ export function composeGrowthEmailBody({
     t.push(noteText);
   }
   t.push('');
-  t.push('Truth rule: Stripe live payments are revenue source of truth. Payments != unique customers.');
+  t.push('Truth rule: Only GetTrainMate-attributed Stripe payments count as revenue. Unattributed Stripe payments are excluded. Payments != unique external customers. Verified external customers baseline is 0 until reconciliation completes.');
   t.push('Never include credentials, user records, private locations, or message content.');
 
   const text = t.join('\n');
@@ -386,43 +389,47 @@ export function composeGrowthEmailBody({
       ${qualityHtml}
 
       <h2 style="font-size:15px;margin:18px 0 8px;">${2 + sectionOffset}) Scoreboard</h2>
-      <p style="margin:0 0 8px;font-size:12px;color:#6b7280;">Canonical metrics. Signups/profiles/discover prefer unique users when GA4 totalUsers is available; otherwise labeled as events. Payments ≠ customers.</p>
-      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px;">
+      <p style="margin:0 0 8px;font-size:12px;color:#6b7280;">Attributed Stripe only. Unattributed payments (shared account / unknown product) are not GetTrainMate revenue. External customers use verified baseline (0) until reconciliation completes.</p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:11px;">
         <thead>
           <tr style="background:#f3f4f6;">
-            <th align="left" style="padding:6px 4px;">Window</th>
-            <th align="right" style="padding:6px 4px;">Landings</th>
-            <th align="right" style="padding:6px 4px;">Signups</th>
-            <th align="right" style="padding:6px 4px;">Profiles</th>
-            <th align="right" style="padding:6px 4px;">Discover</th>
-            <th align="right" style="padding:6px 4px;">Payments</th>
-            <th align="right" style="padding:6px 4px;">Customers</th>
-            <th align="right" style="padding:6px 4px;">Revenue</th>
+            <th align="left" style="padding:6px 3px;">Window</th>
+            <th align="right" style="padding:6px 3px;">Landings</th>
+            <th align="right" style="padding:6px 3px;">Signups</th>
+            <th align="right" style="padding:6px 3px;">Profiles</th>
+            <th align="right" style="padding:6px 3px;">Discover</th>
+            <th align="right" style="padding:6px 3px;">Attr. pay</th>
+            <th align="right" style="padding:6px 3px;">Unattrib.</th>
+            <th align="right" style="padding:6px 3px;">Ext. cust.</th>
+            <th align="right" style="padding:6px 3px;">Attr. rev</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;">7d</td>
-            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.landings))}</td>
-            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.completed_signups))}</td>
-            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.completed_profiles))}</td>
-            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.discover_users))}</td>
-            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.live_payments))}</td>
-            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.unique_paying_customers))}</td>
-            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.revenue))}</td>
+            <td style="padding:6px 3px;border-bottom:1px solid #e5e7eb;">7d</td>
+            <td style="padding:6px 3px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.landings))}</td>
+            <td style="padding:6px 3px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.completed_signups))}</td>
+            <td style="padding:6px 3px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.completed_profiles))}</td>
+            <td style="padding:6px 3px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.discover_users))}</td>
+            <td style="padding:6px 3px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.live_payments))}</td>
+            <td style="padding:6px 3px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.unattributed_live_payments))}</td>
+            <td style="padding:6px 3px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.unique_paying_customers))}</td>
+            <td style="padding:6px 3px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(scoreboardValue(board7.revenue))}</td>
           </tr>
           <tr>
-            <td style="padding:6px 4px;">30d</td>
-            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.landings))}</td>
-            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.completed_signups))}</td>
-            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.completed_profiles))}</td>
-            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.discover_users))}</td>
-            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.live_payments))}</td>
-            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.unique_paying_customers))}</td>
-            <td style="padding:6px 4px;text-align:right;">${escapeHtml(scoreboardValue(board30.revenue))}</td>
+            <td style="padding:6px 3px;">30d</td>
+            <td style="padding:6px 3px;text-align:right;">${escapeHtml(scoreboardValue(board30.landings))}</td>
+            <td style="padding:6px 3px;text-align:right;">${escapeHtml(scoreboardValue(board30.completed_signups))}</td>
+            <td style="padding:6px 3px;text-align:right;">${escapeHtml(scoreboardValue(board30.completed_profiles))}</td>
+            <td style="padding:6px 3px;text-align:right;">${escapeHtml(scoreboardValue(board30.discover_users))}</td>
+            <td style="padding:6px 3px;text-align:right;">${escapeHtml(scoreboardValue(board30.live_payments))}</td>
+            <td style="padding:6px 3px;text-align:right;">${escapeHtml(scoreboardValue(board30.unattributed_live_payments))}</td>
+            <td style="padding:6px 3px;text-align:right;">${escapeHtml(scoreboardValue(board30.unique_paying_customers))}</td>
+            <td style="padding:6px 3px;text-align:right;">${escapeHtml(scoreboardValue(board30.revenue))}</td>
           </tr>
         </tbody>
       </table>
+      <p style="margin:8px 0 0;font-size:11px;color:#6b7280;">Unattributed Stripe payment counts are informational only — never GetTrainMate customers or revenue. See docs/growth/STRIPE-ATTRIBUTION.md.</p>
 
       <h2 style="font-size:15px;margin:18px 0 8px;">${3 + sectionOffset}) Active Experiment</h2>
       ${
@@ -515,7 +522,7 @@ export function composeGrowthEmailBody({
         ${noteText ? `Notes: ${escapeHtml(noteText)}` : ''}
       </p>
       <p style="margin:16px 0 0;font-size:11px;color:#9ca3af;">
-        Truth rule: Stripe live payments are the revenue source of truth. Never confuse payments with unique customers.
+        Truth rule: Only GetTrainMate-attributed Stripe payments count as revenue. Unattributed Stripe payments are excluded. Never confuse attributed payments with unique external customers (baseline 0 until reconciliation).
       </p>
     </div>
   </div>

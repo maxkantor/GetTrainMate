@@ -80,13 +80,29 @@ export const stripeFixture = {
   sessions: {
     data: [
       {
-        id: 'cs_live_1',
+        id: 'cs_live_unattributed',
         livemode: true,
         status: 'complete',
         payment_status: 'paid',
         amount_total: 1999,
         customer: 'cus_abc',
-        payment_intent: 'pi_1'
+        payment_intent: 'pi_1',
+        metadata: {}
+      },
+      {
+        id: 'cs_live_gtm',
+        livemode: true,
+        status: 'complete',
+        payment_status: 'paid',
+        amount_total: 999,
+        customer: 'cus_gtm',
+        payment_intent: 'pi_gtm',
+        metadata: {
+          gtm_source: 'gettrainmate',
+          packKey: 'go',
+          credits: '100',
+          priceUsd: '9.99'
+        }
       },
       {
         id: 'cs_test_1',
@@ -110,7 +126,20 @@ export const stripeFixture = {
         amount: 1999,
         amount_refunded: 0,
         customer: 'cus_abc',
-        payment_intent: 'pi_1'
+        payment_intent: 'pi_1',
+        metadata: {}
+      },
+      {
+        id: 'ch_gtm',
+        livemode: true,
+        paid: true,
+        status: 'succeeded',
+        refunded: false,
+        amount: 999,
+        amount_refunded: 0,
+        customer: 'cus_gtm',
+        payment_intent: 'pi_gtm',
+        metadata: { gtm_source: 'gettrainmate' }
       }
     ]
   }
