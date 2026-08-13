@@ -27,9 +27,9 @@ Agents must append every experiment here. Do not delete history.
 | Evaluation date | 2026-08-27 |
 | Continue/stop rule | Rollback if partner routes 404 or signup query broken. Continue while EXP-001 remains active. |
 | Rollback procedure | `git revert` EXP-002 commit; remove amplify partner rewrites if needed |
-| Commit | _(filled on ship)_ |
-| Deployment status | pending Amplify |
-| Production verification | pending |
+| Commit | `8b67f80` |
+| Deployment status | Amplify pending verification |
+| Production verification | pending post-deploy |
 | Verified purchase result | n/a (density-first) |
 
 ### 2026-08-12 — EXP-001 Atlanta training partners landing page
