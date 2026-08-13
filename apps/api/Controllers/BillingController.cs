@@ -195,7 +195,11 @@ public class BillingController : ControllerBase
 
         try
         {
-            var url = await _creditsService.CreateCreditsCheckoutSessionAsync(userId, request.PackKey, baseUrl);
+            var url = await _creditsService.CreateCreditsCheckoutSessionAsync(
+                userId,
+                request.PackKey,
+                baseUrl,
+                request.Attribution);
             return Ok(new CreateCheckoutResponse { Url = url });
         }
         catch (ArgumentException ex)
@@ -547,6 +551,8 @@ public class CreateCheckoutRequest
 {
     public string PlanKey { get; set; } = string.Empty;
     public string PackKey { get; set; } = string.Empty;
+    /// <summary>Non-PII acquisition params for Stripe metadata / EXP attribution.</summary>
+    public Dictionary<string, string>? Attribution { get; set; }
 }
 
 public class CreditPacksResponse

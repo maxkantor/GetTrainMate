@@ -177,7 +177,6 @@ export function normalizeStripe({ sessions, charges } = {}) {
     }
   }
 
-  // Deduplicate payments: prefer Charges; add Checkout Sessions only when no charge shares the same payment_intent.
   // Prefer Charges for payment count when available (Checkout Sessions often duplicate the same PI).
   const livePayments =
     liveCharges.length > 0
@@ -223,6 +222,7 @@ export function normalizeStripe({ sessions, charges } = {}) {
     test_paid_sessions: testSessions.length,
     live_checkout_sessions: liveSessions.length,
     live_succeeded_charges: liveCharges.length,
+    live_paid_sessions: liveSessions,
     warnings
   };
 }

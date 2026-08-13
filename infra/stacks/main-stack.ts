@@ -136,6 +136,8 @@ export class GetTrainMateStack extends cdk.Stack {
           (this.node.tryGetContext('frontendUrl') as string | undefined)?.trim() ||
           (process.env.FRONTEND_URL || '').trim() ||
           'https://gettrainmate.com',
+        // Optional scoped token for GET /api/admin/metrics/metro (growth automation; not SES IAM DynamoDB).
+        GROWTH_METRO_READ_TOKEN: process.env.GROWTH_METRO_READ_TOKEN || '',
         // Bedrock: ASP.NET maps Bedrock__ModelId -> Bedrock:ModelId; BEDROCK_MODEL_ID fallback
         Bedrock__ModelId: bedrockModelId,
         BEDROCK_MODEL_ID: bedrockModelId,

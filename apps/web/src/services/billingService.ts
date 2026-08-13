@@ -191,12 +191,13 @@ export const billingService = {
 
   async createCheckoutSession(
     token: string,
-    packKey: string
+    packKey: string,
+    attribution?: Record<string, string>
   ): Promise<string> {
     try {
       const response = await axios.post<CreateCheckoutResponse>(
         `${API_BASE_URL}/api/billing/create-checkout-session`,
-        { packKey },
+        { packKey, attribution: attribution && Object.keys(attribution).length ? attribution : undefined },
         {
           headers: {
             Authorization: `Bearer ${token}`,

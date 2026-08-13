@@ -141,7 +141,7 @@ export const EXP001 = {
   id: 'EXP-001',
   path: '/atlanta-training-partners',
   srcParam: 'atlanta-training-partners',
-  evaluationDate: '2026-08-26'
+  evaluationDate: '2026-08-16'
 };
 
 export const SITE = {

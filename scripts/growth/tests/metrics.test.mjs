@@ -259,7 +259,7 @@ describe('buildScoreboardRow + compose email', () => {
             landings: { value: 2, available: true },
             signup_starts: { value: 0, available: true },
             completed_signups: { value: 0, available: true },
-            evaluationDate: '2026-08-26'
+            evaluationDate: '2026-08-16'
           }
         }
       },
@@ -268,7 +268,7 @@ describe('buildScoreboardRow + compose email', () => {
         {
           idLine: '2026-08-12 - EXP-001',
           status: 'active',
-          evalDate: '2026-08-26',
+          evalDate: '2026-08-16',
           funnelStage: 'acquisition / SEO',
           commit: '4c8612a'
         }
@@ -277,5 +277,40 @@ describe('buildScoreboardRow + compose email', () => {
     });
     assert.match(text, /Attributed paid conversions: Unknown/);
     assert.match(text, /\$19\.99/); // sitewide revenue OK
+  });
+});
+
+describe('EXP-001 Stripe attribution', () => {
+  it('returns Unknown when live payments lack acquisition metadata', async () => {
+    const { attributeExp001PaidConversions } = await import('../lib/exp001-attribution.mjs');
+    const result = attributeExp001PaidConversions([
+      { livemode: true, payment_status: 'paid', metadata: { userId: 'u1', packKey: 'go' } }
+    ]);
+    assert.equal(result.available, false);
+    assert.equal(result.label, 'Unknown');
+  });
+
+  it('counts EXP-001 when acquisition_source matches', async () => {
+    const { attributeExp001PaidConversions } = await import('../lib/exp001-attribution.mjs');
+    const result = attributeExp001PaidConversions([
+      {
+        metadata: {
+          acquisition_source: 'atlanta-training-partners',
+          experiment_id: 'EXP-001'
+        }
+      },
+      { metadata: { acquisition_source: 'homepage' } }
+    ]);
+    assert.equal(result.available, true);
+    assert.equal(result.value, 1);
+  });
+
+  it('does not attribute generic homepage payment as EXP-001', async () => {
+    const { attributeExp001PaidConversions } = await import('../lib/exp001-attribution.mjs');
+    const result = attributeExp001PaidConversions([
+      { metadata: { acquisition_source: 'homepage', utm_campaign: 'brand' } }
+    ]);
+    assert.equal(result.available, true);
+    assert.equal(result.value, 0);
   });
 });

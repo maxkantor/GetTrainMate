@@ -41,6 +41,9 @@ public class CreateCheckoutSessionRequest
 {
     [Required]
     public string PlanType { get; set; } // premium_monthly, premium_yearly, lifetime
+
+    /// <summary>Non-PII acquisition params (src/utm/metro/experiment_id) for Stripe metadata.</summary>
+    public Dictionary<string, string>? Attribution { get; set; }
 }
 
 public class CheckoutSessionResponse

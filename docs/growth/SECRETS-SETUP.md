@@ -9,6 +9,9 @@ Never commit credential files or paste secrets into git, chat logs, or experimen
 | `GA4_PROPERTY_ID` | `/gettrainmate/growth/ga4-property-id` | String |
 | `GOOGLE_ANALYTICS_CREDENTIALS_JSON` | `/gettrainmate/growth/google-analytics-credentials-json` | SecureString |
 | `STRIPE_RESTRICTED_READ_KEY` | `/gettrainmate/growth/stripe-restricted-read-key` | SecureString |
+| `GROWTH_METRO_READ_TOKEN` | `/gettrainmate/growth/metro-read-token` | SecureString (optional; preferred metro path) |
+| `GROWTH_CRM_ADMIN_EMAIL` | `/gettrainmate/growth/crm-admin-email` | String (optional fallback) |
+| `GROWTH_CRM_ADMIN_PASSWORD` | `/gettrainmate/growth/crm-admin-password` | SecureString (optional fallback) |
 | `AWS_ACCESS_KEY_ID` | `/gettrainmate/growth/aws-access-key-id` | String |
 | `AWS_SECRET_ACCESS_KEY` | `/gettrainmate/growth/aws-secret-access-key` | SecureString |
 
@@ -71,6 +74,8 @@ Secrets do **not** live on the Automations Settings page alone. They live here:
 | `GA4_PROPERTY_ID` | Yes (or load via SSM with AWS) |
 | `GOOGLE_ANALYTICS_CREDENTIALS_JSON` | Yes (or via SSM) |
 | `STRIPE_RESTRICTED_READ_KEY` | Yes (`rk_…` only) |
+| `GROWTH_METRO_READ_TOKEN` | Recommended — same value as API Lambda `GROWTH_METRO_READ_TOKEN` / SSM `/gettrainmate/growth/metro-read-token` |
+| `GROWTH_CRM_ADMIN_EMAIL` / `GROWTH_CRM_ADMIN_PASSWORD` | Optional fallback if metro read token not set |
 | `ADMIN_EMAIL` or `SES_ADMIN_EMAIL` | Optional (else SSM `/gettrainmate/ses-admin-email`) |
 | `SES_FROM_EMAIL` | Optional (else SSM `/gettrainmate/ses-from-email`) |
 
@@ -95,6 +100,20 @@ Secrets do **not** live on the Automations Settings page alone. They live here:
 - `kms:Decrypt` via `ssm.us-east-1.amazonaws.com` for SecureString params
 
 If Admin email fails in Automations with “SSM get failed”, either fix that IAM policy or add Cursor Environment secrets `SES_FROM_EMAIL` and `SES_ADMIN_EMAIL` (same values as the SSM params).
+
+## Metro density (approved separate CRM path)
+
+Do **not** grant DynamoDB/Cognito/SSM app-data read to the SES growth IAM user.
+
+Preferred path:
+
+1. Generate a long random token (e.g. `openssl rand -hex 32`).
+2. Store as SecureString `/gettrainmate/growth/metro-read-token`.
+3. Set API Lambda environment `GROWTH_METRO_READ_TOKEN` to the same value (Console or CDK).
+4. Put the same value in Cursor Cloud Agent secrets as `GROWTH_METRO_READ_TOKEN`.
+5. Growth scripts call `GET /api/admin/metrics/metro` with header `X-Growth-Metro-Token`.
+
+Fallback: `GROWTH_CRM_ADMIN_EMAIL` + `GROWTH_CRM_ADMIN_PASSWORD` (Admin login → `X-Admin-Token`). Prefer the scoped metro token.
 
 ## Verify SSM from your laptop (safe)
 

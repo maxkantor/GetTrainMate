@@ -42,6 +42,31 @@ public class AdminTokenAuthMiddleware
         }
 
         var token = context.Request.Headers["X-Admin-Token"].FirstOrDefault();
+        // Scoped growth metro read token (separate from SES IAM / DynamoDB). Only metro endpoint.
+        if (string.IsNullOrWhiteSpace(token)
+            && HttpMethods.IsGet(context.Request.Method)
+            && path.StartsWithSegments("/api/admin/metrics/metro"))
+        {
+            var growthToken = context.Request.Headers["X-Growth-Metro-Token"].FirstOrDefault()
+                ?? context.Request.Headers["X-Admin-Token"].FirstOrDefault();
+            var expected = Environment.GetEnvironmentVariable("GROWTH_METRO_READ_TOKEN");
+            if (!string.IsNullOrWhiteSpace(expected)
+                && !string.IsNullOrWhiteSpace(growthToken)
+                && string.Equals(expected.Trim(), growthToken.Trim(), StringComparison.Ordinal))
+            {
+                var identity = new ClaimsIdentity(
+                    new[]
+                    {
+                        new Claim(ClaimTypes.NameIdentifier, "growth-metro-reader"),
+                        new Claim("sub", "growth-metro-reader"),
+                        new Claim(ClaimTypes.Role, "growth_metro_read"),
+                    },
+                    "GrowthMetroToken");
+                context.User = new ClaimsPrincipal(identity);
+                await _next(context);
+                return;
+            }
+        }
         // <img src> cannot send custom headers — photo stream accepts the same token in query (short TTL risk: treat like URL with secret).
         if (string.IsNullOrWhiteSpace(token)
             && HttpMethods.IsGet(context.Request.Method)

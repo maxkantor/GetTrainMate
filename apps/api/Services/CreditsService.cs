@@ -460,7 +460,11 @@ public class CreditsService : ICreditsService
         return null;
     }
 
-    public async Task<string> CreateCreditsCheckoutSessionAsync(string userId, string packKey, string baseUrl)
+    public async Task<string> CreateCreditsCheckoutSessionAsync(
+        string userId,
+        string packKey,
+        string baseUrl,
+        IDictionary<string, string>? attribution = null)
     {
         if (PricingPlanCatalog.IsFreePackKey(packKey))
             throw new ArgumentException("Free pack does not require checkout. Use grant-free-signup.");
@@ -478,6 +482,16 @@ public class CreditsService : ICreditsService
         var cancelUrl = $"{baseUrlClean}/billing/cancel";
 
         var amountCents = (long)(pack.PriceUsd * 100);
+        var metadata = new Dictionary<string, string>
+        {
+            { StripeSessionOwnership.AppSourceKey, StripeSessionOwnership.AppSourceValue },
+            { "userId", userId },
+            { "packKey", canonicalPackKey },
+            { "credits", pack.Credits.ToString() },
+            { "priceUsd", pack.PriceUsd.ToString("F2") },
+        };
+        StripeAcquisitionMetadata.MergeInto(metadata, attribution);
+
         var options = new SessionCreateOptions
         {
             PaymentMethodTypes = new List<string> { "card" },
@@ -502,14 +516,7 @@ public class CreditsService : ICreditsService
             SuccessUrl = successUrl,
             CancelUrl = cancelUrl,
             ClientReferenceId = userId,
-            Metadata = new Dictionary<string, string>
-            {
-                { StripeSessionOwnership.AppSourceKey, StripeSessionOwnership.AppSourceValue },
-                { "userId", userId },
-                { "packKey", canonicalPackKey },
-                { "credits", pack.Credits.ToString() },
-                { "priceUsd", pack.PriceUsd.ToString("F2") },
-            },
+            Metadata = metadata,
         };
 
         var service = new SessionService();

@@ -49,7 +49,10 @@ public class PaymentController : ControllerBase
             var userId = GetUserId();
             _logger.LogInformation("Checkout request: plan={Plan}, userId={UserId}", request.PlanType, userId);
 
-            var (sessionId, checkoutUrl) = await _paymentService.CreateCheckoutSessionAsync(userId, request.PlanType);
+            var (sessionId, checkoutUrl) = await _paymentService.CreateCheckoutSessionAsync(
+                userId,
+                request.PlanType,
+                request.Attribution);
 
             _logger.LogInformation("Checkout session created for user {UserId}, redirecting to Stripe", userId);
             return Ok(new CheckoutSessionResponse { SessionId = sessionId, CheckoutUrl = checkoutUrl });

@@ -14,6 +14,10 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { PageShell } from '@/components/layout/PageShell';
 import { trackEvent, trackSignUp } from '@/utils/analytics';
 import { savePendingSignup } from '@/utils/pendingSignupStorage';
+import {
+  captureAcquisitionFromSearch,
+  mergeAndPersistAcquisition,
+} from '@/utils/acquisitionAttribution';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -104,6 +108,8 @@ export const SignupPage: React.FC = () => {
     const src = searchParams.get('src') || undefined;
     const metro = searchParams.get('metro') || undefined;
     const mode = searchParams.get('mode') || undefined;
+    // Persist acquisition params across verify-email → app → pricing/checkout (no PII).
+    mergeAndPersistAcquisition(captureAcquisitionFromSearch(searchParams));
     trackEvent('signup_started', {
       source_page: '/signup',
       ...(src ? { acquisition_source: src } : {}),

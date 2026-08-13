@@ -4,7 +4,7 @@ Agents must append every experiment here. Do not delete history.
 
 ## Active
 
-- **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-26** — funnel stage: acquisition / SEO
+- **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — funnel stage: acquisition / SEO
 
 ## Log
 
@@ -22,8 +22,8 @@ Agents must append every experiment here. Do not delete history.
 | Guardrail metric | Homepage conversion and signup error rate must not worsen; no fake density claims. |
 | Baseline | 0 dedicated Atlanta SEO URL; ~3 landings/7d sitewide. |
 | Target | Directional: organic/direct visits + Atlanta signups from this URL within 14 days. |
-| Required sample or duration | 14 days (eval 2026-08-26) |
-| Evaluation date | 2026-08-26 |
+| Required sample or duration | Collect through 2026-08-16 |
+| Evaluation date | 2026-08-16 |
 | Continue/stop rule | If page 404s, prerender/canonical broken, or signup path fails within 48h → rollback. Continue if URL is indexed and captures any signup starts. |
 | Rollback procedure | `git revert` EXP-001 commit on `main` and push; Amplify redeploys. |
 | Commit | `4c8612a` |

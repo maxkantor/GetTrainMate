@@ -273,14 +273,40 @@ export function composeGrowthEmailBody({
     t.push(
       `  Landing->completed signup: ${a.landing_to_completed_signup == null ? 'Unavailable' : a.landing_to_completed_signup}`
     );
-    t.push('  Attributed paid conversions: Unknown');
+    t.push(
+      `  Attributed paid conversions: ${
+        a.attributed_paid_conversions?.available
+          ? a.attributed_paid_conversions.value
+          : a.attributed_paid_conversions?.label || 'Unknown'
+      }`
+    );
+    if (a.attributed_paid_conversions?.reason) {
+      t.push(`  Attribution note: ${ascii(a.attributed_paid_conversions.reason)}`);
+    }
     t.push(`  Evaluation date: ${a.evaluationDate}`);
+  }
+  if (md?.status === 'ok' && Array.isArray(md.byMetro) && md.byMetro.length) {
+    t.push('');
+    t.push('Marketplace density (aggregated CRM, min cohort applied):');
+    for (const row of md.byMetro.slice(0, 8)) {
+      t.push(
+        `  ${row.metro}: profiles=${row.profiles}, completed=${row.completedProfiles}, connections=${row.connectionsSent}, matches=${row.matchesCreated}, discover=Unavailable, returning=Unavailable`
+      );
+    }
+    if (md.suppressedMetroCount) t.push(`  Suppressed small metros: ${md.suppressedMetroCount}`);
+  } else if (md?.reason) {
+    t.push('');
+    t.push(`Marketplace density: Unavailable — ${ascii(md.reason)}`);
   }
   t.push('');
   t.push(`${n + 2}) NEXT ACTION`);
   t.push('---------------');
   t.push('1. Keep canonical metric normalization as source of truth for all growth emails.');
-  t.push('2. Metro density: Unavailable until aggregated Admin CRM read is approved (do not expand SES IAM).');
+  t.push(
+    md?.status === 'ok'
+      ? '2. Use metro aggregates to prioritize Atlanta density; suppress small cohorts.'
+      : '2. Configure GROWTH_METRO_READ_TOKEN (or GROWTH_CRM_ADMIN_*) for metro CRM read — do not expand SES IAM to DynamoDB.'
+  );
   t.push(`3. Continue EXP-001 until evaluation date ${EXP001.evaluationDate}.`);
   t.push('4. Do not launch a conflicting acquisition experiment on the same funnel stage.');
   t.push('Responsible: GetTrainMate Wednesday Customer Growth automation.');
@@ -409,17 +435,62 @@ export function composeGrowthEmailBody({
         <div style="margin-top:8px;"><b>EXP-001 30d attributable landings:</b> ${escapeHtml(String(attr30?.landings?.value ?? 'Unavailable'))}</div>
         <div><b>Signup starts (path):</b> ${escapeHtml(String(attr30?.signup_starts?.value ?? 'Unavailable'))}</div>
         <div><b>Completed signups (path):</b> ${escapeHtml(String(attr30?.completed_signups?.value ?? 'Unavailable'))}</div>
-        <div><b>Attributed paid conversions:</b> Unknown</div>
+        <div><b>Attributed paid conversions:</b> ${escapeHtml(
+          attr30?.attributed_paid_conversions?.available
+            ? String(attr30.attributed_paid_conversions.value)
+            : attr30?.attributed_paid_conversions?.label || 'Unknown'
+        )}</div>
+        ${
+          attr30?.attributed_paid_conversions?.reason
+            ? `<div style="color:#6b7280;font-size:12px;">${escapeHtml(attr30.attributed_paid_conversions.reason)}</div>`
+            : ''
+        }
         ${commitUrl ? `<div style="margin-top:8px;"><a href="${commitUrl}">Commit ${escapeHtml(exp001.commit)}</a></div>` : ''}
         ${exp001.amplify ? `<div><b>Deployment:</b> ${escapeHtml(exp001.amplify)}</div>` : ''}
       </div>`
           : '<p style="color:#6b7280;">(none marked active)</p>'
       }
 
+      ${
+        md?.status === 'ok' && Array.isArray(md.byMetro) && md.byMetro.length
+          ? `<h2 style="font-size:15px;margin:18px 0 8px;">Marketplace density (CRM aggregate)</h2>
+      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:#f8fafc;text-align:left;">
+          <th style="padding:6px 4px;border-bottom:1px solid #e5e7eb;">Metro</th>
+          <th style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">Profiles</th>
+          <th style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">Completed</th>
+          <th style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">Connections</th>
+          <th style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">Matches</th>
+        </tr></thead>
+        <tbody>
+          ${md.byMetro
+            .slice(0, 8)
+            .map(
+              (row) => `<tr>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;">${escapeHtml(row.metro)}</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(String(row.profiles))}</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(String(row.completedProfiles))}</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(String(row.connectionsSent))}</td>
+            <td style="padding:6px 4px;border-bottom:1px solid #e5e7eb;text-align:right;">${escapeHtml(String(row.matchesCreated))}</td>
+          </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
+      <p style="margin:6px 0 0;font-size:11px;color:#6b7280;">Discover/returning by metro: Unavailable. Small cohorts suppressed (min ${escapeHtml(String(md.minCohort ?? 3))}).</p>`
+          : md?.reason
+            ? `<p style="margin:12px 0 0;font-size:12px;color:#6b7280;">Marketplace density: Unavailable — ${escapeHtml(md.reason)}</p>`
+            : ''
+      }
+
       <h2 style="font-size:15px;margin:18px 0 8px;">${4 + sectionOffset}) Next Action</h2>
       <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.5;">
         <li>Keep canonical metric normalization as the only scoreboard source.</li>
-        <li>Metro density remains Unavailable without approved CRM aggregate read (do not expand SES IAM).</li>
+        <li>${
+          md?.status === 'ok'
+            ? 'Use metro aggregates to prioritize Atlanta density; keep small cohorts suppressed.'
+            : 'Configure GROWTH_METRO_READ_TOKEN (or GROWTH_CRM_ADMIN_*) for metro CRM read — do not expand SES IAM to DynamoDB.'
+        }</li>
         <li>Continue EXP-001 until <b>${escapeHtml(EXP001.evaluationDate)}</b>.</li>
         <li>Do not launch a conflicting acquisition experiment.</li>
       </ol>

@@ -16,6 +16,8 @@ import {
   buildScoreboardRow
 } from './lib/normalize-metrics.mjs';
 import { reconcileSnapshot, applyReconciliationBlocks } from './lib/reconcile.mjs';
+import { fetchMetroDensity } from './lib/crm-metro.mjs';
+import { attributeExp001PaidConversions } from './lib/exp001-attribution.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MEASUREMENT_ID = 'G-C29M8NWNY4';
@@ -163,7 +165,7 @@ async function fetchStripeCharges(key, startUnix) {
   return res.json();
 }
 
-function summarizeExp001(pagePathReport, windowLabel) {
+function summarizeExp001(pagePathReport, windowLabel, stripeNormalized) {
   const byEvent = {};
   let pageViews = 0;
   let pageViewUsers = null;
@@ -190,6 +192,7 @@ function summarizeExp001(pagePathReport, windowLabel) {
     landings > 0 ? Number((signupStarts / landings).toFixed(4)) : null;
   const toComplete =
     landings > 0 ? Number((signupCompleted / landings).toFixed(4)) : null;
+  const paid = attributeExp001PaidConversions(stripeNormalized?.live_paid_sessions || []);
 
   return {
     experimentId: EXP001.id,
@@ -210,12 +213,7 @@ function summarizeExp001(pagePathReport, windowLabel) {
     },
     landing_to_signup_start: toStart,
     landing_to_completed_signup: toComplete,
-    attributed_paid_conversions: {
-      value: null,
-      available: false,
-      label: 'Unknown',
-      reason: 'No reliable Stripe metadata / UTM link from EXP-001 sessions to live payments.'
-    },
+    attributed_paid_conversions: paid,
     evaluationDate: EXP001.evaluationDate,
     rawPathEvents: byEvent
   };
@@ -238,11 +236,33 @@ if (stripeKey) {
 }
 
 report.notes.push(
-  'Admin CRM metro aggregates: unavailable to growth automation (SES/SSM-only IAM). Not expanding permissions.'
+  'Admin CRM metro aggregates: use GROWTH_METRO_READ_TOKEN or GROWTH_CRM_ADMIN_* via HTTPS Admin API (not SES IAM DynamoDB).'
 );
 
 const ga4Ready = report.sources.ga4 === 'configured';
 const stripeReady = report.sources.stripe === 'configured';
+
+try {
+  const metro = await fetchMetroDensity({ minCohort: 3 });
+  report.marketplaceDensity = {
+    ...report.marketplaceDensity,
+    status: metro.status,
+    reason: metro.reason || null,
+    minCohort: metro.minCohort ?? 3,
+    suppressedMetroCount: metro.suppressedMetroCount ?? 0,
+    discoverUsersNote: metro.discoverUsersNote || null,
+    returningUsersNote: metro.returningUsersNote || null,
+    byMetro: metro.status === 'ok' ? metro.metros : null,
+    authMethod: metro.authMethod || null
+  };
+  report.sources.adminCrm = metro.status === 'ok' ? 'ok' : 'unavailable';
+  if (metro.status !== 'ok' && metro.reason) {
+    report.notes.push(`Metro CRM: ${metro.reason}`);
+  }
+} catch (e) {
+  report.notes.push(`Metro CRM fetch failed: ${e instanceof Error ? e.message : e}`);
+  report.sources.adminCrm = 'unavailable';
+}
 
 for (const w of windows) {
   const entry = {
@@ -267,14 +287,13 @@ for (const w of windows) {
           report.notes.push(`[${w.label}] ${warn}`);
         }
       }
-      const pathReport = await fetchGa4PagePath(
+      entry._pathReport = await fetchGa4PagePath(
         ga4Id,
         ga4Creds,
         w.start,
         w.end,
         EXP001.path
       );
-      entry.exp001 = summarizeExp001(pathReport, w.label);
     } catch (e) {
       report.notes.push(`GA4 ${w.label} failed: ${e instanceof Error ? e.message : e}`);
     }
@@ -303,6 +322,11 @@ for (const w of windows) {
       report.notes.push(`Stripe ${w.label} failed: ${e instanceof Error ? e.message : e}`);
     }
   }
+
+  if (entry._pathReport || entry.stripeNormalized) {
+    entry.exp001 = summarizeExp001(entry._pathReport, w.label, entry.stripeNormalized);
+  }
+  delete entry._pathReport;
 
   report.windows[w.label] = entry;
   report.scoreboard[w.label] = buildScoreboardRow(

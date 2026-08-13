@@ -30,3 +30,16 @@ Canonical definitions live in `scripts/growth/lib/metric-definitions.mjs` and ar
 
 1. Snapshot `buildFunnelSummary` **added** aliases (`signup_completed + sign_up`, `match_created + match_shown`, …).
 2. Email `funnelKpis` **added them again** via `pick(stageSum, aliasEvent)`, producing ~2× profiles/connections/matches and signup 3 vs notes 2 vs GA4 table 1.
+
+## Metro density (CRM HTTP path)
+
+- Endpoint: `GET /api/admin/metrics/metro?minCohort=3`
+- Auth: `X-Growth-Metro-Token` (preferred) or Admin token — **not** SES growth IAM → DynamoDB
+- Suppresses metros below min cohort; never returns emails, user ids, or coordinates
+- Discover/returning by metro: Unavailable until CRM stores those signals
+
+## EXP-001 paid attribution
+
+- Checkout metadata may include `acquisition_source`, `experiment_id`, `utm_*`, `metro` (no PII)
+- Attribution is Unknown when live payments lack those fields
+- Sitewide Stripe revenue is never labeled as EXP-001 revenue without metadata evidence

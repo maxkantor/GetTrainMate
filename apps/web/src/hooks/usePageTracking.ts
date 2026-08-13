@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { getMeasurementId, initGa4 } from '@/lib/gtag';
 import { getRouteSeo } from '@/config/seoRoutes';
 import { trackEvent, trackPageView } from '@/utils/analytics';
+import { captureAcquisitionFromSearch, mergeAndPersistAcquisition } from '@/utils/acquisitionAttribution';
 
 /**
  * Module-level dedupe: avoids double page_view in React 18 StrictMode (mount → unmount → remount)
@@ -38,6 +39,13 @@ export function usePageTracking(): void {
 
     const seo = getRouteSeo(location.pathname);
     trackPageView(pathForAnalytics, seo.title);
+
+    try {
+      const captured = captureAcquisitionFromSearch(location.search);
+      if (Object.keys(captured).length) mergeAndPersistAcquisition(captured);
+    } catch {
+      // ignore
+    }
 
     const engagedKey = `gtm_user_engaged_${pathForAnalytics}`;
     const timer = window.setTimeout(() => {

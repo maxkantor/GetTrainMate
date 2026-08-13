@@ -12,6 +12,7 @@ import { formatI18n, getPricingPackFeatures, getPricingPackTitle } from '@/i18n'
 import { CreditPack, FALLBACK_CREDIT_PACKS, CreditPackKey } from '@/data/creditPacks';
 import { CANONICAL_PACK_KEYS, normalizeCreditPackKey } from '@/config/pricingPlans';
 import { useCreditsUsageModal } from '@/contexts/CreditsUsageModalContext';
+import { attributionForCheckout } from '@/utils/acquisitionAttribution';
 import styles from '@/pages/Pricing.module.css';
 
 const MAX_BULLETS = 5;
@@ -109,7 +110,7 @@ export const PricingPage: React.FC = () => {
           itemName,
           valueUsd: pack.priceUsd,
         });
-        const url = await billingService.createCheckoutSession(token, pack.key);
+        const url = await billingService.createCheckoutSession(token, pack.key, attributionForCheckout());
         window.location.assign(url);
       } catch (err: unknown) {
         const res =

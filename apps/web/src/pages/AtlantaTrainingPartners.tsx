@@ -3,6 +3,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, Container, List, ListItem, ListItemText, Typography } from '@mui/material';
 import { PageShell } from '@/components/layout/PageShell';
 import { trackEvent } from '@/utils/analytics';
+import { markAtlantaLandingVisit } from '@/utils/acquisitionAttribution';
 
 /**
  * Atlanta-focused acquisition landing (EXP-001).
@@ -10,10 +11,12 @@ import { trackEvent } from '@/utils/analytics';
  */
 export const AtlantaTrainingPartnersPage: React.FC = () => {
   useEffect(() => {
+    markAtlantaLandingVisit();
     trackEvent('landing_page_view', {
       source_page: '/atlanta-training-partners',
       metro: 'Atlanta',
       segment: 'TRAIN',
+      acquisition_source: 'atlanta-training-partners',
     });
   }, []);
 

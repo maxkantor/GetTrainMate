@@ -5,6 +5,7 @@ using GetTrainMate.Api.Services;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
+using System.Text.RegularExpressions;
 
 namespace GetTrainMate.Api.Controllers;
 
@@ -169,6 +170,165 @@ public class AdminMetricsController : ControllerBase
             _logger.LogError(ex, "Error getting metrics");
             return StatusCode(500, new { error = "Failed to get metrics" });
         }
+    }
+
+    /// <summary>
+    /// GET /api/admin/metrics/metro?minCohort=3
+    /// Aggregated marketplace density by city/metro. No user ids, emails, or coordinates.
+    /// Metros below minCohort are omitted (small-cohort suppression).
+    /// </summary>
+    [HttpGet("metro")]
+    public async Task<ActionResult<MetroDensityResponse>> GetMetroDensity([FromQuery] int minCohort = 3)
+    {
+        try
+        {
+            if (minCohort < 1) minCohort = 1;
+            if (minCohort > 50) minCohort = 50;
+
+            var prefix = _configuration["DYNAMODB_TABLE_PREFIX"] ?? "gettrainmate-";
+            var profilesTable = _configuration["DYNAMODB_TABLE_PROFILES"] ?? $"{prefix}profiles";
+            var matchesTable = _configuration["DYNAMODB_TABLE_MATCHES"] ?? $"{prefix}matches";
+
+            List<Document> profileDocs;
+            try
+            {
+                profileDocs = await ScanAllDocumentsAsync(profilesTable);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Profile scan failed for metro metrics (table {Table})", profilesTable);
+                return Ok(new MetroDensityResponse
+                {
+                    Status = "unavailable",
+                    Reason = "Could not read profiles table for metro aggregation.",
+                    MinCohort = minCohort,
+                    GeneratedAtUtc = DateTime.UtcNow,
+                });
+            }
+
+            var userMetro = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var completedByMetro = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var profilesByMetro = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var doc in profileDocs)
+            {
+                var userId = TryGetString(doc, "userId", "UserId");
+                if (string.IsNullOrEmpty(userId)) continue;
+                var metro = NormalizeMetroLabel(TryGetString(doc, "city", "City"));
+                if (string.IsNullOrEmpty(metro)) metro = "Unknown";
+                userMetro[userId] = metro;
+                profilesByMetro[metro] = profilesByMetro.GetValueOrDefault(metro) + 1;
+                var isComplete = false;
+                if (doc.ContainsKey("isComplete"))
+                {
+                    try { isComplete = doc["isComplete"].AsBoolean(); } catch { /* ignore */ }
+                }
+                else if (doc.ContainsKey("IsComplete"))
+                {
+                    try { isComplete = doc["IsComplete"].AsBoolean(); } catch { /* ignore */ }
+                }
+                if (isComplete)
+                    completedByMetro[metro] = completedByMetro.GetValueOrDefault(metro) + 1;
+            }
+
+            var connectionsByMetro = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var matchesByMetro = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                var matchDocs = await ScanAllDocumentsAsync(matchesTable);
+                foreach (var doc in matchDocs)
+                {
+                    var u1 = TryGetString(doc, "userId1", "UserId1");
+                    var u2 = TryGetString(doc, "userId2", "UserId2");
+                    var liked1 = false;
+                    var liked2 = false;
+                    var isMatched = false;
+                    try { if (doc.ContainsKey("user1Liked")) liked1 = doc["user1Liked"].AsBoolean(); } catch { /* */ }
+                    try { if (doc.ContainsKey("User1Liked")) liked1 = doc["User1Liked"].AsBoolean(); } catch { /* */ }
+                    try { if (doc.ContainsKey("user2Liked")) liked2 = doc["user2Liked"].AsBoolean(); } catch { /* */ }
+                    try { if (doc.ContainsKey("User2Liked")) liked2 = doc["User2Liked"].AsBoolean(); } catch { /* */ }
+                    try { if (doc.ContainsKey("isMatched")) isMatched = doc["isMatched"].AsBoolean(); } catch { /* */ }
+                    try { if (doc.ContainsKey("IsMatched")) isMatched = doc["IsMatched"].AsBoolean(); } catch { /* */ }
+
+                    if (liked1 && !string.IsNullOrEmpty(u1) && userMetro.TryGetValue(u1, out var m1Conn))
+                        connectionsByMetro[m1Conn] = connectionsByMetro.GetValueOrDefault(m1Conn) + 1;
+                    if (liked2 && !string.IsNullOrEmpty(u2) && userMetro.TryGetValue(u2, out var m2Conn))
+                        connectionsByMetro[m2Conn] = connectionsByMetro.GetValueOrDefault(m2Conn) + 1;
+
+                    if (!isMatched) continue;
+                    if (string.IsNullOrEmpty(u1) || string.IsNullOrEmpty(u2)) continue;
+                    if (!userMetro.TryGetValue(u1, out var m1) || !userMetro.TryGetValue(u2, out var m2))
+                        continue;
+                    // Only same-metro mutual matches count toward density (cross-metro suppressed).
+                    if (!string.Equals(m1, m2, StringComparison.OrdinalIgnoreCase)) continue;
+                    matchesByMetro[m1] = matchesByMetro.GetValueOrDefault(m1) + 1;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Match scan failed for metro metrics (table {Table})", matchesTable);
+            }
+
+            var metros = profilesByMetro.Keys
+                .Select(metro => new MetroDensityRow
+                {
+                    Metro = metro,
+                    Profiles = profilesByMetro.GetValueOrDefault(metro),
+                    CompletedProfiles = completedByMetro.GetValueOrDefault(metro),
+                    ConnectionsSent = connectionsByMetro.GetValueOrDefault(metro),
+                    MatchesCreated = matchesByMetro.GetValueOrDefault(metro),
+                    DiscoverUsers = null,
+                    ReturningUsers = null,
+                })
+                .Where(r => r.CompletedProfiles >= minCohort || r.Profiles >= minCohort)
+                .OrderByDescending(r => r.CompletedProfiles)
+                .ThenByDescending(r => r.Profiles)
+                .ThenBy(r => r.Metro, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var suppressed = profilesByMetro.Count - metros.Count;
+            return Ok(new MetroDensityResponse
+            {
+                Status = "ok",
+                Reason = null,
+                MinCohort = minCohort,
+                GeneratedAtUtc = DateTime.UtcNow,
+                SuppressedMetroCount = Math.Max(0, suppressed),
+                DiscoverUsersNote = "Unavailable — CRM does not store Discover sessions by metro.",
+                ReturningUsersNote = "Unavailable — CRM does not store return visits by metro.",
+                Metros = metros,
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting metro density");
+            return StatusCode(500, new { error = "Failed to get metro density" });
+        }
+    }
+
+    /// <summary>Normalize free-text city into a coarse metro label (no coordinates).</summary>
+    internal static string NormalizeMetroLabel(string? city)
+    {
+        if (string.IsNullOrWhiteSpace(city)) return "";
+        var s = city.Trim().ToLowerInvariant();
+        s = Regex.Replace(s, @"[^a-z0-9\s]", " ");
+        s = Regex.Replace(s, @"\s+", " ").Trim();
+        if (s is "atl" or "atlanta"
+            || s.StartsWith("atlanta ", StringComparison.Ordinal)
+            || s.Contains("atlanta ga", StringComparison.Ordinal)
+            || s.Contains("atlanta georgia", StringComparison.Ordinal))
+            return "Atlanta";
+        if (s is "miami" || s.StartsWith("miami ", StringComparison.Ordinal)) return "Miami";
+        if (s is "tampa" || s.StartsWith("tampa ", StringComparison.Ordinal)) return "Tampa";
+        if (s is "nyc" or "new york" or "new york city"
+            || s.StartsWith("new york ", StringComparison.Ordinal))
+            return "New York";
+        if (s is "dallas" || s.StartsWith("dallas ", StringComparison.Ordinal)) return "Dallas";
+        if (s is "chicago" || s.StartsWith("chicago ", StringComparison.Ordinal)) return "Chicago";
+        // Title-case first token group for display; keep short.
+        var parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "";
+        return string.Join(' ', parts.Take(3).Select(p => char.ToUpperInvariant(p[0]) + p[1..]));
     }
 
     private async Task<(decimal RevenueMtd, int Orders7d)> GetPaymentMetricsAsync(
@@ -344,4 +504,29 @@ public class ActivityItem
     public string Type { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; }
+}
+
+public class MetroDensityResponse
+{
+    public string Status { get; set; } = "unavailable";
+    public string? Reason { get; set; }
+    public int MinCohort { get; set; }
+    public DateTime GeneratedAtUtc { get; set; }
+    public int SuppressedMetroCount { get; set; }
+    public string? DiscoverUsersNote { get; set; }
+    public string? ReturningUsersNote { get; set; }
+    public List<MetroDensityRow> Metros { get; set; } = new();
+}
+
+public class MetroDensityRow
+{
+    public string Metro { get; set; } = string.Empty;
+    public int Profiles { get; set; }
+    public int CompletedProfiles { get; set; }
+    public int ConnectionsSent { get; set; }
+    public int MatchesCreated { get; set; }
+    /// <summary>Null when CRM cannot measure Discover by metro.</summary>
+    public int? DiscoverUsers { get; set; }
+    /// <summary>Null when CRM cannot measure returns by metro.</summary>
+    public int? ReturningUsers { get; set; }
 }

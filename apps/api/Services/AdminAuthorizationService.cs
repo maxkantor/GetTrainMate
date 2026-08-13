@@ -52,6 +52,22 @@ public class AdminAuthorizationService : IAdminAuthorizationService
             };
         }
 
+        // Scoped growth metro reader (X-Growth-Metro-Token) — metro aggregate endpoint only.
+        if (string.Equals(context.User.Identity?.AuthenticationType, "GrowthMetroToken", StringComparison.Ordinal))
+        {
+            if (!context.Request.Path.StartsWithSegments("/api/admin/metrics/metro"))
+            {
+                _logger.LogWarning("Growth metro token used outside metro endpoint");
+                return null;
+            }
+            return new AdminIdentity
+            {
+                Sub = "growth-metro-reader",
+                CognitoUsername = null,
+                Email = null
+            };
+        }
+
         // Cognito access token + allowlist (legacy / staff-only access)
         if (!context.User.Identity?.IsAuthenticated ?? true)
         {

@@ -4,7 +4,10 @@ namespace GetTrainMate.Api.Services;
 
 public interface IPaymentService
 {
-    Task<(string SessionId, string CheckoutUrl)> CreateCheckoutSessionAsync(string userId, string planType);
+    Task<(string SessionId, string CheckoutUrl)> CreateCheckoutSessionAsync(
+        string userId,
+        string planType,
+        IDictionary<string, string>? attribution = null);
     Task<Payment> GetPaymentAsync(string paymentId);
     Task<bool> CompletePaymentAsync(string paymentId, string userId, string paymentIntentId);
     Task<SubscriptionStatus> GetSubscriptionStatusAsync(string userId);

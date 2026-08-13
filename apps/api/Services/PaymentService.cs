@@ -3,6 +3,7 @@ using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 using Stripe;
 using Stripe.Checkout;
+using GetTrainMate.Api.Infrastructure;
 using GetTrainMate.Api.Models;
 
 namespace GetTrainMate.Api.Services;
@@ -29,7 +30,10 @@ public class PaymentService : IPaymentService
         _logger = logger;
     }
 
-    public async Task<(string SessionId, string CheckoutUrl)> CreateCheckoutSessionAsync(string userId, string planType)
+    public async Task<(string SessionId, string CheckoutUrl)> CreateCheckoutSessionAsync(
+        string userId,
+        string planType,
+        IDictionary<string, string>? attribution = null)
     {
         _logger.LogInformation("CreateCheckoutSession: plan={Plan}, userId={UserId}", planType, userId);
 
@@ -59,6 +63,14 @@ public class PaymentService : IPaymentService
         try
         {
             var paymentId = Guid.NewGuid().ToString();
+            var metadata = new Dictionary<string, string>
+            {
+                { "userId", userId },
+                { "planType", planType },
+                { "paymentId", paymentId }
+            };
+            StripeAcquisitionMetadata.MergeInto(metadata, attribution);
+
             var options = new SessionCreateOptions
             {
                 PaymentMethodTypes = new List<string> { "card" },
@@ -82,12 +94,7 @@ public class PaymentService : IPaymentService
                 Mode = "payment",
                 SuccessUrl = $"{frontendUrl.TrimEnd('/')}/app/subscription?session_id={{CHECKOUT_SESSION_ID}}&success=true",
                 CancelUrl = $"{frontendUrl.TrimEnd('/')}/pricing?canceled=1",
-                Metadata = new Dictionary<string, string>
-                {
-                    { "userId", userId },
-                    { "planType", planType },
-                    { "paymentId", paymentId }
-                }
+                Metadata = metadata
             };
 
             var service = new SessionService();

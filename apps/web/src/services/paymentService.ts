@@ -40,7 +40,8 @@ class PaymentService {
    */
   async createCheckoutSessionAndGetUrl(
     token: string,
-    plan: 'pro' | 'elite'
+    plan: 'pro' | 'elite',
+    attribution?: Record<string, string>
   ): Promise<string> {
     const endpoint = `${API_BASE_URL}/api/payment/checkout`;
     console.log('[PaymentService] Creating checkout session', { plan, endpoint });
@@ -48,7 +49,10 @@ class PaymentService {
     try {
       const response = await axios.post<CheckoutSessionResponse>(
         endpoint,
-        { planType: plan },
+        {
+          planType: plan,
+          attribution: attribution && Object.keys(attribution).length ? attribution : undefined,
+        },
         this.getHeaders(token)
       );
 
@@ -86,10 +90,11 @@ class PaymentService {
 
   async createCheckoutSession(
     token: string,
-    planType: 'pro' | 'elite' | 'premium_monthly' | 'premium_yearly' | 'lifetime'
+    planType: 'pro' | 'elite' | 'premium_monthly' | 'premium_yearly' | 'lifetime',
+    attribution?: Record<string, string>
   ): Promise<CheckoutSessionResponse> {
     const plan = planType === 'pro' || planType === 'elite' ? planType : 'pro';
-    const url = await this.createCheckoutSessionAndGetUrl(token, plan);
+    const url = await this.createCheckoutSessionAndGetUrl(token, plan, attribution);
     return { sessionId: '', checkoutUrl: url };
   }
 
