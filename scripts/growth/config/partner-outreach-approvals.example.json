@@ -1,0 +1,14 @@
+{
+  "approvals": [
+    {
+      "approvalId": "appr-example-001",
+      "status": "approved",
+      "recipient": "partners@example.test",
+      "subject": "Help Example Pickleball Club members find local pickleball partners",
+      "templateVersion": "partner-v2-2026-08-14",
+      "approvedAt": "2026-08-14T18:00:00.000Z",
+      "messageFingerprint": "736da6553a5f49595329d297f74312bc83afd93aef0d230c1e218ea4e2ea98e1",
+      "notes": "Fictional fixture only. Never a real organization inbox."
+    }
+  ]
+}

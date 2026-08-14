@@ -64,12 +64,12 @@ Focus: Atlanta + TRAIN. Do not spread cities or equal-weight DATE/VIBE acquisiti
 
 Preserve active experiments (e.g. EXP-001). Partner/referral infrastructure may ship in parallel.
 
-Never fake users/activity. Never send outreach, create partner accounts, or activate founding-member pricing without Max approval. Prepare partner packages under docs/growth/partners/.
+Never fake users/activity. Never send outreach, create partner accounts, or activate founding-member pricing. Prepare partner packages under docs/growth/partners/. Do not run growth:outreach:send. Do not set PARTNER_OUTREACH_SEND_ENABLED. Preview/validate only.
 
 When shipping: one reversible change; tests + web:build; commit/push main; monitor Amplify; verify production paths; update EXPERIMENT-LOG.md.
 
-ALWAYS end with full Admin email:
-node scripts/growth/compose-and-send-growth-email.mjs --notes "<marketplace action; segment; partner assets; outreach NOT sent vs drafts; blockers; next eval>"
+Always end with full Admin email (never partner outreach send):
+node scripts/growth/compose-and-send-growth-email.mjs --notes "<marketplace action; drafts vs sent; blockers; EXP-001 eval note>"
 ```
 
 ---

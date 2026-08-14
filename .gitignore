@@ -64,4 +64,7 @@ docs/growth/snapshots/funnel-*.json
 docs/growth/previews/*.html
 docs/growth/previews/*.txt
 scripts/growth/node_modules/
+scripts/growth/var/
+scripts/growth/config/partner-outreach-approvals.local.json
+docs/growth/partners/.local/
 .DS_Store

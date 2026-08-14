@@ -262,10 +262,17 @@ describe('buildScoreboardRow + compose email', () => {
           status: 'active',
           funnelStage: 'acquisition / SEO',
           targetMetro: 'Atlanta, Georgia · TRAIN',
-          evalDate: '2026-08-26',
+          evalDate: '2026-08-16',
           primaryMetric: 'signup_completed from Atlanta landing',
           commit: '4c8612a',
           amplify: 'jobs 460-462 SUCCEED'
+        },
+        {
+          idLine: '2026-08-13 - EXP-002 Atlanta partner invite landings',
+          status: 'active',
+          evalDate: '2026-08-27',
+          funnelStage: 'partner acquisition infrastructure',
+          commit: '8b67f80'
         }
       ],
       notes: 'Fixture validation',
@@ -324,7 +331,7 @@ describe('buildScoreboardRow + compose email', () => {
     assert.match(text, /Attributed paid conversions: Unknown/);
     assert.match(text, /\$9\.99/); // attributed GTM only
     assert.doesNotMatch(text, /\$19\.99/); // unattributed must not appear as revenue
-    assert.match(text, /Unattributed Stripe payment/i);
+    assert.match(text, /Unattributed payments/i);
   });
 });
 

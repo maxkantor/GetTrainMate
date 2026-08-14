@@ -249,6 +249,10 @@ try {
     ...report.marketplaceDensity,
     status: metro.status,
     reason: metro.reason || null,
+    cause: metro.cause || null,
+    httpStatus: metro.httpStatus || null,
+    errorCode: metro.errorCode || null,
+    customerDataExposed: metro.customerDataExposed === true,
     minCohort: metro.minCohort ?? 3,
     suppressedMetroCount: metro.suppressedMetroCount ?? 0,
     discoverUsersNote: metro.discoverUsersNote || null,
@@ -257,8 +261,12 @@ try {
     authMethod: metro.authMethod || null
   };
   report.sources.adminCrm = metro.status === 'ok' ? 'ok' : 'unavailable';
-  if (metro.status !== 'ok' && metro.reason) {
-    report.notes.push(`Metro CRM: ${metro.reason}`);
+  if (metro.status !== 'ok') {
+    report.notes.push(
+      metro.cause
+        ? `Metro CRM: Unavailable (${metro.errorCode || 'unconfigured'})`
+        : 'Metro CRM: Unavailable'
+    );
   }
 } catch (e) {
   report.notes.push(`Metro CRM fetch failed: ${e instanceof Error ? e.message : e}`);

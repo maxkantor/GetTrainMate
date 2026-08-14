@@ -141,7 +141,17 @@ export const EXP001 = {
   id: 'EXP-001',
   path: '/atlanta-training-partners',
   srcParam: 'atlanta-training-partners',
-  evaluationDate: '2026-08-16'
+  evaluationDate: '2026-08-16',
+  evaluationWeekday: 'Sunday, August 16, 2026',
+  evaluationNote:
+    'EXP-001 requires a manual evaluation on Sunday, August 16, or must be evaluated during the next scheduled run on Wednesday, August 19.'
+};
+
+export const EXP002 = {
+  id: 'EXP-002',
+  path: '/partners/atlanta',
+  evaluationDate: '2026-08-27',
+  evaluationWeekday: 'Thursday, August 27, 2026'
 };
 
 export const SITE = {

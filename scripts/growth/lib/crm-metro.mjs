@@ -1,23 +1,39 @@
 /**
  * Fetch aggregated metro density from Admin CRM API.
  * Uses a separate credential path — never DynamoDB via the SES-only growth IAM user.
- *
- * Auth (first match):
- * 1. GROWTH_METRO_READ_TOKEN → header X-Growth-Metro-Token
- * 2. GROWTH_CRM_ADMIN_TOKEN → header X-Admin-Token
- * 3. GROWTH_CRM_ADMIN_EMAIL + GROWTH_CRM_ADMIN_PASSWORD → POST /api/admin/login
  */
-
 const DEFAULT_API =
   process.env.GROWTH_CRM_API_BASE_URL ||
   process.env.GTM_API_BASE_URL ||
   'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
+
+function unconfiguredMetro() {
+  return {
+    status: 'unavailable',
+    cause: 'GROWTH_METRO_READ_TOKEN is not configured',
+    httpStatus: 503,
+    errorCode: 'metro_token_unconfigured',
+    customerDataExposed: false,
+    reason: 'GROWTH_METRO_READ_TOKEN is not configured',
+    authMethod: 'none',
+    metros: []
+  };
+}
 
 export async function fetchMetroDensity({ minCohort = 3 } = {}) {
   const base = String(DEFAULT_API).replace(/\/$/, '');
   const metroUrl = `${base}/api/admin/metrics/metro?minCohort=${encodeURIComponent(String(minCohort))}`;
 
   const growthToken = process.env.GROWTH_METRO_READ_TOKEN?.trim();
+  if (!growthToken) {
+    const email = process.env.GROWTH_CRM_ADMIN_EMAIL?.trim();
+    const password = process.env.GROWTH_CRM_ADMIN_PASSWORD;
+    const adminToken = process.env.GROWTH_CRM_ADMIN_TOKEN?.trim();
+    if (!email && !password && !adminToken) {
+      return unconfiguredMetro();
+    }
+  }
+
   if (growthToken) {
     const res = await fetch(metroUrl, {
       headers: { 'X-Growth-Metro-Token': growthToken, Accept: 'application/json' }
@@ -38,7 +54,11 @@ export async function fetchMetroDensity({ minCohort = 3 } = {}) {
       if (!loginRes.ok) {
         return {
           status: 'unavailable',
-          reason: `Admin CRM login failed (${loginRes.status}). Check GROWTH_CRM_ADMIN_EMAIL/PASSWORD.`,
+          cause: 'Admin CRM login failed',
+          httpStatus: loginRes.status,
+          errorCode: 'metro_admin_login_failed',
+          customerDataExposed: false,
+          reason: `Admin CRM login failed (${loginRes.status}).`,
           authMethod: 'admin_login',
           metros: []
         };
@@ -48,6 +68,10 @@ export async function fetchMetroDensity({ minCohort = 3 } = {}) {
       if (!adminToken) {
         return {
           status: 'unavailable',
+          cause: 'Admin CRM login succeeded but no token returned',
+          httpStatus: 503,
+          errorCode: 'metro_admin_token_missing',
+          customerDataExposed: false,
           reason: 'Admin CRM login succeeded but no token returned.',
           authMethod: 'admin_login',
           metros: []
@@ -57,27 +81,32 @@ export async function fetchMetroDensity({ minCohort = 3 } = {}) {
   }
 
   if (!adminToken) {
-    return {
-      status: 'unavailable',
-      reason:
-        'Metro CRM credentials missing. Set GROWTH_METRO_READ_TOKEN (preferred) or GROWTH_CRM_ADMIN_TOKEN / GROWTH_CRM_ADMIN_EMAIL+PASSWORD in Cursor secrets or SSM /gettrainmate/growth/*. Do not grant DynamoDB to the SES growth IAM user.',
-      authMethod: 'none',
-      metros: []
-    };
+    return unconfiguredMetro();
   }
 
   const res = await fetch(metroUrl, {
     headers: { 'X-Admin-Token': adminToken, Accept: 'application/json' }
   });
-  return interpretMetroResponse(res, adminToken === process.env.GROWTH_CRM_ADMIN_TOKEN?.trim() ? 'admin_token' : 'admin_login');
+  return interpretMetroResponse(
+    res,
+    adminToken === process.env.GROWTH_CRM_ADMIN_TOKEN?.trim() ? 'admin_token' : 'admin_login'
+  );
 }
 
 async function interpretMetroResponse(res, authMethod) {
   if (!res.ok) {
-    const text = (await res.text()).slice(0, 200);
+    const status = res.status;
+    const cause =
+      status === 503
+        ? 'GROWTH_METRO_READ_TOKEN is not configured'
+        : `Metro API HTTP ${status}`;
     return {
       status: 'unavailable',
-      reason: `Metro API HTTP ${res.status}: ${text}`,
+      cause,
+      httpStatus: status === 500 ? 503 : status,
+      errorCode: status === 503 || status === 500 ? 'metro_token_unconfigured' : `metro_http_${status}`,
+      customerDataExposed: false,
+      reason: cause,
       authMethod,
       metros: []
     };
@@ -86,6 +115,10 @@ async function interpretMetroResponse(res, authMethod) {
   return {
     status: data.status || 'ok',
     reason: data.reason || null,
+    cause: data.cause || null,
+    httpStatus: 200,
+    errorCode: data.errorCode || null,
+    customerDataExposed: false,
     minCohort: data.minCohort ?? 3,
     suppressedMetroCount: data.suppressedMetroCount ?? 0,
     discoverUsersNote: data.discoverUsersNote || null,
@@ -95,3 +128,5 @@ async function interpretMetroResponse(res, authMethod) {
     generatedAtUtc: data.generatedAtUtc || null
   };
 }
+
+export { unconfiguredMetro };

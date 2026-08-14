@@ -27,3 +27,12 @@ Env / Automation / SSM:
 - `STRIPE_RESTRICTED_READ_KEY` → `/gettrainmate/growth/stripe-restricted-read-key` (`rk_…` only)
 
 Snapshots write under `docs/growth/snapshots/` (`funnel-*.json` gitignored).
+
+Partner outreach (never from Wednesday automation):
+
+```bash
+npm run growth:outreach:preview
+npm run growth:outreach:validate
+# real send is fail-closed:
+# PARTNER_OUTREACH_SEND_ENABLED=true npm run growth:outreach:send -- --approval-id <id> --send
+```

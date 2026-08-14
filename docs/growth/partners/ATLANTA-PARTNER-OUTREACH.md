@@ -1,7 +1,7 @@
 # Atlanta TRAIN partner acquisition package (EXP-002)
 
-**Status:** Outreach sent 2026-08-14 via SES (From `noreply@gettrainmate.com`, Reply-To `gettrainmate@gmail.com`)  
-**Date:** 2026-08-13 (package) / 2026-08-14 (send)  
+**Status:** PAUSED. Recipient-level approval required. `PARTNER_OUTREACH_SEND_ENABLED` defaults false.  
+**Date:** 2026-08-13 (package) / 2026-08-14 (unauthorized send path stopped)  
 **Product:** GetTrainMate · Metro: Atlanta · Mode: TRAIN  
 **Hub:** https://gettrainmate.com/partners/atlanta  
 **Tracking:** `partner` / `partner_code` + `experiment_id=EXP-002` · GA4 `landing_page_view` / `signup_started` with `partner_code` · Stripe metadata `partner_code` when checkout occurs  
@@ -139,7 +139,7 @@ Hi again — just bumping the Atlanta TRAIN invite for {{Org}}: {{landing_url}}.
 ## Distribution completed this run
 
 - **Shipped in product:** partner hub + invite landings + codes (live).
-- **Sender:** From GetTrainMate `<noreply@gettrainmate.com>` · Reply-To `gettrainmate@gmail.com` · BCC Admin.
-- **Outreach sent 2026-08-14:** Atlanta Track Club (`membership@atlantatrackclub.org`), Fleet Feet Atlanta (`joe@fleetfeetatlanta.com`), Atlanta Pickleball Club, Elite Edge, Atlanta Triathlon Club, JAM / Atlanta Sport and Social (`havefun@atlantasportandsocialclub.com`), Atlanta Outdoor Club.
-- **Not sent (no public email / form-only):** F3 Atlanta (https://www.f3atlanta.com/contact-us/), Midtown Trainers (contact form; email obfuscated). Generic catch-all not used as a cold email.
+- **Outreach authorization:** paused. Drafts are not approved. Further sends require per-recipient approval + `--send` + `PARTNER_OUTREACH_SEND_ENABLED=true`.
+- **Historical SES accepts (2026-08-14):** confirmed via SES quota/CLI MessageIds from the now-disabled `send-atlanta-partner-outreach.mjs` path (including the pickleball-club incident). Recipient lists and MessageIds stay in the private operational record (`scripts/growth/var/`, gitignored).
+- **Follow-up/resend:** not sent (blocked).
 - **Partner accounts created:** none.

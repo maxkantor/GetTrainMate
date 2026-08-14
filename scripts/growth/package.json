@@ -5,7 +5,10 @@
   "description": "Local/CLI growth measurement helpers (GA4 + Stripe) for GetTrainMate.",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "preview": "node compose-and-send-growth-email.mjs --snapshot fixtures/sample-snapshot.json --preview-dir ../../docs/growth/previews --dry-run"
+    "preview": "node compose-and-send-growth-email.mjs --snapshot fixtures/sample-snapshot.json --preview-dir ../../docs/growth/previews --dry-run",
+    "outreach:preview": "node outreach.mjs preview",
+    "outreach:validate": "node outreach.mjs validate",
+    "outreach:send": "node outreach.mjs send"
   },
   "dependencies": {
     "google-auth-library": "^10.1.0"

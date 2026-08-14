@@ -63,9 +63,17 @@ Active experiments lock **only** their exact treatment/cohort. They do **not** b
 
 Never: fake users/profiles/matches/messages/reviews/events · automate likes/matches/messages from user accounts · auto pricing/Stripe/auth/infra/legal/age/moderation/ad spend · bulk unsolicited outreach · send outreach without Max approval · expose PII to GA4/logs/email · promise guaranteed matches
 
-## Partner outreach
+## Partner outreach (hard fail-closed)
 
-Prepare packages in `docs/growth/partners/`. Automation **must not** send outreach, create partner accounts, promise compensation, or make agreements without explicit authorization.
+Automation **must not** send outreach, submit contact forms, post socially, retry, follow up, or mark drafts as approved.
+
+A Cursor prompt, approved experiment, or draft-generation task is **not** send authorization.
+
+Default: `PARTNER_OUTREACH_SEND_ENABLED` is absent/`false` (fail closed).
+
+Real send requires **all** of: per-recipient approval manifest (exact address, subject, template version, timestamp, approval id) + `npm run growth:outreach:send -- --approval-id <id> --send` + `PARTNER_OUTREACH_SEND_ENABLED=true` + not already contacted + daily cap 3. No wildcards. Wednesday automation must never invoke the send path.
+
+Allowed: research, prospect lists, drafts, tracked URLs, rendering validation, previews (`npm run growth:outreach:preview` / `validate`).
 
 ## Scripts
 

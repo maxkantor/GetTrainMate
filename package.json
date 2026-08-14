@@ -42,6 +42,9 @@
     "growth:verify-secrets": "node scripts/growth/verify-secrets.mjs",
     "growth:email": "node scripts/growth/compose-and-send-growth-email.mjs",
     "growth:test": "node --test scripts/growth/tests/*.test.mjs",
+    "growth:outreach:preview": "node scripts/growth/outreach.mjs preview",
+    "growth:outreach:validate": "node scripts/growth/outreach.mjs validate",
+    "growth:outreach:send": "node scripts/growth/outreach.mjs send",
     "prepare": "husky install"
   },
   "devDependencies": {

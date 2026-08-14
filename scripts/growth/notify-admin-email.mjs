@@ -2,18 +2,12 @@
 /**
  * Email the Admin inbox a growth-run summary via AWS SES.
  * Uses SSM: /gettrainmate/ses-admin-email, /gettrainmate/ses-from-email
- *
- * Usage:
- *   node scripts/growth/notify-admin-email.mjs --subject "..." --body-file path.txt
- *   node scripts/growth/notify-admin-email.mjs --subject "..." --body "plain text"
- *   echo "body" | node scripts/growth/notify-admin-email.mjs --subject "..."
- *
- * Never prints secret values. Exits non-zero if send fails.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { sendRawSesEmail } from './ses-send-raw.mjs';
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
 
@@ -60,7 +54,7 @@ function firstAdminEmail(raw) {
   return first;
 }
 
-export function sendAdminGrowthEmail({ subject, body, htmlBody }) {
+export async function sendAdminGrowthEmail({ subject, body, htmlBody }) {
   if (!subject?.trim()) throw new Error('subject required');
   if (!body?.trim()) throw new Error('body required');
 
@@ -70,67 +64,16 @@ export function sendAdminGrowthEmail({ subject, body, htmlBody }) {
     (process.env.ADMIN_EMAIL || process.env.SES_ADMIN_EMAIL || '').trim() ||
     getSsm('/gettrainmate/ses-admin-email', false);
   const to = firstAdminEmail(adminRaw);
-  const fromSource = `GetTrainMate Growth <${from}>`;
-
-  const bodyPayload = {
-    Text: { Data: body, Charset: 'UTF-8' }
-  };
-  if (htmlBody?.trim()) {
-    bodyPayload.Html = { Data: htmlBody, Charset: 'UTF-8' };
-  }
-
-  const tmpDir = fs.mkdtempSync(
-    path.join(process.env.TEMP || process.env.TMPDIR || '/tmp', 'gtm-growth-mail-')
-  );
-  const destPath = path.join(tmpDir, 'dest.json');
-  const msgPath = path.join(tmpDir, 'msg.json');
-  try {
-    fs.writeFileSync(destPath, JSON.stringify({ ToAddresses: [to] }), 'utf8');
-    fs.writeFileSync(
-      msgPath,
-      JSON.stringify({
-        Subject: { Data: subject, Charset: 'UTF-8' },
-        Body: bodyPayload
-      }),
-      'utf8'
-    );
-
-    const r = spawnSync(
-      'aws',
-      [
-        'ses',
-        'send-email',
-        '--region',
-        REGION,
-        '--from',
-        fromSource,
-        '--destination',
-        `file://${destPath.replace(/\\/g, '/')}`,
-        '--message',
-        `file://${msgPath.replace(/\\/g, '/')}`
-      ],
-      { encoding: 'utf8' }
-    );
-
-    if (r.status !== 0) {
-      const err = (r.stderr || r.stdout || '').slice(0, 400);
-      throw new Error(`SES send failed: ${err}`);
-    }
-
-    let messageId = null;
-    try {
-      messageId = JSON.parse(r.stdout || '{}').MessageId ?? null;
-    } catch {
-      /* ignore */
-    }
-    return { ok: true, to, messageId, subjectSent: subject };
-  } finally {
-    try {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {
-      /* ignore */
-    }
-  }
+  const sent = await sendRawSesEmail({
+    fromName: 'GetTrainMate Growth',
+    fromEmail: from,
+    to,
+    replyTo: 'gettrainmate@gmail.com',
+    subject,
+    text: body,
+    html: htmlBody
+  });
+  return { ok: true, to, messageId: sent.messageId, subjectSent: subject };
 }
 
 const invokedAsCli =
@@ -145,7 +88,7 @@ if (invokedAsCli) {
     body = fs.readFileSync(0, 'utf8');
   }
   try {
-    const result = sendAdminGrowthEmail({ subject: args.subject, body });
+    const result = await sendAdminGrowthEmail({ subject: args.subject, body });
     console.log(JSON.stringify({ ok: true, messageId: result.messageId }, null, 2));
   } catch (e) {
     console.error(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }));

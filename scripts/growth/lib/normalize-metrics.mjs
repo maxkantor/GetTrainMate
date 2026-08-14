@@ -302,6 +302,10 @@ export function normalizeStripe({ sessions, charges } = {}, allowlist = loadStri
     live_paid_sessions: attributedSessions,
     reconciliation_complete: reconciliationComplete,
     verified_baseline_customers: baseline,
+    allowlist_configured:
+      allowlist.priceIds.size > 0 ||
+      allowlist.productIds.size > 0 ||
+      allowlist.paymentLinkIds.size > 0,
     warnings
   };
 }

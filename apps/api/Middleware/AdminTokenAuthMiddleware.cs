@@ -43,16 +43,23 @@ public class AdminTokenAuthMiddleware
 
         var token = context.Request.Headers["X-Admin-Token"].FirstOrDefault();
         // Scoped growth metro read token (separate from SES IAM / DynamoDB). Only metro endpoint.
-        if (string.IsNullOrWhiteSpace(token)
-            && HttpMethods.IsGet(context.Request.Method)
+        if (HttpMethods.IsGet(context.Request.Method)
             && path.StartsWithSegments("/api/admin/metrics/metro"))
         {
-            var growthToken = context.Request.Headers["X-Growth-Metro-Token"].FirstOrDefault()
-                ?? context.Request.Headers["X-Admin-Token"].FirstOrDefault();
+            var growthHeader = context.Request.Headers["X-Growth-Metro-Token"].FirstOrDefault();
             var expected = Environment.GetEnvironmentVariable("GROWTH_METRO_READ_TOKEN");
-            if (!string.IsNullOrWhiteSpace(expected)
-                && !string.IsNullOrWhiteSpace(growthToken)
-                && string.Equals(expected.Trim(), growthToken.Trim(), StringComparison.Ordinal))
+            if (!string.IsNullOrWhiteSpace(growthHeader) && string.IsNullOrWhiteSpace(expected))
+            {
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync(
+                    "{\"status\":\"unavailable\",\"cause\":\"GROWTH_METRO_READ_TOKEN is not configured\",\"errorCode\":\"metro_token_unconfigured\",\"httpStatus\":503,\"customerDataExposed\":false}");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(token)
+                && !string.IsNullOrWhiteSpace(expected)
+                && !string.IsNullOrWhiteSpace(growthHeader)
+                && string.Equals(expected.Trim(), growthHeader.Trim(), StringComparison.Ordinal))
             {
                 var identity = new ClaimsIdentity(
                     new[]
