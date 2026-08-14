@@ -13,6 +13,13 @@ public interface IEmailService
         List<EmailAttachment>? attachments = null,
         string? threadId = null,
         IReadOnlyList<string>? replyToAddresses = null);
+
+    /// <summary>Partner outreach and threaded replies. Uses SES SendRawEmail (UTF-8 MIME).</summary>
+    Task<string> SendRawEmailAsync(
+        string from,
+        string to,
+        byte[] rawMime,
+        string? configurationSet = null);
 }
 
 public class EmailAttachment

@@ -11,6 +11,7 @@ using GetTrainMate.Api.Configuration;
 using GetTrainMate.Api.Services;
 using GetTrainMate.Api.Services.Ai;
 using GetTrainMate.Api.Services.Bedrock;
+using GetTrainMate.Api.Services.PartnerOutreach;
 using GetTrainMate.Api.Middleware;
 using Serilog;
 using Stripe;
@@ -113,6 +114,7 @@ public class Startup
         services.AddScoped<IAdminAuthorizationService, AdminAuthorizationService>();
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IPartnerOutreachService, PartnerOutreachService>();
         services.AddScoped<IAdminNotificationService, AdminNotificationService>();
         services.AddScoped<ICognitoAdminUserDeletionService, CognitoAdminUserDeletionService>();
         services.AddScoped<ICognitoRegistrationCheckService, CognitoRegistrationCheckService>();

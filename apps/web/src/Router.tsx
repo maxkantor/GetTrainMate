@@ -56,6 +56,8 @@ import { AdminTicketsPage } from '@/pages/admin/AdminTicketsPage';
 import { AdminAuditPage } from '@/pages/admin/AdminAuditPage';
 import { AdminActivityPage } from '@/pages/admin/AdminActivityPage';
 import { AdminMatchesPage } from '@/pages/admin/AdminMatchesPage';
+import { PartnerOutreachPage } from '@/pages/admin/PartnerOutreachPage';
+import { EmailUnsubscribedPage } from '@/pages/EmailUnsubscribedPage';
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { DocumentSeo } from '@/components/seo/DocumentSeo';
 import { GlobalJsonLd } from '@/components/seo/GlobalJsonLd';
@@ -132,6 +134,7 @@ export const Router: React.FC = () => {
             <Route path="/platform" element={<PlatformPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/terms" element={<TermsPage />} />
+            <Route path="/email/unsubscribed" element={<EmailUnsubscribedPage />} />
 
             {/* Auth routes */}
             <Route path="/login" element={<LoginPage />} />
@@ -176,6 +179,7 @@ export const Router: React.FC = () => {
                   <Route path="/admin/stripe" element={<AdminStripePage />} />
                   <Route path="/admin/matches" element={<AdminMatchesPage />} />
                   <Route path="/admin/contacts" element={<ContactsPage />} />
+                  <Route path="/admin/partner-outreach" element={<PartnerOutreachPage />} />
                   <Route path="/admin/audit" element={<AdminAuditPage />} />
                   <Route path="/admin/credit-packs" element={<AdminCreditPacksPage />} />
                   <Route path="/admin/test-users" element={<TestUsersPage />} />

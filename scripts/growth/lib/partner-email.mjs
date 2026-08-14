@@ -8,9 +8,9 @@ import { decodeQuotedPrintable, encodeQuotedPrintable } from './mime-qp.mjs';
 export { decodeQuotedPrintable };
 
 export const TEMPLATE_VERSION = 'partner-v2-2026-08-14';
-export const DEFAULT_FROM_NAME = 'GetTrainMate';
-export const DEFAULT_FROM_EMAIL = 'noreply@gettrainmate.com';
-export const DEFAULT_REPLY_TO = 'gettrainmate@gmail.com';
+export const DEFAULT_FROM_NAME = 'Max from GetTrainMate';
+export const DEFAULT_FROM_EMAIL = 'partners@gettrainmate.com';
+export const DEFAULT_REPLY_TO = 'partners@gettrainmate.com';
 export const MOJIBAKE_MARKERS = ['Â', 'â€™', 'â€œ', 'â€', 'â†’'];
 
 export const ACTIVITY_BY_TYPE = {
@@ -211,6 +211,9 @@ export async function buildPartnerMime({
   }
   if (!new RegExp(`^Reply-To:.*${replyTo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'mi').test(rawStr)) {
     throw new Error('MIME missing Reply-To');
+  }
+  if (/gmail\.com|noreply@/i.test(rawStr)) {
+    throw new Error('Partner MIME must not use Gmail or noreply');
   }
   if (!/\r\n/.test(rawStr)) {
     throw new Error('MIME missing CRLF');

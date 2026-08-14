@@ -2,6 +2,7 @@ using Amazon.SimpleEmail;
 using Amazon.SimpleEmail.Model;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.IO;
 
 namespace GetTrainMate.Api.Services;
 
@@ -132,5 +133,24 @@ public class EmailService : IEmailService
             _logger.LogError(ex, "Error sending email to {To}", to);
             throw;
         }
+    }
+
+    public async Task<string> SendRawEmailAsync(string from, string to, byte[] rawMime, string? configurationSet = null)
+    {
+        if (rawMime == null || rawMime.Length == 0)
+            throw new ArgumentException("raw MIME required", nameof(rawMime));
+        var request = new SendRawEmailRequest
+        {
+            Source = from,
+            Destinations = new List<string> { to },
+            RawMessage = new RawMessage { Data = new MemoryStream(rawMime) }
+        };
+        if (!string.IsNullOrWhiteSpace(configurationSet))
+            request.ConfigurationSetName = configurationSet;
+        else if (!string.IsNullOrWhiteSpace(_configurationSet))
+            request.ConfigurationSetName = _configurationSet;
+        var response = await _ses.SendRawEmailAsync(request);
+        _logger.LogInformation("Raw email accepted by SES. MessageId={MessageId}", response.MessageId);
+        return response.MessageId;
     }
 }

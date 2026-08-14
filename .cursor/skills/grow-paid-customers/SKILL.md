@@ -75,6 +75,8 @@ Real send requires **all** of: per-recipient approval manifest (exact address, s
 
 Allowed: research, prospect lists, drafts, tracked URLs, rendering validation, previews (`npm run growth:outreach:preview` / `validate`).
 
+Partner campaign sending lives in **Admin CRM → Partner Outreach**, From `partners@gettrainmate.com`, fail-closed (`PARTNER_OUTREACH_SEND_ENABLED` absent/false). Cursor must not hold `PARTNER_EMAIL_INTERNAL_TOKEN`. See `docs/growth/PARTNER-OUTREACH-INFRA.md`.
+
 ## Scripts
 
 | Script | Purpose |

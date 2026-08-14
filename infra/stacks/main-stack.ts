@@ -93,6 +93,11 @@ export class GetTrainMateStack extends cdk.Stack {
     const tokenWalletTables = this.createTokenWalletTables();
     const creditsTables = this.createCreditsTables();
     const allTables = [...tables, ...adminTables, ...contactsTables, ...tokenWalletTables, ...creditsTables];
+    const enablePartnerOutreach =
+      String(this.node.tryGetContext('enablePartnerOutreachInfra') ?? '') === 'true';
+    if (enablePartnerOutreach) {
+      allTables.push(...this.createPartnerOutreachTables());
+    }
 
     // S3 Bucket for media storage (existing bucket). CORS must allow the web origin for browser PUT uploads:
     //   aws s3api put-bucket-cors --bucket gettrainmate-media-bucket --cors-configuration file://infra/s3-media-bucket-cors.json
@@ -810,5 +815,35 @@ export class GetTrainMateStack extends cdk.Stack {
     tables.push(stripeWebhookEventsTable);
 
     return tables;
+  }
+
+  /**
+   * Partner outreach CRM tables. Created only when CDK context
+   * enablePartnerOutreachInfra=true. Do not enable without Max approval.
+   */
+  private createPartnerOutreachTables(): dynamodb.ITable[] {
+    const mk = (id: string, name: string, pk: string, sk?: string) => {
+      const t = new dynamodb.Table(this, id, {
+        tableName: name,
+        partitionKey: { name: pk, type: dynamodb.AttributeType.STRING },
+        sortKey: sk ? { name: sk, type: dynamodb.AttributeType.STRING } : undefined,
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        encryption: dynamodb.TableEncryption.AWS_MANAGED,
+        pointInTimeRecovery: true,
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+      });
+      return t;
+    };
+    return [
+      mk('PartnerProspects', 'gettrainmate-partner-prospects', 'ProspectId'),
+      mk('PartnerCampaigns', 'gettrainmate-partner-campaigns', 'CampaignId'),
+      mk('PartnerApprovals', 'gettrainmate-partner-approvals', 'ApprovalId'),
+      mk('PartnerQueue', 'gettrainmate-partner-queue', 'QueueId'),
+      mk('PartnerThreads', 'gettrainmate-partner-threads', 'ThreadId'),
+      mk('PartnerMessages', 'gettrainmate-partner-messages', 'ThreadId', 'MessageId'),
+      mk('PartnerSuppressions', 'gettrainmate-partner-suppressions', 'Email'),
+      mk('PartnerSettings', 'gettrainmate-partner-settings', 'Id'),
+      mk('PartnerInboundDedupe', 'gettrainmate-partner-inbound-dedupe', 'DedupeKey'),
+    ];
   }
 }

@@ -49,7 +49,7 @@ describe('partner email UTF-8 / MIME', () => {
 
     const raw = (await buildPartnerMime({
       to: 'partners@example.test',
-      replyTo: 'gettrainmate@gmail.com',
+      replyTo: 'partners@gettrainmate.com',
       subject: copy.subject,
       text: copy.text,
       html: copy.html
@@ -58,7 +58,7 @@ describe('partner email UTF-8 / MIME', () => {
     assert.match(raw, /Content-Type:\s*text\/plain;\s*charset=UTF-8/i);
     assert.match(raw, /Content-Type:\s*text\/html;\s*charset=UTF-8/i);
     assert.match(raw, /Content-Transfer-Encoding:\s*quoted-printable/i);
-    assert.match(raw, /^Reply-To:.*gettrainmate@gmail.com/mi);
+    assert.match(raw, /^Reply-To:.*partners@gettrainmate.com/mi);
     assert.match(raw, /\r\n/);
     assertNoMojibake(raw, 'raw');
     const decoded = decodeQuotedPrintable(raw);

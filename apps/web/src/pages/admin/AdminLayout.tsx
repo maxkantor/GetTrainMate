@@ -28,6 +28,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import ScienceIcon from '@mui/icons-material/Science';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import CampaignIcon from '@mui/icons-material/Campaign';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { clearAdminSession, getAdminSession } from '@/services/adminAuthStorage';
 import { adminApiService } from '@/services/adminApiService';
@@ -47,6 +48,7 @@ const menuItems = [
   { path: '/admin/stripe', label: 'Stripe / Payments', icon: <PaymentIcon /> },
   { path: '/admin/credit-packs', label: 'Credit Packs', icon: <PaymentIcon /> },
   { path: '/admin/contacts', label: 'Contacts CRM', icon: <ContactsIcon /> },
+  { path: '/admin/partner-outreach', label: 'Partner Outreach', icon: <CampaignIcon /> },
   { path: '/admin/audit', label: 'Audit Logs', icon: <AssessmentIcon /> },
 ];
 
