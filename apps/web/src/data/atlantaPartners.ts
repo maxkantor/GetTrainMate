@@ -57,6 +57,7 @@ export const ATLANTA_PARTNERS: AtlantaPartnerRecord[] = [
     displayName: 'Atlanta pickleball community',
     communityType: 'pickleball',
     blurb: 'Meet players looking for regular games and training partners in Atlanta.',
+    publicUrl: 'https://atlantapickleballclub.com/',
     status: 'ready',
   },
   {
@@ -64,6 +65,7 @@ export const ATLANTA_PARTNERS: AtlantaPartnerRecord[] = [
     displayName: 'Atlanta Hyrox / CrossFit community',
     communityType: 'gym_crossfit_hyrox',
     blurb: 'Partner up for Hyrox prep, CrossFit sessions, and strength work in Atlanta.',
+    publicUrl: 'https://eliteedgeatl.com/hyrox-training-club-atlanta/',
     status: 'ready',
   },
   {
@@ -71,6 +73,7 @@ export const ATLANTA_PARTNERS: AtlantaPartnerRecord[] = [
     displayName: 'Atlanta triathlon community',
     communityType: 'rec_sports',
     blurb: 'Swim, bike, and run with locals who want accountable training partners.',
+    publicUrl: 'https://atlantatriclub.com/',
     status: 'ready',
   },
   {
@@ -78,6 +81,7 @@ export const ATLANTA_PARTNERS: AtlantaPartnerRecord[] = [
     displayName: 'Midtown Atlanta trainers',
     communityType: 'trainer',
     blurb: 'Trainers and clients looking for compatible training partners nearby.',
+    publicUrl: 'https://midtowntrainers.com/',
     status: 'ready',
   },
   {
@@ -85,6 +89,7 @@ export const ATLANTA_PARTNERS: AtlantaPartnerRecord[] = [
     displayName: 'Atlanta recreational sports',
     communityType: 'rec_sports',
     blurb: 'Rec leagues and casual athletes who want more consistent training buddies.',
+    publicUrl: 'https://jamsports.com/discover/atlanta',
     status: 'ready',
   },
   {
@@ -92,6 +97,7 @@ export const ATLANTA_PARTNERS: AtlantaPartnerRecord[] = [
     displayName: 'Atlanta outdoor fitness',
     communityType: 'outdoor_club',
     blurb: 'Trail, park, and outdoor training partners across metro Atlanta.',
+    publicUrl: 'https://www.atlantaoutdoorclub.com/',
     status: 'ready',
   },
   {

@@ -21,15 +21,15 @@
 | 1 | Atlanta Track Club | https://www.atlantatrackclub.org/ | Run club | Large Atlanta running community; TRAINING partners fit ATC culture | `atl-track-club` | /partners/atlanta/atl-track-club |
 | 2 | Fleet Feet Atlanta | https://www.fleetfeet.com/s/atlanta | Run / retail community | Race training groups and weekly runners | `atl-fleet-feet` | /partners/atlanta/atl-fleet-feet |
 | 3 | F3 Atlanta | https://f3atlanta.com/ | Outdoor fitness | Free workouts; partner-finding is a natural need | `atl-f3` | /partners/atlanta/atl-f3 |
-| 4 | Atlanta Pickball (community label) | _(confirm local club URL before send)_ | Pickleball | High social training demand; TRAIN mode | `atl-pickleball` | /partners/atlanta/atl-pickleball |
-| 5 | Atlanta Hyrox / CrossFit community | _(confirm box/org URL before send)_ | Gym / Hyrox | Partner workouts and class consistency | `atl-hyrox-crossfit` | /partners/atlanta/atl-hyrox-crossfit |
-| 6 | Atlanta Tri Club (community label) | _(confirm URL before send)_ | Rec sports / triathlon | Multi-sport training partners | `atl-tri-club` | /partners/atlanta/atl-tri-club |
-| 7 | Midtown Atlanta trainers | _(confirm studio/trainer directories)_ | Trainer | Clients need accountability partners | `atl-midtown-trainers` | /partners/atlanta/atl-midtown-trainers |
-| 8 | Atlanta recreational sports leagues | _(confirm league operator)_ | Rec sports | Soft schedule + partner seeking | `atl-softball-rec` | /partners/atlanta/atl-softball-rec |
-| 9 | Atlanta outdoor fitness groups | _(confirm meetup/org)_ | Outdoor club | Park/trail partners | `atl-outdoor-club` | /partners/atlanta/atl-outdoor-club |
+| 4 | Atlanta Pickleball Club | https://atlantapickleballclub.com/ | Pickleball | Community org promoting pickleball in the City of Atlanta | `atl-pickleball` | /partners/atlanta/atl-pickleball |
+| 5 | Elite Edge (HYROX Training Club Atlanta) | https://eliteedgeatl.com/hyrox-training-club-atlanta/ | Gym / Hyrox | Official HYROX Training Club; partner workouts and race prep | `atl-hyrox-crossfit` | /partners/atlanta/atl-hyrox-crossfit |
+| 6 | Atlanta Triathlon Club | https://atlantatriclub.com/ | Rec sports / triathlon | Multi-sport training partners (sprint through IRONMAN) | `atl-tri-club` | /partners/atlanta/atl-tri-club |
+| 7 | Midtown Trainers | https://midtowntrainers.com/ | Trainer | In-home / building-gym trainers whose clients need extra partners | `atl-midtown-trainers` | /partners/atlanta/atl-midtown-trainers |
+| 8 | JAM Sports Atlanta | https://jamsports.com/discover/atlanta | Rec sports | Rec league operator (softball and other social sports) | `atl-softball-rec` | /partners/atlanta/atl-softball-rec |
+| 9 | Atlanta Outdoor Club | https://www.atlantaoutdoorclub.com/ | Outdoor club | Member-led hikes, trail runs, and outdoor training | `atl-outdoor-club` | /partners/atlanta/atl-outdoor-club |
 | 10 | Generic Atlanta TRAIN (internal) | https://gettrainmate.com/partners/atlanta | Template | Catch-all invite for approved one-off partners | `atl-generic-train` | /partners/atlanta/atl-generic-train |
 
-Rows marked “confirm URL” must be verified by Max before any email is sent.
+Public URLs confirmed from organization websites on 2026-08-14. **Outreach still not sent.** Alternates if a first contact is a poor fit: Atlanta Pickleball Center (`https://www.atlanta-pickleball.com/`), Venture CrossFit (`http://www.venturecrossfit.com/`), Atlanta Sport and Social Club via JAM.
 
 ---
 
@@ -59,13 +59,63 @@ Hi F3 Atlanta — GetTrainMate is TRAIN-first for Atlanta. Invite for your commu
 https://gettrainmate.com/partners/atlanta/atl-f3  
 No fake profiles, no guaranteed matches — just a place for PAX to find compatible partners by schedule/city. OK if I send a one-paragraph blurb you can paste?
 
-### 4–10 — Template (customize org name + URL + code)
+### 4 — Atlanta Pickleball Club
+
+**Subject:** Training-partner invite for Atlanta pickleball players (GetTrainMate)
+
+Hi Atlanta Pickleball Club team — I’m Max with GetTrainMate (gettrainmate.com). We’re helping Atlanta athletes find TRAIN-mode partners (not dating-first). Invite for your community:  
+https://gettrainmate.com/partners/atlanta/atl-pickleball  
+Code: `atl-pickleball`. We don’t sell member data or promise matches. Would you be open to sharing this with players looking for extra hitting partners?
+
+### 5 — Elite Edge / HYROX Atlanta
+
+**Subject:** Partner invite for HYROX / CrossFit athletes in Atlanta
+
+Hi Elite Edge team — GetTrainMate is TRAIN-first for Atlanta. Invite tagged for your HYROX community:  
+https://gettrainmate.com/partners/atlanta/atl-hyrox-crossfit  
+Code: `atl-hyrox-crossfit`. Aggregated signup stats only — no private member data. Open to a short pilot with athletes looking for a race-prep partner?
+
+### 6 — Atlanta Triathlon Club
+
+**Subject:** Training-partner invite for Atlanta Tri Club members
+
+Hi Atlanta Triathlon Club — GetTrainMate helps Atlanta athletes find swim/bike/run training partners. Your invite:  
+https://gettrainmate.com/partners/atlanta/atl-tri-club  
+Code: `atl-tri-club`. No fake profiles and no match guarantees. OK if I send a one-paragraph blurb for your newsletter?
+
+### 7 — Midtown Trainers
+
+**Subject:** Invite link for clients who want an extra training partner
+
+Hi Midtown Trainers — GetTrainMate is a TRAIN-mode matching app for Atlanta. Invite for clients who want a compatible partner between sessions:  
+https://gettrainmate.com/partners/atlanta/atl-midtown-trainers  
+Code: `atl-midtown-trainers`. We never sell private member data. Would this be useful to share with a few clients?
+
+### 8 — JAM Sports Atlanta
+
+**Subject:** Training-partner invite for Atlanta rec-league players
+
+Hi JAM Sports Atlanta — GetTrainMate helps rec-league athletes find extra training partners in Atlanta (TRAIN mode). Invite:  
+https://gettrainmate.com/partners/atlanta/atl-softball-rec  
+Code: `atl-softball-rec`. Aggregated joins only; no member data sharing. Open to sharing with free agents looking for more consistent training?
+
+### 9 — Atlanta Outdoor Club
+
+**Subject:** Partner invite for Atlanta Outdoor Club members who want training buddies
+
+Hi Atlanta Outdoor Club — GetTrainMate is TRAIN-first for Atlanta trail/park partners. Invite:  
+https://gettrainmate.com/partners/atlanta/atl-outdoor-club  
+Code: `atl-outdoor-club`. No guaranteed matches. May I share a short blurb for trip leaders or the newsletter?
+
+### 10 — Generic Atlanta TRAIN (internal catch-all)
+
+Use only after Max assigns this code to a one-off partner. Do not send as a cold email.
 
 **Subject:** Atlanta TRAIN partner invite for {{Org}}
 
 Hi {{Org}} — GetTrainMate helps Atlanta people find training partners (TRAIN mode). Your invite:  
-https://gettrainmate.com/partners/atlanta/{{code}}  
-Benefit we’re proposing (pending approval): Founding Atlanta access for early members + aggregated activation report. We don’t sell private member data or promise matches. May I share a short blurb for your newsletter / Discord / Instagram?
+https://gettrainmate.com/partners/atlanta/atl-generic-train  
+We don’t sell private member data or promise matches. May I share a short blurb for your newsletter / Discord / Instagram?
 
 ---
 
@@ -90,4 +140,5 @@ Hi again — just bumping the Atlanta TRAIN invite for {{Org}}: {{landing_url}}.
 
 - **Shipped in product:** partner hub + invite landings + codes (live after Amplify).  
 - **Outreach sent:** **none** (awaiting Max).  
-- **Partner accounts created:** **none**.
+- **Partner accounts created:** **none**.  
+- **2026-08-14:** Public URLs confirmed for rows 4–9; personalized drafts added. Still not sent.
