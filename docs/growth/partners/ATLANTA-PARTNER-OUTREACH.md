@@ -1,7 +1,7 @@
 # Atlanta TRAIN partner acquisition package (EXP-002)
 
-**Status:** Draft for Max approval — **outreach NOT sent**  
-**Date:** 2026-08-13  
+**Status:** Outreach sent 2026-08-14 via SES (From `noreply@gettrainmate.com`, Reply-To `gettrainmate@gmail.com`)  
+**Date:** 2026-08-13 (package) / 2026-08-14 (send)  
 **Product:** GetTrainMate · Metro: Atlanta · Mode: TRAIN  
 **Hub:** https://gettrainmate.com/partners/atlanta  
 **Tracking:** `partner` / `partner_code` + `experiment_id=EXP-002` · GA4 `landing_page_view` / `signup_started` with `partner_code` · Stripe metadata `partner_code` when checkout occurs  
@@ -29,11 +29,11 @@
 | 9 | Atlanta Outdoor Club | https://www.atlantaoutdoorclub.com/ | Outdoor club | Member-led hikes, trail runs, and outdoor training | `atl-outdoor-club` | /partners/atlanta/atl-outdoor-club |
 | 10 | Generic Atlanta TRAIN (internal) | https://gettrainmate.com/partners/atlanta | Template | Catch-all invite for approved one-off partners | `atl-generic-train` | /partners/atlanta/atl-generic-train |
 
-Public URLs confirmed from organization websites on 2026-08-14. **Outreach still not sent.** Alternates if a first contact is a poor fit: Atlanta Pickleball Center (`https://www.atlanta-pickleball.com/`), Venture CrossFit (`http://www.venturecrossfit.com/`), Atlanta Sport and Social Club via JAM.
+Public URLs confirmed from organization websites on 2026-08-14. Alternates if a first contact is a poor fit: Atlanta Pickleball Center (`https://www.atlanta-pickleball.com/`), Venture CrossFit (`http://www.venturecrossfit.com/`).
 
 ---
 
-## Personalized outreach drafts (NOT SENT)
+## Personalized outreach (sent 2026-08-14 unless noted)
 
 ### 1 — Atlanta Track Club
 
@@ -138,7 +138,8 @@ Hi again — just bumping the Atlanta TRAIN invite for {{Org}}: {{landing_url}}.
 
 ## Distribution completed this run
 
-- **Shipped in product:** partner hub + invite landings + codes (live after Amplify).  
-- **Outreach sent:** **none** (awaiting Max).  
-- **Partner accounts created:** **none**.  
-- **2026-08-14:** Public URLs confirmed for rows 4–9; personalized drafts added. Still not sent.
+- **Shipped in product:** partner hub + invite landings + codes (live).
+- **Sender:** From GetTrainMate `<noreply@gettrainmate.com>` · Reply-To `gettrainmate@gmail.com` · BCC Admin.
+- **Outreach sent 2026-08-14:** Atlanta Track Club (`membership@atlantatrackclub.org`), Fleet Feet Atlanta (`joe@fleetfeetatlanta.com`), Atlanta Pickleball Club, Elite Edge, Atlanta Triathlon Club, JAM / Atlanta Sport and Social (`havefun@atlantasportandsocialclub.com`), Atlanta Outdoor Club.
+- **Not sent (no public email / form-only):** F3 Atlanta (https://www.f3atlanta.com/contact-us/), Midtown Trainers (contact form; email obfuscated). Generic catch-all not used as a cold email.
+- **Partner accounts created:** none.
