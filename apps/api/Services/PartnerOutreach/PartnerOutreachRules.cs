@@ -71,6 +71,7 @@ public static class PartnerOutreachRules
         if (!ctx.Approved) return "missing_authorization_record";
         if (ctx.ApprovalFingerprint != ctx.CurrentFingerprint) return "approval_invalidated";
         if (ctx.OptedOut || ctx.Complained || ctx.HardBounced) return "suppressed";
+        if (ctx.AlreadySentThisRecipient) return "duplicate_recipient";
         if (ctx.DuplicateOrganizationInitial) return "duplicate_organization";
         if (ctx.RecentlyContacted) return "recent_contact";
         if (ctx.AlreadyQueuedOrSentSameRecipient) return "duplicate_recipient";
@@ -98,6 +99,7 @@ public sealed class PartnerSendContext
     public bool Complained { get; set; }
     public bool HardBounced { get; set; }
     public bool DuplicateOrganizationInitial { get; set; }
+    public bool AlreadySentThisRecipient { get; set; }
     public bool RecentlyContacted { get; set; }
     public bool AlreadyQueuedOrSentSameRecipient { get; set; }
     public int SentToday { get; set; }

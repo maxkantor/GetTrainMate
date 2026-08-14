@@ -75,7 +75,7 @@ Real send requires **all** of: per-recipient approval manifest (exact address, s
 
 Allowed: research, prospect lists, drafts, tracked URLs, rendering validation, previews (`npm run growth:outreach:preview` / `validate`).
 
-Partner campaign sending lives in **Admin CRM → Partner Outreach**, From `partners@gettrainmate.com`, fail-closed (`PARTNER_OUTREACH_SEND_ENABLED` absent/false). Cursor must not hold `PARTNER_EMAIL_INTERNAL_TOKEN`. See `docs/growth/PARTNER-OUTREACH-INFRA.md`.
+Partner campaign sending lives in **Admin CRM → Partner Outreach**, From `partners@gettrainmate.com`. Cursor must not hold `PARTNER_EMAIL_INTERNAL_TOKEN`. Daily EventBridge may invoke API Lambda dispatch; it still cannot send unless `PARTNER_OUTREACH_SEND_ENABLED=true`, postal address is set, and Max has approved each recipient. Unsubscribed, complained, and hard-bounced addresses are suppressed forever. See `docs/growth/PARTNER-OUTREACH-INFRA.md`.
 
 ## Scripts
 

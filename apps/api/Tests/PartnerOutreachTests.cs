@@ -40,6 +40,9 @@ public class PartnerOutreachTests
         ctx.HardBounced = false;
         ctx.ComplaintPause = true;
         Assert.Equal("complaint_pause", PartnerOutreachRules.EvaluateSendGate(ctx));
+        ctx.ComplaintPause = false;
+        ctx.AlreadySentThisRecipient = true;
+        Assert.Equal("duplicate_recipient", PartnerOutreachRules.EvaluateSendGate(ctx));
     }
 
     [Fact]

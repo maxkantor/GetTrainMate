@@ -8,6 +8,8 @@ import * as appsync from 'aws-cdk-lib/aws-appsync';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -119,9 +121,9 @@ export class GetTrainMateStack extends cdk.Stack {
     // cd apps/api && dotnet publish -c Release
     const apiLambda = new lambda.Function(this, 'ApiFunction', {
       runtime: new lambda.Runtime('dotnet8', lambda.RuntimeFamily.DOTNET_CORE),
-      handler: 'GetTrainMate.Api::GetTrainMate.Api.LambdaEntryPoint::FunctionHandlerAsync',
+      handler: 'GetTrainMate.Api::GetTrainMate.Api.LambdaEntryPoint::HandleAwsEventAsync',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../apps/api/publish')),
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.seconds(60),
       memorySize: 512,
       environment: {
         ASPNETCORE_ENVIRONMENT: 'Production',
@@ -164,6 +166,23 @@ export class GetTrainMateStack extends cdk.Stack {
       effect: iam.Effect.ALLOW,
       actions: ['dynamodb:DescribeTable', 'dynamodb:DescribeTimeToLive'],
       resources: [`arn:aws:dynamodb:${this.region}:${this.account}:table/gettrainmate-*`],
+    }));
+    apiLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'dynamodb:GetItem',
+        'dynamodb:PutItem',
+        'dynamodb:UpdateItem',
+        'dynamodb:DeleteItem',
+        'dynamodb:Query',
+        'dynamodb:Scan',
+        'dynamodb:BatchGetItem',
+        'dynamodb:BatchWriteItem',
+      ],
+      resources: [
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/gettrainmate-partner-*`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/gettrainmate-partner-*/index/*`,
+      ],
     }));
     mediaBucket.grantReadWrite(apiLambda);
     mediaBucketTypoFallback.grantReadWrite(apiLambda);
@@ -250,6 +269,29 @@ export class GetTrainMateStack extends cdk.Stack {
       ],
       resources: ['*'], // SES doesn't support resource-level permissions for SendEmail
     }));
+
+    // Weekday ticks at 14:00 and 15:00 UTC cover 10:00 America/New_York in EDT and EST.
+    // DispatchDueAsync no-ops unless that Eastern hour is 10:00 on a weekday.
+    if (enablePartnerOutreach) {
+      const partnerDispatch = new events.Rule(this, 'PartnerOutreachWeekdayDispatch', {
+        ruleName: 'gettrainmate-partner-outreach-weekday',
+        description: 'Partner CRM daily dispatch (DST-safe via application window)',
+        schedule: events.Schedule.cron({
+          minute: '5',
+          hour: '14,15',
+          weekDay: 'MON-FRI',
+        }),
+      });
+      partnerDispatch.addTarget(
+        new targets.LambdaFunction(apiLambda, {
+          event: events.RuleTargetInput.fromObject({
+            'detail-type': 'partner-outreach-dispatch',
+            source: 'gettrainmate.partner',
+          }),
+          retryAttempts: 0,
+        }),
+      );
+    }
 
     // Bedrock: use AWS managed policy (includes InvokeModel + Marketplace ViewSubscriptions/Subscribe)
     // Inline policies kept failing; managed policy is the authoritative fix.

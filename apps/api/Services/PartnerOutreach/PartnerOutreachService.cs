@@ -180,21 +180,41 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (!PartnerOutreachRules.IsDispatchWindow(now, tz))
             return new { sent = 0, error = "outside_dispatch_window" };
 
-        var approved = (await ListQueueAsync("approved")).ToList();
+        var approved = (await ListQueueAsync("approved")).OrderBy(x => x.CreatedAt).ToList();
         var sent = 0;
+        var skippedUnsub = 0;
         var errors = new List<string>();
+        var usedEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var usedOrgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in approved)
         {
+            if (sent >= DailyLimit)
+                break;
+            var emailKey = item.Recipient.Trim().ToLowerInvariant();
+            if (usedEmails.Contains(emailKey) || usedOrgs.Contains(item.OrganizationName.Trim()))
+            {
+                errors.Add($"{item.QueueId}:duplicate_in_batch");
+                continue;
+            }
             var gate = await BuildGateAsync(item, settings, scheduledCursorAutomation);
             var code = PartnerOutreachRules.EvaluateSendGate(gate);
             if (code != null)
             {
+                if (code == "suppressed")
+                {
+                    item.Status = "opted_out";
+                    item.LastError = code;
+                    await _db.SaveAsync(item);
+                    skippedUnsub++;
+                }
                 errors.Add($"{item.QueueId}:{code}");
                 continue;
             }
             try
             {
                 await SendQueueItemAsync(item);
+                usedEmails.Add(emailKey);
+                usedOrgs.Add(item.OrganizationName.Trim());
                 sent++;
                 settings.SentCount++;
                 await _db.SaveAsync(settings);
@@ -208,7 +228,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                 _log.LogError(ex, "Partner queue send failed {Id}", item.QueueId);
             }
         }
-        return new { sent, errors };
+        return new { sent, skippedUnsub, errors };
     }
 
     async Task<PartnerSendContext> BuildGateAsync(PartnerQueueItem item, PartnerOutreachSettingsRow settings, bool scheduled)
@@ -238,12 +258,19 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             Approved = !string.IsNullOrWhiteSpace(item.ApprovalId),
             ApprovalFingerprint = item.Fingerprint,
             CurrentFingerprint = current,
-            OptedOut = suppress?.Reason == "opt_out",
+            OptedOut = suppress != null && suppress.Reason is "opt_out" or "unsubscribe" or "list_unsubscribe",
             Complained = suppress?.Reason == "complaint",
-            HardBounced = suppress?.Reason == "hard_bounce",
+            HardBounced = suppress?.Reason is "hard_bounce" or "bounce",
             DuplicateOrganizationInitial = orgDup,
+            AlreadySentThisRecipient = all.Any(x =>
+                x.QueueId != item.QueueId
+                && string.Equals(x.Recipient, item.Recipient, StringComparison.OrdinalIgnoreCase)
+                && x.Status is "sent" or "delivered" or "replied" or "queued"),
             RecentlyContacted = recent,
-            AlreadyQueuedOrSentSameRecipient = all.Any(x => x.QueueId != item.QueueId && x.Recipient == item.Recipient && x.Status is "sent" or "queued"),
+            AlreadyQueuedOrSentSameRecipient = all.Any(x =>
+                x.QueueId != item.QueueId
+                && string.Equals(x.Recipient, item.Recipient, StringComparison.OrdinalIgnoreCase)
+                && x.Status is "sent" or "queued" or "delivered" or "replied"),
             SentToday = sentToday,
             DailyLimit = DailyLimit,
             UnsafeBounceHealth = bounceRate
@@ -320,6 +347,9 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         var msgs = (await _db.QueryAsync<PartnerMessage>(threadId).GetRemainingAsync()).OrderBy(m => m.CreatedAt).ToList();
         var last = msgs.LastOrDefault();
         var prospect = await _db.LoadAsync<PartnerProspect>(thread.ProspectId) ?? throw new KeyNotFoundException("Prospect not found");
+        var replySuppress = await _db.LoadAsync<PartnerSuppression>(prospect.Email.ToLowerInvariant());
+        if (replySuppress != null)
+            throw new InvalidOperationException("suppressed");
         var refs = msgs.Select(m => m.RfcMessageId).Where(s => !string.IsNullOrWhiteSpace(s)).Cast<string>().ToList();
         var rfcId = $"<po_reply_{Guid.NewGuid():N}@gettrainmate.com>";
         var html = $"<p>{System.Net.WebUtility.HtmlEncode(bodyText).Replace("\n", "<br>")}</p>";
@@ -465,10 +495,29 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     public async Task UnsubscribeAsync(string recipientId)
     {
         var p = await _db.LoadAsync<PartnerProspect>(recipientId);
-        if (p == null) return;
-        await _db.SaveAsync(new PartnerSuppression { Email = p.Email.ToLowerInvariant(), Reason = "opt_out" });
-        p.Status = "opted_out";
-        await _db.SaveAsync(p);
+        if (p == null && recipientId.Contains('@'))
+        {
+            var all = await _db.ScanAsync<PartnerProspect>(new List<ScanCondition>()).GetRemainingAsync();
+            p = all.FirstOrDefault(x => string.Equals(x.Email, recipientId, StringComparison.OrdinalIgnoreCase));
+        }
+        var email = (p?.Email ?? recipientId).Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            return;
+        await _db.SaveAsync(new PartnerSuppression { Email = email, Reason = "opt_out", CreatedAt = DateTime.UtcNow });
+        if (p != null)
+        {
+            p.Status = "opted_out";
+            await _db.SaveAsync(p);
+        }
+        var queue = await _db.ScanAsync<PartnerQueueItem>(new List<ScanCondition>()).GetRemainingAsync();
+        foreach (var item in queue.Where(x =>
+            string.Equals(x.Recipient, email, StringComparison.OrdinalIgnoreCase)
+            && x.Status is "approved" or "queued" or "draft" or "scheduled"))
+        {
+            item.Status = "opted_out";
+            item.LastError = "unsubscribed";
+            await _db.SaveAsync(item);
+        }
     }
 
     public async Task<object> MetricsAsync()
