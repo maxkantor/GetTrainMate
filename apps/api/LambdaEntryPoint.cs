@@ -1,7 +1,9 @@
+using System.Text;
 using System.Text.Json;
 using Amazon.Lambda.APIGatewayEvents;
 using Amazon.Lambda.AspNetCoreServer;
 using Amazon.Lambda.Core;
+using Amazon.Lambda.Serialization.SystemTextJson;
 using GetTrainMate.Api.Services.PartnerOutreach;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,7 +28,11 @@ public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
     {
         if (request.ValueKind == JsonValueKind.Object && request.TryGetProperty("requestContext", out _))
         {
-            var proxy = JsonSerializer.Deserialize<APIGatewayHttpApiV2ProxyRequest>(request.GetRawText())
+            // Must use the Lambda serializer (case-insensitive AWS event names). Plain
+            // System.Text.Json leaves RequestContext/Http null and MarshallRequest NREs.
+            var serializer = new DefaultLambdaJsonSerializer();
+            using var ms = new MemoryStream(Encoding.UTF8.GetBytes(request.GetRawText()));
+            var proxy = serializer.Deserialize<APIGatewayHttpApiV2ProxyRequest>(ms)
                 ?? throw new InvalidOperationException("Invalid API Gateway event");
             return await FunctionHandlerAsync(proxy, context);
         }
