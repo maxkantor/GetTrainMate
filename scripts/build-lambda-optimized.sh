@@ -6,7 +6,7 @@ set -e
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ZIP_PATH="$REPO_ROOT/deploy/gettrainmate-api-lambda.zip"
 
-echo "🔨 Building .NET 8 Lambda package (optimized)..."
+echo "🔨 Building .NET 10 Lambda package (optimized)..."
 
 cd "$REPO_ROOT/apps/api"
 

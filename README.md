@@ -7,7 +7,7 @@ Training-first partner matching for gym, CrossFit, HYROX, running, and more.
 ## Stack
 
 - **Frontend:** React + TypeScript + Vite + MUI
-- **Backend:** AWS Lambda (.NET 8) + DynamoDB + API Gateway
+- **Backend:** AWS Lambda (.NET 10) + DynamoDB + API Gateway
 - **Auth:** AWS Cognito User Pools
 - **Payments:** Stripe
 - **Infrastructure:** AWS CDK (TypeScript)
@@ -21,7 +21,7 @@ Training-first partner matching for gym, CrossFit, HYROX, running, and more.
 /
 ├── apps/
 │   ├── web/              # React + TypeScript + Vite frontend
-│   └── api/              # .NET 8 Lambda functions
+│   └── api/              # .NET 10 Lambda functions
 ├── infra/                # AWS CDK infrastructure code
 ├── docs/                 # Architecture & setup documentation
 ├── scripts/              # Database seeding & utilities
@@ -33,7 +33,7 @@ Training-first partner matching for gym, CrossFit, HYROX, running, and more.
 ### Prerequisites
 
 - Node.js 18+ and npm
-- .NET 8 SDK
+- .NET 10 SDK
 - AWS CLI v2 configured
 - Git
 

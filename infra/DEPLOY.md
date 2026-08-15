@@ -32,7 +32,7 @@
 ## What Gets Deployed
 
 - ✅ API Gateway HTTP API
-- ✅ Lambda Function (.NET 8)
+- ✅ Lambda Function (.NET 10)
 - ✅ 10 DynamoDB Tables
 - ✅ S3 Bucket for media
 - ✅ IAM Roles and Permissions

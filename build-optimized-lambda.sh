@@ -6,7 +6,7 @@ set -e
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 ZIP_PATH="$REPO_ROOT/deploy/gettrainmate-api-lambda.zip"
 
-echo "🔨 Building optimized .NET 8 Lambda package..."
+echo "🔨 Building optimized .NET 10 Lambda package..."
 echo ""
 
 cd "$REPO_ROOT/apps/api"
@@ -16,7 +16,7 @@ echo "🧹 Cleaning previous builds..."
 rm -rf bin obj publish
 
 # Build in Release mode (excludes test libraries automatically)
-echo "📦 Publishing .NET 8 Release build..."
+echo "📦 Publishing .NET 10 Release build..."
 dotnet publish -c Release -o ./publish
 
 # Always create zip at deploy/gettrainmate-api-lambda.zip
@@ -25,7 +25,7 @@ echo "📦 Creating zip at deploy/gettrainmate-api-lambda.zip..."
 cd publish
 rm -f "$ZIP_PATH"
 
-# For .NET 8 managed runtime, we need ALL DLLs and dependencies
+# For .NET 10 managed runtime, we need ALL DLLs and dependencies
 # Only exclude: .pdb, .xml, test libs
 zip -r "$ZIP_PATH" . \
   -x "*.pdb" \
@@ -62,8 +62,8 @@ if [ "${SIZE_MB_INT:-0}" -gt 50 ] 2>/dev/null; then
   echo ""
   echo "  aws lambda update-function-configuration \\"
   echo "    --function-name GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u \\"
-  echo "    --runtime dotnet8 \\"
-  echo "    --handler GetTrainMate.Api::GetTrainMate.Api.LambdaEntryPoint::FunctionHandlerAsync"
+  echo "    --runtime dotnet10 \\"
+  echo "    --handler GetTrainMate.Api::GetTrainMate.Api.LambdaEntryPoint::HandleAwsEventAsync"
 else
   echo "✅ Size is under 50 MB - you can upload directly via AWS Console!"
 fi

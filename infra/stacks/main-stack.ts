@@ -120,7 +120,7 @@ export class GetTrainMateStack extends cdk.Stack {
     // Note: The Lambda code needs to be built and published first:
     // cd apps/api && dotnet publish -c Release
     const apiLambda = new lambda.Function(this, 'ApiFunction', {
-      runtime: new lambda.Runtime('dotnet8', lambda.RuntimeFamily.DOTNET_CORE),
+      runtime: new lambda.Runtime('dotnet10', lambda.RuntimeFamily.DOTNET_CORE),
       handler: 'GetTrainMate.Api::GetTrainMate.Api.LambdaEntryPoint::HandleAwsEventAsync',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../apps/api/publish')),
       timeout: cdk.Duration.seconds(60),

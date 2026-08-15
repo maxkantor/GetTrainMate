@@ -5,7 +5,7 @@
 ### Prerequisites
 
 - **Node.js:** 18.x or 20.x
-- **.NET 8 SDK:** https://dotnet.microsoft.com/download
+- **.NET 10 SDK:** https://dotnet.microsoft.com/download
 - **AWS CLI v2:** https://aws.amazon.com/cli/
 - **AWS Account:** With IAM credentials configured
 - **Git:** For version control
@@ -112,7 +112,7 @@ cd apps/api
 dotnet build
 ```
 
-- Output: `apps/api/bin/Release/net8.0/`
+- Output: `apps/api/bin/Release/net10.0/`
 
 #### CDK Deployment Ready (Manual Approval)
 
@@ -157,7 +157,7 @@ GetTrainMate/
 │   │   ├── vite.config.ts   # Vite configuration
 │   │   └── package.json
 │   │
-│   └── api/              # .NET 8 Lambda
+│   └── api/              # .NET 10 Lambda
 │       ├── Controllers/     # API endpoints
 │       ├── Program.cs       # Lambda host setup
 │       ├── appsettings.json # Configuration

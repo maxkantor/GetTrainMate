@@ -6,7 +6,7 @@ AWS CDK infrastructure for GetTrainMate platform.
 
 1. AWS CLI configured with credentials
 2. Node.js 18+ and npm
-3. .NET 8 SDK
+3. .NET 10 SDK
 4. AWS CDK CLI: `npm install -g aws-cdk`
 
 ## Setup
@@ -88,7 +88,7 @@ cdk deploy --context userPoolId=us-east-1_YOUR_POOL_ID --context userPoolClientI
 ## What Gets Created
 
 - **API Gateway HTTP API** - REST API endpoint
-- **Lambda Function** - .NET 8 API handler
+- **Lambda Function** - .NET 10 API handler
 - **DynamoDB Tables** - 10 tables for users, profiles, matches, messages, events, content, translations, entitlements, leads, audit logs
 - **S3 Bucket** - For media storage
 - **IAM Roles** - Permissions for Lambda to access AWS services

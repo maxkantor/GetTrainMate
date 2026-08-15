@@ -29,7 +29,7 @@ def main():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     api_dir = os.path.join(base_dir, "apps", "api")
     
-    print("🔨 Building optimized .NET 8 Lambda package...")
+    print("🔨 Building optimized .NET 10 Lambda package...")
     print("")
     
     # Clean
@@ -37,7 +37,7 @@ def main():
     run_command("rm -rf bin obj publish", cwd=api_dir)
     
     # Build
-    print("📦 Publishing .NET 8 Release build...")
+    print("📦 Publishing .NET 10 Release build...")
     if not run_command("dotnet publish -c Release -o ./publish", cwd=api_dir):
         print("❌ Build failed!")
         return 1

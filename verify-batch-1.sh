@@ -45,8 +45,8 @@ echo ""
 echo -e "${YELLOW}[3/5]${NC} Building .NET API..."
 cd apps/api
 dotnet build --configuration Release > /dev/null 2>&1
-if [ -d "bin/Release/net8.0" ]; then
-    echo -e "${GREEN}✓ API built${NC} (.NET 8.0)"
+if [ -d "bin/Release/net10.0" ]; then
+    echo -e "${GREEN}✓ API built${NC} (.NET 10.0)"
 else
     echo -e "${RED}✗ API build failed${NC}"
     exit 1
@@ -89,7 +89,7 @@ echo "╚═══════════════════════�
 echo ""
 echo "📊 Summary:"
 echo "  • React Web: TypeScript + Vite (prod bundle ready)"
-echo "  • API: .NET 8 Lambda (health check working)"
+echo "  • API: .NET 10 Lambda (health check working)"
 echo "  • CDK: Infrastructure as Code (CF template generated)"
 echo "  • i18n: 5 locales (en, es, ru, hi, zh)"
 echo "  • CI/CD: 3 GitHub Actions workflows"

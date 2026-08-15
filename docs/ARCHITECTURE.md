@@ -16,7 +16,7 @@ GetTrainMate is a training-first partner matching SaaS built with a modern serve
 - **State Management:** React Context (can extend to Redux if needed)
 
 ### Backend
-- **Runtime:** AWS Lambda (.NET 8)
+- **Runtime:** AWS Lambda (.NET 10)
 - **API Gateway:** HTTP API with OpenAPI integration
 - **Database:** DynamoDB (NoSQL)
 - **Authentication:** AWS Cognito User Pools
@@ -59,7 +59,7 @@ GetTrainMate is a training-first partner matching SaaS built with a modern serve
          │
          ▼
 ┌────────────────────────────────────────────────────────────────┐
-│                  AWS Lambda (.NET 8)                            │
+│                  AWS Lambda (.NET 10)                            │
 │                                                                  │
 │  /api/health              /api/matches              /admin/*    │
 │  /api/me                  /api/swipe                (auth)      │

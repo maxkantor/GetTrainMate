@@ -11,7 +11,7 @@ if ! command -v node &> /dev/null; then
 fi
 
 if ! command -v dotnet &> /dev/null; then
-    echo "❌ .NET 8 SDK is not installed"
+    echo "❌ .NET SDK is not installed (need .NET 10)"
     exit 1
 fi
 

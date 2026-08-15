@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🔨 Rebuilding .NET 8 Lambda package..."
+echo "🔨 Rebuilding .NET 10 Lambda package..."
 echo ""
 
 cd "$(dirname "$0")/apps/api"

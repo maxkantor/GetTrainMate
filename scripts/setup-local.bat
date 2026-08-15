@@ -14,7 +14,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 where dotnet >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
-    echo ❌ .NET 8 SDK is not installed
+    echo ❌ .NET 10 SDK is not installed
     exit /b 1
 )
 

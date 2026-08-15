@@ -76,5 +76,5 @@ The package is typically 5-15 MB depending on dependencies.
 ## Notes
 
 - Debug symbols (`.pdb`) and XML docs are excluded to reduce size
-- The package is built for .NET 8.0 runtime
-- Ensure Lambda runtime is set to `provided.al2` or `.NET 8` (depending on your setup)
+- The package is built for .NET 10 runtime
+- Ensure Lambda runtime is set to `dotnet10`
