@@ -149,6 +149,17 @@ public class Startup
             catch (Exception ex) { Log.Warning(ex, "Could not load Bedrock model ID from SSM"); }
 
             var resolved = fromSsm ?? fromEnv ?? options.ModelId;
+            // Claude 3.5 Haiku 20241022 inference profile is retired (Bedrock "end of its life").
+            if (!string.IsNullOrWhiteSpace(resolved)
+                && resolved.Contains("claude-3-5-haiku-20241022", StringComparison.OrdinalIgnoreCase))
+            {
+                var fallback = fromEnv ?? options.ModelId;
+                Log.Warning(
+                    "Bedrock SSM model {Retired} is retired; using {Fallback}",
+                    resolved,
+                    fallback);
+                resolved = fallback;
+            }
             if (!string.IsNullOrWhiteSpace(resolved))
                 options.ModelId = resolved;
         });
