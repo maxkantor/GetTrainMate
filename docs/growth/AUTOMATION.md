@@ -60,8 +60,8 @@ North star: 1000+ real GetTrainMate customers (qualified Atlanta TRAIN profiles 
 This is Atlanta marketplace-launch execution. Every run must complete one meaningful customer-acquisition action. Reading metrics, updating docs, or sending Admin email alone does not count.
 
 Today’s task order (do the first unfinished item, then stop after one ship):
-1) Evaluate EXP-001 if its eval date has passed. Keep, iterate, or stop using the experiment log rules. Record the result.
-2) If EXP-002 partner invite landings are live, add one new attributable Atlanta TRAIN acquisition surface: another partner landing/code, referral invite, event signup path, or empty-state recovery that sends a user into signup → profile → Discover.
+1) Evaluate EXP-001 if its eval date is today or has passed. Keep, iterate, or stop using the experiment log rules. Record the result. If you evaluated, that is today’s action unless a keep/iterate decision requires one code change.
+2) If EXP-001 is evaluated and EXP-002 is still in-flight, ship a different acquisition surface (referral invite, empty-state → signup, or event signup). Do not add another partner landing/code until EXP-002 is kept, iterated, or stopped.
 3) If partner packages are thin, add one qualified gym/run-club/trainer package under docs/growth/partners/ (drafts only).
 4) Repair tracking only if signup, profile, or partner attribution is broken.
 
