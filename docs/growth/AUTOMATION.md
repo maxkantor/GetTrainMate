@@ -5,7 +5,8 @@
 **Cron (UTC during EDT):** `0 12 * * 3` — confirm preview shows **Wednesday at 8:00 AM EDT**  
 **Repo:** `maxkantor/GetTrainMate` · branch `main`  
 **Notify:** Full Admin email after **every** run → `node scripts/growth/compose-and-send-growth-email.mjs`  
-**Cost:** Prefer cheapest capable model; measure + email most weeks; ship only when justified
+**North star:** 1000+ real Atlanta TRAIN customers (scoreboard, not a promise)  
+**Cost:** Prefer cheapest capable model; ship one acquisition action per run when justified
 
 Do **not** activate a weekday (Mon–Fri) schedule — **Wednesday only**.
 
@@ -52,24 +53,30 @@ aws ssm get-parameter --name /gettrainmate/growth/stripe-restricted-read-key --w
 ## Prompt (paste into Automations → Agent instructions)
 
 ```
-Before taking any action, read and follow:
-.cursor/skills/grow-paid-customers/SKILL.md
+Read and follow .cursor/skills/grow-paid-customers/SKILL.md.
 
-This is Atlanta marketplace-launch execution, not passive reporting.
-Every run must complete one meaningful marketplace-growth action (partner landing, invite codes, referral, empty-state, outreach prep, density reporting, tracking repair). Reading metrics + email alone does not count.
+North star: 1000+ real GetTrainMate customers (qualified Atlanta TRAIN profiles who can match). That is a scoreboard, not a promise. Never invent users, matches, messages, reviews, or purchases. Report this week’s verified attributed Stripe and CRM activation honestly, including 0.
 
-Cost control: Prefer the cheapest capable model. Ship only when the action is reversible and justified. Skip npm ci / full builds unless shipping.
+This is Atlanta marketplace-launch execution. Every run must complete one meaningful customer-acquisition action. Reading metrics, updating docs, or sending Admin email alone does not count.
 
-Focus: Atlanta + TRAIN. Do not spread cities or equal-weight DATE/VIBE acquisition. Verified external paying customers baseline = 0 until Stripe product reconciliation completes. Never attribute account-wide Stripe.
+Today’s task order (do the first unfinished item, then stop after one ship):
+1) Evaluate EXP-001 if its eval date has passed. Keep, iterate, or stop using the experiment log rules. Record the result.
+2) If EXP-002 partner invite landings are live, add one new attributable Atlanta TRAIN acquisition surface: another partner landing/code, referral invite, event signup path, or empty-state recovery that sends a user into signup → profile → Discover.
+3) If partner packages are thin, add one qualified gym/run-club/trainer package under docs/growth/partners/ (drafts only).
+4) Repair tracking only if signup, profile, or partner attribution is broken.
 
-Preserve active experiments (e.g. EXP-001). Partner/referral infrastructure may ship in parallel.
+Focus: Atlanta + TRAIN. Do not spread cities. Do not equal-weight DATE/VIBE. Never attribute account-wide Stripe to GetTrainMate.
 
-Never fake users/activity. Never send outreach, create partner accounts, or activate founding-member pricing. Prepare partner packages under docs/growth/partners/. Do not run growth:outreach:send. Do not set PARTNER_OUTREACH_SEND_ENABLED. Preview/validate only.
+Preserve active experiments. Independent partner/referral work may ship in parallel with a locked conversion treatment.
 
-When shipping: one reversible change; tests + web:build; commit/push main; monitor Amplify; verify production paths; update EXPERIMENT-LOG.md.
+Hard bans: fake activity; sending outreach; creating partner accounts; activating founding-member pricing; growth:outreach:send; PARTNER_OUTREACH_SEND_ENABLED; payments/prices/auth/secrets. Preview/validate only.
 
-Always end with full Admin email (never partner outreach send):
-node scripts/growth/compose-and-send-growth-email.mjs --notes "<marketplace action; drafts vs sent; blockers; EXP-001 eval note>"
+Cost: cheapest capable model. Skip npm ci / full builds unless shipping.
+
+When shipping: one reversible change; tests + web:build; commit/push main; monitor Amplify; verify production; update docs/growth/EXPERIMENT-LOG.md.
+
+Always end with full Admin email:
+node scripts/growth/compose-and-send-growth-email.mjs --notes "<action shipped; customers/profiles this week vs 1000 north star; drafts vs sent; EXP eval; blockers>"
 ```
 
 ---

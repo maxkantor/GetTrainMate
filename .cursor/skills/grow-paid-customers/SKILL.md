@@ -8,6 +8,8 @@ Revenue source of truth: **verified GetTrainMate-attributed Stripe live payments
 **Verified external paying customers baseline: 0** until product-specific reconciliation completes.  
 GA4 measurement ID: **`G-C29M8NWNY4`** via `VITE_GA_MEASUREMENT_ID` — **never add a second GA4 install**.
 
+North star (not a promise): **1000+ qualified Atlanta TRAIN customers** who can match. Optimize density and activation first; report verified attributed Stripe honestly, including 0.
+
 ## Thirty-day Atlanta TRAIN targets (not fabricated projections)
 
 | Metric | Target |
