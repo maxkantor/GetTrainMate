@@ -11,6 +11,8 @@ Canonical definitions live in `scripts/growth/lib/metric-definitions.mjs` and ar
 5. **`match_shown` is not `match_created`.**
 6. **Never count account-wide Stripe as GetTrainMate.** Only conclusively attributed payments (`gtm_source=gettrainmate`, allowlisted Price/Product/Payment Link IDs, or legacy credits metadata). Everything else is **Unattributed Stripe payment** — not revenue, not customers. See `docs/growth/STRIPE-ATTRIBUTION.md`.
 7. **Verified external paying customers baseline = 0** for GetTrainMate (and YouTubeBooster) until `reconciliationComplete` is true in the allowlist.
+8. **Do not collapse scoreboard lines.** Report separately: registered users · completed profiles · qualified Atlanta TRAIN profiles · Discover-eligible users · verified external paying customers · successful attributed payments. A qualified Atlanta TRAIN profile (see `grow-paid-customers` skill) is not a paying customer.
+9. **Zero is valid.** Do not change tracking merely because a metric is 0 unless production inspection, application records, or a controlled test proves an expected event or attribution field is missing.
 
 ## Canonical map (summary)
 
