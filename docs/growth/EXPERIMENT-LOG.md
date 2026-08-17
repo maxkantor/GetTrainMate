@@ -32,9 +32,9 @@ Agents must append every experiment here. Do not delete history.
 | Continue/stop rule | KEEP if attribution works and any referral landings occur. ITERATE CTA copy/placement if TRAIN users exist but 0 share attempts after 14 days. STOP/rollback if `/invite` 404s, share exposes PII, or EXP-002 partner routes break. |
 | Locked surface | `/invite`, `/invite/:ref`, Profile/Discover invite CTA. Do not change EXP-002 partner pages/codes. |
 | Rollback procedure | `git revert` EXP-003 commit on `main`; remove `/invite` Amplify rewrite and prerender page |
-| Commit | this commit (SHA recorded after push) |
-| Deployment status | pending Amplify |
-| Production verification | pending post-deploy |
+| Commit | https://github.com/maxkantor/GetTrainMate/commit/750bfd3 |
+| Deployment status | Amplify job 483 SUCCEED (commit 750bfd3) |
+| Production verification | Amplify job 483 built `/invite/index.html`. Custom rewrite applied via `amplify.yml` + `deploy/amplify-custom-rules.json`. Confirm `/invite` serves prerendered Atlanta TRAIN HTML (not the SPA homepage shell). |
 | Verified purchase result | 0 new customers acquired by this run until a referred verified payment exists |
 
 ### 2026-08-17 — EXP-001 KEEP + owned-social approval request (not a new experiment)
