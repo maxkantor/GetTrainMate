@@ -32,6 +32,7 @@ const STATIC = [
   { loc: '/partners/atlanta', changefreq: 'weekly', priority: '0.85' },
   { loc: '/partners/atlanta/atl-track-club', changefreq: 'weekly', priority: '0.8' },
   { loc: '/partners/atlanta/atl-f3', changefreq: 'weekly', priority: '0.8' },
+  { loc: '/invite', changefreq: 'weekly', priority: '0.85' },
   { loc: '/faq', changefreq: 'monthly', priority: '0.8' },
   { loc: '/contact', changefreq: 'monthly', priority: '0.8' },
   { loc: '/gear', changefreq: 'monthly', priority: '0.7' },

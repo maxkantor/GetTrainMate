@@ -50,6 +50,16 @@
     "status": "200"
   },
   {
+    "source": "/invite",
+    "target": "/invite/index.html",
+    "status": "200"
+  },
+  {
+    "source": "/invite/<*>",
+    "target": "/invite/index.html",
+    "status": "200"
+  },
+  {
     "source": "/faq",
     "target": "/faq/index.html",
     "status": "200"

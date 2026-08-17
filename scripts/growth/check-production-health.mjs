@@ -81,6 +81,16 @@ await check('atlanta_partner_invite', async () => {
   return { bytes: html.length };
 });
 
+await check('atlanta_referral_invite', async () => {
+  const res = await fetch(`${SITE}/invite`);
+  if (!res.ok) throw new Error(`status ${res.status}`);
+  const html = await res.text();
+  if (!/GetTrainMate|training partner|Atlanta/i.test(html)) {
+    throw new Error('referral invite landing missing content');
+  }
+  return { bytes: html.length };
+});
+
 await check('signup_route', async () => {
   const res = await fetch(`${SITE}/signup`, { redirect: 'follow' });
   if (!res.ok) throw new Error(`status ${res.status}`);

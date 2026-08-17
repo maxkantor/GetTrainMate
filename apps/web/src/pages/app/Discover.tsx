@@ -40,6 +40,7 @@ import { Modal } from '@/components/ui/Modal';
 import { getMatchInsight, isInsufficientCreditsError, getAiErrorMessage } from '@/services/aiService';
 import { loadPremiumCatalog, PREMIUM_ACTION } from '@/config/premiumCatalog';
 import { trackEvent, trackPremiumAction } from '@/utils/analytics';
+import { InviteTrainingPartnerButton } from '@/components/referral/InviteTrainingPartnerButton';
 import type { MatchInsightResponse } from '@/types/ai';
 import { useI18n } from '@/hooks/useI18n';
 import { formatI18n } from '@/i18n';
@@ -977,12 +978,12 @@ export const DiscoverPage: React.FC = () => {
               <Button variant="outlined" onClick={() => navigate('/app/sent-requests')}>
                 {t('sentRequests.title')}
               </Button>
-              <Button variant="outlined" onClick={() => navigate('/app/matches')}>
-                {t('app_pages.matches.title')}
-              </Button>
               <Button variant="contained" onClick={() => loadFeed()}>
                 {t('discover.retry')}
               </Button>
+            </Box>
+            <Box sx={{ mt: 2, maxWidth: 480, mx: 'auto' }}>
+              <InviteTrainingPartnerButton userId={user?.sub} profile={me?.profile} surface="discover" />
             </Box>
             {allowDemoProfileSeed ? (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center', mt: 2 }}>

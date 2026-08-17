@@ -1,7 +1,7 @@
 /**
  * Admin growth-report HTML + text (YouTubeBooster-style section order).
  */
-import { SITE, EXP001, EXP002, TIMEZONE } from './metric-definitions.mjs';
+import { SITE, EXP001, EXP002, EXP003, TIMEZONE } from './metric-definitions.mjs';
 import { formatCell } from './normalize-metrics.mjs';
 import { loadStripeAllowlist } from './stripe-attribution.mjs';
 
@@ -74,8 +74,14 @@ export const PREPARED_OWNED_SOCIAL = {
 };
 
 export function defaultAcquisitionLead(snapshot) {
+  const allow = loadStripeAllowlist();
   const board30 = snapshot?.scoreboard?.['30d'] || {};
-  const existing = formatCell(board30.unique_paying_customers);
+  const observed = formatCell(board30.unique_paying_customers);
+  const existing = allow.reconciliationComplete
+    ? observed === 'Unavailable'
+      ? '0'
+      : observed
+    : '0';
   return {
     distributionExecuted: 'none — exact Instagram caption prepared; not posted',
     audienceChannel: PREPARED_OWNED_SOCIAL.channel,
@@ -85,8 +91,11 @@ export function defaultAcquisitionLead(snapshot) {
     newlyAttributedExternalCustomers: '0',
     verifiedRevenue: '$0.00',
     requiredOwnerApproval: `YES — BLOCKING. Reply APPROVED ${PREPARED_OWNED_SOCIAL.approvalId} to authorize posting the exact caption in docs/growth/partners/OWNER-APPROVAL-REQUEST.md to Instagram @gettrainmate. Cursor will not post or send partner email.`,
-    existingCustomers: existing === 'Unavailable' ? '0 (baseline until reconciliation)' : existing,
-    customersObservedInWindow: existing === 'Unavailable' ? '0 (do not call observed payers new customers)' : existing,
+    existingCustomers: existing,
+    customersObservedInWindow:
+      observed === 'Unavailable'
+        ? '0 (do not call observed payers new customers)'
+        : `${observed} (observed in window; not new customers this run)`,
     customersCausallyAttributedToExperiment: '0 (no causal proof this run)',
     newCustomersAcquiredByThisRun: '0'
   };
@@ -115,14 +124,21 @@ export function resolveAcquisitionLead({ snapshot, notes, acquisition } = {}) {
   return out;
 }
 
-export function defaultDecision({ health, reconciliation } = {}) {
+export function defaultDecision({ health, reconciliation, shipped } = {}) {
   const healthOk = health?.ok !== false;
   const reconOk = reconciliation?.ok !== false;
+  const shippedLine = shipped
+    ? 'Shipped: EXP-003 Atlanta TRAIN user-initiated referral invite (/invite). EXP-002 partner landings/codes unchanged.'
+    : 'Shipped: none.';
   return (
-    'No approved external distribution was executed. No proven funnel blocker was removed. ' +
-    'This run is NOT a successful acquisition run. Analytics, drafts, and deploys do not count. ' +
-    `Required owner approval is BLOCKING: reply APPROVED ${PREPARED_OWNED_SOCIAL.approvalId} to post the exact Instagram caption. ` +
-    `Production is ${healthOk ? 'healthy' : 'FAILED'}. Newly attributed external customers this run: 0. New customers acquired by this run: 0.` +
+    `${shippedLine} ` +
+    'Distributed: none this run. Referral share is user-initiated; no confirmed native share by a real user during this run. Instagram caption remains unposted. Partner email not sent. ' +
+    'EXP-001: KEEP. Original evaluation date Sunday, August 16, 2026; recorded Monday, August 17, 2026. Treatment unchanged. ' +
+    'EXP-002: active and collecting through Thursday, August 27, 2026. Treatment preserved. ' +
+    'Qualified Atlanta TRAIN profiles: Unavailable (Metro CRM read token not configured). ' +
+    'Existing verified customers: 0. New customers acquired by this run: 0. Verified revenue: $0.00. ' +
+    'Primary marketplace-density blocker: no distributed qualified Atlanta TRAIN traffic entering Discover. ' +
+    `Production is ${healthOk ? 'healthy' : 'FAILED'}.` +
     (reconOk ? '' : ' Data quality warning is in effect.')
   );
 }
@@ -130,20 +146,21 @@ export function defaultDecision({ health, reconciliation } = {}) {
 function stripeStatusLines(snapshot) {
   const allow = loadStripeAllowlist();
   const configured = allow.productIds.size > 0 || allow.priceIds.size > 0 || allow.paymentLinkIds.size > 0;
+  const reconComplete = Boolean(allow.reconciliationComplete);
   const board30 = snapshot?.scoreboard?.['30d'] || {};
   const payments = formatCell(board30.live_payments);
   const customers = formatCell(board30.unique_paying_customers);
   const revenue = formatCell(board30.revenue);
   const unattr = formatCell(board30.unattributed_live_payments);
-  if (!configured) {
+  if (!configured || !reconComplete) {
     return {
-      configured: false,
+      configured,
       lines: [
-        `Verified attributed payments: ${payments === 'Unavailable' ? '0' : payments}`,
-        `Verified external customers: ${customers === 'Unavailable' ? '0' : customers}`,
-        `Attributed revenue: ${revenue === 'Unavailable' ? '$0.00' : revenue}`,
+        'Verified attributed payments: 0',
+        'Verified external customers: 0',
+        'Attributed revenue: $0.00',
         `Unattributed payments: ${unattr}`,
-        'Attribution status: Incomplete — product allowlist not configured'
+        'Attribution status: Incomplete — product allowlist not configured; verified customers held at baseline 0'
       ]
     };
   }
@@ -214,9 +231,12 @@ export function composeGrowthEmailBody({
   t.push(`Local time: ${et.dateStr} ${et.timeStr} (${TIMEZONE})`);
   t.push(`Site: ${SITE.origin}`);
   t.push('');
-  t.push('1) ACQUISITION LEAD');
-  t.push('-------------------');
-  t.push(`Distribution executed: ${ascii(lead.distributionExecuted)}`);
+  t.push('1) DECISION');
+  t.push('-----------');
+  t.push(decisionText);
+  t.push('');
+  t.push(`What shipped: ${shipped ? 'EXP-003 Atlanta TRAIN referral invite' : 'none'}`);
+  t.push(`What was actually distributed: ${ascii(lead.distributionExecuted)}`);
   t.push(`Audience/channel: ${ascii(lead.audienceChannel)}`);
   t.push(`Attributed visits: ${ascii(lead.attributedVisits)}`);
   t.push(`Activations: ${ascii(lead.activations)}`);
@@ -224,6 +244,7 @@ export function composeGrowthEmailBody({
   t.push(`Newly attributed external customers: ${ascii(lead.newlyAttributedExternalCustomers)}`);
   t.push(`Verified revenue: ${ascii(lead.verifiedRevenue)}`);
   t.push(`Required owner approval: ${ascii(lead.requiredOwnerApproval)}`);
+  t.push(`Qualified Atlanta TRAIN profiles: ${md?.status === 'ok' ? formatCell(md.qualifiedAtlantaTrain) : 'Unavailable'}`);
   t.push('');
   t.push('Customer attribution (do not collapse):');
   t.push(`  Existing customers: ${ascii(lead.existingCustomers)}`);
@@ -231,22 +252,24 @@ export function composeGrowthEmailBody({
   t.push(`  Customers causally attributed to a specific experiment: ${ascii(lead.customersCausallyAttributedToExperiment)}`);
   t.push(`  New customers acquired by the current run: ${ascii(lead.newCustomersAcquiredByThisRun)}`);
   t.push('');
-  t.push('2) DECISION');
-  t.push('-----------');
-  t.push(decisionText);
-  t.push('');
   if (dataQualityNeeded) {
-    t.push('DATA QUALITY WARNING');
-    t.push('--------------------');
+    t.push('2) DATA QUALITY WARNING');
+    t.push('-----------------------');
     t.push('Measurement blocked for flagged metrics. Production health is separate.');
     for (const w of qualityLines) t.push(`- ${w}`);
+    t.push('');
+  } else {
+    t.push('2) DATA QUALITY WARNING');
+    t.push('-----------------------');
+    t.push('None. Measurement not blocked.');
     t.push('');
   }
   t.push('3) MARKETPLACE ACTION');
   t.push('---------------------');
   t.push('Target segment: Atlanta · TRAIN');
   t.push(`Partner hub: ${SITE.partnersHub}`);
-  t.push('No new marketplace product change this run unless Decision says otherwise.');
+  t.push('No new EXP-002 partner landing or invite code this run.');
+  t.push('Shipped independent surface: EXP-003 /invite referral (user-initiated share only).');
   t.push('External partner email distribution: PAUSED (recipient-level approval required).');
   t.push('Prepared drafts are not approved and are not sent.');
   t.push('');
@@ -270,8 +293,9 @@ export function composeGrowthEmailBody({
   t.push('5) EXPERIMENT RESULTS');
   t.push('---------------------');
   t.push(`EXP-001 — Atlanta training-partners landing page`);
-  t.push(`  Evaluation: ${EXP001.evaluationWeekday} (${EXP001.evaluationDate})`);
-  t.push(`  ${EXP001.evaluationNote}`);
+  t.push(`  Original evaluation date: ${EXP001.evaluationWeekday} (${EXP001.evaluationDate})`);
+  t.push(`  Actual evaluation date: ${EXP001.actualEvaluationWeekday} (${EXP001.actualEvaluationDate})`);
+  t.push(`  Decision: ${EXP001.decision} (treatment unchanged)`);
   if (exp001) {
     t.push(`  Status: ${exp001.status} | Stage: ${exp001.funnelStage || 'n/a'}`);
     if (exp001.commit) t.push(`  Commit: ${SITE.repo}/commit/${exp001.commit}`);
@@ -310,7 +334,20 @@ export function composeGrowthEmailBody({
   t.push(`  Discover users: ${exp002.discoverUsers}`);
   t.push(`  Connection requests: ${exp002.connectionRequests}`);
   t.push('');
-  t.push('6) NEXT ACTIONS');
+  t.push(`EXP-003 — Atlanta TRAIN user-initiated referral invite`);
+  t.push(`  Evaluation: ${EXP003.evaluationWeekday} (${EXP003.evaluationDate})`);
+  t.push('  Status: active | Stage: acquisition / referral');
+  t.push('  Locked surface: /invite and TRAIN profile/Discover invite CTA. Does not modify EXP-002.');
+  t.push('  Primary metric: referral landing sessions (events) + signup_started with src=referral');
+  t.push('');
+  t.push('6) ACQUISITION ACTION');
+  t.push('---------------------');
+  t.push('Atlanta TRAIN referral invitation (user-initiated). Native Web Share where supported; copy-link fallback.');
+  t.push('No automatic messages, no contact uploads, no address-book access, no fake acceptances.');
+  t.push('Opaque SHA-256 referral code in the URL (not email, not Cognito id, not profile data).');
+  t.push('Distributed this run: none until a real user shares or copies a link.');
+  t.push('');
+  t.push('7) NEXT ACTIONS');
   t.push('---------------');
   t.push('Owner action required:');
   t.push(`1. BLOCKING: Reply APPROVED ${PREPARED_OWNED_SOCIAL.approvalId} then post this exact caption to Instagram @gettrainmate.`);
@@ -319,23 +356,23 @@ export function composeGrowthEmailBody({
   t.push('2. Do not invent partner inboxes. Partner email stays paused until a verified public recipient is approved separately.');
   t.push('3. Configure the metro read token.');
   t.push('4. Configure GetTrainMate Stripe Product/Price allowlists.');
-  t.push(`5. ${EXP001.evaluationNote}`);
+  t.push('5. EXP-001 KEEP recorded; do not iterate for CRO. Next scheduled run: Wednesday, August 19, 2026.');
   t.push('');
-  t.push('7) PRODUCTION HEALTH');
+  t.push('8) PRODUCTION HEALTH');
   t.push('--------------------');
   t.push(`Overall: ${health?.ok ? 'OK' : 'FAILED'}`);
   for (const c of health?.checks || []) {
     t.push(`- ${c.name}: ${c.ok ? 'ok' : 'FAIL'}`);
   }
   t.push('');
-  t.push('8) DATA SOURCES');
+  t.push('9) DATA SOURCES');
   t.push('---------------');
   t.push(`GA4: ${snapshot?.sources?.ga4 ?? 'unknown'}`);
   t.push(`Stripe: ${snapshot?.sources?.stripe ?? 'unknown'}`);
   t.push(`Admin CRM / metro: ${md?.status ?? snapshot?.sources?.adminCrm ?? 'unavailable'}`);
   t.push('');
-  t.push('9) TECHNICAL DETAILS');
-  t.push('--------------------');
+  t.push('10) TECHNICAL DETAILS');
+  t.push('---------------------');
   t.push(`UTC timestamp: ${generatedUtc}`);
   t.push(`GA4 data-through date: ${snapshot?.ga4DataThrough || et.isoDate}`);
   t.push('Measurement ID: G-C29M8NWNY4');
@@ -361,12 +398,13 @@ export function composeGrowthEmailBody({
     .join('');
 
   const qualityHtml = dataQualityNeeded
-    ? `<h2 style="font-size:15px;margin:18px 0 8px;color:#b45309;">Data Quality Warning</h2>
+    ? `<h2 style="font-size:15px;margin:18px 0 8px;color:#b45309;">2) Data Quality Warning</h2>
       <div style="padding:12px;border:1px solid #f59e0b;background:#fffbeb;border-radius:8px;font-size:13px;line-height:1.45;">
         <p style="margin:0 0 8px;">Measurement blocked for flagged metrics. Production health is evaluated separately.</p>
         <ul style="margin:0;padding-left:18px;">${qualityLines.map((w) => `<li>${escapeHtml(w)}</li>`).join('')}</ul>
       </div>`
-    : '';
+    : `<h2 style="font-size:15px;margin:18px 0 8px;">2) Data Quality Warning</h2>
+      <p style="margin:0 0 16px;font-size:13px;">None. Measurement not blocked.</p>`;
 
   const html = `<!DOCTYPE html>
 <html>
@@ -378,9 +416,11 @@ export function composeGrowthEmailBody({
       <div style="font-size:13px;opacity:0.9;margin-top:4px;">${escapeHtml(et.dateStr)} · ${escapeHtml(et.timeStr)}</div>
     </div>
     <div style="padding:18px 20px;">
-      <h2 style="font-size:15px;margin:0 0 8px;">1) Acquisition lead</h2>
+      <h2 style="font-size:15px;margin:0 0 8px;">1) Decision</h2>
+      <p style="margin:0 0 16px;padding:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:14px;line-height:1.5;">${escapeHtml(decisionText)}</p>
       <p style="margin:0 0 16px;padding:12px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;font-size:13px;line-height:1.5;">
-        Distribution executed: ${escapeHtml(lead.distributionExecuted)}<br/>
+        What shipped: ${escapeHtml(shipped ? 'EXP-003 Atlanta TRAIN referral invite' : 'none')}<br/>
+        What was actually distributed: ${escapeHtml(lead.distributionExecuted)}<br/>
         Audience/channel: ${escapeHtml(lead.audienceChannel)}<br/>
         Attributed visits: ${escapeHtml(lead.attributedVisits)}<br/>
         Activations: ${escapeHtml(lead.activations)}<br/>
@@ -395,12 +435,10 @@ export function composeGrowthEmailBody({
         Customers causally attributed to a specific experiment: ${escapeHtml(lead.customersCausallyAttributedToExperiment)}<br/>
         New customers acquired by the current run: ${escapeHtml(lead.newCustomersAcquiredByThisRun)}
       </p>
-      <h2 style="font-size:15px;margin:0 0 8px;">2) Decision</h2>
-      <p style="margin:0 0 16px;padding:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:14px;line-height:1.5;">${escapeHtml(decisionText)}</p>
       ${qualityHtml}
       <h2 style="font-size:15px;margin:18px 0 8px;">3) Marketplace Action</h2>
       <ul style="margin:0 0 16px;padding-left:18px;font-size:13px;line-height:1.5;">
-        <li>Atlanta partner hub and invite-code flow verified in production</li>
+        <li>EXP-003 user-initiated Atlanta TRAIN referral invite shipped (not yet distributed until a real user shares)</li>
         <li>External partner distribution paused pending recipient-level approval</li>
         <li>Prepared drafts are not approved and not sent</li>
       </ul>
@@ -421,8 +459,9 @@ export function composeGrowthEmailBody({
       <h2 style="font-size:15px;margin:18px 0 8px;">5) Experiment Results</h2>
       <div style="padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;font-size:13px;line-height:1.45;margin-bottom:12px;">
         <div style="font-weight:700;">EXP-001 — Atlanta training-partners landing page</div>
-        <div>Evaluation: ${escapeHtml(EXP001.evaluationWeekday)}</div>
-        <div>${escapeHtml(EXP001.evaluationNote)}</div>
+        <div>Original evaluation date: ${escapeHtml(EXP001.evaluationWeekday)} (${escapeHtml(EXP001.evaluationDate)})</div>
+        <div>Actual evaluation date: ${escapeHtml(EXP001.actualEvaluationWeekday)} (${escapeHtml(EXP001.actualEvaluationDate)})</div>
+        <div>Decision: ${escapeHtml(EXP001.decision)} (treatment unchanged)</div>
         <div>30d landing sessions: ${escapeHtml(String(attr30?.landings?.value ?? 'Unavailable'))}</div>
         <div>Attributed paid conversions: ${escapeHtml(
           attr30?.attributed_paid_conversions?.available
@@ -446,7 +485,16 @@ export function composeGrowthEmailBody({
         <div>Discover users: ${escapeHtml(exp002.discoverUsers)}</div>
         <div>Connection requests: ${escapeHtml(exp002.connectionRequests)}</div>
       </div>
-      <h2 style="font-size:15px;margin:18px 0 8px;">6) Next Actions</h2>
+      <div style="padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa;font-size:13px;line-height:1.45;margin-top:12px;">
+        <div style="font-weight:700;">EXP-003 — Atlanta TRAIN user-initiated referral invite</div>
+        <div>Evaluation: ${escapeHtml(EXP003.evaluationWeekday)} (${escapeHtml(EXP003.evaluationDate)})</div>
+        <div>Locked surface: /invite plus TRAIN profile and Discover invite CTA. Does not modify EXP-002.</div>
+      </div>
+      <h2 style="font-size:15px;margin:18px 0 8px;">6) Acquisition Action</h2>
+      <p style="margin:0 0 16px;font-size:13px;line-height:1.5;">
+        User-initiated Invite a training partner flow. Native share or copy-link. Opaque referral code. No automatic messages or contact uploads. Distributed this run: none until a real user shares.
+      </p>
+      <h2 style="font-size:15px;margin:18px 0 8px;">7) Next Actions</h2>
       <p style="margin:0 0 8px;font-weight:700;font-size:13px;">Owner action required:</p>
       <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.5;">
         <li><b>BLOCKING:</b> Reply APPROVED ${escapeHtml(PREPARED_OWNED_SOCIAL.approvalId)} then post this exact caption to Instagram @gettrainmate.</li>
@@ -457,12 +505,12 @@ export function composeGrowthEmailBody({
         <li>Configure the metro read token.</li>
         <li>Configure GetTrainMate Stripe Product/Price allowlists.</li>
       </ol>
-      <h2 style="font-size:15px;margin:18px 0 8px;">7) Production Health</h2>
+      <h2 style="font-size:15px;margin:18px 0 8px;">8) Production Health</h2>
       <p style="margin:0 0 8px;font-size:13px;"><b>Overall:</b> ${health?.ok ? 'OK' : 'FAILED'}</p>
       <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;"><tbody>${healthRows}</tbody></table>
-      <h2 style="font-size:15px;margin:18px 0 8px;">8) Data Sources</h2>
+      <h2 style="font-size:15px;margin:18px 0 8px;">9) Data Sources</h2>
       <p style="margin:0;font-size:13px;">GA4: ${escapeHtml(snapshot?.sources?.ga4 ?? 'unknown')}<br/>Stripe: ${escapeHtml(snapshot?.sources?.stripe ?? 'unknown')}<br/>Metro / Admin CRM: ${escapeHtml(md?.status ?? 'unavailable')}</p>
-      <h2 style="font-size:15px;margin:18px 0 8px;color:#6b7280;">9) Technical Details</h2>
+      <h2 style="font-size:15px;margin:18px 0 8px;color:#6b7280;">10) Technical Details</h2>
       <p style="margin:0;font-size:12px;color:#6b7280;line-height:1.45;">
         UTC timestamp: ${escapeHtml(generatedUtc)}<br/>
         GA4 data-through date: ${escapeHtml(snapshot?.ga4DataThrough || et.isoDate)}<br/>

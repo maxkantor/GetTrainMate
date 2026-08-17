@@ -4,11 +4,38 @@ Agents must append every experiment here. Do not delete history.
 
 ## Active
 
-- **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — **KEEP 2026-08-17** (treatment unchanged; traffic too low for CRO) — funnel stage: acquisition / SEO
+- **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — **KEEP 2026-08-17** (treatment unchanged) — funnel stage: acquisition / SEO
 - **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
-- **Blocking distribution:** Instagram `@gettrainmate` exact caption in `docs/growth/partners/OWNER-APPROVAL-REQUEST.md` (approval id `IG-2026-08-17`) — **not posted**
+- **EXP-003** — Atlanta TRAIN user-initiated referral invite (`/invite/:ref`) — eval **2026-08-31** — funnel stage: acquisition / referral (independent of EXP-002 partner codes)
+- **Blocking owned-social:** Instagram `@gettrainmate` caption in `docs/growth/partners/OWNER-APPROVAL-REQUEST.md` (`IG-2026-08-17`) — **not posted**
 
 ## Log
+
+### 2026-08-17 — EXP-003 Atlanta TRAIN user-initiated referral invite
+
+| Field | Value |
+|-------|--------|
+| Status | active |
+| Evidence | EXP-001 KEEP. EXP-002 collecting. Marketplace density still the bottleneck. No user-initiated Atlanta TRAIN referral surface existed. Partner drafts are not distribution. |
+| Target metro and segment | Atlanta, Georgia · TRAIN |
+| Funnel stage | acquisition / referral (distinct from EXP-002 partner landing/code treatment) |
+| Customer hypothesis | Existing TRAIN users who tap Invite a training partner will share an opaque Atlanta TRAIN signup link; referred visitors will start signup and complete Atlanta TRAIN profiles within 14 days. |
+| Eligible audience | Authenticated users with TRAIN selected, from Profile and Discover (including empty-state). |
+| Exact change | `/invite` + `/invite/:ref` landing; TRAIN-only Invite CTA with Web Share + copy-link; opaque SHA-256 referral code; attribution `src=referral` / `experiment_id=EXP-003`. Does not modify `/partners/atlanta` or partner codes. |
+| Attribution | `src=referral`, `experiment_id=EXP-003`, `ref=<opaque>`, metro=Atlanta, mode=TRAIN. Checkout metadata `referral_code` when present. |
+| Primary metric | Referral `landing_page_view` (events) + `signup_started` with `src=referral` |
+| Guardrail metric | No automatic messages; no contact uploads; no Cognito/email in URL; EXP-002 routes unchanged; no fake acceptances |
+| Baseline | 0 referral landing sessions; 0 referral signups; verified external paying customers 0 |
+| Target | ≥1 referral landing session and ≥1 referral signup start within 14 days after first real-user share |
+| Required sample or duration | 14 days from first production deploy (eval 2026-08-31) |
+| Evaluation date | 2026-08-31 (original; actual TBD at eval) |
+| Continue/stop rule | KEEP if attribution works and any referral landings occur. ITERATE CTA copy/placement if TRAIN users exist but 0 share attempts after 14 days. STOP/rollback if `/invite` 404s, share exposes PII, or EXP-002 partner routes break. |
+| Locked surface | `/invite`, `/invite/:ref`, Profile/Discover invite CTA. Do not change EXP-002 partner pages/codes. |
+| Rollback procedure | `git revert` EXP-003 commit on `main`; remove `/invite` Amplify rewrite and prerender page |
+| Commit | this commit (SHA recorded after push) |
+| Deployment status | pending Amplify |
+| Production verification | pending post-deploy |
+| Verified purchase result | 0 new customers acquired by this run until a referred verified payment exists |
 
 ### 2026-08-17 — EXP-001 KEEP + owned-social approval request (not a new experiment)
 

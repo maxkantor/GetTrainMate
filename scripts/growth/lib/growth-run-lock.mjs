@@ -19,10 +19,14 @@ export function staleMs(env = process.env) {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_STALE_MS;
 }
 
-function readLock() {
-  if (!fs.existsSync(LOCK_PATH)) return null;
+function resolveLockPath(opts = {}) {
+  return opts.lockPath || LOCK_PATH;
+}
+
+function readLock(lockPath = LOCK_PATH) {
+  if (!fs.existsSync(lockPath)) return null;
   try {
-    return JSON.parse(fs.readFileSync(LOCK_PATH, 'utf8'));
+    return JSON.parse(fs.readFileSync(lockPath, 'utf8'));
   } catch {
     return { startedAt: 0, holder: 'unreadable', pid: null };
   }
@@ -35,9 +39,10 @@ export function acquireGrowthRunLock(opts = {}) {
   const now = opts.now ?? Date.now();
   const holder = opts.holder ?? `pid-${process.pid}`;
   const maxAge = opts.staleMs ?? staleMs();
-  fs.mkdirSync(GROWTH_VAR_DIR, { recursive: true });
+  const lockPath = resolveLockPath(opts);
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
 
-  const existing = readLock();
+  const existing = readLock(lockPath);
   if (existing?.startedAt) {
     const age = now - Number(existing.startedAt);
     if (age >= 0 && age < maxAge) {
@@ -56,7 +61,7 @@ export function acquireGrowthRunLock(opts = {}) {
     pid: process.pid,
     staleAfterMs: maxAge
   };
-  fs.writeFileSync(LOCK_PATH, `${JSON.stringify(lock, null, 2)}\n`, { flag: 'w' });
+  fs.writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`, { flag: 'w' });
   return { ok: true, lock };
 }
 
@@ -64,23 +69,25 @@ export function acquireGrowthRunLock(opts = {}) {
  * Release only if we hold the lock (or force after explicit stale reclaim).
  */
 export function releaseGrowthRunLock(opts = {}) {
-  const existing = readLock();
+  const lockPath = resolveLockPath(opts);
+  const existing = readLock(lockPath);
   if (!existing) return { ok: true, released: false };
   if (opts.force) {
-    fs.unlinkSync(LOCK_PATH);
+    fs.unlinkSync(lockPath);
     return { ok: true, released: true };
   }
   if (opts.holder && existing.holder !== opts.holder && existing.pid !== process.pid) {
     return { ok: false, reason: 'not_holder', lock: existing };
   }
-  fs.unlinkSync(LOCK_PATH);
+  fs.unlinkSync(lockPath);
   return { ok: true, released: true };
 }
 
 export function inspectGrowthRunLock(opts = {}) {
   const now = opts.now ?? Date.now();
   const maxAge = opts.staleMs ?? staleMs();
-  const lock = readLock();
+  const lockPath = resolveLockPath(opts);
+  const lock = readLock(lockPath);
   if (!lock) return { exists: false, stale: false };
   const age = now - Number(lock.startedAt || 0);
   return { exists: true, stale: age < 0 || age >= maxAge, ageMs: age, lock };

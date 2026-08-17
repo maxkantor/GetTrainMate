@@ -1,0 +1,43 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  buildReferralShareUrl,
+  isValidReferralCode,
+  opaqueReferralCode,
+  profileHasTrainMode,
+  shareOrCopyReferralLink,
+} from './referralInvite';
+
+describe('referralInvite', () => {
+  it('does not put a Cognito-shaped user id in the opaque code or share URL', async () => {
+    const userId = '11111111-2222-4333-8444-555555555555';
+    const code = await opaqueReferralCode(userId);
+    expect(isValidReferralCode(code)).toBe(true);
+    expect(code).not.toContain(userId);
+    expect(code.toLowerCase()).not.toContain('11111111');
+    const url = buildReferralShareUrl(code, 'https://gettrainmate.com');
+    expect(url).toContain('/invite/');
+    expect(url).toContain('src=referral');
+    expect(url).toContain('experiment_id=EXP-003');
+    expect(url).toContain('metro=Atlanta');
+    expect(url).toContain('mode=TRAIN');
+    expect(url).not.toContain(userId);
+    expect(url).not.toContain('@');
+  });
+
+  it('shows the invite CTA only when TRAIN is selected', () => {
+    expect(profileHasTrainMode({ modes: ['TRAIN'] })).toBe(true);
+    expect(profileHasTrainMode({ mode: 'TRAIN' })).toBe(true);
+    expect(profileHasTrainMode({ modes: ['DATE', 'VIBE'] })).toBe(false);
+    expect(profileHasTrainMode({ mode: 'DATE' })).toBe(false);
+    expect(profileHasTrainMode(null)).toBe(false);
+  });
+
+  it('copies the link when native share is unavailable', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    const result = await shareOrCopyReferralLink('https://gettrainmate.com/invite/abc');
+    expect(result).toBe('copied');
+    expect(writeText).toHaveBeenCalledWith('https://gettrainmate.com/invite/abc');
+    vi.unstubAllGlobals();
+  });
+});

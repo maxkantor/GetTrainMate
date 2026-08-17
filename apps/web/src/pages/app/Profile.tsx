@@ -48,6 +48,7 @@ import { loadPremiumCatalog, PREMIUM_ACTION, creditPhrase } from '@/config/premi
 import { activateProfileBoost24h, unlockRevealLikes } from '@/services/premiumService';
 import { matchQueryKeys } from '@/lib/queryKeys';
 import { trackPremiumAction } from '@/utils/analytics';
+import { InviteTrainingPartnerButton } from '@/components/referral/InviteTrainingPartnerButton';
 
 const TRAINING_GOALS = [
   'Lose fat',
@@ -662,6 +663,12 @@ export const ProfilePage: React.FC = () => {
           {error}
         </Alert>
       )}
+
+      <InviteTrainingPartnerButton
+        userId={userSub || me?.user?.id}
+        profile={formData.modes || formData.mode ? formData : me?.profile}
+        surface="profile"
+      />
 
       {!loading && photoKeys.length === 0 && (
         <Box

@@ -85,6 +85,16 @@ const MARKETING_PAGES: PrerenderPage[] = [
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {
+    canonicalPath: '/invite',
+    title: `Invite a Training Partner in Atlanta | ${BRAND}`,
+    description:
+      'Share a TRAIN-first Atlanta signup link. Find gym, running, and race partners — not dating-first.',
+    ogTitle: `Invite a Training Partner in Atlanta | ${BRAND}`,
+    ogDescription:
+      'Share a TRAIN-first Atlanta signup link. Find gym, running, and race partners — not dating-first.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
     canonicalPath: '/faq',
     title: `FAQ | ${BRAND}`,
     description:

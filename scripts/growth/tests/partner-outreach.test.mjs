@@ -25,7 +25,6 @@ import {
 import { fetchMetroDensity } from '../lib/crm-metro.mjs';
 import { composeGrowthEmailBody } from '../lib/growth-report.mjs';
 import { buildAdminMime } from '../lib/admin-email-mime.mjs';
-import { EXP001, EXP002 } from '../lib/metric-definitions.mjs';
 import { resolveAdminFromEmail } from '../notify-admin-email.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -424,9 +423,12 @@ describe('growth report experiments and technical details', () => {
 
     assert.match(text, /EXP-001 — Atlanta training-partners landing page/);
     assert.match(text, /EXP-002 — Atlanta partner hub and invite-code acquisition/);
-    assert.match(text, new RegExp(EXP001.evaluationNote.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(text, /Original evaluation date: Sunday, August 16, 2026 \(2026-08-16\)/);
+    assert.match(text, /Actual evaluation date: Monday, August 17, 2026 \(2026-08-17\)/);
+    assert.match(text, /Decision: KEEP \(treatment unchanged\)/);
     assert.match(text, /Thursday, August 27, 2026/);
     assert.match(text, /Sunday, August 16, 2026/);
+    assert.match(text, /Existing customers: 0/);
     assert.match(text, /Owner action required:/);
     assert.match(text, /Configure the metro read token/);
     assert.match(text, /Incomplete — product allowlist not configured/);
@@ -442,15 +444,16 @@ describe('growth report experiments and technical details', () => {
     assert.doesNotMatch(html, /Never include credentials[\s\S]*Never include credentials/);
     assert.match(text, /\$0\.00/);
     assert.doesNotMatch(text, /\$19\.99/);
-    assert.match(text, /1\) ACQUISITION LEAD/);
-    assert.match(text, /Distribution executed:/);
+    assert.match(text, /1\) DECISION/);
+    assert.match(text, /What was actually distributed:/);
     assert.match(text, /Newly attributed external customers: 0/);
     assert.match(text, /New customers acquired by the current run: 0/);
     assert.match(text, /Required owner approval: YES/);
-    assert.match(text, /NOT a successful acquisition run/);
+    assert.match(text, /EXP-001: KEEP/);
+    assert.match(text, /New customers acquired by the current run: 0/);
     assert.match(text, /APPROVED IG-2026-08-17/);
     assert.match(text, /Instagram @gettrainmate/);
-    assert.match(html, /1\) Acquisition lead/);
+    assert.match(html, /1\) Decision/);
     assert.match(html, /New customers acquired by the current run/);
     assert.match(html, /Looking for a consistent training partner in Atlanta/);
   });
@@ -480,7 +483,7 @@ describe('growth report experiments and technical details', () => {
       }),
       generatedAt: new Date('2026-08-17T16:00:00Z')
     });
-    assert.match(text, /Distribution executed: none - test override/);
+    assert.match(text, /What was actually distributed: none - test override/);
     assert.match(text, /Audience\/channel: Instagram @gettrainmate test/);
     assert.match(text, /Required owner approval: YES - test blocking/);
     assert.doesNotMatch(text, /Agent notes \(sanitized\): \{/);

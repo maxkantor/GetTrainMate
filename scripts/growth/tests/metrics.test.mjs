@@ -281,7 +281,7 @@ describe('buildScoreboardRow + compose email', () => {
     });
 
     assert.match(text, /DECISION/i);
-    assert.match(text, /1\) ACQUISITION LEAD/);
+    assert.match(text, /1\) DECISION/);
     assert.match(text, /Newly attributed external customers/);
     assert.match(text, /America\/New_York|EDT|EST/);
     assert.match(text, /Attributed paid conversions: Unknown/);
@@ -331,8 +331,9 @@ describe('buildScoreboardRow + compose email', () => {
       generatedAt: new Date('2026-08-13T16:00:00Z')
     });
     assert.match(text, /Attributed paid conversions: Unknown/);
-    assert.match(text, /\$9\.99/); // attributed GTM only
+    assert.match(text, /Attributed revenue: \$0\.00/);
     assert.doesNotMatch(text, /\$19\.99/); // unattributed must not appear as revenue
+    assert.doesNotMatch(text, /\$9\.99/); // attributed-but-unreconciled amounts are not verified revenue
     assert.match(text, /Unattributed payments/i);
   });
 });

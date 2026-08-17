@@ -58,6 +58,12 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
       'Unique Atlanta TRAIN partner invite links for run clubs, gyms, pickleball, and trainers. No fake density claims.',
     noindex: false,
   },
+  '/invite': {
+    title: `Invite a Training Partner in Atlanta | ${BRAND}`,
+    description:
+      'Share a TRAIN-first Atlanta signup link. Find gym, running, and race partners — not dating-first.',
+    noindex: false,
+  },
   '/faq': {
     title: `FAQ | ${BRAND}`,
     description:
@@ -152,6 +158,16 @@ export function getRouteSeo(pathname: string): RouteSeo {
       jsonLd: path === '/world-cup' && isWorldCupPublicSeoEnabled()
         ? [buildWorldCupSportsEventLd('/world-cup')]
         : undefined,
+    });
+  }
+
+  if (path.startsWith('/invite/')) {
+    return base({
+      title: `You were invited to train in Atlanta | ${BRAND}`,
+      description:
+        'Join GetTrainMate with a TRAIN-first Atlanta invite. Complete your profile and start Discover. No guaranteed matches.',
+      canonicalPath: path,
+      noindex: true,
     });
   }
 
