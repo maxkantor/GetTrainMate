@@ -282,6 +282,8 @@ describe('admin growth email reply-to', () => {
     assert.match(raw, /partners@gettrainmate\.com/);
     assert.doesNotMatch(raw, /gettrainmate@gmail\.com/);
     assert.match(raw, /buildAdminMime/);
+    assert.match(raw, /--source/);
+    assert.doesNotMatch(raw, /'--from'/);
   });
 
   it('rewrites noreply From but keeps a verified Gmail SES identity', () => {

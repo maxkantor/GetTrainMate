@@ -26,7 +26,8 @@ export function sendRawMime({ fromEmail, raw }) {
         'send-raw-email',
         '--region',
         REGION,
-        '--from',
+        // --from uniquely prefixes --from-arn and is treated as an identity ARN.
+        '--source',
         fromEmail,
         '--cli-binary-format',
         'base64',
