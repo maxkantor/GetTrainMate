@@ -7,9 +7,22 @@ Agents must append every experiment here. Do not delete history.
 - **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — **KEEP 2026-08-17** (treatment unchanged) — funnel stage: acquisition / SEO
 - **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
 - **EXP-003** — Atlanta TRAIN user-initiated referral invite (`/invite/:ref`) — eval **2026-08-31** — funnel stage: acquisition / referral (independent of EXP-002 partner codes)
-- **Blocking owned-social:** Instagram `@gettrainmate` caption in `docs/growth/partners/OWNER-APPROVAL-REQUEST.md` (`IG-2026-08-17`) — **not posted**
+- **Owned-social:** Instagram `@gettrainmate` caption `IG-2026-08-17` — **approved 2026-08-17 4:19 PM ET; not posted until Max publishes it**
 
 ## Log
+
+### 2026-08-17 — IG-2026-08-17 Instagram posting approved (not yet live)
+
+| Field | Value |
+|-------|--------|
+| Status | Approved. Distribution not executed until Max posts. |
+| Evidence | Max replied `APPROVED IG-2026-08-17` at 4:19 PM America/New_York. Cursor has no Instagram credentials and did not post. Partner email not sent. |
+| Target metro and segment | Atlanta, Georgia · TRAIN |
+| Funnel stage | acquisition / owned-social distribution |
+| Exact change | Recorded approval in `docs/growth/partners/OWNER-APPROVAL-REQUEST.md`. No product treatment change. |
+| Primary metric | After post: `landing_page_view` with `utm_source=instagram` + `utm_campaign=owned-ig-2026-08-17` |
+| Guardrail metric | Do not count visits until the post is live. Do not send partner email. |
+| Verified purchase result | 0 new customers acquired by this approval record |
 
 ### 2026-08-17 — EXP-003 Atlanta TRAIN user-initiated referral invite
 

@@ -1,8 +1,10 @@
 # Blocking owner approval — owned Instagram post
 
-**Status:** BLOCKING. Not posted. No posting authorization exists.  
+**Status:** APPROVED. Not posted yet. Max must post the caption below to Instagram `@gettrainmate`. Cursor cannot post.  
 **Date prepared:** 2026-08-17  
 **Approval id:** `IG-2026-08-17`  
+**Approved by:** Max, `APPROVED IG-2026-08-17`, Monday, August 17, 2026, 4:19 PM America/New_York  
+**Posting account:** Instagram `@gettrainmate` (https://www.instagram.com/gettrainmate/)  
 **Channel:** Instagram `@gettrainmate` (owned account linked from the site footer: https://www.instagram.com/gettrainmate/)  
 **Audience:** Existing Instagram followers plus anyone who sees the public post (Atlanta TRAIN positioning)  
 **Landing (attributed):** https://gettrainmate.com/atlanta-training-partners?utm_source=instagram&utm_medium=organic&utm_campaign=owned-ig-2026-08-17  
@@ -50,3 +52,9 @@ After approval, **Max posts** the caption above (Cursor has no Instagram credent
 | Customers observed during experiment window | Anyone who paid in the window, including unattributed — **do not** call these new customers |
 
 Until the post is live: all of visits / activations / checkouts / new customers for **this action** are 0.
+
+---
+
+## Posted confirmation
+
+Not posted as of this record. After Max publishes the caption on `@gettrainmate`, reply in chat with the public post URL so the next growth run can count attributed visits.
