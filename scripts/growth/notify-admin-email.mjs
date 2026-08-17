@@ -68,7 +68,7 @@ export async function sendAdminGrowthEmail({ subject, body, htmlBody }) {
     fromName: 'GetTrainMate Growth',
     fromEmail: from,
     to,
-    replyTo: 'gettrainmate@gmail.com',
+    replyTo: 'partners@gettrainmate.com',
     subject,
     text: body,
     html: htmlBody

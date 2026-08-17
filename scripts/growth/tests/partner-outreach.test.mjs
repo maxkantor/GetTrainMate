@@ -271,6 +271,17 @@ describe('partner outreach authorization', () => {
   });
 });
 
+describe('admin growth email reply-to', () => {
+  it('does not use Gmail on the Admin notify path', () => {
+    const notify = fs.readFileSync(path.join(ROOT, 'scripts/growth/notify-admin-email.mjs'), 'utf8');
+    const raw = fs.readFileSync(path.join(ROOT, 'scripts/growth/ses-send-raw.mjs'), 'utf8');
+    assert.match(notify, /partners@gettrainmate\.com/);
+    assert.doesNotMatch(notify, /gettrainmate@gmail\.com/);
+    assert.match(raw, /partners@gettrainmate\.com/);
+    assert.doesNotMatch(raw, /gettrainmate@gmail\.com/);
+  });
+});
+
 describe('metro configuration', () => {
   it('returns controlled 503-style payload when token is missing', async () => {
     const prev = process.env.GROWTH_METRO_READ_TOKEN;

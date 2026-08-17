@@ -59,7 +59,7 @@ export async function sendRawSesEmail({
   fromEmail,
   to,
   bcc,
-  replyTo = 'gettrainmate@gmail.com',
+  replyTo = 'partners@gettrainmate.com',
   subject,
   text,
   html
