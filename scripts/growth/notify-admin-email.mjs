@@ -2,6 +2,7 @@
 /**
  * Email the Admin inbox a growth-run summary via AWS SES.
  * Uses SSM: /gettrainmate/ses-admin-email, /gettrainmate/ses-from-email
+ * Admin From may be the verified SES identity (including Gmail). Partner outreach still forbids Gmail.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -56,7 +57,7 @@ function firstAdminEmail(raw) {
 
 export function resolveAdminFromEmail(from) {
   const v = String(from || '').trim();
-  if (!v || /gmail\.com|noreply@/i.test(v)) return 'partners@gettrainmate.com';
+  if (!v || /noreply@/i.test(v)) return 'partners@gettrainmate.com';
   return v;
 }
 

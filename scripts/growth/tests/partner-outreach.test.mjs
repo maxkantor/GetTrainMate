@@ -284,16 +284,17 @@ describe('admin growth email reply-to', () => {
     assert.match(raw, /buildAdminMime/);
   });
 
-  it('rewrites a Gmail SES From address to partners@gettrainmate.com', () => {
-    assert.equal(resolveAdminFromEmail('user@gmail.com'), 'partners@gettrainmate.com');
+  it('rewrites noreply From but keeps a verified Gmail SES identity', () => {
+    assert.equal(resolveAdminFromEmail('noreply@gettrainmate.com'), 'partners@gettrainmate.com');
     assert.equal(resolveAdminFromEmail('hello@gettrainmate.com'), 'hello@gettrainmate.com');
+    assert.equal(resolveAdminFromEmail('owner@gmail.com'), 'owner@gmail.com');
     assert.equal(resolveAdminFromEmail(''), 'partners@gettrainmate.com');
   });
 
-  it('allows a Gmail Admin To address while forbidding Gmail From/Reply-To', async () => {
+  it('allows a Gmail Admin To and From while forbidding noreply', async () => {
     const raw = (
       await buildAdminMime({
-        fromEmail: 'hello@gettrainmate.com',
+        fromEmail: 'owner@gmail.com',
         to: 'gettrainmate@gmail.com',
         replyTo: 'partners@gettrainmate.com',
         subject: 'GetTrainMate Growth',
@@ -301,19 +302,20 @@ describe('admin growth email reply-to', () => {
         html: '<p>Required owner approval: YES</p>'
       })
     ).toString('utf8');
+    assert.match(raw, /From: GetTrainMate Growth <owner@gmail.com>/);
     assert.match(raw, /To: gettrainmate@gmail.com/);
     assert.match(raw, /Reply-To: partners@gettrainmate.com/);
     await assert.rejects(
       () =>
         buildAdminMime({
-          fromEmail: 'hello@gettrainmate.com',
+          fromEmail: 'noreply@gettrainmate.com',
           to: 'gettrainmate@gmail.com',
-          replyTo: 'gettrainmate@gmail.com',
+          replyTo: 'partners@gettrainmate.com',
           subject: 'x',
           text: 'x',
           html: '<p>x</p>'
         }),
-      /From\/Reply-To must not use Gmail/
+      /must not use noreply/
     );
   });
 });

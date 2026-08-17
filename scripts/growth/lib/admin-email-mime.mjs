@@ -27,8 +27,8 @@ export async function buildAdminMime({
   if (!subject?.trim()) throw new Error('subject required');
   if (!text?.trim()) throw new Error('text required');
   if (!html?.trim()) throw new Error('html required');
-  if (/gmail\.com|noreply@/i.test(fromEmail) || /gmail\.com|noreply@/i.test(replyTo)) {
-    throw new Error('Admin MIME From/Reply-To must not use Gmail or noreply');
+  if (/noreply@/i.test(fromEmail) || /noreply@/i.test(replyTo)) {
+    throw new Error('Admin MIME must not use noreply');
   }
   assertNoMojibake(subject, 'subject');
   assertNoMojibake(text, 'text');
