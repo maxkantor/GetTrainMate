@@ -57,13 +57,72 @@ export function formatMetroUnavailable(md) {
   ].join('\n');
 }
 
+export const PREPARED_OWNED_SOCIAL = {
+  approvalId: 'IG-2026-08-17',
+  channel: 'Instagram @gettrainmate (owned; https://www.instagram.com/gettrainmate/)',
+  landingUrl:
+    'https://gettrainmate.com/atlanta-training-partners?utm_source=instagram&utm_medium=organic&utm_campaign=owned-ig-2026-08-17',
+  caption: [
+    'Looking for a consistent training partner in Atlanta?',
+    '',
+    'GetTrainMate is TRAIN-first (not dating-first). Create a profile, pick TRAIN, and find people who want to run, lift, or race with you.',
+    '',
+    'Atlanta: https://gettrainmate.com/atlanta-training-partners?utm_source=instagram&utm_medium=organic&utm_campaign=owned-ig-2026-08-17',
+    '',
+    'No guaranteed matches. You control your profile.'
+  ].join('\n')
+};
+
+export function defaultAcquisitionLead(snapshot) {
+  const board30 = snapshot?.scoreboard?.['30d'] || {};
+  const existing = formatCell(board30.unique_paying_customers);
+  return {
+    distributionExecuted: 'none — exact Instagram caption prepared; not posted',
+    audienceChannel: PREPARED_OWNED_SOCIAL.channel,
+    attributedVisits: '0 (post not live; do not count unattributed landings as this action)',
+    activations: '0',
+    checkoutStarts: '0',
+    newlyAttributedExternalCustomers: '0',
+    verifiedRevenue: '$0.00',
+    requiredOwnerApproval: `YES — BLOCKING. Reply APPROVED ${PREPARED_OWNED_SOCIAL.approvalId} to authorize posting the exact caption in docs/growth/partners/OWNER-APPROVAL-REQUEST.md to Instagram @gettrainmate. Cursor will not post or send partner email.`,
+    existingCustomers: existing === 'Unavailable' ? '0 (baseline until reconciliation)' : existing,
+    customersObservedInWindow: existing === 'Unavailable' ? '0 (do not call observed payers new customers)' : existing,
+    customersCausallyAttributedToExperiment: '0 (no causal proof this run)',
+    newCustomersAcquiredByThisRun: '0'
+  };
+}
+
+/**
+ * Merge snapshot.acquisitionLead or a JSON object in notes with defaults.
+ * Unknown / missing fields stay honest zeros or "none".
+ */
+export function resolveAcquisitionLead({ snapshot, notes, acquisition } = {}) {
+  const base = defaultAcquisitionLead(snapshot);
+  let extra = acquisition && typeof acquisition === 'object' ? acquisition : null;
+  const noteText = String(notes || '').trim();
+  if (!extra && noteText.startsWith('{')) {
+    try {
+      extra = JSON.parse(noteText);
+    } catch {
+      extra = null;
+    }
+  }
+  if (!extra) return base;
+  const out = { ...base };
+  for (const key of Object.keys(base)) {
+    if (extra[key] != null && String(extra[key]).trim() !== '') out[key] = String(extra[key]).trim();
+  }
+  return out;
+}
+
 export function defaultDecision({ health, reconciliation } = {}) {
   const healthOk = health?.ok !== false;
   const reconOk = reconciliation?.ok !== false;
   return (
-    'No new marketplace product change was deployed. The existing Atlanta partner hub and invite-code flow were verified in production. ' +
-    'EXP-001 and EXP-002 remain active. External partner distribution is paused pending explicit recipient-level approval. ' +
-    `Production is ${healthOk ? 'healthy' : 'FAILED'}, and verified external paying customers remain 0.` +
+    'No approved external distribution was executed. No proven funnel blocker was removed. ' +
+    'This run is NOT a successful acquisition run. Analytics, drafts, and deploys do not count. ' +
+    `Required owner approval is BLOCKING: reply APPROVED ${PREPARED_OWNED_SOCIAL.approvalId} to post the exact Instagram caption. ` +
+    `Production is ${healthOk ? 'healthy' : 'FAILED'}. Newly attributed external customers this run: 0. New customers acquired by this run: 0.` +
     (reconOk ? '' : ' Data quality warning is in effect.')
   );
 }
@@ -126,11 +185,13 @@ export function composeGrowthEmailBody({
   notes,
   generatedAt,
   decision,
-  shipped = false
+  shipped = false,
+  acquisition
 }) {
   const et = formatEt(generatedAt || new Date());
   const generatedUtc = (generatedAt || new Date()).toISOString();
-  const noteText = ascii((notes && notes.trim()) || '');
+  const rawNotes = String(notes || '').trim();
+  const noteText = ascii(rawNotes.startsWith('{') ? '' : rawNotes);
   const board7 = snapshot?.scoreboard?.['7d'] || {};
   const board30 = snapshot?.scoreboard?.['30d'] || {};
   const recon = snapshot?.reconciliation;
@@ -138,6 +199,7 @@ export function composeGrowthEmailBody({
   const attr30 = snapshot?.experimentAttribution?.['30d'];
   const md = snapshot?.marketplaceDensity;
   const decisionText = ascii(decision || defaultDecision({ health, reconciliation: recon, shipped }));
+  const lead = resolveAcquisitionLead({ snapshot, notes, acquisition });
   const dataQualityNeeded = recon && recon.ok === false;
   const qualityLines = dataQualityNeeded ? (recon.warnings || []).map((w) => ascii(w)) : [];
   const stripe = stripeStatusLines(snapshot);
@@ -152,13 +214,30 @@ export function composeGrowthEmailBody({
   t.push(`Local time: ${et.dateStr} ${et.timeStr} (${TIMEZONE})`);
   t.push(`Site: ${SITE.origin}`);
   t.push('');
-  t.push('1) DECISION');
+  t.push('1) ACQUISITION LEAD');
+  t.push('-------------------');
+  t.push(`Distribution executed: ${ascii(lead.distributionExecuted)}`);
+  t.push(`Audience/channel: ${ascii(lead.audienceChannel)}`);
+  t.push(`Attributed visits: ${ascii(lead.attributedVisits)}`);
+  t.push(`Activations: ${ascii(lead.activations)}`);
+  t.push(`Checkout starts: ${ascii(lead.checkoutStarts)}`);
+  t.push(`Newly attributed external customers: ${ascii(lead.newlyAttributedExternalCustomers)}`);
+  t.push(`Verified revenue: ${ascii(lead.verifiedRevenue)}`);
+  t.push(`Required owner approval: ${ascii(lead.requiredOwnerApproval)}`);
+  t.push('');
+  t.push('Customer attribution (do not collapse):');
+  t.push(`  Existing customers: ${ascii(lead.existingCustomers)}`);
+  t.push(`  Customers observed during experiment window: ${ascii(lead.customersObservedInWindow)}`);
+  t.push(`  Customers causally attributed to a specific experiment: ${ascii(lead.customersCausallyAttributedToExperiment)}`);
+  t.push(`  New customers acquired by the current run: ${ascii(lead.newCustomersAcquiredByThisRun)}`);
+  t.push('');
+  t.push('2) DECISION');
   t.push('-----------');
   t.push(decisionText);
   t.push('');
   if (dataQualityNeeded) {
-    t.push('2) DATA QUALITY WARNING');
-    t.push('-----------------------');
+    t.push('DATA QUALITY WARNING');
+    t.push('--------------------');
     t.push('Measurement blocked for flagged metrics. Production health is separate.');
     for (const w of qualityLines) t.push(`- ${w}`);
     t.push('');
@@ -234,12 +313,13 @@ export function composeGrowthEmailBody({
   t.push('6) NEXT ACTIONS');
   t.push('---------------');
   t.push('Owner action required:');
-  t.push('1. Review the replacement partner list.');
-  t.push('2. Approve specific recipients and exact messages individually.');
-  t.push('3. Do not approve or send another email until UTF-8 rendering is verified.');
-  t.push('4. Configure the metro read token.');
-  t.push('5. Configure GetTrainMate Stripe Product/Price allowlists.');
-  t.push(`6. ${EXP001.evaluationNote}`);
+  t.push(`1. BLOCKING: Reply APPROVED ${PREPARED_OWNED_SOCIAL.approvalId} then post this exact caption to Instagram @gettrainmate.`);
+  t.push('   Exact caption:');
+  for (const line of PREPARED_OWNED_SOCIAL.caption.split('\n')) t.push(`   ${line}`);
+  t.push('2. Do not invent partner inboxes. Partner email stays paused until a verified public recipient is approved separately.');
+  t.push('3. Configure the metro read token.');
+  t.push('4. Configure GetTrainMate Stripe Product/Price allowlists.');
+  t.push(`5. ${EXP001.evaluationNote}`);
   t.push('');
   t.push('7) PRODUCTION HEALTH');
   t.push('--------------------');
@@ -281,7 +361,7 @@ export function composeGrowthEmailBody({
     .join('');
 
   const qualityHtml = dataQualityNeeded
-    ? `<h2 style="font-size:15px;margin:18px 0 8px;color:#b45309;">2) Data Quality Warning</h2>
+    ? `<h2 style="font-size:15px;margin:18px 0 8px;color:#b45309;">Data Quality Warning</h2>
       <div style="padding:12px;border:1px solid #f59e0b;background:#fffbeb;border-radius:8px;font-size:13px;line-height:1.45;">
         <p style="margin:0 0 8px;">Measurement blocked for flagged metrics. Production health is evaluated separately.</p>
         <ul style="margin:0;padding-left:18px;">${qualityLines.map((w) => `<li>${escapeHtml(w)}</li>`).join('')}</ul>
@@ -298,7 +378,24 @@ export function composeGrowthEmailBody({
       <div style="font-size:13px;opacity:0.9;margin-top:4px;">${escapeHtml(et.dateStr)} · ${escapeHtml(et.timeStr)}</div>
     </div>
     <div style="padding:18px 20px;">
-      <h2 style="font-size:15px;margin:0 0 8px;">1) Decision</h2>
+      <h2 style="font-size:15px;margin:0 0 8px;">1) Acquisition lead</h2>
+      <p style="margin:0 0 16px;padding:12px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;font-size:13px;line-height:1.5;">
+        Distribution executed: ${escapeHtml(lead.distributionExecuted)}<br/>
+        Audience/channel: ${escapeHtml(lead.audienceChannel)}<br/>
+        Attributed visits: ${escapeHtml(lead.attributedVisits)}<br/>
+        Activations: ${escapeHtml(lead.activations)}<br/>
+        Checkout starts: ${escapeHtml(lead.checkoutStarts)}<br/>
+        Newly attributed external customers: ${escapeHtml(lead.newlyAttributedExternalCustomers)}<br/>
+        Verified revenue: ${escapeHtml(lead.verifiedRevenue)}<br/>
+        Required owner approval: ${escapeHtml(lead.requiredOwnerApproval)}
+      </p>
+      <p style="margin:0 0 16px;font-size:13px;line-height:1.5;">
+        Existing customers: ${escapeHtml(lead.existingCustomers)}<br/>
+        Customers observed during experiment window: ${escapeHtml(lead.customersObservedInWindow)}<br/>
+        Customers causally attributed to a specific experiment: ${escapeHtml(lead.customersCausallyAttributedToExperiment)}<br/>
+        New customers acquired by the current run: ${escapeHtml(lead.newCustomersAcquiredByThisRun)}
+      </p>
+      <h2 style="font-size:15px;margin:0 0 8px;">2) Decision</h2>
       <p style="margin:0 0 16px;padding:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:14px;line-height:1.5;">${escapeHtml(decisionText)}</p>
       ${qualityHtml}
       <h2 style="font-size:15px;margin:18px 0 8px;">3) Marketplace Action</h2>
@@ -352,9 +449,11 @@ export function composeGrowthEmailBody({
       <h2 style="font-size:15px;margin:18px 0 8px;">6) Next Actions</h2>
       <p style="margin:0 0 8px;font-weight:700;font-size:13px;">Owner action required:</p>
       <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.5;">
-        <li>Review the replacement partner list.</li>
-        <li>Approve specific recipients and exact messages individually.</li>
-        <li>Do not approve or send another email until UTF-8 rendering is verified.</li>
+        <li><b>BLOCKING:</b> Reply APPROVED ${escapeHtml(PREPARED_OWNED_SOCIAL.approvalId)} then post this exact caption to Instagram @gettrainmate.</li>
+      </ol>
+      <pre style="white-space:pre-wrap;font-size:12px;background:#fff7ed;padding:12px;border-radius:8px;border:1px solid #fdba74;">${escapeHtml(PREPARED_OWNED_SOCIAL.caption)}</pre>
+      <ol start="2" style="margin:0 0 16px;padding-left:18px;font-size:13px;line-height:1.5;">
+        <li>Do not invent partner inboxes. Partner email stays paused until a verified public recipient is approved separately.</li>
         <li>Configure the metro read token.</li>
         <li>Configure GetTrainMate Stripe Product/Price allowlists.</li>
       </ol>

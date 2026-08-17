@@ -391,5 +391,48 @@ describe('growth report experiments and technical details', () => {
     assert.doesNotMatch(html, /Never include credentials[\s\S]*Never include credentials/);
     assert.match(text, /\$0\.00/);
     assert.doesNotMatch(text, /\$19\.99/);
+    assert.match(text, /1\) ACQUISITION LEAD/);
+    assert.match(text, /Distribution executed:/);
+    assert.match(text, /Newly attributed external customers: 0/);
+    assert.match(text, /New customers acquired by the current run: 0/);
+    assert.match(text, /Required owner approval: YES/);
+    assert.match(text, /NOT a successful acquisition run/);
+    assert.match(text, /APPROVED IG-2026-08-17/);
+    assert.match(text, /Instagram @gettrainmate/);
+    assert.match(html, /1\) Acquisition lead/);
+    assert.match(html, /New customers acquired by the current run/);
+    assert.match(html, /Looking for a consistent training partner in Atlanta/);
+  });
+
+  it('parses JSON notes into the acquisition lead and does not dump raw JSON', () => {
+    const { text, html } = composeGrowthEmailBody({
+      snapshot: {
+        sources: { ga4: 'ok', stripe: 'ok' },
+        scoreboard: { '7d': {}, '30d': { unique_paying_customers: { value: 0, available: true } } },
+        reconciliation: { ok: true, warnings: [] }
+      },
+      health: { ok: true, checks: [] },
+      experiments: [],
+      notes: JSON.stringify({
+        distributionExecuted: 'none - test override',
+        audienceChannel: 'Instagram @gettrainmate test',
+        attributedVisits: '0',
+        activations: '0',
+        checkoutStarts: '0',
+        newlyAttributedExternalCustomers: '0',
+        verifiedRevenue: '$0.00',
+        requiredOwnerApproval: 'YES - test blocking',
+        existingCustomers: '0',
+        customersObservedInWindow: '0',
+        customersCausallyAttributedToExperiment: '0',
+        newCustomersAcquiredByThisRun: '0'
+      }),
+      generatedAt: new Date('2026-08-17T16:00:00Z')
+    });
+    assert.match(text, /Distribution executed: none - test override/);
+    assert.match(text, /Audience\/channel: Instagram @gettrainmate test/);
+    assert.match(text, /Required owner approval: YES - test blocking/);
+    assert.doesNotMatch(text, /Agent notes \(sanitized\): \{/);
+    assert.match(html, /none - test override/);
   });
 });

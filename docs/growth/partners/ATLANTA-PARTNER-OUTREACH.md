@@ -140,6 +140,7 @@ Hi again — just bumping the Atlanta TRAIN invite for {{Org}}: {{landing_url}}.
 
 - **Shipped in product:** partner hub + invite landings + codes (live).
 - **Outreach authorization:** paused. Drafts are not approved. Further sends require per-recipient approval + `--send` + `PARTNER_OUTREACH_SEND_ENABLED=true`.
+- **2026-08-17 owned social:** exact Instagram caption prepared in `OWNER-APPROVAL-REQUEST.md` (approval id `IG-2026-08-17`). **Not posted.** Cursor has no posting authorization.
 - **Historical SES accepts (2026-08-14):** confirmed via SES quota/CLI MessageIds from the now-disabled `send-atlanta-partner-outreach.mjs` path (including the pickleball-club incident). Recipient lists and MessageIds stay in the private operational record (`scripts/growth/var/`, gitignored).
 - **Follow-up/resend:** not sent (blocked).
 - **Partner accounts created:** none.

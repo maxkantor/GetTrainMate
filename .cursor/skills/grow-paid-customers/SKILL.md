@@ -1,6 +1,9 @@
 # Grow paid customers — Atlanta marketplace launch (GetTrainMate)
 
-Optimize for **qualified Atlanta TRAIN profiles** (Discover-eligible density) before monetization vanity. Revenue is secondary until local marketplace density is sufficient. A qualified profile is **not** automatically a paying customer.
+**North star:** 1,000+ **verified external paying customers** (GetTrainMate-attributed live Stripe).  
+**Immediate milestone:** the next **newly attributed** external customer.
+
+Qualified Atlanta TRAIN density remains a leading indicator, not a substitute for customers. A qualified profile is **not** automatically a paying customer.
 
 Product: https://gettrainmate.com/  
 Repository: `maxkantor/GetTrainMate` · branch `main`  
@@ -8,9 +11,51 @@ Revenue source of truth: **verified GetTrainMate-attributed Stripe live payments
 **Verified external paying customers baseline: 0** until product-specific reconciliation completes.  
 GA4 measurement ID: **`G-C29M8NWNY4`** via `VITE_GA_MEASUREMENT_ID` — **never add a second GA4 install**.
 
-North star (scoreboard, not a promise): **1000+ qualified Atlanta TRAIN profiles** who can match. Report verified attributed Stripe honestly, including 0.
-
 Automation paste prompt + lock rules: `docs/growth/AUTOMATION.md`.
+
+## Customer acquisition override (until the first newly attributed external customer)
+
+Accurate reporting is required and is **not** the primary output. Analytics review, report formatting, documentation, internal pages, experiment logs, health checks, draft packages, and unexposed production changes **do not count**.
+
+A production asset is **not** distributed merely because it is deployed.
+
+Every successful run must complete:
+
+1. One measurable acquisition improvement, **when necessary**; and
+2. One real, policy-compliant **distribution** action that places the product in front of a relevant external audience.
+
+Distribution must use one of:
+
+- An explicitly approved recipient and exact approved message
+- An owned social account with **explicit posting authorization**
+- An approved email list with valid consent and unsubscribe controls
+- A legitimate partner or community channel that permits promotion
+- Paid advertising within an explicitly approved budget
+- A product-triggered referral/share action initiated by a real user
+
+Never send spam, invent contacts, automate comments or DMs, evade community rules, or claim visits, customers, or revenue without verified attribution.
+
+Until the first newly attributed external customer:
+
+- Run no more than one experiment per funnel stage.
+- Prefer qualified distribution over additional CRO.
+- Do not launch another experiment merely because the current run requires a ship.
+- Measure visits → activation → checkout → verified payment.
+- Report **new customers acquired by this run** separately from customers merely observed during its date window.
+
+A run is successful **only** when it either:
+
+- Executes an approved external distribution action; or
+- Removes a proven blocker preventing qualified traffic from entering or completing the funnel.
+
+**KEEP-only evaluation is not a successful acquisition run.** Record KEEP (do not change that treatment) and still complete distribution — or prepare the exact action and make the Admin report **lead** with a blocking approval request. A partner package / unsent draft is **not** distribution.
+
+If distribution requires Max’s approval and none exists: prepare the **exact** action (exact caption or exact recipient + exact message using a verified public contact — never invent an inbox) and stop. Do not substitute another analytics or formatting task.
+
+The Admin report must **lead** with: Distribution executed · Audience/channel · Attributed visits · Activations · Checkout starts · Newly attributed external customers · Verified revenue · Required owner approval.
+
+Distinguish: existing customers · customers observed during the experiment window · customers causally attributed to a specific experiment · **new customers acquired by the current run**.
+
 
 ## Qualified Atlanta TRAIN profile (executable)
 
@@ -82,33 +127,37 @@ Determine whether an evaluation is due using **America/New_York** (full programm
 
 ## Execution rule (every run)
 
-Complete **at most one** meaningful marketplace-growth action. These alone do **not** count:
+Complete **at most one** meaningful marketplace-growth action **and**, until the first newly attributed external customer, one policy-compliant distribution (or a prepared exact approval request). These alone do **not** count:
 
-- Reading metrics · updating docs · waiting · redesigning the general homepage · sending the Admin email · generic research notes
+- Reading metrics · updating docs · waiting · redesigning the general homepage · sending the Admin email · generic research notes · deploying an unshared asset · an unsent partner package
 
 ### Evaluation decisions (when an experiment is due)
 
 | Decision | Allowed work this run |
 |----------|------------------------|
-| **KEEP** | Record and stop. Do not change the treatment. |
-| **ITERATE** | Exactly **one** reversible change to that experiment’s treatment; validate; deploy; verify; stop. |
-| **STOP** | Safely disable only that experiment’s treatment; preserve reusable underlying page when appropriate; validate; deploy; verify; stop. |
-| **INCONCLUSIVE** | Extend **once** only if the experiment log’s minimum evidence rule permits; otherwise stop the experiment. No other acquisition ship in the same run. |
+| **KEEP** | Record the decision. Do **not** change the treatment. KEEP is **not** the run’s success condition — still execute approved distribution or prepare the exact blocking approval request. |
+| **ITERATE** | Exactly **one** reversible change to that experiment’s treatment; validate; deploy; verify. Do not launch a different experiment in the same run. Still prefer distribution over extra CRO. |
+| **STOP** | Safely disable only that experiment’s treatment; preserve reusable underlying page when appropriate; validate; deploy; verify. |
+| **INCONCLUSIVE** | Extend **once** only if the experiment log’s minimum evidence rule permits; otherwise stop the experiment. No other **experiment** ship in the same run. Distribution / approval-prep is still required. |
 
-If you evaluate EXP-001 in this run, that evaluation (plus at most one ITERATE/STOP code change) **is** today’s action. Do **not** also ship Step-4/5 work in the same run. Step “ship a different acquisition surface while EXP-002 is in-flight” applies only on a **later** run after EXP-001 was already evaluated.
+Do **not** also ship a new acquisition surface merely so the run has a code change. Prefer qualified distribution.
 
-### Partner package (counts only if complete)
+Current prepared action (until Max replies `APPROVED IG-2026-08-17`): exact Instagram caption in `docs/growth/partners/OWNER-APPROVAL-REQUEST.md`. Cursor must not post.
 
-A partner package under `docs/growth/partners/` counts as the run’s action **only** if it contains:
+### Partner package (not distribution)
+
+A partner package under `docs/growth/partners/` may be the measurable improvement **only** when it is the exact approval-ready action (verified public contact channel + exact unsent message). It still **does not** count as distribution until Max approves and the message is actually placed in front of the audience.
+
+A complete package contains:
 
 1. One verified Atlanta organization  
 2. A public source URL  
-3. A verified public business contact channel  
+3. A verified public business contact channel (**never invent an inbox**)  
 4. A tailored **unsent** draft  
 5. A partner-fit explanation  
 6. An attributable proposed URL or UTM plan  
 
-Generic research notes do not count. Draft only — never send. While EXP-002 is active, packages may add sample without changing treatment; sending remains banned.
+Generic research notes do not count. Draft only — never send. Cursor must not invoke the send path.
 
 ### Experiment-stage collision
 
@@ -149,11 +198,11 @@ Send **exactly one** Admin email after the run reaches its **final** state. Neve
 ## Recommended task order
 
 1. Acquire growth-run lock (stop if held)  
-2. Verify production health; collect GA4, CRM, product-specific Stripe  
-3. If EXP-001 due (America/New_York): evaluate → KEEP / ITERATE / STOP / INCONCLUSIVE → stop run  
-4. Else if EXP-001 already evaluated in a **previous** run and EXP-002 still active: one distinctly attributed non-partner acquisition surface  
-5. Else: one complete qualified Atlanta TRAIN partner package (draft only)  
-6. Else: repair tracking only if proven broken  
+2. Verify production health; collect GA4, CRM, product-specific Stripe (**report only**)  
+3. If an experiment evaluation is due (America/New_York): KEEP / ITERATE / STOP / INCONCLUSIVE. KEEP does **not** end the run. Do not launch a new experiment to manufacture a ship.  
+4. If Max has explicitly approved a prepared distribution action **and** the channel is executable without banned outreach: execute it (owned social only with posting authorization; partner email only via Admin CRM after flags — Cursor still must not send).  
+5. Else: prepare **one** exact distribution action; Admin email **must lead** with the blocking approval request. Stop. Do not substitute CRO, a new experiment, or analytics formatting.  
+6. Repair tracking only if proven broken  
 7. Validate / build when code changed / commit / push / monitor Amplify / verify / update `docs/growth/EXPERIMENT-LOG.md` / one Admin email / release lock  
 
 ## Hard bans

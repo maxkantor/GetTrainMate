@@ -281,6 +281,8 @@ describe('buildScoreboardRow + compose email', () => {
     });
 
     assert.match(text, /DECISION/i);
+    assert.match(text, /1\) ACQUISITION LEAD/);
+    assert.match(text, /Newly attributed external customers/);
     assert.match(text, /America\/New_York|EDT|EST/);
     assert.match(text, /Attributed paid conversions: Unknown/);
     assert.doesNotMatch(text, /Amplify Amplify/);
