@@ -64,8 +64,8 @@ export async function sendRawSesEmail({
   text,
   html
 }) {
-  const { buildPartnerMime } = await import('./lib/partner-email.mjs');
-  const raw = await buildPartnerMime({
+  const { buildAdminMime } = await import('./lib/admin-email-mime.mjs');
+  const raw = await buildAdminMime({
     fromName,
     fromEmail,
     to,

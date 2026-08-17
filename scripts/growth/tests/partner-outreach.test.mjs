@@ -24,6 +24,7 @@ import {
 } from '../lib/partner-outreach-auth.mjs';
 import { fetchMetroDensity } from '../lib/crm-metro.mjs';
 import { composeGrowthEmailBody } from '../lib/growth-report.mjs';
+import { buildAdminMime } from '../lib/admin-email-mime.mjs';
 import { EXP001, EXP002 } from '../lib/metric-definitions.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -279,6 +280,34 @@ describe('admin growth email reply-to', () => {
     assert.doesNotMatch(notify, /gettrainmate@gmail\.com/);
     assert.match(raw, /partners@gettrainmate\.com/);
     assert.doesNotMatch(raw, /gettrainmate@gmail\.com/);
+    assert.match(raw, /buildAdminMime/);
+  });
+
+  it('allows a Gmail Admin To address while forbidding Gmail From/Reply-To', async () => {
+    const raw = (
+      await buildAdminMime({
+        fromEmail: 'hello@gettrainmate.com',
+        to: 'gettrainmate@gmail.com',
+        replyTo: 'partners@gettrainmate.com',
+        subject: 'GetTrainMate Growth',
+        text: 'Required owner approval: YES',
+        html: '<p>Required owner approval: YES</p>'
+      })
+    ).toString('utf8');
+    assert.match(raw, /To: gettrainmate@gmail.com/);
+    assert.match(raw, /Reply-To: partners@gettrainmate.com/);
+    await assert.rejects(
+      () =>
+        buildAdminMime({
+          fromEmail: 'hello@gettrainmate.com',
+          to: 'gettrainmate@gmail.com',
+          replyTo: 'gettrainmate@gmail.com',
+          subject: 'x',
+          text: 'x',
+          html: '<p>x</p>'
+        }),
+      /From\/Reply-To must not use Gmail/
+    );
   });
 });
 
