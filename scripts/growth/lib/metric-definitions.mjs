@@ -152,7 +152,8 @@ export const EXP001 = {
 
 export const EXP002 = {
   id: 'EXP-002',
-  path: '/partners/atlanta',
+  path: '/partners/us/atlanta',
+  legacyPath: '/partners/atlanta',
   evaluationDate: '2026-08-27',
   evaluationWeekday: 'Thursday, August 27, 2026'
 };
@@ -169,7 +170,7 @@ export const SITE = {
   origin: 'https://gettrainmate.com',
   admin: 'https://gettrainmate.com/admin',
   atlanta: 'https://gettrainmate.com/atlanta-training-partners',
-  partnersHub: 'https://gettrainmate.com/partners/atlanta',
+  partnersHub: 'https://gettrainmate.com/partners/us/atlanta',
   repo: 'https://github.com/maxkantor/GetTrainMate',
   experimentLogPath: 'docs/growth/EXPERIMENT-LOG.md',
   partnerOutreachPath: 'docs/growth/partners/ATLANTA-PARTNER-OUTREACH.md',

@@ -13,6 +13,7 @@ const ALLOWED_KEYS = [
   'utm_campaign',
   'utm_content',
   'utm_term',
+  'country',
   'metro',
   'mode',
   'experiment_id',
@@ -44,7 +45,11 @@ export function captureAcquisitionFromSearch(search: string | URLSearchParams): 
     next.experiment_id = 'EXP-001';
   }
   if ((params.get('src') === 'partner' || params.get('partner')) && !next.experiment_id) {
-    next.experiment_id = 'EXP-002';
+    const campaign = String(params.get('utm_campaign') || '').toLowerCase();
+    const metro = String(params.get('metro') || '').toLowerCase();
+    if (metro === 'atlanta' || campaign.includes('atlanta')) {
+      next.experiment_id = 'EXP-002';
+    }
   }
   if ((params.get('src') === 'referral' || params.get('ref')) && !next.experiment_id) {
     next.experiment_id = 'EXP-003';
@@ -112,13 +117,16 @@ export function attributionForCheckout(): Record<string, string> {
   return out;
 }
 
-/** Mark EXP-003 Atlanta TRAIN referral visits. Distinct from EXP-001/EXP-002. */
-export function markReferralLandingVisit(refCode?: string): AcquisitionAttribution {
+/** Mark EXP-003 referral visits. Distinct from EXP-001/EXP-002. Do not default metro to Atlanta. */
+export function markReferralLandingVisit(
+  refCode?: string,
+  opts?: { metro?: string; mode?: string }
+): AcquisitionAttribution {
   return mergeAndPersistAcquisition({
     src: 'referral',
-    metro: 'Atlanta',
-    mode: 'TRAIN',
     experiment_id: 'EXP-003',
+    ...(opts?.metro ? { metro: opts.metro } : {}),
+    ...(opts?.mode ? { mode: opts.mode } : {}),
     ...(refCode ? { ref: refCode } : {}),
   });
 }

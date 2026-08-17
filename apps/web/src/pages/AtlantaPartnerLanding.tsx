@@ -1,46 +1,104 @@
 import React, { useEffect, useMemo } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Link as RouterLink, Navigate, useParams } from 'react-router-dom';
 import { Box, Button, Container, Typography } from '@mui/material';
 import { PageShell } from '@/components/layout/PageShell';
 import { trackEvent } from '@/utils/analytics';
 import { mergeAndPersistAcquisition } from '@/utils/acquisitionAttribution';
 import {
-  partnerSignupPath,
-  resolveAtlantaPartnerLanding,
-} from '@/data/atlantaPartners';
+  INITIAL_MARKET_CANDIDATES,
+  normalizeInviteCode,
+  partnerHubPath,
+  partnerSignupPath as marketSignupPath,
+  slugPart,
+} from '@/data/markets';
+import { getAtlantaPartner, normalizePartnerCode } from '@/data/atlantaPartners';
+
+function marketLabel(country: string, market: string): string {
+  const hit = INITIAL_MARKET_CANDIDATES.find(
+    (m) => m.country === country && m.market === market
+  );
+  if (hit) return hit.displayName;
+  return market
+    .split('-')
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
+}
 
 /**
- * Reusable Atlanta TRAIN partner landing (EXP-002).
- * Unique partner invite codes — no fake density or attendance claims.
+ * Market partner invite landing. Atlanta TRAIN (EXP-002) remains the first campaign;
+ * other markets use the same template without implying an existing partnership.
  */
 export const AtlantaPartnerLandingPage: React.FC = () => {
-  const { partnerCode } = useParams<{ partnerCode: string }>();
-  const { partner, known } = useMemo(
-    () => resolveAtlantaPartnerLanding(partnerCode),
-    [partnerCode]
-  );
-  const signupTo = partnerSignupPath(partner.code);
+  const { country: countryParam, market: marketParam, partnerCode, inviteCode } = useParams<{
+    country?: string;
+    market?: string;
+    partnerCode?: string;
+    inviteCode?: string;
+  }>();
+  const country = slugPart(countryParam || 'us') || 'us';
+  const market = slugPart(marketParam || 'atlanta') || 'atlanta';
+  const isAtlanta = country === 'us' && market === 'atlanta';
+  const codeRaw = partnerCode || inviteCode || '';
+  const { partner, known } = useMemo(() => {
+    if (isAtlanta) {
+      const hit = getAtlantaPartner(codeRaw);
+      if (hit) return { partner: hit, known: true };
+      return {
+        known: false,
+        partner: {
+          code: normalizePartnerCode(codeRaw) || normalizeInviteCode(codeRaw) || 'atl-generic-train',
+          displayName: '',
+          blurb: '',
+        },
+      };
+    }
+    return {
+      known: false,
+      partner: {
+        code: normalizeInviteCode(codeRaw) || 'invite',
+        displayName: '',
+        blurb: '',
+      },
+    };
+  }, [codeRaw, isAtlanta]);
+  const city = marketLabel(country, market);
+  const displayName = known && partner.displayName ? partner.displayName : `${city} training community invite`;
+  const blurb =
+    known && partner.blurb
+      ? partner.blurb
+      : `This is an invitation to find local training partners in ${city}. It does not mean the organization has an existing partnership with GetTrainMate.`;
+  const signupTo = marketSignupPath({
+    country,
+    market,
+    mode: 'TRAIN',
+    inviteCode: partner.code,
+    experimentId: isAtlanta ? 'EXP-002' : undefined,
+  });
+  const path = `/partners/${country}/${market}/${partner.code}`;
 
   useEffect(() => {
     mergeAndPersistAcquisition({
       src: 'partner',
       partner: partner.code,
-      metro: 'Atlanta',
+      metro: city,
       mode: 'TRAIN',
-      experiment_id: 'EXP-002',
-      utm_source: 'partner',
-      utm_medium: 'invite',
-      utm_campaign: partner.code,
+      experiment_id: market === 'atlanta' ? 'EXP-002' : undefined,
+      utm_source: 'partner_outreach',
+      utm_medium: 'email',
+      utm_campaign: `${country}_${market}_train_partners`,
     });
     trackEvent('landing_page_view', {
-      source_page: `/partners/atlanta/${partner.code}`,
-      metro: 'Atlanta',
+      source_page: path,
+      metro: city,
+      country,
+      market,
       segment: 'TRAIN',
       acquisition_source: 'partner',
       partner_code: partner.code,
       partner_known: known ? '1' : '0',
     });
-  }, [partner.code, known]);
+  }, [partner.code, known, city, country, market, path]);
 
   return (
     <PageShell variant="content" showBackLink>
@@ -57,15 +115,14 @@ export const AtlantaPartnerLandingPage: React.FC = () => {
           component="p"
           sx={{ mt: 1.5, fontSize: { xs: '1.15rem', md: '1.35rem' }, fontWeight: 600 }}
         >
-          {partner.displayName}
+          {displayName}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mt: 2, maxWidth: 560, lineHeight: 1.7 }}>
-          {partner.blurb}
+          {blurb}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2, maxWidth: 560, lineHeight: 1.7 }}>
-          Invite code <strong>{partner.code}</strong> · Metro: Atlanta · Mode: TRAIN. Create a free
-          account, complete your profile with Atlanta as your city, then start Discover — no fake
-          match guarantees.
+          Invite code <strong>{partner.code}</strong> · {city} · TRAIN (VIBE and DATE stay available after
+          signup). Create a free account, set your city, then start Discover — no match guarantees.
         </Typography>
 
         <Box sx={{ mt: 3, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
@@ -76,8 +133,10 @@ export const AtlantaPartnerLandingPage: React.FC = () => {
             size="large"
             onClick={() =>
               trackEvent('signup_started', {
-                source_page: `/partners/atlanta/${partner.code}`,
-                metro: 'Atlanta',
+                source_page: path,
+                metro: city,
+                country,
+                market,
                 segment: 'TRAIN',
                 acquisition_source: 'partner',
                 partner_code: partner.code,
@@ -86,18 +145,18 @@ export const AtlantaPartnerLandingPage: React.FC = () => {
           >
             Join with this invite
           </Button>
-          <Button component={RouterLink} to="/atlanta-training-partners" variant="outlined" size="large">
-            Atlanta overview
+          <Button component={RouterLink} to={partnerHubPath(country, market)} variant="outlined" size="large">
+            {city} partner invites
           </Button>
         </Box>
-
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 4, lineHeight: 1.7 }}>
-          GetTrainMate is focusing on Atlanta TRAIN communities first so local matching stays useful.
-          VIBE and DATE remain available in the app after signup.
-        </Typography>
       </Container>
     </PageShell>
   );
 };
+
+export function LegacyAtlantaPartnerRedirect(): React.ReactElement {
+  const { partnerCode } = useParams<{ partnerCode: string }>();
+  return <Navigate to={`/partners/us/atlanta/${slugPart(partnerCode || '')}`} replace />;
+}
 
 export default AtlantaPartnerLandingPage;

@@ -13,4 +13,12 @@ describe('acquisitionAttribution referral', () => {
     expect(a.metro).toBe('Atlanta');
     expect(a.mode).toBe('TRAIN');
   });
+
+  it('does not assign EXP-002 to non-Atlanta partner landings', () => {
+    const a = captureAcquisitionFromSearch(
+      '?metro=miami&country=us&mode=TRAIN&src=partner&partner=example-club&utm_campaign=us_miami_train_partners'
+    );
+    expect(a.experiment_id).toBeUndefined();
+    expect(a.metro).toBe('miami');
+  });
 });

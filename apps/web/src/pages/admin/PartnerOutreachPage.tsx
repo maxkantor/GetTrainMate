@@ -8,12 +8,19 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  MenuItem,
   Tab,
   Tabs,
   TextField,
   Typography,
 } from '@mui/material';
 import { adminApiService } from '@/services/adminApiService';
+import {
+  INITIAL_MARKET_CANDIDATES,
+  MAX_ACTIVE_MARKETS,
+  partnerInvitePath,
+  slugPart,
+} from '@/data/markets';
 
 type Prospect = {
   prospectId: string;
@@ -22,6 +29,10 @@ type Prospect = {
   email: string;
   emailSource: string;
   metro: string;
+  city?: string;
+  country?: string;
+  campaignLanguage?: string;
+  mode?: string;
   activity: string;
   partnerCode?: string;
   landingUrl?: string;
@@ -40,8 +51,20 @@ type QueueItem = {
   partnerUrl: string;
 };
 
+type Campaign = {
+  campaignId: string;
+  displayName?: string;
+  name?: string;
+  country: string;
+  market: string;
+  status: string;
+  primaryMode?: string;
+  languages?: string[];
+};
+
 const TABS = [
   'prospect',
+  'discovered',
   'draft',
   'approved',
   'queued',
@@ -56,8 +79,10 @@ export const PartnerOutreachPage: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
+  const [discoverNote, setDiscoverNote] = useState<string | null>(null);
   const [form, setForm] = useState({
     organizationName: '',
     organizationType: 'run_club',
@@ -68,20 +93,26 @@ export const PartnerOutreachPage: React.FC = () => {
     partnerCode: '',
     landingUrl: '',
     activity: 'training',
+    country: 'us',
+    city: '',
+    campaignLanguage: 'en',
+    mode: 'TRAIN',
   });
   const [approveItem, setApproveItem] = useState<QueueItem | null>(null);
 
   const load = async () => {
     setError(null);
     try {
-      const [p, q, m] = await Promise.all([
+      const [p, q, m, c] = await Promise.all([
         adminApiService.get('/api/admin/partner-outreach/prospects'),
         adminApiService.get('/api/admin/partner-outreach/queue'),
         adminApiService.get('/api/admin/partner-outreach/metrics'),
+        adminApiService.get('/api/admin/partner-outreach/campaigns'),
       ]);
       setProspects(Array.isArray(p) ? p : p?.items ?? []);
       setQueue(Array.isArray(q) ? q : q?.items ?? []);
       setMetrics(m);
+      setCampaigns(Array.isArray(c) ? c : c?.items ?? INITIAL_MARKET_CANDIDATES);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load');
     }
@@ -92,10 +123,45 @@ export const PartnerOutreachPage: React.FC = () => {
   }, []);
 
   const status = TABS[tab];
-  const shownProspects = prospects.filter((p) =>
-    status === 'prospect' ? p.status === 'prospect' || p.status === 'draft' || true : p.status === status
+  const shownProspects = prospects.filter((p) => {
+    if (status === 'prospect') return p.status === 'prospect' || p.status === 'draft';
+    if (status === 'discovered') return p.status === 'discovered';
+    return p.status === status;
+  });
+  const shownQueue = queue.filter((q) =>
+    status === 'prospect' || status === 'discovered' ? true : q.status === status || (status === 'draft' && q.status === 'draft')
   );
-  const shownQueue = queue.filter((q) => (status === 'prospect' ? true : q.status === status || (status === 'draft' && q.status === 'draft')));
+
+  const runDiscover = async (country?: string, market?: string, language = 'en') => {
+    setError(null);
+    setDiscoverNote(null);
+    try {
+      const res = await adminApiService.post('/api/admin/partner-outreach/discover', {
+        ...(country ? { country } : {}),
+        ...(market ? { market } : {}),
+        language,
+        mode: 'TRAIN',
+      });
+      setDiscoverNote(
+        `${res?.note || 'Discovery finished'} Created: ${res?.created?.length ?? 0}. Skipped: ${res?.skipped ?? 0}.`
+      );
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Discovery failed');
+    }
+  };
+
+  const setStatus = async (campaignId: string, next: string) => {
+    setError(null);
+    try {
+      await adminApiService.post(`/api/admin/partner-outreach/campaigns/${encodeURIComponent(campaignId)}/status`, {
+        status: next,
+      });
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Could not update campaign');
+    }
+  };
 
   return (
     <Box>
@@ -103,17 +169,70 @@ export const PartnerOutreachPage: React.FC = () => {
         Partner Outreach
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Sending stays disabled until PARTNER_OUTREACH_SEND_ENABLED=true, postal address is set, and you approve each
-        recipient. From: Max from GetTrainMate &lt;partners@gettrainmate.com&gt;. Daily cap 3. No Gmail / noreply.
+        International TRAIN partner campaigns. Max {MAX_ACTIVE_MARKETS} active markets. Sending stays disabled until
+        PARTNER_OUTREACH_SEND_ENABLED=true, postal address is set, and you approve each recipient. Never infer emails.
+        VIBE and DATE stay in the app; they are not mixed into this first partner campaign. Language (UI) is independent
+        of market.
       </Typography>
-      {error && <Alert severity="error">{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
       {metrics && (
         <Alert severity="info" sx={{ mb: 2 }}>
           sendEnabled={String(metrics.sendEnabled)} approved={String(metrics.approvedRecipients)} sent=
           {String(metrics.sent)} delivered={String(metrics.delivered)} replies={String(metrics.replies)} complaints=
-          {String(metrics.complaints)} pause={String(metrics.complaintPause)}
+          {String(metrics.complaints)} pause={String(metrics.complaintPause)} maxActive=
+          {String(metrics.maxActiveMarkets ?? MAX_ACTIVE_MARKETS)}
         </Alert>
       )}
+      {discoverNote && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setDiscoverNote(null)}>
+          {discoverNote}
+        </Alert>
+      )}
+
+      <Typography variant="h6" sx={{ mb: 1 }}>
+        Market campaigns
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+        <Button variant="outlined" size="small" onClick={() => void runDiscover(undefined, undefined, 'en')}>
+          Run global discovery (TRAIN)
+        </Button>
+      </Box>
+      <Box sx={{ display: 'grid', gap: 1, mb: 3 }}>
+        {(campaigns.length ? campaigns : INITIAL_MARKET_CANDIDATES).map((c) => (
+          <Box
+            key={c.campaignId}
+            sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', py: 1, borderBottom: '1px solid #eee' }}
+          >
+            <Typography sx={{ minWidth: 220, fontWeight: 600 }}>{c.displayName || c.campaignId}</Typography>
+            <Chip size="small" label={c.status} />
+            <Chip size="small" variant="outlined" label={`${c.country}/${c.market}`} />
+            <Chip size="small" variant="outlined" label={c.primaryMode || 'TRAIN'} />
+            <Button size="small" onClick={() => void runDiscover(c.country, c.market, c.languages?.[0] || 'en')}>
+              Run discovery
+            </Button>
+            {c.status !== 'active' && (
+              <Button size="small" onClick={() => void setStatus(c.campaignId, 'active')}>
+                Activate
+              </Button>
+            )}
+            {c.status === 'active' && (
+              <Button size="small" onClick={() => void setStatus(c.campaignId, 'paused')}>
+                Pause
+              </Button>
+            )}
+            {c.status === 'paused' && (
+              <Button size="small" onClick={() => void setStatus(c.campaignId, 'candidate')}>
+                Demote
+              </Button>
+            )}
+          </Box>
+        ))}
+      </Box>
+
       <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" sx={{ mb: 2 }}>
         {TABS.map((t) => (
           <Tab key={t} label={t.replace('_', ' ')} />
@@ -122,8 +241,24 @@ export const PartnerOutreachPage: React.FC = () => {
 
       <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', mb: 2 }}>
         <TextField size="small" label="Organization" value={form.organizationName} onChange={(e) => setForm({ ...form, organizationName: e.target.value })} />
-        <TextField size="small" label="Public business email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        <TextField size="small" label="Email source" value={form.emailSource} onChange={(e) => setForm({ ...form, emailSource: e.target.value })} helperText="public_listing | owner_supplied | prior_engagement" />
+        <TextField size="small" label="Public business email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} helperText="Paste from an org-controlled page. Leave blank to save as discovered." />
+        <TextField size="small" select label="Email source" value={form.emailSource} onChange={(e) => setForm({ ...form, emailSource: e.target.value })}>
+          <MenuItem value="public_listing">public_listing</MenuItem>
+          <MenuItem value="owner_supplied">owner_supplied</MenuItem>
+          <MenuItem value="prior_engagement">prior_engagement</MenuItem>
+        </TextField>
+        <TextField size="small" label="Country (ISO)" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+        <TextField size="small" label="City / metro" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+        <TextField size="small" select label="Campaign language" value={form.campaignLanguage} onChange={(e) => setForm({ ...form, campaignLanguage: e.target.value })} helperText="Only English templates are approved for queueing.">
+          <MenuItem value="en">en (approved)</MenuItem>
+          <MenuItem value="es">es (draft only)</MenuItem>
+          <MenuItem value="ru">ru (draft only)</MenuItem>
+        </TextField>
+        <TextField size="small" select label="Mode" value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
+          <MenuItem value="TRAIN">TRAIN</MenuItem>
+          <MenuItem value="VIBE">VIBE (app mode; not this campaign)</MenuItem>
+          <MenuItem value="DATE">DATE (app mode; not this campaign)</MenuItem>
+        </TextField>
         <TextField size="small" label="Website" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
         <TextField size="small" label="Source URL" value={form.sourceUrl} onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })} />
         <TextField size="small" label="Partner code" value={form.partnerCode} onChange={(e) => setForm({ ...form, partnerCode: e.target.value })} />
@@ -132,11 +267,22 @@ export const PartnerOutreachPage: React.FC = () => {
       <Button
         variant="contained"
         onClick={async () => {
-          await adminApiService.post('/api/admin/partner-outreach/prospects', {
-            ...form,
-            metro: 'Atlanta',
-          });
-          await load();
+          setError(null);
+          try {
+            const landing =
+              form.landingUrl ||
+              (form.partnerCode
+                ? `https://gettrainmate.com${partnerInvitePath(form.country, slugPart(form.city) || 'market', form.partnerCode)}`
+                : '');
+            await adminApiService.post('/api/admin/partner-outreach/prospects', {
+              ...form,
+              metro: form.city,
+              landingUrl: landing,
+            });
+            await load();
+          } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : 'Could not add prospect');
+          }
         }}
       >
         Add prospect
@@ -148,13 +294,21 @@ export const PartnerOutreachPage: React.FC = () => {
       {shownProspects.map((p) => (
         <Box key={p.prospectId} sx={{ py: 1, borderBottom: '1px solid #eee' }}>
           <Typography>
-            {p.organizationName} — {p.email} <Chip size="small" label={p.status} sx={{ ml: 1 }} />
+            {p.organizationName} — {p.email || '(no email yet)'}{' '}
+            <Chip size="small" label={p.status} sx={{ ml: 1 }} />
+            <Chip size="small" variant="outlined" label={`${p.country || '?'}/${p.metro || p.city || '?'}`} sx={{ ml: 1 }} />
           </Typography>
           <Button
             size="small"
+            disabled={!p.email}
             onClick={async () => {
-              await adminApiService.post('/api/admin/partner-outreach/drafts', { prospectId: p.prospectId });
-              await load();
+              setError(null);
+              try {
+                await adminApiService.post('/api/admin/partner-outreach/drafts', { prospectId: p.prospectId });
+                await load();
+              } catch (e: unknown) {
+                setError(e instanceof Error ? e.message : 'Could not prepare draft');
+              }
             }}
           >
             Prepare draft

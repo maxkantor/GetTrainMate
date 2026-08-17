@@ -5,7 +5,7 @@
 **Cron (UTC during EDT):** `0 12 * * 3` — confirm preview shows **Wednesday at 8:00 AM EDT**  
 **Repo:** `maxkantor/GetTrainMate` · branch `main`  
 **Notify:** Exactly **one** Admin email after the run reaches its **final** state → `node scripts/growth/compose-and-send-growth-email.mjs`  
-**North star:** 1,000+ verified external paying customers. Immediate milestone: the next newly attributed external customer. Qualified Atlanta TRAIN profiles are a leading indicator, not a substitute.  
+**North star:** 1,000+ verified external paying customers across viable international markets. Immediate milestone: the next newly attributed external customer. Qualified profiles by market/mode are a leading indicator, not a substitute.  
 **Cost:** Prefer cheapest capable model; do not launch a new experiment merely to ship
 
 Do **not** activate a weekday (Mon–Fri) schedule — **Wednesday only**.
@@ -53,7 +53,7 @@ Read and follow .cursor/skills/grow-paid-customers/SKILL.md and docs/growth/AUTO
 TIMEZONE: Decide whether an evaluation is due using America/New_York (full programmed weekday + calendar date). Do not compare evaluation dates using UTC alone.
 
 CUSTOMER ACQUISITION OVERRIDE (until the first newly attributed external customer):
-North star: 1,000+ verified external paying customers. Immediate milestone: the next newly attributed external customer.
+North star: 1,000+ verified external paying customers across viable international markets. Immediate milestone: the next newly attributed external customer.
 Accurate reporting is required and is NOT the primary output. Analytics, report formatting, docs, internal pages, experiment logs, health checks, draft packages, and unexposed deploys do NOT count. Deploy ≠ distributed.
 Every successful run must: (1) one measurable acquisition improvement when necessary, AND (2) one real policy-compliant distribution action in front of a relevant external audience.
 Distribution must be one of: approved recipient + exact approved message; owned social with explicit posting authorization; consented email list with unsubscribe; legitimate partner/community channel that permits promotion; paid ads within approved budget; product-triggered referral/share by a real user.
@@ -67,9 +67,11 @@ Distinguish: existing customers; customers observed during the experiment window
 
 Current prepared action: docs/growth/partners/OWNER-APPROVAL-REQUEST.md (Instagram @gettrainmate exact caption, approval id IG-2026-08-17). Cursor must NOT post. Partner email send remains banned.
 
-Qualified Atlanta TRAIN profile (leading indicator, not a customer): unique non-owner non-test; completed signup; completed required profile fields; Atlanta metro from application data; TRAIN selected; Discover-eligible and not blocked/deleted/suspended.
+Qualified GetTrainMate profile (leading indicator, not a customer): unique non-owner non-test; completed signup; completed required profile fields; valid supported location; at least one mode (TRAIN/VIBE/DATE); Discover-eligible and not blocked/deleted/suspended.
 
-Report separately (never collapse): registered users; completed profiles; qualified Atlanta TRAIN profiles; Discover-eligible users; verified external paying customers; successful attributed payments; new customers acquired by this run.
+Report separately by country, metro, language, and mode — never collapse into one global density number: registered users; completed profiles; qualified profiles by market/mode; Discover-eligible users; verified external paying customers; successful attributed payments; new customers acquired by this run.
+
+Market campaigns: max 3 active. Partner outreach TRAIN-first (not an app limitation). Never infer emails. English-only approved outreach templates until ES/RU are human-reviewed.
 
 STRIPE TRUTH: Count only GetTrainMate-attributed live Stripe transactions matched through the approved Product ID, Price ID, Payment Link ID, Checkout metadata allowlist, or legacy credits ownership rules (docs/growth/STRIPE-ATTRIBUTION.md). Report separately: successful attributed live payments; unique verified external paying customers; owner/test payments; unattributed payments; refunds; verified net revenue. Exclude account-wide and unattributed payments from GetTrainMate customers and revenue. Never invent users, matches, messages, reviews, or purchases. Zero is valid evidence.
 

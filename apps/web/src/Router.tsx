@@ -14,7 +14,7 @@ import { BillingCancelPage } from '@/pages/BillingCancel';
 import { AboutPage } from '@/pages/About';
 import { AtlantaTrainingPartnersPage } from '@/pages/AtlantaTrainingPartners';
 import { AtlantaPartnersHubPage } from '@/pages/AtlantaPartnersHub';
-import { AtlantaPartnerLandingPage } from '@/pages/AtlantaPartnerLanding';
+import { AtlantaPartnerLandingPage, LegacyAtlantaPartnerRedirect } from '@/pages/AtlantaPartnerLanding';
 import { AtlantaReferralLandingPage } from '@/pages/AtlantaReferralLanding';
 import { FAQPage } from '@/pages/FAQ';
 import { ContactPage } from '@/pages/Contact';
@@ -124,8 +124,10 @@ export const Router: React.FC = () => {
             <Route path="/billing/cancel" element={<BillingCancelPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/atlanta-training-partners" element={<AtlantaTrainingPartnersPage />} />
-            <Route path="/partners/atlanta" element={<AtlantaPartnersHubPage />} />
-            <Route path="/partners/atlanta/:partnerCode" element={<AtlantaPartnerLandingPage />} />
+            <Route path="/partners/atlanta" element={<Navigate to="/partners/us/atlanta" replace />} />
+            <Route path="/partners/atlanta/:partnerCode" element={<LegacyAtlantaPartnerRedirect />} />
+            <Route path="/partners/:country/:market" element={<AtlantaPartnersHubPage />} />
+            <Route path="/partners/:country/:market/:inviteCode" element={<AtlantaPartnerLandingPage />} />
             <Route path="/invite/:refCode" element={<AtlantaReferralLandingPage />} />
             <Route path="/invite" element={<AtlantaReferralLandingPage />} />
             <Route path="/faq" element={<FAQPage />} />

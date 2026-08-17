@@ -42,7 +42,7 @@ public class AdminPartnerOutreachController : ControllerBase
     [HttpPost("drafts")]
     public async Task<IActionResult> Draft([FromBody] DraftRequest req)
     {
-        try { return Ok(await _svc.CreateDraftAndQueuePreviewAsync(req.ProspectId, req.CampaignId ?? "atlanta-default")); }
+        try { return Ok(await _svc.CreateDraftAndQueuePreviewAsync(req.ProspectId, req.CampaignId ?? "")); }
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
@@ -76,6 +76,24 @@ public class AdminPartnerOutreachController : ControllerBase
     [HttpGet("metrics")]
     public async Task<IActionResult> Metrics() => Ok(await _svc.MetricsAsync());
 
+    [HttpGet("campaigns")]
+    public async Task<IActionResult> Campaigns() => Ok(await _svc.ListCampaignsAsync());
+
+    [HttpPost("campaigns/{campaignId}/status")]
+    public async Task<IActionResult> CampaignStatus(string campaignId, [FromBody] CampaignStatusRequest req)
+    {
+        try { return Ok(await _svc.SetCampaignStatusAsync(campaignId, req.Status)); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("discover")]
+    public async Task<IActionResult> Discover([FromBody] DiscoverRequest req)
+    {
+        try { return Ok(await _svc.DiscoverAsync(req.Country, req.Market, req.Language, req.Mode)); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
     [HttpPost("dispatch")]
     public async Task<IActionResult> Dispatch() =>
         Ok(await _svc.DispatchDueAsync(scheduledCursorAutomation: false));
@@ -96,4 +114,17 @@ public class CrmReplyRequest
 {
     public string BodyText { get; set; } = "";
     public bool ConfirmSend { get; set; }
+}
+
+public class CampaignStatusRequest
+{
+    public string Status { get; set; } = "";
+}
+
+public class DiscoverRequest
+{
+    public string? Country { get; set; }
+    public string? Market { get; set; }
+    public string? Language { get; set; }
+    public string? Mode { get; set; }
 }

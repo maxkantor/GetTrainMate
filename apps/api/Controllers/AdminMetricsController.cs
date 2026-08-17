@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
+using GetTrainMate.Api.Services.PartnerOutreach;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
@@ -214,7 +215,7 @@ public class AdminMetricsController : ControllerBase
             {
                 var userId = TryGetString(doc, "userId", "UserId");
                 if (string.IsNullOrEmpty(userId)) continue;
-                var metro = NormalizeMetroLabel(TryGetString(doc, "city", "City"));
+                var metro = MetroLabelNormalizer.Normalize(TryGetString(doc, "city", "City"));
                 if (string.IsNullOrEmpty(metro)) metro = "Unknown";
                 userMetro[userId] = metro;
                 profilesByMetro[metro] = profilesByMetro.GetValueOrDefault(metro) + 1;
@@ -306,30 +307,8 @@ public class AdminMetricsController : ControllerBase
         }
     }
 
-    /// <summary>Normalize free-text city into a coarse metro label (no coordinates).</summary>
-    internal static string NormalizeMetroLabel(string? city)
-    {
-        if (string.IsNullOrWhiteSpace(city)) return "";
-        var s = city.Trim().ToLowerInvariant();
-        s = Regex.Replace(s, @"[^a-z0-9\s]", " ");
-        s = Regex.Replace(s, @"\s+", " ").Trim();
-        if (s is "atl" or "atlanta"
-            || s.StartsWith("atlanta ", StringComparison.Ordinal)
-            || s.Contains("atlanta ga", StringComparison.Ordinal)
-            || s.Contains("atlanta georgia", StringComparison.Ordinal))
-            return "Atlanta";
-        if (s is "miami" || s.StartsWith("miami ", StringComparison.Ordinal)) return "Miami";
-        if (s is "tampa" || s.StartsWith("tampa ", StringComparison.Ordinal)) return "Tampa";
-        if (s is "nyc" or "new york" or "new york city"
-            || s.StartsWith("new york ", StringComparison.Ordinal))
-            return "New York";
-        if (s is "dallas" || s.StartsWith("dallas ", StringComparison.Ordinal)) return "Dallas";
-        if (s is "chicago" || s.StartsWith("chicago ", StringComparison.Ordinal)) return "Chicago";
-        // Title-case first token group for display; keep short.
-        var parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0) return "";
-        return string.Join(' ', parts.Take(3).Select(p => char.ToUpperInvariant(p[0]) + p[1..]));
-    }
+    /// <summary>Delegate to shared normalizer for tests and CRM aggregation.</summary>
+    internal static string NormalizeMetroLabel(string? city) => MetroLabelNormalizer.Normalize(city);
 
     private async Task<(decimal RevenueMtd, int Orders7d)> GetPaymentMetricsAsync(
         string paymentsTable,

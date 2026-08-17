@@ -67,10 +67,30 @@ const MARKETING_PAGES: PrerenderPage[] = [
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {
+    canonicalPath: '/partners/us/atlanta',
+    title: `Atlanta TRAIN Partner Invites | ${BRAND}`,
+    description:
+      'Unique Atlanta TRAIN partner invite links for run clubs, gyms, pickleball, and trainers. No fake density claims.',
+    ogTitle: `Atlanta TRAIN Partner Invites | ${BRAND}`,
+    ogDescription:
+      'Unique Atlanta TRAIN partner invite links for run clubs, gyms, pickleball, and trainers. No fake density claims.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
     canonicalPath: '/partners/atlanta/atl-track-club',
     title: `Atlanta Track Club community invite | ${BRAND}`,
     description:
       'Join GetTrainMate with the Atlanta Track Club community invite. TRAIN mode, Atlanta metro.',
+    ogTitle: `Atlanta Track Club community invite | ${BRAND}`,
+    ogDescription:
+      'Join GetTrainMate with the Atlanta Track Club community invite. TRAIN mode, Atlanta metro.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
+    canonicalPath: '/partners/us/atlanta/atl-track-club',
+    title: `Atlanta Track Club community invite | ${BRAND}`,
+    description:
+      'Join GetTrainMate with the Atlanta Track Club community invite. TRAIN mode, Atlanta metro. An invite is not an existing partnership claim.',
     ogTitle: `Atlanta Track Club community invite | ${BRAND}`,
     ogDescription:
       'Join GetTrainMate with the Atlanta Track Club community invite. TRAIN mode, Atlanta metro.',
@@ -85,13 +105,21 @@ const MARKETING_PAGES: PrerenderPage[] = [
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {
+    canonicalPath: '/partners/us/atlanta/atl-f3',
+    title: `F3 Atlanta community invite | ${BRAND}`,
+    description: 'Join GetTrainMate with the F3 Atlanta community invite. TRAIN mode, Atlanta metro. An invite is not an existing partnership claim.',
+    ogTitle: `F3 Atlanta community invite | ${BRAND}`,
+    ogDescription: 'Join GetTrainMate with the F3 Atlanta community invite. TRAIN mode, Atlanta metro.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
     canonicalPath: '/invite',
-    title: `Invite a Training Partner in Atlanta | ${BRAND}`,
+    title: `Invite a Training Partner | ${BRAND}`,
     description:
-      'Share a TRAIN-first Atlanta signup link. Find gym, running, and race partners — not dating-first.',
-    ogTitle: `Invite a Training Partner in Atlanta | ${BRAND}`,
+      'Share a TRAIN-first signup link for your city. Find gym, running, and race partners — not dating-first.',
+    ogTitle: `Invite a Training Partner | ${BRAND}`,
     ogDescription:
-      'Share a TRAIN-first Atlanta signup link. Find gym, running, and race partners — not dating-first.',
+      'Share a TRAIN-first signup link for your city. Find gym, running, and race partners — not dating-first.',
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {

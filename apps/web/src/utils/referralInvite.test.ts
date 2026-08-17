@@ -14,7 +14,7 @@ describe('referralInvite', () => {
     expect(isValidReferralCode(code)).toBe(true);
     expect(code).not.toContain(userId);
     expect(code.toLowerCase()).not.toContain('11111111');
-    const url = buildReferralShareUrl(code, 'https://gettrainmate.com');
+  const url = buildReferralShareUrl(code, 'https://gettrainmate.com', { city: 'Atlanta', mode: 'TRAIN' });
     expect(url).toContain('/invite/');
     expect(url).toContain('src=referral');
     expect(url).toContain('experiment_id=EXP-003');
@@ -22,6 +22,11 @@ describe('referralInvite', () => {
     expect(url).toContain('mode=TRAIN');
     expect(url).not.toContain(userId);
     expect(url).not.toContain('@');
+  });
+
+  it('omits metro when the referrer has no city', () => {
+    const url = buildReferralShareUrl('abcdef0123456789', 'https://gettrainmate.com');
+    expect(url).not.toContain('metro=');
   });
 
   it('shows the invite CTA only when TRAIN is selected', () => {

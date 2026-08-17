@@ -31,13 +31,31 @@
     <priority>0.85</priority>
   </url>
   <url>
+    <loc>https://gettrainmate.com/partners/us/atlanta</loc>
+    <lastmod>2026-08-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
     <loc>https://gettrainmate.com/partners/atlanta/atl-track-club</loc>
     <lastmod>2026-08-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://gettrainmate.com/partners/us/atlanta/atl-track-club</loc>
+    <lastmod>2026-08-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://gettrainmate.com/partners/atlanta/atl-f3</loc>
+    <lastmod>2026-08-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://gettrainmate.com/partners/us/atlanta/atl-f3</loc>
     <lastmod>2026-08-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

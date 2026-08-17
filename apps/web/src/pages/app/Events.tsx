@@ -291,7 +291,7 @@ export const EventsPage: React.FC = () => {
           <TextField
             fullWidth
             size="small"
-            placeholder="e.g. Atlanta"
+            placeholder="Your city"
             value={cityDraft}
             onChange={(e) => setCityDraft(e.target.value)}
             sx={{
@@ -307,7 +307,7 @@ export const EventsPage: React.FC = () => {
           fullWidth
           size="small"
           label="City for launch alerts"
-          placeholder="e.g. Atlanta"
+          placeholder="Your city"
           value={cityDraft}
           onChange={(e) => setCityDraft(e.target.value)}
           sx={{

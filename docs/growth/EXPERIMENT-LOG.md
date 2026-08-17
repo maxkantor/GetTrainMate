@@ -11,6 +11,15 @@ Agents must append every experiment here. Do not delete history.
 
 ## Log
 
+### 2026-08-17 — International marketplace scope (infrastructure)
+
+| Field | Value |
+|-------|--------|
+| Status | Shipped (no new distribution; partner send stays disabled) |
+| Change | Market campaigns model; canonical partner routes `/partners/<country>/<market>/<code>` with Atlanta legacy aliases; Admin CRM global/per-market discovery; qualified profile definition no longer Atlanta+TRAIN-only; referral landing uses referrer metro from URL; max 3 active markets |
+| Active markets | Atlanta (us/atlanta) only — Miami, NYC, London, Toronto remain **candidate** until verified demand + activation |
+| Guardrail | Never infer emails; English-only outreach queue; do not enable PARTNER_OUTREACH_SEND_ENABLED |
+
 ### 2026-08-17 — IG-2026-08-17 Instagram posting approved (not yet live)
 
 | Field | Value |
@@ -142,7 +151,7 @@ Agents must append every experiment here. Do not delete history.
 | Production verification | Health OK |
 | Verified purchase result | n/a |
 
-**Marketplace assumption:** Until GA4 + CRM data shows a clear leading metro, default focus market is **Atlanta, Georgia** — validate from data on each growth run.
+**Marketplace assumption:** Rank markets from verified CRM/GA4 evidence. Atlanta remains the first **active** TRAIN partner campaign; international routes do not imply existing partnerships.
 
 ---
 

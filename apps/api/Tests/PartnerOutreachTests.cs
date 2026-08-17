@@ -64,11 +64,46 @@ public class PartnerOutreachTests
     }
 
     [Fact]
+    public void RenderDefault_rejects_unapproved_language()
+    {
+        Assert.Throws<InvalidOperationException>(() =>
+            PartnerEmailMime.RenderDefault(
+                "Example Club",
+                "https://gettrainmate.com/partners/es/miami/example",
+                "example",
+                "https://gettrainmate.com/email/unsubscribe?t=abc",
+                "Miami, FL",
+                "Miami",
+                "es"));
+    }
+
+    [Fact]
+    public void Metro_label_normalizer_covers_initial_markets()
+    {
+        Assert.Equal("Atlanta", MetroLabelNormalizer.Normalize("Atlanta, GA"));
+        Assert.Equal("Miami / Fort Lauderdale", MetroLabelNormalizer.Normalize("Fort Lauderdale"));
+        Assert.Equal("New York", MetroLabelNormalizer.Normalize("NYC"));
+        Assert.Equal("London", MetroLabelNormalizer.Normalize("London UK"));
+        Assert.Equal("Toronto", MetroLabelNormalizer.Normalize("Toronto, ON"));
+        Assert.Equal("Austin Tx", MetroLabelNormalizer.Normalize("austin tx"));
+    }
+
+    [Fact]
+    public void Market_campaign_catalog_caps_active_markets_and_paths()
+    {
+        Assert.Equal(3, MarketCampaignCatalog.MaxActiveMarkets);
+        Assert.True(MarketCampaignCatalog.IsApprovedOutreachLanguage("en"));
+        Assert.False(MarketCampaignCatalog.IsApprovedOutreachLanguage("es"));
+        Assert.Equal("/partners/us/atlanta/atl-track-club", MarketCampaignCatalog.PartnerPath("us", "atlanta", "atl-track-club"));
+        Assert.Equal("gb_london_train_partners", MarketCampaignCatalog.CampaignId("gb", "london", "TRAIN"));
+    }
+
+    [Fact]
     public void Mime_is_utf8_quoted_printable_with_list_unsubscribe_and_reply_to()
     {
         var copy = PartnerEmailMime.RenderDefault(
             "Example Club",
-            "https://gettrainmate.com/partners/atlanta/atl-example",
+            "https://gettrainmate.com/partners/us/atlanta/atl-example",
             "atl-example",
             "https://gettrainmate.com/email/unsubscribe?t=abc",
             "Atlanta, GA");

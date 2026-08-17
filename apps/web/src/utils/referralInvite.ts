@@ -2,13 +2,58 @@ import { SITE_ORIGIN } from '@/config/site';
 
 export const REFERRAL_EXPERIMENT_ID = 'EXP-003';
 export const REFERRAL_SRC = 'referral';
-export const REFERRAL_SHARE_TITLE = 'Find a training partner in Atlanta';
+export const REFERRAL_SHARE_TITLE = 'Find a local partner on GetTrainMate';
 export const REFERRAL_SHARE_TEXT =
-  'GetTrainMate is TRAIN-first (not dating-first). Create a profile and find people who want to run, lift, or race with you.';
+  'GetTrainMate helps you find people nearby for training, social plans, or dating — you choose the mode.';
 
 export function profileHasTrainMode(profile?: { mode?: string; modes?: string[] } | null): boolean {
   const modes = profile?.modes?.length ? profile.modes : profile?.mode ? [profile.mode] : [];
   return modes.some((m) => String(m).toUpperCase() === 'TRAIN');
+}
+
+export function profileHasSupportedMode(profile?: { mode?: string; modes?: string[] } | null): boolean {
+  const modes = profile?.modes?.length ? profile.modes : profile?.mode ? [profile.mode] : [];
+  return modes.some((m) => ['TRAIN', 'VIBE', 'DATE'].includes(String(m).toUpperCase()));
+}
+
+export function referralMode(profile?: { mode?: string; modes?: string[] } | null): string {
+  const modes = profile?.modes?.length ? profile.modes : profile?.mode ? [profile.mode] : [];
+  const upper = modes.map((m) => String(m).toUpperCase());
+  if (upper.includes('TRAIN')) return 'TRAIN';
+  if (upper.includes('VIBE')) return 'VIBE';
+  if (upper.includes('DATE')) return 'DATE';
+  return 'TRAIN';
+}
+
+export function buildReferralSignupPath(
+  code: string,
+  opts?: { city?: string; mode?: string }
+): string {
+  const q = new URLSearchParams({
+    mode: (opts?.mode || 'TRAIN').toUpperCase(),
+    src: REFERRAL_SRC,
+    experiment_id: REFERRAL_EXPERIMENT_ID,
+    ref: code,
+  });
+  const city = String(opts?.city || '').trim();
+  if (city) q.set('metro', city);
+  return `/signup?${q.toString()}`;
+}
+
+export function buildReferralShareUrl(
+  code: string,
+  origin = SITE_ORIGIN,
+  opts?: { city?: string; mode?: string }
+): string {
+  const q = new URLSearchParams({
+    mode: (opts?.mode || 'TRAIN').toUpperCase(),
+    src: REFERRAL_SRC,
+    experiment_id: REFERRAL_EXPERIMENT_ID,
+    ref: code,
+  });
+  const city = String(opts?.city || '').trim();
+  if (city) q.set('metro', city);
+  return `${origin.replace(/\/$/, '')}/invite/${encodeURIComponent(code)}?${q.toString()}`;
 }
 
 export function isValidReferralCode(code: string | undefined | null): boolean {
@@ -22,28 +67,6 @@ export async function opaqueReferralCode(userId: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`gtm-ref-v1:${id}`));
   const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
   return hex.slice(0, 16);
-}
-
-export function buildReferralSignupPath(code: string): string {
-  const q = new URLSearchParams({
-    metro: 'Atlanta',
-    mode: 'TRAIN',
-    src: REFERRAL_SRC,
-    experiment_id: REFERRAL_EXPERIMENT_ID,
-    ref: code,
-  });
-  return `/signup?${q.toString()}`;
-}
-
-export function buildReferralShareUrl(code: string, origin = SITE_ORIGIN): string {
-  const q = new URLSearchParams({
-    metro: 'Atlanta',
-    mode: 'TRAIN',
-    src: REFERRAL_SRC,
-    experiment_id: REFERRAL_EXPERIMENT_ID,
-    ref: code,
-  });
-  return `${origin.replace(/\/$/, '')}/invite/${encodeURIComponent(code)}?${q.toString()}`;
 }
 
 export type InviteShareResult = 'shared' | 'copied' | 'aborted' | 'failed';

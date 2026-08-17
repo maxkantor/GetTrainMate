@@ -68,7 +68,7 @@ export function renderPartnerCopy({
   const subject = `Help ${org} members find local ${act} partners`;
   const text = `Hi ${org} team,
 
-I\u2019m Max, the founder of GetTrainMate, an Atlanta-based platform that helps people find local partners for workouts, running, pickleball, and other activities.
+I\u2019m Max, the founder of GetTrainMate, a platform that helps people find local partners for workouts, running, pickleball, and other activities.
 
 I created a dedicated invitation page for your community:
 
@@ -76,7 +76,7 @@ ${url}
 
 Partner code: ${code}
 
-There is no cost for your organization. If you think it would be useful, would you be open to sharing the invitation with members looking for additional local ${act} partners?
+There is no cost for your organization. This invitation does not mean we already have a partnership. If you think it would be useful, would you be open to sharing the invitation with members looking for additional local ${act} partners?
 
 I\u2019m happy to answer any questions.
 
@@ -102,13 +102,13 @@ GetTrainMate does not sell partner member lists, and participation does not guar
           <tr>
             <td style="padding:20px 24px;background:#0f172a;color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
               <div style="font-size:20px;font-weight:700;letter-spacing:0.02em;">GetTrainMate</div>
-              <div style="font-size:13px;opacity:0.85;margin-top:4px;">Atlanta training partners</div>
+              <div style="font-size:13px;opacity:0.85;margin-top:4px;">Local training partners</div>
             </td>
           </tr>
           <tr>
             <td style="padding:28px 24px 8px;font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:16px;line-height:1.6;">
               <p style="margin:0 0 16px;">Hi ${escapeHtml(org)} team,</p>
-              <p style="margin:0 0 16px;">I\u2019m Max, the founder of GetTrainMate, an Atlanta-based platform that helps people find local partners for workouts, running, pickleball, and other activities.</p>
+              <p style="margin:0 0 16px;">I\u2019m Max, the founder of GetTrainMate, a platform that helps people find local partners for workouts, running, pickleball, and other activities.</p>
               <p style="margin:0 0 16px;">I created a dedicated invitation page for your community.</p>
               <p style="margin:0 0 20px;text-align:center;">
                 <a href="${escapeHtml(url)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:700;">Open invitation page</a>

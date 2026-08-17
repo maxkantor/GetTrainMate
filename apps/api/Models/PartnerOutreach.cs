@@ -13,7 +13,17 @@ public class PartnerProspect
     public string Email { get; set; } = "";
     public string EmailSource { get; set; } = "public_listing"; // public_listing | owner_supplied | prior_engagement
     public string? ContactName { get; set; }
-    public string Metro { get; set; } = "Atlanta";
+    public string Country { get; set; } = "";
+    public string? Region { get; set; }
+    public string City { get; set; } = "";
+    public string Metro { get; set; } = "";
+    public string? Timezone { get; set; }
+    public string PrimaryLanguage { get; set; } = "en";
+    public string CampaignLanguage { get; set; } = "en";
+    public string? OfficialDomain { get; set; }
+    public string? EmailVerifiedOn { get; set; }
+    public string Mode { get; set; } = "TRAIN";
+    public string? CampaignId { get; set; }
     public string Activity { get; set; } = "training";
     public string? SourceUrl { get; set; }
     public string? SourceVerifiedOn { get; set; }
@@ -32,7 +42,14 @@ public class PartnerCampaign
     [DynamoDBHashKey]
     public string CampaignId { get; set; } = Guid.NewGuid().ToString();
     public string Name { get; set; } = "";
-    public string Status { get; set; } = "draft";
+    public string Status { get; set; } = "candidate"; // active | paused | candidate
+    public string Country { get; set; } = "";
+    public string Market { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public string PrimaryMode { get; set; } = "TRAIN";
+    public string Timezone { get; set; } = "";
+    public List<string> Languages { get; set; } = new() { "en" };
+    public int AllocationPercent { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

@@ -1,8 +1,13 @@
 /**
  * Atlanta TRAIN partner registry (EXP-002).
  * Partner codes are public invite tokens — never store PII here.
- * Add prospects only after owner outreach approval; do not fabricate community size.
+ * Canonical public path is /partners/us/atlanta/:code. Legacy /partners/atlanta/:code redirects.
+ * Add prospects only after a verified public email; do not fabricate community size.
  */
+import {
+  partnerInvitePath,
+  partnerSignupPath as marketSignupPath,
+} from '@/data/markets';
 
 export type AtlantaPartnerCommunityType =
   | 'run_club'
@@ -150,20 +155,16 @@ export function resolveAtlantaPartnerLanding(code: string | undefined | null): {
 
 export function partnerSignupPath(partnerCode: string): string {
   const code = normalizePartnerCode(partnerCode) || 'atl-generic-train';
-  const params = new URLSearchParams({
-    metro: 'Atlanta',
+  return marketSignupPath({
+    country: 'us',
+    market: 'atlanta',
     mode: 'TRAIN',
-    src: 'partner',
-    partner: code,
-    experiment_id: 'EXP-002',
-    utm_source: 'partner',
-    utm_medium: 'invite',
-    utm_campaign: code,
+    inviteCode: code,
+    experimentId: 'EXP-002',
   });
-  return `/signup?${params.toString()}`;
 }
 
 export function partnerLandingPath(partnerCode: string): string {
   const code = normalizePartnerCode(partnerCode) || 'atl-generic-train';
-  return `/partners/atlanta/${code}`;
+  return partnerInvitePath('us', 'atlanta', code);
 }

@@ -1,9 +1,10 @@
-# Grow paid customers — Atlanta marketplace launch (GetTrainMate)
+# Grow paid customers — international marketplace (GetTrainMate)
 
-**North star:** 1,000+ **verified external paying customers** (GetTrainMate-attributed live Stripe).  
+**North star:** 1,000+ **verified external paying customers across viable international markets**.  
+**Operating objective:** build sufficient **local density in each active market** so users can discover relevant people and form real connections.  
 **Immediate milestone:** the next **newly attributed** external customer.
 
-Qualified Atlanta TRAIN density remains a leading indicator, not a substitute for customers. A qualified profile is **not** automatically a paying customer.
+Qualified profiles by **country · metro · language · mode (TRAIN/VIBE/DATE)** remain leading indicators, not substitutes for customers. A qualified profile is **not** automatically a paying customer.
 
 Product: https://gettrainmate.com/  
 Repository: `maxkantor/GetTrainMate` · branch `main`  
@@ -57,27 +58,39 @@ The Admin report must **lead** with: Distribution executed · Audience/channel �
 Distinguish: existing customers · customers observed during the experiment window · customers causally attributed to a specific experiment · **new customers acquired by the current run**.
 
 
-## Qualified Atlanta TRAIN profile (executable)
+## Qualified GetTrainMate profile (executable)
 
 All of the following:
 
 - Unique, non-owner, non-test account
 - Completed signup
 - Completed required profile fields
-- Atlanta metro location verified from application data
-- TRAIN selected
+- **Valid supported location** (city/metro from application data — not Atlanta-only)
+- **At least one mode selected** (TRAIN, VIBE, or DATE)
 - Discover-eligible and not blocked, deleted, or suspended
 
-Report separately (never collapse):
+Report separately by **country · metro · language · mode** (never collapse into one global density number):
 
 | Line | Meaning |
 |------|---------|
 | Registered users | Accounts created |
 | Completed profiles | Required profile fields done |
-| Qualified Atlanta TRAIN profiles | Meets definition above |
+| Qualified profiles (by market + mode) | Meets definition above |
 | Discover-eligible users | Can appear in Discover |
+| Connections / matches / first messages | By market when CRM/GA4 allow |
 | Verified external paying customers | Deduped attributed live payers minus excludes |
 | Successful attributed payments | Attributed live succeeded payments |
+
+## Market campaigns (partner acquisition — TRAIN priority)
+
+- Atlanta is the **first active** launch market, not the product boundary.
+- Initial candidates: Atlanta (EN), Miami/Fort Lauderdale (EN/ES), NYC (EN/ES/RU), London (EN), Toronto (EN).
+- **At most 3 active markets** at once. Suggested effort split: **50% / 30% / 20%** across ranked active markets — recalculate from verified evidence only.
+- Partner outreach **prioritizes TRAIN** (gyms, clubs, fitness orgs). **Do not mix VIBE/DATE** into the first partner campaign. App modes TRAIN/VIBE/DATE stay available to users.
+- Routes: `/partners/<country>/<market>/<invite-code>` (legacy `/partners/atlanta/:code` aliases preserved).
+- Attribution: `utm_campaign=<country>_<market>_train_partners` (e.g. `us_atlanta_train_partners`).
+- **Never infer emails.** Queue outreach only when an approved human-reviewed template exists for the language (**English approved**; ES/RU pending).
+- Do not invent orgs or inboxes for non-Atlanta markets until verified from official sources.
 
 ## Stripe truth
 
@@ -87,10 +100,10 @@ Report separately: successful attributed live payments · unique verified extern
 
 Exclude account-wide and unattributed payments from GetTrainMate customers and revenue.
 
-## Thirty-day Atlanta TRAIN targets (not fabricated projections)
+## Thirty-day density targets (per active market — not fabricated projections)
 
-| Metric | Target |
-|--------|--------|
+| Metric | Target (each active market) |
+|--------|----------------------------|
 | Legitimate completed profiles | 50 |
 | Users starting Discover | 20 |
 | Legitimate connection requests | 10 |
@@ -99,10 +112,10 @@ Exclude account-wide and unattributed payments from GetTrainMate customers and r
 
 ## Focus rule (validation period)
 
-- **Metro:** Atlanta (unless aggregated data proves a stronger metro)
-- **Mode:** TRAIN first (preserve VIBE/DATE access; do not equal-weight acquisition)
-- **Segments:** run clubs, trainers, pickleball, CrossFit/HYROX, recreational sports
-- Do **not** spread acquisition across many cities
+- **Markets:** up to **3 active** campaigns ranked by verified CRM/GA4 evidence; Atlanta remains first active unless data ranks another market higher
+- **Partner campaign mode:** TRAIN first (preserve VIBE/DATE in app; do not equal-weight partner outreach)
+- **Segments:** gyms, run clubs, trainers, pickleball, CrossFit/HYROX, cycling, hiking, rec sports, fitness events
+- Do **not** scatter outreach across many cities simultaneously
 - Do **not** auto-change pricing or make paid features free; founding-member offers require **owner approval** before activation
 
 ## Growth-run lock (required)
@@ -150,7 +163,7 @@ A partner package under `docs/growth/partners/` may be the measurable improvemen
 
 A complete package contains:
 
-1. One verified Atlanta organization  
+1. One verified organization in the **target market**
 2. A public source URL  
 3. A verified public business contact channel (**never invent an inbox**)  
 4. A tailored **unsent** draft  
@@ -163,7 +176,7 @@ Generic research notes do not count. Draft only — never send. Cursor must not 
 
 Before shipping, identify the active experiment’s funnel stage and treatment surface.
 
-While **EXP-002** is in-flight: do **not** modify EXP-002 partner landing pages, invite codes, attribution parameters, eligibility, or distribution rules.
+While **EXP-002** is in-flight: do **not** modify EXP-002 Atlanta partner landing pages, invite codes, attribution parameters, eligibility, or distribution rules. International canonical paths (`/partners/us/atlanta/...`) are aliases — legacy `/partners/atlanta/...` must keep working.
 
 A referral, empty-state, or event surface may ship only when it:
 

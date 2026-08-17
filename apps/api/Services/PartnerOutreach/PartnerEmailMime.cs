@@ -68,22 +68,27 @@ public static class PartnerEmailMime
         string partnerUrl,
         string partnerCode,
         string unsubscribeUrl,
-        string postalAddress)
+        string postalAddress,
+        string? marketLabel = null,
+        string? language = "en")
     {
+        if (!MarketCampaignCatalog.IsApprovedOutreachLanguage(language))
+            throw new InvalidOperationException("No approved human-reviewed template for this language.");
         var org = organizationName.Trim();
+        var market = string.IsNullOrWhiteSpace(marketLabel) ? "your area" : marketLabel.Trim();
         var subject = $"Help {org} members find local training partners";
         var text = $"Hi {org} team,\n\n"
-            + "I\u2019m Max, the founder of GetTrainMate, an Atlanta-based platform that helps people find local partners for workouts, running, pickleball, and other activities.\n\n"
+            + $"I\u2019m Max, the founder of GetTrainMate, a platform that helps people find local partners for workouts, running, pickleball, and other activities in {market}.\n\n"
             + "I created a dedicated invitation page for your community:\n\n"
             + $"{partnerUrl}\n\n"
             + $"Partner code: {partnerCode}\n\n"
-            + "There is no cost for your organization. If you think it would be useful, would you be open to sharing the invitation with members looking for additional local training partners?\n\n"
+            + "There is no cost for your organization. This invitation does not mean we already have a partnership. If you think it would be useful, would you be open to sharing the invitation with members looking for additional local training partners?\n\n"
             + "I\u2019m happy to answer any questions.\n\n"
             + "Thanks,\nMax\nFounder, GetTrainMate\nhttps://gettrainmate.com/\n\n"
             + "GetTrainMate does not sell partner member lists, and participation does not guarantee a match.\n"
             + $"Unsubscribe: {unsubscribeUrl}\n"
             + postalAddress;
-        var html = DefaultHtml(org, partnerUrl, partnerCode, unsubscribeUrl, postalAddress, subject);
+        var html = DefaultHtml(org, partnerUrl, partnerCode, unsubscribeUrl, postalAddress, subject, market);
         if (Regex.IsMatch(text, "TRAIN-mode|not dating-first", RegexOptions.IgnoreCase))
             throw new InvalidOperationException("Forbidden pitch language");
         PartnerOutreachRules.AssertNoMojibake(text, "text");
@@ -91,9 +96,10 @@ public static class PartnerEmailMime
         return (subject, text, html);
     }
 
-    public static string DefaultHtml(string org, string url, string code, string unsub, string postal, string title)
+    public static string DefaultHtml(string org, string url, string code, string unsub, string postal, string title, string? marketLabel = null)
     {
         string E(string s) => WebUtility.HtmlEncode(s);
+        var market = string.IsNullOrWhiteSpace(marketLabel) ? "Local training partners" : $"{marketLabel} training partners";
         return "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">"
             + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             + $"<title>{E(title)}</title></head>"
@@ -102,10 +108,10 @@ public static class PartnerEmailMime
             + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;\">"
             + "<tr><td style=\"padding:20px 24px;background:#0f172a;color:#fff;font-family:Arial,Helvetica,sans-serif;\">"
             + "<div style=\"font-size:20px;font-weight:700;\">GetTrainMate</div>"
-            + "<div style=\"font-size:13px;opacity:0.85;margin-top:4px;\">Atlanta training partners</div></td></tr>"
+            + $"<div style=\"font-size:13px;opacity:0.85;margin-top:4px;\">{E(market)}</div></td></tr>"
             + "<tr><td style=\"padding:28px 24px;font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:16px;line-height:1.6;\">"
             + $"<p>Hi {E(org)} team,</p>"
-            + "<p>I\u2019m Max, the founder of GetTrainMate, an Atlanta-based platform that helps people find local partners for workouts, running, pickleball, and other activities.</p>"
+            + $"<p>I\u2019m Max, the founder of GetTrainMate, a platform that helps people find local partners for workouts, running, pickleball, and other activities in {E(string.IsNullOrWhiteSpace(marketLabel) ? "your area" : marketLabel)}.</p>"
             + "<p>I created a dedicated invitation page for your community.</p>"
             + $"<p style=\"text-align:center;\"><a href=\"{E(url)}\" style=\"display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700;\">Open invitation page</a></p>"
             + $"<p>Partner code: <strong>{E(code)}</strong></p>"

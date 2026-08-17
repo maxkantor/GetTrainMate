@@ -11,6 +11,8 @@ export const I18nContext = createContext<I18nContextType>({
   setLocale: () => {},
 });
 
+/** UI language (localStorage) is independent of profile city / events market. */
+
 interface I18nProviderProps {
   children: React.ReactNode;
 }

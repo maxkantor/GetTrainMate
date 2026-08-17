@@ -58,10 +58,16 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
       'Unique Atlanta TRAIN partner invite links for run clubs, gyms, pickleball, and trainers. No fake density claims.',
     noindex: false,
   },
-  '/invite': {
-    title: `Invite a Training Partner in Atlanta | ${BRAND}`,
+  '/partners/us/atlanta': {
+    title: `Atlanta TRAIN Partner Invites | ${BRAND}`,
     description:
-      'Share a TRAIN-first Atlanta signup link. Find gym, running, and race partners — not dating-first.',
+      'Unique Atlanta TRAIN partner invite links for run clubs, gyms, pickleball, and trainers. No fake density claims.',
+    noindex: false,
+  },
+  '/invite': {
+    title: `Invite a Training Partner | ${BRAND}`,
+    description:
+      'Share a TRAIN-first signup link for your city. Find gym, running, and race partners — not dating-first.',
     noindex: false,
   },
   '/faq': {
@@ -163,21 +169,24 @@ export function getRouteSeo(pathname: string): RouteSeo {
 
   if (path.startsWith('/invite/')) {
     return base({
-      title: `You were invited to train in Atlanta | ${BRAND}`,
+      title: `You were invited to GetTrainMate | ${BRAND}`,
       description:
-        'Join GetTrainMate with a TRAIN-first Atlanta invite. Complete your profile and start Discover. No guaranteed matches.',
+        'Join GetTrainMate with a TRAIN-first invite. Set your city, complete your profile, and start Discover. No guaranteed matches.',
       canonicalPath: path,
       noindex: true,
     });
   }
 
-  if (path.startsWith('/partners/atlanta/')) {
-    const code = decodeURIComponent(path.split('/').filter(Boolean).at(2) ?? '').trim();
+  if (path.startsWith('/partners/atlanta/') || /^\/partners\/[a-z]{2}\/[^/]+\//.test(path)) {
+    const parts = path.split('/').filter(Boolean);
+    const code = decodeURIComponent(parts.at(-1) ?? '').trim();
+    const market = parts[0] === 'partners' && parts[1]?.length === 2 ? parts[2] : 'atlanta';
     const label = code || 'partner';
+    const marketLabel = market.replace(/-/g, ' ');
     return base({
-      title: `Atlanta TRAIN invite (${label}) | ${BRAND}`,
+      title: `${marketLabel} TRAIN invite (${label}) | ${BRAND}`,
       description:
-        'Join GetTrainMate with an Atlanta TRAIN partner invite. Set your city, complete your profile, and start Discover.',
+        'Join GetTrainMate with a local TRAIN partner invite. Set your city, complete your profile, and start Discover. An invite is not an existing partnership claim.',
       canonicalPath: path,
       noindex: false,
     });

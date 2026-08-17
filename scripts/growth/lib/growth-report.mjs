@@ -41,8 +41,30 @@ export function formatEt(date = new Date()) {
   return { dateStr, timeStr, isoDate: d.toISOString().slice(0, 10) };
 }
 
+export function formatMetroDensityLines(md) {
+  if (!md || md.status !== 'ok' || !Array.isArray(md.metros) || md.metros.length === 0) {
+    return 'Unavailable';
+  }
+  return md.metros
+    .map((row) => {
+      const metro = row.metro || row.Metro || 'Unknown';
+      const completed = row.completedProfiles ?? row.CompletedProfiles ?? 0;
+      const profiles = row.profiles ?? row.Profiles ?? 0;
+      return `${metro}: ${completed} completed / ${profiles} profiles`;
+    })
+    .join('; ');
+}
+
 export function formatMetroUnavailable(md) {
-  if (!md || md.status === 'ok') return null;
+  if (!md || md.status === 'ok') {
+    if (md?.status === 'ok') {
+      const lines = formatMetroDensityLines(md);
+      if (lines && lines !== 'Unavailable') {
+        return ['Metro CRM (by market — not a global total):', lines].join('\n');
+      }
+    }
+    return null;
+  }
   const cause =
     md.cause ||
     (String(md.reason || '').includes('GROWTH_METRO_READ_TOKEN')
@@ -135,9 +157,9 @@ export function defaultDecision({ health, reconciliation, shipped } = {}) {
     'Distributed: none this run. Referral share is user-initiated; no confirmed native share by a real user during this run. Instagram caption remains unposted. Partner email not sent. ' +
     'EXP-001: KEEP. Original evaluation date Sunday, August 16, 2026; recorded Monday, August 17, 2026. Treatment unchanged. ' +
     'EXP-002: active and collecting through Thursday, August 27, 2026. Treatment preserved. ' +
-    'Qualified Atlanta TRAIN profiles: Unavailable (Metro CRM read token not configured). ' +
+    'Qualified profiles by market: Unavailable (Metro CRM read token not configured). ' +
     'Existing verified customers: 0. New customers acquired by this run: 0. Verified revenue: $0.00. ' +
-    'Primary marketplace-density blocker: no distributed qualified Atlanta TRAIN traffic entering Discover. ' +
+    'Primary marketplace-density blocker: no distributed qualified traffic entering Discover in active markets. ' +
     `Production is ${healthOk ? 'healthy' : 'FAILED'}.` +
     (reconOk ? '' : ' Data quality warning is in effect.')
   );
@@ -244,7 +266,7 @@ export function composeGrowthEmailBody({
   t.push(`Newly attributed external customers: ${ascii(lead.newlyAttributedExternalCustomers)}`);
   t.push(`Verified revenue: ${ascii(lead.verifiedRevenue)}`);
   t.push(`Required owner approval: ${ascii(lead.requiredOwnerApproval)}`);
-  t.push(`Qualified Atlanta TRAIN profiles: ${md?.status === 'ok' ? formatCell(md.qualifiedAtlantaTrain) : 'Unavailable'}`);
+  t.push(`Qualified profiles by market: ${md?.status === 'ok' ? formatMetroDensityLines(md) : 'Unavailable'}`);
   t.push('');
   t.push('Customer attribution (do not collapse):');
   t.push(`  Existing customers: ${ascii(lead.existingCustomers)}`);
@@ -266,7 +288,7 @@ export function composeGrowthEmailBody({
   }
   t.push('3) MARKETPLACE ACTION');
   t.push('---------------------');
-  t.push('Target segment: Atlanta · TRAIN');
+  t.push('Target segment: International · TRAIN partner campaign (max 3 active markets)');
   t.push(`Partner hub: ${SITE.partnersHub}`);
   t.push('No new EXP-002 partner landing or invite code this run.');
   t.push('Shipped independent surface: EXP-003 /invite referral (user-initiated share only).');
@@ -277,10 +299,10 @@ export function composeGrowthEmailBody({
   t.push('-------------');
   t.push('Landing sessions (events) | Completed signups (users) | Completed profiles (users)');
   t.push(
-    `7d | landings(events)=${formatCell(board7.landings)} | signups(users)=${formatCell(board7.completed_signups)} | profiles(users)=${formatCell(board7.completed_profiles)} | Atlanta TRAIN profiles=Unavailable | Discover users=${formatCell(board7.discover_users)} | connection requests(events)=${formatCell(board7.connections_sent)} | matches(events)=${formatCell(board7.matches_created)} | first messages(events)=${formatCell(board7.first_messages)}`
+    `7d | landings(events)=${formatCell(board7.landings)} | signups(users)=${formatCell(board7.completed_signups)} | profiles(users)=${formatCell(board7.completed_profiles)} | qualified by market=see Metro CRM | Discover users=${formatCell(board7.discover_users)} | connection requests(events)=${formatCell(board7.connections_sent)} | matches(events)=${formatCell(board7.matches_created)} | first messages(events)=${formatCell(board7.first_messages)}`
   );
   t.push(
-    `30d | landings(events)=${formatCell(board30.landings)} | signups(users)=${formatCell(board30.completed_signups)} | profiles(users)=${formatCell(board30.completed_profiles)} | Atlanta TRAIN profiles=Unavailable | Discover users=${formatCell(board30.discover_users)} | connection requests(events)=${formatCell(board30.connections_sent)} | matches(events)=${formatCell(board30.matches_created)} | first messages(events)=${formatCell(board30.first_messages)}`
+    `30d | landings(events)=${formatCell(board30.landings)} | signups(users)=${formatCell(board30.completed_signups)} | profiles(users)=${formatCell(board30.completed_profiles)} | qualified by market=see Metro CRM | Discover users=${formatCell(board30.discover_users)} | connection requests(events)=${formatCell(board30.connections_sent)} | matches(events)=${formatCell(board30.matches_created)} | first messages(events)=${formatCell(board30.first_messages)}`
   );
   t.push('');
   t.push('Stripe (GetTrainMate-attributed only; unattributed excluded from revenue):');
@@ -448,7 +470,7 @@ export function composeGrowthEmailBody({
         30d landing sessions (events): ${escapeHtml(formatCell(board30.landings))}<br/>
         Completed signups (users): ${escapeHtml(formatCell(board30.completed_signups))}<br/>
         Completed profiles (users): ${escapeHtml(formatCell(board30.completed_profiles))}<br/>
-        Atlanta TRAIN profiles: Unavailable<br/>
+        Atlanta TRAIN profiles: see Metro CRM by market<br/>
         Discover users: ${escapeHtml(formatCell(board30.discover_users))}<br/>
         Connection requests (events): ${escapeHtml(formatCell(board30.connections_sent))}<br/>
         Matches (events): ${escapeHtml(formatCell(board30.matches_created))}<br/>
