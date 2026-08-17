@@ -26,6 +26,7 @@ import { fetchMetroDensity } from '../lib/crm-metro.mjs';
 import { composeGrowthEmailBody } from '../lib/growth-report.mjs';
 import { buildAdminMime } from '../lib/admin-email-mime.mjs';
 import { EXP001, EXP002 } from '../lib/metric-definitions.mjs';
+import { resolveAdminFromEmail } from '../notify-admin-email.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '../../..');
@@ -281,6 +282,12 @@ describe('admin growth email reply-to', () => {
     assert.match(raw, /partners@gettrainmate\.com/);
     assert.doesNotMatch(raw, /gettrainmate@gmail\.com/);
     assert.match(raw, /buildAdminMime/);
+  });
+
+  it('rewrites a Gmail SES From address to partners@gettrainmate.com', () => {
+    assert.equal(resolveAdminFromEmail('user@gmail.com'), 'partners@gettrainmate.com');
+    assert.equal(resolveAdminFromEmail('hello@gettrainmate.com'), 'hello@gettrainmate.com');
+    assert.equal(resolveAdminFromEmail(''), 'partners@gettrainmate.com');
   });
 
   it('allows a Gmail Admin To address while forbidding Gmail From/Reply-To', async () => {

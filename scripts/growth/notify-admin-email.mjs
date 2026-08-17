@@ -54,12 +54,19 @@ function firstAdminEmail(raw) {
   return first;
 }
 
+export function resolveAdminFromEmail(from) {
+  const v = String(from || '').trim();
+  if (!v || /gmail\.com|noreply@/i.test(v)) return 'partners@gettrainmate.com';
+  return v;
+}
+
 export async function sendAdminGrowthEmail({ subject, body, htmlBody }) {
   if (!subject?.trim()) throw new Error('subject required');
   if (!body?.trim()) throw new Error('body required');
 
-  const from =
+  const configuredFrom =
     (process.env.SES_FROM_EMAIL || '').trim() || getSsm('/gettrainmate/ses-from-email', false);
+  const from = resolveAdminFromEmail(configuredFrom);
   const adminRaw =
     (process.env.ADMIN_EMAIL || process.env.SES_ADMIN_EMAIL || '').trim() ||
     getSsm('/gettrainmate/ses-admin-email', false);
