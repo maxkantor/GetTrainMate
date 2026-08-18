@@ -32,7 +32,7 @@ Distribution must use one of:
 - An approved email list with valid consent and unsubscribe controls
 - A legitimate partner or community channel that permits promotion
 - Paid advertising within an explicitly approved budget
-- A product-triggered referral/share action initiated by a real user
+- A product-triggered referral/share action initiated by a real user (organic collection only — **waiting for a user to share is not an acquisition action**)
 
 Never send spam, invent contacts, automate comments or DMs, evade community rules, or claim visits, customers, or revenue without verified attribution.
 
@@ -89,8 +89,8 @@ Report separately by **country · metro · language · mode** (never collapse in
 - Partner outreach **prioritizes TRAIN** (gyms, clubs, fitness orgs). **Do not mix VIBE/DATE** into the first partner campaign. App modes TRAIN/VIBE/DATE stay available to users.
 - Routes: `/partners/<country>/<market>/<invite-code>` (legacy `/partners/atlanta/:code` aliases preserved).
 - Attribution: `utm_campaign=<country>_<market>_train_partners` (e.g. `us_atlanta_train_partners`).
-- **Never infer emails.** Queue outreach only when an approved human-reviewed template exists for the language (**English approved**; ES/RU pending).
-- Do not invent orgs or inboxes for non-Atlanta markets until verified from official sources.
+- **Never infer emails.** Automated pipeline: organization discovery → official website resolution → public business-contact verification → CRM prospect creation → deduplication → scoring → invite-code generation → landing-URL generation → personalized draft → approval queue. If no verified public email is found automatically, mark **No verified public email** and exclude from sending. Manual Add Prospect is optional override only — Max must not paste emails as the primary workflow.
+- Approved human-reviewed outreach templates: **English, Spanish, Russian**. If no approved template exists for the organization’s language, mark **Qualified prospect — language template unavailable** — never send raw machine translation.
 
 ## Stripe truth
 
@@ -157,6 +157,14 @@ Do **not** also ship a new acquisition surface merely so the run has a code chan
 
 Current prepared action (until Max replies `APPROVED IG-2026-08-17`): exact Instagram caption in `docs/growth/partners/OWNER-APPROVAL-REQUEST.md`. Cursor must not post.
 
+### Automated partner discovery (primary workflow)
+
+Scheduled weekly (`partner-outreach-discovery` EventBridge) and on-demand via `POST /api/admin/partner-outreach/discover/automated` or `node scripts/growth/run-market-discovery.mjs`.
+
+For each active/ranked market (≤3): discover gyms, trainers, run clubs, pickleball/racket clubs, CrossFit/HYROX, cycling clubs, rec sports orgs, fitness event organizers via OSM Overpass + seed catalog. Populate CRM with organization, country, market, language, TRAIN activity, website, verified public business email (or `no_verified_public_email`), source URL, verification timestamp, fit score, invite code, landing URL, subject, draft, campaign, status.
+
+Instagram distribution (`IG-2026-08-17`): publish exactly one post to `@gettrainmate` with the approved caption and tracked URL when `INSTAGRAM_GRAPH_ACCESS_TOKEN` + `INSTAGRAM_BUSINESS_ACCOUNT_ID` are configured (`node scripts/growth/publish-approved-instagram.mjs`). If connector unavailable, retain ready-to-publish and report exact blocker — do not substitute manual prospect entry.
+
 ### Partner package (not distribution)
 
 A partner package under `docs/growth/partners/` may be the measurable improvement **only** when it is the exact approval-ready action (verified public contact channel + exact unsent message). It still **does not** count as distribution until Max approves and the message is actually placed in front of the audience.
@@ -202,7 +210,7 @@ If tests, build, deployment, or production verification fails:
 
 ### Admin email
 
-Send **exactly one** Admin email after the run reaches its **final** state. Never send it before deployment verification when code shipped. If email fails, record locally and report once — do not repeat the acquisition action or send duplicates blindly.
+Send **exactly one** Admin email after **every** scheduled fire reaches its **final** state, including skip / no-evaluation / lock-stop days. Never mark the run succeeded without running `node scripts/growth/compose-and-send-growth-email.mjs`. A 1-minute no-tool success is a failed notification. Never send the Admin email before deployment verification when code shipped. If email fails, record locally and report once — do not repeat the acquisition action or send duplicates blindly.
 
 ## Primary funnel
 

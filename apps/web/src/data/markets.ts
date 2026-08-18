@@ -7,8 +7,8 @@
 export const APP_MODES = ['TRAIN', 'VIBE', 'DATE'] as const;
 export type AppMode = (typeof APP_MODES)[number];
 
-export const APPROVED_OUTREACH_LANGUAGES = ['en'] as const;
-export const PENDING_OUTREACH_LANGUAGES = ['es', 'ru'] as const;
+export const APPROVED_OUTREACH_LANGUAGES = ['en', 'es', 'ru'] as const;
+export const PENDING_OUTREACH_LANGUAGES = [] as const;
 
 export const MAX_ACTIVE_MARKETS = 3;
 

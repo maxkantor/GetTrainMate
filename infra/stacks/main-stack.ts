@@ -291,6 +291,25 @@ export class GetTrainMateStack extends cdk.Stack {
           retryAttempts: 0,
         }),
       );
+
+      const partnerDiscovery = new events.Rule(this, 'PartnerOutreachWeeklyDiscovery', {
+        ruleName: 'gettrainmate-partner-outreach-discovery',
+        description: 'Weekly automated international market org discovery (no send)',
+        schedule: events.Schedule.cron({
+          minute: '0',
+          hour: '11',
+          weekDay: 'SUN',
+        }),
+      });
+      partnerDiscovery.addTarget(
+        new targets.LambdaFunction(apiLambda, {
+          event: events.RuleTargetInput.fromObject({
+            'detail-type': 'partner-outreach-discovery',
+            source: 'gettrainmate.partner',
+          }),
+          retryAttempts: 0,
+        }),
+      );
     }
 
     // Bedrock: use AWS managed policy (includes InvokeModel + Marketplace ViewSubscriptions/Subscribe)

@@ -45,6 +45,9 @@
     "growth:outreach:preview": "node scripts/growth/outreach.mjs preview",
     "growth:outreach:validate": "node scripts/growth/outreach.mjs validate",
     "growth:outreach:send": "node scripts/growth/outreach.mjs send",
+    "growth:discovery:run": "node scripts/growth/run-market-discovery.mjs",
+    "growth:discovery:report": "node scripts/growth/discovery-acquisition-report.mjs",
+    "growth:instagram:publish": "node scripts/growth/publish-approved-instagram.mjs",
     "prepare": "husky install"
   },
   "devDependencies": {

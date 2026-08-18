@@ -13,8 +13,13 @@ namespace GetTrainMate.Api.Controllers;
 public class AdminPartnerOutreachController : ControllerBase
 {
     private readonly IPartnerOutreachService _svc;
+    private readonly AutomatedMarketDiscoveryService _discovery;
 
-    public AdminPartnerOutreachController(IPartnerOutreachService svc) => _svc = svc;
+    public AdminPartnerOutreachController(IPartnerOutreachService svc, AutomatedMarketDiscoveryService discovery)
+    {
+        _svc = svc;
+        _discovery = discovery;
+    }
 
     string Actor() =>
         User.FindFirst(ClaimTypes.Email)?.Value
@@ -87,6 +92,35 @@ public class AdminPartnerOutreachController : ControllerBase
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    [HttpPost("discover/automated")]
+    public async Task<IActionResult> DiscoverAutomated([FromBody] AutomatedDiscoverRequest? req)
+    {
+        try
+        {
+            var report = await _discovery.RunAsync(req?.PrepareDrafts ?? true, req?.MaxPerMarket ?? 35);
+            return Ok(report);
+        }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpGet("discovery/summary")]
+    public async Task<IActionResult> DiscoverySummary()
+    {
+        var prospects = await _svc.ListProspectsAsync(null);
+        var queue = await _svc.ListQueueAsync(null);
+        return Ok(new
+        {
+            organizationsDiscovered = prospects.Count,
+            qualifiedOrganizations = prospects.Count(p => p.Status is "prospect" or "draft" or "approved"),
+            verifiedPublicContacts = prospects.Count(p => p.EmailVerificationStatus == "verified_public" || (!string.IsNullOrWhiteSpace(p.Email) && p.Email.Contains('@'))),
+            contactsUnavailable = prospects.Count(p => p.Status == "no_verified_public_email"),
+            languageTemplateUnavailable = prospects.Count(p => p.Status == "qualified_language_unavailable"),
+            inviteCodesGenerated = prospects.Count(p => !string.IsNullOrWhiteSpace(p.PartnerCode)),
+            draftsGenerated = queue.Count(q => q.Status == "draft"),
+            approvalReadyRecipients = queue.Count(q => q.Status == "draft"),
+        });
+    }
+
     [HttpPost("discover")]
     public async Task<IActionResult> Discover([FromBody] DiscoverRequest req)
     {
@@ -127,4 +161,10 @@ public class DiscoverRequest
     public string? Market { get; set; }
     public string? Language { get; set; }
     public string? Mode { get; set; }
+}
+
+public class AutomatedDiscoverRequest
+{
+    public bool PrepareDrafts { get; set; } = true;
+    public int MaxPerMarket { get; set; } = 35;
 }

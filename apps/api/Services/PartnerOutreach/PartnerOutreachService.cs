@@ -82,7 +82,10 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (string.IsNullOrWhiteSpace(email))
         {
             prospect.Email = "";
-            prospect.Status = "discovered";
+            if (string.Equals(prospect.EmailVerificationStatus, "no_verified_public_email", StringComparison.OrdinalIgnoreCase))
+                prospect.Status = "no_verified_public_email";
+            else if (string.IsNullOrWhiteSpace(prospect.Status) || prospect.Status == "prospect")
+                prospect.Status = "discovered";
         }
         else
         {
@@ -94,8 +97,12 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             if (prospect.EmailSource == "public_listing" && string.IsNullOrWhiteSpace(prospect.SourceUrl))
                 throw new InvalidOperationException("Source URL is required when the email comes from a public listing.");
             prospect.Email = email;
-            prospect.Status = "prospect";
-            prospect.EmailVerifiedOn = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            prospect.Status = string.IsNullOrWhiteSpace(prospect.Status) || prospect.Status == "discovered"
+                ? "prospect"
+                : prospect.Status;
+            if (string.IsNullOrWhiteSpace(prospect.EmailVerifiedOn))
+                prospect.EmailVerifiedOn = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            prospect.EmailVerificationStatus ??= "verified_public";
             try { prospect.OfficialDomain = new Uri("mailto:" + email).ToString().Contains('@') ? email.Split('@')[1] : prospect.OfficialDomain; }
             catch { /* keep provided domain */ }
             if (string.IsNullOrWhiteSpace(prospect.OfficialDomain) && email.Contains('@'))
@@ -131,7 +138,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     {
         var p = await _db.LoadAsync<PartnerProspect>(prospectId) ?? throw new KeyNotFoundException("Prospect not found");
         if (string.IsNullOrWhiteSpace(p.Email) || !p.Email.Contains('@'))
-            throw new InvalidOperationException("No verified public business email. Do not infer addresses. Prospect stays discovered until an org-controlled email is pasted.");
+            throw new InvalidOperationException("No verified public business email on an organization-controlled page. Status: no_verified_public_email. Never infer addresses.");
         if (!MarketCampaignCatalog.IsApprovedOutreachLanguage(p.CampaignLanguage))
             throw new InvalidOperationException("No approved human-reviewed template for this language. Prospect is prepared but email is not queued.");
         if (string.IsNullOrWhiteSpace(campaignId) || campaignId == "atlanta-default")
@@ -576,6 +583,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     public async Task<object> MetricsAsync()
     {
         var q = await ListQueueAsync(null);
+        var p = await ListProspectsAsync(null);
         var s = await LoadSettingsAsync();
         return new
         {
@@ -592,7 +600,15 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             complaintPause = s.ComplaintPause,
             maxActiveMarkets = MarketCampaignCatalog.MaxActiveMarkets,
             approvedOutreachLanguages = MarketCampaignCatalog.ApprovedOutreachLanguages,
-            pendingOutreachLanguages = MarketCampaignCatalog.PendingOutreachLanguages
+            pendingOutreachLanguages = MarketCampaignCatalog.PendingOutreachLanguages,
+            organizationsDiscovered = p.Count,
+            qualifiedOrganizations = p.Count(x => x.Status is "prospect" or "draft" or "approved"),
+            verifiedPublicContacts = p.Count(x => x.EmailVerificationStatus == "verified_public"),
+            contactsUnavailable = p.Count(x => x.Status == "no_verified_public_email"),
+            languageTemplateUnavailable = p.Count(x => x.Status == "qualified_language_unavailable"),
+            inviteCodesGenerated = p.Count(x => !string.IsNullOrWhiteSpace(x.PartnerCode)),
+            draftsGenerated = q.Count(x => x.Status == "draft"),
+            approvalReadyRecipients = q.Count(x => x.Status == "draft"),
         };
     }
 
@@ -640,87 +656,16 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         return row;
     }
 
-    public async Task<object> DiscoverAsync(string? country, string? market, string? language, string? mode)
+    public Task<object> DiscoverAsync(string? country, string? market, string? language, string? mode)
     {
-        country = MarketCampaignCatalog.Slug(country);
-        market = MarketCampaignCatalog.Slug(market);
-        mode = string.IsNullOrWhiteSpace(mode) ? "TRAIN" : mode.Trim().ToUpperInvariant();
-        if (mode != "TRAIN")
-            return new
-            {
-                created = Array.Empty<object>(),
-                skipped = 0,
-                note = "First partner campaign is TRAIN only. VIBE and DATE stay available in the app but are not mixed into this outreach campaign."
-            };
-
-        var targets = MarketCampaignCatalog.Candidates.AsEnumerable();
-        if (!string.IsNullOrWhiteSpace(country) || !string.IsNullOrWhiteSpace(market))
+        return Task.FromResult<object>(new
         {
-            targets = targets.Where(c =>
-                (string.IsNullOrWhiteSpace(country) || c.Country == country)
-                && (string.IsNullOrWhiteSpace(market) || c.Market == market));
-        }
-
-        var created = new List<object>();
-        var skipped = 0;
-        var notes = new List<string>();
-        var existing = await ListProspectsAsync(null);
-
-        foreach (var campaign in targets)
-        {
-            if (campaign.Country == "us" && campaign.Market == "atlanta")
-            {
-                foreach (var org in MarketCampaignCatalog.AtlantaTrainOrgWebsites)
-                {
-                    if (existing.Any(p =>
-                            string.Equals(p.PartnerCode, org.PartnerCode, StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(p.Website, org.Website, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        skipped++;
-                        continue;
-                    }
-                    var row = await CreateProspectAsync(new PartnerProspect
-                    {
-                        OrganizationName = org.OrganizationName,
-                        OrganizationType = org.OrganizationType,
-                        Website = org.Website,
-                        SourceUrl = org.Website,
-                        PartnerCode = org.PartnerCode,
-                        Country = "us",
-                        City = "Atlanta",
-                        Metro = "Atlanta",
-                        Timezone = campaign.Timezone,
-                        PrimaryLanguage = "en",
-                        CampaignLanguage = "en",
-                        Mode = "TRAIN",
-                        CampaignId = campaign.CampaignId,
-                        LandingUrl = "https://gettrainmate.com" + MarketCampaignCatalog.PartnerPath("us", "atlanta", org.PartnerCode),
-                        Email = "",
-                        EmailSource = "public_listing"
-                    }, "discovery");
-                    created.Add(new { row.ProspectId, row.OrganizationName, row.Website, row.Status, campaign = campaign.CampaignId });
-                }
-                notes.Add("Atlanta: website-only identities. Paste public business emails before queueing.");
-            }
-            else
-            {
-                notes.Add($"{campaign.DisplayName}: no verified org catalog yet — add prospects manually from official websites.");
-            }
-        }
-
-        if (!targets.Any())
-            notes.Add("No matching market campaign. Use country + market slugs from the campaign list.");
-
-        return new
-        {
-            created,
-            skipped,
-            country = string.IsNullOrWhiteSpace(country) ? null : country,
-            market = string.IsNullOrWhiteSpace(market) ? null : market,
+            note = "Use POST /api/admin/partner-outreach/discover/automated for the full pipeline (OSM discovery, email verification, drafts). Emails are never inferred.",
+            country,
+            market,
             language,
             mode,
-            note = string.Join(" ", notes) + " Emails are never inferred."
-        };
+        });
     }
 
     public async Task<PartnerThread?> GetThreadAsync(string threadId) =>

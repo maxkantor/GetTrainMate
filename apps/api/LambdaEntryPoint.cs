@@ -37,6 +37,9 @@ public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
             return await FunctionHandlerAsync(proxy, context);
         }
 
+        var detailType = request.TryGetProperty("detail-type", out var dt) ? dt.GetString() : null;
+        var isDiscovery = string.Equals(detailType, "partner-outreach-discovery", StringComparison.OrdinalIgnoreCase);
+
         var webHost = Microsoft.AspNetCore.WebHost.CreateDefaultBuilder()
             .UseContentRoot(Directory.GetCurrentDirectory())
             .UseStartup<Startup>()
@@ -45,6 +48,11 @@ public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
         try
         {
             using var scope = webHost.Services.CreateScope();
+            if (isDiscovery)
+            {
+                var discovery = scope.ServiceProvider.GetRequiredService<AutomatedMarketDiscoveryService>();
+                return await discovery.RunAsync(prepareDrafts: true);
+            }
             var svc = scope.ServiceProvider.GetRequiredService<IPartnerOutreachService>();
             return await svc.DispatchDueAsync(scheduledCursorAutomation: false);
         }

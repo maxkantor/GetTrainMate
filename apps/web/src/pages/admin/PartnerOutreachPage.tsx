@@ -65,6 +65,8 @@ type Campaign = {
 const TABS = [
   'prospect',
   'discovered',
+  'no_verified_public_email',
+  'qualified_language_unavailable',
   'draft',
   'approved',
   'queued',
@@ -82,6 +84,7 @@ export const PartnerOutreachPage: React.FC = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
+  const [discoverySummary, setDiscoverySummary] = useState<Record<string, unknown> | null>(null);
   const [discoverNote, setDiscoverNote] = useState<string | null>(null);
   const [form, setForm] = useState({
     organizationName: '',
@@ -103,15 +106,17 @@ export const PartnerOutreachPage: React.FC = () => {
   const load = async () => {
     setError(null);
     try {
-      const [p, q, m, c] = await Promise.all([
+      const [p, q, m, c, d] = await Promise.all([
         adminApiService.get('/api/admin/partner-outreach/prospects'),
         adminApiService.get('/api/admin/partner-outreach/queue'),
         adminApiService.get('/api/admin/partner-outreach/metrics'),
         adminApiService.get('/api/admin/partner-outreach/campaigns'),
+        adminApiService.get('/api/admin/partner-outreach/discovery/summary'),
       ]);
       setProspects(Array.isArray(p) ? p : p?.items ?? []);
       setQueue(Array.isArray(q) ? q : q?.items ?? []);
       setMetrics(m);
+      setDiscoverySummary(d);
       setCampaigns(Array.isArray(c) ? c : c?.items ?? INITIAL_MARKET_CANDIDATES);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load');
@@ -126,28 +131,28 @@ export const PartnerOutreachPage: React.FC = () => {
   const shownProspects = prospects.filter((p) => {
     if (status === 'prospect') return p.status === 'prospect' || p.status === 'draft';
     if (status === 'discovered') return p.status === 'discovered';
+    if (status === 'no_verified_public_email') return p.status === 'no_verified_public_email';
+    if (status === 'qualified_language_unavailable') return p.status === 'qualified_language_unavailable';
     return p.status === status;
   });
   const shownQueue = queue.filter((q) =>
     status === 'prospect' || status === 'discovered' ? true : q.status === status || (status === 'draft' && q.status === 'draft')
   );
 
-  const runDiscover = async (country?: string, market?: string, language = 'en') => {
+  const runAutomatedDiscovery = async () => {
     setError(null);
     setDiscoverNote(null);
     try {
-      const res = await adminApiService.post('/api/admin/partner-outreach/discover', {
-        ...(country ? { country } : {}),
-        ...(market ? { market } : {}),
-        language,
-        mode: 'TRAIN',
+      const res = await adminApiService.post('/api/admin/partner-outreach/discover/automated', {
+        prepareDrafts: true,
+        maxPerMarket: 40,
       });
       setDiscoverNote(
-        `${res?.note || 'Discovery finished'} Created: ${res?.created?.length ?? 0}. Skipped: ${res?.skipped ?? 0}.`
+        `Automated discovery complete. Created: ${res?.organizationsDiscovered ?? 0}. Qualified: ${res?.qualifiedOrganizations ?? 0}. Verified contacts: ${res?.verifiedPublicContacts ?? 0}. Drafts: ${res?.draftsGenerated ?? 0}. Approval-ready: ${res?.approvalReadyRecipients ?? 0}. No verified email: ${res?.contactsUnavailable ?? 0}.`
       );
       await load();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Discovery failed');
+      setError(e instanceof Error ? e.message : 'Automated discovery failed');
     }
   };
 
@@ -169,10 +174,10 @@ export const PartnerOutreachPage: React.FC = () => {
         Partner Outreach
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        International TRAIN partner campaigns. Max {MAX_ACTIVE_MARKETS} active markets. Sending stays disabled until
-        PARTNER_OUTREACH_SEND_ENABLED=true, postal address is set, and you approve each recipient. Never infer emails.
-        VIBE and DATE stay in the app; they are not mixed into this first partner campaign. Language (UI) is independent
-        of market.
+        International TRAIN partner campaigns. Max {MAX_ACTIVE_MARKETS} active markets. Primary workflow: automated
+        discovery → website resolution → public contact verification → CRM → dedupe → scoring → invite code → landing URL
+        → personalized draft → approval queue. Never infer emails. Sending stays disabled until PARTNER_OUTREACH_SEND_ENABLED=true,
+        postal address is set, and you approve each recipient.
       </Typography>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -187,6 +192,15 @@ export const PartnerOutreachPage: React.FC = () => {
           {String(metrics.maxActiveMarkets ?? MAX_ACTIVE_MARKETS)}
         </Alert>
       )}
+      {discoverySummary && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          discovered={String(discoverySummary.organizationsDiscovered)} qualified=
+          {String(discoverySummary.qualifiedOrganizations)} verifiedContacts=
+          {String(discoverySummary.verifiedPublicContacts)} noEmail={String(discoverySummary.contactsUnavailable)}{' '}
+          drafts={String(discoverySummary.draftsGenerated)} approvalReady=
+          {String(discoverySummary.approvalReadyRecipients)}
+        </Alert>
+      )}
       {discoverNote && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setDiscoverNote(null)}>
           {discoverNote}
@@ -197,8 +211,8 @@ export const PartnerOutreachPage: React.FC = () => {
         Market campaigns
       </Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-        <Button variant="outlined" size="small" onClick={() => void runDiscover(undefined, undefined, 'en')}>
-          Run global discovery (TRAIN)
+        <Button variant="contained" size="small" onClick={() => void runAutomatedDiscovery()}>
+          Run automated discovery (all ranked markets)
         </Button>
       </Box>
       <Box sx={{ display: 'grid', gap: 1, mb: 3 }}>
@@ -211,8 +225,8 @@ export const PartnerOutreachPage: React.FC = () => {
             <Chip size="small" label={c.status} />
             <Chip size="small" variant="outlined" label={`${c.country}/${c.market}`} />
             <Chip size="small" variant="outlined" label={c.primaryMode || 'TRAIN'} />
-            <Button size="small" onClick={() => void runDiscover(c.country, c.market, c.languages?.[0] || 'en')}>
-              Run discovery
+            <Button size="small" onClick={() => void runAutomatedDiscovery()}>
+              Run automated discovery
             </Button>
             {c.status !== 'active' && (
               <Button size="small" onClick={() => void setStatus(c.campaignId, 'active')}>
@@ -239,9 +253,12 @@ export const PartnerOutreachPage: React.FC = () => {
         ))}
       </Tabs>
 
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+        Optional manual override (not primary workflow)
+      </Typography>
       <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', mb: 2 }}>
         <TextField size="small" label="Organization" value={form.organizationName} onChange={(e) => setForm({ ...form, organizationName: e.target.value })} />
-        <TextField size="small" label="Public business email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} helperText="Paste from an org-controlled page. Leave blank to save as discovered." />
+        <TextField size="small" label="Public business email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} helperText="Only if already verified on an org-controlled page. Leave blank — automation verifies contacts." />
         <TextField size="small" select label="Email source" value={form.emailSource} onChange={(e) => setForm({ ...form, emailSource: e.target.value })}>
           <MenuItem value="public_listing">public_listing</MenuItem>
           <MenuItem value="owner_supplied">owner_supplied</MenuItem>
@@ -249,10 +266,10 @@ export const PartnerOutreachPage: React.FC = () => {
         </TextField>
         <TextField size="small" label="Country (ISO)" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
         <TextField size="small" label="City / metro" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-        <TextField size="small" select label="Campaign language" value={form.campaignLanguage} onChange={(e) => setForm({ ...form, campaignLanguage: e.target.value })} helperText="Only English templates are approved for queueing.">
+        <TextField size="small" select label="Campaign language" value={form.campaignLanguage} onChange={(e) => setForm({ ...form, campaignLanguage: e.target.value })} helperText="Approved human-reviewed templates: en, es, ru.">
           <MenuItem value="en">en (approved)</MenuItem>
-          <MenuItem value="es">es (draft only)</MenuItem>
-          <MenuItem value="ru">ru (draft only)</MenuItem>
+          <MenuItem value="es">es (approved)</MenuItem>
+          <MenuItem value="ru">ru (approved)</MenuItem>
         </TextField>
         <TextField size="small" select label="Mode" value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
           <MenuItem value="TRAIN">TRAIN</MenuItem>
@@ -285,7 +302,7 @@ export const PartnerOutreachPage: React.FC = () => {
           }
         }}
       >
-        Add prospect
+        Add prospect (override)
       </Button>
 
       <Typography variant="h6" sx={{ mt: 3 }}>

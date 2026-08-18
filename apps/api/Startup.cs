@@ -115,6 +115,17 @@ public class Startup
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IPartnerOutreachService, PartnerOutreachService>();
+        services.AddHttpClient<OverpassFitnessDiscoveryProvider>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(120);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("GetTrainMatePartnerDiscovery/1.0 (+https://gettrainmate.com/contact)");
+        });
+        services.AddHttpClient<PublicBusinessContactVerifier>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("GetTrainMatePartnerDiscovery/1.0 (+https://gettrainmate.com/contact)");
+        });
+        services.AddScoped<AutomatedMarketDiscoveryService>();
         services.AddScoped<IAdminNotificationService, AdminNotificationService>();
         services.AddScoped<ICognitoAdminUserDeletionService, CognitoAdminUserDeletionService>();
         services.AddScoped<ICognitoRegistrationCheckService, CognitoRegistrationCheckService>();

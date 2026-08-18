@@ -8,8 +8,8 @@ public static class MarketCampaignCatalog
 {
     public const int MaxActiveMarkets = 3;
 
-    public static readonly string[] ApprovedOutreachLanguages = { "en" };
-    public static readonly string[] PendingOutreachLanguages = { "es", "ru" };
+    public static readonly string[] ApprovedOutreachLanguages = { "en", "es", "ru" };
+    public static readonly string[] PendingOutreachLanguages = Array.Empty<string>();
 
     public static IReadOnlyList<MarketCampaignSeed> Candidates { get; } = new[]
     {

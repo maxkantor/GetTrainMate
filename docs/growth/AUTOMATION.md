@@ -4,11 +4,11 @@
 **Schedule:** **Wednesday 8:00 AM America/New_York**  
 **Cron (UTC during EDT):** `0 12 * * 3` — confirm preview shows **Wednesday at 8:00 AM EDT**  
 **Repo:** `maxkantor/GetTrainMate` · branch `main`  
-**Notify:** Exactly **one** Admin email after the run reaches its **final** state → `node scripts/growth/compose-and-send-growth-email.mjs`  
+**Notify:** Exactly **one** Admin email after **every** scheduled fire reaches its **final** state → `node scripts/growth/compose-and-send-growth-email.mjs`  
 **North star:** 1,000+ verified external paying customers across viable international markets. Immediate milestone: the next newly attributed external customer. Qualified profiles by market/mode are a leading indicator, not a substitute.  
 **Cost:** Prefer cheapest capable model; do not launch a new experiment merely to ship
 
-Do **not** activate a weekday (Mon–Fri) schedule — **Wednesday only**.
+The live Cursor automation fires on **weekdays**. Experiment **evaluation** is due only when the experiment log says so (America/New_York). A weekday fire with no evaluation due is still a complete run: collect evidence, do or prepare distribution, and **always send the Admin email**. Never exit successfully without running `compose-and-send-growth-email.mjs`. A 1-minute no-tool success is a failed notification.
 
 ---
 
@@ -71,7 +71,7 @@ Qualified GetTrainMate profile (leading indicator, not a customer): unique non-o
 
 Report separately by country, metro, language, and mode — never collapse into one global density number: registered users; completed profiles; qualified profiles by market/mode; Discover-eligible users; verified external paying customers; successful attributed payments; new customers acquired by this run.
 
-Market campaigns: max 3 active. Partner outreach TRAIN-first (not an app limitation). Never infer emails. English-only approved outreach templates until ES/RU are human-reviewed.
+Market campaigns: max 3 active. Partner outreach TRAIN-first (not an app limitation). Never infer emails — use automated discovery pipeline. Approved outreach templates: en, es, ru (human-reviewed). Run automated discovery via node scripts/growth/run-market-discovery.mjs when CRM batch is needed.
 
 STRIPE TRUTH: Count only GetTrainMate-attributed live Stripe transactions matched through the approved Product ID, Price ID, Payment Link ID, Checkout metadata allowlist, or legacy credits ownership rules (docs/growth/STRIPE-ATTRIBUTION.md). Report separately: successful attributed live payments; unique verified external paying customers; owner/test payments; unattributed payments; refunds; verified net revenue. Exclude account-wide and unattributed payments from GetTrainMate customers and revenue. Never invent users, matches, messages, reviews, or purchases. Zero is valid evidence.
 
@@ -107,9 +107,9 @@ Focus: Atlanta + TRAIN. Do not spread cities. Do not equal-weight DATE/VIBE.
 
 When shipping code: one reversible change; tests + web:build when code changed; commit/push main only if validation passes; monitor Amplify; verify production; update docs/growth/EXPERIMENT-LOG.md.
 
-ADMIN EMAIL: Send exactly one Admin email after the run reaches its final state. Never send it before deployment verification when code shipped. The body MUST lead with the acquisition-lead fields above.
+ADMIN EMAIL: Mandatory on every scheduled fire, including skip / no-evaluation / lock-stop days. Send exactly one Admin email after the run reaches its final state. Never mark the run succeeded without this send. Never send it before deployment verification when code shipped. The body MUST lead with the acquisition-lead fields above.
   node scripts/growth/compose-and-send-growth-email.mjs --notes "<JSON acquisition lead fields and/or short action notes>"
-If Admin email fails, record the failure locally in notes/run output and report it once — do not repeat the acquisition action or send duplicate reports blindly.
+If the run stops early (lock held, not Wednesday evaluation, missing secrets, no distribution possible): still send one Admin email that leads with the exact blocker. If Admin email fails, record the failure locally in notes/run output and report it once — do not repeat the acquisition action or send duplicate reports blindly.
 
 Finally: node scripts/growth/release-growth-lock.mjs
 ```

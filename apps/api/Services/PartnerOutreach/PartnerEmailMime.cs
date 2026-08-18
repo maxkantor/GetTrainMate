@@ -76,19 +76,55 @@ public static class PartnerEmailMime
             throw new InvalidOperationException("No approved human-reviewed template for this language.");
         var org = organizationName.Trim();
         var market = string.IsNullOrWhiteSpace(marketLabel) ? "your area" : marketLabel.Trim();
-        var subject = $"Help {org} members find local training partners";
-        var text = $"Hi {org} team,\n\n"
-            + $"I\u2019m Max, the founder of GetTrainMate, a platform that helps people find local partners for workouts, running, pickleball, and other activities in {market}.\n\n"
-            + "I created a dedicated invitation page for your community:\n\n"
-            + $"{partnerUrl}\n\n"
-            + $"Partner code: {partnerCode}\n\n"
-            + "There is no cost for your organization. This invitation does not mean we already have a partnership. If you think it would be useful, would you be open to sharing the invitation with members looking for additional local training partners?\n\n"
-            + "I\u2019m happy to answer any questions.\n\n"
-            + "Thanks,\nMax\nFounder, GetTrainMate\nhttps://gettrainmate.com/\n\n"
-            + "GetTrainMate does not sell partner member lists, and participation does not guarantee a match.\n"
-            + $"Unsubscribe: {unsubscribeUrl}\n"
-            + postalAddress;
-        var html = DefaultHtml(org, partnerUrl, partnerCode, unsubscribeUrl, postalAddress, subject, market);
+        var lang = (language ?? "en").Trim().ToLowerInvariant();
+        string subject;
+        string text;
+        if (lang == "es")
+        {
+            subject = $"Ayude a los miembros de {org} a encontrar compañeros de entrenamiento locales";
+            text = $"Hola, equipo de {org},\n\n"
+                + $"Soy Max, fundador de GetTrainMate, una plataforma que ayuda a las personas a encontrar compañeros locales para entrenar, correr, pickleball y otras actividades en {market}.\n\n"
+                + "Creé una página de invitación dedicada para su comunidad:\n\n"
+                + $"{partnerUrl}\n\n"
+                + $"Código de invitación: {partnerCode}\n\n"
+                + "No tiene costo para su organización. Esta invitación no significa que ya tengamos una alianza. Si les parece útil, ¿estarían abiertos a compartir la invitación con miembros que busquen compañeros de entrenamiento locales?\n\n"
+                + "Con gusto respondo cualquier pregunta.\n\n"
+                + "Gracias,\nMax\nFundador, GetTrainMate\nhttps://gettrainmate.com/\n\n"
+                + "GetTrainMate no vende listas de miembros de socios y la participación no garantiza un match.\n"
+                + $"Cancelar suscripción: {unsubscribeUrl}\n"
+                + postalAddress;
+        }
+        else if (lang == "ru")
+        {
+            subject = $"Помогите участникам {org} найти локальных партнёров для тренировок";
+            text = $"Здравствуйте, команда {org},\n\n"
+                + $"Я Макс, основатель GetTrainMate — платформы, которая помогает людям находить локальных партнёров для тренировок, бега, pickleball и других активностей в {market}.\n\n"
+                + "Я создал отдельную страницу приглашения для вашего сообщества:\n\n"
+                + $"{partnerUrl}\n\n"
+                + $"Код приглашения: {partnerCode}\n\n"
+                + "Для вашей организации это бесплатно. Это приглашение не означает, что у нас уже есть партнёрство. Если вам это полезно, не могли бы вы поделиться ссылкой с участниками, которые ищут локальных партнёров для тренировок?\n\n"
+                + "С радостью отвечу на вопросы.\n\n"
+                + "Спасибо,\nМакс\nОснователь, GetTrainMate\nhttps://gettrainmate.com/\n\n"
+                + "GetTrainMate не продаёт списки участников партнёров, участие не гарантирует match.\n"
+                + $"Отписаться: {unsubscribeUrl}\n"
+                + postalAddress;
+        }
+        else
+        {
+            subject = $"Help {org} members find local training partners";
+            text = $"Hi {org} team,\n\n"
+                + $"I\u2019m Max, the founder of GetTrainMate, a platform that helps people find local partners for workouts, running, pickleball, and other activities in {market}.\n\n"
+                + "I created a dedicated invitation page for your community:\n\n"
+                + $"{partnerUrl}\n\n"
+                + $"Partner code: {partnerCode}\n\n"
+                + "There is no cost for your organization. This invitation does not mean we already have a partnership. If you think it would be useful, would you be open to sharing the invitation with members looking for additional local training partners?\n\n"
+                + "I\u2019m happy to answer any questions.\n\n"
+                + "Thanks,\nMax\nFounder, GetTrainMate\nhttps://gettrainmate.com/\n\n"
+                + "GetTrainMate does not sell partner member lists, and participation does not guarantee a match.\n"
+                + $"Unsubscribe: {unsubscribeUrl}\n"
+                + postalAddress;
+        }
+        var html = DefaultHtml(org, partnerUrl, partnerCode, unsubscribeUrl, postalAddress, subject, market, lang);
         if (Regex.IsMatch(text, "TRAIN-mode|not dating-first", RegexOptions.IgnoreCase))
             throw new InvalidOperationException("Forbidden pitch language");
         PartnerOutreachRules.AssertNoMojibake(text, "text");
@@ -96,11 +132,12 @@ public static class PartnerEmailMime
         return (subject, text, html);
     }
 
-    public static string DefaultHtml(string org, string url, string code, string unsub, string postal, string title, string? marketLabel = null)
+    public static string DefaultHtml(string org, string url, string code, string unsub, string postal, string title, string? marketLabel = null, string lang = "en")
     {
         string E(string s) => WebUtility.HtmlEncode(s);
         var market = string.IsNullOrWhiteSpace(marketLabel) ? "Local training partners" : $"{marketLabel} training partners";
-        return "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">"
+        var htmlLang = lang is "es" or "ru" ? lang : "en";
+        return "<!DOCTYPE html><html lang=\"" + htmlLang + "\"><head><meta charset=\"UTF-8\">"
             + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             + $"<title>{E(title)}</title></head>"
             + "<body style=\"margin:0;padding:0;background:#f3f4f6;\">"

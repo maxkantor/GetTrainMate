@@ -1,3 +1,4 @@
+using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services.PartnerOutreach;
 using Xunit;
 
@@ -69,12 +70,26 @@ public class PartnerOutreachTests
         Assert.Throws<InvalidOperationException>(() =>
             PartnerEmailMime.RenderDefault(
                 "Example Club",
-                "https://gettrainmate.com/partners/es/miami/example",
+                "https://gettrainmate.com/partners/fr/paris/example",
                 "example",
                 "https://gettrainmate.com/email/unsubscribe?t=abc",
-                "Miami, FL",
-                "Miami",
-                "es"));
+                "Paris, FR",
+                "Paris",
+                "fr"));
+    }
+
+    [Fact]
+    public void RenderDefault_supports_spanish_template()
+    {
+        var copy = PartnerEmailMime.RenderDefault(
+            "Example Club",
+            "https://gettrainmate.com/partners/us/miami/example",
+            "example",
+            "https://gettrainmate.com/email/unsubscribe?t=abc",
+            "Miami, FL",
+            "Miami",
+            "es");
+        Assert.Contains("fundador de GetTrainMate", copy.Text);
     }
 
     [Fact]
@@ -93,9 +108,50 @@ public class PartnerOutreachTests
     {
         Assert.Equal(3, MarketCampaignCatalog.MaxActiveMarkets);
         Assert.True(MarketCampaignCatalog.IsApprovedOutreachLanguage("en"));
-        Assert.False(MarketCampaignCatalog.IsApprovedOutreachLanguage("es"));
+        Assert.True(MarketCampaignCatalog.IsApprovedOutreachLanguage("es"));
+        Assert.True(MarketCampaignCatalog.IsApprovedOutreachLanguage("ru"));
+        Assert.False(MarketCampaignCatalog.IsApprovedOutreachLanguage("fr"));
         Assert.Equal("/partners/us/atlanta/atl-track-club", MarketCampaignCatalog.PartnerPath("us", "atlanta", "atl-track-club"));
         Assert.Equal("gb_london_train_partners", MarketCampaignCatalog.CampaignId("gb", "london", "TRAIN"));
+    }
+
+    [Fact]
+    public void Public_contact_verifier_accepts_domain_matched_mailto()
+    {
+        var html = "<a href=\"mailto:info@exampleclub.org\">Contact</a>";
+        var emails = PublicBusinessContactVerifier.ExtractCandidates(html, "exampleclub.org").ToList();
+        Assert.Single(emails);
+        Assert.Equal("info@exampleclub.org", emails[0]);
+    }
+
+    [Fact]
+    public void Public_contact_verifier_rejects_noreply_and_foreign_domains()
+    {
+        var html = "noreply@exampleclub.org partner@other.com info@exampleclub.org";
+        var emails = PublicBusinessContactVerifier.ExtractCandidates(html, "exampleclub.org").ToList();
+        Assert.Single(emails);
+        Assert.Equal("info@exampleclub.org", emails[0]);
+    }
+
+    [Fact]
+    public void Market_ranker_prefers_active_then_evidence()
+    {
+        var catalog = MarketCampaignCatalog.Candidates;
+        var stored = new List<PartnerCampaign>
+        {
+            new() { CampaignId = "us_atlanta_train_partners", Status = "active" },
+        };
+        var evidence = catalog.Select(c => new MarketRanker.MarketEvidenceRow
+        {
+            CampaignId = c.CampaignId,
+            Country = c.Country,
+            Market = c.Market,
+            DisplayName = c.DisplayName,
+            FounderAdvantage = c.Market == "atlanta",
+        }).ToList();
+        var targets = MarketRanker.SelectDiscoveryTargets(catalog, stored, evidence, 3).ToList();
+        Assert.Equal(3, targets.Count);
+        Assert.Equal("us_atlanta_train_partners", targets[0].CampaignId);
     }
 
     [Fact]

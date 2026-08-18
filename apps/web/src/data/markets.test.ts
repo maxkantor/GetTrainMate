@@ -32,10 +32,11 @@ describe('markets', () => {
     expect(signup).toContain('experiment_id=EXP-002');
   });
 
-  it('does not treat English as the only app language, but only en is approved for send', () => {
+  it('supports en, es, ru approved outreach templates', () => {
     expect(isApprovedOutreachLanguage('en')).toBe(true);
-    expect(isApprovedOutreachLanguage('es')).toBe(false);
-    expect(isApprovedOutreachLanguage('ru')).toBe(false);
+    expect(isApprovedOutreachLanguage('es')).toBe(true);
+    expect(isApprovedOutreachLanguage('ru')).toBe(true);
+    expect(isApprovedOutreachLanguage('fr')).toBe(false);
   });
 
   it('caps active markets and ranks by verified evidence without guessing zeros as density', () => {

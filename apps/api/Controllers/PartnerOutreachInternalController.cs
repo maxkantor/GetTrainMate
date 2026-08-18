@@ -14,8 +14,13 @@ namespace GetTrainMate.Api.Controllers;
 public class PartnerOutreachInternalController : ControllerBase
 {
     private readonly IPartnerOutreachService _svc;
+    private readonly AutomatedMarketDiscoveryService _discovery;
 
-    public PartnerOutreachInternalController(IPartnerOutreachService svc) => _svc = svc;
+    public PartnerOutreachInternalController(IPartnerOutreachService svc, AutomatedMarketDiscoveryService discovery)
+    {
+        _svc = svc;
+        _discovery = discovery;
+    }
 
     bool Authorized()
     {
@@ -42,6 +47,13 @@ public class PartnerOutreachInternalController : ControllerBase
             return BadRequest();
         await _svc.ApplySesEventAsync(body.InternalMessageId, body.EventType);
         return Ok(new { ok = true });
+    }
+
+    [HttpPost("discover")]
+    public async Task<IActionResult> DiscoverScheduled()
+    {
+        if (!Authorized()) return Unauthorized();
+        return Ok(await _discovery.RunAsync(prepareDrafts: true));
     }
 
     [HttpPost("dispatch")]

@@ -32,6 +32,10 @@ public class PartnerProspect
     public string Status { get; set; } = "prospect";
     public string Owner { get; set; } = "Max";
     public string? Notes { get; set; }
+    public int FitScore { get; set; }
+    public string? DiscoverySource { get; set; }
+    /// <summary>verified_public | no_verified_public_email | pending</summary>
+    public string? EmailVerificationStatus { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastContactedAt { get; set; }
 }
