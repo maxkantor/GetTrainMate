@@ -47,6 +47,36 @@ const MARKETING_PAGES: PrerenderPage[] = [
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {
+    canonicalPath: '/workout-partner',
+    title: `Find a Workout Partner | ${BRAND}`,
+    description:
+      'Find gym, running, pickleball, and race partners on GetTrainMate TRAIN. International TRAIN + VIBE + DATE — not Atlanta-only. No guaranteed matches.',
+    ogTitle: `Find a Workout Partner | ${BRAND}`,
+    ogDescription:
+      'Find gym, running, pickleball, and race partners on GetTrainMate TRAIN. International TRAIN + VIBE + DATE — not Atlanta-only.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
+    canonicalPath: '/meet-people',
+    title: `Find People to Hang Out With | ${BRAND}`,
+    description:
+      'New in town? Meet people for events, coffee, and weekend plans in VIBE. GetTrainMate is TRAIN, VIBE, and DATE worldwide.',
+    ogTitle: `Find People to Hang Out With | ${BRAND}`,
+    ogDescription:
+      'Meet people for events, coffee, and weekend plans in VIBE on GetTrainMate.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
+    canonicalPath: '/active-dating',
+    title: `Activity-Based Dating | ${BRAND}`,
+    description:
+      'Meet people through shared interests on GetTrainMate DATE. Optional dating mode. No guaranteed dates or relationships.',
+    ogTitle: `Activity-Based Dating | ${BRAND}`,
+    ogDescription:
+      'Meet people through shared interests on GetTrainMate DATE. No guaranteed dates.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
     canonicalPath: '/atlanta-training-partners',
     title: `Find a Training Partner in Atlanta | ${BRAND}`,
     description:

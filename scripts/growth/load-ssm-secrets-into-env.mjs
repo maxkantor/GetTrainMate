@@ -16,7 +16,11 @@ const MAP = [
   ['GROWTH_CRM_ADMIN_EMAIL', '/gettrainmate/growth/crm-admin-email', false],
   ['GROWTH_CRM_ADMIN_PASSWORD', '/gettrainmate/growth/crm-admin-password', true],
   ['AWS_ACCESS_KEY_ID', '/gettrainmate/growth/aws-access-key-id', false],
-  ['AWS_SECRET_ACCESS_KEY', '/gettrainmate/growth/aws-secret-access-key', true]
+  ['AWS_SECRET_ACCESS_KEY', '/gettrainmate/growth/aws-secret-access-key', true],
+  ['META_PAGE_ACCESS_TOKEN', '/gettrainmate/growth/meta-page-access-token', true],
+  ['FACEBOOK_PAGE_ID', '/gettrainmate/growth/facebook-page-id', false],
+  ['INSTAGRAM_GRAPH_ACCESS_TOKEN', '/gettrainmate/growth/instagram-graph-access-token', true],
+  ['INSTAGRAM_BUSINESS_ACCOUNT_ID', '/gettrainmate/growth/instagram-business-account-id', false]
 ];
 
 export function loadSsmSecretsIntoEnv() {

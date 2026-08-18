@@ -43,7 +43,8 @@ function parseArgs(argv) {
     previewDir: null,
     testEmail: false,
     decision: null,
-    shipped: false
+    shipped: false,
+    skipSocial: false
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -55,6 +56,7 @@ function parseArgs(argv) {
     else if (a === '--test-email') out.testEmail = true;
     else if (a === '--decision') out.decision = argv[++i] ?? '';
     else if (a === '--shipped') out.shipped = true;
+    else if (a === '--skip-social') out.skipSocial = true;
   }
   return out;
 }
@@ -95,6 +97,24 @@ export function parseActiveExperiments(md) {
     });
   }
   return active;
+}
+
+function runOwnedSocial(dryRun) {
+  const r = spawnSync(
+    process.execPath,
+    [path.join(__dirname, 'publish-owned-social.mjs'), ...(dryRun ? ['--dry-run'] : [])],
+    { encoding: 'utf8', cwd: ROOT }
+  );
+  try {
+    return JSON.parse(r.stdout || '{}');
+  } catch {
+    return {
+      connectorHealthy: false,
+      connectorBlocker: (r.stderr || r.stdout || 'owned-social stdout was not JSON').slice(0, 400),
+      facebook: { published: false },
+      instagram: { published: false }
+    };
+  }
 }
 
 function runHealth() {
@@ -155,6 +175,10 @@ if (invokedAsCli) {
     snapshot = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
   } else {
     snapshot = { error: 'missing snapshot', sources: {}, scoreboard: {}, notes: [] };
+  }
+
+  if (!args.skipSocial) {
+    snapshot.ownedSocial = runOwnedSocial(args.dryRun);
   }
 
   const logMd = fs.existsSync(LOG_PATH) ? fs.readFileSync(LOG_PATH, 'utf8') : '';

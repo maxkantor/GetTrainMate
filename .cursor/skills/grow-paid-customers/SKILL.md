@@ -1,10 +1,16 @@
 # Grow paid customers — international marketplace (GetTrainMate)
 
-**North star:** 1,000+ **verified external paying customers across viable international markets**.  
-**Operating objective:** build sufficient **local density in each active market** so users can discover relevant people and form real connections.  
-**Immediate milestone:** the next **newly attributed** external customer.
+**North star:** 1,000+ **real active users** (completed profiles using TRAIN, VIBE, and/or DATE, with Discover activity) across viable international markets — then 1,000+ **verified external paying customers**.  
+**Operating objective:** **global product + focused local density**. Rank country · metro · language · mode pockets from evidence. Do not treat Atlanta TRAIN as the product.  
+**Immediate milestone:** weekday owned-social distribution on Facebook + Instagram when Meta credentials are valid, plus marketplace liquidity in the strongest pockets.
 
-Qualified profiles by **country · metro · language · mode (TRAIN/VIBE/DATE)** remain leading indicators, not substitutes for customers. A qualified profile is **not** automatically a paying customer.
+GetTrainMate is a multilingual, international social discovery platform:
+
+- **TRAIN** — workouts, sports, running, gym, fitness, races  
+- **VIBE** — socialize, events, explore, hang out, shared interests  
+- **DATE** — dating and romantic connections (never guaranteed)
+
+Atlanta TRAIN may remain **one** geographic acquisition experiment because landing infrastructure exists. It must **not** redefine positioning, reporting, or daily social content.
 
 Product: https://gettrainmate.com/  
 Repository: `maxkantor/GetTrainMate` · branch `main`  
@@ -51,9 +57,11 @@ A run is successful **only** when it either:
 
 **KEEP-only evaluation is not a successful acquisition run.** Record KEEP (do not change that treatment) and still complete distribution — or prepare the exact action and make the Admin report **lead** with a blocking approval request. A partner package / unsent draft is **not** distribution.
 
-If distribution requires Max’s approval and none exists: prepare the **exact** action (exact caption or exact recipient + exact message using a verified public contact — never invent an inbox) and stop. Do not substitute another analytics or formatting task.
+If distribution requires Max’s approval and none exists **and** owned-social Meta API is unavailable: prepare the **exact** action and stop. Do not substitute another analytics or formatting task.
 
-The Admin report must **lead** with: Distribution executed · Audience/channel · Attributed visits · Activations · Checkout starts · Newly attributed external customers · Verified revenue · Required owner approval.
+When Meta Page token + Facebook Page id + Instagram business account id are configured in SSM, **publish** to https://www.facebook.com/gettrainmate and https://www.instagram.com/gettrainmate/ without per-post Max approval. `node scripts/growth/publish-owned-social.mjs` is the weekday distribution path. A caption sitting in a doc is **not** distribution.
+
+The Admin report must **start** with GetTrainMate global growth (profiles, Discover, requests, matches, first messages, returning users, customers, revenue), then growth by mode (TRAIN / VIBE / DATE), then top markets, then acquisition executed today, then owned social YES/NO + post ids. Atlanta TRAIN profiles are **not** the global KPI.
 
 Distinguish: existing customers · customers observed during the experiment window · customers causally attributed to a specific experiment · **new customers acquired by the current run**.
 
@@ -81,12 +89,12 @@ Report separately by **country · metro · language · mode** (never collapse in
 | Verified external paying customers | Deduped attributed live payers minus excludes |
 | Successful attributed payments | Attributed live succeeded payments |
 
-## Market campaigns (partner acquisition — TRAIN priority)
+## Market campaigns (three acquisition engines)
 
 - Atlanta is the **first active** launch market, not the product boundary.
 - Initial candidates: Atlanta (EN), Miami/Fort Lauderdale (EN/ES), NYC (EN/ES/RU), London (EN), Toronto (EN).
 - **At most 3 active markets** at once. Suggested effort split: **50% / 30% / 20%** across ranked active markets — recalculate from verified evidence only.
-- Partner outreach **prioritizes TRAIN** (gyms, clubs, fitness orgs). **Do not mix VIBE/DATE** into the first partner campaign. App modes TRAIN/VIBE/DATE stay available to users.
+- Partner outreach uses three engines when verified public contacts exist: **TRAIN** (gyms, clubs, fitness orgs), **VIBE** (events and communities), **DATE** (appropriate lifestyle/singles events). Never guarantee matches or dates. Rank pockets from evidence instead of equal-weighting every city.
 - Routes: `/partners/<country>/<market>/<invite-code>` (legacy `/partners/atlanta/:code` aliases preserved).
 - Attribution: `utm_campaign=<country>_<market>_train_partners` (e.g. `us_atlanta_train_partners`).
 - **Never infer emails.** Automated pipeline: organization discovery → official website resolution → public business-contact verification → CRM prospect creation → deduplication → scoring → invite-code generation → landing-URL generation → personalized draft → approval queue. If no verified public email is found automatically, mark **No verified public email** and exclude from sending. Manual Add Prospect is optional override only — Max must not paste emails as the primary workflow.
@@ -113,7 +121,7 @@ Exclude account-wide and unattributed payments from GetTrainMate customers and r
 ## Focus rule (validation period)
 
 - **Markets:** up to **3 active** campaigns ranked by verified CRM/GA4 evidence; Atlanta remains first active unless data ranks another market higher
-- **Partner campaign mode:** TRAIN first (preserve VIBE/DATE in app; do not equal-weight partner outreach)
+- **Partner campaign modes:** TRAIN clubs, VIBE communities/events, DATE appropriate communities — only with verified public contacts; concentrate on ranked pockets
 - **Segments:** gyms, run clubs, trainers, pickleball, CrossFit/HYROX, cycling, hiking, rec sports, fitness events
 - Do **not** scatter outreach across many cities simultaneously
 - Do **not** auto-change pricing or make paid features free; founding-member offers require **owner approval** before activation
@@ -155,15 +163,15 @@ Complete **at most one** meaningful marketplace-growth action **and**, until the
 
 Do **not** also ship a new acquisition surface merely so the run has a code change. Prefer qualified distribution.
 
-Current prepared action (until Max replies `APPROVED IG-2026-08-17`): exact Instagram caption in `docs/growth/partners/OWNER-APPROVAL-REQUEST.md`. Cursor must not post.
+Weekday owned-social is the default distribution: `node scripts/growth/publish-owned-social.mjs` rotates TRAIN / VIBE / DATE and en / es / ru. Per-post Max approval is **not** required when the Meta Page token is valid.
 
-### Automated partner discovery (primary workflow)
+### Automated partner discovery (primary partner workflow)
 
 Scheduled weekly (`partner-outreach-discovery` EventBridge) and on-demand via `POST /api/admin/partner-outreach/discover/automated` or `node scripts/growth/run-market-discovery.mjs`.
 
 For each active/ranked market (≤3): discover gyms, trainers, run clubs, pickleball/racket clubs, CrossFit/HYROX, cycling clubs, rec sports orgs, fitness event organizers via OSM Overpass + seed catalog. Populate CRM with organization, country, market, language, TRAIN activity, website, verified public business email (or `no_verified_public_email`), source URL, verification timestamp, fit score, invite code, landing URL, subject, draft, campaign, status.
 
-Instagram distribution (`IG-2026-08-17`): publish exactly one post to `@gettrainmate` with the approved caption and tracked URL when `INSTAGRAM_GRAPH_ACCESS_TOKEN` + `INSTAGRAM_BUSINESS_ACCOUNT_ID` are configured (`node scripts/growth/publish-approved-instagram.mjs`). If connector unavailable, retain ready-to-publish and report exact blocker — do not substitute manual prospect entry.
+Instagram + Facebook: publish via Meta Graph when SSM credentials exist (`node scripts/growth/publish-owned-social.mjs`). If the connector is unavailable, report the exact SSM/permission blocker. Do not count a draft as distribution. Do not substitute manual prospect entry.
 
 ### Partner package (not distribution)
 
@@ -221,8 +229,8 @@ Send **exactly one** Admin email after **every** scheduled fire reaches its **fi
 1. Acquire growth-run lock (stop if held)  
 2. Verify production health; collect GA4, CRM, product-specific Stripe (**report only**)  
 3. If an experiment evaluation is due (America/New_York): KEEP / ITERATE / STOP / INCONCLUSIVE. KEEP does **not** end the run. Do not launch a new experiment to manufacture a ship.  
-4. If Max has explicitly approved a prepared distribution action **and** the channel is executable without banned outreach: execute it (owned social only with posting authorization; partner email only via Admin CRM after flags — Cursor still must not send).  
-5. Else: prepare **one** exact distribution action; Admin email **must lead** with the blocking approval request. Stop. Do not substitute CRO, a new experiment, or analytics formatting.  
+4. Execute owned-social publish (`publish-owned-social.mjs`) when Meta credentials are present. Partner email only via Admin CRM after flags — Cursor still must not send partner mail.  
+5. If Meta is missing: report the exact credential blocker in the Admin email. Still send the Admin email. Do not substitute CRO or a new experiment. 
 6. Repair tracking only if proven broken  
 7. Validate / build when code changed / commit / push / monitor Amplify / verify / update `docs/growth/EXPERIMENT-LOG.md` / one Admin email / release lock  
 
@@ -232,7 +240,9 @@ Never: fake users/profiles/matches/messages/reviews/events · automate likes/mat
 
 ## Partner outreach (hard fail-closed)
 
-Automation **must not** send outreach, submit contact forms, post socially, retry, follow up, or mark drafts as approved.
+Automation **must not** send partner email, submit contact forms, automate DMs/comments, retry, follow up, or mark drafts as approved.
+
+Owned Facebook/Instagram posts through the Meta Graph API **are** allowed when SSM credentials are valid. That is distribution, not partner spam.
 
 A Cursor prompt, approved experiment, or draft-generation task is **not** send authorization.
 
@@ -253,7 +263,7 @@ Partner campaign sending lives in **Admin CRM → Partner Outreach**, From `part
 | `scripts/growth/collect-funnel-snapshot.mjs` | GA4 + attributed Stripe + metro CRM |
 | `scripts/growth/check-production-health.mjs` | Live site + partner landings |
 | `scripts/growth/compose-and-send-growth-email.mjs` | Admin email once per final state |
-| `scripts/growth/append-experiment.mjs` | Experiment log stub |
+| `scripts/growth/publish-owned-social.mjs` | Facebook + Instagram weekday publish |
 
 ## Secrets
 

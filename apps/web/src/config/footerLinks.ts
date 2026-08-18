@@ -23,6 +23,9 @@ export const FOOTER_SECTIONS: {
   product: [
     { labelKey: 'header.faq', to: '/faq' },
     { labelKey: 'header.pricing', to: '/pricing' },
+    { labelKey: 'footer.workout_partner', to: '/workout-partner' },
+    { labelKey: 'footer.meet_people', to: '/meet-people' },
+    { labelKey: 'footer.active_dating', to: '/active-dating' },
   ],
   company: [
     { labelKey: 'header.about', to: '/about' },

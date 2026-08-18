@@ -46,6 +46,24 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
       'GetTrainMate helps active people connect worldwide — for training, social vibes, or dating — with flexible modes and safety-first design.',
     noindex: false,
   },
+  '/workout-partner': {
+    title: `Find a Workout Partner | ${BRAND}`,
+    description:
+      'Find gym, running, pickleball, and race partners on GetTrainMate TRAIN. International TRAIN + VIBE + DATE — not Atlanta-only. No guaranteed matches.',
+    noindex: false,
+  },
+  '/meet-people': {
+    title: `Find People to Hang Out With | ${BRAND}`,
+    description:
+      'New in town? Meet people for events, coffee, and weekend plans in VIBE. GetTrainMate is TRAIN, VIBE, and DATE worldwide. No guaranteed hangouts.',
+    noindex: false,
+  },
+  '/active-dating': {
+    title: `Activity-Based Dating | ${BRAND}`,
+    description:
+      'Meet people through shared interests on GetTrainMate DATE. Optional dating mode alongside TRAIN and VIBE. No guaranteed dates or relationships.',
+    noindex: false,
+  },
   '/atlanta-training-partners': {
     title: `Find a Training Partner in Atlanta | ${BRAND}`,
     description:

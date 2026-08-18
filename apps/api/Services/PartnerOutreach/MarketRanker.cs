@@ -27,8 +27,8 @@ public static class MarketRanker
         r.CompletedProfiles * 8 +
         r.DiscoverUsers * 6 +
         r.Connections * 5 +
-        r.Matches * 10 +
-        r.FirstMessages * 7 +
+        r.Matches * 50 +
+        r.FirstMessages * 20 +
         r.LandingSessions +
         r.RegisteredUsers +
         r.QualifiedOrganizations * 3 +

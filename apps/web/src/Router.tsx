@@ -13,6 +13,7 @@ import { BillingSuccessPage } from '@/pages/BillingSuccess';
 import { BillingCancelPage } from '@/pages/BillingCancel';
 import { AboutPage } from '@/pages/About';
 import { AtlantaTrainingPartnersPage } from '@/pages/AtlantaTrainingPartners';
+import { WorkoutPartnerPage, MeetPeoplePage, ActiveDatingPage } from '@/pages/ModeAcquisitionLanding';
 import { AtlantaPartnersHubPage } from '@/pages/AtlantaPartnersHub';
 import { AtlantaPartnerLandingPage, LegacyAtlantaPartnerRedirect } from '@/pages/AtlantaPartnerLanding';
 import { AtlantaReferralLandingPage } from '@/pages/AtlantaReferralLanding';
@@ -124,6 +125,9 @@ export const Router: React.FC = () => {
             <Route path="/billing/cancel" element={<BillingCancelPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/atlanta-training-partners" element={<AtlantaTrainingPartnersPage />} />
+            <Route path="/workout-partner" element={<WorkoutPartnerPage />} />
+            <Route path="/meet-people" element={<MeetPeoplePage />} />
+            <Route path="/active-dating" element={<ActiveDatingPage />} />
             <Route path="/partners/atlanta" element={<Navigate to="/partners/us/atlanta" replace />} />
             <Route path="/partners/atlanta/:partnerCode" element={<LegacyAtlantaPartnerRedirect />} />
             <Route path="/partners/:country/:market" element={<AtlantaPartnersHubPage />} />

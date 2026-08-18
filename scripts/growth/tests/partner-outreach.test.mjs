@@ -444,18 +444,18 @@ describe('growth report experiments and technical details', () => {
     assert.doesNotMatch(html, /Never include credentials[\s\S]*Never include credentials/);
     assert.match(text, /\$0\.00/);
     assert.doesNotMatch(text, /\$19\.99/);
-    assert.match(text, /1\) DECISION/);
+    assert.match(text, /1\) GETTRAINMATE GLOBAL GROWTH/);
+    assert.match(text, /6\) DECISION/);
     assert.match(text, /What was actually distributed:/);
     assert.match(text, /Newly attributed external customers: 0/);
     assert.match(text, /New customers acquired by the current run: 0/);
-    assert.match(text, /Required owner approval: YES/);
-    assert.match(text, /EXP-001: KEEP/);
-    assert.match(text, /New customers acquired by the current run: 0/);
-    assert.match(text, /APPROVED IG-2026-08-17/);
-    assert.match(text, /Instagram @gettrainmate/);
-    assert.match(html, /1\) Decision/);
+    assert.match(text, /Required owner approval:/);
+    assert.match(text, /EXP-001 KEEP/);
+    assert.match(text, /facebook\.com\/gettrainmate/);
+    assert.match(html, /6\) Decision/);
     assert.match(html, /New customers acquired by the current run/);
-    assert.match(html, /Looking for a consistent training partner in Atlanta/);
+    assert.doesNotMatch(text, /APPROVED IG-2026-08-17/);
+    assert.doesNotMatch(html, /Looking for a consistent training partner in Atlanta/);
   });
 
   it('parses JSON notes into the acquisition lead and does not dump raw JSON', () => {

@@ -7,9 +7,17 @@ Agents must append every experiment here. Do not delete history.
 - **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — **KEEP 2026-08-17** (treatment unchanged) — funnel stage: acquisition / SEO
 - **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
 - **EXP-003** — Atlanta TRAIN user-initiated referral invite (`/invite/:ref`) — eval **2026-08-31** — funnel stage: acquisition / referral (independent of EXP-002 partner codes)
-- **Owned-social:** Instagram `@gettrainmate` caption `IG-2026-08-17` — **approved 2026-08-17 4:19 PM ET; not posted until Max publishes it**
+- **Owned-social:** Facebook https://www.facebook.com/gettrainmate + Instagram https://www.instagram.com/gettrainmate/ — weekday Meta Graph publish when SSM credentials are valid (TRAIN/VIBE/DATE rotation). IG-2026-08-17 is historical, not the only post.
 
 ## Log
+
+### 2026-08-18 — International TRAIN+VIBE+DATE positioning + owned social engine
+
+| Field | Value |
+|-------|--------|
+| Status | Shipped (code). Distribution executes when Meta SSM credentials are present. |
+| Change | Growth north star is 1,000+ active users then paying customers across TRAIN/VIBE/DATE. Reports lead with global growth, mode split, and ranked markets — not Atlanta TRAIN profiles. Weekday Facebook+Instagram publisher (`publish-owned-social.mjs`) rotates mode/language. SEO pages `/workout-partner`, `/meet-people`, `/active-dating`. Metro CRM adds mode totals and metro×mode pockets. |
+| Guardrail | Never guarantee matches/dates. Partner email still fail-closed. Never commit Meta tokens. Draft ≠ distribution. |
 
 ### 2026-08-17 — International marketplace scope (infrastructure)
 

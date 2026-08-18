@@ -1,12 +1,9 @@
 # Cursor Automation — GetTrainMate Customer Growth
 
-**Name:** GetTrainMate Wednesday Customer Growth  
-**Schedule:** **Wednesday 8:00 AM America/New_York**  
-**Cron (UTC during EDT):** `0 12 * * 3` — confirm preview shows **Wednesday at 8:00 AM EDT**  
-**Repo:** `maxkantor/GetTrainMate` · branch `main`  
-**Notify:** Exactly **one** Admin email after **every** scheduled fire reaches its **final** state → `node scripts/growth/compose-and-send-growth-email.mjs`  
-**North star:** 1,000+ verified external paying customers across viable international markets. Immediate milestone: the next newly attributed external customer. Qualified profiles by market/mode are a leading indicator, not a substitute.  
-**Cost:** Prefer cheapest capable model; do not launch a new experiment merely to ship
+**Name:** GetTrainMate Customer Growth  
+**Schedule:** Weekdays 10:00 AM America/New_York (live Cursor automation)  
+**Notify:** Exactly **one** Admin email after **every** scheduled fire, including after owned-social publish or Meta blocker  
+**North star:** 1,000+ real active users (TRAIN + VIBE + DATE) then 1,000+ verified paying customers. Atlanta TRAIN is one experiment, not the product.
 
 The live Cursor automation fires on **weekdays**. Experiment **evaluation** is due only when the experiment log says so (America/New_York). A weekday fire with no evaluation due is still a complete run: collect evidence, do or prepare distribution, and **always send the Admin email**. Never exit successfully without running `compose-and-send-growth-email.mjs`. A 1-minute no-tool success is a failed notification.
 
@@ -15,7 +12,7 @@ The live Cursor automation fires on **weekdays**. Experiment **evaluation** is d
 ## Cost controls (Cursor UI)
 
 1. **Model:** Use the cheapest capable model (Composer / Auto — not premium models unless needed).
-2. **Schedule:** Wednesday 8:00 AM Eastern only.
+2. **Schedule:** Weekdays 10:00 AM Eastern (match the live automation).
 3. **Spend limit:** Set a low hard monthly limit at [cursor.com/dashboard/billing](https://cursor.com/dashboard/billing).
 
 ---
@@ -32,6 +29,9 @@ The live Cursor automation fires on **weekdays**. Experiment **evaluation** is d
 | `AWS_REGION`                        | `us-east-1`                                                                                      |
 | `ADMIN_EMAIL` or `SES_ADMIN_EMAIL`  | Optional (else SSM `/gettrainmate/ses-admin-email`)                                              |
 | `SES_FROM_EMAIL`                    | Optional (else SSM `/gettrainmate/ses-from-email`)                                               |
+| `META_PAGE_ACCESS_TOKEN`            | SSM `/gettrainmate/growth/meta-page-access-token`                                                |
+| `FACEBOOK_PAGE_ID`                  | SSM `/gettrainmate/growth/facebook-page-id`                                                      |
+| `INSTAGRAM_BUSINESS_ACCOUNT_ID`     | SSM `/gettrainmate/growth/instagram-business-account-id`                                         |
 
 IAM user `cursor-gettrainmate-growth` needs `ses:SendEmail` **and** `ssm:GetParameter` on `/gettrainmate/growth/*`, `/gettrainmate/ses-from-email`, `/gettrainmate/ses-admin-email`. Without SSM read, Admin email fails unless `SES_FROM_EMAIL` + `SES_ADMIN_EMAIL` are also in Cursor Environment secrets.
 
@@ -61,17 +61,17 @@ Never spam, invent contacts, automate comments/DMs, evade community rules, or cl
 Until first newly attributed external customer: ≤1 experiment per funnel stage; prefer qualified distribution over additional CRO; do not launch another experiment merely because the run requires a ship; measure visits → activation → checkout → verified payment; report “new customers acquired by this run” separately from customers merely observed in the date window.
 A run succeeds ONLY if it executes an approved external distribution action OR removes a proven blocker preventing qualified traffic from entering or completing the funnel.
 KEEP-only evaluation is NOT a successful acquisition run. An unsent partner package is NOT distribution.
-If Max approval is missing: prepare the EXACT action and make the Admin report LEAD with a blocking approval request. Do not substitute analytics or formatting.
-Admin report MUST lead with: Distribution executed; Audience/channel; Attributed visits; Activations; Checkout starts; Newly attributed external customers; Verified revenue; Required owner approval.
+Partner email still requires Max approval of a verified public recipient. Owned social does not: if Meta Page token + Facebook Page id + Instagram business account id are in SSM, publish without per-post approval.
+Admin report MUST lead with: (1) GetTrainMate global growth (profiles, Discover, requests, matches, first messages, returning users, customers, revenue); (2) growth by mode TRAIN/VIBE/DATE; (3) top markets; (4) acquisition executed today; (5) owned social Facebook/Instagram Published YES/NO + post IDs. Atlanta TRAIN profiles are not the global KPI. Then decision, experiments, next actions.
 Distinguish: existing customers; customers observed during the experiment window; customers causally attributed to a specific experiment; new customers acquired by the current run.
 
-Current prepared action: docs/growth/partners/OWNER-APPROVAL-REQUEST.md (Instagram @gettrainmate exact caption, approval id IG-2026-08-17). Cursor must NOT post. Partner email send remains banned.
+Current prepared action: weekday owned-social via `node scripts/growth/publish-owned-social.mjs` when Meta SSM credentials are valid. Do not stop at “caption prepared.” Partner email send remains banned until Admin CRM approval.
 
 Qualified GetTrainMate profile (leading indicator, not a customer): unique non-owner non-test; completed signup; completed required profile fields; valid supported location; at least one mode (TRAIN/VIBE/DATE); Discover-eligible and not blocked/deleted/suspended.
 
-Report separately by country, metro, language, and mode — never collapse into one global density number: registered users; completed profiles; qualified profiles by market/mode; Discover-eligible users; verified external paying customers; successful attributed payments; new customers acquired by this run.
+Report separately by country, metro, language, and mode — never collapse into one global density number and never use Atlanta TRAIN profiles as the primary KPI: registered users; completed profiles; qualified profiles by market/mode; Discover-eligible users; verified external paying customers; successful attributed payments; new customers acquired by this run.
 
-Market campaigns: max 3 active. Partner outreach TRAIN-first (not an app limitation). Never infer emails — use automated discovery pipeline. Approved outreach templates: en, es, ru (human-reviewed). Run automated discovery via node scripts/growth/run-market-discovery.mjs when CRM batch is needed.
+Market campaigns: max 3 concentrated density pockets at once. Partner outreach includes TRAIN clubs plus VIBE (events/communities) and DATE (appropriate lifestyle/singles events) when verified public contacts exist. Never infer emails — use automated discovery pipeline. Approved outreach templates: en, es, ru (human-reviewed). Owned social rotates TRAIN / VIBE / DATE and languages.
 
 STRIPE TRUTH: Count only GetTrainMate-attributed live Stripe transactions matched through the approved Product ID, Price ID, Payment Link ID, Checkout metadata allowlist, or legacy credits ownership rules (docs/growth/STRIPE-ATTRIBUTION.md). Report separately: successful attributed live payments; unique verified external paying customers; owner/test payments; unattributed payments; refunds; verified net revenue. Exclude account-wide and unattributed payments from GetTrainMate customers and revenue. Never invent users, matches, messages, reviews, or purchases. Zero is valid evidence.
 
@@ -93,8 +93,8 @@ TASK ORDER:
 1) Acquire the growth-run lock. Stop if another valid run is active.
 2) Verify critical production health and collect current GA4, CRM, and product-specific Stripe evidence (report only).
 3) If an experiment evaluation is due/overdue (America/New_York): record KEEP/ITERATE/STOP/INCONCLUSIVE. KEEP does not end the run. Do not ship a new experiment to manufacture a code change.
-4) If Max has explicitly approved the prepared distribution AND the channel is executable without banned outreach: execute it. Cursor still must not send partner email or hold PARTNER_EMAIL_INTERNAL_TOKEN. Owned social requires explicit posting authorization (reply APPROVED IG-2026-08-17).
-5) Else: prepare ONE exact distribution action (exact caption or exact recipient+message on a verified public contact — never invent an inbox). Admin email MUST lead with the blocking approval. STOP. Do not substitute CRO, a new experiment, or analytics formatting.
+4) If Meta SSM credentials are present: run node scripts/growth/publish-owned-social.mjs (Facebook + Instagram). Do not wait for per-post approval. Cursor still must not send partner email or hold PARTNER_EMAIL_INTERNAL_TOKEN.
+5) If Meta is missing: Admin email MUST report the exact SSM/permission blocker. Still send the Admin email. Do not stop at “caption prepared.” Do not substitute CRO.
 6) Repair tracking ONLY when production inspection, application records, or a controlled test proves an expected event or attribution field is missing. Do not change tracking merely because metrics are zero.
 
 Collision: while EXP-002 is in-flight, do not modify EXP-002 partner landing pages, invite codes, attribution parameters, eligibility, or distribution rules. Do not send traffic through an untracked overlapping treatment.
@@ -103,13 +103,13 @@ DEPLOYMENT FAILURE: If tests, build, deployment, or production verification fail
 
 HARD BANS: fake activity; sending outreach; creating partner accounts; activating founding-member pricing; growth:outreach:send; PARTNER_OUTREACH_SEND_ENABLED; payments/prices/auth/secrets; inventing emails; automating comments/DMs. Preview/validate only. Cursor must not hold PARTNER_EMAIL_INTERNAL_TOKEN.
 
-Focus: Atlanta + TRAIN. Do not spread cities. Do not equal-weight DATE/VIBE.
+Focus: international TRAIN + VIBE + DATE. Rank country/metro/language/mode pockets from evidence and concentrate. Atlanta TRAIN is one experiment, not the daily content mix. Weekday owned social must rotate modes and languages.
 
 When shipping code: one reversible change; tests + web:build when code changed; commit/push main only if validation passes; monitor Amplify; verify production; update docs/growth/EXPERIMENT-LOG.md.
 
-ADMIN EMAIL: Mandatory on every scheduled fire, including skip / no-evaluation / lock-stop days. Send exactly one Admin email after the run reaches its final state. Never mark the run succeeded without this send. Never send it before deployment verification when code shipped. The body MUST lead with the acquisition-lead fields above.
+ADMIN EMAIL: Mandatory on every scheduled fire, including skip / no-evaluation / lock-stop days. Send exactly one Admin email after the run reaches its final state. Never mark the run succeeded without this send. Never send it before deployment verification when code shipped. The body MUST lead with global growth, then mode, then markets, then acquisition executed today, then owned social YES/NO.
   node scripts/growth/compose-and-send-growth-email.mjs --notes "<JSON acquisition lead fields and/or short action notes>"
-If the run stops early (lock held, not Wednesday evaluation, missing secrets, no distribution possible): still send one Admin email that leads with the exact blocker. If Admin email fails, record the failure locally in notes/run output and report it once — do not repeat the acquisition action or send duplicate reports blindly.
+If the run stops early (lock held, missing secrets, no distribution possible): still send one Admin email that leads with the exact blocker. If Admin email fails, record the failure locally in notes/run output and report it once — do not repeat the acquisition action or send duplicate reports blindly.
 
 Finally: node scripts/growth/release-growth-lock.mjs
 ```

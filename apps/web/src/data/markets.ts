@@ -203,8 +203,8 @@ export function rankMarkets(rows: MarketEvidence[]): MarketEvidence[] {
     (r.completedProfiles ?? 0) * 8 +
     (r.discoverUsers ?? 0) * 6 +
     (r.connections ?? 0) * 5 +
-    (r.matches ?? 0) * 10 +
-    (r.firstMessages ?? 0) * 7 +
+    (r.matches ?? 0) * 50 +
+    (r.firstMessages ?? 0) * 20 +
     (r.landingSessions ?? 0) +
     (r.registeredUsers ?? 0) +
     (r.publicPartnerAvailability ?? 0) +

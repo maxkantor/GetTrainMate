@@ -123,6 +123,8 @@ async function interpretMetroResponse(res, authMethod) {
     suppressedMetroCount: data.suppressedMetroCount ?? 0,
     discoverUsersNote: data.discoverUsersNote || null,
     returningUsersNote: data.returningUsersNote || null,
+    modeTotals: data.modeTotals || data.ModeTotals || null,
+    pockets: Array.isArray(data.pockets) ? data.pockets : Array.isArray(data.Pockets) ? data.Pockets : [],
     metros: Array.isArray(data.metros) ? data.metros : [],
     authMethod,
     generatedAtUtc: data.generatedAtUtc || null

@@ -210,6 +210,8 @@ public class AdminMetricsController : ControllerBase
             var userMetro = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var completedByMetro = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             var profilesByMetro = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var modeTotals = new ModeTotalsRow();
+            var pocketCompleted = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var doc in profileDocs)
             {
@@ -229,7 +231,17 @@ public class AdminMetricsController : ControllerBase
                     try { isComplete = doc["IsComplete"].AsBoolean(); } catch { /* ignore */ }
                 }
                 if (isComplete)
+                {
                     completedByMetro[metro] = completedByMetro.GetValueOrDefault(metro) + 1;
+                    foreach (var mode in TryGetModes(doc))
+                    {
+                        if (mode == "TRAIN") modeTotals.Train++;
+                        else if (mode == "VIBE") modeTotals.Vibe++;
+                        else if (mode == "DATE") modeTotals.Date++;
+                        var pocketKey = metro + "|" + mode;
+                        pocketCompleted[pocketKey] = pocketCompleted.GetValueOrDefault(pocketKey) + 1;
+                    }
+                }
             }
 
             var connectionsByMetro = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -288,6 +300,23 @@ public class AdminMetricsController : ControllerBase
                 .ToList();
 
             var suppressed = profilesByMetro.Count - metros.Count;
+            var pockets = pocketCompleted
+                .Select(kv =>
+                {
+                    var parts = kv.Key.Split('|');
+                    return new MetroModePocketRow
+                    {
+                        Metro = parts[0],
+                        Mode = parts.Length > 1 ? parts[1] : "",
+                        CompletedProfiles = kv.Value,
+                        MatchesCreated = matchesByMetro.GetValueOrDefault(parts[0]),
+                    };
+                })
+                .Where(p => p.CompletedProfiles >= minCohort)
+                .OrderByDescending(p => p.MatchesCreated)
+                .ThenByDescending(p => p.CompletedProfiles)
+                .Take(20)
+                .ToList();
             return Ok(new MetroDensityResponse
             {
                 Status = "ok",
@@ -297,6 +326,8 @@ public class AdminMetricsController : ControllerBase
                 SuppressedMetroCount = Math.Max(0, suppressed),
                 DiscoverUsersNote = "Unavailable — CRM does not store Discover sessions by metro.",
                 ReturningUsersNote = "Unavailable — CRM does not store return visits by metro.",
+                ModeTotals = modeTotals,
+                Pockets = pockets,
                 Metros = metros,
             });
         }
@@ -387,6 +418,29 @@ public class AdminMetricsController : ControllerBase
             }
         }
         return false;
+    }
+
+    private static List<string> TryGetModes(Document doc)
+    {
+        var found = new List<string>();
+        try
+        {
+            if (doc.ContainsKey("modes") && doc["modes"] is DynamoDBList list)
+            {
+                foreach (var raw in list.AsListOfString())
+                {
+                    var n = ProfileModes.Normalize(raw);
+                    if (!string.IsNullOrWhiteSpace(n) && !found.Contains(n, StringComparer.OrdinalIgnoreCase)) found.Add(n);
+                }
+            }
+        }
+        catch { /* ignore */ }
+        if (found.Count == 0)
+        {
+            var single = TryGetString(doc, "mode", "Mode");
+            if (!string.IsNullOrWhiteSpace(single)) found.Add(ProfileModes.Normalize(single));
+        }
+        return found;
     }
 
     private static string TryGetString(Document doc, params string[] keys)
@@ -494,7 +548,24 @@ public class MetroDensityResponse
     public int SuppressedMetroCount { get; set; }
     public string? DiscoverUsersNote { get; set; }
     public string? ReturningUsersNote { get; set; }
+    public ModeTotalsRow ModeTotals { get; set; } = new();
+    public List<MetroModePocketRow> Pockets { get; set; } = new();
     public List<MetroDensityRow> Metros { get; set; } = new();
+}
+
+public class ModeTotalsRow
+{
+    public int Train { get; set; }
+    public int Vibe { get; set; }
+    public int Date { get; set; }
+}
+
+public class MetroModePocketRow
+{
+    public string Metro { get; set; } = string.Empty;
+    public string Mode { get; set; } = string.Empty;
+    public int CompletedProfiles { get; set; }
+    public int MatchesCreated { get; set; }
 }
 
 public class MetroDensityRow

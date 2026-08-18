@@ -280,8 +280,8 @@ describe('buildScoreboardRow + compose email', () => {
       shipped: false
     });
 
-    assert.match(text, /DECISION/i);
-    assert.match(text, /1\) DECISION/);
+    assert.match(text, /6\) DECISION/);
+    assert.match(text, /1\) GETTRAINMATE GLOBAL GROWTH/);
     assert.match(text, /Newly attributed external customers/);
     assert.match(text, /America\/New_York|EDT|EST/);
     assert.match(text, /Attributed paid conversions: Unknown/);

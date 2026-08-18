@@ -12,6 +12,10 @@ Never commit credential files or paste secrets into git, chat logs, or experimen
 | `GROWTH_METRO_READ_TOKEN` | `/gettrainmate/growth/metro-read-token` | SecureString (optional; preferred metro path) |
 | `GROWTH_CRM_ADMIN_EMAIL` | `/gettrainmate/growth/crm-admin-email` | String (optional fallback) |
 | `GROWTH_CRM_ADMIN_PASSWORD` | `/gettrainmate/growth/crm-admin-password` | SecureString (optional fallback) |
+| `META_PAGE_ACCESS_TOKEN` | `/gettrainmate/growth/meta-page-access-token` | SecureString (Page token; Facebook + Instagram publish) |
+| `FACEBOOK_PAGE_ID` | `/gettrainmate/growth/facebook-page-id` | String |
+| `INSTAGRAM_GRAPH_ACCESS_TOKEN` | `/gettrainmate/growth/instagram-graph-access-token` | SecureString (optional if Page token already covers IG) |
+| `INSTAGRAM_BUSINESS_ACCOUNT_ID` | `/gettrainmate/growth/instagram-business-account-id` | String |
 | `AWS_ACCESS_KEY_ID` | `/gettrainmate/growth/aws-access-key-id` | String |
 | `AWS_SECRET_ACCESS_KEY` | `/gettrainmate/growth/aws-secret-access-key` | SecureString |
 
@@ -58,7 +62,7 @@ node .\scripts\growth\verify-secrets.mjs
    - Role: **Viewer**
 5. Confirm `GA4_PROPERTY_ID` matches the numeric property tied to `G-C29M8NWNY4`.
 
-## Cursor Cloud Agent secrets (required for Wednesday Automation)
+## Cursor Cloud Agent secrets (required for weekday Automation)
 
 Secrets do **not** live on the Automations Settings page alone. They live here:
 
@@ -82,8 +86,12 @@ Secrets do **not** live on the Automations Settings page alone. They live here:
 | `GROWTH_CRM_ADMIN_EMAIL` / `GROWTH_CRM_ADMIN_PASSWORD` | Optional fallback if metro read token not set |
 | `ADMIN_EMAIL` or `SES_ADMIN_EMAIL` | Optional (else SSM `/gettrainmate/ses-admin-email`) |
 | `SES_FROM_EMAIL` | Optional (else SSM `/gettrainmate/ses-from-email`) |
+| `META_PAGE_ACCESS_TOKEN` | Required for weekday Facebook+Instagram publish (Page token) |
+| `FACEBOOK_PAGE_ID` | Required for Facebook Page posts |
+| `INSTAGRAM_BUSINESS_ACCOUNT_ID` | Required for Instagram Graph publish |
+| `INSTAGRAM_GRAPH_ACCESS_TOKEN` | Optional if the Page token already covers IG |
 
-4. On the Automation (**GetTrainMate Wednesday Customer Growth**):
+4. On the Automation (**GetTrainMate Customer Growth**, weekdays 10:00 AM Eastern):
    - Repo must be **GetTrainMate** / `main`
    - Instructions must call `compose-and-send-growth-email.mjs`
 
@@ -118,6 +126,16 @@ Preferred path:
 5. Growth scripts call `GET /api/admin/metrics/metro` with header `X-Growth-Metro-Token`.
 
 Fallback: `GROWTH_CRM_ADMIN_EMAIL` + `GROWTH_CRM_ADMIN_PASSWORD` (Admin login → `X-Admin-Token`). Prefer the scoped metro token.
+
+## Meta Graph (Facebook Page + Instagram)
+
+Owned channels: https://www.facebook.com/gettrainmate and https://www.instagram.com/gettrainmate/
+
+Create a **Page access token** (not a user token) with `pages_manage_posts`, `pages_read_engagement`, `instagram_content_publish`, `instagram_basic`. Put it in SSM `/gettrainmate/growth/meta-page-access-token` (or Cursor secret `META_PAGE_ACCESS_TOKEN`). Also store the Facebook Page id and Instagram professional account id.
+
+As of 2026-08-18 those four SSM names are **not present**. Until they exist, weekday publish reports the exact blocker and does **not** count as distribution. Partner email stays fail-closed independently.
+
+Never commit, log, or email the Page token.
 
 ## Verify SSM from your laptop (safe)
 

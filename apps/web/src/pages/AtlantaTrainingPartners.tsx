@@ -39,7 +39,8 @@ export const AtlantaTrainingPartnersPage: React.FC = () => {
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mt: 2, maxWidth: 560, lineHeight: 1.7 }}>
           Looking for someone to lift with, run with, or train Hyrox / CrossFit near you? GetTrainMate
-          matches active people by intent (TRAIN first), schedule, and city — starting with Atlanta.
+          is a multilingual TRAIN + VIBE + DATE marketplace. This page is one Atlanta TRAIN experiment —
+          not the whole product. Pick TRAIN, set your city, and start Discover. Matches are never guaranteed.
         </Typography>
 
         <Box sx={{ mt: 3, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
@@ -83,8 +84,9 @@ export const AtlantaTrainingPartnersPage: React.FC = () => {
         </List>
 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 4, lineHeight: 1.7 }}>
-          We focus on one metro at a time so matches stay local and useful. Choose TRAIN on signup, set
-          Atlanta as your city, and start Discover when your profile is ready.
+          Atlanta TRAIN is one local density experiment. GetTrainMate also supports VIBE and DATE in any
+          supported city. Choose TRAIN on signup if that is your intent, set your city, and start Discover
+          when your profile is ready.
         </Typography>
 
         <Box sx={{ mt: 4, mb: 2 }}>
