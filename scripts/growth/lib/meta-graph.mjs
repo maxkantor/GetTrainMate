@@ -34,15 +34,15 @@ export function resolveMetaCredentials(env = process.env) {
 export function diagnoseMetaBlocker({ pageToken, pageId, igUserId }) {
   if (!pageToken) {
     return (
-      'Meta Page access token missing. Set SSM /prod/gettrainmate/meta/page-access-token ' +
-      '(fallback /gettrainmate/growth/meta-page-access-token) or env META_PAGE_ACCESS_TOKEN. ' +
-      'Token must be a Page token with pages_manage_posts, pages_read_engagement, instagram_content_publish, instagram_basic.'
+      'Meta Page access token missing. Set SSM /gettrainmate/growth/meta-page-access-token ' +
+      '(or env META_PAGE_ACCESS_TOKEN). Token must be a Page token with ' +
+      'pages_manage_posts, pages_read_engagement, instagram_content_publish, instagram_basic.'
     );
   }
   if (!pageId && !igUserId) {
     return (
-      'Meta destination ids missing. Set SSM /prod/gettrainmate/meta/facebook-page-id and ' +
-      '/prod/gettrainmate/meta/instagram-account-id (Facebook Page id + IG professional account id).'
+      'Meta destination ids missing. Set SSM /gettrainmate/growth/facebook-page-id and ' +
+      '/gettrainmate/growth/instagram-business-account-id (Facebook Page id + IG professional account id).'
     );
   }
   return null;

@@ -19,18 +19,18 @@ const MAP = [
   ['AWS_SECRET_ACCESS_KEY', ['/gettrainmate/growth/aws-secret-access-key'], true],
   [
     'META_PAGE_ACCESS_TOKEN',
-    ['/prod/gettrainmate/meta/page-access-token', '/gettrainmate/growth/meta-page-access-token'],
+    ['/gettrainmate/growth/meta-page-access-token'],
     true
   ],
   [
     'FACEBOOK_PAGE_ID',
-    ['/prod/gettrainmate/meta/facebook-page-id', '/gettrainmate/growth/facebook-page-id'],
+    ['/gettrainmate/growth/facebook-page-id'],
     false
   ],
   ['INSTAGRAM_GRAPH_ACCESS_TOKEN', ['/gettrainmate/growth/instagram-graph-access-token'], true],
   [
     'INSTAGRAM_BUSINESS_ACCOUNT_ID',
-    ['/prod/gettrainmate/meta/instagram-account-id', '/gettrainmate/growth/instagram-business-account-id'],
+    ['/gettrainmate/growth/instagram-business-account-id'],
     false
   ]
 ];

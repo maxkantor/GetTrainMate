@@ -9,10 +9,10 @@ $Pairs = @(
     @{ Env = "STRIPE_RESTRICTED_READ_KEY"; Param = "/gettrainmate/growth/stripe-restricted-read-key"; Secure = $true },
     @{ Env = "AWS_ACCESS_KEY_ID"; Param = "/gettrainmate/growth/aws-access-key-id"; Secure = $false },
     @{ Env = "AWS_SECRET_ACCESS_KEY"; Param = "/gettrainmate/growth/aws-secret-access-key"; Secure = $true },
-    @{ Env = "META_PAGE_ACCESS_TOKEN"; Param = "/prod/gettrainmate/meta/page-access-token"; Secure = $true },
-    @{ Env = "FACEBOOK_PAGE_ID"; Param = "/prod/gettrainmate/meta/facebook-page-id"; Secure = $false },
+    @{ Env = "META_PAGE_ACCESS_TOKEN"; Param = "/gettrainmate/growth/meta-page-access-token"; Secure = $true },
+    @{ Env = "FACEBOOK_PAGE_ID"; Param = "/gettrainmate/growth/facebook-page-id"; Secure = $false },
     @{ Env = "INSTAGRAM_GRAPH_ACCESS_TOKEN"; Param = "/gettrainmate/growth/instagram-graph-access-token"; Secure = $true },
-    @{ Env = "INSTAGRAM_BUSINESS_ACCOUNT_ID"; Param = "/prod/gettrainmate/meta/instagram-account-id"; Secure = $false }
+    @{ Env = "INSTAGRAM_BUSINESS_ACCOUNT_ID"; Param = "/gettrainmate/growth/instagram-business-account-id"; Secure = $false }
 )
 
 Write-Host "GetTrainMate growth SSM setup ($Region)" -ForegroundColor Cyan
