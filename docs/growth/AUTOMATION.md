@@ -29,11 +29,11 @@ The live Cursor automation fires on **weekdays**. Experiment **evaluation** is d
 | `AWS_REGION`                        | `us-east-1`                                                                                      |
 | `ADMIN_EMAIL` or `SES_ADMIN_EMAIL`  | Optional (else SSM `/gettrainmate/ses-admin-email`)                                              |
 | `SES_FROM_EMAIL`                    | Optional (else SSM `/gettrainmate/ses-from-email`)                                               |
-| `META_PAGE_ACCESS_TOKEN`            | SSM `/gettrainmate/growth/meta-page-access-token`                                                |
-| `FACEBOOK_PAGE_ID`                  | SSM `/gettrainmate/growth/facebook-page-id`                                                      |
-| `INSTAGRAM_BUSINESS_ACCOUNT_ID`     | SSM `/gettrainmate/growth/instagram-business-account-id`                                         |
+| `META_PAGE_ACCESS_TOKEN`            | SSM `/prod/gettrainmate/meta/page-access-token`                                                  |
+| `FACEBOOK_PAGE_ID`                  | SSM `/prod/gettrainmate/meta/facebook-page-id`                                                   |
+| `INSTAGRAM_BUSINESS_ACCOUNT_ID`     | SSM `/prod/gettrainmate/meta/instagram-account-id`                                               |
 
-IAM user `cursor-gettrainmate-growth` needs `ses:SendEmail` **and** `ssm:GetParameter` on `/gettrainmate/growth/*`, `/gettrainmate/ses-from-email`, `/gettrainmate/ses-admin-email`. Without SSM read, Admin email fails unless `SES_FROM_EMAIL` + `SES_ADMIN_EMAIL` are also in Cursor Environment secrets.
+IAM user `cursor-gettrainmate-growth` needs `ses:SendEmail` **and** `ssm:GetParameter` on `/gettrainmate/growth/*`, `/prod/gettrainmate/meta/*`, `/gettrainmate/ses-from-email`, `/gettrainmate/ses-admin-email`. Without SSM read, Admin email fails unless `SES_FROM_EMAIL` + `SES_ADMIN_EMAIL` are also in Cursor Environment secrets.
 
 Copy from SSM when needed:
 

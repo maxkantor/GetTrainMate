@@ -12,10 +12,10 @@ Never commit credential files or paste secrets into git, chat logs, or experimen
 | `GROWTH_METRO_READ_TOKEN` | `/gettrainmate/growth/metro-read-token` | SecureString (optional; preferred metro path) |
 | `GROWTH_CRM_ADMIN_EMAIL` | `/gettrainmate/growth/crm-admin-email` | String (optional fallback) |
 | `GROWTH_CRM_ADMIN_PASSWORD` | `/gettrainmate/growth/crm-admin-password` | SecureString (optional fallback) |
-| `META_PAGE_ACCESS_TOKEN` | `/gettrainmate/growth/meta-page-access-token` | SecureString (Page token; Facebook + Instagram publish) |
-| `FACEBOOK_PAGE_ID` | `/gettrainmate/growth/facebook-page-id` | String |
+| `META_PAGE_ACCESS_TOKEN` | `/prod/gettrainmate/meta/page-access-token` (fallback `/gettrainmate/growth/meta-page-access-token`) | SecureString (Page token; Facebook + Instagram publish) |
+| `FACEBOOK_PAGE_ID` | `/prod/gettrainmate/meta/facebook-page-id` | String |
 | `INSTAGRAM_GRAPH_ACCESS_TOKEN` | `/gettrainmate/growth/instagram-graph-access-token` | SecureString (optional if Page token already covers IG) |
-| `INSTAGRAM_BUSINESS_ACCOUNT_ID` | `/gettrainmate/growth/instagram-business-account-id` | String |
+| `INSTAGRAM_BUSINESS_ACCOUNT_ID` | `/prod/gettrainmate/meta/instagram-account-id` | String |
 | `AWS_ACCESS_KEY_ID` | `/gettrainmate/growth/aws-access-key-id` | String |
 | `AWS_SECRET_ACCESS_KEY` | `/gettrainmate/growth/aws-secret-access-key` | SecureString |
 
@@ -108,7 +108,7 @@ Secrets do **not** live on the Automations Settings page alone. They live here:
 ### IAM permissions (growth automation user `cursor-gettrainmate-growth`)
 
 - `ses:SendEmail` / `ses:SendRawEmail`
-- `ssm:GetParameter` / `ssm:GetParameters` on `/gettrainmate/growth/*`, `/gettrainmate/ses-admin-email`, `/gettrainmate/ses-from-email`
+- `ssm:GetParameter` / `ssm:GetParameters` on `/gettrainmate/growth/*`, `/prod/gettrainmate/meta/*`, `/gettrainmate/ses-admin-email`, `/gettrainmate/ses-from-email`
 - `kms:Decrypt` via `ssm.us-east-1.amazonaws.com` for SecureString params
 
 If Admin email fails in Automations with “SSM get failed”, either fix that IAM policy or add Cursor Environment secrets `SES_FROM_EMAIL` and `SES_ADMIN_EMAIL` (same values as the SSM params).
@@ -131,9 +131,9 @@ Fallback: `GROWTH_CRM_ADMIN_EMAIL` + `GROWTH_CRM_ADMIN_PASSWORD` (Admin login �
 
 Owned channels: https://www.facebook.com/gettrainmate and https://www.instagram.com/gettrainmate/
 
-Create a **Page access token** (not a user token) with `pages_manage_posts`, `pages_read_engagement`, `instagram_content_publish`, `instagram_basic`. Put it in SSM `/gettrainmate/growth/meta-page-access-token` (or Cursor secret `META_PAGE_ACCESS_TOKEN`). Also store the Facebook Page id and Instagram professional account id.
+Create a **Page access token** (not a user token) with `pages_manage_posts`, `pages_read_engagement`, `instagram_content_publish`, `instagram_basic`. Store it as SecureString `/prod/gettrainmate/meta/page-access-token`. Store Page id at `/prod/gettrainmate/meta/facebook-page-id` and IG professional account id at `/prod/gettrainmate/meta/instagram-account-id`.
 
-As of 2026-08-18 those four SSM names are **not present**. Until they exist, weekday publish reports the exact blocker and does **not** count as distribution. Partner email stays fail-closed independently.
+Those three parameters were created 2026-08-18. Weekday publish still needs `ssm:GetParameter` on `/prod/gettrainmate/meta/*` for the growth IAM user. Partner email stays fail-closed independently.
 
 Never commit, log, or email the Page token.
 

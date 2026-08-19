@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const LOG_PATH = path.join(__dirname, '../../docs/growth/owned-social/published-log.json');
+export const LOG_PATH = path.join(__dirname, '../../../docs/growth/owned-social/published-log.json');
 
 export function readPublishedLog(logPath = LOG_PATH) {
   if (!fs.existsSync(logPath)) return { entries: [] };

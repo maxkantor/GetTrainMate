@@ -9,7 +9,7 @@ import {
   trackedUrl
 } from '../lib/owned-social-catalog.mjs';
 import { diagnoseMetaBlocker, resolveMetaCredentials } from '../lib/meta-graph.mjs';
-import { recentlyUsedContentIds } from '../lib/owned-social-log.mjs';
+import { recentlyUsedContentIds, LOG_PATH } from '../lib/owned-social-log.mjs';
 import { rankPockets, scorePocket } from '../lib/market-density.mjs';
 import { composeGrowthEmailBody } from '../lib/growth-report.mjs';
 
@@ -61,7 +61,7 @@ describe('meta credentials', () => {
   it('reports exact blocker without requiring per-post approval language', () => {
     const creds = resolveMetaCredentials({});
     const blocker = diagnoseMetaBlocker(creds);
-    assert.match(blocker, /meta-page-access-token/i);
+    assert.match(blocker, /page-access-token/i);
     assert.doesNotMatch(blocker, /APPROVED IG-2026-08-17/);
   });
 
@@ -87,6 +87,10 @@ describe('density ranking', () => {
 });
 
 describe('owned social log helpers', () => {
+  it('writes the publish log under docs/growth/owned-social', () => {
+    assert.match(LOG_PATH.replace(/\\/g, '/'), /docs\/growth\/owned-social\/published-log\.json$/);
+  });
+
   it('returns published content ids inside the window', () => {
     const now = Date.parse('2026-08-18T16:00:00Z');
     const ids = recentlyUsedContentIds(

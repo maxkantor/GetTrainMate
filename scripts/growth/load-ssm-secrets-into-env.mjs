@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Load /gettrainmate/growth/* from SSM into process.env (for collectors).
+ * Load growth secrets from SSM into process.env (for collectors).
  * Does not print values. No-op if AWS CLI / params unavailable.
  */
 import { spawnSync } from 'node:child_process';
@@ -9,54 +9,78 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const MAP = [
-  ['GA4_PROPERTY_ID', '/gettrainmate/growth/ga4-property-id', false],
-  ['GOOGLE_ANALYTICS_CREDENTIALS_JSON', '/gettrainmate/growth/google-analytics-credentials-json', true],
-  ['STRIPE_RESTRICTED_READ_KEY', '/gettrainmate/growth/stripe-restricted-read-key', true],
-  ['GROWTH_METRO_READ_TOKEN', '/gettrainmate/growth/metro-read-token', true],
-  ['GROWTH_CRM_ADMIN_EMAIL', '/gettrainmate/growth/crm-admin-email', false],
-  ['GROWTH_CRM_ADMIN_PASSWORD', '/gettrainmate/growth/crm-admin-password', true],
-  ['AWS_ACCESS_KEY_ID', '/gettrainmate/growth/aws-access-key-id', false],
-  ['AWS_SECRET_ACCESS_KEY', '/gettrainmate/growth/aws-secret-access-key', true],
-  ['META_PAGE_ACCESS_TOKEN', '/gettrainmate/growth/meta-page-access-token', true],
-  ['FACEBOOK_PAGE_ID', '/gettrainmate/growth/facebook-page-id', false],
-  ['INSTAGRAM_GRAPH_ACCESS_TOKEN', '/gettrainmate/growth/instagram-graph-access-token', true],
-  ['INSTAGRAM_BUSINESS_ACCOUNT_ID', '/gettrainmate/growth/instagram-business-account-id', false]
+  ['GA4_PROPERTY_ID', ['/gettrainmate/growth/ga4-property-id'], false],
+  ['GOOGLE_ANALYTICS_CREDENTIALS_JSON', ['/gettrainmate/growth/google-analytics-credentials-json'], true],
+  ['STRIPE_RESTRICTED_READ_KEY', ['/gettrainmate/growth/stripe-restricted-read-key'], true],
+  ['GROWTH_METRO_READ_TOKEN', ['/gettrainmate/growth/metro-read-token'], true],
+  ['GROWTH_CRM_ADMIN_EMAIL', ['/gettrainmate/growth/crm-admin-email'], false],
+  ['GROWTH_CRM_ADMIN_PASSWORD', ['/gettrainmate/growth/crm-admin-password'], true],
+  ['AWS_ACCESS_KEY_ID', ['/gettrainmate/growth/aws-access-key-id'], false],
+  ['AWS_SECRET_ACCESS_KEY', ['/gettrainmate/growth/aws-secret-access-key'], true],
+  [
+    'META_PAGE_ACCESS_TOKEN',
+    ['/prod/gettrainmate/meta/page-access-token', '/gettrainmate/growth/meta-page-access-token'],
+    true
+  ],
+  [
+    'FACEBOOK_PAGE_ID',
+    ['/prod/gettrainmate/meta/facebook-page-id', '/gettrainmate/growth/facebook-page-id'],
+    false
+  ],
+  ['INSTAGRAM_GRAPH_ACCESS_TOKEN', ['/gettrainmate/growth/instagram-graph-access-token'], true],
+  [
+    'INSTAGRAM_BUSINESS_ACCOUNT_ID',
+    ['/prod/gettrainmate/meta/instagram-account-id', '/gettrainmate/growth/instagram-business-account-id'],
+    false
+  ]
 ];
+
+function readSsmParameter(ssmName, secure) {
+  const args = [
+    'ssm',
+    'get-parameter',
+    '--name',
+    ssmName,
+    '--region',
+    REGION,
+    '--query',
+    'Parameter.Value',
+    '--output',
+    'text'
+  ];
+  if (secure) args.splice(4, 0, '--with-decryption');
+  const r = spawnSync('aws', args, { encoding: 'utf8' });
+  if (r.status !== 0) return null;
+  const value = (r.stdout || '').trim();
+  if (!value || value === 'None') return null;
+  return value;
+}
 
 export function loadSsmSecretsIntoEnv() {
   const loaded = [];
   const missing = [];
 
-  for (const [envName, ssmName, secure] of MAP) {
+  for (const [envName, ssmNames, secure] of MAP) {
     if (process.env[envName]) {
       loaded.push({ env: envName, source: 'env' });
       continue;
     }
-    const args = [
-      'ssm',
-      'get-parameter',
-      '--name',
-      ssmName,
-      '--region',
-      REGION,
-      '--query',
-      'Parameter.Value',
-      '--output',
-      'text'
-    ];
-    if (secure) args.splice(4, 0, '--with-decryption');
-    const r = spawnSync('aws', args, { encoding: 'utf8' });
-    if (r.status !== 0) {
-      missing.push(envName);
-      continue;
+    const names = Array.isArray(ssmNames) ? ssmNames : [ssmNames];
+    let value = null;
+    let sourcePath = null;
+    for (const ssmName of names) {
+      value = readSsmParameter(ssmName, secure);
+      if (value) {
+        sourcePath = ssmName;
+        break;
+      }
     }
-    const value = (r.stdout || '').trim();
-    if (!value || value === 'None') {
+    if (!value) {
       missing.push(envName);
       continue;
     }
     process.env[envName] = value;
-    loaded.push({ env: envName, source: 'ssm' });
+    loaded.push({ env: envName, source: sourcePath || 'ssm' });
   }
 
   return { loaded: loaded.map((x) => x.env), missing, region: REGION };
