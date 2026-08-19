@@ -22,6 +22,17 @@ const PARAMS = [
     env: 'AWS_SECRET_ACCESS_KEY',
     name: '/gettrainmate/growth/aws-secret-access-key',
     expect: 'SecureString'
+  },
+  {
+    env: 'META_PAGE_ACCESS_TOKEN',
+    name: '/gettrainmate/growth/meta-page-access-token',
+    expect: 'SecureString'
+  },
+  { env: 'FACEBOOK_PAGE_ID', name: '/gettrainmate/growth/facebook-page-id', expect: 'String' },
+  {
+    env: 'INSTAGRAM_BUSINESS_ACCOUNT_ID',
+    name: '/gettrainmate/growth/instagram-business-account-id',
+    expect: 'String'
   }
 ];
 

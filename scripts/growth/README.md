@@ -25,6 +25,11 @@ Env / Automation / SSM:
 - `GA4_PROPERTY_ID` → `/gettrainmate/growth/ga4-property-id`
 - `GOOGLE_ANALYTICS_CREDENTIALS_JSON` → `/gettrainmate/growth/google-analytics-credentials-json`
 - `STRIPE_RESTRICTED_READ_KEY` → `/gettrainmate/growth/stripe-restricted-read-key` (`rk_…` only)
+- `META_PAGE_ACCESS_TOKEN` → `/gettrainmate/growth/meta-page-access-token`
+- `FACEBOOK_PAGE_ID` → `/gettrainmate/growth/facebook-page-id`
+- `INSTAGRAM_BUSINESS_ACCOUNT_ID` → `/gettrainmate/growth/instagram-business-account-id`
+
+The web/API Lambda does **not** read Meta SSM. It loads `/gettrainmate/stripe/*`, `/gettrainmate/ses-*`, and `/gettrainmate/admin/password`. Owned-social publish is the growth scripts only.
 
 Snapshots write under `docs/growth/snapshots/` (`funnel-*.json` gitignored).
 

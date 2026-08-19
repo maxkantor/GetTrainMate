@@ -35,6 +35,16 @@ const MAP = [
   ]
 ];
 
+export const GROWTH_SSM_MAP = MAP;
+
+function assertGrowthSsmName(ssmName) {
+  if (!String(ssmName).startsWith('/gettrainmate/')) {
+    throw new Error(`SSM path must start with /gettrainmate/: ${ssmName}`);
+  }
+  if (String(ssmName).startsWith('/prod/')) {
+    throw new Error(`SSM path must not use /prod/: ${ssmName}`);
+  }
+}
 function readSsmParameter(ssmName, secure) {
   const args = [
     'ssm',
@@ -69,6 +79,7 @@ export function loadSsmSecretsIntoEnv() {
     let value = null;
     let sourcePath = null;
     for (const ssmName of names) {
+      assertGrowthSsmName(ssmName);
       value = readSsmParameter(ssmName, secure);
       if (value) {
         sourcePath = ssmName;
@@ -83,7 +94,12 @@ export function loadSsmSecretsIntoEnv() {
     loaded.push({ env: envName, source: sourcePath || 'ssm' });
   }
 
-  return { loaded: loaded.map((x) => x.env), missing, region: REGION };
+  return {
+    loaded: loaded.map((x) => x.env),
+    sources: Object.fromEntries(loaded.map((x) => [x.env, x.source])),
+    missing,
+    region: REGION
+  };
 }
 
 const invokedAsCli =
