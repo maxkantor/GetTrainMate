@@ -27,9 +27,10 @@
   "priceIdsEnv": "STRIPE_GTM_PRICE_IDS",
   "paymentLinkIdsEnv": "STRIPE_GTM_PAYMENT_LINK_IDS",
   "notes": [
-    "Empty product/price allowlists are intentional until IDs are confirmed in Admin CRM / Stripe Dashboard.",
-    "Metadata gtm_source=gettrainmate is the primary conclusive ownership stamp.",
+    "Primary conclusive ownership: Checkout metadata gtm_source=gettrainmate (always configured in this file).",
+    "Empty product/price allowlists are optional extras — not a missing configuration when metadata rules exist.",
     "Legacy credits sessions with packKey+credits+priceUsd (without another app source) are treated as GetTrainMate.",
-    "Owner/self and smoke-test customers belong in excludeCustomerIds or STRIPE_GTM_EXCLUDE_CUSTOMER_IDS."
+    "Owner/self and smoke-test customers belong in excludeCustomerIds or STRIPE_GTM_EXCLUDE_CUSTOMER_IDS.",
+    "Keep reconciliationComplete false until human-reviewed baselines; verified customers stay at 0."
   ]
 }

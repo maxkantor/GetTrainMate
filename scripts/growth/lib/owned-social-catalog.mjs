@@ -345,6 +345,10 @@ export function selectCatalogItem({ weekday, recentlyUsedIds = [], preferMode, p
   return unusedAny[0] || pool[0] || CATALOG[0];
 }
 
+export function findCatalogItemByContentId(contentId) {
+  return CATALOG.find((c) => c.contentId === contentId) || null;
+}
+
 export function easternWeekday(date = new Date()) {
   const wd = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',

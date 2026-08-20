@@ -132,11 +132,41 @@ Fallback: `GROWTH_CRM_ADMIN_EMAIL` + `GROWTH_CRM_ADMIN_PASSWORD` (Admin login �
 
 Owned channels: https://www.facebook.com/gettrainmate and https://www.instagram.com/gettrainmate/
 
-Create a **Page access token** (not a user token) with `pages_manage_posts`, `pages_read_engagement`, `instagram_content_publish`, `instagram_basic`. Store it as SecureString `/gettrainmate/growth/meta-page-access-token`. Store Page id at `/gettrainmate/growth/facebook-page-id` and IG professional account id at `/gettrainmate/growth/instagram-business-account-id`.
+**Canonical SSM (us-east-1 only under `/gettrainmate/growth/*`):**
 
-Do not use `/prod/gettrainmate/meta/*` for growth automation. Partner email stays fail-closed independently.
+| Purpose | SSM path | Type |
+|---------|----------|------|
+| Page access token | `/gettrainmate/growth/meta-page-access-token` | SecureString |
+| Facebook Page id | `/gettrainmate/growth/facebook-page-id` | String (`1138684902641972`) |
+| IG business account id | `/gettrainmate/growth/instagram-business-account-id` | String (`17841434503711452`) |
+| IG username | `/gettrainmate/growth/instagram-username` | String (`gettrainmate`) |
+| Meta App id | `/gettrainmate/growth/meta-app-id` | String |
+| Meta App secret | `/gettrainmate/growth/meta-app-secret` | SecureString |
+| Token metadata | `meta-token-installed-at`, `meta-token-expires-at`, `meta-token-last-validated-at`, `meta-token-type` | String (no secrets) |
 
-Never commit, log, or email the Page token.
+Leftover `/prod/gettrainmate/meta/*` parameters were deleted. Growth never reads `/prod`.
+
+### One-time / renewal (do not paste Page tokens manually)
+
+Short-lived Graph Explorer **User** tokens expire in ~1–2 hours. Always exchange via the setup script:
+
+```powershell
+# One-time: store Meta App ID + App Secret (admin AWS profile)
+$env:META_APP_ID = "<app_id>"
+$env:META_APP_SECRET = "<app_secret>"
+.\scripts\growth\put-ssm-secrets.ps1
+
+# Each renewal: temporary User token only (never paste into chat)
+$env:META_TEMP_USER_TOKEN = "<short-lived User token from Graph API Explorer>"
+node scripts/growth/setup-meta-token.mjs
+Remove-Item Env:META_TEMP_USER_TOKEN
+```
+
+The script: long-lived User exchange → `/me/accounts` → GetTrainMate Page token → validate Page + Instagram → SSM SecureString. Daily automation **validates then publishes**; it does **not** mint a new token each day.
+
+Never commit, log, or email the Page token or App Secret.
+
+Partner email stays fail-closed independently.
 
 ## Verify SSM from your laptop (safe)
 

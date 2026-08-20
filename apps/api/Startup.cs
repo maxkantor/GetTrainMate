@@ -286,6 +286,35 @@ public class Startup
         else
             Log.Warning("Stripe webhook signing secret is empty; webhook verification is disabled until SSM /gettrainmate/stripe/webhook-secret or Stripe:WebhookSecret is set.");
 
+        // Scoped metro read token for growth automation (SSM preferred over empty Lambda env).
+        try
+        {
+            var metroEnv = Environment.GetEnvironmentVariable("GROWTH_METRO_READ_TOKEN");
+            if (string.IsNullOrWhiteSpace(metroEnv))
+            {
+                using var ssmMetro = new AmazonSimpleSystemsManagementClient();
+                var metroResp = ssmMetro.GetParameterAsync(new GetParameterRequest
+                {
+                    Name = "/gettrainmate/growth/metro-read-token",
+                    WithDecryption = true
+                }).GetAwaiter().GetResult();
+                var metroVal = metroResp.Parameter?.Value?.Trim();
+                if (!string.IsNullOrEmpty(metroVal))
+                {
+                    Environment.SetEnvironmentVariable("GROWTH_METRO_READ_TOKEN", metroVal);
+                    Log.Information("GROWTH_METRO_READ_TOKEN loaded from SSM /gettrainmate/growth/metro-read-token");
+                }
+            }
+        }
+        catch (ParameterNotFoundException)
+        {
+            Log.Information("GROWTH_METRO_READ_TOKEN SSM parameter not found (metro CRM remains unavailable until configured)");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not load GROWTH_METRO_READ_TOKEN from SSM");
+        }
+
         services.AddSingleton(new StripeWebhookSecret(wh));
 
         // SES: appsettings / Lambda env → SSM /gettrainmate/ses-from-email (matches Stripe/Bedrock pattern)

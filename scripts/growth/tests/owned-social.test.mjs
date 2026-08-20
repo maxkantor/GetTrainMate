@@ -135,15 +135,18 @@ describe('growth report positioning', () => {
       experiments: [],
       generatedAt: new Date('2026-08-18T16:00:00Z')
     });
-    assert.match(text, /1\) GETTRAINMATE GLOBAL GROWTH/);
+    assert.match(text, /1\) GETTRAINMATE — TODAY/);
     assert.match(text, /2\) GROWTH BY MODE/);
-    assert.match(text, /5\) OWNED SOCIAL DISTRIBUTION/);
+    assert.match(text, /5\) OWNED SOCIAL \+ META AUTHENTICATION/);
     assert.match(text, /Facebook: Published: NO/);
     assert.match(text, /Instagram: Published: NO/);
     assert.match(text, /6\) DECISION/);
     assert.doesNotMatch(text, /Atlanta TRAIN profiles: see Metro CRM/);
     assert.doesNotMatch(text, /APPROVED IG-2026-08-17/);
     assert.doesNotMatch(html, /Atlanta TRAIN profiles/);
-    assert.match(html, /GetTrainMate global growth/i);
+    assert.match(html, /GetTrainMate — Growth report/);
+    assert.match(html, /<h2[^>]*>GetTrainMate — Today<\/h2>/);
+    assert.match(html, /<h2[^>]*>Meta authentication<\/h2>/);
+    assert.match(html, /America\/New_York/);
   });
 });

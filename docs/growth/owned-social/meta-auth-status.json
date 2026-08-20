@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "state": "META_VALID",
+  "configuration": "PRESENT",
+  "authentication": "VALID",
+  "pageId": "1138684902641972",
+  "pageName": "Get Train Mate App",
+  "instagramId": "17841434503711452",
+  "instagramUsername": "gettrainmate",
+  "tokenInstalledAt": "2026-08-20T15:13:11.236Z",
+  "tokenLastValidatedAt": "2026-08-20T15:13:11.236Z",
+  "tokenExpiresAt": "no_explicit_expiry",
+  "tokenType": "PAGE",
+  "ssmPageToken": "/gettrainmate/growth/meta-page-access-token",
+  "ownerActionRequired": false
+}

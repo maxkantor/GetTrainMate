@@ -12,7 +12,10 @@ $Pairs = @(
     @{ Env = "META_PAGE_ACCESS_TOKEN"; Param = "/gettrainmate/growth/meta-page-access-token"; Secure = $true },
     @{ Env = "FACEBOOK_PAGE_ID"; Param = "/gettrainmate/growth/facebook-page-id"; Secure = $false },
     @{ Env = "INSTAGRAM_GRAPH_ACCESS_TOKEN"; Param = "/gettrainmate/growth/instagram-graph-access-token"; Secure = $true },
-    @{ Env = "INSTAGRAM_BUSINESS_ACCOUNT_ID"; Param = "/gettrainmate/growth/instagram-business-account-id"; Secure = $false }
+    @{ Env = "INSTAGRAM_BUSINESS_ACCOUNT_ID"; Param = "/gettrainmate/growth/instagram-business-account-id"; Secure = $false },
+    @{ Env = "META_APP_ID"; Param = "/gettrainmate/growth/meta-app-id"; Secure = $false },
+    @{ Env = "META_APP_SECRET"; Param = "/gettrainmate/growth/meta-app-secret"; Secure = $true },
+    @{ Env = "GROWTH_METRO_READ_TOKEN"; Param = "/gettrainmate/growth/metro-read-token"; Secure = $true }
 )
 
 Write-Host "GetTrainMate growth SSM setup ($Region)" -ForegroundColor Cyan

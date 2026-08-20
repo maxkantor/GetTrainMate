@@ -145,9 +145,14 @@ function ensureSnapshot() {
   }
 }
 
-function subjectLine({ et, testEmail }) {
-  const base = `GetTrainMate Growth — Marketplace run · ${et.dateStr}`;
-  return testEmail ? `[TEST] GetTrainMate Growth Report — ${et.dateStr}` : base;
+function gitSha() {
+  const r = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8', cwd: ROOT });
+  return (r.stdout || '').trim() || '';
+}
+
+function subjectLine({ et, testEmail, subject }) {
+  if (testEmail) return `[TEST] ${subject}`;
+  return subject;
 }
 
 const invokedAsCli =
@@ -184,16 +189,17 @@ if (invokedAsCli) {
   const logMd = fs.existsSync(LOG_PATH) ? fs.readFileSync(LOG_PATH, 'utf8') : '';
   const experiments = parseActiveExperiments(logMd);
   const now = new Date();
-  const { text, html, et } = composeGrowthEmailBody({
+  const { text, html, et, subject: composedSubject } = composeGrowthEmailBody({
     snapshot,
     health,
     experiments,
     notes,
     generatedAt: now,
     decision: args.decision,
-    shipped: args.shipped
+    shipped: args.shipped,
+    commitSha: gitSha()
   });
-  const subject = subjectLine({ et, testEmail: args.testEmail });
+  const subject = subjectLine({ et, testEmail: args.testEmail, subject: composedSubject });
 
   if (args.previewDir) {
     fs.mkdirSync(args.previewDir, { recursive: true });

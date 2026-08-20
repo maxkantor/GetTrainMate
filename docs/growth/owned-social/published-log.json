@@ -19,6 +19,60 @@
       "facebookPostId": "",
       "instagramPostId": "",
       "blocker": "Error validating access token: The session is invalid because the user logged out. code 190 subcode 467"
+    },
+    {
+      "publishedAtUtc": "2026-08-19T19:33:32.236Z",
+      "contentId": "date-ru-po-interesam",
+      "mode": "DATE",
+      "language": "ru",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122128095038773778",
+      "instagramPostId": "18141306481602204",
+      "blocker": ""
+    },
+    {
+      "publishedAtUtc": "2026-08-19T19:39:16.382Z",
+      "contentId": "date-en-active-singles",
+      "mode": "DATE",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122128095308773778",
+      "instagramPostId": "18120571513916081",
+      "blocker": ""
+    },
+    {
+      "publishedAtUtc": "2026-08-20T13:59:09.930Z",
+      "contentId": "train-en-workout-partner",
+      "mode": "TRAIN",
+      "language": "en",
+      "status": "failed",
+      "facebookPostId": "",
+      "instagramPostId": "",
+      "blocker": "Error validating access token: Session has expired on Wednesday, 19-Aug-26 13:00:00 PDT. The current time is Thursday, 20-Aug-26 06:59:10 PDT. · code 190 · subcode 463"
+    },
+    {
+      "publishedAtUtc": "2026-08-20T15:14:54.804Z",
+      "contentId": "train-en-workout-partner",
+      "mode": "TRAIN",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122128282436773778",
+      "instagramPostId": "",
+      "blocker": "Media ID is not available · META_AUTH_UNKNOWN · code 9007 · subcode 2207027",
+      "metaStatus": "META_VALID"
+    },
+    {
+      "publishedAtUtc": "2026-08-20T15:29:23.397Z",
+      "contentId": "train-en-workout-partner",
+      "mode": "TRAIN",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122128282436773778",
+      "instagramPostId": "18014936888736158",
+      "igCreationId": "18103992953150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
     }
   ]
 }

@@ -32,7 +32,9 @@ const MAP = [
     'INSTAGRAM_BUSINESS_ACCOUNT_ID',
     ['/gettrainmate/growth/instagram-business-account-id'],
     false
-  ]
+  ],
+  ['META_APP_ID', ['/gettrainmate/growth/meta-app-id'], false],
+  ['META_APP_SECRET', ['/gettrainmate/growth/meta-app-secret'], true]
 ];
 
 export const GROWTH_SSM_MAP = MAP;

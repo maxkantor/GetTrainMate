@@ -431,7 +431,7 @@ describe('growth report experiments and technical details', () => {
     assert.match(text, /Existing customers: 0/);
     assert.match(text, /Owner action required:/);
     assert.match(text, /Configure the metro read token/);
-    assert.match(text, /Incomplete — product allowlist not configured/);
+    assert.match(text, /metadata gtm_source=gettrainmate|Attribution rules: metadata/);
     assert.match(text, /Metro CRM: Unavailable/);
     assert.match(text, /Cause: GROWTH_METRO_READ_TOKEN is not configured/);
     assert.match(text, /HTTP status: 503 Configuration unavailable/);
@@ -444,7 +444,7 @@ describe('growth report experiments and technical details', () => {
     assert.doesNotMatch(html, /Never include credentials[\s\S]*Never include credentials/);
     assert.match(text, /\$0\.00/);
     assert.doesNotMatch(text, /\$19\.99/);
-    assert.match(text, /1\) GETTRAINMATE GLOBAL GROWTH/);
+    assert.match(text, /1\) GETTRAINMATE — TODAY/);
     assert.match(text, /6\) DECISION/);
     assert.match(text, /What was actually distributed:/);
     assert.match(text, /Newly attributed external customers: 0/);
@@ -452,8 +452,10 @@ describe('growth report experiments and technical details', () => {
     assert.match(text, /Required owner approval:/);
     assert.match(text, /EXP-001 KEEP/);
     assert.match(text, /facebook\.com\/gettrainmate/);
-    assert.match(html, /6\) Decision/);
-    assert.match(html, /New customers acquired by the current run/);
+    assert.match(html, /<h2[^>]*>Decision<\/h2>/);
+    assert.match(html, /New customers acquired by the current run|Customers this run/);
+    assert.match(html, /GetTrainMate — Growth report/);
+    assert.match(html, /America\/New_York/);
     assert.doesNotMatch(text, /APPROVED IG-2026-08-17/);
     assert.doesNotMatch(html, /Looking for a consistent training partner in Atlanta/);
   });
