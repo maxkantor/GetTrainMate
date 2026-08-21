@@ -19,6 +19,19 @@ interface I18nProviderProps {
 
 export const I18nProvider: React.FC<I18nProviderProps> = ({ children }) => {
   const [locale, setLocale] = useState<Locale>(() => {
+    // Owned-social / acquisition links pass lang=es|ru|… — honor once on first paint.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = (params.get('lang') || params.get('locale') || '').trim().toLowerCase();
+      const mapped = fromQuery === 'uk' ? 'ua' : fromQuery;
+      if (mapped && SUPPORTED_LOCALES.includes(mapped as Locale)) {
+        localStorage.setItem('locale', mapped);
+        return mapped as Locale;
+      }
+    } catch {
+      /* ignore */
+    }
+
     // Load from localStorage
     const stored = localStorage.getItem('locale');
     if (stored && SUPPORTED_LOCALES.includes(stored as Locale)) {
