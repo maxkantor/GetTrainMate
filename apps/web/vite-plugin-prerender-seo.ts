@@ -48,32 +48,32 @@ const MARKETING_PAGES: PrerenderPage[] = [
   },
   {
     canonicalPath: '/workout-partner',
-    title: `Find a Workout Partner | ${BRAND}`,
+    title: `Find People Who Want to Train | ${BRAND}`,
     description:
-      'Find gym, running, pickleball, and race partners on GetTrainMate TRAIN. International TRAIN + VIBE + DATE — not Atlanta-only. No guaranteed matches.',
-    ogTitle: `Find a Workout Partner | ${BRAND}`,
+      'Find gym, running, pickleball, and race partners on GetTrainMate TRAIN. Free to join — set your city and open Discover. Matches are never guaranteed.',
+    ogTitle: `Find People Who Want to Train | ${BRAND}`,
     ogDescription:
-      'Find gym, running, pickleball, and race partners on GetTrainMate TRAIN. International TRAIN + VIBE + DATE — not Atlanta-only.',
+      'Find gym, running, pickleball, and race partners on GetTrainMate TRAIN. Free to join.',
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {
     canonicalPath: '/meet-people',
-    title: `Find People to Hang Out With | ${BRAND}`,
+    title: `Meet Active People You Click With | ${BRAND}`,
     description:
-      'New in town? Meet people for events, coffee, and weekend plans in VIBE. GetTrainMate is TRAIN, VIBE, and DATE worldwide.',
-    ogTitle: `Find People to Hang Out With | ${BRAND}`,
+      'New in town? Meet people for events, coffee, and weekend plans in VIBE. Free to join. GetTrainMate also offers TRAIN and DATE worldwide.',
+    ogTitle: `Meet Active People You Click With | ${BRAND}`,
     ogDescription:
-      'Meet people for events, coffee, and weekend plans in VIBE on GetTrainMate.',
+      'Meet people for events, coffee, and weekend plans in VIBE on GetTrainMate. Free to join.',
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {
     canonicalPath: '/active-dating',
-    title: `Activity-Based Dating | ${BRAND}`,
+    title: `Activity Dating Beyond Swiping | ${BRAND}`,
     description:
-      'Meet people through shared interests on GetTrainMate DATE. Optional dating mode. No guaranteed dates or relationships.',
-    ogTitle: `Activity-Based Dating | ${BRAND}`,
+      'Meet someone who wants to do more than swipe. DATE is optional activity-based dating on GetTrainMate — free to join. No guaranteed dates.',
+    ogTitle: `Activity Dating Beyond Swiping | ${BRAND}`,
     ogDescription:
-      'Meet people through shared interests on GetTrainMate DATE. No guaranteed dates.',
+      'Activity-based dating on GetTrainMate DATE. Free to join. No guaranteed dates.',
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {

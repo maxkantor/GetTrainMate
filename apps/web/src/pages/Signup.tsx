@@ -37,7 +37,6 @@ export const SignupPage: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [submitResendUsername, setSubmitResendUsername] = useState<string | null>(null);
   const [failedRegistrationStatus, setFailedRegistrationStatus] = useState<string | null>(null);
@@ -46,18 +45,59 @@ export const SignupPage: React.FC = () => {
     name?: string;
     email?: string;
     password?: string;
-    confirmPassword?: string;
   }>({});
   const startedRef = useRef(false);
   const completedRef = useRef(false);
+  const viewTrackedRef = useRef(false);
+
+  const src = searchParams.get('src') || undefined;
+  const metro = searchParams.get('metro') || undefined;
+  const modeParam = (searchParams.get('mode') || '').toUpperCase();
+  const mode =
+    modeParam === 'TRAIN' || modeParam === 'VIBE' || modeParam === 'DATE' ? modeParam : undefined;
+
+  const modeHeadline =
+    mode === 'TRAIN'
+      ? 'Create your TRAIN account'
+      : mode === 'VIBE'
+        ? 'Create your VIBE account'
+        : mode === 'DATE'
+          ? 'Create your DATE account'
+          : t('auth.signup_title');
+
+  const modeSubhead =
+    mode === 'TRAIN'
+      ? 'Free to join. Find workout partners after you verify your email.'
+      : mode === 'VIBE'
+        ? 'Free to join. Meet active people after you verify your email.'
+        : mode === 'DATE'
+          ? 'Free to join. Start activity-based dating after you verify your email.'
+          : t('auth.joinUs');
+
+  useEffect(() => {
+    if (viewTrackedRef.current) return;
+    viewTrackedRef.current = true;
+    // Persist acquisition params as soon as signup is viewed (no PII).
+    mergeAndPersistAcquisition(captureAcquisitionFromSearch(searchParams));
+    trackEvent('signup_view', {
+      source_page: '/signup',
+      ...(src ? { acquisition_source: src } : {}),
+      ...(metro ? { metro } : {}),
+      ...(mode ? { mode } : {}),
+    });
+  }, [searchParams, src, metro, mode]);
 
   useEffect(() => {
     return () => {
       if (startedRef.current && !completedRef.current) {
-        trackEvent('signup_abandoned', { source_page: '/signup' });
+        trackEvent('signup_abandoned', {
+          source_page: '/signup',
+          ...(mode ? { mode } : {}),
+          ...(src ? { acquisition_source: src } : {}),
+        });
       }
     };
-  }, []);
+  }, [mode, src]);
 
   useEffect(() => {
     setError('');
@@ -85,10 +125,6 @@ export const SignupPage: React.FC = () => {
       errors.password = t('validation.passwordMinLength');
     }
 
-    if (password !== confirmPassword) {
-      errors.confirmPassword = t('validation.passwordMismatch');
-    }
-
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -101,16 +137,25 @@ export const SignupPage: React.FC = () => {
     setResendNotice(null);
 
     if (!validateForm()) {
+      trackEvent('signup_error', {
+        source_page: '/signup',
+        error_category: 'validation',
+        ...(mode ? { mode } : {}),
+        ...(src ? { acquisition_source: src } : {}),
+      });
       return;
     }
 
     startedRef.current = true;
-    const src = searchParams.get('src') || undefined;
-    const metro = searchParams.get('metro') || undefined;
-    const mode = searchParams.get('mode') || undefined;
     // Persist acquisition params across verify-email → app → pricing/checkout (no PII).
     mergeAndPersistAcquisition(captureAcquisitionFromSearch(searchParams));
     trackEvent('signup_started', {
+      source_page: '/signup',
+      ...(src ? { acquisition_source: src } : {}),
+      ...(metro ? { metro } : {}),
+      ...(mode ? { mode } : {}),
+    });
+    trackEvent('signup_submit', {
       source_page: '/signup',
       ...(src ? { acquisition_source: src } : {}),
       ...(metro ? { metro } : {}),
@@ -123,6 +168,11 @@ export const SignupPage: React.FC = () => {
       const result = await signup(email, password, name);
       if (result.success && result.username) {
         completedRef.current = true;
+        trackEvent('signup_verification_sent', {
+          source_page: '/signup',
+          ...(mode ? { mode } : {}),
+          ...(src ? { acquisition_source: src } : {}),
+        });
         trackEvent('verification_code_sent', { source_page: '/signup' });
         trackSignUp('email');
         savePendingSignup({
@@ -133,15 +183,28 @@ export const SignupPage: React.FC = () => {
         });
         navigate('/verify-email', { state: { email: email.trim(), username: result.username } });
       } else if (!result.success) {
+        const errorCategory = result.registrationStatus ?? 'signup_failed';
+        trackEvent('signup_error', {
+          source_page: '/signup',
+          error_category: errorCategory,
+          ...(mode ? { mode } : {}),
+          ...(src ? { acquisition_source: src } : {}),
+        });
         trackEvent('signup_failed', {
           source_page: '/signup',
-          error_type: result.registrationStatus ?? 'signup_failed',
+          error_type: errorCategory,
         });
         setError(result.error ?? t('errors.signupFailed'));
         if (result.resendUsername) setSubmitResendUsername(result.resendUsername);
         if (result.registrationStatus) setFailedRegistrationStatus(result.registrationStatus);
       }
     } catch (err) {
+      trackEvent('signup_error', {
+        source_page: '/signup',
+        error_category: 'exception',
+        ...(mode ? { mode } : {}),
+        ...(src ? { acquisition_source: src } : {}),
+      });
       trackEvent('signup_failed', {
         source_page: '/signup',
         error_type: 'exception',
@@ -187,11 +250,16 @@ export const SignupPage: React.FC = () => {
       <Container maxWidth="sm" sx={{ py: 4 }}>
         <Box sx={{ padding: 3 }}>
           <Typography variant="h4" component="h1" gutterBottom sx={{ marginBottom: 1 }}>
-            {t('auth.signup_title')}
+            {modeHeadline}
           </Typography>
           <Typography variant="body2" color="textSecondary" sx={{ marginBottom: 3 }}>
-            {t('auth.joinUs')}
+            {modeSubhead}
           </Typography>
+          {mode ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+              Mode selected: {mode}. You can change this after signup.
+            </Typography>
+          ) : null}
 
           {error && (
             <Alert severity={signupAlertSeverity} sx={{ marginBottom: 2 }}>
@@ -273,20 +341,7 @@ export const SignupPage: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               error={!!validationErrors.password}
-              helperText={validationErrors.password}
-              disabled={isLoading}
-              margin="normal"
-              autoComplete="new-password"
-            />
-
-            <TextField
-              fullWidth
-              label={t('auth.confirmPassword')}
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              error={!!validationErrors.confirmPassword}
-              helperText={validationErrors.confirmPassword}
+              helperText={validationErrors.password || 'At least 8 characters'}
               disabled={isLoading}
               margin="normal"
               autoComplete="new-password"
@@ -298,9 +353,16 @@ export const SignupPage: React.FC = () => {
               color="primary"
               type="submit"
               disabled={isLoading}
-              sx={{ marginY: 2, padding: '10px' }}
+              sx={{
+                marginY: 2,
+                padding: '12px',
+                fontWeight: 700,
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                '&:hover': { bgcolor: 'primary.dark' },
+              }}
             >
-              {isLoading ? <CircularProgress size={24} /> : t('auth.signup')}
+              {isLoading ? <CircularProgress size={24} color="inherit" /> : t('auth.signup')}
             </Button>
           </form>
 

@@ -11,7 +11,21 @@ Agents must append every experiment here. Do not delete history.
 
 ## Log
 
+### 2026-08-21 — Landing→signup conversion (mode landings + signup friction)
+
+| Field | Value |
+|-------|--------|
+| Status | Shipping this run |
+| Evidence | 7d GA4: 24 `landing_page_view`, 0 `signup_started`, 0 completed signups, 0 customers. Decision engine: traffic > 0 and signup_start = 0 → landing/CTA problem. Production audit: mode pages sold product architecture ("not Atlanta-only") instead of benefits; pricing CTA competed with join; signup dropped mode context and required confirm-password. |
+| Target | International TRAIN + VIBE + DATE visitors from SEO + owned social |
+| Funnel stage | landing → signup (proven blocker) |
+| Exact change | Benefit-first mode landings (`/workout-partner`, `/meet-people`, `/active-dating`); free-to-join CTA; remove confirm-password; mode-aware signup copy; `signup_view` / `signup_submit` / `signup_error` / `signup_verification_sent` / `signup_verified`; persist modeTotals+pockets in funnel snapshot (CRM was returning them; collector dropped them → report showed Unavailable). |
+| Primary metric | `signup_started` and `signup_view` from mode landings within 7d |
+| Guardrail | Do not modify EXP-002 partner pages/codes. No fake density. Partner email still fail-closed. |
+| Verified purchase result | 0 new customers until attributed payment exists |
+
 ### 2026-08-18 — International TRAIN+VIBE+DATE positioning + owned social engine
+
 
 | Field | Value |
 |-------|--------|

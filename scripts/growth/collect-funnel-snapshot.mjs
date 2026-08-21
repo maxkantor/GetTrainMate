@@ -258,6 +258,8 @@ try {
     discoverUsersNote: metro.discoverUsersNote || null,
     returningUsersNote: metro.returningUsersNote || null,
     byMetro: metro.status === 'ok' ? metro.metros : null,
+    modeTotals: metro.status === 'ok' ? metro.modeTotals || null : null,
+    pockets: metro.status === 'ok' ? metro.pockets || [] : [],
     authMethod: metro.authMethod || null
   };
   report.sources.adminCrm = metro.status === 'ok' ? 'ok' : 'unavailable';

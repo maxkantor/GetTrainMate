@@ -73,6 +73,19 @@
       "blocker": "",
       "metaStatus": "META_VALID",
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-08-21T13:58:29.046Z",
+      "contentId": "vibe-es-planes-ciudad",
+      "mode": "VIBE",
+      "language": "es",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122128446254773778",
+      "instagramPostId": "18112712098800204",
+      "igCreationId": "18104116229150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
     }
   ]
 }

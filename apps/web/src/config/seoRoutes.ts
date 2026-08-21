@@ -47,21 +47,21 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
     noindex: false,
   },
   '/workout-partner': {
-    title: `Find a Workout Partner | ${BRAND}`,
+    title: `Find People Who Want to Train | ${BRAND}`,
     description:
-      'Find gym, running, pickleball, and race partners on GetTrainMate TRAIN. International TRAIN + VIBE + DATE — not Atlanta-only. No guaranteed matches.',
+      'Find gym, running, pickleball, and race partners on GetTrainMate TRAIN. Free to join — set your city and open Discover. Matches are never guaranteed.',
     noindex: false,
   },
   '/meet-people': {
-    title: `Find People to Hang Out With | ${BRAND}`,
+    title: `Meet Active People You Click With | ${BRAND}`,
     description:
-      'New in town? Meet people for events, coffee, and weekend plans in VIBE. GetTrainMate is TRAIN, VIBE, and DATE worldwide. No guaranteed hangouts.',
+      'New in town? Meet people for events, coffee, and weekend plans in VIBE. Free to join. GetTrainMate also offers TRAIN and DATE worldwide.',
     noindex: false,
   },
   '/active-dating': {
-    title: `Activity-Based Dating | ${BRAND}`,
+    title: `Activity Dating Beyond Swiping | ${BRAND}`,
     description:
-      'Meet people through shared interests on GetTrainMate DATE. Optional dating mode alongside TRAIN and VIBE. No guaranteed dates or relationships.',
+      'Meet someone who wants to do more than swipe. DATE is optional activity-based dating on GetTrainMate — free to join. No guaranteed dates.',
     noindex: false,
   },
   '/atlanta-training-partners': {
