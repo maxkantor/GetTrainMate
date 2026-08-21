@@ -39,10 +39,26 @@ export const AtlantaReferralLandingPage: React.FC = () => {
         ...(metro ? { metro } : {}),
       }).toString()}`;
 
-  const headline = hasMarket ? `You were invited to train in ${metro}` : 'You were invited to GetTrainMate';
+  const headline =
+    hasMarket && mode === 'TRAIN'
+      ? `You were invited to train in ${metro}`
+      : hasMarket && mode === 'VIBE'
+        ? `You were invited to meet people in ${metro}`
+        : hasMarket && mode === 'DATE'
+          ? `You were invited to DATE in ${metro}`
+          : hasMarket
+            ? `You were invited to GetTrainMate in ${metro}`
+            : 'You were invited to GetTrainMate';
   const body = hasMarket
     ? `Create a free profile, choose ${mode}, set your city to ${metro} if that is your market, and start Discover. No guaranteed matches. You control your profile. We do not message your contacts for you.`
     : `Create a free profile, choose TRAIN, VIBE, or DATE, select your city, and start Discover. No guaranteed matches. You control your profile. We do not message your contacts for you.`;
+
+  const modeLine =
+    mode === 'VIBE'
+      ? 'Meet active people on GetTrainMate — VIBE for social plans; TRAIN and DATE stay available.'
+      : mode === 'DATE'
+        ? 'Meet someone who wants to do more than swipe — DATE on GetTrainMate; TRAIN and VIBE stay available.'
+        : 'Find a local partner on GetTrainMate — TRAIN, VIBE, and DATE stay available after signup.';
 
   return (
     <PageShell variant="content" showBackLink>
@@ -59,7 +75,7 @@ export const AtlantaReferralLandingPage: React.FC = () => {
           component="p"
           sx={{ mt: 1.5, fontSize: { xs: '1.15rem', md: '1.35rem' }, fontWeight: 600 }}
         >
-          Find a local partner on GetTrainMate — TRAIN, VIBE, and DATE stay available after signup.
+          {modeLine}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mt: 2, maxWidth: 560, lineHeight: 1.7 }}>
           {body}

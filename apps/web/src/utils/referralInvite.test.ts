@@ -3,6 +3,7 @@ import {
   buildReferralShareUrl,
   isValidReferralCode,
   opaqueReferralCode,
+  profileHasSupportedMode,
   profileHasTrainMode,
   shareOrCopyReferralLink,
 } from './referralInvite';
@@ -29,12 +30,14 @@ describe('referralInvite', () => {
     expect(url).not.toContain('metro=');
   });
 
-  it('shows the invite CTA only when TRAIN is selected', () => {
+  it('shows the invite CTA for TRAIN, VIBE, or DATE', () => {
     expect(profileHasTrainMode({ modes: ['TRAIN'] })).toBe(true);
-    expect(profileHasTrainMode({ mode: 'TRAIN' })).toBe(true);
+    expect(profileHasSupportedMode({ modes: ['TRAIN'] })).toBe(true);
+    expect(profileHasSupportedMode({ modes: ['DATE', 'VIBE'] })).toBe(true);
+    expect(profileHasSupportedMode({ mode: 'DATE' })).toBe(true);
+    expect(profileHasSupportedMode({ mode: 'VIBE' })).toBe(true);
+    expect(profileHasSupportedMode(null)).toBe(false);
     expect(profileHasTrainMode({ modes: ['DATE', 'VIBE'] })).toBe(false);
-    expect(profileHasTrainMode({ mode: 'DATE' })).toBe(false);
-    expect(profileHasTrainMode(null)).toBe(false);
   });
 
   it('copies the link when native share is unavailable', async () => {

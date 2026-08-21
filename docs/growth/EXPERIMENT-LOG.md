@@ -6,10 +6,22 @@ Agents must append every experiment here. Do not delete history.
 
 - **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — **KEEP 2026-08-17** (treatment unchanged) — funnel stage: acquisition / SEO
 - **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
-- **EXP-003** — Atlanta TRAIN user-initiated referral invite (`/invite/:ref`) — eval **2026-08-31** — funnel stage: acquisition / referral (independent of EXP-002 partner codes)
-- **Owned-social:** Facebook https://www.facebook.com/gettrainmate + Instagram https://www.instagram.com/gettrainmate/ — weekday Meta Graph publish when SSM credentials are valid (TRAIN/VIBE/DATE rotation). IG-2026-08-17 is historical, not the only post.
+- **EXP-003** — User-initiated referral invite (`/invite/:ref`) — **ITERATE 2026-08-21** (TRAIN+VIBE+DATE invite CTA) — eval **2026-08-31** — funnel stage: acquisition / referral
+- **EXP-004** — San Francisco density landing (`/san-francisco`) — started **2026-08-21** — funnel stage: acquisition / SEO market discovery (CRM densest metro)
+- **Owned-social:** Facebook + Instagram — weekday Meta Graph; reduce priority if posts remain FAILED_NO_SIGNUP
 
 ## Log
+
+### 2026-08-21 — Multi-mode invite + SF density + DATE×SF distribution
+
+| Field | Value |
+|-------|--------|
+| Status | Shipping this run |
+| Evidence | CRM: SF 4 completed profiles (top metro); DATE Atlanta pocket has matches; TRAIN 8 / VIBE 6 / DATE 7. Owned-social VIBE posts same day with 0 attributed signups historically. EXP-003 TRAIN-only blocked VIBE/DATE inviters. |
+| Actions | (1) EXP-003 ITERATE: invite CTA for TRAIN+VIBE+DATE + mode-aware landing. (2) EXP-004: `/san-francisco` multi-mode acquisition landing. (3) Owned-social DATE×EN×SF → `/san-francisco` (not another VIBE caption). |
+| Primary metric | Referral share attempts by mode; SF `landing_page_view` + `signup_started`; DATE SF campaign attributed visits |
+| Guardrail | No EXP-002 partner send. No fake density. No Atlanta-default market selection. |
+| Verified purchase result | Pending post-deploy |
 
 ### 2026-08-21 — Landing→signup conversion (mode landings + signup friction)
 

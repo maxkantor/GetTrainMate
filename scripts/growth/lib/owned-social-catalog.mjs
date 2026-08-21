@@ -228,6 +228,34 @@ export const CATALOG = [
     ].join('\n')
   },
   {
+    contentId: 'date-en-sf-bay',
+    mode: 'DATE',
+    language: 'en',
+    market: 'San Francisco',
+    kind: 'acquisition',
+    activity: 'dating',
+    landingPath: '/san-francisco',
+    imageUrl: IMAGE,
+    instagram: [
+      'Bay Area: looking for someone who wants plans beyond endless swiping?',
+      '',
+      'GetTrainMate DATE in San Francisco — activity-based dating. TRAIN and VIBE are there too.',
+      '',
+      'Free to join. No guaranteed dates. You control your profile.',
+      '',
+      '{{url}}'
+    ].join('\n'),
+    facebook: [
+      'San Francisco: meet people who want more than a swipe.',
+      '',
+      'GetTrainMate — DATE, TRAIN, or VIBE in the Bay Area. Free to create an account.',
+      '',
+      'No guaranteed matches. You choose who you talk to.',
+      '',
+      '{{url}}'
+    ].join('\n')
+  },
+  {
     contentId: 'date-es-citas-actividad',
     mode: 'DATE',
     language: 'es',
@@ -310,9 +338,12 @@ export const CATALOG = [
   }
 ];
 
-export function trackedUrl({ network, mode, language, contentId, landingPath, isoDate }) {
+export function trackedUrl({ network, mode, language, contentId, landingPath, isoDate, market }) {
   const path = landingPath || MODE_LANDINGS[mode] || '/';
-  const campaign = `owned-${network}-${String(mode).toLowerCase()}-${language}-${isoDate}`;
+  const marketSlug = market ? String(market).toLowerCase().replace(/\s+/g, '-') : '';
+  const campaign = marketSlug
+    ? `owned-${network}-${String(mode).toLowerCase()}-${language}-${marketSlug}-${isoDate}`
+    : `owned-${network}-${String(mode).toLowerCase()}-${language}-${isoDate}`;
   const params = new URLSearchParams({
     utm_source: network,
     utm_medium: 'organic',
@@ -322,6 +353,7 @@ export function trackedUrl({ network, mode, language, contentId, landingPath, is
     lang: language,
     src: 'owned_social'
   });
+  if (market) params.set('metro', String(market));
   return `https://gettrainmate.com${path}?${params.toString()}`;
 }
 

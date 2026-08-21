@@ -70,6 +70,12 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
       'Match with gym, running, Hyrox, and CrossFit partners in Atlanta. TRAIN-first on GetTrainMate — set your city and start Discover.',
     noindex: false,
   },
+  '/san-francisco': {
+    title: `Meet Active People in San Francisco | ${BRAND}`,
+    description:
+      'TRAIN, VIBE, or DATE in San Francisco on GetTrainMate. Free to join — set the Bay Area as your city and open Discover. Matches never guaranteed.',
+    noindex: false,
+  },
   '/partners/atlanta': {
     title: `Atlanta TRAIN Partner Invites | ${BRAND}`,
     description:

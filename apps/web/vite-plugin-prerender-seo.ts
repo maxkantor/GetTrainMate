@@ -87,6 +87,16 @@ const MARKETING_PAGES: PrerenderPage[] = [
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {
+    canonicalPath: '/san-francisco',
+    title: `Meet Active People in San Francisco | ${BRAND}`,
+    description:
+      'TRAIN, VIBE, or DATE in San Francisco on GetTrainMate. Free to join — set the Bay Area as your city and open Discover. Matches never guaranteed.',
+    ogTitle: `Meet Active People in San Francisco | ${BRAND}`,
+    ogDescription:
+      'Meet active people in San Francisco on GetTrainMate — TRAIN, VIBE, and DATE. Free to join.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
     canonicalPath: '/partners/atlanta',
     title: `Atlanta TRAIN Partner Invites | ${BRAND}`,
     description:

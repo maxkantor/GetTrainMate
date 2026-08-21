@@ -122,7 +122,8 @@ async function main() {
     language: item.language,
     contentId: item.contentId,
     landingPath: item.landingPath,
-    isoDate
+    isoDate,
+    market: item.market
   });
   const instagramUrl = trackedUrl({
     network: 'instagram',
@@ -130,7 +131,8 @@ async function main() {
     language: item.language,
     contentId: item.contentId,
     landingPath: item.landingPath,
-    isoDate
+    isoDate,
+    market: item.market
   });
   const facebookCopy = renderCopy(item.facebook, facebookUrl);
   const instagramCopy = renderCopy(item.instagram, instagramUrl);
