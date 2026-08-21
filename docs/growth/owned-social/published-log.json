@@ -86,6 +86,32 @@
       "blocker": "",
       "metaStatus": "META_VALID",
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-08-21T14:47:21.883Z",
+      "contentId": "vibe-en-new-in-town",
+      "mode": "VIBE",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122128450736773778",
+      "instagramPostId": "17882021496684702",
+      "igCreationId": "18104121734150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-08-21T14:49:07.721Z",
+      "contentId": "vibe-ru-kompaniya-v-gorode",
+      "mode": "VIBE",
+      "language": "ru",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122128450886773778",
+      "instagramPostId": "17929054893148185",
+      "igCreationId": "18104122103150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
     }
   ]
 }

@@ -15,14 +15,18 @@ Agents must append every experiment here. Do not delete history.
 
 | Field | Value |
 |-------|--------|
-| Status | Shipping this run |
+| Status | Shipped + distributed |
 | Evidence | 7d GA4: 24 `landing_page_view`, 0 `signup_started`, 0 completed signups, 0 customers. Decision engine: traffic > 0 and signup_start = 0 → landing/CTA problem. Production audit: mode pages sold product architecture ("not Atlanta-only") instead of benefits; pricing CTA competed with join; signup dropped mode context and required confirm-password. |
 | Target | International TRAIN + VIBE + DATE visitors from SEO + owned social |
 | Funnel stage | landing → signup (proven blocker) |
-| Exact change | Benefit-first mode landings (`/workout-partner`, `/meet-people`, `/active-dating`); free-to-join CTA; remove confirm-password; mode-aware signup copy; `signup_view` / `signup_submit` / `signup_error` / `signup_verification_sent` / `signup_verified`; persist modeTotals+pockets in funnel snapshot (CRM was returning them; collector dropped them → report showed Unavailable). |
+| Exact change | Benefit-first mode landings (`/workout-partner`, `/meet-people`, `/active-dating`); free-to-join CTA; remove confirm-password; mode-aware signup copy; `signup_view` / `signup_submit` / `signup_error` / `signup_verification_sent` / `signup_verified`; persist modeTotals+pockets in funnel snapshot; redeployed API Lambda so CRM returns ModeTotals (TRAIN 8 / VIBE 6 / DATE 7). |
 | Primary metric | `signup_started` and `signup_view` from mode landings within 7d |
 | Guardrail | Do not modify EXP-002 partner pages/codes. No fake density. Partner email still fail-closed. |
-| Verified purchase result | 0 new customers until attributed payment exists |
+| Commit | https://github.com/maxkantor/GetTrainMate/commit/f9ec989 |
+| Deployment status | Amplify job 493 SUCCEED; API Lambda CDK UPDATE_COMPLETE |
+| Production verification | `/workout-partner` shows "Find people who actually want to train" + Join free CTA; `/signup?mode=TRAIN` shows mode-aware copy and 3 fields (no confirm password) |
+| Distribution | Owned social VIBE×EN: FB `1138684902641972_122128450736773778` + IG `17882021496684702` → `/meet-people` (plus earlier same-day VIBE×ES) |
+| Verified purchase result | 0 new customers acquired by this run |
 
 ### 2026-08-18 — International TRAIN+VIBE+DATE positioning + owned social engine
 
