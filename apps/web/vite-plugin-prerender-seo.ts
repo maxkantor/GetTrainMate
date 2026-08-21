@@ -97,6 +97,16 @@ const MARKETING_PAGES: PrerenderPage[] = [
     ogImagePath: '/images/og-image.jpg?v=2',
   },
   {
+    canonicalPath: '/go',
+    title: `Join GetTrainMate | ${BRAND}`,
+    description:
+      'Choose TRAIN, VIBE, or DATE on GetTrainMate. Free to join. Matches are never guaranteed.',
+    ogTitle: `Join GetTrainMate | ${BRAND}`,
+    ogDescription:
+      'Choose TRAIN, VIBE, or DATE on GetTrainMate. Free to join.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+  },
+  {
     canonicalPath: '/partners/atlanta',
     title: `Atlanta TRAIN Partner Invites | ${BRAND}`,
     description:

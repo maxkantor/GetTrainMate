@@ -338,6 +338,17 @@ export const CATALOG = [
   }
 ];
 
+export function goCodeForDestination({ mode, landingPath } = {}) {
+  const path = String(landingPath || '').replace(/\/$/, '') || '';
+  if (path === '/san-francisco') return 'sf';
+  if (path === '/meet-people' || String(mode).toUpperCase() === 'VIBE') return 'v';
+  if (path === '/active-dating' || String(mode).toUpperCase() === 'DATE') return 'd';
+  return 't';
+}
+
+/**
+ * Full tracked landing URL (used for Facebook `link` attachment — clickable image/card).
+ */
 export function trackedUrl({ network, mode, language, contentId, landingPath, isoDate, market }) {
   const path = landingPath || MODE_LANDINGS[mode] || '/';
   const marketSlug = market ? String(market).toLowerCase().replace(/\s+/g, '-') : '';
@@ -357,8 +368,42 @@ export function trackedUrl({ network, mode, language, contentId, landingPath, is
   return `https://gettrainmate.com${path}?${params.toString()}`;
 }
 
+/**
+ * Short branded URL for Instagram captions (IG cannot attach links to images via Graph API).
+ * Example: https://gettrainmate.com/go/t?utm_source=instagram&...
+ * Resolves via SPA /go/:code → real landing while preserving UTMs.
+ */
+export function shortTrackedUrl(opts) {
+  const code = goCodeForDestination(opts);
+  const full = new URL(trackedUrl(opts));
+  return `https://gettrainmate.com/go/${code}?${full.searchParams.toString()}`;
+}
+
+/** Permanent bio / hub URL — set Instagram website to this once. */
+export const OWNED_SOCIAL_BIO_URL = 'https://gettrainmate.com/go';
+
 export function renderCopy(template, url) {
   return String(template || '').replaceAll('{{url}}', url);
+}
+
+/** Facebook caption: prefer short URL; link attachment carries the real click target. */
+export function renderFacebookCopy(template, shortUrl) {
+  const body = String(template || '').replaceAll('{{url}}', shortUrl || '').trim();
+  return body;
+}
+
+/** Instagram caption: short URL on its own line + bio fallback (IG feed images are not linkable via API). */
+export function renderInstagramCopy(template, shortUrl) {
+  const body = String(template || '')
+    .replaceAll('{{url}}', '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  const linkBlock = [
+    shortUrl || OWNED_SOCIAL_BIO_URL,
+    '',
+    'Link also in bio → gettrainmate.com/go'
+  ].join('\n');
+  return `${body}\n\n${linkBlock}`;
 }
 
 /**

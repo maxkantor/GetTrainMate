@@ -11,8 +11,10 @@ import {
   easternIsoDate,
   easternWeekday,
   findCatalogItemByContentId,
-  renderCopy,
+  renderFacebookCopy,
+  renderInstagramCopy,
   selectCatalogItem,
+  shortTrackedUrl,
   trackedUrl
 } from './lib/owned-social-catalog.mjs';
 import {
@@ -125,7 +127,16 @@ async function main() {
     isoDate,
     market: item.market
   });
-  const instagramUrl = trackedUrl({
+  const facebookShortUrl = shortTrackedUrl({
+    network: 'facebook',
+    mode: item.mode,
+    language: item.language,
+    contentId: item.contentId,
+    landingPath: item.landingPath,
+    isoDate,
+    market: item.market
+  });
+  const instagramUrl = shortTrackedUrl({
     network: 'instagram',
     mode: item.mode,
     language: item.language,
@@ -134,8 +145,10 @@ async function main() {
     isoDate,
     market: item.market
   });
-  const facebookCopy = renderCopy(item.facebook, facebookUrl);
-  const instagramCopy = renderCopy(item.instagram, instagramUrl);
+  // Facebook: clickable image/card uses full landing URL via Graph `link`. Caption uses short URL.
+  // Instagram: Graph API cannot attach links to feed images — short /go URL + bio hub only.
+  const facebookCopy = renderFacebookCopy(item.facebook, facebookShortUrl);
+  const instagramCopy = renderInstagramCopy(item.instagram, instagramUrl);
 
   const report = {
     generatedAtUtc: now.toISOString(),

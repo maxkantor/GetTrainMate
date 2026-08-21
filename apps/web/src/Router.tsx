@@ -14,6 +14,7 @@ import { BillingCancelPage } from '@/pages/BillingCancel';
 import { AboutPage } from '@/pages/About';
 import { AtlantaTrainingPartnersPage } from '@/pages/AtlantaTrainingPartners';
 import { SanFranciscoLandingPage } from '@/pages/SanFranciscoLanding';
+import { GoHubPage, GoRedirectPage } from '@/pages/GoRedirect';
 import { WorkoutPartnerPage, MeetPeoplePage, ActiveDatingPage } from '@/pages/ModeAcquisitionLanding';
 import { AtlantaPartnersHubPage } from '@/pages/AtlantaPartnersHub';
 import { AtlantaPartnerLandingPage, LegacyAtlantaPartnerRedirect } from '@/pages/AtlantaPartnerLanding';
@@ -127,6 +128,8 @@ export const Router: React.FC = () => {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/atlanta-training-partners" element={<AtlantaTrainingPartnersPage />} />
             <Route path="/san-francisco" element={<SanFranciscoLandingPage />} />
+            <Route path="/go" element={<GoHubPage />} />
+            <Route path="/go/:code" element={<GoRedirectPage />} />
             <Route path="/workout-partner" element={<WorkoutPartnerPage />} />
             <Route path="/meet-people" element={<MeetPeoplePage />} />
             <Route path="/active-dating" element={<ActiveDatingPage />} />

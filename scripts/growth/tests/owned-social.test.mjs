@@ -5,7 +5,9 @@ import {
   languageForWeekday,
   modeForWeekday,
   renderCopy,
+  renderInstagramCopy,
   selectCatalogItem,
+  shortTrackedUrl,
   trackedUrl
 } from '../lib/owned-social-catalog.mjs';
 import { diagnoseMetaBlocker, resolveMetaCredentials } from '../lib/meta-graph.mjs';
@@ -54,6 +56,23 @@ describe('owned social catalog', () => {
     assert.equal(first.mode, 'TRAIN');
     assert.notEqual(second.contentId, first.contentId);
     assert.equal(renderCopy('Go {{url}}', 'https://x'), 'Go https://x');
+  });
+
+  it('builds short /go URLs for Instagram captions', () => {
+    const short = shortTrackedUrl({
+      network: 'instagram',
+      mode: 'TRAIN',
+      language: 'es',
+      contentId: 'train-es-socio-entrenamiento',
+      landingPath: '/workout-partner',
+      isoDate: '20260821'
+    });
+    assert.match(short, /^https:\/\/gettrainmate\.com\/go\/t\?/);
+    assert.match(short, /utm_source=instagram/);
+    const caption = renderInstagramCopy('Hello\n\n{{url}}', short);
+    assert.match(caption, /gettrainmate\.com\/go\/t\?/);
+    assert.match(caption, /Link also in bio/);
+    assert.doesNotMatch(caption, /\{\{url\}\}/);
   });
 });
 

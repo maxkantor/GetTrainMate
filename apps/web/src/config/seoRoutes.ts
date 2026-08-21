@@ -76,6 +76,12 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
       'TRAIN, VIBE, or DATE in San Francisco on GetTrainMate. Free to join — set the Bay Area as your city and open Discover. Matches never guaranteed.',
     noindex: false,
   },
+  '/go': {
+    title: `Join GetTrainMate | ${BRAND}`,
+    description:
+      'Choose TRAIN, VIBE, or DATE on GetTrainMate. Free to join. Matches are never guaranteed.',
+    noindex: false,
+  },
   '/partners/atlanta': {
     title: `Atlanta TRAIN Partner Invites | ${BRAND}`,
     description:
