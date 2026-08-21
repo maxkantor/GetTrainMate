@@ -16,12 +16,16 @@ Agents must append every experiment here. Do not delete history.
 
 | Field | Value |
 |-------|--------|
-| Status | Shipping this run |
+| Status | Shipped + distributed |
 | Evidence | CRM: SF 4 completed profiles (top metro); DATE Atlanta pocket has matches; TRAIN 8 / VIBE 6 / DATE 7. Owned-social VIBE posts same day with 0 attributed signups historically. EXP-003 TRAIN-only blocked VIBE/DATE inviters. |
 | Actions | (1) EXP-003 ITERATE: invite CTA for TRAIN+VIBE+DATE + mode-aware landing. (2) EXP-004: `/san-francisco` multi-mode acquisition landing. (3) Owned-social DATE×EN×SF → `/san-francisco` (not another VIBE caption). |
 | Primary metric | Referral share attempts by mode; SF `landing_page_view` + `signup_started`; DATE SF campaign attributed visits |
 | Guardrail | No EXP-002 partner send. No fake density. No Atlanta-default market selection. |
-| Verified purchase result | Pending post-deploy |
+| Commit | https://github.com/maxkantor/GetTrainMate/commit/34c956a |
+| Deployment status | Amplify job 495 SUCCEED |
+| Production verification | `/san-francisco` live with TRAIN/VIBE/DATE join CTAs |
+| Distribution | DATE×EN×SF FB `1138684902641972_122128457078773778` + IG `18122520661857602` |
+| Verified purchase result | 0 new customers acquired by this run |
 
 ### 2026-08-21 — Landing→signup conversion (mode landings + signup friction)
 

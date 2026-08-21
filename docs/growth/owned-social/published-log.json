@@ -112,6 +112,32 @@
       "blocker": "",
       "metaStatus": "META_VALID",
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-08-21T15:32:01.612Z",
+      "contentId": "date-en-sf-bay",
+      "mode": "DATE",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122128457078773778",
+      "instagramPostId": "18122520661857602",
+      "igCreationId": "18104127701150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-08-21T15:33:53.914Z",
+      "contentId": "train-es-socio-entrenamiento",
+      "mode": "TRAIN",
+      "language": "es",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122128457246773778",
+      "instagramPostId": "18124903591704445",
+      "igCreationId": "18104128205150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
     }
   ]
 }
