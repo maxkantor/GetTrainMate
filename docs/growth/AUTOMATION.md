@@ -5,6 +5,8 @@
 **Notify:** Exactly **one** Admin email after **every** scheduled fire, including after owned-social publish or Meta blocker  
 **North star:** 1,000+ real active users (TRAIN + VIBE + DATE) then 1,000+ verified paying customers. Atlanta TRAIN is one experiment, not the product.
 
+**STRATEGY LOCK:** Read `docs/growth/STRATEGY-LOCK.md` every run. While `status: LOCKED`, do **not** rewrite overall growth strategy. Rotate acquisition variants only. Product/code changes only under lock-rule exceptions. Valid outcome: `NO PRODUCT CHANGE — collecting data` + weekday FB/IG when Meta is valid.
+
 The live Cursor automation fires on **weekdays**. Experiment **evaluation** is due only when the experiment log says so (America/New_York). A weekday fire with no evaluation due is still a complete run: collect evidence, do or prepare distribution, and **always send the Admin email**. Never exit successfully without running `compose-and-send-growth-email.mjs`. A 1-minute no-tool success is a failed notification.
 
 ---

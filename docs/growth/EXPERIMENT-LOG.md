@@ -12,6 +12,18 @@ Agents must append every experiment here. Do not delete history.
 
 ## Log
 
+### 2026-08-24 — STRATEGY LOCKED (Day 1 / 7)
+
+| Field | Value |
+|-------|--------|
+| Status | LOCKED measurement window started |
+| Evidence | FINAL AUTONOMOUS GROWTH SYSTEM accepted. 7d: 64 landings, 0 signup_started (GA4); CRM TRAIN 8 / VIBE 6 / DATE 7; Atlanta DATE pocket 3 profiles / 1 match. |
+| Distribution today | Already executed: TRAIN×EN + TRAIN×RU FB+IG. No third TRAIN post. No product code change. |
+| Lock | `docs/growth/STRATEGY-LOCK.md` — review on/after 2026-08-31 |
+| Next acquisition bias | Prefer DATE or VIBE (exploit Atlanta DATE liquidity / explore non-TRAIN); not Atlanta TRAIN CRO |
+| Product change | NO — collecting data |
+| Verified purchase result | 0 |
+
 ### 2026-08-24 — Manual weekday run (Cursor Automations rate-limited)
 
 | Field | Value |
