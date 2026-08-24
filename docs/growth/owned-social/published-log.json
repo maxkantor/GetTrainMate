@@ -138,6 +138,32 @@
       "blocker": "",
       "metaStatus": "META_VALID",
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-08-24T14:10:32.782Z",
+      "contentId": "train-en-question-consistency",
+      "mode": "TRAIN",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122128979204773778",
+      "instagramPostId": "17906306094540717",
+      "igCreationId": "18104527877150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-08-24T14:12:21.563Z",
+      "contentId": "train-ru-trenirovochniy-partner",
+      "mode": "TRAIN",
+      "language": "ru",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122128979366773778",
+      "instagramPostId": "18118040663511086",
+      "igCreationId": "18104528042150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
     }
   ]
 }

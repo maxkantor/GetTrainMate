@@ -12,6 +12,15 @@ Agents must append every experiment here. Do not delete history.
 
 ## Log
 
+### 2026-08-24 — Manual weekday run (Cursor Automations rate-limited)
+
+| Field | Value |
+|-------|--------|
+| Status | Distributed (manual; Cursor Automations Run Test failed on global rate limit) |
+| Evidence | Cursor: `Automation run rate limit exceeded: global limit 4000 per minute, current_count=5316`. Production healthy. 7d GA4: 64 landings, 0 signup_started, 0 customers. |
+| Distribution | TRAIN×EN `train-en-question-consistency` FB `1138684902641972_122128979204773778` + IG `17906306094540717` |
+| Verified purchase result | 0 new customers acquired by this run |
+
 ### 2026-08-21 — Multi-mode invite + SF density + DATE×SF distribution
 
 | Field | Value |
