@@ -11,7 +11,7 @@ import {
   GTM_PAGE_ID,
   GTM_IG_BUSINESS_ID
 } from '../lib/meta-token.mjs';
-import { composeGrowthEmailBody } from '../lib/growth-report.mjs';
+import { composeGrowthEmailBody, resolveAcquisitionLead } from '../lib/growth-report.mjs';
 
 describe('meta auth classification', () => {
   it('maps code 190 / subcode 463 to META_TOKEN_EXPIRED', () => {
@@ -206,5 +206,34 @@ describe('growth report meta honesty', () => {
     assert.match(html, /Meta authentication/);
     assert.match(html, /INVALID/);
     assert.match(text, /Completed profiles 30d \(GA4/);
+  });
+
+  it('prefers live publish evidence over stale notes claiming distributionExecuted false', () => {
+    const lead = resolveAcquisitionLead({
+      snapshot: {
+        scoreboard: { '7d': {}, '30d': {} },
+        ownedSocial: {
+          metaAuth: {
+            configuration: 'PRESENT',
+            authentication: 'VALID',
+            status: 'META_VALID',
+            ownerActionRequired: false
+          },
+          facebook: { published: true, postId: 'page_fb1' },
+          instagram: { published: true, postId: 'ig1' }
+        }
+      },
+      notes: JSON.stringify({
+        distributionExecuted: false,
+        technicalDistributionResult: 'SUCCEEDED',
+        requiredOwnerApproval:
+          'BLOCKING: Meta Page credentials missing in Cursor env/SSM. Set SSM /gettrainmate/growth/meta-page-access-token'
+      })
+    });
+    assert.equal(lead.distributionExecuted, 'YES');
+    assert.equal(lead.technicalDistributionResult, 'SUCCEEDED');
+    assert.match(lead.distributionExecutedDetail, /Facebook page_fb1/);
+    assert.match(lead.requiredOwnerApproval, /No per-post owner approval/);
+    assert.doesNotMatch(lead.requiredOwnerApproval, /BLOCKING/);
   });
 });

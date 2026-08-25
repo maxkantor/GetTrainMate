@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-24",
+  "updatedAt": "2026-08-25",
   "strategyLock": {
     "status": "LOCKED",
     "startedEt": "2026-08-24",
     "reviewEt": "2026-08-31",
-    "lockDay": 1,
+    "lockDay": 2,
     "lockDaysTotal": 7
   },
   "attempts": [
@@ -184,6 +184,27 @@
       "customers": 0,
       "outcome": "PUBLISHED_MEASURING",
       "notes": "Second TRAIN same day — tomorrow prefer VIBE or DATE exploit (Atlanta DATE pocket)"
+    },
+    {
+      "date": "2026-08-25",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "DATE",
+      "language": "es",
+      "activity": "activity-first dating",
+      "hook": "date-es-20260825",
+      "destination": "/active-dating",
+      "campaign": "owned-facebook-date-es-20260825 / owned-instagram-date-es-20260825",
+      "contentId": "date-es",
+      "facebookPostId": "1138684902641972_122129153204773778",
+      "instagramPostId": "18126290320765039",
+      "traffic": 0,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED_MEASURING",
+      "notes": "Lock day 2/7; mode rotation DATE×ES (not TRAIN). Report email falsely said distributionExecuted=false while posts published."
     }
   ],
   "doNotRepeat": [

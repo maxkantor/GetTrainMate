@@ -12,6 +12,18 @@ Agents must append every experiment here. Do not delete history.
 
 ## Log
 
+### 2026-08-25 — STRATEGY LOCK Day 2 / 7
+
+| Field | Value |
+|-------|--------|
+| Status | LOCKED — collecting data |
+| Evidence | Automation report: 66 landings / 7d, 0 GA4 signups/profiles/Discover/requests/messages; returning 10 (7d) / 13 (30d); CRM TRAIN 8 / VIBE 6 / DATE 7; Atlanta DATE pocket 3 profiles / 1 match |
+| Distribution | DATE×ES `owned-*-date-es-20260825` FB `1138684902641972_122129153204773778` + IG `18126290320765039` |
+| Report note | Email wrongly showed `Distribution executed: false` + stale Meta BLOCKING while Meta VALID and posts PUBLISHED — reporting bug fixed under lock rule (tracking honesty) |
+| Next acquisition bias | Prefer VIBE (DATE done today); keep exploit Atlanta DATE / SF density; not Atlanta TRAIN CRO |
+| Product change | Report lead coalesce only (no product UX change) |
+| Verified purchase result | 0 |
+
 ### 2026-08-24 — STRATEGY LOCKED (Day 1 / 7)
 
 | Field | Value |

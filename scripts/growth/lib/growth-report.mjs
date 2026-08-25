@@ -185,7 +185,11 @@ function ownedSocialSummary(snapshot) {
   if (fbYes) parts.push(`Facebook ${fb.postId || 'published'}`);
   if (igYes) parts.push(`Instagram ${ig.postId || 'published'}`);
   const executed = parts.length ? parts.join(' + ') : 'none';
-  const blocker = os.connectorBlocker || fb.blocker || ig.blocker || os.metaAuth?.status || '';
+  const rawBlocker = os.connectorBlocker || fb.blocker || ig.blocker || '';
+  const authStatus = os.metaAuth?.status || '';
+  const authIsFailure =
+    Boolean(authStatus) && !/^(META_VALID|VALID|OK)$/i.test(authStatus);
+  const blocker = rawBlocker || (authIsFailure ? authStatus : '');
   const attempted = os.distributionAttempted === true || Boolean(os.contentId) || Boolean(blocker) || fbYes || igYes;
   const metaAuth = os.metaAuth || null;
   return { os, fb, ig, fbYes, igYes, executed, blocker, attempted, metaAuth };
@@ -237,9 +241,21 @@ export function defaultAcquisitionLead(snapshot) {
   };
 }
 
+/** Coerce boolean / loose strings to YES|NO; return null if not a yes/no token. */
+export function coerceYesNo(value) {
+  if (value == null) return null;
+  const s = String(value).trim();
+  if (s === '') return null;
+  if (/^(YES|TRUE|1)$/i.test(s)) return 'YES';
+  if (/^(NO|FALSE|0)$/i.test(s)) return 'NO';
+  return null;
+}
+
 /**
  * Merge snapshot.acquisitionLead or a JSON object in notes with defaults.
  * Unknown / missing fields stay honest zeros or "none".
+ * Live publish evidence on the snapshot wins over stale notes that claim no distribution
+ * or missing Meta credentials after a successful Facebook/Instagram publish.
  */
 export function resolveAcquisitionLead({ snapshot, notes, acquisition } = {}) {
   const base = defaultAcquisitionLead(snapshot);
@@ -257,12 +273,26 @@ export function resolveAcquisitionLead({ snapshot, notes, acquisition } = {}) {
   for (const key of Object.keys(base)) {
     if (extra[key] != null && String(extra[key]).trim() !== '') out[key] = String(extra[key]).trim();
   }
-  // Notes often pass a narrative under distributionExecuted — keep YES/NO semantics.
-  if (extra.distributionExecuted && !/^(YES|NO)$/i.test(String(extra.distributionExecuted).trim())) {
-    out.distributionExecutedDetail = String(extra.distributionExecuted).trim();
-    if (extra.distributionAttempted == null) out.distributionAttempted = 'YES';
-    if (!/^(YES|NO)$/i.test(String(out.distributionExecuted))) {
+  const coercedExec = coerceYesNo(extra.distributionExecuted);
+  if (coercedExec) {
+    out.distributionExecuted = coercedExec;
+  } else if (extra.distributionExecuted != null && String(extra.distributionExecuted).trim() !== '') {
+    // Notes often pass a narrative under distributionExecuted — keep YES/NO semantics.
+    if (!/^(YES|NO)$/i.test(String(extra.distributionExecuted).trim())) {
+      out.distributionExecutedDetail = String(extra.distributionExecuted).trim();
+      if (extra.distributionAttempted == null) out.distributionAttempted = 'YES';
       out.distributionExecuted = base.distributionExecuted;
+    }
+  }
+  // Snapshot publish truth beats stale notes (e.g. distributionExecuted: false + Meta BLOCKING).
+  if (base.distributionExecuted === 'YES') {
+    out.distributionExecuted = 'YES';
+    out.technicalDistributionResult = base.technicalDistributionResult;
+    if (!out.distributionExecutedDetail || /^none\b/i.test(out.distributionExecutedDetail)) {
+      out.distributionExecutedDetail = base.distributionExecutedDetail;
+    }
+    if (/Meta Page credentials missing|META REAUTHORIZATION|credentials missing/i.test(String(out.requiredOwnerApproval || ''))) {
+      out.requiredOwnerApproval = base.requiredOwnerApproval;
     }
   }
   return out;

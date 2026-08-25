@@ -164,6 +164,19 @@
       "blocker": "",
       "metaStatus": "META_VALID",
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-08-25T14:06:11.963Z",
+      "contentId": "date-es-20260825",
+      "mode": "DATE",
+      "language": "es",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122129153204773778",
+      "instagramPostId": "18126290320765039",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "campaign": "owned-facebook-date-es-20260825"
     }
   ]
 }
