@@ -17,7 +17,7 @@
 | Date (ET) | Lock day | Distribution | Product change |
 |-----------|----------|--------------|----------------|
 | 2026-08-24 | 1 / 7 | TRAIN×EN + TRAIN×RU owned social (manual after Cursor rate-limit) | NO |
-| 2026-08-25 | 2 / 7 | TBD — prefer VIBE or DATE (not more TRAIN-only) | TBD |
+| 2026-08-25 | 2 / 7 | DATE×ES `date-es-citas-actividad` — FB `1138684902641972_122129153204773778` + IG `18126290320765039` | NO |
 | 2026-08-26 | 3 / 7 | TBD | TBD |
 | 2026-08-27 | 4 / 7 | EXP-002 eval due | TBD |
 | 2026-08-28 | 5 / 7 | TBD | TBD |
