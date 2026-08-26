@@ -12,6 +12,18 @@ Agents must append every experiment here. Do not delete history.
 
 ## Log
 
+### 2026-08-26 — STRATEGY LOCK Day 3 / 7 (email recovery)
+
+| Field | Value |
+|-------|--------|
+| Status | LOCKED — distribution executed; Admin email was missing until manual recovery |
+| Cause | Weekday automation published Meta posts (~14:04–14:05 UTC) but did not complete `compose-and-send-growth-email.mjs` (no local published-log update; likely cloud worktree exit before SES) |
+| Distribution | DATE×ES FB `1138684902641972_122129338148773778` + IG `18122369977878348`; DATE×EN FB `1138684902641972_122129338232773778` + IG `17956841069996699` |
+| Admin email | Recovered 2026-08-26 — SES `010001a03e851bdc-bb3a75a2-456f-479a-bd1b-3b860ff72f3b-000000` |
+| Next acquisition bias | **VIBE** (DATE used 8/25 and 8/26); not more DATE-only / Atlanta TRAIN CRO |
+| Product change | NO |
+| Verified purchase result | 0 |
+
 ### 2026-08-25 — STRATEGY LOCK Day 2 / 7
 
 | Field | Value |

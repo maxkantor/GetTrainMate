@@ -177,6 +177,34 @@
       "metaStatus": "META_VALID",
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
       "campaign": "owned-facebook-date-es-20260825"
+    },
+    {
+      "publishedAtUtc": "2026-08-26T14:04:38.000Z",
+      "contentId": "date-es-citas-actividad",
+      "mode": "DATE",
+      "language": "es",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122129338148773778",
+      "instagramPostId": "18122369977878348",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "campaign": "owned-facebook-date-es-20260826",
+      "note": "Cloud publish; local log backfilled after missing Admin email"
+    },
+    {
+      "publishedAtUtc": "2026-08-26T14:05:28.000Z",
+      "contentId": "date-en-active-singles",
+      "mode": "DATE",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122129338232773778",
+      "instagramPostId": "17956841069996699",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "campaign": "owned-facebook-date-en-20260826",
+      "note": "Cloud publish; local log backfilled after missing Admin email"
     }
   ]
 }

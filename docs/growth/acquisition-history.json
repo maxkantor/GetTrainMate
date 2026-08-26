@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-25",
+  "updatedAt": "2026-08-26",
   "strategyLock": {
     "status": "LOCKED",
     "startedEt": "2026-08-24",
     "reviewEt": "2026-08-31",
-    "lockDay": 2,
+    "lockDay": 3,
     "lockDaysTotal": 7
   },
   "attempts": [
@@ -205,6 +205,46 @@
       "customers": 0,
       "outcome": "PUBLISHED_MEASURING",
       "notes": "Lock day 2/7; mode rotation DATE×ES (not TRAIN). Report email falsely said distributionExecuted=false while posts published."
+    },
+    {
+      "date": "2026-08-26",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "DATE",
+      "language": "es",
+      "hook": "date-es-citas-actividad",
+      "destination": "/go/d",
+      "campaign": "owned-facebook-date-es-20260826 / owned-instagram-date-es-20260826",
+      "contentId": "date-es-citas-actividad",
+      "facebookPostId": "1138684902641972_122129338148773778",
+      "instagramPostId": "18122369977878348",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED_EMAIL_MISSED_THEN_RECOVERED",
+      "notes": "Lock day 3/7; automation published but skipped Admin email until manual recovery"
+    },
+    {
+      "date": "2026-08-26",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "DATE",
+      "language": "en",
+      "hook": "date-en-active-singles",
+      "destination": "/go/d",
+      "campaign": "owned-facebook-date-en-20260826 / owned-instagram-date-en-20260826",
+      "contentId": "date-en-active-singles",
+      "facebookPostId": "1138684902641972_122129338232773778",
+      "instagramPostId": "17956841069996699",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED_EMAIL_MISSED_THEN_RECOVERED",
+      "notes": "Second DATE same day; tomorrow prefer VIBE"
     }
   ],
   "doNotRepeat": [
@@ -223,6 +263,14 @@
     {
       "pattern": "Third TRAIN-only owned social on same lock day",
       "reason": "Mode balance; CRM DATE pocket has match signal"
+    },
+    {
+      "pattern": "Exit after Meta publish without Admin email",
+      "reason": "2026-08-26 posts live but no SES report until manual recovery"
+    },
+    {
+      "pattern": "Third consecutive DATE-only owned social day",
+      "reason": "DATE used 8/25 and twice on 8/26; rotate to VIBE"
     }
   ]
 }

@@ -18,8 +18,8 @@
 |-----------|----------|--------------|----------------|
 | 2026-08-24 | 1 / 7 | TRAIN×EN + TRAIN×RU owned social (manual after Cursor rate-limit) | NO |
 | 2026-08-25 | 2 / 7 | DATE×ES owned social FB+IG (`owned-*-date-es-20260825`) | Report lead honesty only (not product UX) |
-| 2026-08-26 | 3 / 7 | TBD — prefer VIBE (DATE done 8/25; avoid TRAIN-only streak) | TBD |
-| 2026-08-27 | 4 / 7 | EXP-002 eval due | TBD |
+| 2026-08-26 | 3 / 7 | DATE×ES + DATE×EN FB+IG (~10:04–10:05 ET); Admin email recovered manually | NO |
+| 2026-08-27 | 4 / 7 | EXP-002 eval due — prefer VIBE (DATE posted 8/25–8/26) | TBD |
 | 2026-08-28 | 5 / 7 | TBD | TBD |
 | 2026-08-29 | 6 / 7 | TBD | TBD |
 | 2026-08-30 | 7 / 7 | TBD | TBD |
