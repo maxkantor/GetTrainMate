@@ -1,0 +1,36 @@
+{
+  "runDate": "2026-08-26",
+  "runTimeAmericaNewYork": "2026-08-26T10:04:00-04:00",
+  "lockHolder": "cursor-2996",
+  "productionHealth": "ok",
+  "evaluationDueToday": false,
+  "nextEvaluation": "EXP-002 on 2026-08-27 America/New_York",
+  "strategyLockDay": "3/7",
+  "distributionExecuted": true,
+  "distributionAttempted": true,
+  "facebookPostId": "1138684902641972_122129338148773778",
+  "instagramPostId": "18122369977878348",
+  "plannedContent": {
+    "contentId": "date-es-citas-actividad",
+    "mode": "DATE",
+    "language": "es",
+    "campaignFacebook": "owned-facebook-date-es-20260826",
+    "campaignInstagram": "owned-instagram-date-es-20260826"
+  },
+  "metrics": {
+    "ga4_7d_landings": 78,
+    "ga4_7d_signup_starts": 0,
+    "ga4_7d_returning_users": 17,
+    "ga4_30d_landings": 98,
+    "crmModeTotals": {"train": 8, "vibe": 6, "date": 7},
+    "stripe_attributed_payments_7d": 0,
+    "stripe_verified_external_customers": 0,
+    "newCustomersAcquiredByThisRun": 0
+  },
+  "adminEmail": {
+    "attempted": true,
+    "sent": true,
+    "messageId": "010001a03e642002-bfcb6059-bed3-4807-ab63-31f62c445f19-000000"
+  },
+  "infraNote": "AWS CLI was missing on Cloud Agent cold start; installed per AUTOMATION.md install script so SSM Meta/CRM/SES tokens could load"
+}
