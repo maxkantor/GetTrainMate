@@ -12,6 +12,19 @@ Agents must append every experiment here. Do not delete history.
 
 ## Log
 
+### 2026-08-26 — STRATEGY LOCK Day 3 / 7 (Meta credentials missing)
+
+| Field | Value |
+|-------|--------|
+| Status | Distributed — DATE×ES owned social FB+IG |
+| Evaluation due | None today (EXP-002 eval **2026-08-27** America/New_York; EXP-003 **2026-08-31**) |
+| Evidence | Production healthy. 7d GA4: 78 landings, 0 signup_started, 17 returning users; 30d: 98 landings, 0 signup_started, 31 returning. Stripe: 0 attributed live payments; 0 verified external customers; 1 unattributed 30d payment excluded. CRM metro unavailable (`GROWTH_METRO_READ_TOKEN`). |
+| Distribution attempted | `publish-owned-social.mjs` — DATE×ES (`date-es-citas-actividad`) |
+| Distribution executed | **YES** — FB `1138684902641972_122129338148773778` + IG `18122369977878348` (Meta VALID after AWS CLI install in Cloud Agent) |
+| Secondary pending | IG-2026-08-17 manual Atlanta TRAIN caption approved 2026-08-17; Max may still post separately to `@gettrainmate` |
+| New customers acquired by this run | 0 |
+| Product change | NO — strategy lock day 3/7 |
+
 ### 2026-08-25 — STRATEGY LOCK Day 2 / 7
 
 | Field | Value |

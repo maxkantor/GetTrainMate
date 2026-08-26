@@ -177,6 +177,48 @@
       "metaStatus": "META_VALID",
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
       "campaign": "owned-facebook-date-es-20260825"
+    },
+    {
+      "publishedAtUtc": "2026-08-26T14:02:59.624Z",
+      "contentId": "date-es-citas-actividad",
+      "mode": "DATE",
+      "language": "es",
+      "status": "blocked",
+      "blocker": "Meta Page access token missing. Set SSM /gettrainmate/growth/meta-page-access-token (or env META_PAGE_ACCESS_TOKEN). Run: node scripts/growth/setup-meta-token.mjs"
+    },
+    {
+      "publishedAtUtc": "2026-08-26T14:03:38.520Z",
+      "contentId": "date-es-citas-actividad",
+      "mode": "DATE",
+      "language": "es",
+      "status": "blocked",
+      "blocker": "Meta Page access token missing. Set SSM /gettrainmate/growth/meta-page-access-token (or env META_PAGE_ACCESS_TOKEN). Run: node scripts/growth/setup-meta-token.mjs"
+    },
+    {
+      "publishedAtUtc": "2026-08-26T14:04:36.194Z",
+      "contentId": "date-es-citas-actividad",
+      "mode": "DATE",
+      "language": "es",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122129338148773778",
+      "instagramPostId": "18122369977878348",
+      "igCreationId": "18104806517150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-08-26T14:05:26.992Z",
+      "contentId": "date-en-active-singles",
+      "mode": "DATE",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122129338232773778",
+      "instagramPostId": "17956841069996699",
+      "igCreationId": "18104806607150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
     }
   ]
 }
