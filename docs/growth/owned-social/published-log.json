@@ -205,6 +205,19 @@
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
       "campaign": "owned-facebook-date-en-20260826",
       "note": "Cloud publish; local log backfilled after missing Admin email"
+    },
+    {
+      "publishedAtUtc": "2026-08-27T15:02:26.315Z",
+      "contentId": "vibe-en-new-in-town",
+      "mode": "VIBE",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122129496140773778",
+      "instagramPostId": "18102505082238065",
+      "igCreationId": "18104952563150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
     }
   ]
 }

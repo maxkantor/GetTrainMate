@@ -109,6 +109,8 @@ Focus: international TRAIN + VIBE + DATE. Rank country/metro/language/mode pocke
 
 When shipping code: one reversible change; tests + web:build when code changed; commit/push main only if validation passes; monitor Amplify; verify production; update docs/growth/EXPERIMENT-LOG.md.
 
+A Cursor Automations run that shows **Succeeded** with only a **Pull Request** tool (and no Meta publish + no Admin email) is a **failed growth run**. Do not trust the dashboard green check. Verify Facebook/Instagram same-day posts and SES delivery. If missing: publish with `publish-owned-social.mjs` (or compose without `--skip-social`) and always send Admin email.
+
 ADMIN EMAIL: Mandatory on every scheduled fire, including skip / no-evaluation / lock-stop days. Send exactly one Admin email after the run reaches its final state. Never mark the run succeeded without this send. Never send it before deployment verification when code shipped. If owned social already published earlier in the same run (or Meta shows a same-day post) but email was not sent: still run `compose-and-send-growth-email.mjs --skip-social` with post IDs in notes — do not exit after publish alone. The body MUST lead with global growth, then mode, then markets, then acquisition executed today, then owned social YES/NO.
   node scripts/growth/compose-and-send-growth-email.mjs --notes "<JSON acquisition lead fields and/or short action notes>"
 If the run stops early (lock held, missing secrets, no distribution possible): still send one Admin email that leads with the exact blocker. If Admin email fails, record the failure locally in notes/run output and report it once — do not repeat the acquisition action or send duplicate reports blindly.

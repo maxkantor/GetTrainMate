@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-26",
+  "updatedAt": "2026-08-27",
   "strategyLock": {
     "status": "LOCKED",
     "startedEt": "2026-08-24",
     "reviewEt": "2026-08-31",
-    "lockDay": 3,
+    "lockDay": 4,
     "lockDaysTotal": 7
   },
   "attempts": [
@@ -245,6 +245,26 @@
       "customers": 0,
       "outcome": "PUBLISHED_EMAIL_MISSED_THEN_RECOVERED",
       "notes": "Second DATE same day; tomorrow prefer VIBE"
+    },
+    {
+      "date": "2026-08-27",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "VIBE",
+      "language": "en",
+      "hook": "vibe-en-new-in-town",
+      "destination": "/meet-people",
+      "campaign": "owned-facebook-vibe-en-20260827 / owned-instagram-vibe-en-20260827",
+      "contentId": "vibe-en-new-in-town",
+      "facebookPostId": "1138684902641972_122129496140773778",
+      "instagramPostId": "18102505082238065",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED_MANUAL_RECOVERY",
+      "notes": "Lock day 4/7; Cursor automation Succeeded with Pull Request only — no Meta until manual publish"
     }
   ],
   "doNotRepeat": [
@@ -271,6 +291,10 @@
     {
       "pattern": "Third consecutive DATE-only owned social day",
       "reason": "DATE used 8/25 and twice on 8/26; rotate to VIBE"
+    },
+    {
+      "pattern": "Trust Cursor Succeeded when Tools=Pull Request only",
+      "reason": "2026-08-27 automation green-checked with no FB/IG and no Admin email"
     }
   ]
 }

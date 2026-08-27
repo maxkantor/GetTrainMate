@@ -5,12 +5,23 @@ Agents must append every experiment here. Do not delete history.
 ## Active
 
 - **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — **KEEP 2026-08-17** (treatment unchanged) — funnel stage: acquisition / SEO
-- **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
+- **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — **KEEP 2026-08-27** (infra live; outreach never sent) — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
 - **EXP-003** — User-initiated referral invite (`/invite/:ref`) — **ITERATE 2026-08-21** (TRAIN+VIBE+DATE invite CTA) — eval **2026-08-31** — funnel stage: acquisition / referral
 - **EXP-004** — San Francisco density landing (`/san-francisco`) — started **2026-08-21** — funnel stage: acquisition / SEO market discovery (CRM densest metro)
 - **Owned-social:** Facebook + Instagram — weekday Meta Graph; reduce priority if posts remain FAILED_NO_SIGNUP
 
 ## Log
+
+### 2026-08-27 — STRATEGY LOCK Day 4 / 7 + EXP-002 eval + automation recovery
+
+| Field | Value |
+|-------|--------|
+| Status | LOCKED — manual recovery after false automation success |
+| Automation | Cursor run 10:00 AM ET marked **Succeeded** with tool **Pull Request** only — no Meta posts, no Admin email until this recovery |
+| Distribution | VIBE×EN `vibe-en-new-in-town` FB `1138684902641972_122129496140773778` + IG `18102505082238065` |
+| EXP-002 | **KEEP** — partner invite landings remain live; 0 partner-attributed signups; outreach drafts never approved/sent (fail-closed). Do not kill infrastructure for zero sends. |
+| Product change | NO |
+| Verified purchase result | 0 |
 
 ### 2026-08-26 — STRATEGY LOCK Day 3 / 7 (email recovery)
 
