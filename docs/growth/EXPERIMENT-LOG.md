@@ -5,12 +5,26 @@ Agents must append every experiment here. Do not delete history.
 ## Active
 
 - **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — **KEEP 2026-08-17** (treatment unchanged) — funnel stage: acquisition / SEO
-- **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
+- **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — **KEEP 2026-08-27** (treatment unchanged; partner routes healthy; 0 partner-attributed signups — outreach fail-closed) — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
 - **EXP-003** — User-initiated referral invite (`/invite/:ref`) — **ITERATE 2026-08-21** (TRAIN+VIBE+DATE invite CTA) — eval **2026-08-31** — funnel stage: acquisition / referral
 - **EXP-004** — San Francisco density landing (`/san-francisco`) — started **2026-08-21** — funnel stage: acquisition / SEO market discovery (CRM densest metro)
 - **Owned-social:** Facebook + Instagram — weekday Meta Graph; reduce priority if posts remain FAILED_NO_SIGNUP
 
 ## Log
+
+### 2026-08-27 — STRATEGY LOCK Day 4 / 7 (EXP-002 KEEP; Meta distribution blocked)
+
+| Field | Value |
+|-------|--------|
+| Status | LOCKED — EXP-002 evaluation recorded KEEP; distribution NOT executed (Meta SSM credentials missing in cloud agent) |
+| Evaluation | **EXP-002 KEEP** — partner hub + invite routes healthy; 0 partner-attributed signups (partner email fail-closed; no approved shares); infrastructure treatment unchanged |
+| Evidence | Production healthy (all partner routes 200). 7d GA4: 67 landings, 0 signup_started, 0 profile_completed, 14 returning users. Stripe: 0 attributed payments; 1 unattributed live session (30d) excluded. CRM unavailable (GROWTH_METRO_READ_TOKEN unconfigured). |
+| Distribution attempted | NO — `META_PAGE_ACCESS_TOKEN`, `FACEBOOK_PAGE_ID`, `INSTAGRAM_BUSINESS_ACCOUNT_ID` missing from SSM/env in this run |
+| Prepared (not published) | VIBE×EN would rotate next per lock bias; dry-run selected `train-en-workout-partner` (catalog weekday rotation) |
+| Blocker | Owner action: configure Meta SSM params or run `node scripts/growth/setup-meta-token.mjs` so weekday `publish-owned-social.mjs` can execute |
+| Product change | NO — collecting data; no EXP-002 surface changes |
+| New customers acquired by this run | 0 |
+| Verified purchase result | 0 |
 
 ### 2026-08-26 — STRATEGY LOCK Day 3 / 7 (email recovery)
 
