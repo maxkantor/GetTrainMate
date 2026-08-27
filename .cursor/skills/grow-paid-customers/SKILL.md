@@ -218,7 +218,7 @@ If tests, build, deployment, or production verification fails:
 
 ### Admin email
 
-Send **exactly one** Admin email after **every** scheduled fire reaches its **final** state, including skip / no-evaluation / lock-stop days. Never mark the run succeeded without running `node scripts/growth/compose-and-send-growth-email.mjs`. A 1-minute no-tool success is a failed notification. Never send the Admin email before deployment verification when code shipped. If email fails, record locally and report once — do not repeat the acquisition action or send duplicates blindly.
+Send **exactly one** Admin email after **every** scheduled fire reaches its **final** state, including skip / no-evaluation / lock-stop days. Never mark the run succeeded without running `node scripts/growth/compose-and-send-growth-email.mjs` (or the wrapper `node scripts/growth/run-weekday-growth.mjs`). A 1-minute no-tool success is a failed notification. A Cursor dashboard **Succeeded** with only **Pull Request** is a **failed** growth run. Never send the Admin email before deployment verification when code shipped. If email fails, record locally and report once — do not repeat the acquisition action or send duplicates blindly.
 
 ## Primary funnel
 
@@ -262,6 +262,7 @@ Partner campaign sending lives in **Admin CRM → Partner Outreach**, From `part
 | `scripts/growth/release-growth-lock.mjs` | Release lock |
 | `scripts/growth/collect-funnel-snapshot.mjs` | GA4 + attributed Stripe + metro CRM |
 | `scripts/growth/check-production-health.mjs` | Live site + partner landings |
+| `scripts/growth/run-weekday-growth.mjs` | **Preferred Cursor Automation entrypoint** — lock + publish FB/IG + Admin email + release |
 | `scripts/growth/compose-and-send-growth-email.mjs` | Admin email once per final state |
 | `scripts/growth/publish-owned-social.mjs` | Facebook + Instagram weekday publish |
 
