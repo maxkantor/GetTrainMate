@@ -1,0 +1,12 @@
+{
+  "runDate": "2026-08-27",
+  "runTimeEt": "10:02 AM America/New_York",
+  "adminEmailAttempted": true,
+  "adminEmailSent": false,
+  "error": "SSM get failed for /gettrainmate/ses-from-email",
+  "cause": "Cloud agent env has GA4/Stripe via env vars but SES_FROM_EMAIL and SES_ADMIN_EMAIL not set; AWS CLI unavailable; SSM ses-from-email not readable",
+  "distributionExecuted": false,
+  "distributionBlocker": "Meta SSM credentials missing (META_PAGE_ACCESS_TOKEN, FACEBOOK_PAGE_ID, INSTAGRAM_BUSINESS_ACCOUNT_ID)",
+  "experimentDecision": "EXP-002 KEEP",
+  "previewPath": "docs/growth/previews/growth-email-2026-08-27.txt"
+}

@@ -205,6 +205,14 @@
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
       "campaign": "owned-facebook-date-en-20260826",
       "note": "Cloud publish; local log backfilled after missing Admin email"
+    },
+    {
+      "publishedAtUtc": "2026-08-27T14:02:08.555Z",
+      "contentId": "train-en-workout-partner",
+      "mode": "TRAIN",
+      "language": "en",
+      "status": "blocked",
+      "blocker": "Meta Page access token missing. Set SSM /gettrainmate/growth/meta-page-access-token (or env META_PAGE_ACCESS_TOKEN). Run: node scripts/growth/setup-meta-token.mjs"
     }
   ]
 }
