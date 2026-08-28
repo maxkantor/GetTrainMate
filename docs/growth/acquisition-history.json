@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-27",
+  "updatedAt": "2026-08-28",
   "strategyLock": {
     "status": "LOCKED",
     "startedEt": "2026-08-24",
     "reviewEt": "2026-08-31",
-    "lockDay": 4,
+    "lockDay": 5,
     "lockDaysTotal": 7
   },
   "attempts": [
@@ -265,6 +265,26 @@
       "customers": 0,
       "outcome": "PUBLISHED_MANUAL_RECOVERY",
       "notes": "Lock day 4/7; Cursor automation Succeeded with Pull Request only — no Meta until manual publish"
+    },
+    {
+      "date": "2026-08-28",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "VIBE",
+      "language": "en",
+      "hook": "vibe-en-new-in-town",
+      "destination": "/meet-people",
+      "campaign": "owned-facebook-vibe-en-20260828 / owned-instagram-vibe-en-20260828",
+      "contentId": "vibe-en-new-in-town",
+      "facebookPostId": "1138684902641972_122129612630773778",
+      "instagramPostId": "18090139124154115",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED_MEASURING",
+      "notes": "Lock day 5/7; first runner attempt failed (AWS CLI missing in pod); retry after CLI install succeeded with Admin email"
     }
   ],
   "doNotRepeat": [

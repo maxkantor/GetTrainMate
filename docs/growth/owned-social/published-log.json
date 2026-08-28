@@ -218,6 +218,27 @@
       "blocker": "",
       "metaStatus": "META_VALID",
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-08-28T14:01:55.526Z",
+      "contentId": "vibe-en-new-in-town",
+      "mode": "VIBE",
+      "language": "en",
+      "status": "blocked",
+      "blocker": "Meta Page access token missing. Set SSM /gettrainmate/growth/meta-page-access-token (or env META_PAGE_ACCESS_TOKEN). Run: node scripts/growth/setup-meta-token.mjs"
+    },
+    {
+      "publishedAtUtc": "2026-08-28T14:02:40.524Z",
+      "contentId": "vibe-en-new-in-town",
+      "mode": "VIBE",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122129612630773778",
+      "instagramPostId": "18090139124154115",
+      "igCreationId": "18105099023150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
     }
   ]
 }

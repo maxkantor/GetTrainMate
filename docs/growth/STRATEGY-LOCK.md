@@ -20,7 +20,7 @@
 | 2026-08-25 | 2 / 7 | DATE×ES owned social FB+IG (`owned-*-date-es-20260825`) | Report lead honesty only (not product UX) |
 | 2026-08-26 | 3 / 7 | DATE×ES + DATE×EN FB+IG (~10:04–10:05 ET); Admin email recovered manually | NO |
 | 2026-08-27 | 4 / 7 | VIBE×EN FB+IG (manual; automation false-Succeeded with PR only) | NO — EXP-002 KEEP |
-| 2026-08-28 | 5 / 7 | Automation must run `run-weekday-growth.mjs` (Fri catalog = VIBE×ES unless overridden) | TBD |
+| 2026-08-28 | 5 / 7 | VIBE×EN FB+IG via `run-weekday-growth.mjs` (`vibe-en-new-in-town`; FB `1138684902641972_122129612630773778`, IG `18090139124154115`; Admin SES `010001a048ae8ec6-3b27258d-12a7-450a-a6b0-002f324f64fb-000000`) | NO |
 | 2026-08-29 | 6 / 7 | TBD | TBD |
 | 2026-08-30 | 7 / 7 | TBD | TBD |
 | 2026-08-31+ | REVIEW | End-of-lock: one primary bottleneck → one strategic change if warranted | — |
