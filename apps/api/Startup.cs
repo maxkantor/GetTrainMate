@@ -425,8 +425,9 @@ public class Startup
 
         app.UseMiddleware<CognitoAuthMiddleware>();
         app.UseMiddleware<AdminTokenAuthMiddleware>();
-        app.UseAuthorization();
+        // Custom admin gate before [Authorize] — avoids Challenge 500 when no DefaultChallengeScheme.
         app.UseMiddleware<AdminAuthorizationMiddleware>();
+        app.UseAuthorization();
 
         app.UseEndpoints(endpoints =>
         {
