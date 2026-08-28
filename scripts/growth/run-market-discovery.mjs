@@ -30,6 +30,8 @@ async function main() {
   const token = await adminToken();
   const base = API.replace(/\/$/, '');
   const maxPerMarket = Number(process.env.DISCOVERY_MAX_PER_MARKET || 40);
+  const seedsOnly = process.env.DISCOVERY_SEEDS_ONLY !== 'false';
+  const onlyCampaignId = process.env.DISCOVERY_CAMPAIGN_ID?.trim() || undefined;
   const res = await fetch(`${base}/api/admin/partner-outreach/discover/automated`, {
     method: 'POST',
     headers: {
@@ -37,7 +39,12 @@ async function main() {
       Accept: 'application/json',
       'X-Admin-Token': token,
     },
-    body: JSON.stringify({ prepareDrafts: true, maxPerMarket }),
+    body: JSON.stringify({
+      prepareDrafts: true,
+      maxPerMarket,
+      seedsOnly,
+      onlyCampaignId,
+    }),
   });
   const text = await res.text();
   if (!res.ok) {

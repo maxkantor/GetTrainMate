@@ -97,8 +97,22 @@ public class AdminPartnerOutreachController : ControllerBase
     {
         try
         {
-            var report = await _discovery.RunAsync(req?.PrepareDrafts ?? true, req?.MaxPerMarket ?? 35);
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(28));
+            var report = await _discovery.RunAsync(
+                req?.PrepareDrafts ?? true,
+                req?.MaxPerMarket ?? 35,
+                req?.SeedsOnly ?? false,
+                req?.OnlyCampaignId,
+                timeoutCts.Token);
             return Ok(report);
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(503, new
+            {
+                error = "discovery_timeout",
+                message = "Discovery exceeded the API time limit. Retry with seedsOnly=true and onlyCampaignId for Atlanta."
+            });
         }
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
@@ -167,4 +181,8 @@ public class AutomatedDiscoverRequest
 {
     public bool PrepareDrafts { get; set; } = true;
     public int MaxPerMarket { get; set; } = 35;
+    /// <summary>Admin UI: verify Atlanta seed catalog only (skips slow Overpass OSM queries).</summary>
+    public bool SeedsOnly { get; set; }
+    /// <summary>Optional filter, e.g. us_atlanta_train_partners.</summary>
+    public string? OnlyCampaignId { get; set; }
 }

@@ -24,9 +24,11 @@ public sealed class AutomatedMarketDiscoveryService
     public async Task<DiscoveryRunReport> RunAsync(
         bool prepareDrafts = true,
         int maxPerMarket = 35,
+        bool seedsOnly = false,
+        string? onlyCampaignId = null,
         CancellationToken ct = default)
     {
-        var report = new DiscoveryRunReport { StartedAtUtc = DateTime.UtcNow };
+        var report = new DiscoveryRunReport { StartedAtUtc = DateTime.UtcNow, SeedsOnly = seedsOnly };
         var campaigns = await _outreach.ListCampaignsAsync();
         var existing = await _outreach.ListProspectsAsync(null);
         var evidence = await BuildEvidenceAsync(campaigns, existing);
@@ -38,8 +40,17 @@ public sealed class AutomatedMarketDiscoveryService
             evidence,
             MarketCampaignCatalog.MaxActiveMarkets).ToList();
 
+        if (!string.IsNullOrWhiteSpace(onlyCampaignId))
+        {
+            targets = targets
+                .Where(t => string.Equals(t.CampaignId, onlyCampaignId.Trim(), StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
         report.MarketsActivated = targets.Count(c =>
             campaigns.FirstOrDefault(x => x.CampaignId == c.CampaignId)?.Status == "active");
+
+        var contactPathLimit = seedsOnly ? 3 : (int?)null;
 
         foreach (var seed in targets)
         {
@@ -75,7 +86,9 @@ public sealed class AutomatedMarketDiscoveryService
                 }
             }
 
-            var overpass = await _overpass.DiscoverAsync(seed, maxPerMarket, ct);
+            var overpass = seedsOnly
+                ? Array.Empty<DiscoveredOrganization>()
+                : await _overpass.DiscoverAsync(seed, maxPerMarket, ct);
             orgs.AddRange(overpass);
             marketReport.OrganizationsDiscovered = orgs.Count;
 
@@ -116,7 +129,7 @@ public sealed class AutomatedMarketDiscoveryService
 
                 VerifiedPublicContact? verified = null;
                 if (Uri.TryCreate(org.Website, UriKind.Absolute, out var siteUri))
-                    verified = await _contactVerifier.TryVerifyAsync(siteUri, ct);
+                    verified = await _contactVerifier.TryVerifyAsync(siteUri, ct, contactPathLimit);
 
                 if (verified != null)
                 {
@@ -274,6 +287,7 @@ public sealed class DiscoveryRunReport
     public int DraftsGenerated { get; set; }
     public int ApprovalReadyRecipients { get; set; }
     public int LanguageTemplateUnavailable { get; set; }
+    public bool SeedsOnly { get; set; }
     public List<DiscoveryMarketReport> Markets { get; set; } = new();
 }
 

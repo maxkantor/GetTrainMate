@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Alert, Box, CircularProgress, Snackbar } from '@mui/material';
 import { adminApiService } from '@/services/adminApiService';
+import { getAdminToken } from '@/services/adminAuthStorage';
 
 /**
  * Requires a valid admin password session (X-Admin-Token).
@@ -9,14 +10,20 @@ import { adminApiService } from '@/services/adminApiService';
  */
 export const AdminRoute: React.FC = () => {
   const location = useLocation();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(() => (getAdminToken() ? null : false));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     const checkAdminSession = async () => {
+      if (!getAdminToken()) {
+        setIsAdmin(false);
+        return;
+      }
+
       setError(null);
+      setIsAdmin(null);
       try {
         await adminApiService.get('/api/admin/auth/session');
         if (!cancelled) setIsAdmin(true);
@@ -29,7 +36,6 @@ export const AdminRoute: React.FC = () => {
       }
     };
 
-    setIsAdmin(null);
     void checkAdminSession();
 
     return () => {

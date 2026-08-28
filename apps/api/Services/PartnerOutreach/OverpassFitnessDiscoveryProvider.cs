@@ -25,7 +25,7 @@ public sealed class OverpassFitnessDiscoveryProvider
 
         var (south, west, north, east) = box;
         var query = $"""
-            [out:json][timeout:90];
+            [out:json][timeout:25];
             (
               nwr["amenity"="gym"]({south},{west},{north},{east});
               nwr["leisure"="fitness_centre"]({south},{west},{north},{east});

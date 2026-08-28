@@ -34,14 +34,21 @@ public sealed class PublicBusinessContactVerifier
         _log = log;
     }
 
-    public async Task<VerifiedPublicContact?> TryVerifyAsync(Uri officialWebsite, CancellationToken ct = default)
+    public async Task<VerifiedPublicContact?> TryVerifyAsync(
+        Uri officialWebsite,
+        CancellationToken ct = default,
+        int? maxContactPaths = null)
     {
         if (!officialWebsite.Scheme.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             return null;
         var host = officialWebsite.Host.ToLowerInvariant();
         if (host.StartsWith("www.")) host = host[4..];
 
-        foreach (var path in ContactPaths)
+        var paths = maxContactPaths is > 0
+            ? ContactPaths.Take(maxContactPaths.Value)
+            : ContactPaths;
+
+        foreach (var path in paths)
         {
             var pageUrl = new Uri(officialWebsite, path).ToString();
             try

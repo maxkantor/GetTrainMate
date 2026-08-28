@@ -86,6 +86,7 @@ export const PartnerOutreachPage: React.FC = () => {
   const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
   const [discoverySummary, setDiscoverySummary] = useState<Record<string, unknown> | null>(null);
   const [discoverNote, setDiscoverNote] = useState<string | null>(null);
+  const [discovering, setDiscovering] = useState(false);
   const [form, setForm] = useState({
     organizationName: '',
     organizationType: 'run_club',
@@ -139,20 +140,25 @@ export const PartnerOutreachPage: React.FC = () => {
     status === 'prospect' || status === 'discovered' ? true : q.status === status || (status === 'draft' && q.status === 'draft')
   );
 
-  const runAutomatedDiscovery = async () => {
+  const runAutomatedDiscovery = async (onlyCampaignId?: string) => {
     setError(null);
     setDiscoverNote(null);
+    setDiscovering(true);
     try {
       const res = await adminApiService.post('/api/admin/partner-outreach/discover/automated', {
         prepareDrafts: true,
         maxPerMarket: 40,
+        seedsOnly: true,
+        onlyCampaignId: onlyCampaignId || undefined,
       });
       setDiscoverNote(
-        `Automated discovery complete. Created: ${res?.organizationsDiscovered ?? 0}. Qualified: ${res?.qualifiedOrganizations ?? 0}. Verified contacts: ${res?.verifiedPublicContacts ?? 0}. Drafts: ${res?.draftsGenerated ?? 0}. Approval-ready: ${res?.approvalReadyRecipients ?? 0}. No verified email: ${res?.contactsUnavailable ?? 0}.`
+        `Automated discovery complete${res?.seedsOnly ? ' (seed catalog)' : ''}. Created: ${res?.organizationsDiscovered ?? 0}. Qualified: ${res?.qualifiedOrganizations ?? 0}. Verified contacts: ${res?.verifiedPublicContacts ?? 0}. Drafts: ${res?.draftsGenerated ?? 0}. Approval-ready: ${res?.approvalReadyRecipients ?? 0}. No verified email: ${res?.contactsUnavailable ?? 0}.`
       );
       await load();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Automated discovery failed');
+    } finally {
+      setDiscovering(false);
     }
   };
 
@@ -211,8 +217,13 @@ export const PartnerOutreachPage: React.FC = () => {
         Market campaigns
       </Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-        <Button variant="contained" size="small" onClick={() => void runAutomatedDiscovery()}>
-          Run automated discovery (all ranked markets)
+        <Button
+          variant="contained"
+          size="small"
+          disabled={discovering}
+          onClick={() => void runAutomatedDiscovery()}
+        >
+          {discovering ? 'Running discovery…' : 'Run seed discovery (active markets)'}
         </Button>
       </Box>
       <Box sx={{ display: 'grid', gap: 1, mb: 3 }}>
@@ -225,8 +236,12 @@ export const PartnerOutreachPage: React.FC = () => {
             <Chip size="small" label={c.status} />
             <Chip size="small" variant="outlined" label={`${c.country}/${c.market}`} />
             <Chip size="small" variant="outlined" label={c.primaryMode || 'TRAIN'} />
-            <Button size="small" onClick={() => void runAutomatedDiscovery()}>
-              Run automated discovery
+            <Button
+              size="small"
+              disabled={discovering}
+              onClick={() => void runAutomatedDiscovery(c.campaignId)}
+            >
+              {discovering ? 'Running…' : 'Run seed discovery'}
             </Button>
             {c.status !== 'active' && (
               <Button size="small" onClick={() => void setStatus(c.campaignId, 'active')}>
