@@ -18,7 +18,8 @@ Agents must append every experiment here. Do not delete history.
 |-------|--------|
 | Status | Max approved partner outreach to proceed (chat: "Approved") |
 | Scope | Atlanta TRAIN partner package — 9 personalized drafts in `docs/growth/partners/ATLANTA-PARTNER-OUTREACH.md` |
-| Still required before send | (1) Per-recipient **Approve this message** in Admin → Partner Outreach for each verified public inbox. (2) Lambda `PARTNER_OUTREACH_SEND_ENABLED=true` + postal address SSM. (3) Cursor growth automation must **not** hold partner send tokens — dispatch uses API CRM path only. |
+| Still required before send | (1) Per-recipient **Approve this message** in Admin → Partner Outreach **or** run `node scripts/growth/approve-partner-queue.mjs` with Admin login. (2) Partner outreach infra SSM/Lambda not provisioned yet (`/gettrainmate/partner/send-enabled` missing). (3) Cursor must not hold partner send tokens. |
+| Owner re-confirmed | 2026-08-28 — "I approve it" (blanket approval for all 9 Atlanta TRAIN drafts with verified public inboxes only) |
 | Daily limit | 3 partner emails/day (fail-closed) |
 | Product change | NO (approval only) |
 | Verified purchase result | 0 |
