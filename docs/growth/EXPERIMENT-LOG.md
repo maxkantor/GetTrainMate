@@ -5,12 +5,23 @@ Agents must append every experiment here. Do not delete history.
 ## Active
 
 - **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — **KEEP 2026-08-17** (treatment unchanged) — funnel stage: acquisition / SEO
-- **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — **KEEP 2026-08-27** (infra live; outreach never sent) — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
+- **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — **KEEP 2026-08-27** — **Owner approved partner outreach 2026-08-28** (per-recipient CRM approval + Lambda send flag still required) — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
 - **EXP-003** — User-initiated referral invite (`/invite/:ref`) — **ITERATE 2026-08-21** (TRAIN+VIBE+DATE invite CTA) — eval **2026-08-31** — funnel stage: acquisition / referral
 - **EXP-004** — San Francisco density landing (`/san-francisco`) — started **2026-08-21** — funnel stage: acquisition / SEO market discovery (CRM densest metro)
 - **Owned-social:** Facebook + Instagram — weekday Meta Graph; reduce priority if posts remain FAILED_NO_SIGNUP
 
 ## Log
+
+### 2026-08-28 — EXP-002 partner outreach owner approval
+
+| Field | Value |
+|-------|--------|
+| Status | Max approved partner outreach to proceed (chat: "Approved") |
+| Scope | Atlanta TRAIN partner package — 9 personalized drafts in `docs/growth/partners/ATLANTA-PARTNER-OUTREACH.md` |
+| Still required before send | (1) Per-recipient **Approve this message** in Admin → Partner Outreach for each verified public inbox. (2) Lambda `PARTNER_OUTREACH_SEND_ENABLED=true` + postal address SSM. (3) Cursor growth automation must **not** hold partner send tokens — dispatch uses API CRM path only. |
+| Daily limit | 3 partner emails/day (fail-closed) |
+| Product change | NO (approval only) |
+| Verified purchase result | 0 |
 
 ### 2026-08-27 — STRATEGY LOCK Day 4 / 7 + EXP-002 eval + automation recovery
 

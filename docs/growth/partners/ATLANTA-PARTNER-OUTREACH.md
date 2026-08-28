@@ -1,6 +1,6 @@
 # Atlanta TRAIN partner acquisition package (EXP-002)
 
-**Status:** PAUSED. Recipient-level approval required. `PARTNER_OUTREACH_SEND_ENABLED` defaults false.  
+**Status:** OWNER APPROVED 2026-08-28 (Max). Per-recipient CRM approval + Lambda send flag still required before SES dispatch. `PARTNER_OUTREACH_SEND_ENABLED` defaults false.  
 **Date:** 2026-08-13 (package) / 2026-08-14 (unauthorized send path stopped)  
 **Product:** GetTrainMate · Metro: Atlanta · Mode: TRAIN  
 **Hub:** https://gettrainmate.com/partners/atlanta  
