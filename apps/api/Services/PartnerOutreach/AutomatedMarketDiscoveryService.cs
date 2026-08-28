@@ -26,6 +26,7 @@ public sealed class AutomatedMarketDiscoveryService
         int maxPerMarket = 35,
         bool seedsOnly = false,
         string? onlyCampaignId = null,
+        string? onlyPartnerCode = null,
         CancellationToken ct = default)
     {
         var report = new DiscoveryRunReport { StartedAtUtc = DateTime.UtcNow, SeedsOnly = seedsOnly };
@@ -50,7 +51,7 @@ public sealed class AutomatedMarketDiscoveryService
         report.MarketsActivated = targets.Count(c =>
             campaigns.FirstOrDefault(x => x.CampaignId == c.CampaignId)?.Status == "active");
 
-        var contactPathLimit = seedsOnly ? 3 : (int?)null;
+        var contactPathLimit = seedsOnly ? 2 : (int?)null;
 
         foreach (var seed in targets)
         {
@@ -90,6 +91,12 @@ public sealed class AutomatedMarketDiscoveryService
                 ? Array.Empty<DiscoveredOrganization>()
                 : await _overpass.DiscoverAsync(seed, maxPerMarket, ct);
             orgs.AddRange(overpass);
+            if (!string.IsNullOrWhiteSpace(onlyPartnerCode))
+            {
+                orgs = orgs
+                    .Where(o => string.Equals(o.PartnerCode, onlyPartnerCode.Trim(), StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
             marketReport.OrganizationsDiscovered = orgs.Count;
 
             foreach (var org in orgs)

@@ -51,9 +51,23 @@ class AdminApiService {
     return err;
   }
 
+  private async fetchWithNetworkHint(url: string, init: RequestInit): Promise<Response> {
+    try {
+      return await fetch(url, init);
+    } catch (err: unknown) {
+      if (err instanceof TypeError) {
+        throw new Error(
+          'Network error — the API did not return a response (often API Gateway timeout, which the browser reports as CORS). ' +
+            'Wait for API deploy, retry per-org seed discovery, or run: node scripts/growth/run-market-discovery.mjs'
+        );
+      }
+      throw err;
+    }
+  }
+
   async get(endpoint: string): Promise<any> {
     const headers = this.getAuthHeaders();
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await this.fetchWithNetworkHint(`${API_BASE_URL}${endpoint}`, {
       method: 'GET',
       headers,
     });
@@ -79,7 +93,7 @@ class AdminApiService {
       Object.assign(headers, this.getAuthHeaders());
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await this.fetchWithNetworkHint(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers,
       body: data ? JSON.stringify(data) : undefined,

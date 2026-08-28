@@ -8,6 +8,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  LinearProgress,
   MenuItem,
   Tab,
   Tabs,
@@ -77,6 +78,45 @@ const TABS = [
   'complained',
 ];
 
+type DiscoverySeed = {
+  partnerCode: string;
+  organizationName: string;
+  campaignId: string;
+};
+
+type DiscoveryReport = {
+  organizationsDiscovered?: number;
+  qualifiedOrganizations?: number;
+  verifiedPublicContacts?: number;
+  draftsGenerated?: number;
+  approvalReadyRecipients?: number;
+  contactsUnavailable?: number;
+  seedsOnly?: boolean;
+};
+
+const ATLANTA_CAMPAIGN_ID = 'us_atlanta_train_partners';
+
+function emptyDiscoveryTotals(): Required<DiscoveryReport> {
+  return {
+    organizationsDiscovered: 0,
+    qualifiedOrganizations: 0,
+    verifiedPublicContacts: 0,
+    draftsGenerated: 0,
+    approvalReadyRecipients: 0,
+    contactsUnavailable: 0,
+    seedsOnly: true,
+  };
+}
+
+function mergeDiscoveryTotals(totals: Required<DiscoveryReport>, res: DiscoveryReport) {
+  totals.organizationsDiscovered += res.organizationsDiscovered ?? 0;
+  totals.qualifiedOrganizations += res.qualifiedOrganizations ?? 0;
+  totals.verifiedPublicContacts += res.verifiedPublicContacts ?? 0;
+  totals.draftsGenerated += res.draftsGenerated ?? 0;
+  totals.approvalReadyRecipients += res.approvalReadyRecipients ?? 0;
+  totals.contactsUnavailable += res.contactsUnavailable ?? 0;
+}
+
 export const PartnerOutreachPage: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [prospects, setProspects] = useState<Prospect[]>([]);
@@ -87,6 +127,8 @@ export const PartnerOutreachPage: React.FC = () => {
   const [discoverySummary, setDiscoverySummary] = useState<Record<string, unknown> | null>(null);
   const [discoverNote, setDiscoverNote] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
+  const [discoverProgress, setDiscoverProgress] = useState(0);
+  const [discoverStage, setDiscoverStage] = useState<string | null>(null);
   const [form, setForm] = useState({
     organizationName: '',
     organizationType: 'run_club',
@@ -140,25 +182,102 @@ export const PartnerOutreachPage: React.FC = () => {
     status === 'prospect' || status === 'discovered' ? true : q.status === status || (status === 'draft' && q.status === 'draft')
   );
 
+  const loadSeedsForRun = async (onlyCampaignId?: string): Promise<DiscoverySeed[]> => {
+    const catalog = campaigns.length ? campaigns : INITIAL_MARKET_CANDIDATES;
+    const targets = onlyCampaignId
+      ? catalog.filter((c) => c.campaignId === onlyCampaignId)
+      : catalog.filter((c) => c.status === 'active');
+
+    const seeds: DiscoverySeed[] = [];
+    for (const campaign of targets) {
+      const rows = await adminApiService.get(
+        `/api/admin/partner-outreach/discover/seeds?campaignId=${encodeURIComponent(campaign.campaignId)}`
+      );
+      const list = Array.isArray(rows) ? rows : [];
+      for (const row of list) {
+        if (!row?.partnerCode) continue;
+        seeds.push({
+          partnerCode: String(row.partnerCode),
+          organizationName: String(row.organizationName ?? row.partnerCode),
+          campaignId: campaign.campaignId,
+        });
+      }
+    }
+
+    if (seeds.length === 0 && !onlyCampaignId) {
+      const rows = await adminApiService.get(
+        `/api/admin/partner-outreach/discover/seeds?campaignId=${encodeURIComponent(ATLANTA_CAMPAIGN_ID)}`
+      );
+      const list = Array.isArray(rows) ? rows : [];
+      for (const row of list) {
+        if (!row?.partnerCode) continue;
+        seeds.push({
+          partnerCode: String(row.partnerCode),
+          organizationName: String(row.organizationName ?? row.partnerCode),
+          campaignId: ATLANTA_CAMPAIGN_ID,
+        });
+      }
+    }
+
+    return seeds;
+  };
+
   const runAutomatedDiscovery = async (onlyCampaignId?: string) => {
     setError(null);
     setDiscoverNote(null);
     setDiscovering(true);
+    setDiscoverProgress(0);
+    setDiscoverStage('Loading seed catalog…');
+
+    const totals = emptyDiscoveryTotals();
+    const failures: string[] = [];
+
     try {
-      const res = await adminApiService.post('/api/admin/partner-outreach/discover/automated', {
-        prepareDrafts: true,
-        maxPerMarket: 40,
-        seedsOnly: true,
-        onlyCampaignId: onlyCampaignId || undefined,
-      });
-      setDiscoverNote(
-        `Automated discovery complete${res?.seedsOnly ? ' (seed catalog)' : ''}. Created: ${res?.organizationsDiscovered ?? 0}. Qualified: ${res?.qualifiedOrganizations ?? 0}. Verified contacts: ${res?.verifiedPublicContacts ?? 0}. Drafts: ${res?.draftsGenerated ?? 0}. Approval-ready: ${res?.approvalReadyRecipients ?? 0}. No verified email: ${res?.contactsUnavailable ?? 0}.`
-      );
+      const seeds = await loadSeedsForRun(onlyCampaignId);
+      if (seeds.length === 0) {
+        throw new Error(
+          onlyCampaignId
+            ? 'No seed catalog for this market yet. Only Atlanta has seed orgs; other markets need full OSM discovery via CLI.'
+            : 'No active markets with a seed catalog. Activate Atlanta or run discovery on the Atlanta row.'
+        );
+      }
+
+      for (let i = 0; i < seeds.length; i++) {
+        const seed = seeds[i];
+        setDiscoverStage(`Verifying ${seed.organizationName} (${i + 1}/${seeds.length})…`);
+        setDiscoverProgress(Math.round((i / seeds.length) * 100));
+        try {
+          const res = await adminApiService.post('/api/admin/partner-outreach/discover/automated', {
+            prepareDrafts: true,
+            maxPerMarket: 40,
+            seedsOnly: true,
+            onlyCampaignId: seed.campaignId,
+            onlyPartnerCode: seed.partnerCode,
+          });
+          mergeDiscoveryTotals(totals, res);
+        } catch (e: unknown) {
+          failures.push(
+            `${seed.organizationName}: ${e instanceof Error ? e.message : 'failed'}`
+          );
+        }
+        setDiscoverProgress(Math.round(((i + 1) / seeds.length) * 100));
+      }
+
+      setDiscoverProgress(100);
+      setDiscoverStage('Refreshing CRM…');
       await load();
+
+      const failNote =
+        failures.length > 0 ? ` Failed: ${failures.slice(0, 3).join('; ')}${failures.length > 3 ? '…' : ''}` : '';
+      setDiscoverNote(
+        `Seed discovery complete. Created: ${totals.organizationsDiscovered}. Qualified: ${totals.qualifiedOrganizations}. Verified contacts: ${totals.verifiedPublicContacts}. Drafts: ${totals.draftsGenerated}. Approval-ready: ${totals.approvalReadyRecipients}. No verified email: ${totals.contactsUnavailable}.${failNote}`
+      );
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Automated discovery failed');
     } finally {
       setDiscovering(false);
+      setDiscoverStage(null);
+      setDiscoverProgress(0);
     }
   };
 
@@ -211,6 +330,19 @@ export const PartnerOutreachPage: React.FC = () => {
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setDiscoverNote(null)}>
           {discoverNote}
         </Alert>
+      )}
+      {discovering && (
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+            <Typography variant="body2" color="text.secondary">
+              {discoverStage ?? 'Running discovery…'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {discoverProgress}%
+            </Typography>
+          </Box>
+          <LinearProgress variant="determinate" value={discoverProgress} sx={{ height: 8, borderRadius: 1 }} />
+        </Box>
       )}
 
       <Typography variant="h6" sx={{ mb: 1 }}>

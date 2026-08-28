@@ -92,17 +92,31 @@ public class AdminPartnerOutreachController : ControllerBase
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    [HttpGet("discover/seeds")]
+    public IActionResult DiscoverSeeds([FromQuery] string? campaignId)
+    {
+        var seeds = MarketCampaignCatalog.SeedCatalogForCampaign(campaignId);
+        return Ok(seeds.Select(s => new
+        {
+            partnerCode = s.PartnerCode,
+            organizationName = s.OrganizationName,
+            website = s.Website,
+            campaignId = string.IsNullOrWhiteSpace(campaignId) ? "us_atlanta_train_partners" : campaignId.Trim(),
+        }));
+    }
+
     [HttpPost("discover/automated")]
     public async Task<IActionResult> DiscoverAutomated([FromBody] AutomatedDiscoverRequest? req)
     {
         try
         {
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(28));
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(22));
             var report = await _discovery.RunAsync(
                 req?.PrepareDrafts ?? true,
                 req?.MaxPerMarket ?? 35,
                 req?.SeedsOnly ?? false,
                 req?.OnlyCampaignId,
+                req?.OnlyPartnerCode,
                 timeoutCts.Token);
             return Ok(report);
         }
@@ -111,7 +125,7 @@ public class AdminPartnerOutreachController : ControllerBase
             return StatusCode(503, new
             {
                 error = "discovery_timeout",
-                message = "Discovery exceeded the API time limit. Retry with seedsOnly=true and onlyCampaignId for Atlanta."
+                message = "Discovery exceeded the API time limit. Use per-org seed discovery from Admin UI or set onlyPartnerCode for one organization."
             });
         }
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
@@ -185,4 +199,6 @@ public class AutomatedDiscoverRequest
     public bool SeedsOnly { get; set; }
     /// <summary>Optional filter, e.g. us_atlanta_train_partners.</summary>
     public string? OnlyCampaignId { get; set; }
+    /// <summary>Process a single seed-catalog org (keeps each request under API Gateway timeout).</summary>
+    public string? OnlyPartnerCode { get; set; }
 }

@@ -55,6 +55,14 @@ public static class MarketCampaignCatalog
         new DiscoveredOrgSeed("Atlanta Outdoor Club", "https://www.atlantaoutdoorclub.com/", "hiking", "atl-outdoor-club"),
     };
 
+    public static IReadOnlyList<DiscoveredOrgSeed> SeedCatalogForCampaign(string? campaignId)
+    {
+        if (string.IsNullOrWhiteSpace(campaignId)
+            || string.Equals(campaignId.Trim(), "us_atlanta_train_partners", StringComparison.OrdinalIgnoreCase))
+            return AtlantaTrainOrgWebsites;
+        return Array.Empty<DiscoveredOrgSeed>();
+    }
+
     static MarketCampaignSeed Seed(
         string id, string country, string market, string display, string tz, string[] langs, string status) =>
         new(id, country, market, display, tz, langs, status, "TRAIN");
