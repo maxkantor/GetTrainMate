@@ -50,8 +50,20 @@ body {
     radial-gradient(1000px 700px at 10% 90%, rgba(30, 64, 175, 0.28), transparent 50%),
     radial-gradient(900px at 50% 50%, rgba(59, 130, 246, 0.06), transparent 60%),
     linear-gradient(180deg, #030308 0%, #0a0a14 40%, #070b1a 100%);
-  background-attachment: fixed;
+  background-attachment: scroll;
   overflow-x: hidden;
+}
+
+@media (min-width: 901px) and (prefers-reduced-motion: no-preference) {
+  body {
+    background-attachment: fixed;
+  }
+}
+
+@media (max-width: 900px) {
+  body::before {
+    display: none;
+  }
 }
 
 body::before {

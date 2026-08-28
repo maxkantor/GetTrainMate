@@ -221,7 +221,13 @@
 
 @media (max-width: 900px) {
   .wrap {
-    height: 320px;
+    height: 280px;
+  }
+
+  .cardInner {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: linear-gradient(145deg, rgba(18, 12, 32, 0.96) 0%, rgba(45, 25, 85, 0.72) 100%);
   }
 
   .layer1 {

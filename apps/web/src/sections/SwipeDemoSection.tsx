@@ -167,6 +167,9 @@ export const SwipeDemoSection: React.FC = () => {
   const timersRef = useRef<number[]>([]);
   const deckRef = useRef<HTMLDivElement>(null);
   const photoShellRef = useRef<HTMLDivElement>(null);
+  const finePointerRef = useRef(
+    typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  );
 
   const onDeckPhotoError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     logLandingShowcase('SwipeDemoSection: deck img onError', {
@@ -217,7 +220,7 @@ export const SwipeDemoSection: React.FC = () => {
 
   const onDeckParallax = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (reduceMotion) return;
+      if (reduceMotion || !finePointerRef.current) return;
       const el = deckRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
@@ -238,7 +241,7 @@ export const SwipeDemoSection: React.FC = () => {
 
   const onPhotoParallax = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (reduceMotion) return;
+      if (reduceMotion || !finePointerRef.current) return;
       const shell = photoShellRef.current;
       if (!shell) return;
       const r = shell.getBoundingClientRect();

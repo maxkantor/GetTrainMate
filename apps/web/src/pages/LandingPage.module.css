@@ -1,8 +1,14 @@
 /* Landing page — dense premium rhythm, minimal dead space */
 .landing {
-  --landing-section-gap: clamp(28px, 4vw, 44px);
+  --landing-section-gap: clamp(12px, 2vw, 24px);
 }
 
 .landing > * + * {
   margin-top: 0;
+}
+
+/* Defer paint for below-fold bands */
+.landing > *:nth-child(n + 2) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 520px;
 }

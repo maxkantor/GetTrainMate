@@ -101,8 +101,9 @@ export const HeroFloatingStack: React.FC = () => {
                       className={`${styles.avatar} ${styles.avatarLead}`}
                       width={50}
                       height={50}
-                      loading="eager"
+                      loading={i === 0 ? 'eager' : 'lazy'}
                       decoding="async"
+                      fetchPriority={i === 0 ? 'high' : 'low'}
                       {...landingShowcaseImageProps(item.avatar)}
                       onError={onAvatarError}
                     />
@@ -112,8 +113,9 @@ export const HeroFloatingStack: React.FC = () => {
                       className={`${styles.avatar} ${styles.avatarFollow}`}
                       width={50}
                       height={50}
-                      loading="eager"
+                      loading="lazy"
                       decoding="async"
+                      fetchPriority="low"
                       {...landingShowcaseImageProps(item.secondaryAvatar)}
                       onError={onAvatarError}
                     />
@@ -125,8 +127,9 @@ export const HeroFloatingStack: React.FC = () => {
                     className={styles.avatar}
                     width={50}
                     height={50}
-                    loading="eager"
+                    loading={i === 0 ? 'eager' : 'lazy'}
                     decoding="async"
+                    fetchPriority={i === 0 ? 'high' : 'low'}
                     {...landingShowcaseImageProps(item.avatar)}
                     onError={onAvatarError}
                   />
