@@ -22,6 +22,7 @@ import {
   partnerInvitePath,
   slugPart,
 } from '@/data/markets';
+import { localPartnerSeeds } from '@/data/partnerSeedCatalog';
 
 type Prospect = {
   prospectId: string;
@@ -190,32 +191,45 @@ export const PartnerOutreachPage: React.FC = () => {
 
     const seeds: DiscoverySeed[] = [];
     for (const campaign of targets) {
-      const rows = await adminApiService.get(
-        `/api/admin/partner-outreach/discover/seeds?campaignId=${encodeURIComponent(campaign.campaignId)}`
-      );
-      const list = Array.isArray(rows) ? rows : [];
-      for (const row of list) {
-        if (!row?.partnerCode) continue;
+      const local = localPartnerSeeds(campaign.campaignId);
+      for (const row of local) {
         seeds.push({
-          partnerCode: String(row.partnerCode),
-          organizationName: String(row.organizationName ?? row.partnerCode),
+          partnerCode: row.partnerCode,
+          organizationName: row.organizationName,
           campaignId: campaign.campaignId,
         });
       }
     }
 
     if (seeds.length === 0 && !onlyCampaignId) {
-      const rows = await adminApiService.get(
-        `/api/admin/partner-outreach/discover/seeds?campaignId=${encodeURIComponent(ATLANTA_CAMPAIGN_ID)}`
-      );
-      const list = Array.isArray(rows) ? rows : [];
-      for (const row of list) {
-        if (!row?.partnerCode) continue;
+      for (const row of localPartnerSeeds(ATLANTA_CAMPAIGN_ID)) {
         seeds.push({
-          partnerCode: String(row.partnerCode),
-          organizationName: String(row.organizationName ?? row.partnerCode),
+          partnerCode: row.partnerCode,
+          organizationName: row.organizationName,
           campaignId: ATLANTA_CAMPAIGN_ID,
         });
+      }
+    }
+
+    if (seeds.length > 0) return seeds;
+
+    // Optional API catalog when Lambda is deployed (never block UI on 404).
+    for (const campaign of targets) {
+      try {
+        const rows = await adminApiService.get(
+          `/api/admin/partner-outreach/discover/seeds?campaignId=${encodeURIComponent(campaign.campaignId)}`
+        );
+        const list = Array.isArray(rows) ? rows : [];
+        for (const row of list) {
+          if (!row?.partnerCode) continue;
+          seeds.push({
+            partnerCode: String(row.partnerCode),
+            organizationName: String(row.organizationName ?? row.partnerCode),
+            campaignId: campaign.campaignId,
+          });
+        }
+      } catch {
+        /* use local catalog only */
       }
     }
 
@@ -273,7 +287,14 @@ export const PartnerOutreachPage: React.FC = () => {
         `Seed discovery complete. Created: ${totals.organizationsDiscovered}. Qualified: ${totals.qualifiedOrganizations}. Verified contacts: ${totals.verifiedPublicContacts}. Drafts: ${totals.draftsGenerated}. Approval-ready: ${totals.approvalReadyRecipients}. No verified email: ${totals.contactsUnavailable}.${failNote}`
       );
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Automated discovery failed');
+      const msg = e instanceof Error ? e.message : 'Automated discovery failed';
+      if (/404|HTTP 404/i.test(msg)) {
+        setError(
+          `${msg} — deploy the latest API Lambda (commit 80c08fd+) so onlyPartnerCode discovery works, or run: node scripts/growth/run-market-discovery.mjs`
+        );
+      } else {
+        setError(msg);
+      }
     } finally {
       setDiscovering(false);
       setDiscoverStage(null);
