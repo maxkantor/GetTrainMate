@@ -211,8 +211,8 @@ Agents must append every experiment here. Do not delete history.
 | Continue/stop rule | Rollback if partner routes 404 or signup query broken. Continue while EXP-001 remains active. |
 | Rollback procedure | `git revert` EXP-002 commit; remove amplify partner rewrites if needed |
 | Commit | `8b67f80` |
-| Deployment status | Amplify pending verification |
-| Production verification | pending post-deploy |
+| Deployment status | Amplify deployed; health OK 2026-08-14 |
+| Production verification | `/partners/atlanta`, `/partners/atlanta/:code` canonical OK (2026-08-14 health check) |
 | Verified purchase result | n/a (density-first) |
 
 ### 2026-08-12 — EXP-001 Atlanta training partners landing page
