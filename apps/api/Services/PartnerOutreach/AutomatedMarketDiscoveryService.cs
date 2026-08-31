@@ -102,7 +102,7 @@ public sealed class AutomatedMarketDiscoveryService
             foreach (var org in orgs)
             {
                 ct.ThrowIfCancellationRequested();
-                if (IsDuplicate(existing, org))
+                if (existing.Any(p => PartnerOutreachDedupe.MatchesDiscoveredOrg(p, org, seed.CampaignId)))
                 {
                     marketReport.SkippedDuplicate++;
                     continue;
@@ -242,15 +242,6 @@ public sealed class AutomatedMarketDiscoveryService
         }
         await Task.CompletedTask;
         return rows;
-    }
-
-    static bool IsDuplicate(List<PartnerProspect> existing, DiscoveredOrganization org)
-    {
-        return existing.Any(p =>
-            string.Equals(p.Website, org.Website, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(p.OrganizationName, org.OrganizationName, StringComparison.OrdinalIgnoreCase)
-            || (!string.IsNullOrWhiteSpace(org.PartnerCode)
-                && string.Equals(p.PartnerCode, org.PartnerCode, StringComparison.OrdinalIgnoreCase)));
     }
 
     static string GeneratePartnerCode(MarketCampaignSeed seed, DiscoveredOrganization org)

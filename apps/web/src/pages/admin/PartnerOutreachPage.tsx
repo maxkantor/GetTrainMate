@@ -118,6 +118,51 @@ function mergeDiscoveryTotals(totals: Required<DiscoveryReport>, res: DiscoveryR
   totals.contactsUnavailable += res.contactsUnavailable ?? 0;
 }
 
+const PROSPECT_STATUS_RANK: Record<string, number> = {
+  approved: 60,
+  queued: 50,
+  sent: 45,
+  replied: 40,
+  draft: 30,
+  prospect: 20,
+  discovered: 10,
+};
+
+const QUEUE_STATUS_RANK: Record<string, number> = {
+  approved: 60,
+  queued: 50,
+  sent: 45,
+  replied: 40,
+  draft: 30,
+};
+
+function dedupeProspects(items: Prospect[]): Prospect[] {
+  const byKey = new Map<string, Prospect>();
+  for (const p of items) {
+    const key = (
+      p.email?.toLowerCase() ||
+      p.partnerCode?.toLowerCase() ||
+      p.organizationName?.toLowerCase() ||
+      p.prospectId
+    ).trim();
+    const prev = byKey.get(key);
+    const rank = (s: string) => PROSPECT_STATUS_RANK[s] ?? 0;
+    if (!prev || rank(p.status) > rank(prev.status)) byKey.set(key, p);
+  }
+  return [...byKey.values()];
+}
+
+function dedupeQueue(items: QueueItem[]): QueueItem[] {
+  const byKey = new Map<string, QueueItem>();
+  for (const q of items) {
+    const key = (q.recipient?.toLowerCase() || q.organizationName?.toLowerCase() || q.queueId).trim();
+    const prev = byKey.get(key);
+    const rank = (s: string) => QUEUE_STATUS_RANK[s] ?? 0;
+    if (!prev || rank(q.status) > rank(prev.status)) byKey.set(key, q);
+  }
+  return [...byKey.values()];
+}
+
 export const PartnerOutreachPage: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [prospects, setProspects] = useState<Prospect[]>([]);
@@ -146,6 +191,7 @@ export const PartnerOutreachPage: React.FC = () => {
     mode: 'TRAIN',
   });
   const [approveItem, setApproveItem] = useState<QueueItem | null>(null);
+  const [deduping, setDeduping] = useState(false);
 
   const load = async () => {
     setError(null);
@@ -172,15 +218,21 @@ export const PartnerOutreachPage: React.FC = () => {
   }, []);
 
   const status = TABS[tab];
-  const shownProspects = prospects.filter((p) => {
-    if (status === 'prospect') return p.status === 'prospect' || p.status === 'draft';
-    if (status === 'discovered') return p.status === 'discovered';
-    if (status === 'no_verified_public_email') return p.status === 'no_verified_public_email';
-    if (status === 'qualified_language_unavailable') return p.status === 'qualified_language_unavailable';
-    return p.status === status;
-  });
-  const shownQueue = queue.filter((q) =>
-    status === 'prospect' || status === 'discovered' ? true : q.status === status || (status === 'draft' && q.status === 'draft')
+  const shownProspects = dedupeProspects(
+    prospects.filter((p) => {
+      if (status === 'prospect') return p.status === 'prospect' || p.status === 'draft';
+      if (status === 'discovered') return p.status === 'discovered';
+      if (status === 'no_verified_public_email') return p.status === 'no_verified_public_email';
+      if (status === 'qualified_language_unavailable') return p.status === 'qualified_language_unavailable';
+      return p.status === status;
+    })
+  );
+  const shownQueue = dedupeQueue(
+    queue.filter((q) =>
+      status === 'prospect' || status === 'discovered'
+        ? true
+        : q.status === status || (status === 'draft' && q.status === 'draft')
+    )
   );
 
   const loadSeedsForRun = async (onlyCampaignId?: string): Promise<DiscoverySeed[]> => {
@@ -377,6 +429,35 @@ export const PartnerOutreachPage: React.FC = () => {
           onClick={() => void runAutomatedDiscovery()}
         >
           {discovering ? 'Running discovery…' : 'Run seed discovery (active markets)'}
+        </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          disabled={deduping || discovering}
+          onClick={async () => {
+            setError(null);
+            setDeduping(true);
+            try {
+              const preview = await adminApiService.post('/api/admin/partner-outreach/dedupe', { dryRun: true });
+              const removed = Number(preview?.prospectsRemoved ?? 0) + Number(preview?.queueRemoved ?? 0);
+              if (removed === 0) {
+                setDiscoverNote('No duplicate prospects or queue items found.');
+                await load();
+                return;
+              }
+              const result = await adminApiService.post('/api/admin/partner-outreach/dedupe', { dryRun: false });
+              setDiscoverNote(
+                `Removed ${result?.prospectsRemoved ?? 0} duplicate prospect(s) and ${result?.queueRemoved ?? 0} duplicate queue item(s). Kept approved/draft records.`
+              );
+              await load();
+            } catch (e: unknown) {
+              setError(e instanceof Error ? e.message : 'Dedupe failed');
+            } finally {
+              setDeduping(false);
+            }
+          }}
+        >
+          {deduping ? 'Removing duplicates…' : 'Remove duplicates'}
         </Button>
       </Box>
       <Box sx={{ display: 'grid', gap: 1, mb: 3 }}>

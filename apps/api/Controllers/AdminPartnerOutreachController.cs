@@ -159,6 +159,10 @@ public class AdminPartnerOutreachController : ControllerBase
     [HttpPost("dispatch")]
     public async Task<IActionResult> Dispatch() =>
         Ok(await _svc.DispatchDueAsync(scheduledCursorAutomation: false));
+
+    [HttpPost("dedupe")]
+    public async Task<IActionResult> Dedupe([FromBody] DedupeRequest? req) =>
+        Ok(await _svc.DedupeAsync(req?.DryRun ?? false));
 }
 
 public class DraftRequest
@@ -201,4 +205,9 @@ public class AutomatedDiscoverRequest
     public string? OnlyCampaignId { get; set; }
     /// <summary>Process a single seed-catalog org (keeps each request under API Gateway timeout).</summary>
     public string? OnlyPartnerCode { get; set; }
+}
+
+public class DedupeRequest
+{
+    public bool DryRun { get; set; }
 }

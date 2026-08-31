@@ -240,4 +240,45 @@ public class PartnerOutreachTests
         Assert.True(PartnerOutreachRules.IsDispatchWindow(winter, tz, 10));
         Assert.False(PartnerOutreachRules.IsWeekdayEastern(new DateTime(2026, 8, 15, 14, 0, 0, DateTimeKind.Utc), tz));
     }
+
+    [Fact]
+    public void Prospect_dedupe_matches_email_website_and_partner_code()
+    {
+        var existing = new PartnerProspect
+        {
+            Email = "info@example.test",
+            Website = "https://www.example.test/contact",
+            OrganizationName = "Example Club",
+            PartnerCode = "atl-example",
+            CampaignId = "us_atlanta_train_partners",
+        };
+        var byEmail = new PartnerProspect
+        {
+            Email = "INFO@example.test",
+            OrganizationName = "Other Name",
+            CampaignId = "us_atlanta_train_partners",
+        };
+        Assert.True(PartnerOutreachDedupe.MatchesProspect(existing, byEmail));
+
+        var org = new DiscoveredOrganization
+        {
+            OrganizationName = "Example Club",
+            Website = "https://example.test/contact/",
+            PartnerCode = "atl-example",
+            CampaignId = "us_atlanta_train_partners",
+        };
+        Assert.True(PartnerOutreachDedupe.MatchesDiscoveredOrg(existing, org, "us_atlanta_train_partners"));
+        Assert.Equal(
+            PartnerOutreachDedupe.ProspectKey(existing),
+            PartnerOutreachDedupe.ProspectKey(byEmail));
+    }
+
+    [Fact]
+    public void Pick_best_prospect_prefers_approved_over_draft()
+    {
+        var draft = new PartnerProspect { ProspectId = "d", Status = "draft", CreatedAt = DateTime.UtcNow };
+        var approved = new PartnerProspect { ProspectId = "a", Status = "approved", CreatedAt = draft.CreatedAt.AddMinutes(-5) };
+        var best = PartnerOutreachDedupe.PickBestProspect(new[] { draft, approved });
+        Assert.Equal("a", best.ProspectId);
+    }
 }

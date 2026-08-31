@@ -25,6 +25,7 @@ public interface IPartnerOutreachService
     Task<List<PartnerCampaign>> ListCampaignsAsync();
     Task<PartnerCampaign> SetCampaignStatusAsync(string campaignId, string status);
     Task<object> DiscoverAsync(string? country, string? market, string? language, string? mode);
+    Task<object> DedupeAsync(bool dryRun = false);
 }
 
 public sealed class PartnerOutreachService : IPartnerOutreachService
@@ -108,6 +109,14 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             if (string.IsNullOrWhiteSpace(prospect.OfficialDomain) && email.Contains('@'))
                 prospect.OfficialDomain = email.Split('@')[1];
         }
+        var existingProspects = await ListProspectsAsync(null);
+        var duplicate = existingProspects.FirstOrDefault(p => PartnerOutreachDedupe.MatchesProspect(p, prospect));
+        if (duplicate != null)
+        {
+            _log.LogDebug("Prospect dedupe: returning existing {Id} for {Org}", duplicate.ProspectId, prospect.OrganizationName);
+            return duplicate;
+        }
+
         prospect.CreatedAt = DateTime.UtcNow;
         prospect.Owner = string.IsNullOrWhiteSpace(prospect.Owner) ? actor : prospect.Owner;
         await _db.SaveAsync(prospect);
@@ -164,6 +173,26 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         }
         if (string.IsNullOrWhiteSpace(p.LandingUrl) || string.IsNullOrWhiteSpace(p.PartnerCode))
             throw new InvalidOperationException("Partner landing URL and code are required.");
+
+        var existingQueue = (await ListQueueAsync(null))
+            .Where(q => q.Status is "draft" or "approved" or "queued"
+                && (string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                    || (string.Equals(q.Recipient, p.Email, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(q.CampaignId, campaignId, StringComparison.OrdinalIgnoreCase))))
+            .OrderByDescending(q => PartnerOutreachDedupe.QueueRank(q.Status))
+            .ThenByDescending(q => q.CreatedAt)
+            .FirstOrDefault();
+        if (existingQueue != null)
+        {
+            _log.LogDebug("Queue dedupe: returning existing {Id} for {Org}", existingQueue.QueueId, p.OrganizationName);
+            if (p.Status != "draft" && existingQueue.Status is "draft" or "approved" or "queued")
+            {
+                p.Status = existingQueue.Status == "approved" ? "approved" : "draft";
+                await _db.SaveAsync(p);
+            }
+            return existingQueue;
+        }
+
         var unsub = BuildUnsubUrl(p.ProspectId);
         var marketLabel = string.IsNullOrWhiteSpace(p.Metro) ? p.City : p.Metro;
         var copy = PartnerEmailMime.RenderDefault(p.OrganizationName, p.LandingUrl, p.PartnerCode, unsub, Postal, marketLabel, p.CampaignLanguage);
@@ -666,6 +695,66 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             language,
             mode,
         });
+    }
+
+    public async Task<object> DedupeAsync(bool dryRun = false)
+    {
+        var prospects = await ListProspectsAsync(null);
+        var queue = await ListQueueAsync(null);
+        var removedProspects = new List<object>();
+        var removedQueue = new List<object>();
+        var keptProspects = new List<object>();
+
+        var prospectGroups = prospects
+            .GroupBy(PartnerOutreachDedupe.ProspectKey)
+            .Where(g => g.Count() > 1)
+            .ToList();
+
+        foreach (var group in prospectGroups)
+        {
+            var keeper = PartnerOutreachDedupe.PickBestProspect(group);
+            keptProspects.Add(new { keeper.ProspectId, keeper.OrganizationName, keeper.Email, keeper.Status });
+            foreach (var dup in group.Where(p => p.ProspectId != keeper.ProspectId))
+            {
+                removedProspects.Add(new { dup.ProspectId, dup.OrganizationName, dup.Email, dup.Status });
+                if (!dryRun)
+                {
+                    foreach (var q in queue.Where(x => x.ProspectId == dup.ProspectId))
+                    {
+                        removedQueue.Add(new { q.QueueId, q.Recipient, q.Status, reason = "orphan_prospect" });
+                        await _db.DeleteAsync(q);
+                    }
+                    await _db.DeleteAsync(dup);
+                }
+            }
+        }
+
+        var queueGroups = (dryRun ? queue : await ListQueueAsync(null))
+            .GroupBy(PartnerOutreachDedupe.QueueKey)
+            .Where(g => g.Count() > 1)
+            .ToList();
+
+        foreach (var group in queueGroups)
+        {
+            var keeper = PartnerOutreachDedupe.PickBestQueueItem(group);
+            foreach (var dup in group.Where(q => q.QueueId != keeper.QueueId))
+            {
+                removedQueue.Add(new { dup.QueueId, dup.Recipient, dup.Status, reason = "duplicate_recipient" });
+                if (!dryRun)
+                    await _db.DeleteAsync(dup);
+            }
+        }
+
+        return new
+        {
+            dryRun,
+            duplicateProspectGroups = prospectGroups.Count,
+            prospectsRemoved = removedProspects.Count,
+            queueRemoved = removedQueue.Count,
+            keptProspects,
+            removedProspects,
+            removedQueue,
+        };
     }
 
     public async Task<PartnerThread?> GetThreadAsync(string threadId) =>
