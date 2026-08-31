@@ -42,7 +42,7 @@ export const Hero: React.FC = () => {
   const { t } = useI18n();
 
   const profileComplete = me?.isProfileComplete ?? true;
-  const ctaPrimaryHref = !isAuthenticated ? '/signup' : '/app';
+  const ctaPrimaryHref = !isAuthenticated ? '/signup?src=homepage' : '/app';
   const primaryCta = t('landing.landing_primary_cta');
   const ctaPrimaryLabel = !isAuthenticated
     ? primaryCta

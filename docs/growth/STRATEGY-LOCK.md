@@ -1,16 +1,25 @@
 # GetTrainMate growth strategy lock
 
-**Status:** LOCKED  
+**Status:** REVIEWED (lock ended 2026-08-31 ET)  
 **Started (America/New_York):** 2026-08-24  
-**Ends after 7 complete measurement days:** 2026-08-31 (end-of-lock review on or after that date)  
-**Governing prompt:** FINAL AUTONOMOUS GROWTH SYSTEM (user-locked; do not rewrite during lock)
+**Review:** 2026-08-31  
+**Governing prompt:** FINAL AUTONOMOUS GROWTH SYSTEM (lock window complete)
 
-## Rules during lock
+## End-of-lock decision
 
-- Rotate acquisition variants only: mode × market × language × activity × hook × creative × CTA × destination.
-- **Do not** redesign overall strategy, replace this lock, or invent daily product commits.
-- Product/code changes only for confirmed bugs, broken tracking/signup/onboarding/checkout, critical production failures, or predetermined experiment eval dates with evidence.
-- Valid daily outcome: `NO PRODUCT CHANGE — collecting data` + weekday FB/IG distribution when Meta is valid.
+**Primary bottleneck:** landings without signup starts (GA4 `signup_started` stayed 0 through the lock; CRM still ~21 completed profiles; 0 verified paid customers).
+
+**One strategic change (2026-08-31):** owned-social Facebook cards and Instagram `/go/:code` links now open **`/signup` with mode + UTMs**, not a second marketing landing. SEO mode pages (`/workout-partner`, `/meet-people`, `/active-dating`) stay live for search. Do **not** invent a new experiment this run.
+
+**What will not get 1,000 paid customers:** weekday organic posts alone. Partner DynamoDB tables exist; send is still fail-closed (no `/gettrainmate/partner/send-enabled` or postal-address SSM). Cursor must not send partner mail or buy ads.
+
+**Owner levers that actually scale:** (1) CAN-SPAM postal address + `PARTNER_OUTREACH_SEND_ENABLED=true` + approve 9 Atlanta drafts in Admin CRM (3/day). (2) Explicit Meta ads budget to `/signup`. (3) Do not redesign homepage.
+
+## Rules after review
+
+- Keep weekday FB/IG rotation (TRAIN / VIBE / DATE × en / es / ru).
+- Product/code changes only for confirmed funnel blockers, tracking/signup/checkout bugs, or experiment evals.
+- Partner email stays fail-closed until SSM + per-recipient approval. Never invent inboxes.
 
 ## Lock day counter
 
@@ -20,10 +29,10 @@
 | 2026-08-25 | 2 / 7 | DATE×ES owned social FB+IG (`owned-*-date-es-20260825`) | Report lead honesty only (not product UX) |
 | 2026-08-26 | 3 / 7 | DATE×ES + DATE×EN FB+IG (~10:04–10:05 ET); Admin email recovered manually | NO |
 | 2026-08-27 | 4 / 7 | VIBE×EN FB+IG (manual; automation false-Succeeded with PR only) | NO — EXP-002 KEEP |
-| 2026-08-28 | 5 / 7 | Automation must run `run-weekday-growth.mjs` (Fri catalog = VIBE×ES unless overridden) | TBD |
-| 2026-08-29 | 6 / 7 | TBD | TBD |
-| 2026-08-30 | 7 / 7 | TBD | TBD |
-| 2026-08-31+ | REVIEW | End-of-lock: one primary bottleneck → one strategic change if warranted | — |
+| 2026-08-28 | 5 / 7 | Partner discovery/CORS work; Max approved EXP-002 outreach (send still disabled) | Partner Outreach UI/API |
+| 2026-08-29 | 6 / 7 | Weekday owned social (automation) | NO |
+| 2026-08-30 | 7 / 7 | Weekday owned social (automation) | NO |
+| 2026-08-31 | REVIEW | TRAIN×EN FB+IG (`…122130159662773778` / IG `18105309032166116`) | Owned-social click → `/signup` |
 
 ## Exploit / explore (70/30)
 
@@ -33,4 +42,4 @@
 
 ## Bottleneck (current)
 
-Landing/traffic exists (66 `landing_page_view` / 7d as of Day 2 report) but **0 GA4 signups / profile completions**. CRM still ~21 completed profiles (TRAIN 8 / VIBE 6 / DATE 7). Returning users improved slightly (10 / 7d, 13 / 30d). Bottleneck unchanged: **landings without signup starts**.
+Landing/traffic exists but **0 GA4 signup starts**. CRM still ~21 completed profiles (TRAIN 8 / VIBE 6 / DATE 7). Bottleneck: **landings without signup starts** — addressed by sending owned-social clicks to `/signup`. Volume to 1,000 payers still requires partner send + paid ads (owner).

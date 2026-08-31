@@ -4,14 +4,14 @@ import { Box, Button, Container, Typography } from '@mui/material';
 import { PageShell } from '@/components/layout/PageShell';
 import { trackEvent } from '@/utils/analytics';
 
-/** Short owned-social destination codes → landing paths. */
+/** Short owned-social destination codes → signup (mode is on the query string). */
 export const GO_CODE_LANDINGS: Record<string, string> = {
-  t: '/workout-partner',
-  train: '/workout-partner',
-  v: '/meet-people',
-  vibe: '/meet-people',
-  d: '/active-dating',
-  date: '/active-dating',
+  t: '/signup',
+  train: '/signup',
+  v: '/signup',
+  vibe: '/signup',
+  d: '/signup',
+  date: '/signup',
   sf: '/san-francisco',
   ig: '/go',
   fb: '/go',
@@ -36,7 +36,7 @@ export const GoRedirectPage: React.FC = () => {
 
   useEffect(() => {
     const qs = searchParams.toString();
-    // ig/fb codes land on the hub (bio link); mode codes go to landings with UTMs preserved.
+    // ig/fb codes land on the hub; mode codes go to /signup with UTMs + mode preserved.
     const path = code === 'ig' || code === 'fb' ? '/go' : targetPath;
     const to = path === '/go' ? '/go' : qs ? `${path}?${qs}` : path;
     trackEvent('owned_social_go_redirect', {

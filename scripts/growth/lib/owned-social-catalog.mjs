@@ -347,10 +347,22 @@ export function goCodeForDestination({ mode, landingPath } = {}) {
 }
 
 /**
- * Full tracked landing URL (used for Facebook `link` attachment — clickable image/card).
+ * Click destination for organic posts. Mode landings convert 0 signups after 7 lock days —
+ * send TRAIN/VIBE/DATE traffic to /signup with mode already in the query. SF density landing
+ * stays on /san-francisco (EXP-004).
+ */
+export function ownedSocialClickPath({ mode, landingPath } = {}) {
+  const path = String(landingPath || '').replace(/\/$/, '');
+  if (path === '/san-francisco') return '/san-francisco';
+  if (path === '/signup') return '/signup';
+  return '/signup';
+}
+
+/**
+ * Full tracked URL (used for Facebook `link` attachment — clickable image/card).
  */
 export function trackedUrl({ network, mode, language, contentId, landingPath, isoDate, market }) {
-  const path = landingPath || MODE_LANDINGS[mode] || '/';
+  const path = ownedSocialClickPath({ mode, landingPath });
   const marketSlug = market ? String(market).toLowerCase().replace(/\s+/g, '-') : '';
   const campaign = marketSlug
     ? `owned-${network}-${String(mode).toLowerCase()}-${language}-${marketSlug}-${isoDate}`

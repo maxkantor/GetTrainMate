@@ -44,6 +44,8 @@ describe('owned social catalog', () => {
     });
     assert.match(fb, /utm_source=facebook/);
     assert.match(ig, /utm_source=instagram/);
+    assert.match(fb, /gettrainmate\.com\/signup\?/);
+    assert.match(ig, /gettrainmate\.com\/signup\?/);
     assert.notEqual(fb, ig);
     for (const item of CATALOG) {
       assert.match(item.instagram.toLowerCase() + item.facebook.toLowerCase(), /no guaranteed|sin |не обеща|не гарантируем|nadie te garantiza/);
@@ -69,10 +71,23 @@ describe('owned social catalog', () => {
     });
     assert.match(short, /^https:\/\/gettrainmate\.com\/go\/t\?/);
     assert.match(short, /utm_source=instagram/);
+    assert.match(short, /mode=TRAIN/);
     const caption = renderInstagramCopy('Hello\n\n{{url}}', short);
     assert.match(caption, /gettrainmate\.com\/go\/t\?/);
     assert.match(caption, /Link also in bio/);
     assert.doesNotMatch(caption, /\{\{url\}\}/);
+  });
+
+  it('keeps San Francisco density landing as the click target', () => {
+    const url = trackedUrl({
+      network: 'facebook',
+      mode: 'DATE',
+      language: 'en',
+      contentId: 'date-en-sf',
+      landingPath: '/san-francisco',
+      isoDate: '20260831'
+    });
+    assert.match(url, /gettrainmate\.com\/san-francisco\?/);
   });
 });
 

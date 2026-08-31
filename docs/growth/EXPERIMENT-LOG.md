@@ -6,11 +6,24 @@ Agents must append every experiment here. Do not delete history.
 
 - **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — **KEEP 2026-08-17** (treatment unchanged) — funnel stage: acquisition / SEO
 - **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — **KEEP 2026-08-27** — **Owner approved partner outreach 2026-08-28** (per-recipient CRM approval + Lambda send flag still required) — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
-- **EXP-003** — User-initiated referral invite (`/invite/:ref`) — **ITERATE 2026-08-21** (TRAIN+VIBE+DATE invite CTA) — eval **2026-08-31** — funnel stage: acquisition / referral
+- **EXP-003** — User-initiated referral invite (`/invite/:ref`) — **KEEP 2026-08-31** (no referral-attributed signups; treatment unchanged) — funnel stage: acquisition / referral
 - **EXP-004** — San Francisco density landing (`/san-francisco`) — started **2026-08-21** — funnel stage: acquisition / SEO market discovery (CRM densest metro)
 - **Owned-social:** Facebook + Instagram — weekday Meta Graph; reduce priority if posts remain FAILED_NO_SIGNUP
 
 ## Log
+
+### 2026-08-31 — Strategy lock review + owned-social → /signup + EXP-003 KEEP
+
+| Field | Value |
+|-------|--------|
+| Status | Lock **REVIEWED**. One change: organic FB/IG click targets `/signup` (mode+UTMs). Instagram `/go/t|v|d` resolves to `/signup`. Homepage Sign Up uses `?src=homepage`. |
+| Evidence | 7 lock days: owned-social PUBLISHED; 0 verified customers; 0 GA4 signups in lock reports; CRM TRAIN 8 / VIBE 6 / DATE 7. Partner tables exist; partner SSM send-enabled/postal-address **missing**. |
+| EXP-003 | **KEEP** — 14-day eval due 2026-08-31. No referral-attributed signups; ~21 profiles cannot power a viral loop. Invite routes stay live. Do not ITERATE CTAs this run. |
+| EXP-001 / EXP-002 | KEEP unchanged (Atlanta landing + partner invite URLs not modified). |
+| Funnel stage | landing → signup (remove extra hop on owned-social traffic) |
+| Guardrail | Cursor did not send partner email, did not set PARTNER_OUTREACH_SEND_ENABLED, did not buy ads. |
+| Distribution today | Already executed 10:03 ET TRAIN×EN FB `1138684902641972_122130159662773778` + IG `18105309032166116` (pre-change destinations). Next weekday publish uses `/signup`. |
+| Verified purchase result | 0 |
 
 ### 2026-08-28 — EXP-002 partner outreach owner approval
 

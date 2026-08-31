@@ -1,12 +1,13 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-27",
+  "updatedAt": "2026-08-31",
   "strategyLock": {
-    "status": "LOCKED",
+    "status": "REVIEWED",
     "startedEt": "2026-08-24",
     "reviewEt": "2026-08-31",
-    "lockDay": 4,
-    "lockDaysTotal": 7
+    "lockDay": 7,
+    "lockDaysTotal": 7,
+    "postLockChange": "owned-social click destination /signup"
   },
   "attempts": [
     {
