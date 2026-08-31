@@ -1,6 +1,6 @@
 # GetTrainMate growth strategy lock
 
-**Status:** LOCKED  
+**Status:** REVIEW (lock ended 2026-08-31 ET)  
 **Started (America/New_York):** 2026-08-24  
 **Ends after 7 complete measurement days:** 2026-08-31 (end-of-lock review on or after that date)  
 **Governing prompt:** FINAL AUTONOMOUS GROWTH SYSTEM (user-locked; do not rewrite during lock)
@@ -20,10 +20,10 @@
 | 2026-08-25 | 2 / 7 | DATE×ES owned social FB+IG (`owned-*-date-es-20260825`) | Report lead honesty only (not product UX) |
 | 2026-08-26 | 3 / 7 | DATE×ES + DATE×EN FB+IG (~10:04–10:05 ET); Admin email recovered manually | NO |
 | 2026-08-27 | 4 / 7 | VIBE×EN FB+IG (manual; automation false-Succeeded with PR only) | NO — EXP-002 KEEP |
-| 2026-08-28 | 5 / 7 | Automation must run `run-weekday-growth.mjs` (Fri catalog = VIBE×ES unless overridden) | TBD |
-| 2026-08-29 | 6 / 7 | TBD | TBD |
-| 2026-08-30 | 7 / 7 | TBD | TBD |
-| 2026-08-31+ | REVIEW | End-of-lock: one primary bottleneck → one strategic change if warranted | — |
+| 2026-08-28 | 5 / 7 | VIBE×EN FB+IG (`vibe-en-new-in-town`; AWS CLI install on cold pod) | NO |
+| 2026-08-29 | 6 / 7 | — (weekend; no weekday cron) | NO |
+| 2026-08-30 | — | — (weekend; no weekday cron) | NO |
+| 2026-08-31 | 7 / 7 · REVIEW | TRAIN×EN FB+IG (`train-en-workout-partner`; cold start needed AWS CLI) | NO — end-of-lock; bottleneck unchanged (landings without signup starts) |
 
 ## Exploit / explore (70/30)
 

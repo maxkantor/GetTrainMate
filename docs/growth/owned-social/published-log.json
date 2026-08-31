@@ -218,6 +218,27 @@
       "blocker": "",
       "metaStatus": "META_VALID",
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-08-31T14:02:01.718Z",
+      "contentId": "train-en-workout-partner",
+      "mode": "TRAIN",
+      "language": "en",
+      "status": "blocked",
+      "blocker": "Meta Page access token missing. Set SSM /gettrainmate/growth/meta-page-access-token (or env META_PAGE_ACCESS_TOKEN). Run: node scripts/growth/setup-meta-token.mjs"
+    },
+    {
+      "publishedAtUtc": "2026-08-31T14:02:51.598Z",
+      "contentId": "train-en-workout-partner",
+      "mode": "TRAIN",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122130159662773778",
+      "instagramPostId": "18105309032166116",
+      "igCreationId": "18105535952150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
     }
   ]
 }
