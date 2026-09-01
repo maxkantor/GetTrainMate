@@ -1,18 +1,15 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Container,
-  Typography,
   Button,
   Box,
   TextField,
   Paper,
   CircularProgress,
   Alert,
+  Typography,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
-import { PageShell } from '@/components/layout/PageShell';
-import { useAuthContext } from '@/hooks/useAuthContext';
 import { useMe } from '@/hooks/useMe';
 import { authService } from '@/services/authService';
 import {
@@ -30,7 +27,6 @@ import { useI18n } from '@/hooks/useI18n';
 
 export const AICoachPage: React.FC = () => {
   const { t } = useI18n();
-  const { user } = useAuthContext();
   const { refreshMe } = useMe();
   const [coachCost, setCoachCost] = useState(1);
   const [workoutCost, setWorkoutCost] = useState(3);
@@ -43,11 +39,15 @@ export const AICoachPage: React.FC = () => {
   const [workoutLoading, setWorkoutLoading] = useState(false);
   const [workoutError, setWorkoutError] = useState('');
   const messagesRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    const el = messagesRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, left: 0, behavior: 'smooth' });
+  };
 
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    messagesRef.current?.scrollTo({ top: 0, behavior: 'auto' });
   }, []);
 
   useEffect(() => {
@@ -57,7 +57,6 @@ export const AICoachPage: React.FC = () => {
     });
   }, []);
 
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   useEffect(() => {
     if (history.length === 0 && !streamingContent) return;
     scrollToBottom();
@@ -132,17 +131,14 @@ export const AICoachPage: React.FC = () => {
   };
 
   return (
-    <PageShell variant="content" showBackLink>
-      <Container maxWidth="sm" sx={{ py: 2, height: '80vh', display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h5" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-          {t('app_pages.ai.title')}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {t('app_pages.ai.subtitle')}
-        </Typography>
+    <div className={styles.root}>
+      <header className={styles.header}>
+        <h1 className={styles.title}>{t('app_pages.ai.title')}</h1>
+        <p className={styles.subtitle}>{t('app_pages.ai.subtitle')}</p>
+      </header>
 
-        <Paper className={styles.chatPanel} elevation={0}>
-          <div ref={messagesRef} className={styles.messages}>
+      <Paper className={styles.chatPanel} elevation={0}>
+        <div ref={messagesRef} className={styles.messages}>
             {history.length === 0 && !streamingContent && (
               <div className={styles.placeholder}>
                 <p>{t('app_pages.ai.ask_anything')}</p>
@@ -169,16 +165,15 @@ export const AICoachPage: React.FC = () => {
                 <span className={styles.cursor} />
               </div>
             )}
-            <div ref={messagesEndRef} />
-          </div>
+        </div>
 
-          {error && (
-            <Alert severity="error" onClose={() => setError('')} sx={{ mx: 1, mt: 1 }}>
-              {error}
-            </Alert>
-          )}
+        {error && (
+          <Alert severity="error" onClose={() => setError('')} sx={{ mx: 1, mt: 1 }}>
+            {error}
+          </Alert>
+        )}
 
-          <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
               {coachCost === 1
                 ? t('app_pages.ai.cost_one')
@@ -210,39 +205,38 @@ export const AICoachPage: React.FC = () => {
                 {loading ? '…' : t('app_pages.common.send')}
               </Button>
             </Box>
-          </Box>
-        </Paper>
-
-        {workoutError && (
-          <Alert severity="error" onClose={() => setWorkoutError('')} sx={{ mt: 2 }}>
-            {workoutError}
-          </Alert>
-        )}
-        {workoutResult && (
-          <Paper sx={{ mt: 2, p: 2, bgcolor: 'action.hover' }}>
-            <Typography variant="subtitle1" fontWeight={600}>{workoutResult.title}</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{workoutResult.summary}</Typography>
-            <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-              {workoutResult.sessions.map((s, i) => (
-                <li key={i} style={{ marginBottom: 4 }}>{s}</li>
-              ))}
-            </ul>
-          </Paper>
-        )}
-        <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Button variant="outlined" size="small" onClick={handleGetWorkoutPlan} disabled={workoutLoading}>
-            {workoutLoading
-              ? t('app_pages.common.generating')
-              : `${t('app_pages.ai.generate_workout')} (${creditPhrase(workoutCost)})`}
-          </Button>
-          <Button variant="outlined" size="small" component={Link} to="/app/chat">
-            {t('app_pages.ai.back_to_chat')}
-          </Button>
-          <Button variant="outlined" size="small" component={Link} to="/pricing">
-            {t('header.get_credits')}
-          </Button>
         </Box>
-      </Container>
-    </PageShell>
+      </Paper>
+
+      {workoutError && (
+        <Alert severity="error" onClose={() => setWorkoutError('')} sx={{ mt: 1, flexShrink: 0 }}>
+          {workoutError}
+        </Alert>
+      )}
+      {workoutResult && (
+        <div className={styles.workoutCard}>
+          <p className={styles.workoutTitle}>{workoutResult.title}</p>
+          <p className={styles.workoutSummary}>{workoutResult.summary}</p>
+          <ul className={styles.workoutList}>
+            {workoutResult.sessions.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className={styles.actions}>
+        <Button variant="outlined" size="small" onClick={handleGetWorkoutPlan} disabled={workoutLoading}>
+          {workoutLoading
+            ? t('app_pages.common.generating')
+            : `${t('app_pages.ai.generate_workout')} (${creditPhrase(workoutCost)})`}
+        </Button>
+        <Button variant="outlined" size="small" component={Link} to="/app/chat">
+          {t('app_pages.ai.back_to_chat')}
+        </Button>
+        <Button variant="outlined" size="small" component={Link} to="/pricing">
+          {t('header.get_credits')}
+        </Button>
+      </div>
+    </div>
   );
 };

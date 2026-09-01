@@ -1,3 +1,46 @@
+.root {
+  height: calc(
+    100dvh - var(--nav-height-desktop, 64px) - var(--page-top-padding, 16px) - 16px
+  );
+  max-width: 640px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+@media (max-width: 767px) {
+  .root {
+    height: calc(
+      100dvh - var(--nav-height, 56px) - 72px - env(safe-area-inset-bottom, 0px) -
+        var(--page-top-padding, 12px) - 8px
+    );
+  }
+}
+
+.header {
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.title {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.4;
+}
+
 .chatPanel {
   flex: 1;
   display: flex;
@@ -5,7 +48,54 @@
   min-height: 0;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(15, 18, 30, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.workoutCard {
+  flex-shrink: 0;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.workoutTitle {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.workoutSummary {
+  margin: 4px 0 0;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.workoutList {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.workoutList li {
+  margin-bottom: 4px;
 }
 
 .messages {
