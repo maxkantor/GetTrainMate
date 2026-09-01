@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { easternIsoDate } from './lib/owned-social-catalog.mjs';
+import { ensureGrowthDeps } from './lib/ensure-growth-deps.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '../..');
@@ -186,6 +187,7 @@ function main() {
     }
 
     // Collect snapshot then attach ownedSocial before email
+    await ensureGrowthDeps();
     const collect = runNode('collect-funnel-snapshot.mjs');
     if (collect.status !== 0) {
       report.errors.push('snapshot_failed');

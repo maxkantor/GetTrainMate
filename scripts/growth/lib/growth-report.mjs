@@ -2,7 +2,7 @@
  * Admin growth-report HTML + text (LuckyNumbersLab layout; GetTrainMate TRAIN + VIBE + DATE order).
  */
 import { SITE, EXP001, EXP002, EXP003, TIMEZONE } from './metric-definitions.mjs';
-import { formatCell } from './normalize-metrics.mjs';
+import { formatCell, formatCellLabeled } from './normalize-metrics.mjs';
 import { loadStripeAllowlist } from './stripe-attribution.mjs';
 import { modeTotalsFromMetro, pocketsFromMetroCrm } from './market-density.mjs';
 
@@ -323,7 +323,7 @@ export function defaultDecision({ health, reconciliation, shipped, snapshot } = 
     (metaAuth ? `Meta authentication: ${metaAuth}. ` : '') +
     (igLine ? `${igLine} ` : social.blocker && !igFail ? `Blocker: ${social.blocker}. ` : '') +
     'Partner email remains fail-closed. ' +
-    'EXP-001 KEEP (Atlanta landing experiment). EXP-002 collecting. EXP-003 referral is user-initiated, not a wait action. ' +
+    'EXP-001 KEEP (Atlanta landing experiment). EXP-002 BLOCKED_NO_DISTRIBUTION (partner drafts approved; 0 emails sent). EXP-003 referral is user-initiated, not a wait action. ' +
     'Existing verified customers: 0. New customers acquired by this run: 0. ' +
     `Production is ${healthOk ? 'healthy' : 'FAILED'}.` +
     (reconOk ? '' : ' Data quality warning is in effect.')
@@ -417,8 +417,19 @@ export function composeGrowthEmailBody({
   const md = snapshot?.marketplaceDensity;
   const decisionText = ascii(decision || defaultDecision({ health, reconciliation: recon, shipped, snapshot }));
   const lead = resolveAcquisitionLead({ snapshot, notes, acquisition });
+  const ga4Ok = snapshot?.sources?.ga4 === 'ok';
   const dataQualityNeeded = recon && recon.ok === false;
   const qualityLines = dataQualityNeeded ? (recon.warnings || []).map((w) => ascii(w)) : [];
+  if (!ga4Ok) {
+    qualityLines.push(
+      `GA4 source status is "${snapshot?.sources?.ga4 ?? 'unknown'}" — event funnel metrics may show Unavailable unless CRM fallback applied.`
+    );
+  }
+  if (!health?.checks?.length) {
+    qualityLines.push('Production health checks did not run — overall health cannot be verified.');
+  }
+  const showDataQualityWarning = dataQualityNeeded || !ga4Ok || !health?.checks?.length;
+  const healthOk = health?.ok !== false && (health?.checks?.length ?? 0) > 0;
   const stripe = stripeStatusLines(snapshot);
   const metroBlock = formatMetroUnavailable(md);
   const exp002 = exp002Stats(snapshot);
@@ -447,13 +458,68 @@ export function composeGrowthEmailBody({
   t.push(`GA4 data through: ${formatMonthDayYearFromYmd(ga4Through)}`);
   t.push(`Site: ${SITE.origin}`);
   t.push('');
-  t.push('1) GETTRAINMATE — TODAY');
-  t.push('------------------------');
+  t.push('CUSTOMER / MARKETPLACE SCOREBOARD');
+  t.push('--------------------------------');
+  t.push(`New users 7d (GA4): ${formatCell(board7.new_users ?? board7.active_users)}`);
+  t.push(`Sessions 7d (GA4): ${formatCell(board7.sessions)}`);
+  t.push(`Landing sessions 7d (GA4 events): ${formatCellLabeled(board7.landings)}`);
+  t.push(`Signup starts 7d (GA4 events): ${formatCellLabeled(board7.signup_starts)}`);
+  t.push(`Completed signups 7d (GA4 users): ${formatCellLabeled(board7.completed_signups)}`);
+  t.push(`Completed profiles 7d (GA4 users): ${formatCellLabeled(board7.completed_profiles)}`);
+  t.push(`Completed profiles — CRM (all modes, cumulative): TRAIN ${naMode(modes.TRAIN)} / VIBE ${naMode(modes.VIBE)} / DATE ${naMode(modes.DATE)}`);
+  t.push(`Discover users 7d / 30d (GA4): ${formatCellLabeled(board7.discover_users)} / ${formatCellLabeled(board30.discover_users)}`);
+  t.push(`Requests 7d / 30d (GA4 events): ${formatCellLabeled(board7.connections_sent)} / ${formatCellLabeled(board30.connections_sent)}`);
+  t.push(`Matches 7d / 30d (GA4 events): ${formatCellLabeled(board7.matches_created)} / ${formatCellLabeled(board30.matches_created)}`);
+  t.push(`First messages 7d / 30d (GA4): ${formatCellLabeled(board7.first_messages)} / ${formatCellLabeled(board30.first_messages)}`);
+  t.push(`Returning users 7d / 30d (GA4 users): ${formatCellLabeled(board7.returning_users)} / ${formatCellLabeled(board30.returning_users)}`);
+  t.push(`New paying customers 7d: ${formatCell(board7.unique_paying_customers)}`);
+  t.push(`Verified revenue 7d: ${formatCell(board7.revenue)}`);
+  t.push('');
+  t.push('BY MODE (CRM completed profiles — users may select multiple modes)');
+  t.push('--------------------------------------------------------------');
+  t.push(`TRAIN completed profiles: ${naMode(modes.TRAIN)}`);
+  t.push(`VIBE completed profiles: ${naMode(modes.VIBE)}`);
+  t.push(`DATE completed profiles: ${naMode(modes.DATE)}`);
+  t.push('GA4 mode splits are not instrumented yet; CRM is marketplace truth for profile counts.');
+  t.push('');
+  t.push('TOP MARKET × MODE POCKETS');
+  t.push('-------------------------');
+  t.push('country / metro / language / mode / completed_profiles / matches');
+  if (!pockets.length) {
+    t.push(md?.status === 'ok' ? 'No metro pockets above cohort threshold.' : 'Unavailable (Metro CRM)');
+  } else {
+    for (const p of pockets) {
+      t.push(
+        `  ${p.country || 'unknown'} / ${p.metro || 'unknown'} / ${p.language || 'unknown'} / ${p.mode || 'all'} / completed=${p.completedProfiles ?? 0} / matches=${p.matches ?? 0}`
+      );
+    }
+  }
+  t.push('');
+  t.push('ACQUISITION CAMPAIGNS (7d GA4 sessionCampaignName)');
+  t.push('--------------------------------------------------');
+  const campaigns7 = snapshot?.campaignAttribution?.['7d'] || [];
+  const ownedToday = campaigns7.filter((c) => /^owned-/i.test(c.campaign));
+  if (!ownedToday.length) {
+    t.push('No owned-social campaign sessions in 7d window yet (posts may need 24–48h GA4 lag).');
+  } else {
+    for (const c of ownedToday.slice(0, 6)) {
+      const outcome =
+        c.sessions === 0
+          ? 'PUBLISHED_NO_TRAFFIC'
+          : c.newUsers === 0
+            ? 'TRAFFIC_NO_ACTIVATION'
+            : 'MEASURING';
+      t.push(`  ${c.campaign}: sessions=${c.sessions} users=${c.users} newUsers=${c.newUsers} → ${outcome}`);
+    }
+  }
+  t.push('');
+  t.push('1) GETTRAINMATE — TODAY (summary)');
+  t.push('---------------------------------');
   t.push(`Visitors / landings 7d (GA4 events): ${formatCell(board7.landings)}`);
   t.push(`New signups 7d (GA4 users): ${formatCell(board7.completed_signups)}`);
   t.push(`Completed profiles 7d (GA4 users): ${formatCell(board7.completed_profiles)}`);
   t.push(`Completed profiles 30d (GA4 users): ${formatCell(board30.completed_profiles)}`);
-  t.push(`Completed profiles — CRM verified: ${md?.status === 'ok' ? 'see Top markets' : 'unavailable'}`);
+  t.push(`Completed profiles — CRM verified: ${md?.status === 'ok' ? 'see BY MODE above' : 'unavailable'}`);
   t.push(`Discover users 7d / 30d (GA4): ${formatCell(board7.discover_users)} / ${formatCell(board30.discover_users)}`);
   t.push(`Requests 7d / 30d (GA4 events): ${formatCell(board7.connections_sent)} / ${formatCell(board30.connections_sent)}`);
   t.push(`Matches 7d / 30d (GA4 events): ${formatCell(board7.matches_created)} / ${formatCell(board30.matches_created)}`);
@@ -471,13 +537,13 @@ export function composeGrowthEmailBody({
   t.push('');
   t.push('3) TOP MARKETS');
   t.push('--------------');
-  t.push('country / city / language / mode / profiles / matches (ranked by liquidity evidence; missing metrics not guessed)');
+  t.push('country / metro / language / mode / completed_profiles / matches');
   if (!pockets.length) {
     t.push(md?.status === 'ok' ? 'No metro pockets above cohort threshold.' : 'Unavailable (Metro CRM)');
   } else {
     for (const p of pockets) {
       t.push(
-        `  ${p.country || '?'} / ${p.metro || '?'} / ${p.language || 'n/a'} / ${p.mode || 'all'} / completed=${p.completedProfiles ?? 0} / matches=${p.matches ?? 0}`
+        `  ${p.country || 'unknown'} / ${p.metro || 'unknown'} / ${p.language || 'unknown'} / ${p.mode || 'all'} / completed=${p.completedProfiles ?? 0} / matches=${p.matches ?? 0}`
       );
     }
   }
@@ -555,16 +621,21 @@ export function composeGrowthEmailBody({
   t.push(`  Customers causally attributed to a specific experiment: ${ascii(lead.customersCausallyAttributedToExperiment)}`);
   t.push(`  New customers acquired by the current run: ${ascii(lead.newCustomersAcquiredByThisRun)}`);
   t.push('');
-  if (dataQualityNeeded) {
+  if (showDataQualityWarning) {
     t.push('7) DATA QUALITY WARNING');
     t.push('-----------------------');
-    t.push('Measurement blocked for flagged metrics. Production health is separate.');
+    if (!ga4Ok) {
+      t.push(`GA4 measurement status: ${snapshot?.sources?.ga4 ?? 'unknown'} (0 is reported as 0; Unavailable means query/instrumentation gap).`);
+    }
+    if (!health?.checks?.length) {
+      t.push('Production health checks did not run in this report build.');
+    }
     for (const w of qualityLines) t.push(`- ${w}`);
     t.push('');
   } else {
     t.push('7) DATA QUALITY WARNING');
     t.push('-----------------------');
-    t.push('None. Measurement not blocked.');
+    t.push('None. GA4, CRM, and Stripe sources responded; zeros are reported as 0.');
     t.push('');
   }
   t.push('8) EXPERIMENTS (not the global KPI)');
@@ -601,9 +672,8 @@ export function composeGrowthEmailBody({
   }
   t.push(`  Partner pages created: ${exp002.partnerPagesCreated}`);
   t.push(`  Invite codes created: ${exp002.inviteCodesCreated}`);
-  t.push(`  Drafts prepared: ${exp002.draftsPrepared} (not approved, not sent)`);
-  t.push(`  Recipients explicitly approved: ${exp002.recipientsApproved}`);
-  t.push(`  Emails actually sent: ${exp002.emailsSent}`);
+  t.push(`  Drafts prepared: ${exp002.draftsPrepared}; recipients approved: ${exp002.recipientsApproved}; emails sent: ${exp002.emailsSent}`);
+  t.push(`  Status: BLOCKED_NO_DISTRIBUTION — partner outreach was not distributed (drafts ≠ send). Lack of conversions is not evidence the concept failed.`);
   t.push(`  Delivered when known: ${exp002.delivered}`);
   t.push(`  Partner responses: ${exp002.partnerResponses}`);
   t.push(`  Partner-attributed visits: ${exp002.partnerVisits}`);
@@ -634,7 +704,12 @@ export function composeGrowthEmailBody({
   t.push('');
   t.push('10) PRODUCTION HEALTH');
   t.push('--------------------');
-  t.push(`Overall: ${health?.ok ? 'OK' : 'FAILED'}`);
+  t.push(
+    `Overall: ${healthOk ? 'OK' : health?.checks?.length ? 'FAILED' : 'UNKNOWN (checks not run)'}`
+  );
+  if (!health?.checks?.length) {
+    t.push('- (no health checks executed — do not treat Overall OK as verified)');
+  }
   for (const c of health?.checks || []) {
     t.push(`- ${c.name}: ${c.ok ? 'ok' : 'FAIL'}`);
   }
@@ -686,13 +761,13 @@ export function composeGrowthEmailBody({
         }))
       )
     : `<p style="margin:0 0 18px;font-size:15px;color:#334155;">${md?.status === 'ok' ? 'No metro pockets above cohort threshold.' : 'Unavailable (Metro CRM)'}</p>`;
-  const qualityHtml = dataQualityNeeded
+  const qualityHtml = showDataQualityWarning
     ? `<h2 style="${H2}">Data Quality Warning</h2>
        <ul style="margin:0 0 18px;padding:12px 12px 12px 32px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;font-size:15px;line-height:1.55;color:#9a3412;">
          ${qualityLines.map((w) => `<li style="margin:0 0 8px;">${escapeHtml(w)}</li>`).join('')}
        </ul>`
     : `<h2 style="${H2}">Data Quality Warning</h2>
-       <p style="margin:0 0 18px;font-size:15px;color:#334155;">None. Measurement not blocked.</p>`;
+       <p style="margin:0 0 18px;font-size:15px;color:#334155;">None. GA4, CRM, and Stripe sources responded; zeros are reported as 0.</p>`;
   const commitUrl = sha ? `${SITE.repo}/commit/${sha}` : '';
   const linkStyle = 'color:#93c5fd;text-decoration:none;font-size:14px;white-space:nowrap;';
   const nav = [
@@ -847,10 +922,10 @@ export function composeGrowthEmailBody({
         <li style="margin:0 0 8px;">Concentrate the next owned-social rotation on the highest-ranked metro/mode pocket. <span style="color:#64748b;">(automatic)</span></li>
       </ol>
       <h2 style="${H2}">Production Health</h2>
-      <p style="margin:0 0 8px;font-size:15px;"><b>Overall:</b> ${health?.ok ? 'OK' : 'Failed'}</p>
+      <p style="margin:0 0 8px;font-size:15px;"><b>Overall:</b> ${healthOk ? 'OK' : health?.checks?.length ? 'Failed' : 'Unknown (checks not run)'}</p>
       <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:15px;margin:0 0 18px;">
         <thead><tr style="background:#f1f5f9;"><th align="left" style="padding:8px 12px;">Check</th><th align="left" style="padding:8px 12px;">Status</th></tr></thead>
-        <tbody>${healthRows || '<tr><td style="padding:8px 12px;">(unavailable)</td></tr>'}</tbody>
+        <tbody>${healthRows || '<tr><td colspan="2" style="padding:8px 12px;">No health checks executed in this report build.</td></tr>'}</tbody>
       </table>
       <h2 style="${H2}">Data Sources</h2>
       <p style="margin:0 0 18px;font-size:15px;line-height:1.5;color:#334155;">GA4: ${escapeHtml(snapshot?.sources?.ga4 ?? 'unknown')}. Stripe: ${escapeHtml(snapshot?.sources?.stripe ?? 'unknown')}. Metro / Admin CRM: ${escapeHtml(md?.status ?? 'unavailable')}. Only GetTrainMate-attributed Stripe transactions are reported.</p>
@@ -871,5 +946,5 @@ export function composeGrowthEmailBody({
 </body>
 </html>`;
 
-  return { text, html, et, subject, subjectMeta: { shipped, dataQualityNeeded } };
+  return { text, html, et, subject, subjectMeta: { shipped, dataQualityNeeded: showDataQualityWarning } };
 }

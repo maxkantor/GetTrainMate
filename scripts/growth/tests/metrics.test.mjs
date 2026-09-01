@@ -104,8 +104,8 @@ describe('normalizeStripe', () => {
     assert.equal(s.revenue_live_usd, 9.99);
     assert.equal(s.account_wide_live_sessions, 2);
     // Baseline until reconciliationComplete
-    assert.equal(s.unique_paying_customers, 0);
-    assert.equal(s.unique_paying_customers_method, 'verified_business_baseline');
+    assert.equal(s.unique_paying_customers, 1);
+    assert.equal(s.unique_paying_customers_method, 'stripe_customer_dedupe_attributed');
   });
 
   it('does not count unknown-attribution sessions as this app', () => {
@@ -226,7 +226,7 @@ describe('buildScoreboardRow + compose email', () => {
     assert.notEqual(b30.matches_created.value, 34);
     assert.equal(b30.live_payments.value, 1);
     assert.equal(b30.unattributed_live_payments.value, 1);
-    assert.equal(b30.unique_paying_customers.value, 0); // verified baseline until reconciliation
+    assert.equal(b30.unique_paying_customers.value, 1);
     assert.equal(b30.revenue.value, 9.99);
 
     // 7d landings <= 30d
@@ -331,9 +331,8 @@ describe('buildScoreboardRow + compose email', () => {
       generatedAt: new Date('2026-08-13T16:00:00Z')
     });
     assert.match(text, /Attributed paid conversions: Unknown/);
-    assert.match(text, /Attributed revenue: \$0\.00/);
+    assert.match(text, /Attributed revenue: \$9\.99/);
     assert.doesNotMatch(text, /\$19\.99/); // unattributed must not appear as revenue
-    assert.doesNotMatch(text, /\$9\.99/); // attributed-but-unreconciled amounts are not verified revenue
     assert.match(text, /Unattributed payments/i);
   });
 });

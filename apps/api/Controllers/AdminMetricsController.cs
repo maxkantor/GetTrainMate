@@ -212,6 +212,8 @@ public class AdminMetricsController : ControllerBase
             var profilesByMetro = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             var modeTotals = new ModeTotalsRow();
             var pocketCompleted = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var pocketCountry = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var pocketLanguage = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var doc in profileDocs)
             {
@@ -219,6 +221,10 @@ public class AdminMetricsController : ControllerBase
                 if (string.IsNullOrEmpty(userId)) continue;
                 var metro = MetroLabelNormalizer.Normalize(TryGetString(doc, "city", "City"));
                 if (string.IsNullOrEmpty(metro)) metro = "Unknown";
+                var country = TryGetString(doc, "country", "Country");
+                if (string.IsNullOrWhiteSpace(country)) country = "US";
+                var language = TryGetString(doc, "preferredLanguage", "PreferredLanguage", "language", "Language");
+                if (string.IsNullOrWhiteSpace(language)) language = "unknown";
                 userMetro[userId] = metro;
                 profilesByMetro[metro] = profilesByMetro.GetValueOrDefault(metro) + 1;
                 var isComplete = false;
@@ -238,8 +244,10 @@ public class AdminMetricsController : ControllerBase
                         if (mode == "TRAIN") modeTotals.Train++;
                         else if (mode == "VIBE") modeTotals.Vibe++;
                         else if (mode == "DATE") modeTotals.Date++;
-                        var pocketKey = metro + "|" + mode;
+                        var pocketKey = $"{country}|{metro}|{mode}";
                         pocketCompleted[pocketKey] = pocketCompleted.GetValueOrDefault(pocketKey) + 1;
+                        pocketCountry[pocketKey] = country;
+                        pocketLanguage[pocketKey] = language;
                     }
                 }
             }
@@ -304,12 +312,17 @@ public class AdminMetricsController : ControllerBase
                 .Select(kv =>
                 {
                     var parts = kv.Key.Split('|');
+                    var country = parts.Length > 0 ? parts[0] : "US";
+                    var metro = parts.Length > 1 ? parts[1] : "";
+                    var mode = parts.Length > 2 ? parts[2] : "";
                     return new MetroModePocketRow
                     {
-                        Metro = parts[0],
-                        Mode = parts.Length > 1 ? parts[1] : "",
+                        Country = pocketCountry.GetValueOrDefault(kv.Key, country),
+                        Metro = metro,
+                        Mode = mode,
+                        Language = pocketLanguage.GetValueOrDefault(kv.Key, "unknown"),
                         CompletedProfiles = kv.Value,
-                        MatchesCreated = matchesByMetro.GetValueOrDefault(parts[0]),
+                        MatchesCreated = matchesByMetro.GetValueOrDefault(metro),
                     };
                 })
                 .Where(p => p.CompletedProfiles >= minCohort)
@@ -562,8 +575,10 @@ public class ModeTotalsRow
 
 public class MetroModePocketRow
 {
+    public string Country { get; set; } = "";
     public string Metro { get; set; } = string.Empty;
     public string Mode { get; set; } = string.Empty;
+    public string Language { get; set; } = "unknown";
     public int CompletedProfiles { get; set; }
     public int MatchesCreated { get; set; }
 }

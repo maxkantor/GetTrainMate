@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadSsmSecretsIntoEnv } from './load-ssm-secrets-into-env.mjs';
+import { ensureGrowthDeps } from './lib/ensure-growth-deps.mjs';
 import { GA4_FUNNEL_EVENT_NAMES, EXP001, SITE } from './lib/metric-definitions.mjs';
 import {
   aggregateGa4ByEvent,
@@ -15,6 +16,11 @@ import {
   normalizeStripe,
   buildScoreboardRow
 } from './lib/normalize-metrics.mjs';
+import {
+  overlayCrmOnScoreboard,
+  parseGa4Overview,
+  parseGa4Campaigns
+} from './lib/crm-scoreboard.mjs';
 import { reconcileSnapshot, applyReconciliationBlocks } from './lib/reconcile.mjs';
 import { fetchMetroDensity } from './lib/crm-metro.mjs';
 import { attributeExp001PaidConversions } from './lib/exp001-attribution.mjs';
@@ -23,9 +29,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MEASUREMENT_ID = 'G-C29M8NWNY4';
 
 const ssmLoad = loadSsmSecretsIntoEnv();
+const deps = await ensureGrowthDeps();
 const outDir = path.join(__dirname, '../../docs/growth/snapshots');
 const now = new Date();
 const stamp = now.toISOString().slice(0, 10);
+
+function ga4DataThroughYmd() {
+  const d = new Date(now);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
 
 function daysAgo(n) {
   const d = new Date(now);
@@ -40,10 +53,12 @@ const windows = [
 
 const report = {
   generatedAt: now.toISOString(),
+  ga4DataThrough: ga4DataThroughYmd(),
   product: 'GetTrainMate',
   measurementId: MEASUREMENT_ID,
   site: SITE.origin,
   ssm: ssmLoad,
+  growthDeps: deps,
   sources: { ga4: 'missing', stripe: 'missing', adminCrm: 'unavailable' },
   marketplaceDensity: {
     assumptionMetro: 'Atlanta, Georgia',
@@ -56,10 +71,17 @@ const report = {
   },
   windows: {},
   scoreboard: {},
+  campaignAttribution: {},
   experimentAttribution: {},
   reconciliation: null,
   notes: []
 };
+
+if (!deps.ok) {
+  report.notes.push(
+    `Growth script dependencies missing (google-auth-library): ${deps.error || 'install failed'}. Run: npm run growth:install`
+  );
+}
 
 async function fetchGa4Report(propertyId, credentialsJson, body) {
   const creds = JSON.parse(credentialsJson);
@@ -102,6 +124,30 @@ async function fetchGa4Events(propertyId, credentialsJson, startDate, endDate) {
         inListFilter: { values: GA4_FUNNEL_EVENT_NAMES }
       }
     }
+  });
+}
+
+/** Standard GA4 engagement metrics (not event-filtered). */
+async function fetchGa4Overview(propertyId, credentialsJson, startDate, endDate) {
+  return fetchGa4Report(propertyId, credentialsJson, {
+    dateRanges: [{ startDate, endDate }],
+    metrics: [
+      { name: 'sessions' },
+      { name: 'totalUsers' },
+      { name: 'newUsers' },
+      { name: 'activeUsers' }
+    ]
+  });
+}
+
+/** Campaign / source attribution for owned-social evaluation. */
+async function fetchGa4Campaigns(propertyId, credentialsJson, startDate, endDate) {
+  return fetchGa4Report(propertyId, credentialsJson, {
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: 'sessionCampaignName' }],
+    metrics: [{ name: 'sessions' }, { name: 'totalUsers' }, { name: 'newUsers' }],
+    orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+    limit: 30
   });
 }
 
@@ -240,7 +286,7 @@ report.notes.push(
   'Admin CRM metro aggregates: use GROWTH_METRO_READ_TOKEN or GROWTH_CRM_ADMIN_* via HTTPS Admin API (not SES IAM DynamoDB).'
 );
 
-const ga4Ready = report.sources.ga4 === 'configured';
+const ga4Ready = report.sources.ga4 === 'configured' && deps.ok;
 const stripeReady = report.sources.stripe === 'configured';
 
 try {
@@ -282,6 +328,8 @@ for (const w of windows) {
     ga4: null,
     ga4ByEvent: null,
     ga4Normalized: null,
+    ga4Overview: null,
+    ga4Campaigns: null,
     stripe: null,
     stripeNormalized: null,
     exp001: null
@@ -289,6 +337,9 @@ for (const w of windows) {
 
   if (ga4Ready) {
     try {
+      entry.ga4Overview = parseGa4Overview(
+        await fetchGa4Overview(ga4Id, ga4Creds, w.start, w.end)
+      );
       entry.ga4 = await fetchGa4Events(ga4Id, ga4Creds, w.start, w.end);
       if (entry.ga4) {
         report.sources.ga4 = 'ok';
@@ -297,7 +348,13 @@ for (const w of windows) {
         for (const warn of entry.ga4Normalized.warnings) {
           report.notes.push(`[${w.label}] ${warn}`);
         }
+      } else {
+        report.sources.ga4 = 'query_failed';
+        report.notes.push(`[${w.label}] GA4 event report returned no data.`);
       }
+      entry.ga4Campaigns = parseGa4Campaigns(
+        await fetchGa4Campaigns(ga4Id, ga4Creds, w.start, w.end)
+      );
       entry._pathReport = await fetchGa4PagePath(
         ga4Id,
         ga4Creds,
@@ -306,8 +363,11 @@ for (const w of windows) {
         EXP001.path
       );
     } catch (e) {
+      report.sources.ga4 = 'query_failed';
       report.notes.push(`GA4 ${w.label} failed: ${e instanceof Error ? e.message : e}`);
     }
+  } else if (report.sources.ga4 === 'configured' && !deps.ok) {
+    report.sources.ga4 = 'deps_missing';
   }
 
   if (stripeReady) {
@@ -346,10 +406,42 @@ for (const w of windows) {
   delete entry._pathReport;
 
   report.windows[w.label] = entry;
-  report.scoreboard[w.label] = buildScoreboardRow(
-    entry.ga4Normalized,
-    entry.stripeNormalized
-  );
+  let board = buildScoreboardRow(entry.ga4Normalized, entry.stripeNormalized);
+  if (entry.ga4Overview?.available) {
+    board = {
+      ...board,
+      sessions: {
+        value: entry.ga4Overview.sessions,
+        unit: 'sessions',
+        label: 'sessions',
+        available: true,
+        method: 'ga4_sessions_metric'
+      },
+      active_users: {
+        value: entry.ga4Overview.totalUsers,
+        unit: 'users',
+        label: 'users',
+        available: true,
+        method: 'ga4_total_users_metric'
+      },
+      new_users: {
+        value: entry.ga4Overview.newUsers,
+        unit: 'users',
+        label: 'new users',
+        available: true,
+        method: 'ga4_new_users_metric'
+      }
+    };
+  }
+  board = overlayCrmOnScoreboard(board, {
+    ga4Ok: report.sources.ga4 === 'ok',
+    marketplaceDensity: report.marketplaceDensity
+  });
+  report.scoreboard[w.label] = board;
+  if (entry.ga4Campaigns?.length) {
+    report.campaignAttribution = report.campaignAttribution || {};
+    report.campaignAttribution[w.label] = entry.ga4Campaigns;
+  }
   if (entry.exp001) {
     report.experimentAttribution[w.label] = entry.exp001;
   }

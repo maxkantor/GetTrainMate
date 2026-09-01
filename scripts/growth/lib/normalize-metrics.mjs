@@ -252,6 +252,9 @@ export function normalizeStripe({ sessions, charges } = {}, allowlist = loadStri
     warnings.push(
       `Verified external paying customers held at baseline ${baseline} until Stripe reconciliationComplete=true (see docs/growth/STRIPE-ATTRIBUTION.md).`
     );
+  } else if (uniqueAttributedCustomers === null) {
+    uniqueExternalPayingCustomers = 0;
+    uniqueCustomersAvailable = true;
   }
 
   const unattributedCount = Math.max(
@@ -332,13 +335,17 @@ export function buildScoreboardRow(ga4Norm, stripeNorm) {
 
   return {
     landings: cell('landings'),
+    signup_starts: cell('signup_starts'),
     completed_signups: cell('completed_signups'),
+    profile_starts: cell('profile_starts'),
     completed_profiles: cell('completed_profiles'),
     discover_users: cell('discover_users'),
     connections_sent: cell('connections_sent'),
     matches_created: cell('matches_created'),
     first_messages: cell('first_messages'),
     returning_users: cell('returning_users'),
+    sessions: cell('sessions'),
+    active_users: cell('active_users'),
     pricing_views: cell('pricing_views'),
     checkout_starts: cell('checkout_starts'),
     live_payments: {
@@ -377,9 +384,29 @@ export function buildScoreboardRow(ga4Norm, stripeNorm) {
   };
 }
 
-/** Format a scoreboard cell for display. */
+/** Format a scoreboard cell for display. Zero and unavailable are never conflated. */
 export function formatCell(cell) {
-  if (!cell || !cell.available || cell.value == null) return 'Unavailable';
+  if (!cell) return 'Unavailable';
+  if (cell.available === false || cell.value == null) {
+    if (cell.reason) return `Unavailable (${cell.reason})`;
+    if (cell.method === 'ga4_query_failed') return 'Unavailable (GA4 query failed)';
+    return 'Unavailable';
+  }
   if (cell.unit === 'usd') return `$${Number(cell.value).toFixed(2)}`;
+  if (cell.usedFallback && cell.sourceEvent) {
+    return `${cell.value} (${cell.sourceEvent} proxy)`;
+  }
+  if (cell.method === 'crm_fallback') return `${cell.value} (CRM)`;
   return String(cell.value);
+}
+
+/** Label event counts vs user counts explicitly in reports. */
+export function formatCellLabeled(cell) {
+  if (!cell || cell.available === false || cell.value == null) return formatCell(cell);
+  const base = formatCell(cell);
+  if (base.startsWith('Unavailable')) return base;
+  if (cell.unit === 'users') return `${base} users`;
+  if (cell.unit === 'events') return `${base} events`;
+  if (cell.unit === 'profiles') return `${base} profiles`;
+  return base;
 }

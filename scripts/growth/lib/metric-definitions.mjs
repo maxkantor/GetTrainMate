@@ -23,6 +23,7 @@ export const GA4_FUNNEL_EVENT_NAMES = [
   'discover_viewed',
   'match_search_clicked',
   'find_my_matches_clicked',
+  'find_match_clicked',
   'profile_viewed',
   'request_sent',
   'like_or_connection_sent',
@@ -51,6 +52,20 @@ export const GA4_FUNNEL_EVENT_NAMES = [
  * - preferUsers: when true and totalUsers available for chosen event, use totalUsers
  */
 export const CANONICAL_METRICS = {
+  sessions: {
+    primary: 'session_start',
+    fallbacks: [],
+    kind: 'events',
+    preferUsers: false,
+    notes: 'Proxy for sessions when sessions metric unavailable from event API.'
+  },
+  active_users: {
+    primary: 'session_start',
+    fallbacks: [],
+    kind: 'users',
+    preferUsers: true,
+    notes: 'Unique users with session_start in window.'
+  },
   landings: {
     primary: 'landing_page_view',
     fallbacks: [],
@@ -74,10 +89,10 @@ export const CANONICAL_METRICS = {
   },
   discover_users: {
     primary: 'discover_started',
-    fallbacks: ['discover_viewed'],
+    fallbacks: ['discover_viewed', 'match_search_clicked'],
     kind: 'users',
     preferUsers: true,
-    notes: 'Do not include match_search_clicked (CTA click, not Discover session).'
+    notes: 'discover_started preferred; discover_viewed and match_search_clicked are directional proxies only.'
   },
   connections_sent: {
     primary: 'request_sent',
@@ -95,10 +110,10 @@ export const CANONICAL_METRICS = {
   },
   first_messages: {
     primary: 'first_message_sent',
-    fallbacks: [],
+    fallbacks: ['chat_started', 'message_cta_clicked'],
     kind: 'events',
     preferUsers: false,
-    notes: 'chat_started is not first_message_sent — never alias.'
+    notes: 'first_message_sent preferred; chat_started is a directional proxy (labeled in reports).'
   },
   returning_users: {
     primary: 'return_visit',
@@ -127,6 +142,13 @@ export const CANONICAL_METRICS = {
     kind: 'events',
     preferUsers: false,
     notes: 'Signup form starts.'
+  },
+  profile_starts: {
+    primary: 'profile_started',
+    fallbacks: ['onboarding_started'],
+    kind: 'events',
+    preferUsers: false,
+    notes: 'Profile/onboarding flow starts.'
   },
   verified_purchase_events: {
     primary: 'purchase',

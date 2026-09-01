@@ -5,12 +5,23 @@ Agents must append every experiment here. Do not delete history.
 ## Active
 
 - **EXP-001** — Atlanta training partners landing (`/atlanta-training-partners`) — eval **2026-08-16** — **KEEP 2026-08-17** (treatment unchanged) — funnel stage: acquisition / SEO
-- **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — **KEEP 2026-08-27** — **Owner approved partner outreach 2026-08-28** (per-recipient CRM approval + Lambda send flag still required) — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
+- **EXP-002** — Atlanta TRAIN partner invite landings + codes (`/partners/atlanta/:code`) — eval **2026-08-27** — **BLOCKED_NO_DISTRIBUTION 2026-09-01** (5 partner drafts approved in CRM; 0 emails sent; partner send infra still fail-closed) — funnel stage: partner acquisition infrastructure (independent of EXP-001 treatment)
 - **EXP-003** — User-initiated referral invite (`/invite/:ref`) — **KEEP 2026-08-31** (no referral-attributed signups; treatment unchanged) — funnel stage: acquisition / referral
 - **EXP-004** — San Francisco density landing (`/san-francisco`) — started **2026-08-21** — funnel stage: acquisition / SEO market discovery (CRM densest metro)
 - **Owned-social:** Facebook + Instagram — weekday Meta Graph; reduce priority if posts remain FAILED_NO_SIGNUP
 
 ## Log
+
+### 2026-09-01 — GA4 scoreboard repair + EXP-002 BLOCKED_NO_DISTRIBUTION
+
+| Field | Value |
+|-------|--------|
+| Status | Measurement pipeline repaired — GA4 deps auto-install, health checks always run, CRM fallback when GA4 fails, campaign attribution query added |
+| EXP-002 | **BLOCKED_NO_DISTRIBUTION** — 5 partner drafts approved; 0 emails sent; cannot evaluate conversion without distribution |
+| Owned-social baseline | VIBE×EN `owned-facebook-vibe-en-20260901` + `owned-instagram-vibe-en-20260901` — evaluate after GA4 lag |
+| CRM | TRAIN 8 / VIBE 6 / DATE 7 completed profiles; Atlanta×DATE pocket 3 profiles / 1 match |
+| Product change | GA4 instrumentation: profile_completed, discover_started, match_created, first_message_sent |
+| Verified purchase result | 0 attributed (1 unattributed live payment excluded) |
 
 ### 2026-08-31 — Strategy lock review + owned-social → /signup + EXP-003 KEEP
 

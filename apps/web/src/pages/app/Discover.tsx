@@ -265,6 +265,16 @@ export const DiscoverPage: React.FC = () => {
     }
   }, [me, meLoading, navigate]);
 
+  const discoverStartedRef = useRef(false);
+  useEffect(() => {
+    if (!me?.isProfileComplete || discoverStartedRef.current) return;
+    discoverStartedRef.current = true;
+    trackEvent('discover_started', {
+      source_page: '/app/discover',
+      mode: me?.mode || 'TRAIN',
+    });
+  }, [me?.isProfileComplete, me?.mode]);
+
   useEffect(() => {
     if (!loading && shouldShowOnboardingModal(me?.isProfileComplete ?? true)) {
       setOnboardingModalOpen(true);
@@ -531,6 +541,10 @@ export const DiscoverPage: React.FC = () => {
           void queryClient.invalidateQueries({ queryKey: matchQueryKeys.mutualMatches(user.sub) });
         }
         if (result.isMatched) {
+          trackEvent('match_created', {
+            source_page: '/app/discover',
+            mode: me?.mode || 'TRAIN',
+          });
           setMatchCelebration({
             userId: currentCard.userId,
             name: currentCard.name,
@@ -564,6 +578,10 @@ export const DiscoverPage: React.FC = () => {
             void queryClient.invalidateQueries({ queryKey: matchQueryKeys.mutualMatches(user.sub) });
           }
           if (result.isMatched) {
+            trackEvent('match_created', {
+              source_page: '/app/discover',
+              mode: me?.mode || 'TRAIN',
+            });
             setMatchCelebration({
               userId: currentCard.userId,
               name: currentCard.name,
@@ -596,6 +614,10 @@ export const DiscoverPage: React.FC = () => {
                   void queryClient.invalidateQueries({ queryKey: matchQueryKeys.mutualMatches(user.sub) });
                 }
                 if (result.isMatched) {
+                  trackEvent('match_created', {
+                    source_page: '/app/discover',
+                    mode: me?.mode || 'TRAIN',
+                  });
                   setMatchCelebration({
                     userId: currentCard.userId,
                     name: currentCard.name,

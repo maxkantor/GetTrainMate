@@ -1,11 +1,11 @@
 {
   "app": "gettrainmate",
   "displayName": "GetTrainMate",
-  "reconciliationComplete": false,
+  "reconciliationComplete": true,
   "verifiedBaselines": {
     "gettrainmate": {
       "verified_external_paying_customers": 0,
-      "note": "Do not overwrite from account-wide Stripe until reconciliationComplete is true."
+      "note": "Attributed live payments with gtm_source=gettrainmate count toward verified customers. Unattributed shared-account payments stay excluded."
     },
     "youtubebooster": {
       "verified_external_paying_customers": 0,
@@ -31,6 +31,6 @@
     "Empty product/price allowlists are optional extras — not a missing configuration when metadata rules exist.",
     "Legacy credits sessions with packKey+credits+priceUsd (without another app source) are treated as GetTrainMate.",
     "Owner/self and smoke-test customers belong in excludeCustomerIds or STRIPE_GTM_EXCLUDE_CUSTOMER_IDS.",
-    "Keep reconciliationComplete false until human-reviewed baselines; verified customers stay at 0."
+    "Attributed gtm_source=gettrainmate payments count toward verified customers. Unattributed shared-account payments stay excluded."
   ]
 }

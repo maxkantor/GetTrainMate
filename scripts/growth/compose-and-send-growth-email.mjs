@@ -169,7 +169,7 @@ if (invokedAsCli) {
     .join('\n')
     .trim();
 
-  const health = args.snapshot ? { ok: true, checks: [] } : runHealth();
+  const health = runHealth();
   let snapshot = null;
   let snapPath = args.snapshot;
   if (!snapPath) {

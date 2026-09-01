@@ -89,6 +89,10 @@ export const DashboardQuickSetup: React.FC = () => {
         selected_level: level,
         selected_time_preference: timeId,
       });
+      trackEvent('profile_completed', {
+        source_page: '/app',
+        mode: 'TRAIN',
+      });
       clearSignupDisplayName();
       const refreshed = await profileService.getMyProfile(token);
       const hasPhoto =

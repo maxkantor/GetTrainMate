@@ -24,7 +24,7 @@ export function pocketsFromMetroCrm(md) {
         country: p.country || p.Country || '',
         metro: p.metro || p.Metro || '',
         mode: p.mode || p.Mode || '',
-        language: p.language || p.Language || '',
+        language: p.language || p.Language || 'unknown',
         completedProfiles: p.completedProfiles ?? p.CompletedProfiles ?? 0,
         connections: p.connectionsSent ?? p.ConnectionsSent ?? 0,
         matches: p.matchesCreated ?? p.MatchesCreated ?? 0,

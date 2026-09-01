@@ -429,6 +429,8 @@ export const ChatPage: React.FC = () => {
     }
   };
 
+  const firstMessageSentRef = useRef<Set<string>>(new Set());
+
   const handleSendMessage = async () => {
     if (!selectedThreadId || !messageContent.trim()) return;
 
@@ -461,6 +463,13 @@ export const ChatPage: React.FC = () => {
         setMessages((prev) => (prev.some((m) => m.messageId === newMessage.messageId) ? prev : [...prev, newMessage]));
       }
       setMessageContent('');
+      if (!firstMessageSentRef.current.has(selectedThreadId)) {
+        firstMessageSentRef.current.add(selectedThreadId);
+        trackEvent('first_message_sent', {
+          source_page: '/app/chat',
+          user_status: 'authenticated',
+        });
+      }
     } catch (err: any) {
       console.error('Error sending message:', err);
       const msg = err?.message || err?.errors?.[0]?.message || '';
