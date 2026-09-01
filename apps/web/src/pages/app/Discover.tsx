@@ -47,6 +47,12 @@ import { formatI18n } from '@/i18n';
 import styles from './Discover.module.css';
 import { matchQueryKeys } from '@/lib/queryKeys';
 
+function mePrimaryMode(profile: { mode?: string; modes?: string[] } | null | undefined): string {
+  if (profile?.modes?.length) return String(profile.modes[0]);
+  if (profile?.mode) return profile.mode;
+  return 'TRAIN';
+}
+
 function scheduleSummary(schedule: { days?: string[]; timeStart?: string; timeEnd?: string }[] | undefined): string {
   if (!schedule?.length) return '';
   return schedule.map((s) => `${(s.days ?? []).join('/')} ${s.timeStart ?? ''}-${s.timeEnd ?? ''}`).join('; ');
@@ -271,9 +277,9 @@ export const DiscoverPage: React.FC = () => {
     discoverStartedRef.current = true;
     trackEvent('discover_started', {
       source_page: '/app/discover',
-      mode: me?.mode || 'TRAIN',
+      mode: mePrimaryMode(me?.profile),
     });
-  }, [me?.isProfileComplete, me?.mode]);
+  }, [me?.isProfileComplete, me?.profile]);
 
   useEffect(() => {
     if (!loading && shouldShowOnboardingModal(me?.isProfileComplete ?? true)) {
@@ -543,7 +549,7 @@ export const DiscoverPage: React.FC = () => {
         if (result.isMatched) {
           trackEvent('match_created', {
             source_page: '/app/discover',
-            mode: me?.mode || 'TRAIN',
+            mode: mePrimaryMode(me?.profile),
           });
           setMatchCelebration({
             userId: currentCard.userId,
@@ -580,7 +586,7 @@ export const DiscoverPage: React.FC = () => {
           if (result.isMatched) {
             trackEvent('match_created', {
               source_page: '/app/discover',
-              mode: me?.mode || 'TRAIN',
+              mode: mePrimaryMode(me?.profile),
             });
             setMatchCelebration({
               userId: currentCard.userId,
@@ -616,7 +622,7 @@ export const DiscoverPage: React.FC = () => {
                 if (result.isMatched) {
                   trackEvent('match_created', {
                     source_page: '/app/discover',
-                    mode: me?.mode || 'TRAIN',
+                    mode: mePrimaryMode(me?.profile),
                   });
                   setMatchCelebration({
                     userId: currentCard.userId,
