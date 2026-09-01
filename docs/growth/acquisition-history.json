@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-09-01",
   "strategyLock": {
     "status": "REVIEWED",
     "startedEt": "2026-08-24",
@@ -266,6 +266,26 @@
       "customers": 0,
       "outcome": "PUBLISHED_MANUAL_RECOVERY",
       "notes": "Lock day 4/7; Cursor automation Succeeded with Pull Request only — no Meta until manual publish"
+    },
+    {
+      "date": "2026-09-01",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "VIBE",
+      "language": "en",
+      "hook": "vibe-en-new-in-town",
+      "destination": "/signup",
+      "campaign": "owned-facebook-vibe-en-20260901 / owned-instagram-vibe-en-20260901",
+      "contentId": "vibe-en-new-in-town",
+      "facebookPostId": "1138684902641972_122130294086773778",
+      "instagramPostId": "18097084913572026",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED_MEASURING",
+      "notes": "Post-lock weekday automation; AWS CLI cold-start retry; Admin email MessageId 010001a05d48c4e5-4d784ae4-b30b-4797-874d-2fc6cdb05fbd-000000"
     }
   ],
   "doNotRepeat": [
