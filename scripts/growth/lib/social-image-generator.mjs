@@ -1,5 +1,5 @@
 /**
- * Social image generator — photography first (Bedrock Nova Canvas), procedural fallback only on failure.
+ * Social image generator — photography first (Bedrock Stable Image Core), procedural fallback only on failure.
  */
 import crypto from 'node:crypto';
 import { buildImageConcept } from './social-image-concept.mjs';
@@ -53,7 +53,7 @@ export async function generateSocialImage({
   const photo = await generatePhotoBuffer(concept, { sharpImpl });
   if (photo.ok) {
     composed = await composeSocialImageFromPhoto(photo.buffer, concept, { sharpImpl });
-    provider = photo.modelId || 'amazon.nova-canvas-v1:0';
+    provider = photo.modelId || 'stability.stable-image-core-v1:1';
     logSocialImageEvent('SocialImageGenerationSucceeded', {
       mode: concept.mode,
       contentId: concept.contentId,

@@ -1,11 +1,11 @@
 /**
- * TRAIN / VIBE / DATE photography scene prompts for Nova Canvas.
+ * TRAIN / VIBE / DATE photography scene prompts for Bedrock image generation.
  * Rotated for variety; people are always the hero.
  */
 export const MODE_PHOTO_SCENES = {
   TRAIN: [
-    'training together in a luxurious modern gym, smiling at each other between exercises with subtle flirtatious energy, premium sportswear, cinematic gym lighting',
-    'attractive athletic running partners on an urban trail at golden hour, natural chemistry, fitted running apparel',
+    'training together in a luxurious modern gym, smiling at each other between exercises, premium sportswear, cinematic gym lighting',
+    'athletic running partners on an urban trail at golden hour, natural chemistry, fitted running apparel',
     'doing functional fitness together in a boutique gym, playful competitive energy, realistic post-workout glow',
     'mixed-gender pickleball partners on a premium court, laughing between points, stylish athletic outfits',
     'spotting each other during a bench press in a high-end gym, confident eye contact, authentic connection',
@@ -14,19 +14,19 @@ export const MODE_PHOTO_SCENES = {
     'outdoor conditioning together in a city park, athletic wear, candid interaction'
   ],
   VIBE: [
-    'at a stylish rooftop bar at sunset, fit and attractive, casual premium athleisure, laughing together',
+    'at a stylish rooftop bar at sunset, fit adults in casual premium athleisure, laughing together',
     'sporty adults at a beach boardwalk, confident and photogenic, natural social chemistry',
-    'at an outdoor concert, attractive fit couple enjoying music, evening city energy',
+    'at an outdoor concert, fit couple enjoying music, evening city energy',
     'coffee together after a workout, warm smiles, modern cafe, athletic casual style',
     'walking through a vibrant international city, stylish fit adults, candid connection',
-    'at an outdoor festival, attractive athletic group, energetic social atmosphere'
+    'at an outdoor festival, athletic group, energetic social atmosphere'
   ],
   DATE: [
-    'having coffee together in a chic cafe, stronger romantic chemistry, fit attractive adults, post-workout glow',
+    'having coffee together in a chic cafe, warm romantic chemistry, fit adults, post-workout glow',
     'walking together after a workout through a city street, holding smoothies, warm connection',
     'rooftop date at dusk, athletic stylish couple, cinematic city backdrop',
-    'beach sunset walk, attractive fit adults, natural romantic tension, tasteful and premium',
-    'playful pickleball date on a premium court, flirty competitive energy',
+    'beach sunset walk, fit adults, natural romantic tension, tasteful and premium',
+    'playful pickleball date on a premium court, friendly competitive energy',
     'post-workout smoothie date, laughing together, modern healthy lifestyle aesthetic'
   ]
 };

@@ -1,6 +1,5 @@
 /**
- * Bedrock Nova Canvas is LEGACY on this account until re-enabled.
- * Set SOCIAL_IMAGE_BEDROCK_MODEL_ID when Amazon enables an active replacement.
+ * Bedrock Stable Image Core (ACTIVE) — text-to-image in us-west-2.
  * Fallback order: bedrock → procedural gradient (last resort only).
  */
 import { spawnSync } from 'node:child_process';
@@ -8,8 +7,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-export const NOVA_CANVAS_MODEL_ID =
-  process.env.SOCIAL_IMAGE_BEDROCK_MODEL_ID || 'amazon.nova-canvas-v1:0';
+export const STABLE_IMAGE_CORE_MODEL_ID =
+  process.env.SOCIAL_IMAGE_BEDROCK_MODEL_ID || 'stability.stable-image-core-v1:1';
+
+export const BEDROCK_IMAGE_REGION =
+  process.env.SOCIAL_IMAGE_BEDROCK_REGION || 'us-west-2';
 
 export const DEFAULT_NEGATIVE_PROMPT = [
   'minors',
@@ -45,9 +47,9 @@ export function buildPhotographyPrompt(concept) {
     concept.visualConcept ||
     'training together in a premium modern gym with natural chemistry';
   return (
-    'Premium photorealistic commercial lifestyle photography of a beautiful sexy athletic adult woman and a handsome fit muscular adult man ' +
+    'Premium photorealistic commercial lifestyle photography of an athletic adult woman and an athletic adult man ' +
     `${activity}. ` +
-    'Both are clearly adults approximately 25–45 years old. They have attractive natural athletic physiques and wear stylish modern premium fitness clothing. ' +
+    'Both are clearly adults approximately 25–45 years old with natural athletic physiques and stylish modern premium fitness clothing. ' +
     'Natural chemistry between them, confident expressions, playful authentic interaction, realistic skin texture, realistic anatomy, ' +
     'professional sports photography, cinematic lighting, dynamic composition, shallow depth of field, sophisticated modern environment, ' +
     'aspirational fitness lifestyle campaign, high-end social app advertising photography. ' +
@@ -57,42 +59,36 @@ export function buildPhotographyPrompt(concept) {
 }
 
 function writeTempJson(obj) {
-  const file = path.join(os.tmpdir(), `gtm-nova-${Date.now()}-${Math.random().toString(16).slice(2)}.json`);
+  const file = path.join(
+    os.tmpdir(),
+    `gtm-stable-${Date.now()}-${Math.random().toString(16).slice(2)}.json`
+  );
   fs.writeFileSync(file, JSON.stringify(obj));
   return file;
 }
 
 /**
- * Invoke Nova Canvas via AWS CLI (matches growth script conventions).
+ * Invoke Stable Image Core via AWS CLI (matches growth script conventions).
  */
-export function invokeNovaCanvas({
+export function invokeStableImageCore({
   prompt,
   negativePrompt = DEFAULT_NEGATIVE_PROMPT,
-  width = 1080,
-  height = 1350,
+  aspectRatio = '4:5',
   seed = 0,
-  quality = 'premium',
-  region = process.env.AWS_REGION || 'us-east-1',
-  modelId = NOVA_CANVAS_MODEL_ID
+  outputFormat = 'jpeg',
+  region = BEDROCK_IMAGE_REGION,
+  modelId = STABLE_IMAGE_CORE_MODEL_ID
 } = {}) {
   const body = {
-    taskType: 'TEXT_IMAGE',
-    textToImageParams: {
-      text: prompt,
-      negativeText: negativePrompt
-    },
-    imageGenerationConfig: {
-      numberOfImages: 1,
-      width,
-      height,
-      quality,
-      cfgScale: 7.5,
-      seed
-    }
+    prompt,
+    negative_prompt: negativePrompt,
+    aspect_ratio: aspectRatio,
+    seed,
+    output_format: outputFormat
   };
 
   const reqFile = writeTempJson(body);
-  const outFile = path.join(os.tmpdir(), `gtm-nova-out-${Date.now()}.json`);
+  const outFile = path.join(os.tmpdir(), `gtm-stable-out-${Date.now()}.json`);
   try {
     const r = spawnSync(
       'aws',
@@ -126,12 +122,22 @@ export function invokeNovaCanvas({
     if (parsed.error) {
       return { ok: false, error: String(parsed.error), modelId };
     }
+    const finishReason = parsed.finish_reasons?.[0];
+    if (finishReason && finishReason !== 'SUCCESS') {
+      return { ok: false, error: `stable_image_${finishReason.toLowerCase()}`, modelId };
+    }
     const b64 = parsed.images?.[0];
     if (!b64) {
-      return { ok: false, error: 'nova_canvas_no_images', modelId };
+      return { ok: false, error: 'stable_image_no_images', modelId };
     }
     const buffer = Buffer.from(b64, 'base64');
-    return { ok: true, buffer, modelId, seed, width, height };
+    return {
+      ok: true,
+      buffer,
+      modelId,
+      seed: parsed.seeds?.[0] ?? seed,
+      aspectRatio
+    };
   } finally {
     for (const f of [reqFile, outFile]) {
       try {
@@ -173,12 +179,11 @@ export async function generateBedrockPhoto(concept, { seed, sharpImpl, maxAttemp
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const attemptSeed = baseSeed + attempt * 7919;
     const prompt = buildPhotographyPrompt(concept);
-    const invoked = invokeNovaCanvas({
+    const invoked = invokeStableImageCore({
       prompt,
-      seed: attemptSeed % 2_147_483_647,
-      width: 1080,
-      height: 1350,
-      quality: 'premium'
+      seed: attemptSeed % 4_294_967_295,
+      aspectRatio: '4:5',
+      outputFormat: 'jpeg'
     });
     if (!invoked.ok) {
       lastError = invoked.error;
