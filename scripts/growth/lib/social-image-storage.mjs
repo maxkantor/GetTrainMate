@@ -1,16 +1,15 @@
 /**
  * Upload generated social images to S3 (uses AWS CLI like other growth scripts).
+ * social/generated/* must be publicly readable so Meta can fetch image_url.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { logSocialImageEvent } from './social-image-logger.mjs';
+import { resolveMediaBucket } from './resolve-media-bucket.mjs';
+import { validatePublicImageUrl } from './meta-graph.mjs';
 
-export const DEFAULT_SOCIAL_IMAGE_BUCKET =
-  process.env.GROWTH_SOCIAL_IMAGE_BUCKET ||
-  process.env.MEDIA_BUCKET_NAME ||
-  process.env.MEDIA_BUCKET ||
-  'gettrainmate-media-bucket';
+export const DEFAULT_SOCIAL_IMAGE_BUCKET = resolveMediaBucket();
 
 export const DEFAULT_SOCIAL_IMAGE_REGION = process.env.AWS_REGION || 'us-east-1';
 
@@ -32,7 +31,7 @@ export function uploadSocialImageBuffer({
   buffer,
   localPath,
   key,
-  bucket = DEFAULT_SOCIAL_IMAGE_BUCKET,
+  bucket = resolveMediaBucket(),
   region = DEFAULT_SOCIAL_IMAGE_REGION
 }) {
   let tempPath = localPath;
@@ -50,13 +49,12 @@ export function uploadSocialImageBuffer({
       `s3://${bucket}/${key}`,
       '--content-type',
       'image/jpeg',
+      '--cache-control',
+      'public, max-age=31536000, immutable',
       '--region',
       region
     ];
-    let r = spawnSync('aws', baseArgs, { encoding: 'utf8', stdio: 'pipe' });
-    if (r.status !== 0) {
-      r = spawnSync('aws', [...baseArgs, '--acl', 'public-read'], { encoding: 'utf8', stdio: 'pipe' });
-    }
+    const r = spawnSync('aws', baseArgs, { encoding: 'utf8', stdio: 'pipe' });
     if (r.status !== 0) {
       return {
         ok: false,
@@ -64,11 +62,33 @@ export function uploadSocialImageBuffer({
       };
     }
     const url = publicUrlForKey(key, { bucket, region });
-    logSocialImageEvent('SocialImageUploaded', { key, bucket, region, bytes: buffer?.length || fs.statSync(tempPath).size });
+    logSocialImageEvent('SocialImageUploaded', {
+      key,
+      bucket,
+      region,
+      bytes: buffer?.length || fs.statSync(tempPath).size
+    });
     return { ok: true, key, bucket, region, url };
   } finally {
     if (createdTemp && fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
   }
+}
+
+export async function uploadAndVerifySocialImageBuffer(opts) {
+  const uploaded = uploadSocialImageBuffer(opts);
+  if (!uploaded.ok) return uploaded;
+  const check = await validatePublicImageUrl(uploaded.url);
+  if (!check.ok) {
+    return {
+      ok: false,
+      error: `s3_not_publicly_readable:${check.reason}`,
+      url: uploaded.url,
+      bucket: uploaded.bucket,
+      key: uploaded.key,
+      mediaCheck: check
+    };
+  }
+  return { ...uploaded, mediaCheck: check };
 }
 
 export function saveLocalSocialImage({ buffer, isoHyphen, uniqueId, outDir }) {

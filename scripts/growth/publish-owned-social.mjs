@@ -31,6 +31,21 @@ import { loadRecentImageHistory } from './lib/social-image-history.mjs';
 import { generateSocialImage } from './lib/social-image-generator.mjs';
 import { logSocialImageEvent } from './lib/social-image-logger.mjs';
 import { purgeOldSocialImages } from './lib/social-image-purge.mjs';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __growthDir = path.dirname(fileURLToPath(import.meta.url));
+
+function ensureSocialImageBucketPublic() {
+  const script = path.join(__growthDir, 'ensure-social-image-bucket-public.mjs');
+  const r = spawnSync(process.execPath, [script], { encoding: 'utf8', stdio: 'pipe' });
+  if (r.status !== 0) {
+    throw new Error(
+      `social_image_bucket_not_public:${(r.stderr || r.stdout || 'ensure failed').slice(0, 200)}`
+    );
+  }
+}
 
 function parseArgs(argv) {
   const out = { dryRun: false, skipFacebook: false, skipInstagram: false, contentId: null };
@@ -162,6 +177,7 @@ async function main() {
 
   const recentImageEntries = loadRecentImageHistory({ days: 30 });
   if (!args.dryRun) {
+    ensureSocialImageBucketPublic();
     purgeOldSocialImages({ days: Number(process.env.SOCIAL_IMAGE_RETENTION_DAYS || 30) });
   }
   let socialImage;
@@ -245,6 +261,7 @@ async function main() {
       imageKey: socialImage.imageKey || '',
       imageUrl: generatedImageUrl,
       localPath: socialImage.localPath || '',
+      mediaCheck: socialImage.mediaCheck || null,
       width: socialImage.width || 1080,
       height: socialImage.height || 1350,
       durationMs: socialImage.durationMs || null,
@@ -313,7 +330,8 @@ async function main() {
       pageId: creds.pageId,
       pageToken: creds.pageToken,
       caption: facebookCopy,
-      imageUrl: publishImageUrl
+      imageUrl: publishImageUrl,
+      imageBuffer: socialImage.imageBuffer || null
     });
     report.facebook.published = Boolean(fb.ok);
     report.facebook.postId = fb.postId || '';
@@ -360,8 +378,13 @@ async function main() {
     report.instagram.blocker = 'skipped';
   }
 
-  // Keep Meta auth VALID even when Instagram publish fails for non-auth reasons.
-  if (report.metaAuth?.authentication === 'VALID' && report.instagram.blocker && !report.instagram.published) {
+  // Keep Meta auth VALID even when Instagram publish fails for non-auth reasons (not when skipped).
+  if (
+    report.metaAuth?.authentication === 'VALID' &&
+    report.instagram.blocker &&
+    report.instagram.blocker !== 'skipped' &&
+    !report.instagram.published
+  ) {
     report.instagramPublishFailedWhileAuthValid = true;
   }
 

@@ -10,7 +10,7 @@ import { logSocialImageEvent } from './social-image-logger.mjs';
 import {
   buildSocialImageKey,
   saveLocalSocialImage,
-  uploadSocialImageBuffer
+  uploadAndVerifySocialImageBuffer
 } from './social-image-storage.mjs';
 
 export const SOCIAL_IMAGE_PROVIDER = (process.env.SOCIAL_IMAGE_PROVIDER || 'stock').toLowerCase();
@@ -106,7 +106,7 @@ export async function generateSocialImage({
     };
   }
 
-  const uploaded = uploadSocialImageBuffer({ buffer: composed.buffer, key });
+  const uploaded = await uploadAndVerifySocialImageBuffer({ buffer: composed.buffer, key });
   if (!uploaded.ok) {
     const saved = saveLocalSocialImage({ buffer: composed.buffer, isoHyphen, uniqueId, outDir });
     logSocialImageEvent('SocialImageGenerationFailed', {
@@ -137,6 +137,8 @@ export async function generateSocialImage({
     fallback,
     width: composed.width,
     height: composed.height,
+    imageBuffer: composed.buffer,
+    mediaCheck: uploaded.mediaCheck,
     durationMs: Date.now() - started
   };
 }

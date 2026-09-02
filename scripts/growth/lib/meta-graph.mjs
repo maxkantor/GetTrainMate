@@ -122,6 +122,17 @@ async function graphPost(path, params, fetchImpl = fetch) {
   return { ok: res.ok, status: res.status, json };
 }
 
+async function graphPostMultipart(path, { fields = {}, fileField, fileBuffer, fileName = 'social.jpg' }, fetchImpl = fetch) {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value != null && value !== '') form.append(key, String(value));
+  }
+  form.append(fileField, new Blob([fileBuffer], { type: 'image/jpeg' }), fileName);
+  const res = await fetchImpl(`${GRAPH}${path}`, { method: 'POST', body: form });
+  const json = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, json };
+}
+
 async function graphGet(path, pageToken, fetchImpl = fetch) {
   const sep = path.includes('?') ? '&' : '?';
   const url = `${GRAPH}${path}${sep}access_token=${encodeURIComponent(pageToken)}`;
@@ -283,40 +294,62 @@ export async function publishFacebookPagePhoto({
   pageToken,
   caption,
   imageUrl,
+  imageBuffer = null,
   fetchImpl = fetch,
   skipImageCheck = false
 } = {}) {
   if (!pageId) {
     return { ok: false, network: 'facebook', blocker: 'FACEBOOK_PAGE_ID is not configured' };
   }
-  if (!imageUrl) {
+  if (!imageUrl && !imageBuffer) {
     return {
       ok: false,
       network: 'facebook',
-      blocker: 'Facebook photo post requires a public HTTPS image_url'
+      blocker: 'Facebook photo post requires a public HTTPS image_url or image bytes'
     };
   }
-  if (!skipImageCheck) {
+
+  let useDirectUpload = Boolean(imageBuffer) && !imageUrl;
+  if (imageUrl && !skipImageCheck) {
     const mediaCheck = await validatePublicImageUrl(imageUrl, { fetchImpl });
     if (!mediaCheck.ok) {
-      return {
-        ok: false,
-        network: 'facebook',
-        mediaUrlReachable: false,
-        blocker: `Facebook image_url not usable (${mediaCheck.reason})`
-      };
+      if (imageBuffer) {
+        useDirectUpload = true;
+      } else {
+        return {
+          ok: false,
+          network: 'facebook',
+          mediaUrlReachable: false,
+          blocker: `Facebook image_url not usable (${mediaCheck.reason})`
+        };
+      }
     }
   }
-  const { ok, status, json } = await graphPost(
-    `/${pageId}/photos`,
-    {
-      caption,
-      url: imageUrl,
-      published: 'true',
-      access_token: pageToken
-    },
-    fetchImpl
-  );
+
+  const { ok, status, json } = useDirectUpload
+    ? await graphPostMultipart(
+        `/${pageId}/photos`,
+        {
+          fields: {
+            caption,
+            published: 'true',
+            access_token: pageToken
+          },
+          fileField: 'source',
+          fileBuffer: imageBuffer
+        },
+        fetchImpl
+      )
+    : await graphPost(
+        `/${pageId}/photos`,
+        {
+          caption,
+          url: imageUrl,
+          published: 'true',
+          access_token: pageToken
+        },
+        fetchImpl
+      );
   if (!ok) {
     return {
       ok: false,
@@ -333,7 +366,8 @@ export async function publishFacebookPagePhoto({
     postId,
     postUrl: postId ? `https://www.facebook.com/${postId}` : 'https://www.facebook.com/gettrainmate',
     publishType: 'photo',
-    photoId: json.id || ''
+    photoId: json.id || '',
+    uploadMethod: useDirectUpload ? 'multipart_source' : 'public_url'
   };
 }
 

@@ -71,7 +71,7 @@ describe('social image storage keys', () => {
     const key = buildSocialImageKey({ isoHyphen: '2026-09-02', uniqueId: 'train-en-workout-partner-abc' });
     assert.match(key, /^social\/generated\/2026\/09\/02\//);
     const url = publicUrlForKey(key);
-    assert.match(url, /gettrainmate-media-bucket\.s3\./);
+    assert.match(url, /-media-bucket\.s3\.|-media-\d+-us-east-1\.s3\./);
     assert.match(url, /social\/generated\/2026\/09\/02\//);
   });
 });
