@@ -31,10 +31,32 @@ export function modeForWeekday(weekday) {
   return 'TRAIN';
 }
 
-export function languageForWeekday(weekday) {
-  if (weekday === 2 || weekday === 5) return 'es';
-  if (weekday === 3) return 'ru';
-  return 'en';
+export function languageForWeekday(weekday, isoDate = '') {
+  const week = isoWeekNumber(isoDate);
+  const langs = ['en', 'es', 'ru'];
+  if (weekday === 1 || weekday === 4) return langs[week % 3];
+  if (weekday === 2 || weekday === 5) return langs[(week + 1) % 3];
+  if (weekday === 3) return langs[(week + 2) % 3];
+  return langs[week % 3];
+}
+
+function hashSeed(input) {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
+
+/** ISO week number from YYYY-MM-DD for language/content rotation. */
+export function isoWeekNumber(isoDate = '') {
+  const raw = String(isoDate || '').slice(0, 10);
+  const d = raw.match(/^\d{4}-\d{2}-\d{2}$/) ? new Date(`${raw}T12:00:00Z`) : new Date();
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
 
 export const CATALOG = [
@@ -420,19 +442,26 @@ export function renderInstagramCopy(template, shortUrl) {
 
 /**
  * Pick the next catalog item for a weekday, skipping recently used contentIds.
+ * Rotates by date so consecutive days get different copy, not always pool[0].
  */
-export function selectCatalogItem({ weekday, recentlyUsedIds = [], preferMode, preferLanguage } = {}) {
+export function selectCatalogItem({
+  weekday,
+  recentlyUsedIds = [],
+  preferMode,
+  preferLanguage,
+  isoDate = ''
+} = {}) {
   const mode = preferMode || modeForWeekday(weekday ?? 1);
-  const language = preferLanguage || languageForWeekday(weekday ?? 1);
+  const language = preferLanguage || languageForWeekday(weekday ?? 1, isoDate);
   const used = new Set(recentlyUsedIds);
   const pool = CATALOG.filter((c) => c.mode === mode);
-  const unusedLang = pool.filter((c) => c.language === language && !used.has(c.contentId));
-  if (unusedLang.length) return unusedLang[0];
-  const unusedMode = pool.filter((c) => !used.has(c.contentId));
-  if (unusedMode.length) return unusedMode[0];
-  // All mode items used inside 14d window — recycle within mode (never jump to another mode).
-  const langMatch = pool.filter((c) => c.language === language);
-  return langMatch[0] || pool[0] || CATALOG[0];
+  let candidates = pool.filter((c) => c.language === language && !used.has(c.contentId));
+  if (!candidates.length) candidates = pool.filter((c) => !used.has(c.contentId));
+  if (!candidates.length) candidates = pool.filter((c) => c.language === language);
+  if (!candidates.length) candidates = pool.slice();
+  candidates.sort((a, b) => a.contentId.localeCompare(b.contentId));
+  const seed = hashSeed(`${isoDate}:${weekday}:${mode}:${language}`);
+  return candidates[seed % candidates.length] || CATALOG[0];
 }
 
 export function findCatalogItemByContentId(contentId) {

@@ -13,6 +13,7 @@ export function recentImageEntries(log, { days = 30, now = Date.now() } = {}) {
       colorTreatment: e.colorTreatment || '',
       imageKey: e.imageKey || '',
       imageSeed: e.imageSeed ?? null,
+      stockPhotoId: e.stockPhotoId || '',
       mode: e.mode || ''
     }))
     .filter((e) => e.imageHeadline || e.visualConcept || e.photoPrompt);

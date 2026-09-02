@@ -1,9 +1,9 @@
 /**
- * Social image generator — photography first (Bedrock Stable Image Core), procedural fallback only on failure.
+ * Social image generator — free curated stock photos first, procedural fallback only on failure.
  */
 import crypto from 'node:crypto';
 import { buildImageConcept } from './social-image-concept.mjs';
-import { generateBedrockPhoto } from './social-image-bedrock.mjs';
+import { generateStockPhoto } from './social-image-stock.mjs';
 import { composeSocialImageFromPhoto } from './social-image-photo-compose.mjs';
 import { composeProceduralFallback } from './social-image-photo-compose.mjs';
 import { logSocialImageEvent } from './social-image-logger.mjs';
@@ -13,13 +13,17 @@ import {
   uploadSocialImageBuffer
 } from './social-image-storage.mjs';
 
-export const SOCIAL_IMAGE_PROVIDER = (process.env.SOCIAL_IMAGE_PROVIDER || 'bedrock').toLowerCase();
+export const SOCIAL_IMAGE_PROVIDER = (process.env.SOCIAL_IMAGE_PROVIDER || 'stock').toLowerCase();
 
-async function generatePhotoBuffer(concept, { sharpImpl } = {}) {
+async function generatePhotoBuffer(concept, { isoDate, recentEntries, sharpImpl } = {}) {
   if (SOCIAL_IMAGE_PROVIDER === 'procedural') {
     return { ok: false, reason: 'procedural_only_mode' };
   }
-  return generateBedrockPhoto(concept, { seed: concept.backgroundSeed, sharpImpl, maxAttempts: 2 });
+  if (SOCIAL_IMAGE_PROVIDER === 'bedrock') {
+    const { generateBedrockPhoto } = await import('./social-image-bedrock.mjs');
+    return generateBedrockPhoto(concept, { seed: concept.backgroundSeed, sharpImpl, maxAttempts: 2 });
+  }
+  return generateStockPhoto(concept, { isoDate, recentEntries, sharpImpl, maxAttempts: 4 });
 }
 
 export async function generateSocialImage({
@@ -50,17 +54,26 @@ export async function generateSocialImage({
   let fallback = false;
   let composed;
 
-  const photo = await generatePhotoBuffer(concept, { sharpImpl });
+  const photo = await generatePhotoBuffer(concept, {
+    isoDate,
+    recentEntries: recentImageEntries,
+    sharpImpl
+  });
   if (photo.ok) {
+    if (photo.stockPhotoId) {
+      concept.stockPhotoId = photo.stockPhotoId;
+      concept.visualConcept = photo.scene || concept.visualConcept;
+    }
     composed = await composeSocialImageFromPhoto(photo.buffer, concept, { sharpImpl });
-    provider = photo.modelId || 'stability.stable-image-core-v1:1';
+    provider = photo.modelId || 'unsplash_stock';
     logSocialImageEvent('SocialImageGenerationSucceeded', {
       mode: concept.mode,
       contentId: concept.contentId,
       provider,
       fallback: false,
       photoBytes: photo.buffer.length,
-      seed: photo.seed
+      seed: photo.seed,
+      stockPhotoId: photo.stockPhotoId || null
     });
   } else {
     fallback = true;

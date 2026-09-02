@@ -94,7 +94,8 @@ async function main() {
   } else {
     item = selectCatalogItem({
       weekday,
-      recentlyUsedIds: recentlyUsedContentIds(log)
+      recentlyUsedIds: recentlyUsedContentIds(log),
+      isoDate: isoHyphen
     });
   }
 
@@ -298,6 +299,7 @@ async function main() {
       photoPrompt: socialImage.concept?.photoPrompt || socialImage.concept?.visualConcept,
       imageCta: socialImage.concept?.cta,
       imageSeed: socialImage.concept?.backgroundSeed,
+      stockPhotoId: socialImage.concept?.stockPhotoId || '',
       imageKey: socialImage.imageKey || '',
       imageUrl: publishImageUrl
     });
@@ -391,9 +393,10 @@ async function main() {
       photoPrompt: socialImage.concept?.photoPrompt || socialImage.concept?.visualConcept,
       imageCta: socialImage.concept?.cta,
       imageSeed: socialImage.concept?.backgroundSeed,
+      stockPhotoId: socialImage.concept?.stockPhotoId || '',
       imageKey: socialImage.imageKey || '',
       imageUrl: publishImageUrl,
-      imageProvider: socialImage.provider || 'bedrock',
+      imageProvider: socialImage.provider || 'stock',
       imageFallback: Boolean(socialImage.fallback)
     });
 

@@ -12,6 +12,8 @@ import { buildMinimalOverlaySvg } from '../lib/social-image-photo-compose.mjs';
 import { parseDateFromSocialKey } from '../lib/social-image-purge.mjs';
 import { findCatalogItemByContentId, selectCatalogItem } from '../lib/owned-social-catalog.mjs';
 import { publishFacebookPagePhoto } from '../lib/meta-graph.mjs';
+import { selectStockPhoto } from '../lib/social-image-stock.mjs';
+import { unsplashCropUrl } from '../lib/social-image-stock-library.mjs';
 
 describe('social image concept', () => {
   it('builds image metadata from catalog item', () => {
@@ -108,9 +110,44 @@ describe('facebook photo publisher', () => {
 describe('catalog rotation', () => {
   it('recycles within mode when all mode items were recently used', () => {
     const used = ['train-en-workout-partner', 'train-en-question-consistency'];
-    const item = selectCatalogItem({ weekday: 4, recentlyUsedIds: used });
+    const item = selectCatalogItem({ weekday: 4, recentlyUsedIds: used, isoDate: '2026-09-04' });
     assert.equal(item.mode, 'TRAIN');
     assert.notEqual(item.mode, 'DATE');
+  });
+
+  it('rotates DATE language by week instead of always Russian', () => {
+    const a = selectCatalogItem({ weekday: 3, recentlyUsedIds: [], isoDate: '2026-09-03' });
+    const b = selectCatalogItem({ weekday: 3, recentlyUsedIds: [], isoDate: '2026-09-10' });
+    assert.equal(a.mode, 'DATE');
+    assert.equal(b.mode, 'DATE');
+    assert.notEqual(a.contentId, b.contentId);
+  });
+
+  it('picks different TRAIN items on different dates', () => {
+    const a = selectCatalogItem({ weekday: 1, recentlyUsedIds: [], isoDate: '2026-09-01' });
+    const b = selectCatalogItem({ weekday: 4, recentlyUsedIds: [], isoDate: '2026-09-04' });
+    assert.equal(a.mode, 'TRAIN');
+    assert.equal(b.mode, 'TRAIN');
+  });
+});
+
+describe('stock photo selection', () => {
+  it('builds unsplash crop urls for portrait social', () => {
+    const url = unsplashCropUrl('photo-1571019614242-c5c5dee9f50b');
+    assert.match(url, /images\.unsplash\.com/);
+    assert.match(url, /w=1080/);
+    assert.match(url, /h=1350/);
+  });
+
+  it('avoids recently used stock photo ids', () => {
+    const first = selectStockPhoto({ mode: 'TRAIN', contentId: 'train-en-workout-partner', isoDate: '20260901' });
+    const second = selectStockPhoto({
+      mode: 'TRAIN',
+      contentId: 'train-en-question-consistency',
+      isoDate: '20260902',
+      recentEntries: [{ stockPhotoId: first.id }]
+    });
+    assert.notEqual(first.id, second.id);
   });
 });
 

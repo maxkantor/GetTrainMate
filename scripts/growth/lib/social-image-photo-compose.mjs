@@ -1,5 +1,5 @@
 /**
- * Compose final social image: full-bleed AI photo + minimal GetTrainMate branding overlay.
+ * Compose final social image: full-bleed stock photo + minimal GetTrainMate branding overlay.
  */
 import fs from 'node:fs';
 import path from 'node:path';

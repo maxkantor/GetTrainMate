@@ -1,6 +1,5 @@
 /**
- * TRAIN / VIBE / DATE photography scene prompts for Bedrock image generation.
- * Rotated for variety; people are always the hero.
+ * TRAIN / VIBE / DATE scene labels for stock photo selection and overlay copy.
  */
 export const MODE_PHOTO_SCENES = {
   TRAIN: [
@@ -31,10 +30,31 @@ export const MODE_PHOTO_SCENES = {
   ]
 };
 
+export const MODE_HEADLINE_VARIANTS = {
+  TRAIN: [
+    'Find Your Workout Partner',
+    'Train With Someone Who Shows Up',
+    'Your Gym Partner Awaits',
+    'Match For Your Next Workout'
+  ],
+  VIBE: [
+    'Meet Someone New',
+    'Find Your City Crew',
+    'Plans Beyond Solo Weekends',
+    'Connect Through Real Interests'
+  ],
+  DATE: [
+    'Meet Through Real Chemistry',
+    'Date Through Shared Activities',
+    'More Than Endless Swiping',
+    'Connect Over Real Plans'
+  ]
+};
+
 export const MODE_HEADLINE_DEFAULTS = {
-  TRAIN: 'Find Your Workout Partner',
-  VIBE: 'Meet Someone New',
-  DATE: 'Meet Through Real Chemistry'
+  TRAIN: MODE_HEADLINE_VARIANTS.TRAIN[0],
+  VIBE: MODE_HEADLINE_VARIANTS.VIBE[0],
+  DATE: MODE_HEADLINE_VARIANTS.DATE[0]
 };
 
 export const MODE_CTA_DEFAULTS = {
@@ -70,6 +90,9 @@ export function isDuplicateConcept(concept, recentEntries = []) {
   const cta = normalizeConceptKey(concept.cta);
   const seed = concept.backgroundSeed;
   for (const entry of recentEntries) {
+    if (entry.stockPhotoId && concept.stockPhotoId && entry.stockPhotoId === concept.stockPhotoId) {
+      return 'stockPhoto';
+    }
     if (normalizeConceptKey(entry.imageHeadline) === headline) return 'headline';
     if (normalizeConceptKey(entry.visualConcept || entry.photoPrompt) === visual) return 'visualConcept';
     if (entry.imageSeed != null && seed != null && entry.imageSeed === seed) return 'seed';
@@ -94,6 +117,8 @@ export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [
   let concept = null;
   while (attempt < 12) {
     const attemptSeed = seed + attempt * 9973;
+    const headlineVariants =
+      catalogItem?.imageHeadlines || MODE_HEADLINE_VARIANTS[mode] || [MODE_HEADLINE_DEFAULTS[mode]];
     concept = {
       mode,
       contentId: catalogItem?.contentId || 'preview',
@@ -101,7 +126,7 @@ export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [
       imageHeadline:
         overrides.imageHeadline ||
         catalogItem?.imageHeadline ||
-        MODE_HEADLINE_DEFAULTS[mode] ||
+        pickFrom(headlineVariants, attemptSeed + 3) ||
         'Find Your Match',
       cta: overrides.cta || catalogItem?.imageCta || MODE_CTA_DEFAULTS[mode] || 'START MATCHING',
       photoPrompt:
