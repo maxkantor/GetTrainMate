@@ -49,6 +49,7 @@
     "growth:discovery:report": "node scripts/growth/discovery-acquisition-report.mjs",
     "growth:instagram:publish": "node scripts/growth/publish-owned-social.mjs",
     "growth:social:publish": "node scripts/growth/publish-owned-social.mjs",
+    "growth:social:samples": "node scripts/growth/generate-social-image-samples.mjs",
     "prepare": "husky install"
   },
   "devDependencies": {

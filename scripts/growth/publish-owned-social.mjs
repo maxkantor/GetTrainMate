@@ -7,6 +7,7 @@
  *   node scripts/growth/publish-owned-social.mjs --dry-run
  */
 import { loadSsmSecretsIntoEnv } from './load-ssm-secrets-into-env.mjs';
+import { ensureGrowthDeps } from './lib/ensure-growth-deps.mjs';
 import {
   easternIsoDate,
   easternWeekday,
@@ -19,13 +20,17 @@ import {
 } from './lib/owned-social-catalog.mjs';
 import {
   diagnoseMetaBlocker,
-  publishFacebookPagePost,
+  publishFacebookPagePhoto,
   publishInstagramMedia,
   resolveMetaCredentials,
   validateMetaCredentials
 } from './lib/meta-graph.mjs';
 import { META_AUTH_STATES, ownerSetupInstructions } from './lib/meta-token.mjs';
 import { appendPublishedLog, readPublishedLog, recentlyUsedContentIds } from './lib/owned-social-log.mjs';
+import { loadRecentImageHistory } from './lib/social-image-history.mjs';
+import { generateSocialImage } from './lib/social-image-generator.mjs';
+import { logSocialImageEvent } from './lib/social-image-logger.mjs';
+import { purgeOldSocialImages } from './lib/social-image-purge.mjs';
 
 function parseArgs(argv) {
   const out = { dryRun: false, skipFacebook: false, skipInstagram: false, contentId: null };
@@ -68,6 +73,11 @@ function emptyNetwork(network, extra = {}) {
 
 async function main() {
   loadSsmSecretsIntoEnv();
+  const deps = await ensureGrowthDeps();
+  if (!deps.ok) {
+    console.error(JSON.stringify({ ok: false, error: 'growth_deps_missing', detail: deps.error }));
+    process.exit(2);
+  }
   const args = parseArgs(process.argv.slice(2));
   const now = new Date();
   const weekday = easternWeekday(now);
@@ -145,10 +155,36 @@ async function main() {
     isoDate,
     market: item.market
   });
-  // Facebook: clickable image/card uses full landing URL via Graph `link`. Caption uses short URL.
-  // Instagram: Graph API cannot attach links to feed images — short /go URL + bio hub only.
+  // Facebook + Instagram: publish generated branded image as media (not website OG link preview).
   const facebookCopy = renderFacebookCopy(item.facebook, facebookShortUrl);
   const instagramCopy = renderInstagramCopy(item.instagram, instagramUrl);
+
+  const recentImageEntries = loadRecentImageHistory({ days: 30 });
+  if (!args.dryRun) {
+    purgeOldSocialImages({ days: Number(process.env.SOCIAL_IMAGE_RETENTION_DAYS || 30) });
+  }
+  let socialImage;
+  try {
+    socialImage = await generateSocialImage({
+      catalogItem: item,
+      isoDate,
+      isoHyphen,
+      recentImageEntries,
+      dryRun: args.dryRun
+    });
+  } catch (e) {
+    console.error(
+      JSON.stringify({
+        ok: false,
+        error: 'social_image_generation_failed',
+        detail: e instanceof Error ? e.message : String(e)
+      })
+    );
+    process.exit(2);
+  }
+
+  const generatedImageUrl = socialImage.imageUrl || null;
+  const publishImageUrl = generatedImageUrl;
 
   const report = {
     generatedAtUtc: now.toISOString(),
@@ -196,14 +232,54 @@ async function main() {
       campaign: `owned-instagram-${item.mode.toLowerCase()}-${item.language}-${isoDate}`,
       mode: item.mode,
       language: item.language
-    })
+    }),
+    socialImage: {
+      mode: socialImage.concept?.mode || item.mode,
+      imageHeadline: socialImage.concept?.imageHeadline || '',
+      imageSubheadline: socialImage.concept?.imageSubheadline || '',
+      visualConcept: socialImage.concept?.visualConcept || '',
+      cta: socialImage.concept?.cta || '',
+      provider: socialImage.provider || 'procedural',
+      fallback: Boolean(socialImage.fallback),
+      imageKey: socialImage.imageKey || '',
+      imageUrl: generatedImageUrl,
+      localPath: socialImage.localPath || '',
+      width: socialImage.width || 1080,
+      height: socialImage.height || 1350,
+      durationMs: socialImage.durationMs || null,
+      uploadError: socialImage.uploadError || ''
+    }
   };
 
   if (args.dryRun) {
     report.dryRun = true;
     report.facebook.draft = facebookCopy;
     report.instagram.draft = instagramCopy;
+    report.facebook.publishType = 'photo';
+    report.instagram.imageUrl = publishImageUrl || '(local only — dry run)';
     console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  if (!publishImageUrl) {
+    report.facebook.blocker = socialImage.uploadError || 'social_image_upload_failed';
+    report.instagram.blocker = socialImage.uploadError || 'social_image_upload_failed';
+    appendPublishedLog({
+      publishedAtUtc: now.toISOString(),
+      contentId: item.contentId,
+      mode: item.mode,
+      language: item.language,
+      status: 'failed',
+      blocker: report.facebook.blocker,
+      imageHeadline: socialImage.concept?.imageHeadline,
+      visualConcept: socialImage.concept?.visualConcept,
+      photoPrompt: socialImage.concept?.photoPrompt || socialImage.concept?.visualConcept,
+      imageCta: socialImage.concept?.cta,
+      imageSeed: socialImage.concept?.backgroundSeed,
+      imageKey: socialImage.imageKey || ''
+    });
+    console.log(JSON.stringify(report, null, 2));
+    process.exitCode = 2;
     return;
   }
 
@@ -216,7 +292,14 @@ async function main() {
       mode: item.mode,
       language: item.language,
       status: 'blocked',
-      blocker: connectorBlocker
+      blocker: connectorBlocker,
+      imageHeadline: socialImage.concept?.imageHeadline,
+      visualConcept: socialImage.concept?.visualConcept,
+      photoPrompt: socialImage.concept?.photoPrompt || socialImage.concept?.visualConcept,
+      imageCta: socialImage.concept?.cta,
+      imageSeed: socialImage.concept?.backgroundSeed,
+      imageKey: socialImage.imageKey || '',
+      imageUrl: publishImageUrl
     });
     console.log(JSON.stringify(report, null, 2));
     process.exitCode = 2;
@@ -224,16 +307,26 @@ async function main() {
   }
 
   if (!args.skipFacebook) {
-    const fb = await publishFacebookPagePost({
+    const fb = await publishFacebookPagePhoto({
       pageId: creds.pageId,
       pageToken: creds.pageToken,
-      message: facebookCopy,
-      link: facebookUrl
+      caption: facebookCopy,
+      imageUrl: publishImageUrl
     });
     report.facebook.published = Boolean(fb.ok);
     report.facebook.postId = fb.postId || '';
     report.facebook.postUrl = fb.postUrl || '';
     report.facebook.blocker = fb.ok ? '' : fb.blocker;
+    report.facebook.publishType = fb.publishType || 'photo';
+    report.facebook.imageUrl = publishImageUrl;
+    if (fb.ok) {
+      logSocialImageEvent('FacebookImagePostPublished', {
+        mode: item.mode,
+        postId: fb.postId,
+        imageKey: socialImage.imageKey,
+        publishType: 'photo'
+      });
+    }
   } else {
     report.facebook.blocker = 'skipped';
   }
@@ -243,7 +336,7 @@ async function main() {
       igUserId: creds.igUserId,
       pageToken: creds.pageToken,
       caption: instagramCopy,
-      imageUrl: item.imageUrl
+      imageUrl: publishImageUrl
     });
     report.instagram.published = Boolean(ig.ok);
     report.instagram.postId = ig.igPublishedMediaId || ig.postId || '';
@@ -253,6 +346,14 @@ async function main() {
     report.instagram.igCreationId = ig.igCreationId || '';
     report.instagram.containerStatus = ig.containerStatus || '';
     report.instagram.failureStage = ig.failureStage || null;
+    report.instagram.imageUrl = publishImageUrl;
+    if (ig.ok) {
+      logSocialImageEvent('InstagramImagePostPublished', {
+        mode: item.mode,
+        postId: ig.postId,
+        imageKey: socialImage.imageKey
+      });
+    }
   } else {
     report.instagram.blocker = 'skipped';
   }
@@ -284,8 +385,17 @@ async function main() {
         .filter(Boolean)
         .join(' · ') || '',
     metaStatus: report.metaAuth?.status || '',
-    instagramState: report.instagram.state || ''
-  });
+    instagramState: report.instagram.state || '',
+      imageHeadline: socialImage.concept?.imageHeadline,
+      visualConcept: socialImage.concept?.visualConcept,
+      photoPrompt: socialImage.concept?.photoPrompt || socialImage.concept?.visualConcept,
+      imageCta: socialImage.concept?.cta,
+      imageSeed: socialImage.concept?.backgroundSeed,
+      imageKey: socialImage.imageKey || '',
+      imageUrl: publishImageUrl,
+      imageProvider: socialImage.provider || 'bedrock',
+      imageFallback: Boolean(socialImage.fallback)
+    });
 
   console.log(JSON.stringify(report, null, 2));
   if (!anyPublished) process.exitCode = 2;

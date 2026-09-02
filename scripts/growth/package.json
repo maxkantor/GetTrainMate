@@ -11,6 +11,8 @@
     "outreach:send": "node outreach.mjs send"
   },
   "dependencies": {
-    "google-auth-library": "^10.1.0"
+    "gettrainmate-monorepo": "file:../..",
+    "google-auth-library": "^10.1.0",
+    "sharp": "^0.34.3"
   }
 }

@@ -269,7 +269,71 @@ export async function publishFacebookPagePost({ pageId, pageToken, message, link
     ok: true,
     network: 'facebook',
     postId,
-    postUrl: postId ? `https://www.facebook.com/${postId}` : 'https://www.facebook.com/gettrainmate'
+    postUrl: postId ? `https://www.facebook.com/${postId}` : 'https://www.facebook.com/gettrainmate',
+    publishType: link ? 'link' : 'text'
+  };
+}
+
+/**
+ * Facebook photo post — publishes generated image as media (avoids OG link-preview scraping).
+ * Uses caption for post copy; include destination URL in caption when appropriate.
+ */
+export async function publishFacebookPagePhoto({
+  pageId,
+  pageToken,
+  caption,
+  imageUrl,
+  fetchImpl = fetch,
+  skipImageCheck = false
+} = {}) {
+  if (!pageId) {
+    return { ok: false, network: 'facebook', blocker: 'FACEBOOK_PAGE_ID is not configured' };
+  }
+  if (!imageUrl) {
+    return {
+      ok: false,
+      network: 'facebook',
+      blocker: 'Facebook photo post requires a public HTTPS image_url'
+    };
+  }
+  if (!skipImageCheck) {
+    const mediaCheck = await validatePublicImageUrl(imageUrl, { fetchImpl });
+    if (!mediaCheck.ok) {
+      return {
+        ok: false,
+        network: 'facebook',
+        mediaUrlReachable: false,
+        blocker: `Facebook image_url not usable (${mediaCheck.reason})`
+      };
+    }
+  }
+  const { ok, status, json } = await graphPost(
+    `/${pageId}/photos`,
+    {
+      caption,
+      url: imageUrl,
+      published: 'true',
+      access_token: pageToken
+    },
+    fetchImpl
+  );
+  if (!ok) {
+    return {
+      ok: false,
+      network: 'facebook',
+      httpStatus: status,
+      authState: classifyGraphAuthError(parseGraphErrorBody(json)),
+      blocker: facebookGraphError(json, `Facebook Page photo failed (${status})`)
+    };
+  }
+  const postId = json.post_id || json.id || '';
+  return {
+    ok: true,
+    network: 'facebook',
+    postId,
+    postUrl: postId ? `https://www.facebook.com/${postId}` : 'https://www.facebook.com/gettrainmate',
+    publishType: 'photo',
+    photoId: json.id || ''
   };
 }
 

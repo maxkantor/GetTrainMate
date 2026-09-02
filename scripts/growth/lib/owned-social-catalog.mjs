@@ -430,8 +430,9 @@ export function selectCatalogItem({ weekday, recentlyUsedIds = [], preferMode, p
   if (unusedLang.length) return unusedLang[0];
   const unusedMode = pool.filter((c) => !used.has(c.contentId));
   if (unusedMode.length) return unusedMode[0];
-  const unusedAny = CATALOG.filter((c) => !used.has(c.contentId));
-  return unusedAny[0] || pool[0] || CATALOG[0];
+  // All mode items used inside 14d window — recycle within mode (never jump to another mode).
+  const langMatch = pool.filter((c) => c.language === language);
+  return langMatch[0] || pool[0] || CATALOG[0];
 }
 
 export function findCatalogItemByContentId(contentId) {
