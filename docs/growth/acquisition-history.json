@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-09-02",
   "strategyLock": {
     "status": "REVIEWED",
     "startedEt": "2026-08-24",
@@ -266,6 +266,26 @@
       "customers": 0,
       "outcome": "PUBLISHED_MANUAL_RECOVERY",
       "notes": "Lock day 4/7; Cursor automation Succeeded with Pull Request only — no Meta until manual publish"
+    },
+    {
+      "date": "2026-09-02",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "DATE",
+      "language": "en",
+      "hook": "date-en-active-singles",
+      "destination": "/signup",
+      "campaign": "owned-facebook-date-en-20260902 / owned-instagram-date-en-20260902",
+      "contentId": "date-en-active-singles",
+      "facebookPostId": "1138684902641972_122130485174773778",
+      "instagramPostId": "18133308472645410",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED",
+      "notes": "Post-lock weekday; first attempt blocked (syntax error + AWS CLI missing on cold pod); retry succeeded"
     }
   ],
   "doNotRepeat": [
