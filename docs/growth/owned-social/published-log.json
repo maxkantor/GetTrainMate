@@ -218,6 +218,27 @@
       "blocker": "",
       "metaStatus": "META_VALID",
       "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
+    },
+    {
+      "publishedAtUtc": "2026-09-02T14:02:54.290Z",
+      "contentId": "date-en-active-singles",
+      "mode": "DATE",
+      "language": "en",
+      "status": "blocked",
+      "blocker": "Meta Page access token missing. Set SSM /gettrainmate/growth/meta-page-access-token (or env META_PAGE_ACCESS_TOKEN). Run: node scripts/growth/setup-meta-token.mjs"
+    },
+    {
+      "publishedAtUtc": "2026-09-02T14:03:37.618Z",
+      "contentId": "date-en-active-singles",
+      "mode": "DATE",
+      "language": "en",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122130485174773778",
+      "instagramPostId": "18133308472645410",
+      "igCreationId": "18105805088150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED"
     }
   ]
 }
