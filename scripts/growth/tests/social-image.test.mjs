@@ -10,10 +10,14 @@ import { buildSocialImageKey, publicUrlForKey } from '../lib/social-image-storag
 import { buildBackgroundSvg } from '../lib/social-image-composer.mjs';
 import { buildMinimalOverlaySvg } from '../lib/social-image-photo-compose.mjs';
 import { parseDateFromSocialKey } from '../lib/social-image-purge.mjs';
-import { findCatalogItemByContentId, selectCatalogItem } from '../lib/owned-social-catalog.mjs';
+import { findCatalogItemByContentId, selectCatalogItem, CATALOG } from '../lib/owned-social-catalog.mjs';
 import { publishFacebookPagePhoto } from '../lib/meta-graph.mjs';
 import { selectStockPhoto } from '../lib/social-image-stock.mjs';
-import { unsplashCropUrl } from '../lib/social-image-stock-library.mjs';
+import {
+  allStockPhotos,
+  unsplashCropUrl,
+  validateStockPhotoEntry
+} from '../lib/social-image-stock-library.mjs';
 
 describe('social image concept', () => {
   it('builds image metadata from catalog item', () => {
@@ -131,6 +135,33 @@ describe('catalog rotation', () => {
   });
 });
 
+describe('owned social copy catalog', () => {
+  it('exists with only GetTrainMate TRAIN/VIBE/DATE items', () => {
+    assert.ok(CATALOG.length >= 10);
+    for (const item of CATALOG) {
+      assert.match(item.contentId, /^(train|vibe|date)-/);
+      assert.ok(['TRAIN', 'VIBE', 'DATE'].includes(item.mode));
+      assert.ok(['en', 'es', 'ru'].includes(item.language));
+      const copy = `${item.facebook}\n${item.instagram}`;
+      assert.match(copy, /GetTrainMate/i);
+      assert.doesNotMatch(copy, /GoHyrox|Tinder|Bumble|Hinge|farmer/i);
+    }
+  });
+
+  it('maps catalog activity to stock photos for each mode', () => {
+    for (const item of CATALOG) {
+      const photo = selectStockPhoto({
+        mode: item.mode,
+        contentId: item.contentId,
+        isoDate: '20260902',
+        activity: item.activity
+      });
+      assert.ok(photo.id);
+      assert.ok(photo.unsplashId.startsWith('photo-'));
+    }
+  });
+});
+
 describe('stock photo selection', () => {
   it('builds unsplash crop urls for portrait social', () => {
     const url = unsplashCropUrl('photo-1571019614242-c5c5dee9f50b');
@@ -140,14 +171,31 @@ describe('stock photo selection', () => {
   });
 
   it('avoids recently used stock photo ids', () => {
-    const first = selectStockPhoto({ mode: 'TRAIN', contentId: 'train-en-workout-partner', isoDate: '20260901' });
+    const first = selectStockPhoto({ mode: 'TRAIN', contentId: 'train-en-workout-partner', isoDate: '20260901', activity: 'workout' });
     const second = selectStockPhoto({
       mode: 'TRAIN',
       contentId: 'train-en-question-consistency',
       isoDate: '20260902',
+      activity: 'accountability',
       recentEntries: [{ stockPhotoId: first.id }]
     });
     assert.notEqual(first.id, second.id);
+  });
+
+  it('every vetted stock entry has valid metadata', () => {
+    for (const photo of allStockPhotos()) {
+      assert.deepEqual(validateStockPhotoEntry(photo), []);
+    }
+  });
+
+  it('every vetted stock URL is reachable', async () => {
+    for (const photo of allStockPhotos()) {
+      const url = unsplashCropUrl(photo.unsplashId);
+      const res = await fetch(url, { method: 'HEAD' });
+      assert.equal(res.ok, true, `${photo.id} ${url}`);
+      const type = res.headers.get('content-type') || '';
+      assert.match(type, /image\//, photo.id);
+    }
   });
 });
 

@@ -13,8 +13,19 @@ function hashSeed(input) {
   return Math.abs(h);
 }
 
-export function selectStockPhoto({ mode, contentId = '', isoDate = '', recentEntries = [] } = {}) {
-  const pool = stockPhotosForMode(mode);
+export function selectStockPhoto({
+  mode,
+  contentId = '',
+  isoDate = '',
+  activity = '',
+  recentEntries = []
+} = {}) {
+  let pool = stockPhotosForMode(mode);
+  const act = String(activity || '').toLowerCase();
+  if (act) {
+    const matched = pool.filter((p) => (p.activities || []).includes(act));
+    if (matched.length) pool = matched;
+  }
   const usedIds = new Set(
     (recentEntries || []).map((e) => e.stockPhotoId || '').filter(Boolean)
   );
@@ -57,13 +68,17 @@ export async function fetchStockPhotoBuffer(photo, { fetchImpl = globalThis.fetc
   }
 }
 
-export async function generateStockPhoto(concept, { isoDate, recentEntries = [], sharpImpl, maxAttempts = 3, fetchImpl } = {}) {
+export async function generateStockPhoto(
+  concept,
+  { isoDate, activity, recentEntries = [], sharpImpl, maxAttempts = 3, fetchImpl } = {}
+) {
   let lastError = 'unknown';
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const photo = selectStockPhoto({
       mode: concept.mode,
       contentId: `${concept.contentId}:${attempt}`,
       isoDate: `${isoDate}:${attempt}`,
+      activity,
       recentEntries
     });
     const fetched = await fetchStockPhotoBuffer(photo, { fetchImpl });

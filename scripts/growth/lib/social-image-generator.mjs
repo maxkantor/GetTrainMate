@@ -15,7 +15,7 @@ import {
 
 export const SOCIAL_IMAGE_PROVIDER = (process.env.SOCIAL_IMAGE_PROVIDER || 'stock').toLowerCase();
 
-async function generatePhotoBuffer(concept, { isoDate, recentEntries, sharpImpl } = {}) {
+async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, sharpImpl } = {}) {
   if (SOCIAL_IMAGE_PROVIDER === 'procedural') {
     return { ok: false, reason: 'procedural_only_mode' };
   }
@@ -23,7 +23,13 @@ async function generatePhotoBuffer(concept, { isoDate, recentEntries, sharpImpl 
     const { generateBedrockPhoto } = await import('./social-image-bedrock.mjs');
     return generateBedrockPhoto(concept, { seed: concept.backgroundSeed, sharpImpl, maxAttempts: 2 });
   }
-  return generateStockPhoto(concept, { isoDate, recentEntries, sharpImpl, maxAttempts: 4 });
+  return generateStockPhoto(concept, {
+    isoDate,
+    activity,
+    recentEntries,
+    sharpImpl,
+    maxAttempts: 4
+  });
 }
 
 export async function generateSocialImage({
@@ -56,6 +62,7 @@ export async function generateSocialImage({
 
   const photo = await generatePhotoBuffer(concept, {
     isoDate,
+    activity: catalogItem?.activity,
     recentEntries: recentImageEntries,
     sharpImpl
   });
