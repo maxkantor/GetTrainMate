@@ -25,7 +25,19 @@ export async function ensureGrowthDeps() {
   }
   if (!missing.length) return { ok: true, installed: false };
 
-  const r = spawnSync('npm', ['i', '--prefix', GROWTH_DIR, '--ignore-scripts'], {
+  // Install only required packages — avoid file:../.. monorepo dep triggering root husky postinstall.
+  const r = spawnSync(
+    'npm',
+    [
+      'i',
+      '--prefix',
+      GROWTH_DIR,
+      '--ignore-scripts',
+      '--no-save',
+      'google-auth-library@^10.1.0',
+      'sharp@^0.34.3'
+    ],
+    {
     encoding: 'utf8',
     stdio: 'pipe'
   });
