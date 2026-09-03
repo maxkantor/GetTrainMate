@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-09-03",
   "strategyLock": {
     "status": "REVIEWED",
     "startedEt": "2026-08-24",
@@ -266,6 +266,26 @@
       "customers": 0,
       "outcome": "PUBLISHED_MANUAL_RECOVERY",
       "notes": "Lock day 4/7; Cursor automation Succeeded with Pull Request only — no Meta until manual publish"
+    },
+    {
+      "date": "2026-09-03",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "TRAIN",
+      "language": "en",
+      "hook": "train-en-question-consistency",
+      "destination": "/signup",
+      "campaign": "owned-train-en-20260903",
+      "contentId": "train-en-question-consistency",
+      "facebookPostId": "",
+      "instagramPostId": "",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "BLOCKED_S3_MEDIA_BUCKET",
+      "notes": "Meta credentials valid; publish blocked — gettrainmate-media-bucket NoSuchBucket (social image upload). Admin email sent (MessageId 010001a067963509-d91d8f71-6e5e-4be3-a0ca-c942cbc04d3d-000000). Owner: provision media bucket + public social/generated/* policy."
     }
   ],
   "doNotRepeat": [
