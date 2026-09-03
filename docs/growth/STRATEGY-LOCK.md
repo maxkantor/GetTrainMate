@@ -33,6 +33,7 @@
 | 2026-08-29 | 6 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-30 | 7 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-31 | REVIEW | TRAIN×EN FB+IG (`…122130159662773778` / IG `18105309032166116`) | Owned-social click → `/signup` |
+| 2026-09-03 | post-lock | TRAIN×EN blocked — S3 media bucket missing (`gettrainmate-media-bucket` NoSuchBucket); Admin email sent | Runner async fix only |
 
 ## Exploit / explore (70/30)
 
