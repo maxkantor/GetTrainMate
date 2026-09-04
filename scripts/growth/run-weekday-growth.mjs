@@ -104,6 +104,11 @@ async function main() {
 
   let publishJson = null;
   try {
+    const deps = await ensureGrowthDeps();
+    if (!deps.ok) {
+      report.errors.push(`growth_deps_missing: ${deps.error || 'install failed'}`);
+    }
+
     if (!args.skipSocial) {
       const pubArgs = [];
       if (args.dryRun) pubArgs.push('--dry-run');
@@ -187,7 +192,6 @@ async function main() {
     }
 
     // Collect snapshot then attach ownedSocial before email
-    await ensureGrowthDeps();
     const collect = runNode('collect-funnel-snapshot.mjs');
     if (collect.status !== 0) {
       report.errors.push('snapshot_failed');
