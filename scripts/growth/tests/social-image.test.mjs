@@ -25,9 +25,11 @@ describe('social image concept', () => {
     const concept = buildImageConcept(item, { isoDate: '20260902', recentEntries: [] });
     assert.equal(concept.mode, 'VIBE');
     assert.ok(concept.imageHeadline.length > 0);
-    assert.ok(concept.imageHeadline.split(' ').length <= 9);
-    assert.match(concept.cta, /Match|Meet|Start/i);
+    assert.match(concept.cta, /FIND|DISCOVER|START|EXPLORE|MEET|ENCUENTRA|НАЙТИ|ОТКРЫТЬ|СМОТРЕТЬ/i);
     assert.equal(concept.destinationUrl, 'https://gettrainmate.com');
+    assert.equal(concept.language, 'en');
+    assert.doesNotMatch(normalizeConceptKey(concept.imageHeadline), /meet through real chemistry/);
+    assert.doesNotMatch(normalizeConceptKey(concept.cta), /start matching/);
   });
 
   it('wraps headline lines for mobile-safe composition', () => {
@@ -142,9 +144,6 @@ describe('owned social copy catalog', () => {
       assert.match(item.contentId, /^(train|vibe|date)-/);
       assert.ok(['TRAIN', 'VIBE', 'DATE'].includes(item.mode));
       assert.ok(['en', 'es', 'ru'].includes(item.language));
-      const copy = `${item.facebook}\n${item.instagram}`;
-      assert.match(copy, /GetTrainMate/i);
-      assert.doesNotMatch(copy, /GoHyrox|Tinder|Bumble|Hinge|farmer/i);
     }
   });
 

@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TOMORROW_TRAIN = {
   mode: 'TRAIN',
   imageHeadline: 'Find Your Workout Partner',
-  cta: 'START MATCHING'
+  cta: 'FIND A TRAINING PARTNER'
 };
 
 async function main() {

@@ -1,7 +1,10 @@
 /**
- * Human-reviewed owned-social copy for Facebook + Instagram.
- * Not raw machine translation. Never promises matches, dates, or outcomes.
+ * Human-reviewed owned-social catalog metadata + conversion caption resolution.
+ * Captions/headlines/CTAs are selected from locale-aware social-copy-variants.
+ * Never promises matches, dates, or outcomes.
  */
+import { selectCopyPackage } from './social-copy-variants.mjs';
+
 export const OWNED_ACCOUNTS = {
   facebook: {
     network: 'facebook',
@@ -59,6 +62,11 @@ export function isoWeekNumber(isoDate = '') {
   return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
 
+/**
+ * Catalog entries are campaign/locale anchors. Caption + image text are resolved
+ * at publish time via resolveOwnedSocialCreative (conversion copy rotation).
+ * Optional facebook/instagram strings are legacy fallbacks only.
+ */
 export const CATALOG = [
   {
     contentId: 'train-en-workout-partner',
@@ -67,25 +75,7 @@ export const CATALOG = [
     kind: 'acquisition',
     activity: 'workout',
     landingPath: MODE_LANDINGS.TRAIN,
-    imageUrl: IMAGE,
-    instagram: [
-      'Looking for a workout partner — gym, running, pickleball, HYROX, or whatever you actually train?',
-      '',
-      'GetTrainMate is TRAIN, VIBE, and DATE. Pick TRAIN, set your city, and use Discover.',
-      '',
-      'No guaranteed matches. You control your profile.',
-      '',
-      '{{url}}'
-    ].join('\n'),
-    facebook: [
-      'Find a workout partner on GetTrainMate.',
-      '',
-      'TRAIN is for gyms, running, sports, and accountability — not a dating-only app. Pick TRAIN, set your city, open Discover.',
-      '',
-      'No guaranteed partners. You choose who you talk to.',
-      '',
-      '{{url}}'
-    ].join('\n')
+    imageUrl: IMAGE
   },
   {
     contentId: 'train-es-socio-entrenamiento',
@@ -94,25 +84,7 @@ export const CATALOG = [
     kind: 'acquisition',
     activity: 'gym',
     landingPath: MODE_LANDINGS.TRAIN,
-    imageUrl: IMAGE,
-    instagram: [
-      '¿Buscas alguien para entrenar — gym, correr, pádel o un plan constante?',
-      '',
-      'GetTrainMate tiene TRAIN, VIBE y DATE. Elige TRAIN, pon tu ciudad y entra a Discover.',
-      '',
-      'Sin coincidencias garantizadas. Tú controlas tu perfil.',
-      '',
-      '{{url}}'
-    ].join('\n'),
-    facebook: [
-      'Encuentra un socio de entrenamiento en GetTrainMate.',
-      '',
-      'TRAIN es para entrenar y competir. VIBE y DATE existen en la misma app, pero tú eliges el modo.',
-      '',
-      'Nadie te promete un match. Tú decides con quién hablar.',
-      '',
-      '{{url}}'
-    ].join('\n')
+    imageUrl: IMAGE
   },
   {
     contentId: 'train-ru-trenirovochniy-partner',
@@ -121,25 +93,7 @@ export const CATALOG = [
     kind: 'acquisition',
     activity: 'running',
     landingPath: MODE_LANDINGS.TRAIN,
-    imageUrl: IMAGE,
-    instagram: [
-      'Ищете партнёра для тренировок — зал, бег, HYROX, теннис?',
-      '',
-      'GetTrainMate — это TRAIN, VIBE и DATE. Выберите TRAIN, укажите город и откройте Discover.',
-      '',
-      'Совпадения не гарантируем. Профиль контролируете вы.',
-      '',
-      '{{url}}'
-    ].join('\n'),
-    facebook: [
-      'Найдите партнёра для тренировок в GetTrainMate.',
-      '',
-      'Режим TRAIN — для спорта и регулярных занятий. VIBE и DATE тоже есть: вы выбираете намерение.',
-      '',
-      'Мы не обещаем матчи. Вы решаете, с кем писать.',
-      '',
-      '{{url}}'
-    ].join('\n')
+    imageUrl: IMAGE
   },
   {
     contentId: 'vibe-en-new-in-town',
@@ -148,25 +102,7 @@ export const CATALOG = [
     kind: 'community',
     activity: 'events',
     landingPath: MODE_LANDINGS.VIBE,
-    imageUrl: IMAGE,
-    instagram: [
-      'New in town — or just tired of going to concerts, coffee, and weekends alone?',
-      '',
-      'VIBE on GetTrainMate is for people, events, and shared interests. Not dating-first unless you pick DATE.',
-      '',
-      'Set your city. Choose VIBE. No guaranteed hangouts.',
-      '',
-      '{{url}}'
-    ].join('\n'),
-    facebook: [
-      'Find people to hang out with on GetTrainMate (VIBE).',
-      '',
-      'Events, coffee, travel, weekend plans, new-in-city friends. TRAIN and DATE are separate modes — you pick.',
-      '',
-      'No guaranteed plans. You control who you meet.',
-      '',
-      '{{url}}'
-    ].join('\n')
+    imageUrl: IMAGE
   },
   {
     contentId: 'vibe-es-planes-ciudad',
@@ -175,25 +111,7 @@ export const CATALOG = [
     kind: 'community',
     activity: 'social',
     landingPath: MODE_LANDINGS.VIBE,
-    imageUrl: IMAGE,
-    instagram: [
-      '¿Nuevo en la ciudad o sin planes el fin de semana?',
-      '',
-      'VIBE en GetTrainMate es para quedar, eventos e intereses en común. DATE es otro modo, si lo quieres.',
-      '',
-      'Pon tu ciudad. Elige VIBE. Sin planes garantizados.',
-      '',
-      '{{url}}'
-    ].join('\n'),
-    facebook: [
-      'Conoce gente para planes en GetTrainMate (VIBE).',
-      '',
-      'Conciertos, café, planes de fin de semana. TRAIN y DATE existen, pero tú eliges el modo.',
-      '',
-      'Nadie te garantiza un plan. Tú decides.',
-      '',
-      '{{url}}'
-    ].join('\n')
+    imageUrl: IMAGE
   },
   {
     contentId: 'vibe-ru-kompaniya-v-gorode',
@@ -202,25 +120,7 @@ export const CATALOG = [
     kind: 'community',
     activity: 'friendship',
     landingPath: MODE_LANDINGS.VIBE,
-    imageUrl: IMAGE,
-    instagram: [
-      'Новый город — или просто хочется компанию на концерт, кофе, выходные?',
-      '',
-      'VIBE в GetTrainMate — для общения и интересов. DATE — отдельный режим, если он вам нужен.',
-      '',
-      'Укажите город. Выберите VIBE. Встречи не гарантируем.',
-      '',
-      '{{url}}'
-    ].join('\n'),
-    facebook: [
-      'Найдите компанию в GetTrainMate (режим VIBE).',
-      '',
-      'События, интересы, новые в городе. TRAIN и DATE — другие режимы: вы выбираете.',
-      '',
-      'Мы не обещаем встречи. Вы решаете, с кем общаться.',
-      '',
-      '{{url}}'
-    ].join('\n')
+    imageUrl: IMAGE
   },
   {
     contentId: 'date-en-active-singles',
@@ -229,25 +129,7 @@ export const CATALOG = [
     kind: 'acquisition',
     activity: 'dating',
     landingPath: MODE_LANDINGS.DATE,
-    imageUrl: IMAGE,
-    instagram: [
-      'Want dating through shared activities — training, events, real interests — not a swipe factory?',
-      '',
-      'DATE is one mode on GetTrainMate. TRAIN and VIBE stay available if that is not what you want.',
-      '',
-      'No guaranteed dates or relationships. You control your profile.',
-      '',
-      '{{url}}'
-    ].join('\n'),
-    facebook: [
-      'Meet people through shared interests on GetTrainMate (DATE).',
-      '',
-      'Activity-based dating is optional. Pick DATE only if that is your intent. TRAIN and VIBE are separate.',
-      '',
-      'No guaranteed dates. You choose who you talk to.',
-      '',
-      '{{url}}'
-    ].join('\n')
+    imageUrl: IMAGE
   },
   {
     contentId: 'date-en-sf-bay',
@@ -258,24 +140,7 @@ export const CATALOG = [
     activity: 'dating',
     landingPath: '/san-francisco',
     imageUrl: IMAGE,
-    instagram: [
-      'Bay Area: looking for someone who wants plans beyond endless swiping?',
-      '',
-      'GetTrainMate DATE in San Francisco — activity-based dating. TRAIN and VIBE are there too.',
-      '',
-      'Free to join. No guaranteed dates. You control your profile.',
-      '',
-      '{{url}}'
-    ].join('\n'),
-    facebook: [
-      'San Francisco: meet people who want more than a swipe.',
-      '',
-      'GetTrainMate — DATE, TRAIN, or VIBE in the Bay Area. Free to create an account.',
-      '',
-      'No guaranteed matches. You choose who you talk to.',
-      '',
-      '{{url}}'
-    ].join('\n')
+    marketHook: 'Bay Area:'
   },
   {
     contentId: 'date-es-citas-actividad',
@@ -284,25 +149,7 @@ export const CATALOG = [
     kind: 'acquisition',
     activity: 'dating',
     landingPath: MODE_LANDINGS.DATE,
-    imageUrl: IMAGE,
-    instagram: [
-      '¿Citas a través de planes reales — deporte, eventos, intereses — no una fábrica de swipes?',
-      '',
-      'DATE es un modo de GetTrainMate. TRAIN y VIBE siguen ahí si no es lo que buscas.',
-      '',
-      'Sin citas ni relaciones garantizadas. Tú controlas tu perfil.',
-      '',
-      '{{url}}'
-    ].join('\n'),
-    facebook: [
-      'Conoce gente por intereses en GetTrainMate (DATE).',
-      '',
-      'Las citas son opcionales. Elige DATE solo si ese es tu objetivo. TRAIN y VIBE son modos distintos.',
-      '',
-      'Nadie te garantiza una cita. Tú decides.',
-      '',
-      '{{url}}'
-    ].join('\n')
+    imageUrl: IMAGE
   },
   {
     contentId: 'date-ru-po-interesam',
@@ -311,25 +158,7 @@ export const CATALOG = [
     kind: 'acquisition',
     activity: 'dating',
     landingPath: MODE_LANDINGS.DATE,
-    imageUrl: IMAGE,
-    instagram: [
-      'Знакомства через общие занятия — спорт, события, интересы — а не бесконечный свайп?',
-      '',
-      'DATE — один из режимов GetTrainMate. TRAIN и VIBE остаются, если это не ваша цель.',
-      '',
-      'Свидания и отношения не гарантируем. Профиль контролируете вы.',
-      '',
-      '{{url}}'
-    ].join('\n'),
-    facebook: [
-      'Знакомьтесь через общие интересы в GetTrainMate (режим DATE).',
-      '',
-      'Свидания — по желанию. Выберите DATE только если это ваше намерение.',
-      '',
-      'Мы не обещаем свидания. Вы решаете, с кем писать.',
-      '',
-      '{{url}}'
-    ].join('\n')
+    imageUrl: IMAGE
   },
   {
     contentId: 'train-en-question-consistency',
@@ -338,28 +167,51 @@ export const CATALOG = [
     kind: 'question',
     activity: 'accountability',
     landingPath: MODE_LANDINGS.TRAIN,
-    imageUrl: IMAGE,
-    instagram: [
-      'What actually keeps you consistent — a plan, a gym, or another person who shows up?',
-      '',
-      'If it is a person: TRAIN on GetTrainMate. Pick your city. Discover is opt-in.',
-      '',
-      'No guaranteed training partners.',
-      '',
-      '{{url}}'
-    ].join('\n'),
-    facebook: [
-      'Question: gym buddy, run club, or solo forever?',
-      '',
-      'GetTrainMate TRAIN is for people who want a training partner in their city. VIBE and DATE are other modes.',
-      '',
-      'No guaranteed training partners.',
-      '',
-      '{{url}}'
-    ].join('\n')
+    imageUrl: IMAGE
   }
 ];
 
+function withMarketHook(body, marketHook) {
+  if (!marketHook || !body) return body;
+  const lines = String(body).split('\n');
+  if (!lines[0]) return body;
+  lines[0] = `${marketHook} ${lines[0]}`;
+  return lines.join('\n');
+}
+
+/**
+ * Resolve conversion copy for a catalog item so image + caption share one locale.
+ */
+export function resolveOwnedSocialCreative(catalogItem, { isoDate = '', recentEntries = [] } = {}) {
+  const item = catalogItem || CATALOG[0];
+  const copyPackage = selectCopyPackage({
+    mode: item.mode,
+    language: item.language,
+    isoDate,
+    contentId: item.contentId,
+    recentEntries
+  });
+  let facebook = copyPackage.facebook;
+  let instagram = copyPackage.instagram;
+  if (item.marketHook) {
+    facebook = withMarketHook(facebook, item.marketHook);
+    instagram = withMarketHook(instagram, item.marketHook);
+  }
+  return {
+    ...item,
+    facebook,
+    instagram,
+    imageHeadline: copyPackage.headline,
+    imageSubheadline: copyPackage.subheadline,
+    imageCta: copyPackage.cta,
+    copyPackage,
+    copy_variant: copyPackage.copyVariant,
+    headline_variant: copyPackage.headlineVariant,
+    cta_variant: copyPackage.ctaVariant,
+    locale: copyPackage.locale,
+    campaign: copyPackage.campaign
+  };
+}
 export function goCodeForDestination({ mode, landingPath } = {}) {
   const path = String(landingPath || '').replace(/\/$/, '') || '';
   if (path === '/san-francisco') return 'sf';
@@ -382,23 +234,42 @@ export function ownedSocialClickPath({ mode, landingPath } = {}) {
 
 /**
  * Full tracked URL (used for Facebook `link` attachment — clickable image/card).
+ * Preserves existing UTMs; adds copy analytics params when provided.
  */
-export function trackedUrl({ network, mode, language, contentId, landingPath, isoDate, market }) {
+export function trackedUrl({
+  network,
+  mode,
+  language,
+  contentId,
+  landingPath,
+  isoDate,
+  market,
+  copyVariant,
+  headlineVariant,
+  ctaVariant,
+  campaign: campaignOverride
+} = {}) {
   const path = ownedSocialClickPath({ mode, landingPath });
   const marketSlug = market ? String(market).toLowerCase().replace(/\s+/g, '-') : '';
-  const campaign = marketSlug
-    ? `owned-${network}-${String(mode).toLowerCase()}-${language}-${marketSlug}-${isoDate}`
-    : `owned-${network}-${String(mode).toLowerCase()}-${language}-${isoDate}`;
+  const campaign =
+    campaignOverride ||
+    (marketSlug
+      ? `owned-${network}-${String(mode).toLowerCase()}-${language}-${marketSlug}-${isoDate}`
+      : `owned-${network}-${String(mode).toLowerCase()}-${language}-${isoDate}`);
+  const contentParts = [contentId, copyVariant, headlineVariant, ctaVariant].filter(Boolean);
   const params = new URLSearchParams({
     utm_source: network,
     utm_medium: 'organic',
     utm_campaign: campaign,
-    utm_content: contentId,
+    utm_content: contentParts.join('__'),
     mode,
     lang: language,
     src: 'owned_social'
   });
   if (market) params.set('metro', String(market));
+  if (copyVariant) params.set('copy_variant', String(copyVariant));
+  if (headlineVariant) params.set('headline_variant', String(headlineVariant));
+  if (ctaVariant) params.set('cta_variant', String(ctaVariant));
   return `https://gettrainmate.com${path}?${params.toString()}`;
 }
 
@@ -420,29 +291,32 @@ export function renderCopy(template, url) {
   return String(template || '').replaceAll('{{url}}', url);
 }
 
+const BIO_LINK_LINES = {
+  en: 'Link also in bio → gettrainmate.com/go',
+  es: 'Enlace también en la bio → gettrainmate.com/go',
+  ru: 'Ссылка также в профиле → gettrainmate.com/go'
+};
+
 /** Facebook caption: prefer short URL; link attachment carries the real click target. */
 export function renderFacebookCopy(template, shortUrl) {
   const body = String(template || '').replaceAll('{{url}}', shortUrl || '').trim();
   return body;
 }
 
-/** Instagram caption: short URL on its own line + bio fallback (IG feed images are not linkable via API). */
-export function renderInstagramCopy(template, shortUrl) {
+/** Instagram caption: short URL on its own line + localized bio fallback. */
+export function renderInstagramCopy(template, shortUrl, { language = 'en' } = {}) {
+  const locale = String(language || 'en').toLowerCase().slice(0, 2);
   const body = String(template || '')
     .replaceAll('{{url}}', '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  const linkBlock = [
-    shortUrl || OWNED_SOCIAL_BIO_URL,
-    '',
-    'Link also in bio → gettrainmate.com/go'
-  ].join('\n');
+  const linkBlock = [shortUrl || OWNED_SOCIAL_BIO_URL, '', BIO_LINK_LINES[locale] || BIO_LINK_LINES.en].join('\n');
   return `${body}\n\n${linkBlock}`;
 }
 
 /**
  * Pick the next catalog item for a weekday, skipping recently used contentIds.
- * Rotates by date so consecutive days get different copy, not always pool[0].
+ * Always prefers the campaign locale — never mix languages for one creative.
  */
 export function selectCatalogItem({
   weekday,
@@ -456,8 +330,9 @@ export function selectCatalogItem({
   const used = new Set(recentlyUsedIds);
   const pool = CATALOG.filter((c) => c.mode === mode);
   let candidates = pool.filter((c) => c.language === language && !used.has(c.contentId));
-  if (!candidates.length) candidates = pool.filter((c) => !used.has(c.contentId));
   if (!candidates.length) candidates = pool.filter((c) => c.language === language);
+  // Last resort only: same mode, other locales (should be rare with 1+ item per locale).
+  if (!candidates.length) candidates = pool.filter((c) => !used.has(c.contentId));
   if (!candidates.length) candidates = pool.slice();
   candidates.sort((a, b) => a.contentId.localeCompare(b.contentId));
   const seed = hashSeed(`${isoDate}:${weekday}:${mode}:${language}`);

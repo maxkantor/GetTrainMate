@@ -27,7 +27,7 @@ export function buildMinimalOverlaySvg({ width, height, concept }) {
   const brand = escapeXml('GetTrainMate');
   const mode = escapeXml(concept.mode || 'TRAIN');
   const headline = escapeXml(concept.imageHeadline || 'Find Your Match');
-  const cta = escapeXml(String(concept.cta || 'START MATCHING').toUpperCase());
+  const cta = escapeXml(String(concept.cta || 'FIND YOUR MATCH').toUpperCase());
   const url = escapeXml('gettrainmate.com');
 
   // Headline: max 2 lines, bottom third, above CTA

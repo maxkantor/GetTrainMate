@@ -14,9 +14,9 @@ import {
   findCatalogItemByContentId,
   renderFacebookCopy,
   renderInstagramCopy,
+  resolveOwnedSocialCreative,
   selectCatalogItem,
-  shortTrackedUrl,
-  trackedUrl
+  shortTrackedUrl
 } from './lib/owned-social-catalog.mjs';
 import {
   diagnoseMetaBlocker,
@@ -118,6 +118,12 @@ async function main() {
     });
   }
 
+  const recentImageEntries = loadRecentImageHistory({ days: 30 });
+  item = resolveOwnedSocialCreative(item, {
+    isoDate: isoHyphen,
+    recentEntries: recentImageEntries
+  });
+
   if (args.skipFacebook && !args.skipInstagram && alreadyHasInstagramMedia(log, item.contentId)) {
     console.log(
       JSON.stringify({
@@ -202,36 +208,38 @@ async function main() {
       ? `${validation.reportStatus || validation.state}: ${validation.graph?.message || 'Meta authentication invalid'}${validation.ownerActionRequired ? ` · ${ownerSetupInstructions().split('\n')[0]}` : ''}`
       : null;
 
-  const facebookUrl = trackedUrl({
-    network: 'facebook',
+  const trackingFields = {
     mode: item.mode,
     language: item.language,
     contentId: item.contentId,
     landingPath: item.landingPath,
     isoDate,
-    market: item.market
-  });
-  const facebookShortUrl = shortTrackedUrl({
-    network: 'facebook',
-    mode: item.mode,
-    language: item.language,
-    contentId: item.contentId,
-    landingPath: item.landingPath,
-    isoDate,
-    market: item.market
-  });
-  const instagramUrl = shortTrackedUrl({
-    network: 'instagram',
-    mode: item.mode,
-    language: item.language,
-    contentId: item.contentId,
-    landingPath: item.landingPath,
-    isoDate,
-    market: item.market
-  });
+    market: item.market,
+    copyVariant: item.copy_variant,
+    headlineVariant: item.headline_variant,
+    ctaVariant: item.cta_variant
+  };
+  const facebookShortUrl = shortTrackedUrl({ network: 'facebook', ...trackingFields });
+  const instagramUrl = shortTrackedUrl({ network: 'instagram', ...trackingFields });
   // Facebook + Instagram: publish generated branded image as media (not website OG link preview).
   const facebookCopy = renderFacebookCopy(item.facebook, facebookShortUrl);
-  const instagramCopy = renderInstagramCopy(item.instagram, instagramUrl);
+  const instagramCopy = renderInstagramCopy(item.instagram, instagramUrl, {
+    language: item.language
+  });
+
+  console.error(
+    JSON.stringify({
+      event: 'OwnedSocialCopySelected',
+      mode: item.mode,
+      locale: item.locale || item.language,
+      contentId: item.contentId,
+      copy_variant: item.copy_variant || null,
+      headline_variant: item.headline_variant || null,
+      cta_variant: item.cta_variant || null,
+      imageHeadline: item.imageHeadline || null,
+      imageCta: item.imageCta || null
+    })
+  );
 
   const baseReport = {
     generatedAtUtc: now.toISOString(),
@@ -240,6 +248,11 @@ async function main() {
     contentId: item.contentId,
     mode: item.mode,
     language: item.language,
+    locale: item.locale || item.language,
+    copy_variant: item.copy_variant || '',
+    headline_variant: item.headline_variant || '',
+    cta_variant: item.cta_variant || '',
+    campaign: item.campaign || '',
     kind: item.kind,
     connectorHealthy: !connectorBlocker && (validation ? validation.ok === true : !configBlocker),
     connectorBlocker,
@@ -289,7 +302,6 @@ async function main() {
     return;
   }
 
-  const recentImageEntries = loadRecentImageHistory({ days: 30 });
   if (!args.dryRun) {
     ensureSocialImageBucketPublic();
     purgeOldSocialImages({ days: Number(process.env.SOCIAL_IMAGE_RETENTION_DAYS || 30) });
@@ -301,7 +313,14 @@ async function main() {
       isoDate,
       isoHyphen,
       recentImageEntries,
-      dryRun: args.dryRun
+      dryRun: args.dryRun,
+      conceptOverrides: {
+        language: item.language,
+        imageHeadline: item.imageHeadline,
+        imageSubheadline: item.imageSubheadline || '',
+        cta: item.imageCta,
+        copyPackage: item.copyPackage
+      }
     });
   } catch (e) {
     console.error(
@@ -321,10 +340,14 @@ async function main() {
     ...baseReport,
     socialImage: {
       mode: socialImage.concept?.mode || item.mode,
+      locale: socialImage.concept?.locale || item.language,
       imageHeadline: socialImage.concept?.imageHeadline || '',
       imageSubheadline: socialImage.concept?.imageSubheadline || '',
       visualConcept: socialImage.concept?.visualConcept || '',
       cta: socialImage.concept?.cta || '',
+      headline_variant: socialImage.concept?.headlineVariant || item.headline_variant || '',
+      cta_variant: socialImage.concept?.ctaVariant || item.cta_variant || '',
+      copy_variant: socialImage.concept?.copyVariant || item.copy_variant || '',
       provider: socialImage.provider || 'procedural',
       fallback: Boolean(socialImage.fallback),
       imageKey: socialImage.imageKey || '',
@@ -475,6 +498,11 @@ async function main() {
     contentId: item.contentId,
     mode: item.mode,
     language: item.language,
+    locale: item.locale || item.language,
+    campaign: item.campaign || '',
+    copy_variant: item.copy_variant || '',
+    headline_variant: item.headline_variant || '',
+    cta_variant: item.cta_variant || '',
     status: anyPublished ? 'published' : 'failed',
     facebookPostId: args.skipFacebook
       ? priorFacebookPostId(log, item.contentId)
@@ -490,17 +518,17 @@ async function main() {
         .join(' · ') || '',
     metaStatus: report.metaAuth?.status || '',
     instagramState: report.instagram.state || '',
-      imageHeadline: socialImage.concept?.imageHeadline,
-      visualConcept: socialImage.concept?.visualConcept,
-      photoPrompt: socialImage.concept?.photoPrompt || socialImage.concept?.visualConcept,
-      imageCta: socialImage.concept?.cta,
-      imageSeed: socialImage.concept?.backgroundSeed,
-      stockPhotoId: socialImage.concept?.stockPhotoId || '',
-      imageKey: socialImage.imageKey || '',
-      imageUrl: publishImageUrl,
-      imageProvider: socialImage.provider || 'stock',
-      imageFallback: Boolean(socialImage.fallback)
-    });
+    imageHeadline: socialImage.concept?.imageHeadline,
+    visualConcept: socialImage.concept?.visualConcept,
+    photoPrompt: socialImage.concept?.photoPrompt || socialImage.concept?.visualConcept,
+    imageCta: socialImage.concept?.cta,
+    imageSeed: socialImage.concept?.backgroundSeed,
+    stockPhotoId: socialImage.concept?.stockPhotoId || '',
+    imageKey: socialImage.imageKey || '',
+    imageUrl: publishImageUrl,
+    imageProvider: socialImage.provider || 'stock',
+    imageFallback: Boolean(socialImage.fallback)
+  });
 
   console.log(JSON.stringify(report, null, 2));
   if (!anyPublished) process.exitCode = 2;

@@ -1,6 +1,13 @@
 /**
  * TRAIN / VIBE / DATE scene labels for stock photo selection and overlay copy.
+ * Headlines / CTAs come from locale-aware conversion copy (social-copy-variants).
  */
+import {
+  ctaTextsFor,
+  headlineTextsFor,
+  selectCopyPackage
+} from './social-copy-variants.mjs';
+
 export const MODE_PHOTO_SCENES = {
   TRAIN: [
     'training together in a luxurious modern gym, smiling at each other between exercises, premium sportswear, cinematic gym lighting',
@@ -30,25 +37,11 @@ export const MODE_PHOTO_SCENES = {
   ]
 };
 
+/** @deprecated Prefer headlineTextsFor(mode, language) — English-only fallback retained for imports. */
 export const MODE_HEADLINE_VARIANTS = {
-  TRAIN: [
-    'Find Your Workout Partner',
-    'Train With Someone Who Shows Up',
-    'Your Gym Partner Awaits',
-    'Match For Your Next Workout'
-  ],
-  VIBE: [
-    'Meet Someone New',
-    'Find Your City Crew',
-    'Plans Beyond Solo Weekends',
-    'Connect Through Real Interests'
-  ],
-  DATE: [
-    'Meet Through Real Chemistry',
-    'Date Through Shared Activities',
-    'More Than Endless Swiping',
-    'Connect Over Real Plans'
-  ]
+  TRAIN: headlineTextsFor('TRAIN', 'en'),
+  VIBE: headlineTextsFor('VIBE', 'en'),
+  DATE: headlineTextsFor('DATE', 'en')
 };
 
 export const MODE_HEADLINE_DEFAULTS = {
@@ -58,9 +51,9 @@ export const MODE_HEADLINE_DEFAULTS = {
 };
 
 export const MODE_CTA_DEFAULTS = {
-  TRAIN: 'START MATCHING',
-  VIBE: 'START MATCHING',
-  DATE: 'START MATCHING'
+  TRAIN: ctaTextsFor('TRAIN', 'en')[0],
+  VIBE: ctaTextsFor('VIBE', 'en')[0],
+  DATE: ctaTextsFor('DATE', 'en')[0]
 };
 
 function hashSeed(input) {
@@ -106,29 +99,57 @@ export function isDuplicateConcept(concept, recentEntries = []) {
 /**
  * Build image concept with photography-first metadata.
  * Supports explicit overrides (preview / manual).
+ * Image text language always matches catalog/campaign locale.
  */
 export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [], overrides = {} } = {}) {
   const mode = String(overrides.mode || catalogItem?.mode || 'TRAIN').toUpperCase();
-  const seedBase = `${isoDate}:${catalogItem?.contentId || 'preview'}:${mode}:${recentEntries.length}`;
+  const language = String(overrides.language || catalogItem?.language || 'en').toLowerCase().slice(0, 2);
+  const seedBase = `${isoDate}:${catalogItem?.contentId || 'preview'}:${mode}:${language}:${recentEntries.length}`;
   const seed = hashSeed(seedBase);
   const scenes = MODE_PHOTO_SCENES[mode] || MODE_PHOTO_SCENES.TRAIN;
+
+  const copyPackage =
+    overrides.copyPackage ||
+    catalogItem?.copyPackage ||
+    selectCopyPackage({
+      mode,
+      language,
+      isoDate,
+      contentId: catalogItem?.contentId || 'preview',
+      recentEntries
+    });
 
   let attempt = 0;
   let concept = null;
   while (attempt < 12) {
     const attemptSeed = seed + attempt * 9973;
     const headlineVariants =
-      catalogItem?.imageHeadlines || MODE_HEADLINE_VARIANTS[mode] || [MODE_HEADLINE_DEFAULTS[mode]];
+      catalogItem?.imageHeadlines || headlineTextsFor(mode, language) || [MODE_HEADLINE_DEFAULTS[mode]];
+    const ctaVariants = catalogItem?.imageCtas || ctaTextsFor(mode, language) || [MODE_CTA_DEFAULTS[mode]];
+    const headlineFromCopy = attempt === 0 ? copyPackage.headline : '';
+    const ctaFromCopy = attempt === 0 ? copyPackage.cta : '';
     concept = {
       mode,
       contentId: catalogItem?.contentId || 'preview',
-      language: catalogItem?.language || 'en',
+      language,
+      locale: language,
       imageHeadline:
         overrides.imageHeadline ||
         catalogItem?.imageHeadline ||
+        headlineFromCopy ||
         pickFrom(headlineVariants, attemptSeed + 3) ||
         'Find Your Match',
-      cta: overrides.cta || catalogItem?.imageCta || MODE_CTA_DEFAULTS[mode] || 'START MATCHING',
+      imageSubheadline:
+        overrides.imageSubheadline ||
+        catalogItem?.imageSubheadline ||
+        (attempt === 0 ? copyPackage.subheadline || '' : ''),
+      cta:
+        overrides.cta ||
+        catalogItem?.imageCta ||
+        ctaFromCopy ||
+        pickFrom(ctaVariants, attemptSeed + 11) ||
+        MODE_CTA_DEFAULTS[mode] ||
+        'FIND YOUR MATCH',
       photoPrompt:
         overrides.photoPrompt ||
         overrides.visualConcept ||
@@ -139,7 +160,12 @@ export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [
         catalogItem?.visualConcept ||
         pickFrom(scenes, attemptSeed + 17),
       destinationUrl: 'https://gettrainmate.com',
-      backgroundSeed: attemptSeed
+      backgroundSeed: attemptSeed,
+      headlineVariant: attempt === 0 ? copyPackage.headlineVariant : '',
+      ctaVariant: attempt === 0 ? copyPackage.ctaVariant : '',
+      subheadlineVariant: attempt === 0 ? copyPackage.subheadlineVariant : '',
+      copyVariant: attempt === 0 ? copyPackage.copyVariant : '',
+      campaign: copyPackage.campaign || ''
     };
     const dup = isDuplicateConcept(concept, recentEntries);
     if (!dup || overrides.imageHeadline || overrides.photoPrompt) break;

@@ -6,10 +6,12 @@ import {
   modeForWeekday,
   renderCopy,
   renderInstagramCopy,
+  resolveOwnedSocialCreative,
   selectCatalogItem,
   shortTrackedUrl,
   trackedUrl
 } from '../lib/owned-social-catalog.mjs';
+import { assertStrongCopy } from '../lib/social-copy-variants.mjs';
 import { diagnoseMetaBlocker, resolveMetaCredentials } from '../lib/meta-graph.mjs';
 import { recentlyUsedContentIds, LOG_PATH } from '../lib/owned-social-log.mjs';
 import { rankPockets, scorePocket } from '../lib/market-density.mjs';
@@ -48,7 +50,12 @@ describe('owned social catalog', () => {
     assert.match(ig, /gettrainmate\.com\/signup\?/);
     assert.notEqual(fb, ig);
     for (const item of CATALOG) {
-      assert.match(item.instagram.toLowerCase() + item.facebook.toLowerCase(), /no guaranteed|sin |не обеща|не гарантируем|nadie te garantiza/);
+      const creative = resolveOwnedSocialCreative(item, { isoDate: '2026-08-18' });
+      const copy = `${creative.instagram}\n${creative.facebook}`;
+      assert.match(copy, /GetTrainMate|TrainMate/i);
+      assert.match(copy.toLowerCase(), /no guaranteed|sin |не обеща|не гарантируем|nadie te garantiza/);
+      assert.equal(assertStrongCopy(creative.imageHeadline), true);
+      assert.equal(assertStrongCopy(creative.imageCta), true);
     }
   });
 
@@ -72,9 +79,9 @@ describe('owned social catalog', () => {
     assert.match(short, /^https:\/\/gettrainmate\.com\/go\/t\?/);
     assert.match(short, /utm_source=instagram/);
     assert.match(short, /mode=TRAIN/);
-    const caption = renderInstagramCopy('Hello\n\n{{url}}', short);
+    const caption = renderInstagramCopy('Hello\n\n{{url}}', short, { language: 'es' });
     assert.match(caption, /gettrainmate\.com\/go\/t\?/);
-    assert.match(caption, /Link also in bio/);
+    assert.match(caption, /Enlace también en la bio/);
     assert.doesNotMatch(caption, /\{\{url\}\}/);
   });
 
@@ -88,6 +95,18 @@ describe('owned social catalog', () => {
       isoDate: '20260831'
     });
     assert.match(url, /gettrainmate\.com\/san-francisco\?/);
+  });
+
+  it('prefers campaign locale over recently-used other-language items', () => {
+    const used = CATALOG.filter((c) => c.mode === 'DATE' && c.language === 'en').map((c) => c.contentId);
+    const item = selectCatalogItem({
+      weekday: 3,
+      preferLanguage: 'en',
+      recentlyUsedIds: used,
+      isoDate: '2026-09-04'
+    });
+    assert.equal(item.mode, 'DATE');
+    assert.equal(item.language, 'en');
   });
 });
 

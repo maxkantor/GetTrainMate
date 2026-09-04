@@ -10,11 +10,15 @@ export function recentImageEntries(log, { days = 30, now = Date.now() } = {}) {
       visualConcept: e.visualConcept || e.photoPrompt || '',
       photoPrompt: e.photoPrompt || e.visualConcept || '',
       cta: e.imageCta || e.cta || '',
+      headlineVariant: e.headline_variant || e.headlineVariant || '',
+      ctaVariant: e.cta_variant || e.ctaVariant || '',
+      copyVariant: e.copy_variant || e.copyVariant || '',
       colorTreatment: e.colorTreatment || '',
       imageKey: e.imageKey || '',
       imageSeed: e.imageSeed ?? null,
       stockPhotoId: e.stockPhotoId || '',
-      mode: e.mode || ''
+      mode: e.mode || '',
+      language: e.language || e.locale || ''
     }))
     .filter((e) => e.imageHeadline || e.visualConcept || e.photoPrompt);
 }

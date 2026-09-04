@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TOMORROW_TRAIN = {
   mode: 'TRAIN',
   imageHeadline: 'Find Your Workout Partner',
-  cta: 'START MATCHING',
+  cta: 'FIND YOUR MATCH',
   photoPrompt:
     'Beautiful sexy fit athletic adult woman and handsome muscular athletic adult man training together in a luxurious modern gym. Both approximately 30–40 years old. Woman wearing stylish premium sports bra and leggings; man wearing fitted premium athletic clothing. Both have realistic fit physiques. Natural playful chemistry, smiling at each other between exercises, subtle flirtatious energy, authentic post-workout sweat, dramatic cinematic gym lighting, premium commercial fitness photography, photorealistic, sophisticated and aspirational.'
 };
