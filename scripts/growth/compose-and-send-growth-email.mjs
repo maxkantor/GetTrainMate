@@ -16,6 +16,12 @@ import { loadSsmSecretsIntoEnv } from './load-ssm-secrets-into-env.mjs';
 import { sendAdminGrowthEmail } from './notify-admin-email.mjs';
 import { SITE } from './lib/metric-definitions.mjs';
 import { composeGrowthEmailBody, defaultDecision } from './lib/growth-report.mjs';
+import {
+  claimAdminEmailDay,
+  finalizeAdminEmailDay,
+  releaseAdminEmailDayClaim
+} from './lib/admin-email-day-guard.mjs';
+import { easternIsoDate } from './lib/owned-social-catalog.mjs';
 
 export { composeGrowthEmailBody, defaultDecision };
 
@@ -44,7 +50,8 @@ function parseArgs(argv) {
     testEmail: false,
     decision: null,
     shipped: false,
-    skipSocial: false
+    skipSocial: false,
+    forceEmail: false
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -57,6 +64,7 @@ function parseArgs(argv) {
     else if (a === '--decision') out.decision = argv[++i] ?? '';
     else if (a === '--shipped') out.shipped = true;
     else if (a === '--skip-social') out.skipSocial = true;
+    else if (a === '--force-email') out.forceEmail = true;
   }
   return out;
 }
@@ -221,8 +229,45 @@ if (invokedAsCli) {
     process.exit(0);
   }
 
+  const isoDate = et?.isoDate || easternIsoDate(now);
+  let claim = { ok: true, claimed: true, claimId: 'forced', skippedGuard: true };
+  if (!args.testEmail && !args.forceEmail) {
+    claim = claimAdminEmailDay({ isoDate });
+    if (!claim.ok) {
+      console.error(JSON.stringify({ ok: false, error: 'admin_email_day_claim_failed', detail: claim.error }));
+      process.exit(1);
+    }
+    if (!claim.claimed) {
+      console.log(
+        JSON.stringify(
+          {
+            ok: true,
+            skipped: true,
+            reason: 'admin_email_already_sent_today',
+            isoDate,
+            messageId: claim.marker?.messageId || '',
+            subject: claim.marker?.subject || subject,
+            priorStatus: claim.marker?.status || 'unknown',
+            snapshotPath: snapPath
+          },
+          null,
+          2
+        )
+      );
+      process.exit(0);
+    }
+  }
+
   try {
     const result = await sendAdminGrowthEmail({ subject, body: text, htmlBody: html });
+    if (!args.testEmail) {
+      finalizeAdminEmailDay({
+        isoDate,
+        claimId: claim.claimId,
+        messageId: result.messageId,
+        subject
+      });
+    }
     console.log(
       JSON.stringify(
         {
@@ -231,13 +276,17 @@ if (invokedAsCli) {
           subject,
           snapshotPath: snapPath,
           activeExperiments: experiments.map((e) => e.idLine),
-          reconciliationOk: snapshot?.reconciliation?.ok ?? null
+          reconciliationOk: snapshot?.reconciliation?.ok ?? null,
+          emailDayClaimed: Boolean(claim.claimed)
         },
         null,
         2
       )
     );
   } catch (e) {
+    if (!args.testEmail && !args.forceEmail && claim.claimed && claim.claimId !== 'forced') {
+      releaseAdminEmailDayClaim({ isoDate });
+    }
     console.error(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }));
     process.exit(1);
   }

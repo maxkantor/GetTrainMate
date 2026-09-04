@@ -223,10 +223,12 @@ function main() {
 
     const email = runNode('compose-and-send-growth-email.mjs', emailArgs);
     const emailJson = tryParseJson(email.stdout);
-    if (email.status === 0 && emailJson?.ok && emailJson?.messageId) {
+    if (email.status === 0 && emailJson?.ok && (emailJson?.messageId || emailJson?.skipped)) {
+      // skipped = same-day guard (another agent already emailed) — still counts as notified
       report.emailSent = true;
-      report.messageId = emailJson.messageId;
+      report.messageId = emailJson.messageId || '';
       report.subject = emailJson.subject || '';
+      report.emailSkippedDuplicate = Boolean(emailJson.skipped);
     } else if (args.dryRun && email.status === 0) {
       report.emailSent = true;
       report.subject = 'dry-run';

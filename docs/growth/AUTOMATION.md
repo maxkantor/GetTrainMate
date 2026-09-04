@@ -75,6 +75,7 @@ If run-weekday-growth.mjs fails:
 2) Fix secrets/env only if Meta/SSM/SES is the blocker (do not redesign product).
 3) Retry ONCE: node scripts/growth/run-weekday-growth.mjs
 4) If still failing: node scripts/growth/compose-and-send-growth-email.mjs --skip-social --notes "{\"todaysAcquisitionAction\":\"weekday runner failed\",\"requiredOwnerApproval\":\"investigate automation\"}"
+   (Same-day SES guard skips a duplicate Admin email if one already sent. Use --force-email only for intentional resend.)
 5) release-growth-lock.mjs
 Then stop. Do NOT open a PR as a substitute for distribution.
 
