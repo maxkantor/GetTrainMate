@@ -63,7 +63,7 @@ function tryParseJson(text) {
   }
 }
 
-function main() {
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   const iso = easternIsoDate(new Date());
   const report = {
@@ -249,4 +249,7 @@ function main() {
   process.exit(report.ok ? 0 : 1);
 }
 
-main();
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
