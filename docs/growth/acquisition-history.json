@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-09-04",
   "strategyLock": {
     "status": "REVIEWED",
     "startedEt": "2026-08-24",
@@ -266,6 +266,26 @@
       "customers": 0,
       "outcome": "PUBLISHED_MANUAL_RECOVERY",
       "notes": "Lock day 4/7; Cursor automation Succeeded with Pull Request only — no Meta until manual publish"
+    },
+    {
+      "date": "2026-09-04",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "VIBE",
+      "language": "es",
+      "hook": "vibe-es-planes-ciudad",
+      "destination": "/meet-people",
+      "campaign": "owned-facebook-vibe-es-20260904 / owned-instagram-vibe-es-20260904",
+      "contentId": "vibe-es-planes-ciudad",
+      "facebookPostId": "",
+      "instagramPostId": "",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "BLOCKED_S3_MEDIA_BUCKET",
+      "notes": "Meta credentials valid; publish blocked by missing S3 bucket gettrainmate-media-bucket (NoSuchBucket). Admin email sent (MessageId 010001a06cbe7581-ac4d2d6e-a4a3-47bc-8a4c-a42a16476d70-000000). Runner fixes: async main, ensureGrowthDeps before publish, drop monorepo file dep."
     }
   ],
   "doNotRepeat": [
