@@ -36,8 +36,77 @@ export const META_AUTH_STATES = {
   META_GRAPH_UNAVAILABLE: 'META_GRAPH_UNAVAILABLE',
   META_AUTH_UNKNOWN: 'META_AUTH_UNKNOWN',
   META_TOKEN_MISSING: 'META_TOKEN_MISSING',
-  META_CONFIG_MISSING: 'META_CONFIG_MISSING'
+  META_CONFIG_MISSING: 'META_CONFIG_MISSING',
+  META_SSM_ACCESS_DENIED: 'META_SSM_ACCESS_DENIED'
 };
+
+/** Report-facing statuses (stable strings for Admin email). */
+export const META_REPORT_STATES = {
+  META_VALID: 'META_VALID',
+  MISSING_CONFIGURATION: 'MISSING_CONFIGURATION',
+  TOKEN_INVALID: 'TOKEN_INVALID',
+  TOKEN_EXPIRED: 'TOKEN_EXPIRED',
+  SSM_ACCESS_DENIED: 'SSM_ACCESS_DENIED',
+  PAGE_ACCESS_DENIED: 'PAGE_ACCESS_DENIED',
+  INSTAGRAM_NOT_LINKED: 'INSTAGRAM_NOT_LINKED',
+  FACEBOOK_PUBLISH_FAILED: 'FACEBOOK_PUBLISH_FAILED',
+  INSTAGRAM_PUBLISH_FAILED: 'INSTAGRAM_PUBLISH_FAILED'
+};
+
+export function toMetaReportStatus(state) {
+  const s = String(state || '');
+  if (s === META_AUTH_STATES.META_VALID || s === META_REPORT_STATES.META_VALID) {
+    return META_REPORT_STATES.META_VALID;
+  }
+  if (s === META_AUTH_STATES.META_TOKEN_EXPIRED || s === META_REPORT_STATES.TOKEN_EXPIRED) {
+    return META_REPORT_STATES.TOKEN_EXPIRED;
+  }
+  if (s === META_AUTH_STATES.META_SSM_ACCESS_DENIED || s === META_REPORT_STATES.SSM_ACCESS_DENIED) {
+    return META_REPORT_STATES.SSM_ACCESS_DENIED;
+  }
+  if (
+    s === META_AUTH_STATES.META_TOKEN_MISSING ||
+    s === META_AUTH_STATES.META_CONFIG_MISSING ||
+    s === META_REPORT_STATES.MISSING_CONFIGURATION
+  ) {
+    return META_REPORT_STATES.MISSING_CONFIGURATION;
+  }
+  if (
+    s === META_AUTH_STATES.META_PERMISSION_ERROR ||
+    s === META_AUTH_STATES.META_PAGE_MISMATCH ||
+    s === META_REPORT_STATES.PAGE_ACCESS_DENIED
+  ) {
+    return META_REPORT_STATES.PAGE_ACCESS_DENIED;
+  }
+  if (s === META_AUTH_STATES.META_INSTAGRAM_MISMATCH || s === META_REPORT_STATES.INSTAGRAM_NOT_LINKED) {
+    return META_REPORT_STATES.INSTAGRAM_NOT_LINKED;
+  }
+  if (
+    s === META_AUTH_STATES.META_TOKEN_REVOKED ||
+    s === META_AUTH_STATES.META_AUTH_UNKNOWN ||
+    s === META_REPORT_STATES.TOKEN_INVALID
+  ) {
+    return META_REPORT_STATES.TOKEN_INVALID;
+  }
+  if (s === META_REPORT_STATES.FACEBOOK_PUBLISH_FAILED) return META_REPORT_STATES.FACEBOOK_PUBLISH_FAILED;
+  if (s === META_REPORT_STATES.INSTAGRAM_PUBLISH_FAILED) return META_REPORT_STATES.INSTAGRAM_PUBLISH_FAILED;
+  return META_REPORT_STATES.TOKEN_INVALID;
+}
+
+export function ownerActionRequiredForMeta(metaAuth, { published = false } = {}) {
+  if (published) return false;
+  if (!metaAuth) return true;
+  if (metaAuth.ownerActionRequired === true || metaAuth.ownerActionRequired === 'YES') return true;
+  if (metaAuth.ownerActionRequired === false || metaAuth.ownerActionRequired === 'NO') {
+    // Still require action when auth is clearly invalid / missing
+    if (metaAuth.authentication === 'VALID' && metaAuth.status === META_AUTH_STATES.META_VALID) {
+      return false;
+    }
+  }
+  const status = toMetaReportStatus(metaAuth.status || metaAuth.authentication);
+  if (status === META_REPORT_STATES.META_VALID) return false;
+  return true;
+}
 
 const SECRET_PATTERNS = [
   /access_token=[^&\s"']+/gi,
@@ -195,13 +264,32 @@ export async function validateMetaCredentials({
   expectedIgUserId = GTM_IG_BUSINESS_ID,
   appId,
   appSecret,
+  ssmAccessDenied = false,
   fetchImpl = fetch
 } = {}) {
+  if (ssmAccessDenied && !String(pageToken || '').trim()) {
+    return {
+      ok: false,
+      state: META_AUTH_STATES.META_SSM_ACCESS_DENIED,
+      reportStatus: META_REPORT_STATES.SSM_ACCESS_DENIED,
+      configuration: 'UNKNOWN',
+      authentication: 'INVALID',
+      facebookPublishing: 'BLOCKED',
+      instagramPublishing: 'BLOCKED',
+      ownerActionRequired: true,
+      page: null,
+      instagram: null,
+      debug: null,
+      graph: null
+    };
+  }
+
   const config = configurationPresence({ pageToken, pageId, igUserId });
   if (!config.hasToken) {
     return {
       ok: false,
       state: META_AUTH_STATES.META_TOKEN_MISSING,
+      reportStatus: META_REPORT_STATES.MISSING_CONFIGURATION,
       configuration: config.configuration,
       authentication: 'INVALID',
       facebookPublishing: 'BLOCKED',
@@ -217,6 +305,7 @@ export async function validateMetaCredentials({
     return {
       ok: false,
       state: META_AUTH_STATES.META_CONFIG_MISSING,
+      reportStatus: META_REPORT_STATES.MISSING_CONFIGURATION,
       configuration: config.configuration,
       authentication: 'INVALID',
       facebookPublishing: 'BLOCKED',
@@ -243,11 +332,12 @@ export async function validateMetaCredentials({
     return {
       ok: false,
       state: META_AUTH_STATES.META_GRAPH_UNAVAILABLE,
+      reportStatus: META_REPORT_STATES.TOKEN_INVALID,
       configuration: 'PRESENT',
       authentication: 'INVALID',
       facebookPublishing: 'BLOCKED',
       instagramPublishing: 'BLOCKED',
-      ownerActionRequired: false,
+      ownerActionRequired: true,
       page: null,
       instagram: null,
       debug: null,
@@ -261,6 +351,7 @@ export async function validateMetaCredentials({
     return {
       ok: false,
       state,
+      reportStatus: toMetaReportStatus(state),
       configuration: 'PRESENT',
       authentication: 'INVALID',
       facebookPublishing: 'BLOCKED',
@@ -278,6 +369,7 @@ export async function validateMetaCredentials({
     return {
       ok: false,
       state: META_AUTH_STATES.META_PAGE_MISMATCH,
+      reportStatus: META_REPORT_STATES.PAGE_ACCESS_DENIED,
       configuration: 'PRESENT',
       authentication: 'INVALID',
       facebookPublishing: 'BLOCKED',
@@ -296,6 +388,7 @@ export async function validateMetaCredentials({
     return {
       ok: false,
       state: META_AUTH_STATES.META_INSTAGRAM_MISMATCH,
+      reportStatus: META_REPORT_STATES.INSTAGRAM_NOT_LINKED,
       configuration: 'PRESENT',
       authentication: 'INVALID',
       facebookPublishing: 'BLOCKED',
@@ -323,6 +416,7 @@ export async function validateMetaCredentials({
           return {
             ok: false,
             state: META_AUTH_STATES.META_TOKEN_REVOKED,
+            reportStatus: META_REPORT_STATES.TOKEN_INVALID,
             configuration: 'PRESENT',
             authentication: 'INVALID',
             facebookPublishing: 'BLOCKED',
@@ -343,6 +437,7 @@ export async function validateMetaCredentials({
   return {
     ok: true,
     state: META_AUTH_STATES.META_VALID,
+    reportStatus: META_REPORT_STATES.META_VALID,
     configuration: 'PRESENT',
     authentication: 'VALID',
     facebookPublishing: 'ALLOWED',
@@ -353,6 +448,43 @@ export async function validateMetaCredentials({
     debug,
     graph: null,
     validatedAt: new Date().toISOString()
+  };
+}
+
+export function metaAuthFromValidation(validation, extras = {}) {
+  if (!validation) {
+    return {
+      configuration: extras.configuration || 'UNKNOWN',
+      authentication: 'INVALID',
+      status: extras.status || META_REPORT_STATES.MISSING_CONFIGURATION,
+      facebookPublishing: 'BLOCKED',
+      instagramPublishing: 'BLOCKED',
+      ownerActionRequired: true,
+      pageId: extras.pageId || GTM_PAGE_ID,
+      pageName: extras.pageName || GTM_PAGE_NAME,
+      instagramId: extras.instagramId || GTM_IG_BUSINESS_ID,
+      instagramUsername: extras.instagramUsername || GTM_IG_USERNAME,
+      tokenExpires: 'unknown',
+      validatedAt: null,
+      graphCode: null,
+      graphSubcode: null
+    };
+  }
+  return {
+    configuration: validation.configuration,
+    authentication: validation.authentication,
+    status: validation.reportStatus || toMetaReportStatus(validation.state),
+    facebookPublishing: validation.facebookPublishing,
+    instagramPublishing: validation.instagramPublishing,
+    ownerActionRequired: validation.ownerActionRequired,
+    pageId: validation.page?.id || extras.pageId || GTM_PAGE_ID,
+    pageName: validation.page?.name || extras.pageName || GTM_PAGE_NAME,
+    instagramId: validation.instagram?.id || extras.instagramId || GTM_IG_BUSINESS_ID,
+    instagramUsername: validation.instagram?.username || extras.instagramUsername || GTM_IG_USERNAME,
+    tokenExpires: validation.debug?.expires_at || 'unknown',
+    validatedAt: validation.validatedAt || null,
+    graphCode: validation.graph?.code ?? null,
+    graphSubcode: validation.graph?.subcode ?? null
   };
 }
 

@@ -208,32 +208,79 @@ describe('growth report meta honesty', () => {
     assert.match(text, /Completed profiles 30d \(GA4/);
   });
 
-  it('prefers live publish evidence over stale notes claiming distributionExecuted false', () => {
+  it('owner action YES when metaAuth missing from snapshot', () => {
+    const { text } = composeGrowthEmailBody({
+      snapshot: {
+        sources: {},
+        scoreboard: { '7d': {}, '30d': { unique_paying_customers: { value: 0, available: true }, revenue: { value: 0, available: true } } },
+        reconciliation: { ok: true, warnings: [] },
+        marketplaceDensity: { status: 'unavailable' },
+        ownedSocial: {}
+      },
+      health: { ok: true, checks: [{ name: 'api_health', ok: true }] },
+      experiments: [],
+      generatedAt: new Date('2026-09-04T14:00:00Z')
+    });
+    assert.match(text, /Meta configuration: UNKNOWN/);
+    assert.match(text, /Meta authentication: INVALID/);
+    assert.match(text, /Owner action required: YES/);
+  });
+
+  it('does not claim distribution without real post ids', () => {
     const lead = resolveAcquisitionLead({
       snapshot: {
         scoreboard: { '7d': {}, '30d': {} },
         ownedSocial: {
+          distributionAttempted: true,
+          distributionExecuted: false,
           metaAuth: {
             configuration: 'PRESENT',
             authentication: 'VALID',
             status: 'META_VALID',
             ownerActionRequired: false
           },
-          facebook: { published: true, postId: 'page_fb1' },
-          instagram: { published: true, postId: 'ig1' }
+          facebook: { published: false, postId: '' },
+          instagram: { published: false, postId: '' }
         }
-      },
-      notes: JSON.stringify({
-        distributionExecuted: false,
-        technicalDistributionResult: 'SUCCEEDED',
-        requiredOwnerApproval:
-          'BLOCKING: Meta Page credentials missing in Cursor env/SSM. Set SSM /gettrainmate/growth/meta-page-access-token'
-      })
+      }
     });
-    assert.equal(lead.distributionExecuted, 'YES');
-    assert.equal(lead.technicalDistributionResult, 'SUCCEEDED');
-    assert.match(lead.distributionExecutedDetail, /Facebook page_fb1/);
-    assert.match(lead.requiredOwnerApproval, /No per-post owner approval/);
-    assert.doesNotMatch(lead.requiredOwnerApproval, /BLOCKING/);
+    assert.equal(lead.distributionAttempted, 'YES');
+    assert.equal(lead.distributionExecuted, 'NO');
+    assert.equal(lead.technicalDistributionResult, 'FAILED');
   });
 });
+
+describe('meta report status mapping', () => {
+  it('maps internal states to report statuses', async () => {
+    const { toMetaReportStatus, META_AUTH_STATES, META_REPORT_STATES } = await import(
+      '../lib/meta-token.mjs'
+    );
+    assert.equal(toMetaReportStatus(META_AUTH_STATES.META_TOKEN_EXPIRED), META_REPORT_STATES.TOKEN_EXPIRED);
+    assert.equal(toMetaReportStatus(META_AUTH_STATES.META_CONFIG_MISSING), META_REPORT_STATES.MISSING_CONFIGURATION);
+    assert.equal(toMetaReportStatus(META_AUTH_STATES.META_SSM_ACCESS_DENIED), META_REPORT_STATES.SSM_ACCESS_DENIED);
+    assert.equal(toMetaReportStatus(META_AUTH_STATES.META_INSTAGRAM_MISMATCH), META_REPORT_STATES.INSTAGRAM_NOT_LINKED);
+  });
+
+  it('validateMetaCredentials reports SSM_ACCESS_DENIED', async () => {
+    const v = await validateMetaCredentials({
+      pageToken: '',
+      pageId: GTM_PAGE_ID,
+      igUserId: GTM_IG_BUSINESS_ID,
+      ssmAccessDenied: true
+    });
+    assert.equal(v.ok, false);
+    assert.equal(v.reportStatus, 'SSM_ACCESS_DENIED');
+    assert.equal(v.ownerActionRequired, true);
+  });
+
+  it('validateMetaCredentials reports MISSING_CONFIGURATION without token', async () => {
+    const v = await validateMetaCredentials({
+      pageToken: '',
+      pageId: GTM_PAGE_ID,
+      igUserId: GTM_IG_BUSINESS_ID
+    });
+    assert.equal(v.reportStatus, 'MISSING_CONFIGURATION');
+    assert.equal(v.ownerActionRequired, true);
+  });
+});
+

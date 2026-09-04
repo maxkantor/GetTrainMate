@@ -192,6 +192,55 @@ if (invokedAsCli) {
 
   if (!args.skipSocial) {
     snapshot.ownedSocial = runOwnedSocial(args.dryRun);
+  } else if (!snapshot.ownedSocial?.metaAuth) {
+    // Email-only path must still probe Meta so reports are not UNKNOWN/INVALID/Owner=NO.
+    const ssmLoad = loadSsmSecretsIntoEnv();
+    const { resolveMetaCredentials, diagnoseMetaBlocker } = await import('./lib/meta-graph.mjs');
+    const {
+      validateMetaCredentials,
+      metaAuthFromValidation,
+      META_REPORT_STATES
+    } = await import('./lib/meta-token.mjs');
+    const creds = resolveMetaCredentials();
+    const configBlocker = diagnoseMetaBlocker(creds);
+    let validation = null;
+    if (ssmLoad.ssmAccessDenied && !creds.pageToken) {
+      validation = await validateMetaCredentials({
+        pageToken: '',
+        pageId: creds.pageId,
+        igUserId: creds.igUserId,
+        ssmAccessDenied: true
+      });
+    } else if (!configBlocker) {
+      validation = await validateMetaCredentials({
+        pageToken: creds.pageToken,
+        pageId: creds.pageId,
+        igUserId: creds.igUserId,
+        appId: process.env.META_APP_ID || '',
+        appSecret: process.env.META_APP_SECRET || '',
+        ssmAccessDenied: Boolean(ssmLoad.ssmAccessDenied)
+      });
+    }
+    const metaAuth = validation
+      ? metaAuthFromValidation(validation)
+      : metaAuthFromValidation(null, {
+          configuration: 'MISSING',
+          status: META_REPORT_STATES.MISSING_CONFIGURATION,
+          pageId: creds.pageId,
+          instagramId: creds.igUserId
+        });
+    snapshot.ownedSocial = {
+      ...(snapshot.ownedSocial || {}),
+      distributionAttempted: true,
+      distributionExecuted: Boolean(
+        snapshot.ownedSocial?.facebook?.published || snapshot.ownedSocial?.instagram?.published
+      ),
+      connectorHealthy: Boolean(validation?.ok),
+      connectorBlocker: configBlocker || (validation && !validation.ok ? validation.reportStatus : ''),
+      metaAuth,
+      facebook: snapshot.ownedSocial?.facebook || { published: false },
+      instagram: snapshot.ownedSocial?.instagram || { published: false }
+    };
   }
 
   const logMd = fs.existsSync(LOG_PATH) ? fs.readFileSync(LOG_PATH, 'utf8') : '';

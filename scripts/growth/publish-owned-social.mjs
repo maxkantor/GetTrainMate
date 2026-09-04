@@ -22,10 +22,14 @@ import {
   diagnoseMetaBlocker,
   publishFacebookPagePhoto,
   publishInstagramMedia,
-  resolveMetaCredentials,
-  validateMetaCredentials
+  resolveMetaCredentials
 } from './lib/meta-graph.mjs';
-import { META_AUTH_STATES, ownerSetupInstructions } from './lib/meta-token.mjs';
+import {
+  META_REPORT_STATES,
+  metaAuthFromValidation,
+  ownerSetupInstructions,
+  validateMetaCredentials
+} from './lib/meta-token.mjs';
 import { appendPublishedLog, readPublishedLog, recentlyUsedContentIds } from './lib/owned-social-log.mjs';
 import { loadRecentImageHistory } from './lib/social-image-history.mjs';
 import { generateSocialImage } from './lib/social-image-generator.mjs';
@@ -87,7 +91,7 @@ function emptyNetwork(network, extra = {}) {
 }
 
 async function main() {
-  loadSsmSecretsIntoEnv();
+  const ssmLoad = loadSsmSecretsIntoEnv();
   const deps = await ensureGrowthDeps();
   if (!deps.ok) {
     console.error(JSON.stringify({ ok: false, error: 'growth_deps_missing', detail: deps.error }));
@@ -129,19 +133,73 @@ async function main() {
   const creds = resolveMetaCredentials();
   const configBlocker = diagnoseMetaBlocker(creds);
   let validation = null;
-  if (!configBlocker && !args.dryRun) {
+  if (ssmLoad.ssmAccessDenied && !creds.pageToken) {
+    validation = await validateMetaCredentials({
+      pageToken: '',
+      pageId: creds.pageId,
+      igUserId: creds.igUserId,
+      ssmAccessDenied: true
+    });
+  } else if (!configBlocker && !args.dryRun) {
     validation = await validateMetaCredentials({
       pageToken: creds.pageToken,
       pageId: creds.pageId,
       igUserId: creds.igUserId,
       appId: process.env.META_APP_ID || '',
-      appSecret: process.env.META_APP_SECRET || ''
+      appSecret: process.env.META_APP_SECRET || '',
+      ssmAccessDenied: Boolean(ssmLoad.ssmAccessDenied)
+    });
+  } else if (configBlocker && ssmLoad.ssmAccessDenied) {
+    validation = await validateMetaCredentials({
+      pageToken: '',
+      pageId: creds.pageId,
+      igUserId: creds.igUserId,
+      ssmAccessDenied: true
     });
   }
+
+  const metaAuth = validation
+    ? metaAuthFromValidation(validation)
+    : metaAuthFromValidation(null, {
+        configuration: configBlocker ? 'MISSING' : args.dryRun ? 'PRESENT' : 'UNKNOWN',
+        status: configBlocker
+          ? META_REPORT_STATES.MISSING_CONFIGURATION
+          : args.dryRun
+            ? 'DRY_RUN_OR_SKIPPED'
+            : META_REPORT_STATES.MISSING_CONFIGURATION,
+        pageId: creds.pageId,
+        instagramId: creds.igUserId
+      });
+  if (!validation && configBlocker) {
+    metaAuth.authentication = 'INVALID';
+    metaAuth.ownerActionRequired = true;
+    metaAuth.facebookPublishing = 'BLOCKED';
+    metaAuth.instagramPublishing = 'BLOCKED';
+  }
+  if (args.dryRun && !configBlocker) {
+    metaAuth.authentication = 'UNCHECKED';
+    metaAuth.status = 'DRY_RUN_OR_SKIPPED';
+    metaAuth.ownerActionRequired = false;
+  }
+
+  console.error(
+    JSON.stringify({
+      event: 'MetaCredentialCheck',
+      ssmAccessDenied: Boolean(ssmLoad.ssmAccessDenied),
+      hasToken: Boolean(creds.pageToken),
+      pageId: creds.pageId || null,
+      igUserId: creds.igUserId || null,
+      configuration: metaAuth.configuration,
+      authentication: metaAuth.authentication,
+      status: metaAuth.status,
+      ownerActionRequired: metaAuth.ownerActionRequired
+    })
+  );
+
   const connectorBlocker = configBlocker
     ? configBlocker
     : validation && !validation.ok
-      ? `${validation.state}: ${validation.graph?.message || 'Meta authentication invalid'}${validation.ownerActionRequired ? ` · ${ownerSetupInstructions().split('\n')[0]}` : ''}`
+      ? `${validation.reportStatus || validation.state}: ${validation.graph?.message || 'Meta authentication invalid'}${validation.ownerActionRequired ? ` · ${ownerSetupInstructions().split('\n')[0]}` : ''}`
       : null;
 
   const facebookUrl = trackedUrl({
@@ -175,6 +233,62 @@ async function main() {
   const facebookCopy = renderFacebookCopy(item.facebook, facebookShortUrl);
   const instagramCopy = renderInstagramCopy(item.instagram, instagramUrl);
 
+  const baseReport = {
+    generatedAtUtc: now.toISOString(),
+    isoDate: isoHyphen,
+    weekday,
+    contentId: item.contentId,
+    mode: item.mode,
+    language: item.language,
+    kind: item.kind,
+    connectorHealthy: !connectorBlocker && (validation ? validation.ok === true : !configBlocker),
+    connectorBlocker,
+    metaAuth,
+    distributionAttempted: !args.dryRun,
+    distributionExecuted: false,
+    technicalDistributionResult: args.dryRun ? 'DRY_RUN' : 'NOT_ATTEMPTED',
+    facebook: emptyNetwork('facebook', {
+      campaign: `owned-facebook-${item.mode.toLowerCase()}-${item.language}-${isoDate}`,
+      mode: item.mode,
+      language: item.language
+    }),
+    instagram: emptyNetwork('instagram', {
+      campaign: `owned-instagram-${item.mode.toLowerCase()}-${item.language}-${isoDate}`,
+      mode: item.mode,
+      language: item.language
+    })
+  };
+
+  if (connectorBlocker && !args.dryRun) {
+    baseReport.facebook.blocker = connectorBlocker;
+    baseReport.instagram.blocker = connectorBlocker;
+    baseReport.technicalDistributionResult = 'FAILED';
+    appendPublishedLog({
+      publishedAtUtc: now.toISOString(),
+      contentId: item.contentId,
+      mode: item.mode,
+      language: item.language,
+      status: 'blocked',
+      blocker: connectorBlocker,
+      metaStatus: metaAuth.status || '',
+      imageHeadline: '',
+      visualConcept: '',
+      imageKey: ''
+    });
+    console.error(
+      JSON.stringify({
+        event: 'MetaPublishBlocked',
+        status: metaAuth.status,
+        ownerActionRequired: metaAuth.ownerActionRequired,
+        facebook: 'BLOCKED',
+        instagram: 'BLOCKED'
+      })
+    );
+    console.log(JSON.stringify(baseReport, null, 2));
+    process.exitCode = 2;
+    return;
+  }
+
   const recentImageEntries = loadRecentImageHistory({ days: 30 });
   if (!args.dryRun) {
     ensureSocialImageBucketPublic();
@@ -204,52 +318,7 @@ async function main() {
   const publishImageUrl = generatedImageUrl;
 
   const report = {
-    generatedAtUtc: now.toISOString(),
-    isoDate: isoHyphen,
-    weekday,
-    contentId: item.contentId,
-    mode: item.mode,
-    language: item.language,
-    kind: item.kind,
-    connectorHealthy: !connectorBlocker && (validation ? validation.ok === true : !configBlocker),
-    connectorBlocker,
-    metaAuth: validation
-      ? {
-          configuration: validation.configuration,
-          authentication: validation.authentication,
-          status: validation.state,
-          facebookPublishing: validation.facebookPublishing,
-          instagramPublishing: validation.instagramPublishing,
-          ownerActionRequired: validation.ownerActionRequired,
-          pageId: validation.page?.id || '',
-          pageName: validation.page?.name || '',
-          instagramId: validation.instagram?.id || '',
-          instagramUsername: validation.instagram?.username || '',
-          tokenExpires: validation.debug?.expires_at || 'unknown',
-          validatedAt: validation.validatedAt || null,
-          graphCode: validation.graph?.code ?? null,
-          graphSubcode: validation.graph?.subcode ?? null
-        }
-      : {
-          configuration: configBlocker ? 'MISSING' : 'PRESENT',
-          authentication: configBlocker ? 'INVALID' : 'UNCHECKED',
-          status: configBlocker ? META_AUTH_STATES.META_CONFIG_MISSING : 'DRY_RUN_OR_SKIPPED',
-          facebookPublishing: 'BLOCKED',
-          instagramPublishing: 'BLOCKED',
-          ownerActionRequired: Boolean(configBlocker)
-        },
-    distributionAttempted: !args.dryRun,
-    distributionExecuted: false,
-    facebook: emptyNetwork('facebook', {
-      campaign: `owned-facebook-${item.mode.toLowerCase()}-${item.language}-${isoDate}`,
-      mode: item.mode,
-      language: item.language
-    }),
-    instagram: emptyNetwork('instagram', {
-      campaign: `owned-instagram-${item.mode.toLowerCase()}-${item.language}-${isoDate}`,
-      mode: item.mode,
-      language: item.language
-    }),
+    ...baseReport,
     socialImage: {
       mode: socialImage.concept?.mode || item.mode,
       imageHeadline: socialImage.concept?.imageHeadline || '',
@@ -282,6 +351,7 @@ async function main() {
   if (!publishImageUrl) {
     report.facebook.blocker = socialImage.uploadError || 'social_image_upload_failed';
     report.instagram.blocker = socialImage.uploadError || 'social_image_upload_failed';
+    report.technicalDistributionResult = 'FAILED';
     appendPublishedLog({
       publishedAtUtc: now.toISOString(),
       contentId: item.contentId,
@@ -301,30 +371,6 @@ async function main() {
     return;
   }
 
-  if (connectorBlocker) {
-    report.facebook.blocker = connectorBlocker;
-    report.instagram.blocker = connectorBlocker;
-    appendPublishedLog({
-      publishedAtUtc: now.toISOString(),
-      contentId: item.contentId,
-      mode: item.mode,
-      language: item.language,
-      status: 'blocked',
-      blocker: connectorBlocker,
-      imageHeadline: socialImage.concept?.imageHeadline,
-      visualConcept: socialImage.concept?.visualConcept,
-      photoPrompt: socialImage.concept?.photoPrompt || socialImage.concept?.visualConcept,
-      imageCta: socialImage.concept?.cta,
-      imageSeed: socialImage.concept?.backgroundSeed,
-      stockPhotoId: socialImage.concept?.stockPhotoId || '',
-      imageKey: socialImage.imageKey || '',
-      imageUrl: publishImageUrl
-    });
-    console.log(JSON.stringify(report, null, 2));
-    process.exitCode = 2;
-    return;
-  }
-
   if (!args.skipFacebook) {
     const fb = await publishFacebookPagePhoto({
       pageId: creds.pageId,
@@ -333,19 +379,35 @@ async function main() {
       imageUrl: publishImageUrl,
       imageBuffer: socialImage.imageBuffer || null
     });
-    report.facebook.published = Boolean(fb.ok);
-    report.facebook.postId = fb.postId || '';
-    report.facebook.postUrl = fb.postUrl || '';
-    report.facebook.blocker = fb.ok ? '' : fb.blocker;
+    const fbPostId = String(fb.postId || '').trim();
+    report.facebook.published = Boolean(fb.ok && fbPostId);
+    report.facebook.postId = report.facebook.published ? fbPostId : '';
+    report.facebook.postUrl = report.facebook.published ? fb.postUrl || '' : '';
+    report.facebook.blocker = report.facebook.published
+      ? ''
+      : fb.blocker || META_REPORT_STATES.FACEBOOK_PUBLISH_FAILED;
     report.facebook.publishType = fb.publishType || 'photo';
     report.facebook.imageUrl = publishImageUrl;
-    if (fb.ok) {
+    console.error(
+      JSON.stringify({
+        event: 'FacebookPublishResult',
+        published: report.facebook.published,
+        postId: report.facebook.postId || null,
+        blocker: report.facebook.blocker || null
+      })
+    );
+    if (report.facebook.published) {
       logSocialImageEvent('FacebookImagePostPublished', {
         mode: item.mode,
-        postId: fb.postId,
+        postId: report.facebook.postId,
         imageKey: socialImage.imageKey,
         publishType: 'photo'
       });
+    } else if (report.metaAuth?.authentication === 'VALID') {
+      report.metaAuth = {
+        ...report.metaAuth,
+        facebookPublishing: META_REPORT_STATES.FACEBOOK_PUBLISH_FAILED
+      };
     }
   } else {
     report.facebook.blocker = 'skipped';
@@ -358,21 +420,38 @@ async function main() {
       caption: instagramCopy,
       imageUrl: publishImageUrl
     });
-    report.instagram.published = Boolean(ig.ok);
-    report.instagram.postId = ig.igPublishedMediaId || ig.postId || '';
-    report.instagram.postUrl = ig.postUrl || '';
-    report.instagram.blocker = ig.ok ? '' : ig.blocker;
+    const igPostId = String(ig.igPublishedMediaId || ig.postId || '').trim();
+    report.instagram.published = Boolean(ig.ok && igPostId);
+    report.instagram.postId = report.instagram.published ? igPostId : '';
+    report.instagram.postUrl = report.instagram.published ? ig.postUrl || '' : '';
+    report.instagram.blocker = report.instagram.published
+      ? ''
+      : ig.blocker || META_REPORT_STATES.INSTAGRAM_PUBLISH_FAILED;
     report.instagram.state = ig.state || '';
     report.instagram.igCreationId = ig.igCreationId || '';
     report.instagram.containerStatus = ig.containerStatus || '';
     report.instagram.failureStage = ig.failureStage || null;
     report.instagram.imageUrl = publishImageUrl;
-    if (ig.ok) {
+    console.error(
+      JSON.stringify({
+        event: 'InstagramPublishResult',
+        published: report.instagram.published,
+        postId: report.instagram.postId || null,
+        state: report.instagram.state || null,
+        blocker: report.instagram.blocker || null
+      })
+    );
+    if (report.instagram.published) {
       logSocialImageEvent('InstagramImagePostPublished', {
         mode: item.mode,
-        postId: ig.postId,
+        postId: report.instagram.postId,
         imageKey: socialImage.imageKey
       });
+    } else if (report.metaAuth?.authentication === 'VALID') {
+      report.metaAuth = {
+        ...report.metaAuth,
+        instagramPublishing: META_REPORT_STATES.INSTAGRAM_PUBLISH_FAILED
+      };
     }
   } else {
     report.instagram.blocker = 'skipped';

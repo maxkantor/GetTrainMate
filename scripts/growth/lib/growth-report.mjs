@@ -4,6 +4,7 @@
 import { SITE, EXP001, EXP002, EXP003, TIMEZONE } from './metric-definitions.mjs';
 import { formatCell, formatCellLabeled } from './normalize-metrics.mjs';
 import { loadStripeAllowlist } from './stripe-attribution.mjs';
+import { ownerActionRequiredForMeta } from './meta-token.mjs';
 import { modeTotalsFromMetro, pocketsFromMetroCrm } from './market-density.mjs';
 
 function ascii(s) {
@@ -224,13 +225,17 @@ export function defaultAcquisitionLead(snapshot) {
     checkoutStarts: formatCell(board7.checkout_starts || board7.checkoutStarts),
     newlyAttributedExternalCustomers: '0',
     verifiedRevenue: '$0.00',
-    requiredOwnerApproval: social.metaAuth?.ownerActionRequired
-      ? 'YES — META REAUTHORIZATION'
-      : social.blocker
-        ? `Meta: ${social.blocker}`
-        : published
-          ? 'No per-post owner approval required when Meta Page token is valid'
-          : 'Meta credentials missing or publish failed — draft is not distribution',
+    requiredOwnerApproval: ownerActionRequiredForMeta(social.metaAuth, { published })
+      ? social.metaAuth?.status === 'SSM_ACCESS_DENIED'
+        ? 'YES — grant ssm:GetParameter on /gettrainmate/growth/* to the growth automation IAM user'
+        : social.metaAuth?.authentication === 'INVALID' || !social.metaAuth
+          ? 'YES — META REAUTHORIZATION / credentials'
+          : 'YES — owner intervention required'
+      : published
+        ? 'No per-post owner approval required when Meta Page token is valid'
+        : social.blocker
+          ? `Meta: ${social.blocker}`
+          : 'NO',
     existingCustomers: existing,
     customersObservedInWindow:
       observed === 'Unavailable'
@@ -596,13 +601,7 @@ export function composeGrowthEmailBody({
     t.push(`Last validated: ${ascii(ma.validatedAt || 'n/a')}`);
     t.push(
       `Owner action required: ${
-        ma.ownerActionRequired === true || ma.ownerActionRequired === 'YES'
-          ? 'YES'
-          : ma.authentication === 'VALID' || social.fbYes
-            ? 'NO'
-            : ma.authentication === 'INVALID'
-              ? 'YES'
-              : 'NO'
+        ownerActionRequiredForMeta(ma, { published: social.fbYes || social.igYes }) ? 'YES' : 'NO'
       }`
     );
   }
@@ -859,14 +858,7 @@ export function composeGrowthEmailBody({
         { label: 'Last validated', value: social.metaAuth?.validatedAt || 'n/a' },
         {
           label: 'Owner action required',
-          value:
-            social.metaAuth?.ownerActionRequired === true || social.metaAuth?.ownerActionRequired === 'YES'
-              ? 'YES'
-              : social.metaAuth?.authentication === 'VALID' || distYes
-                ? 'NO'
-                : social.metaAuth?.authentication === 'INVALID'
-                  ? 'YES'
-                  : 'NO'
+          value: ownerActionRequiredForMeta(social.metaAuth, { published: distYes }) ? 'YES' : 'NO'
         }
       ])}
       <h2 style="${H2}">Growth by mode</h2>
