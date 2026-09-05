@@ -26,11 +26,15 @@ export const MODE_LANDINGS = {
 
 const IMAGE = 'https://gettrainmate.com/images/og-image.jpg';
 
-/** Weekday (America/New_York, 0=Sun) → default mode rotation. */
+/** Day of week (America/New_York, 0=Sun, 6=Sat) → balanced TRAIN / VIBE / DATE rotation. */
 export function modeForWeekday(weekday) {
+  // Mon (1), Thu (4) -> TRAIN
+  // Tue (2), Fri (5) -> VIBE
+  // Wed (3), Sat (6) -> DATE
+  // Sun (0) -> VIBE (community & plans before the week begins)
   if (weekday === 1 || weekday === 4) return 'TRAIN';
-  if (weekday === 2 || weekday === 5) return 'VIBE';
-  if (weekday === 3) return 'DATE';
+  if (weekday === 2 || weekday === 5 || weekday === 0) return 'VIBE';
+  if (weekday === 3 || weekday === 6) return 'DATE';
   return 'TRAIN';
 }
 
@@ -38,8 +42,8 @@ export function languageForWeekday(weekday, isoDate = '') {
   const week = isoWeekNumber(isoDate);
   const langs = ['en', 'es', 'ru'];
   if (weekday === 1 || weekday === 4) return langs[week % 3];
-  if (weekday === 2 || weekday === 5) return langs[(week + 1) % 3];
-  if (weekday === 3) return langs[(week + 2) % 3];
+  if (weekday === 2 || weekday === 5 || weekday === 0) return langs[(week + 1) % 3];
+  if (weekday === 3 || weekday === 6) return langs[(week + 2) % 3];
   return langs[week % 3];
 }
 

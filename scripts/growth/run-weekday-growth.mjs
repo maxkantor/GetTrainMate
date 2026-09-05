@@ -63,7 +63,7 @@ function tryParseJson(text) {
   }
 }
 
-function main() {
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   const iso = easternIsoDate(new Date());
   const report = {
@@ -239,9 +239,14 @@ function main() {
     runNode('release-growth-lock.mjs');
   }
 
-  report.ok = report.emailSent && (args.skipSocial || report.published || report.errors.some((e) => /META_|Meta |credentials/i.test(e)));
-  // Strict: email always required; publish required unless skip-social or Meta config missing was emailed
-  if (!args.skipSocial && !report.published && !report.errors.length) {
+  report.ok =
+    report.emailSent &&
+    (args.dryRun ||
+      args.skipSocial ||
+      report.published ||
+      report.errors.some((e) => /META_|Meta |credentials/i.test(e)));
+  // Strict: email always required; publish required unless dry-run, skip-social, or Meta config missing was emailed
+  if (!args.dryRun && !args.skipSocial && !report.published && !report.errors.length) {
     report.ok = false;
     report.errors.push('publish_did_not_execute');
   }

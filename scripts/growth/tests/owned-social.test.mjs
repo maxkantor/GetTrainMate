@@ -18,13 +18,18 @@ import { rankPockets, scorePocket } from '../lib/market-density.mjs';
 import { composeGrowthEmailBody } from '../lib/growth-report.mjs';
 
 describe('owned social catalog', () => {
-  it('rotates TRAIN / VIBE / DATE across weekdays', () => {
+  it('rotates TRAIN / VIBE / DATE across weekdays and weekends', () => {
     assert.equal(modeForWeekday(1), 'TRAIN');
     assert.equal(modeForWeekday(2), 'VIBE');
     assert.equal(modeForWeekday(3), 'DATE');
+    assert.equal(modeForWeekday(4), 'TRAIN');
+    assert.equal(modeForWeekday(5), 'VIBE');
+    assert.equal(modeForWeekday(6), 'DATE');
+    assert.equal(modeForWeekday(0), 'VIBE');
     assert.equal(languageForWeekday(1), 'en');
     assert.equal(languageForWeekday(2), 'es');
     assert.equal(languageForWeekday(3), 'ru');
+    assert.equal(languageForWeekday(6), 'ru');
   });
 
   it('builds unique tracked URLs per network and never guarantees matches', () => {

@@ -2,7 +2,7 @@
 
 **North star:** 1,000+ **real active users** (completed profiles using TRAIN, VIBE, and/or DATE, with Discover activity) across viable international markets — then 1,000+ **verified external paying customers**.  
 **Operating objective:** **global product + focused local density**. Rank country · metro · language · mode pockets from evidence. Do not treat Atlanta TRAIN as the product.  
-**Immediate milestone:** weekday owned-social distribution on Facebook + Instagram when Meta credentials are valid, plus marketplace liquidity in the strongest pockets.
+**Immediate milestone:** daily owned-social distribution on Facebook + Instagram when Meta credentials are valid, plus marketplace liquidity in the strongest pockets.
 
 GetTrainMate is a multilingual, international social discovery platform:
 
@@ -59,7 +59,7 @@ A run is successful **only** when it either:
 
 If distribution requires Max’s approval and none exists **and** owned-social Meta API is unavailable: prepare the **exact** action and stop. Do not substitute another analytics or formatting task.
 
-When Meta Page token + Facebook Page id + Instagram business account id are configured in SSM, **publish** to https://www.facebook.com/gettrainmate and https://www.instagram.com/gettrainmate/ without per-post Max approval. `node scripts/growth/publish-owned-social.mjs` is the weekday distribution path. A caption sitting in a doc is **not** distribution.
+When Meta Page token + Facebook Page id + Instagram business account id are configured in SSM, **publish** to https://www.facebook.com/gettrainmate and https://www.instagram.com/gettrainmate/ without per-post Max approval. `node scripts/growth/run-weekday-growth.mjs` (or `publish-owned-social.mjs`) is the daily distribution path. A caption sitting in a doc is **not** distribution.
 
 The Admin report must **start** with GetTrainMate global growth (profiles, Discover, requests, matches, first messages, returning users, customers, revenue), then growth by mode (TRAIN / VIBE / DATE), then top markets, then acquisition executed today, then owned social YES/NO + post ids. Atlanta TRAIN profiles are **not** the global KPI.
 
