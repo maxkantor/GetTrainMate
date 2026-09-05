@@ -256,4 +256,8 @@ async function main() {
   process.exit(report.ok ? 0 : 1);
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  runNode('release-growth-lock.mjs');
+  process.exit(1);
+});
