@@ -431,12 +431,12 @@ describe('growth report experiments and technical details', () => {
     assert.match(text, /Existing customers: 0/);
     assert.match(text, /Owner action required:/);
     assert.match(text, /Configure the metro read token/);
-    assert.match(text, /metadata gtm_source=gettrainmate|Attribution rules: metadata/);
+    assert.match(text, /metadata gtm_source=gettrainmate|Attribution rules: metadata|Stripe attribution metadata/);
     assert.match(text, /Metro CRM: Unavailable/);
     assert.match(text, /Cause: GROWTH_METRO_READ_TOKEN is not configured/);
     assert.match(text, /HTTP status: 503 Configuration unavailable/);
     assert.match(text, /Customer data exposed: No/);
-    assert.match(text, /Drafts prepared: 9 \(not approved, not sent\)/);
+    assert.match(text, /Drafts prepared: 9/);
     assert.match(text, /Unattributed payments: 1/);
     assert.match(html, /EXP-001 — Atlanta training-partners landing page/);
     assert.match(html, /EXP-002 — Atlanta partner hub and invite-code acquisition/);

@@ -367,3 +367,21 @@ export function easternIsoDate(date = new Date()) {
   const d = parts.find((p) => p.type === 'day')?.value;
   return `${y}-${m}-${d}`;
 }
+
+/**
+ * Checks whether an owned social post was already published to Meta today (EST).
+ * Protects against accidental multiple posts from automated task retries or backup schedules.
+ */
+export function alreadyPublishedToday(log = [], isoDate = easternIsoDate()) {
+  if (!Array.isArray(log) || !log.length) return false;
+  return log.some((entry) => {
+    if (entry.status !== 'published') return false;
+    if (!entry.facebookPostId && !entry.instagramPostId) return false;
+    const entryDate = entry.publishedAtUtc
+      ? easternIsoDate(new Date(entry.publishedAtUtc))
+      : '';
+    const campaignMatch = typeof entry.campaign === 'string' && entry.campaign.includes(isoDate);
+    return entryDate === isoDate || campaignMatch;
+  });
+}
+

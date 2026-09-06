@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  alreadyPublishedToday,
   CATALOG,
   languageForWeekday,
   modeForWeekday,
@@ -206,5 +207,32 @@ describe('growth report positioning', () => {
     assert.match(html, /<h2[^>]*>GetTrainMate — Today<\/h2>/);
     assert.match(html, /<h2[^>]*>Meta authentication<\/h2>/);
     assert.match(html, /America\/New_York/);
+  });
+
+  describe('alreadyPublishedToday same-day guard', () => {
+    it('returns false for empty or non-published logs', () => {
+      assert.equal(alreadyPublishedToday([], '2026-09-06'), false);
+      assert.equal(
+        alreadyPublishedToday(
+          [{ status: 'failed', publishedAtUtc: '2026-09-06T10:00:00Z', facebookPostId: 'FB1' }],
+          '2026-09-06'
+        ),
+        false
+      );
+    });
+
+    it('returns true when a post was published today with post ID', () => {
+      const log = [
+        {
+          status: 'published',
+          publishedAtUtc: '2026-09-06T14:12:43.795Z',
+          facebookPostId: '1138684902641972_122131232000773778',
+          instagramPostId: '18101734378982512',
+          campaign: 'owned-vibe-es-2026-09-06'
+        }
+      ];
+      assert.equal(alreadyPublishedToday(log, '2026-09-06'), true);
+      assert.equal(alreadyPublishedToday(log, '2026-09-07'), false);
+    });
   });
 });

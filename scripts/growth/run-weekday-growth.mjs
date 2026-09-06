@@ -115,6 +115,7 @@ async function main() {
       }
       if (publishJson) {
         report.published = Boolean(publishJson.distributionExecuted);
+        report.socialSkippedDuplicate = Boolean(publishJson.skipped && publishJson.alreadyPublishedToday);
         report.facebookPostId = publishJson.facebook?.postId || '';
         report.instagramPostId = publishJson.instagram?.postId || '';
         if (publishJson.connectorBlocker) report.errors.push(publishJson.connectorBlocker);
@@ -129,7 +130,9 @@ async function main() {
         ? 'Email-only weekday runner (--skip-social)'
         : report.published
           ? `Owned social published via run-weekday-growth.mjs (${publishJson?.contentId || 'catalog'})`
-          : `Owned social attempted; publish incomplete. ${report.errors.join(' · ') || 'see Meta'}`,
+          : report.socialSkippedDuplicate
+            ? `Owned social already published today (${report.facebookPostId || 'prior publish'})`
+            : `Owned social attempted; publish incomplete. ${report.errors.join(' · ') || 'see Meta'}`,
       ownedSocialFacebook: report.facebookPostId ? `YES — ${report.facebookPostId}` : 'NO',
       ownedSocialInstagram: report.instagramPostId ? `YES — ${report.instagramPostId}` : 'NO',
       runner: 'run-weekday-growth.mjs'
@@ -244,9 +247,10 @@ async function main() {
     (args.dryRun ||
       args.skipSocial ||
       report.published ||
+      report.socialSkippedDuplicate ||
       report.errors.some((e) => /META_|Meta |credentials/i.test(e)));
-  // Strict: email always required; publish required unless dry-run, skip-social, or Meta config missing was emailed
-  if (!args.dryRun && !args.skipSocial && !report.published && !report.errors.length) {
+  // Strict: email always required; publish required unless dry-run, skip-social, already published today, or Meta config missing was emailed
+  if (!args.dryRun && !args.skipSocial && !report.published && !report.socialSkippedDuplicate && !report.errors.length) {
     report.ok = false;
     report.errors.push('publish_did_not_execute');
   }

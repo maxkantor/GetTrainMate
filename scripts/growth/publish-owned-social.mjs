@@ -9,6 +9,7 @@
 import { loadSsmSecretsIntoEnv } from './load-ssm-secrets-into-env.mjs';
 import { ensureGrowthDeps } from './lib/ensure-growth-deps.mjs';
 import {
+  alreadyPublishedToday,
   easternIsoDate,
   easternWeekday,
   findCatalogItemByContentId,
@@ -52,13 +53,14 @@ function ensureSocialImageBucketPublic() {
 }
 
 function parseArgs(argv) {
-  const out = { dryRun: false, skipFacebook: false, skipInstagram: false, contentId: null };
+  const out = { dryRun: false, skipFacebook: false, skipInstagram: false, contentId: null, forcePublish: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') out.dryRun = true;
     if (a === '--skip-facebook') out.skipFacebook = true;
     if (a === '--skip-instagram') out.skipInstagram = true;
     if (a === '--content-id') out.contentId = argv[++i] || null;
+    if (a === '--force-publish' || a === '--force') out.forcePublish = true;
   }
   return out;
 }
@@ -123,6 +125,40 @@ async function main() {
     isoDate: isoHyphen,
     recentEntries: recentImageEntries
   });
+
+  // Strict same-day guard: prevent duplicate publishing to Meta if already published today
+  if (!args.dryRun && !args.forcePublish && alreadyPublishedToday(log.entries || [], isoHyphen)) {
+    const todaysEntry = (log.entries || []).slice().reverse().find((e) => {
+      const d = e.publishedAtUtc ? easternIsoDate(new Date(e.publishedAtUtc)) : '';
+      return (d === isoHyphen || (typeof e.campaign === 'string' && e.campaign.includes(isoHyphen))) && e.status === 'published';
+    });
+    console.log(
+      JSON.stringify({
+        ok: true,
+        skipped: true,
+        alreadyPublishedToday: true,
+        reason: 'social_already_published_today',
+        isoDate: isoHyphen,
+        contentId: todaysEntry?.contentId || item?.contentId || '',
+        distributionAttempted: false,
+        distributionExecuted: false,
+        technicalDistributionResult: 'SKIPPED_ALREADY_PUBLISHED_TODAY',
+        facebook: {
+          network: 'facebook',
+          published: false,
+          postId: todaysEntry?.facebookPostId || '',
+          reason: 'already_published_today'
+        },
+        instagram: {
+          network: 'instagram',
+          published: false,
+          postId: todaysEntry?.instagramPostId || '',
+          reason: 'already_published_today'
+        }
+      })
+    );
+    return;
+  }
 
   if (args.skipFacebook && !args.skipInstagram && alreadyHasInstagramMedia(log, item.contentId)) {
     console.log(

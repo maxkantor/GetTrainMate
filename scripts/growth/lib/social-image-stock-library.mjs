@@ -54,21 +54,21 @@ export const STOCK_PHOTOS = {
       activities: ['workout', 'gym']
     },
     {
-      id: 'train-running-9',
-      unsplashId: 'photo-1470225620780-dba8ba36b745',
-      scene: 'outdoor running',
+      id: 'train-running-outdoor-9',
+      unsplashId: 'photo-1552674605-db6ffd4facb5',
+      scene: 'runners running outdoors together',
       activities: ['running', 'workout']
     },
     {
-      id: 'train-cycling-10',
-      unsplashId: 'photo-1574629810360-7efbbe195018',
-      scene: 'cycling training',
+      id: 'train-running-prep-10',
+      unsplashId: 'photo-1483721310020-03333e577078',
+      scene: 'runner preparing for workout',
       activities: ['workout', 'running']
     },
     {
-      id: 'train-swim-11',
-      unsplashId: 'photo-1544551763-46a013bb70d5',
-      scene: 'swim training',
+      id: 'train-swimming-fitness-11',
+      unsplashId: 'photo-1528912599607-dc5f96f6c1d8',
+      scene: 'swimmers pool training workout',
       activities: ['workout']
     }
   ],
@@ -76,55 +76,55 @@ export const STOCK_PHOTOS = {
     {
       id: 'vibe-friends-group-1',
       unsplashId: 'photo-1529156069898-49953e39b3ac',
-      scene: 'friends hanging out',
+      scene: 'friends hanging out together',
       activities: ['events', 'social', 'friendship']
     },
     {
-      id: 'vibe-city-explore-2',
-      unsplashId: 'photo-1488646953014-85cb44e25828',
-      scene: 'friends exploring city',
-      activities: ['events', 'social']
-    },
-    {
-      id: 'vibe-cafe-3',
-      unsplashId: 'photo-1495474472287-4d71bcdd2085',
-      scene: 'cafe meetup',
+      id: 'vibe-friends-laughing-2',
+      unsplashId: 'photo-1511988617509-a57c8a288659',
+      scene: 'group of friends laughing outdoors',
       activities: ['social', 'friendship', 'events']
     },
     {
-      id: 'vibe-brunch-4',
-      unsplashId: 'photo-1414235077428-338989a2e8c0',
-      scene: 'brunch with friends',
+      id: 'vibe-friends-park-3',
+      unsplashId: 'photo-1517486808906-6ca8b3f04846',
+      scene: 'friends socializing in the park',
       activities: ['social', 'events']
     },
     {
-      id: 'vibe-lounge-5',
-      unsplashId: 'photo-1522771739844-6a9f6d5f14af',
-      scene: 'social lounge hangout',
+      id: 'vibe-friends-guys-4',
+      unsplashId: 'photo-1543807535-eceef0bc6599',
+      scene: 'friends laughing and chatting',
       activities: ['social', 'friendship']
     },
     {
-      id: 'vibe-team-6',
+      id: 'vibe-team-collab-5',
       unsplashId: 'photo-1522202176988-66273c2fd55f',
-      scene: 'group collaboration',
+      scene: 'group of friends connecting at table',
       activities: ['friendship', 'social', 'events']
     },
     {
-      id: 'vibe-restaurant-7',
-      unsplashId: 'photo-1517248135467-4c7edcad34c4',
-      scene: 'restaurant hangout',
+      id: 'vibe-celebrating-6',
+      unsplashId: 'photo-1529333166437-7750a6dd5a70',
+      scene: 'friends celebrating together',
       activities: ['events', 'social']
     },
     {
-      id: 'vibe-cooking-8',
-      unsplashId: 'photo-1556910103-1c02745aae4d',
-      scene: 'cooking together',
+      id: 'vibe-outdoors-laugh-7',
+      unsplashId: 'photo-1755705152604-af6804fb8932',
+      scene: 'friends laughing outdoors together',
       activities: ['social', 'friendship']
     },
     {
-      id: 'vibe-rooftop-9',
-      unsplashId: 'photo-1470225620780-dba8ba36b745',
-      scene: 'active social outdoors',
+      id: 'vibe-youth-group-8',
+      unsplashId: 'photo-1539571696357-5a69c17a67c6',
+      scene: 'friends walking in city',
+      activities: ['social', 'friendship', 'events']
+    },
+    {
+      id: 'vibe-social-smiles-9',
+      unsplashId: 'photo-1492562080023-ab3db95bfbce',
+      scene: 'friendly social connection',
       activities: ['events', 'social']
     }
   ],
@@ -136,45 +136,45 @@ export const STOCK_PHOTOS = {
       activities: ['dating']
     },
     {
-      id: 'date-portrait-2',
+      id: 'date-laughing-daytime-2',
+      unsplashId: 'photo-1466979939565-131c4b39a51b',
+      scene: 'couple laughing during daytime',
+      activities: ['dating']
+    },
+    {
+      id: 'date-smiling-together-3',
+      unsplashId: 'photo-1663579167845-c73285e3805b',
+      scene: 'couple smiling together',
+      activities: ['dating']
+    },
+    {
+      id: 'date-holding-hands-4',
+      unsplashId: 'photo-1473867832923-830c92cece07',
+      scene: 'couple walking holding hands',
+      activities: ['dating']
+    },
+    {
+      id: 'date-couple-portrait-5',
       unsplashId: 'photo-1524504388940-b1c1722653e1',
-      scene: 'couple portrait',
+      scene: 'lifestyle portrait connection',
       activities: ['dating']
     },
     {
-      id: 'date-bar-3',
-      unsplashId: 'photo-1514933651103-005eec06c04b',
-      scene: 'date night drinks',
+      id: 'date-laughing-close-6',
+      unsplashId: 'photo-1746813629190-80f67d5050fa',
+      scene: 'happy couple laughing together',
       activities: ['dating']
     },
     {
-      id: 'date-dinner-4',
-      unsplashId: 'photo-1559339352-11d035aa65de',
-      scene: 'dinner date',
+      id: 'date-smiling-man-7',
+      unsplashId: 'photo-1522529599102-193c0d76b5b6',
+      scene: 'warm smiling connection',
       activities: ['dating']
     },
     {
-      id: 'date-beach-5',
-      unsplashId: 'photo-1502680390469-be75c86b636f',
-      scene: 'beach date walk',
-      activities: ['dating']
-    },
-    {
-      id: 'date-coffee-6',
-      unsplashId: 'photo-1495474472287-4d71bcdd2085',
-      scene: 'coffee date',
-      activities: ['dating']
-    },
-    {
-      id: 'date-brunch-7',
-      unsplashId: 'photo-1414235077428-338989a2e8c0',
-      scene: 'brunch date',
-      activities: ['dating']
-    },
-    {
-      id: 'date-active-8',
+      id: 'date-active-lifestyle-8',
       unsplashId: 'photo-1571019614242-c5c5dee9f50b',
-      scene: 'active lifestyle date',
+      scene: 'active athletic connection',
       activities: ['dating']
     }
   ]
