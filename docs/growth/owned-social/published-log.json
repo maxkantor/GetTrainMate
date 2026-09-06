@@ -320,6 +320,34 @@
       "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/06/vibe-es-planes-ciudad-20260906-674bc9.jpg",
       "imageProvider": "unsplash_stock",
       "imageFallback": false
+    },
+    {
+      "publishedAtUtc": "2026-09-06T14:16:40.430Z",
+      "contentId": "vibe-es-planes-ciudad",
+      "mode": "VIBE",
+      "language": "es",
+      "locale": "es",
+      "campaign": "owned-vibe-es-2026-09-06",
+      "copy_variant": "vibe-post-beyond-feed",
+      "headline_variant": "vibe-hl-into-what",
+      "cta_variant": "vibe-cta-connect",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122131232816773778",
+      "instagramPostId": "18102852014192770",
+      "igCreationId": "18106355066150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "imageHeadline": "ENCUENTRA GENTE CON TUS MISMOS GUSTOS.",
+      "visualConcept": "brunch with friends",
+      "photoPrompt": "coffee together after a workout, warm smiles, modern cafe, athletic casual style",
+      "imageCta": "EMPIEZA A CONECTAR",
+      "imageSeed": 218720290,
+      "stockPhotoId": "vibe-brunch-4",
+      "imageKey": "social/generated/2026/09/06/vibe-es-planes-ciudad-20260906-a9f7ab.jpg",
+      "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/06/vibe-es-planes-ciudad-20260906-a9f7ab.jpg",
+      "imageProvider": "unsplash_stock",
+      "imageFallback": false
     }
   ]
 }
