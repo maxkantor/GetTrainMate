@@ -51,7 +51,15 @@ function Log($msg, $level = "INFO") {
 function Run-Git([string[]]$GitArgs) {
   $outLog = Join-Path $logDir "temp-git-out.log"
   $errLog = Join-Path $logDir "temp-git-err.log"
-  $proc = Start-Process -FilePath "git" -ArgumentList $GitArgs -WorkingDirectory $root -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outLog -RedirectStandardError $errLog
+  # Quote arguments that contain spaces for Start-Process
+  $escapedArgs = $GitArgs | ForEach-Object {
+    if ($_ -match '\s' -and -not ($_ -match '^".*"$')) {
+      "`"$_`""
+    } else {
+      $_
+    }
+  }
+  $proc = Start-Process -FilePath "git" -ArgumentList ($escapedArgs -join " ") -WorkingDirectory $root -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outLog -RedirectStandardError $errLog
   if (Test-Path $outLog) {
     Get-Content $outLog | ForEach-Object { Log $_ }
     Remove-Item $outLog -Force -ErrorAction SilentlyContinue
@@ -117,9 +125,11 @@ try {
   if (-not $DryRun -and -not $SkipPush) {
     Run-Git @("add", "docs/growth") | Out-Null
 
-    $diffOut = Join-Path $logDir "temp-diff.log"
-    $diffProc = Start-Process -FilePath "git" -ArgumentList @("diff", "--staged", "--quiet") -WorkingDirectory $root -NoNewWindow -Wait -PassThru -RedirectStandardOutput $diffOut -RedirectStandardError $diffOut
+    $diffOut = Join-Path $logDir "temp-diff-out.log"
+    $diffErr = Join-Path $logDir "temp-diff-err.log"
+    $diffProc = Start-Process -FilePath "git" -ArgumentList @("diff", "--staged", "--quiet") -WorkingDirectory $root -NoNewWindow -Wait -PassThru -RedirectStandardOutput $diffOut -RedirectStandardError $diffErr
     Remove-Item $diffOut -Force -ErrorAction SilentlyContinue
+    Remove-Item $diffErr -Force -ErrorAction SilentlyContinue
 
     if ($diffProc.ExitCode -ne 0) {
       Run-Git @("-c", "core.safecrlf=false", "commit", "-m", "chore(growth): daily publish snapshot [windows-task]") | Out-Null
