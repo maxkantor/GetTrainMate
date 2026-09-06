@@ -90,6 +90,51 @@ TIMEZONE: America/New_York for daily schedule + experiment eval dates.
 
 ---
 
+## Local Windows Scheduled Task (Backup for Cursor usage limit periods)
+
+When Cursor usage limits are reached or during subscription lapses, the daily growth automation runs automatically via Windows Task Scheduler on this machine.
+
+### Task Details
+- **Task Name:** `GetTrainMate-GrowthDaily`
+- **Schedule:** Daily at 10:00 AM America/New_York (with a 10:30 AM backup retry)
+- **Script:** `scripts/growth/run-growth-scheduled.ps1`
+- **Features:**
+  - `StartWhenAvailable: true` — If the machine was asleep or off at 10:00 AM, it automatically runs as soon as the machine is powered on or wakes up.
+  - `WakeToRun: true` — Wakes computer from sleep if supported.
+  - Automatically pulls latest `origin/main` before running.
+  - Automatically commits and pushes updated snapshots/distribution logs back to `origin/main`.
+  - Deduped via S3 day guard: even if multiple triggers fire on the same day, only ONE email and post are executed.
+  - Logs to `docs/growth/daily-task-runner.log` and `docs/growth/logs/YYYY-MM-DD-scheduled.log`.
+
+### Management Commands
+```powershell
+# Check status, next run time, and recent logs:
+.\scripts\growth\check-windows-task.ps1
+
+# Test-run the task manually:
+Start-ScheduledTask -TaskName "GetTrainMate-GrowthDaily"
+
+# Re-register or change schedule:
+.\scripts\growth\setup-windows-task.ps1
+
+# Unregister when Cursor Automations are restored:
+.\scripts\growth\remove-windows-task.ps1
+```
+
+---
+
+## Cloud Backup via GitHub Actions (Optional)
+
+A workflow is also available at `.github/workflows/daily-growth.yml` (runs daily at 14:00 UTC / 10:00 AM EDT).
+To enable it in the cloud:
+1. In your GitHub repository settings -> **Secrets and variables** -> **Actions**, add:
+   - `AWS_ACCESS_KEY_ID`: Your IAM access key ID
+   - `AWS_SECRET_ACCESS_KEY`: Your IAM secret access key
+2. Once added, GitHub Actions will automatically execute the daily growth run in the cloud independently of your local PC.
+
+
+---
+
 ## Cloud Agent Environment (Install script)
 
 Paste into Cursor → Environment → **Install script**:
