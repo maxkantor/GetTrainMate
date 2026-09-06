@@ -348,6 +348,34 @@
       "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/06/vibe-es-planes-ciudad-20260906-a9f7ab.jpg",
       "imageProvider": "unsplash_stock",
       "imageFallback": false
+    },
+    {
+      "publishedAtUtc": "2026-09-06T14:30:18.712Z",
+      "contentId": "vibe-es-planes-ciudad",
+      "mode": "VIBE",
+      "language": "es",
+      "locale": "es",
+      "campaign": "owned-vibe-es-2026-09-06",
+      "copy_variant": "vibe-post-love-doing",
+      "headline_variant": "vibe-hl-do-more",
+      "cta_variant": "vibe-cta-explore",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122131234388773778",
+      "instagramPostId": "18049056179610474",
+      "igCreationId": "18106356779150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "imageHeadline": "HAZ MÁS CON QUIEN TE ENTIENDE.",
+      "visualConcept": "friendly social connection",
+      "photoPrompt": "walking through a vibrant international city, stylish fit adults, candid connection",
+      "imageCta": "EXPLORA VIBE",
+      "imageSeed": 201942671,
+      "stockPhotoId": "vibe-social-smiles-9",
+      "imageKey": "social/generated/2026/09/06/vibe-es-planes-ciudad-20260906-88982c.jpg",
+      "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/06/vibe-es-planes-ciudad-20260906-88982c.jpg",
+      "imageProvider": "unsplash_stock",
+      "imageFallback": false
     }
   ]
 }
