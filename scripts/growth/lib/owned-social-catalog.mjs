@@ -42,8 +42,13 @@ export function languageForWeekday(weekday, isoDate = '') {
   const week = isoWeekNumber(isoDate);
   const langs = ['en', 'es', 'ru'];
   if (weekday === 1 || weekday === 4) return langs[week % 3];
-  if (weekday === 2 || weekday === 5 || weekday === 0) return langs[(week + 1) % 3];
+  if (weekday === 2 || weekday === 5) return langs[(week + 1) % 3];
   if (weekday === 3 || weekday === 6) return langs[(week + 2) % 3];
+  // Sunday (0): must not repeat Monday's upcoming language.
+  // Next Monday (week + 1) will use langs[(week + 1) % 3].
+  // Saturday used langs[(week + 2) % 3].
+  // Sunday therefore cleanly takes langs[week % 3] so no two consecutive days share a language.
+  if (weekday === 0) return langs[week % 3];
   return langs[week % 3];
 }
 
@@ -332,12 +337,19 @@ export function renderInstagramCopy(template, shortUrl, { language = 'en' } = {}
 export function selectCatalogItem({
   weekday,
   recentlyUsedIds = [],
+  recentLanguages = [],
   preferMode,
   preferLanguage,
   isoDate = ''
 } = {}) {
   const mode = preferMode || modeForWeekday(weekday ?? 1);
-  const language = preferLanguage || languageForWeekday(weekday ?? 1, isoDate);
+  let language = preferLanguage || languageForWeekday(weekday ?? 1, isoDate);
+  // Avoid repeating the immediately preceding published language if not explicitly requested
+  if (!preferLanguage && recentLanguages.length && recentLanguages[0] === language) {
+    const langs = ['en', 'es', 'ru'];
+    const idx = langs.indexOf(language);
+    language = langs[(idx + 1) % langs.length];
+  }
   const used = new Set(recentlyUsedIds);
   const pool = CATALOG.filter((c) => c.mode === mode);
   let candidates = pool.filter((c) => c.language === language && !used.has(c.contentId));

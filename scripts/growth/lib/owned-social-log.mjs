@@ -23,6 +23,18 @@ export function recentlyUsedContentIds(log, { days = 14, now = Date.now() } = {}
     .filter(Boolean);
 }
 
+export function recentPublishedLanguages(log, { count = 3 } = {}) {
+  const entries = Array.isArray(log?.entries) ? log.entries : [];
+  const out = [];
+  for (let i = entries.length - 1; i >= 0 && out.length < count; i--) {
+    const entry = entries[i];
+    if (entry.status !== 'published') continue;
+    const lang = entry.language || entry.locale;
+    if (lang && !out.includes(lang)) out.push(lang);
+  }
+  return out;
+}
+
 export function appendPublishedLog(entry, logPath = LOG_PATH) {
   const current = readPublishedLog(logPath);
   current.entries = [...(current.entries || []), entry].slice(-200);

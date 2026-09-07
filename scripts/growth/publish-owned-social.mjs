@@ -31,7 +31,7 @@ import {
   ownerSetupInstructions,
   validateMetaCredentials
 } from './lib/meta-token.mjs';
-import { appendPublishedLog, readPublishedLog, recentlyUsedContentIds } from './lib/owned-social-log.mjs';
+import { appendPublishedLog, readPublishedLog, recentlyUsedContentIds, recentPublishedLanguages } from './lib/owned-social-log.mjs';
 import { loadRecentImageHistory } from './lib/social-image-history.mjs';
 import { generateSocialImage } from './lib/social-image-generator.mjs';
 import { logSocialImageEvent } from './lib/social-image-logger.mjs';
@@ -116,6 +116,7 @@ async function main() {
     item = selectCatalogItem({
       weekday,
       recentlyUsedIds: recentlyUsedContentIds(log),
+      recentLanguages: recentPublishedLanguages(log),
       isoDate: isoHyphen
     });
   }

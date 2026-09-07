@@ -567,7 +567,18 @@ export function listFor(table, mode, language) {
 
 export function formatPostBody(post) {
   if (!post) return '';
-  return [post.hook, '', post.benefit, '', post.differentiator, '', post.ctaLine, '', post.disclaimer, '', '{{url}}']
+  return [
+    post.hook,
+    '{{url}}',
+    '',
+    post.benefit,
+    '',
+    post.differentiator,
+    '',
+    post.ctaLine,
+    '',
+    post.disclaimer
+  ]
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
