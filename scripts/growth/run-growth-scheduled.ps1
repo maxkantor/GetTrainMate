@@ -76,12 +76,13 @@ function Invoke-LoggedCommand {
 }
 
 function Test-AlreadyRanToday {
+  if ($DryRun) { return $false }
   if (-not (Test-Path $mainLog)) { return $false }
   $today = Get-Date -Format "yyyy-MM-dd"
   $recent = Get-Content $mainLog -Tail 80 -ErrorAction SilentlyContinue
   if ($null -eq $recent) { return $false }
   foreach ($line in $recent) {
-    if ($line -match "^$today .* scheduled run (OK|FAILED)") {
+    if ($line -match "^$today .* scheduled run (OK|FAILED)$") {
       return $true
     }
   }
@@ -89,7 +90,7 @@ function Test-AlreadyRanToday {
 }
 
 if (Test-AlreadyRanToday) {
-  Log "Skipping duplicate Windows trigger — today's scheduled run already logged in daily-task-runner.log"
+  Log "Skipping duplicate Windows trigger: today's scheduled run already logged in daily-task-runner.log"
   exit 0
 }
 
@@ -98,8 +99,8 @@ try {
   # 1. Pull latest changes if remote main updated
   try {
     Log "Syncing with origin/main..."
-    Invoke-LoggedCommand -Label "git fetch" -FilePath "git" -ArgumentList @("fetch", "origin", "main") | Out-Null
-    $rebaseCode = Invoke-LoggedCommand -Label "git pull" -FilePath "git" -ArgumentList @("pull", "--rebase", "origin", "main")
+    Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("fetch", "origin", "main") | Out-Null
+    $rebaseCode = Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("pull", "--rebase", "origin", "main")
     if ($rebaseCode -ne 0) {
       Log "Git pull returned $rebaseCode; continuing with local working copy..." "WARN"
     }
@@ -128,14 +129,14 @@ try {
 
   # 3. Commit & push updated artifacts to GitHub
   if (-not $DryRun -and -not $SkipPush) {
-    Invoke-LoggedCommand -Label "git add" -FilePath "git" -ArgumentList @("add", "docs/growth") | Out-Null
+    Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("add", "docs/growth") | Out-Null
 
-    $diffCode = Invoke-LoggedCommand -Label "git diff" -FilePath "git" -ArgumentList @("diff", "--staged", "--quiet")
+    $diffCode = Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("diff", "--staged", "--quiet")
     if ($diffCode -ne 0) {
-      Invoke-LoggedCommand -Label "git commit" -FilePath "git" -ArgumentList @(
+      Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @(
         "-c", "core.safecrlf=false", "commit", "-m", "chore(growth): daily publish snapshot [windows-task]"
       ) | Out-Null
-      $pushCode = Invoke-LoggedCommand -Label "git push" -FilePath "git" -ArgumentList @("push", "origin", "main")
+      $pushCode = Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("push", "origin", "main")
       if ($pushCode -eq 0) {
         Log "Committed and pushed growth artifacts to origin/main"
       } else {
@@ -146,7 +147,11 @@ try {
     }
   }
 
-  Log "=== GetTrainMate scheduled run OK ==="
+  if ($DryRun) {
+    Log "=== GetTrainMate scheduled run OK (dry-run) ==="
+  } else {
+    Log "=== GetTrainMate scheduled run OK ==="
+  }
   exit 0
 } catch {
   Log "=== GetTrainMate scheduled run FAILED: $_ ===" "ERROR"
