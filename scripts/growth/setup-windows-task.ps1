@@ -3,7 +3,7 @@
     Registers the GetTrainMate Daily Growth task in Windows Task Scheduler.
 .DESCRIPTION
     Creates a scheduled task that executes .\scripts\growth\run-growth-scheduled.ps1
-    daily at 10:00 AM (with a 10:30 AM backup retry).
+    daily at 10:00 AM (backup trigger optional; disabled by default).
     Features:
     - Runs automatically 7 days a week including weekends.
     - StartWhenAvailable enabled: if PC is asleep or off at 10:00 AM, it runs
@@ -16,16 +16,17 @@
 .PARAMETER Time
     Primary time of day to run (default: "10:00AM"). Format: "HH:mm" or "hh:mmtt".
 .PARAMETER BackupTime
-    Secondary backup time of day to run (default: "10:30AM").
+    Optional secondary backup time (default: none). Disabled by default to avoid duplicate failure emails when a run fails before Node starts.
 
 .EXAMPLE
     .\scripts\growth\setup-windows-task.ps1
+    .\scripts\growth\setup-windows-task.ps1 -BackupTime "10:30AM"
 #>
 
 [CmdletBinding()]
 param(
     [string]$Time = "10:00AM",
-    [string]$BackupTime = "10:30AM"
+    [string]$BackupTime = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -40,7 +41,11 @@ Write-Host "Registering Windows Scheduled Task: $TaskName" -ForegroundColor Gree
 Write-Host "Repository Root: $RepoRoot" -ForegroundColor Gray
 Write-Host "Target Script:   $RunnerScript" -ForegroundColor Gray
 Write-Host "Primary Time:    $Time Daily" -ForegroundColor Gray
-Write-Host "Backup Time:     $BackupTime Daily" -ForegroundColor Gray
+if ($BackupTime) {
+  Write-Host "Backup Time:     $BackupTime Daily" -ForegroundColor Gray
+} else {
+  Write-Host "Backup Time:     (disabled)" -ForegroundColor Gray
+}
 Write-Host "================================================================" -ForegroundColor Cyan
 
 # Verify script exists
@@ -81,7 +86,7 @@ try {
         -Action $Action `
         -Trigger $Triggers `
         -Settings $Settings `
-        -Description "GetTrainMate Daily Paid Customer Growth automation runner (runs daily at $Time with $BackupTime backup)." `
+        -Description "GetTrainMate Daily Paid Customer Growth automation runner (runs daily at $Time$(if ($BackupTime) { " with $BackupTime backup" } else { "" }))." `
         -Force | Out-Null
 
     Write-Host "`nTask '$TaskName' registered successfully!" -ForegroundColor Green

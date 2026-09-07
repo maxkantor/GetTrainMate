@@ -48,27 +48,49 @@ function Log($msg, $level = "INFO") {
   Write-Host $line
 }
 
-function Run-Git([string[]]$GitArgs) {
-  $outLog = Join-Path $logDir "temp-git-out.log"
-  $errLog = Join-Path $logDir "temp-git-err.log"
-  # Quote arguments that contain spaces for Start-Process
-  $escapedArgs = $GitArgs | ForEach-Object {
-    if ($_ -match '\s' -and -not ($_ -match '^".*"$')) {
-      "`"$_`""
-    } else {
-      $_
+function Invoke-LoggedCommand {
+  param(
+    [Parameter(Mandatory = $true)][string]$Label,
+    [Parameter(Mandatory = $true)][string]$FilePath,
+    [string[]]$ArgumentList = @()
+  )
+
+  Log "Executing: $Label $($ArgumentList -join ' ')"
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    $output = & $FilePath @ArgumentList 2>&1
+    $exitCode = if ($null -ne $LASTEXITCODE) { $LASTEXITCODE } else { 0 }
+    foreach ($line in @($output)) {
+      if ($null -eq $line) { continue }
+      if ($line -is [System.Management.Automation.ErrorRecord]) {
+        Log $line.ToString() "WARN"
+      } else {
+        Log ([string]$line)
+      }
+    }
+    return $exitCode
+  } finally {
+    $ErrorActionPreference = $prevEap
+  }
+}
+
+function Test-AlreadyRanToday {
+  if (-not (Test-Path $mainLog)) { return $false }
+  $today = Get-Date -Format "yyyy-MM-dd"
+  $recent = Get-Content $mainLog -Tail 80 -ErrorAction SilentlyContinue
+  if ($null -eq $recent) { return $false }
+  foreach ($line in $recent) {
+    if ($line -match "^$today .* scheduled run (OK|FAILED)") {
+      return $true
     }
   }
-  $proc = Start-Process -FilePath "git" -ArgumentList ($escapedArgs -join " ") -WorkingDirectory $root -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outLog -RedirectStandardError $errLog
-  if (Test-Path $outLog) {
-    Get-Content $outLog | ForEach-Object { Log $_ }
-    Remove-Item $outLog -Force -ErrorAction SilentlyContinue
-  }
-  if (Test-Path $errLog) {
-    Get-Content $errLog | ForEach-Object { Log $_ "WARN" }
-    Remove-Item $errLog -Force -ErrorAction SilentlyContinue
-  }
-  return $proc.ExitCode
+  return $false
+}
+
+if (Test-AlreadyRanToday) {
+  Log "Skipping duplicate Windows trigger — today's scheduled run already logged in daily-task-runner.log"
+  exit 0
 }
 
 Log "=== GetTrainMate scheduled run start ==="
@@ -76,8 +98,8 @@ try {
   # 1. Pull latest changes if remote main updated
   try {
     Log "Syncing with origin/main..."
-    Run-Git @("fetch", "origin", "main") | Out-Null
-    $rebaseCode = Run-Git @("pull", "--rebase", "origin", "main")
+    Invoke-LoggedCommand -Label "git fetch" -FilePath "git" -ArgumentList @("fetch", "origin", "main") | Out-Null
+    $rebaseCode = Invoke-LoggedCommand -Label "git pull" -FilePath "git" -ArgumentList @("pull", "--rebase", "origin", "main")
     if ($rebaseCode -ne 0) {
       Log "Git pull returned $rebaseCode; continuing with local working copy..." "WARN"
     }
@@ -85,15 +107,11 @@ try {
     Log "Git pull failed or skipped: $_" "WARN"
   }
 
-  # 2. Prepare node runner args
+  # 2. Run node growth runner
   $runnerScript = Join-Path $root "scripts\growth\run-weekday-growth.mjs"
   $runnerArgs = @($runnerScript)
-  if ($DryRun) {
-    $runnerArgs += "--dry-run"
-  }
-  if ($SkipSocial) {
-    $runnerArgs += "--skip-social"
-  }
+  if ($DryRun) { $runnerArgs += "--dry-run" }
+  if ($SkipSocial) { $runnerArgs += "--skip-social" }
   if ($ContentId) {
     $runnerArgs += "--content-id"
     $runnerArgs += $ContentId
@@ -103,37 +121,21 @@ try {
     $runnerArgs += $Notes
   }
 
-  Log "Executing: node $($runnerArgs -join ' ')"
-  $outLog = Join-Path $logDir "temp-node-out.log"
-  $errLog = Join-Path $logDir "temp-node-err.log"
-  $proc = Start-Process -FilePath "node" -ArgumentList $runnerArgs -WorkingDirectory $root -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outLog -RedirectStandardError $errLog
-
-  if (Test-Path $outLog) {
-    Get-Content $outLog | ForEach-Object { Log $_ }
-    Remove-Item $outLog -Force -ErrorAction SilentlyContinue
-  }
-  if (Test-Path $errLog) {
-    Get-Content $errLog | ForEach-Object { Log $_ "WARN" }
-    Remove-Item $errLog -Force -ErrorAction SilentlyContinue
-  }
-
-  if ($proc.ExitCode -ne 0) {
-    throw "run-weekday-growth.mjs exited with code $($proc.ExitCode)"
+  $nodeCode = Invoke-LoggedCommand -Label "node" -FilePath "node" -ArgumentList $runnerArgs
+  if ($nodeCode -ne 0) {
+    throw "run-weekday-growth.mjs exited with code $nodeCode"
   }
 
   # 3. Commit & push updated artifacts to GitHub
   if (-not $DryRun -and -not $SkipPush) {
-    Run-Git @("add", "docs/growth") | Out-Null
+    Invoke-LoggedCommand -Label "git add" -FilePath "git" -ArgumentList @("add", "docs/growth") | Out-Null
 
-    $diffOut = Join-Path $logDir "temp-diff-out.log"
-    $diffErr = Join-Path $logDir "temp-diff-err.log"
-    $diffProc = Start-Process -FilePath "git" -ArgumentList @("diff", "--staged", "--quiet") -WorkingDirectory $root -NoNewWindow -Wait -PassThru -RedirectStandardOutput $diffOut -RedirectStandardError $diffErr
-    Remove-Item $diffOut -Force -ErrorAction SilentlyContinue
-    Remove-Item $diffErr -Force -ErrorAction SilentlyContinue
-
-    if ($diffProc.ExitCode -ne 0) {
-      Run-Git @("-c", "core.safecrlf=false", "commit", "-m", "chore(growth): daily publish snapshot [windows-task]") | Out-Null
-      $pushCode = Run-Git @("push", "origin", "main")
+    $diffCode = Invoke-LoggedCommand -Label "git diff" -FilePath "git" -ArgumentList @("diff", "--staged", "--quiet")
+    if ($diffCode -ne 0) {
+      Invoke-LoggedCommand -Label "git commit" -FilePath "git" -ArgumentList @(
+        "-c", "core.safecrlf=false", "commit", "-m", "chore(growth): daily publish snapshot [windows-task]"
+      ) | Out-Null
+      $pushCode = Invoke-LoggedCommand -Label "git push" -FilePath "git" -ArgumentList @("push", "origin", "main")
       if ($pushCode -eq 0) {
         Log "Committed and pushed growth artifacts to origin/main"
       } else {

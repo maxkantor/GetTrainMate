@@ -96,7 +96,7 @@ When Cursor usage limits are reached or during subscription lapses, the daily gr
 
 ### Task Details
 - **Task Name:** `GetTrainMate-GrowthDaily`
-- **Schedule:** Daily at 10:00 AM America/New_York (with a 10:30 AM backup retry)
+- **Schedule:** Daily at 10:00 AM America/New_York (optional backup trigger disabled by default)
 - **Script:** `scripts/growth/run-growth-scheduled.ps1`
 - **Features:**
   - `StartWhenAvailable: true` — If the machine was asleep or off at 10:00 AM, it automatically runs as soon as the machine is powered on or wakes up.
@@ -116,6 +116,9 @@ Start-ScheduledTask -TaskName "GetTrainMate-GrowthDaily"
 
 # Re-register or change schedule:
 .\scripts\growth\setup-windows-task.ps1
+
+# Remove legacy HybridRaceWorkouts / Cooking growth tasks (Windows only):
+.\scripts\growth\remove-legacy-windows-growth-tasks.ps1
 
 # Unregister when Cursor Automations are restored:
 .\scripts\growth\remove-windows-task.ps1
