@@ -27,10 +27,23 @@ describe('owned social catalog', () => {
     assert.equal(modeForWeekday(5), 'VIBE');
     assert.equal(modeForWeekday(6), 'DATE');
     assert.equal(modeForWeekday(0), 'VIBE');
+    // User policy: 5 English, 1 Spanish, 1 Russian per week (English default)
     assert.equal(languageForWeekday(1, '2026-08-31'), 'en');
     assert.equal(languageForWeekday(2, '2026-08-31'), 'es');
-    assert.equal(languageForWeekday(3, '2026-08-31'), 'ru');
-    assert.equal(languageForWeekday(6, '2026-08-31'), 'ru');
+    assert.equal(languageForWeekday(3, '2026-08-31'), 'en');
+    assert.equal(languageForWeekday(4, '2026-08-31'), 'ru');
+    assert.equal(languageForWeekday(5, '2026-08-31'), 'en');
+    assert.equal(languageForWeekday(6, '2026-08-31'), 'en');
+    assert.equal(languageForWeekday(0, '2026-08-31'), 'en');
+
+    // Verify exactly 5 English, 1 Spanish, 1 Russian across any 7-day week
+    const weekCounts = { en: 0, es: 0, ru: 0 };
+    for (let wd = 0; wd <= 6; wd++) {
+      weekCounts[languageForWeekday(wd, '2026-09-07')]++;
+    }
+    assert.equal(weekCounts.en, 5);
+    assert.equal(weekCounts.es, 1);
+    assert.equal(weekCounts.ru, 1);
   });
 
   it('builds unique tracked URLs per network and never guarantees matches', () => {

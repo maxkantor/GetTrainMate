@@ -40,16 +40,26 @@ export function modeForWeekday(weekday) {
 
 export function languageForWeekday(weekday, isoDate = '') {
   const week = isoWeekNumber(isoDate);
-  const langs = ['en', 'es', 'ru'];
-  if (weekday === 1 || weekday === 4) return langs[week % 3];
-  if (weekday === 2 || weekday === 5) return langs[(week + 1) % 3];
-  if (weekday === 3 || weekday === 6) return langs[(week + 2) % 3];
-  // Sunday (0): must not repeat Monday's upcoming language.
-  // Next Monday (week + 1) will use langs[(week + 1) % 3].
-  // Saturday used langs[(week + 2) % 3].
-  // Sunday therefore cleanly takes langs[week % 3] so no two consecutive days share a language.
-  if (weekday === 0) return langs[week % 3];
-  return langs[week % 3];
+  const cycle = week % 3;
+  // User policy: English is default (5 posts/week). Exactly 1 Spanish and 1 Russian post per week.
+  // Rotates which days and modes receive the non-English post across weeks:
+  // Cycle 0: Tue (2 - VIBE) = es, Thu (4 - TRAIN) = ru
+  // Cycle 1: Wed (3 - DATE) = es, Fri (5 - VIBE) = ru
+  // Cycle 2: Thu (4 - TRAIN) = es, Sat (6 - DATE) = ru
+  let esDay, ruDay;
+  if (cycle === 0) {
+    esDay = 2;
+    ruDay = 4;
+  } else if (cycle === 1) {
+    esDay = 3;
+    ruDay = 5;
+  } else {
+    esDay = 4;
+    ruDay = 6;
+  }
+  if (weekday === esDay) return 'es';
+  if (weekday === ruDay) return 'ru';
+  return 'en';
 }
 
 function hashSeed(input) {
@@ -344,11 +354,9 @@ export function selectCatalogItem({
 } = {}) {
   const mode = preferMode || modeForWeekday(weekday ?? 1);
   let language = preferLanguage || languageForWeekday(weekday ?? 1, isoDate);
-  // Avoid repeating the immediately preceding published language if not explicitly requested
-  if (!preferLanguage && recentLanguages.length && recentLanguages[0] === language) {
-    const langs = ['en', 'es', 'ru'];
-    const idx = langs.indexOf(language);
-    language = langs[(idx + 1) % langs.length];
+  // English is default; prevent non-English languages from repeating consecutively
+  if (!preferLanguage && language !== 'en' && recentLanguages.length && recentLanguages[0] === language) {
+    language = 'en';
   }
   const used = new Set(recentlyUsedIds);
   const pool = CATALOG.filter((c) => c.mode === mode);
