@@ -4,15 +4,16 @@ import { Box, Button, Container, Typography } from '@mui/material';
 import { PageShell } from '@/components/layout/PageShell';
 import { trackEvent } from '@/utils/analytics';
 
-/** Short owned-social destination codes → signup (mode is on the query string). */
+/** Short owned-social destination codes → mode landing pages (with preserved UTMs). */
 export const GO_CODE_LANDINGS: Record<string, string> = {
-  t: '/signup',
-  train: '/signup',
-  v: '/signup',
-  vibe: '/signup',
-  d: '/signup',
-  date: '/signup',
+  t: '/workout-partner',
+  train: '/workout-partner',
+  v: '/meet-people',
+  vibe: '/meet-people',
+  d: '/active-dating',
+  date: '/active-dating',
   sf: '/san-francisco',
+  signup: '/signup',
   ig: '/go',
   fb: '/go',
 };

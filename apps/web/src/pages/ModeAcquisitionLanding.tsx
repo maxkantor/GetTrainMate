@@ -1,8 +1,10 @@
-import React, { useEffect } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import React, { useEffect, useMemo } from 'react';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { Box, Button, Container, Typography } from '@mui/material';
 import { PageShell } from '@/components/layout/PageShell';
+import { useI18n } from '@/hooks/useI18n';
 import { trackEvent } from '@/utils/analytics';
+import { captureAcquisitionFromSearch, mergeAndPersistAcquisition } from '@/utils/acquisitionAttribution';
 
 export type ModeLandingCopy = {
   path: string;
@@ -71,6 +73,97 @@ export const MODE_LANDINGS: Record<string, ModeLandingCopy> = {
   },
 };
 
+const LOCALIZED_MODE_LANDINGS: Record<string, Record<string, Partial<ModeLandingCopy>>> = {
+  es: {
+    TRAIN: {
+      eyebrow: 'Modo TRAIN',
+      headline: 'Encuentra a personas que realmente quieren entrenar.',
+      subhead:
+        'Gimnasio, running, deportes, HYROX, ciclismo — conecta con compañeros de entreno que comparten tu ritmo y horario.',
+      bullets: [
+        'Filtra por objetivos de entrenamiento — sin mezclar con citas',
+        'Elige tu ciudad, abre Discover y empieza a conectar',
+        'Disponible en cualquier ciudad del mundo',
+      ],
+      afterJoin: 'Tras registrarte: elige TRAIN → pon tu ubicación → completa tu perfil → Discover.',
+      cta: 'Únete gratis — encuentra compañeros de entreno',
+      freeLine: 'Crear tu cuenta es gratis. Los créditos desbloquean chats cuando estés listo.',
+    },
+    VIBE: {
+      eyebrow: 'Modo VIBE',
+      headline: 'Conoce gente activa con la que realmente conectes.',
+      subhead:
+        'Nuevo en la ciudad, planes de fin de semana, eventos, café, conciertos — amigos para planes reales, no para deslizar sin parar.',
+      bullets: [
+        'Descubrimiento social para amistad e intereses compartidos',
+        'Separado de DATE a menos que elijas ese modo',
+        'Adaptado a tu ciudad y tu idioma',
+      ],
+      afterJoin: 'Tras registrarte: elige VIBE → pon tu ubicación → completa tu perfil → Discover.',
+      cta: 'Únete gratis — conoce gente',
+      freeLine: 'Crear tu cuenta es gratis. Los créditos desbloquean chats cuando estés listo.',
+    },
+    DATE: {
+      eyebrow: 'Modo DATE',
+      headline: 'Conoce a alguien que quiera algo más que solo deslizar.',
+      subhead:
+        'Citas basadas en actividades para personas que conectan a través del deporte, eventos e intereses compartidos — opcional, nunca garantizado.',
+      bullets: [
+        'Descubrimiento romántico a través de actividades reales',
+        'Solo ves DATE cuando tú lo activas',
+        'TRAIN y VIBE se mantienen separados si así lo prefieres',
+      ],
+      afterJoin: 'Tras registrarte: elige DATE → pon tu ubicación → completa tu perfil → Discover.',
+      cta: 'Únete gratis — empieza a conectar',
+      freeLine: 'Crear tu cuenta es gratis. Los créditos desbloquean chats cuando estés listo.',
+    },
+  },
+  ru: {
+    TRAIN: {
+      eyebrow: 'Режим TRAIN',
+      headline: 'Найдите людей, которые реально хотят тренироваться.',
+      subhead:
+        'Зал, бег, спорт, HYROX, велоспорт — тренируйтесь вместе с теми, кто разделяет ваш темп и график.',
+      bullets: [
+        'Фокус на тренировках — без смешивания со знакомствами',
+        'Укажите ваш город, откройте Discover и начните общаться',
+        'Работает в любом городе мира',
+      ],
+      afterJoin: 'После регистрации: выберите TRAIN → укажите город → заполните профиль → Discover.',
+      cta: 'Присоединиться бесплатно — найти TrainMates',
+      freeLine: 'Создание аккаунта бесплатно. Кредиты открывают чаты, когда вы готовы.',
+    },
+    VIBE: {
+      eyebrow: 'Режим VIBE',
+      headline: 'Знакомьтесь с активными людьми, с кем есть общий вайб.',
+      subhead:
+        'Новый город, планы на выходные, мероприятия, кофе, концерты — друзья для реальных встреч, а не бесконечных лент.',
+      bullets: [
+        'Социальные знакомства для дружбы и общих интересов',
+        'Отдельно от DATE, если вам это не нужно',
+        'С учетом вашего города и языка',
+      ],
+      afterJoin: 'После регистрации: выберите VIBE → укажите город → заполните профиль → Discover.',
+      cta: 'Присоединиться бесплатно — найти людей',
+      freeLine: 'Создание аккаунта бесплатно. Кредиты открывают чаты, когда вы готовы.',
+    },
+    DATE: {
+      eyebrow: 'Режим DATE',
+      headline: 'Знакомьтесь с теми, кто хочет больше, чем просто свайпы.',
+      subhead:
+        'Свидания через активности для тех, кто сближается через спорт, события и общие интересы — совпадения не гарантируются.',
+      bullets: [
+        'Романтические знакомства вокруг реальных занятий',
+        'Вы видите DATE только тогда, когда сами выбираете этот режим',
+        'TRAIN и VIBE остаются отдельно, если вы этого хотите',
+      ],
+      afterJoin: 'После регистрации: выберите DATE → укажите город → заполните профиль → Discover.',
+      cta: 'Присоединиться бесплатно — свидания',
+      freeLine: 'Создание аккаунта бесплатно. Кредиты открывают чаты, когда вы готовы.',
+    },
+  },
+};
+
 const OTHER_MODES: Record<string, { label: string; path: string }[]> = {
   TRAIN: [
     { label: 'VIBE — meet people', path: '/meet-people' },
@@ -87,14 +180,34 @@ const OTHER_MODES: Record<string, { label: string; path: string }[]> = {
 };
 
 export const ModeAcquisitionLanding: React.FC<{ copy: ModeLandingCopy }> = ({ copy }) => {
+  const location = useLocation();
+  const { locale } = useI18n();
+
+  const activeCopy = useMemo(() => {
+    const loc = LOCALIZED_MODE_LANDINGS[locale]?.[copy.mode];
+    if (!loc) return copy;
+    return { ...copy, ...loc };
+  }, [copy, locale]);
+
   useEffect(() => {
+    mergeAndPersistAcquisition(captureAcquisitionFromSearch(location.search));
     trackEvent('landing_page_view', {
       source_page: copy.path,
       segment: copy.mode,
       acquisition_source: copy.path.replace('/', ''),
       mode: copy.mode,
+      ...(locale ? { lang: locale } : {}),
     });
-  }, [copy.path, copy.mode]);
+  }, [copy.path, copy.mode, location.search, locale]);
+
+  const signupTo = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    params.set('mode', copy.mode);
+    if (!params.has('src')) {
+      params.set('src', copy.path.replace('/', ''));
+    }
+    return `/signup?${params.toString()}`;
+  }, [location.search, copy]);
 
   return (
     <PageShell variant="content" showBackLink>
@@ -104,23 +217,23 @@ export const ModeAcquisitionLanding: React.FC<{ copy: ModeLandingCopy }> = ({ co
           component="p"
           sx={{ letterSpacing: 1.2, color: 'primary.main', fontWeight: 700 }}
         >
-          {copy.eyebrow}
+          {activeCopy.eyebrow}
         </Typography>
         <Typography
           variant="h2"
           component="h1"
           sx={{ mt: 1, fontSize: { xs: '1.85rem', md: '2.4rem' }, fontWeight: 800, lineHeight: 1.15 }}
         >
-          {copy.headline}
+          {activeCopy.headline}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mt: 2, maxWidth: 560, lineHeight: 1.7 }}>
-          {copy.subhead}
+          {activeCopy.subhead}
         </Typography>
 
         <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
           <Button
             component={RouterLink}
-            to={`/signup?${copy.signupQuery}`}
+            to={signupTo}
             variant="contained"
             size="large"
             onClick={() =>
@@ -132,15 +245,15 @@ export const ModeAcquisitionLanding: React.FC<{ copy: ModeLandingCopy }> = ({ co
               })
             }
           >
-            {copy.cta}
+            {activeCopy.cta}
           </Button>
           <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 420, lineHeight: 1.5 }}>
-            {copy.freeLine}
+            {activeCopy.freeLine}
           </Typography>
         </Box>
 
         <Box component="ul" sx={{ mt: 3.5, pl: 2.25, m: 0, maxWidth: 560 }}>
-          {copy.bullets.map((item) => (
+          {activeCopy.bullets.map((item) => (
             <Box
               component="li"
               key={item}
@@ -152,7 +265,7 @@ export const ModeAcquisitionLanding: React.FC<{ copy: ModeLandingCopy }> = ({ co
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 3, maxWidth: 560, lineHeight: 1.6 }}>
-          {copy.afterJoin}
+          {activeCopy.afterJoin}
         </Typography>
 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 4, lineHeight: 1.7 }}>

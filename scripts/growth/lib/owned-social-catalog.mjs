@@ -225,15 +225,22 @@ export function goCodeForDestination({ mode, landingPath } = {}) {
 }
 
 /**
- * Click destination for organic posts. Mode landings convert 0 signups after 7 lock days —
- * send TRAIN/VIBE/DATE traffic to /signup with mode already in the query. SF density landing
- * stays on /san-francisco (EXP-004).
+ * Click destination for organic posts: route each mode to its dedicated informative
+ * landing page (/workout-partner, /meet-people, /active-dating) where visitors see
+ * the value proposition and a clear CTA to join free.
  */
 export function ownedSocialClickPath({ mode, landingPath } = {}) {
   const path = String(landingPath || '').replace(/\/$/, '');
   if (path === '/san-francisco') return '/san-francisco';
+  if (path === '/workout-partner') return '/workout-partner';
+  if (path === '/meet-people') return '/meet-people';
+  if (path === '/active-dating') return '/active-dating';
   if (path === '/signup') return '/signup';
-  return '/signup';
+  const m = String(mode || '').toUpperCase();
+  if (m === 'TRAIN') return '/workout-partner';
+  if (m === 'VIBE') return '/meet-people';
+  if (m === 'DATE') return '/active-dating';
+  return '/workout-partner';
 }
 
 /**

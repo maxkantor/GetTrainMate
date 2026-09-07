@@ -27,10 +27,10 @@ describe('owned social catalog', () => {
     assert.equal(modeForWeekday(5), 'VIBE');
     assert.equal(modeForWeekday(6), 'DATE');
     assert.equal(modeForWeekday(0), 'VIBE');
-    assert.equal(languageForWeekday(1), 'en');
-    assert.equal(languageForWeekday(2), 'es');
-    assert.equal(languageForWeekday(3), 'ru');
-    assert.equal(languageForWeekday(6), 'ru');
+    assert.equal(languageForWeekday(1, '2026-08-31'), 'en');
+    assert.equal(languageForWeekday(2, '2026-08-31'), 'es');
+    assert.equal(languageForWeekday(3, '2026-08-31'), 'ru');
+    assert.equal(languageForWeekday(6, '2026-08-31'), 'ru');
   });
 
   it('builds unique tracked URLs per network and never guarantees matches', () => {
@@ -52,8 +52,8 @@ describe('owned social catalog', () => {
     });
     assert.match(fb, /utm_source=facebook/);
     assert.match(ig, /utm_source=instagram/);
-    assert.match(fb, /gettrainmate\.com\/signup\?/);
-    assert.match(ig, /gettrainmate\.com\/signup\?/);
+    assert.match(fb, /gettrainmate\.com\/meet-people\?/);
+    assert.match(ig, /gettrainmate\.com\/meet-people\?/);
     assert.notEqual(fb, ig);
     for (const item of CATALOG) {
       const creative = resolveOwnedSocialCreative(item, { isoDate: '2026-08-18' });
@@ -66,8 +66,8 @@ describe('owned social catalog', () => {
   });
 
   it('skips recently used content ids', () => {
-    const first = selectCatalogItem({ weekday: 1, recentlyUsedIds: [] });
-    const second = selectCatalogItem({ weekday: 1, recentlyUsedIds: [first.contentId] });
+    const first = selectCatalogItem({ weekday: 1, isoDate: '2026-08-31', recentlyUsedIds: [] });
+    const second = selectCatalogItem({ weekday: 1, isoDate: '2026-08-31', recentlyUsedIds: [first.contentId] });
     assert.equal(first.mode, 'TRAIN');
     assert.notEqual(second.contentId, first.contentId);
     assert.equal(renderCopy('Go {{url}}', 'https://x'), 'Go https://x');
