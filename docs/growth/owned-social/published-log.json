@@ -376,6 +376,34 @@
       "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/06/vibe-es-planes-ciudad-20260906-88982c.jpg",
       "imageProvider": "unsplash_stock",
       "imageFallback": false
+    },
+    {
+      "publishedAtUtc": "2026-09-07T14:12:47.044Z",
+      "contentId": "train-es-socio-entrenamiento",
+      "mode": "TRAIN",
+      "language": "es",
+      "locale": "es",
+      "campaign": "owned-train-es-2026-09-07",
+      "copy_variant": "train-post-goals",
+      "headline_variant": "train-hl-partner-here",
+      "cta_variant": "train-cta-partner",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122131431830773778",
+      "instagramPostId": "18132206440634816",
+      "igCreationId": "18106496912150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "imageHeadline": "TU PRÓXIMO SOCIO DE ENTRENO ESTÁ AQUÍ.",
+      "visualConcept": "gym exercise",
+      "photoPrompt": "doing HIIT together in a modern fitness studio, energetic atmosphere, dynamic action composition",
+      "imageCta": "ENCUENTRA SOCIO DE ENTRENO",
+      "imageSeed": 1886554580,
+      "stockPhotoId": "train-gym-session-5",
+      "imageKey": "social/generated/2026/09/07/train-es-socio-entrenamiento-20260907-93e95c.jpg",
+      "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/07/train-es-socio-entrenamiento-20260907-93e95c.jpg",
+      "imageProvider": "unsplash_stock",
+      "imageFallback": false
     }
   ]
 }
