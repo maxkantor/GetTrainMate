@@ -38,7 +38,10 @@ export const HEADLINE_VARIANTS = {
       { id: 'train-hl-better-together', text: 'BETTER WORKOUTS START TOGETHER.' },
       { id: 'train-hl-trains-like-you', text: 'FIND SOMEONE WHO TRAINS LIKE YOU.' },
       { id: 'train-hl-partner-here', text: 'YOUR NEXT TRAINING PARTNER IS HERE.' },
-      { id: 'train-hl-match-goals', text: 'MATCH YOUR GOALS. TRAIN TOGETHER.' }
+      { id: 'train-hl-match-goals', text: 'MATCH YOUR GOALS. TRAIN TOGETHER.' },
+      { id: 'train-hl-meet-active', text: 'MEET ACTIVE PEOPLE WHO TRAIN.' },
+      { id: 'train-hl-gym-accountability', text: 'GYM ACCOUNTABILITY STARTS HERE.' },
+      { id: 'train-hl-social-fitness', text: 'SOCIAL FITNESS. REAL PARTNERS.' }
     ],
     es: [
       { id: 'train-hl-stop-alone', text: 'DEJA DE ENTRENAR SOLO.' },
@@ -46,7 +49,10 @@ export const HEADLINE_VARIANTS = {
       { id: 'train-hl-better-together', text: 'MEJORES ENTRENOS EMPIEZAN JUNTOS.' },
       { id: 'train-hl-trains-like-you', text: 'ENCUENTRA A QUIEN ENTRENA COMO TÚ.' },
       { id: 'train-hl-partner-here', text: 'TU PRÓXIMO SOCIO DE ENTRENO ESTÁ AQUÍ.' },
-      { id: 'train-hl-match-goals', text: 'MISMO OBJETIVO. ENTRENAD JUNTOS.' }
+      { id: 'train-hl-match-goals', text: 'MISMO OBJETIVO. ENTRENAD JUNTOS.' },
+      { id: 'train-hl-meet-active', text: 'CONOCE GENTE ACTIVA QUE ENTRENA.' },
+      { id: 'train-hl-gym-accountability', text: 'COMPROMISO DE GYM QUE FUNCIONA.' },
+      { id: 'train-hl-social-fitness', text: 'FITNESS SOCIAL. COMPAÑEROS REALES.' }
     ],
     ru: [
       { id: 'train-hl-stop-alone', text: 'ХВАТИТ ТРЕНИРОВАТЬСЯ В ОДИНОЧКУ.' },
@@ -54,7 +60,10 @@ export const HEADLINE_VARIANTS = {
       { id: 'train-hl-better-together', text: 'ЛУЧШИЕ ТРЕНИРОВКИ — ВМЕСТЕ.' },
       { id: 'train-hl-trains-like-you', text: 'НАЙДИ ТОГО, КТО ТРЕНИРУЕТСЯ КАК ТЫ.' },
       { id: 'train-hl-partner-here', text: 'ТВОЙ ПАРТНЁР ПО ТРЕНИРОВКАМ УЖЕ ЗДЕСЬ.' },
-      { id: 'train-hl-match-goals', text: 'ОДИНАКОВЫЕ ЦЕЛИ. ТРЕНИРУЙТЕСЬ ВМЕСТЕ.' }
+      { id: 'train-hl-match-goals', text: 'ОДИНАКОВЫЕ ЦЕЛИ. ТРЕНИРУЙТЕСЬ ВМЕСТЕ.' },
+      { id: 'train-hl-meet-active', text: 'ЗНАКОМЬСЯ С АКТИВНЫМИ ЛЮДЬМИ.' },
+      { id: 'train-hl-gym-accountability', text: 'МОТИВАЦИЯ ДЛЯ ЗАЛА НАЧИНАЕТСЯ ЗДЕСЬ.' },
+      { id: 'train-hl-social-fitness', text: 'ТРЕНИРУЙТЕСЬ ВМЕСТЕ. РЕАЛЬНЫЕ ПАРТНЁРЫ.' }
     ]
   },
   VIBE: {
@@ -64,7 +73,9 @@ export const HEADLINE_VARIANTS = {
       { id: 'vibe-hl-your-people', text: 'YOUR INTERESTS. YOUR PEOPLE.' },
       { id: 'vibe-hl-do-more', text: 'DO MORE WITH PEOPLE WHO GET YOU.' },
       { id: 'vibe-hl-love-doing', text: 'MEET THROUGH WHAT YOU LOVE DOING.' },
-      { id: 'vibe-hl-kind-of-people', text: 'FIND YOUR KIND OF PEOPLE.' }
+      { id: 'vibe-hl-kind-of-people', text: 'FIND YOUR KIND OF PEOPLE.' },
+      { id: 'vibe-hl-make-friends', text: 'MAKE NEW FRIENDS WHO GET YOU.' },
+      { id: 'vibe-hl-local-activities', text: 'FIND LOCAL ACTIVITIES AND PLANS.' }
     ],
     es: [
       { id: 'vibe-hl-into-what', text: 'ENCUENTRA GENTE CON TUS MISMOS GUSTOS.' },
@@ -72,7 +83,9 @@ export const HEADLINE_VARIANTS = {
       { id: 'vibe-hl-your-people', text: 'TUS INTERESES. TU GENTE.' },
       { id: 'vibe-hl-do-more', text: 'HAZ MÁS CON QUIEN TE ENTIENDE.' },
       { id: 'vibe-hl-love-doing', text: 'CONOCE A TRAVÉS DE LO QUE TE GUSTA.' },
-      { id: 'vibe-hl-kind-of-people', text: 'ENCUENTRA A TU TIPO DE GENTE.' }
+      { id: 'vibe-hl-kind-of-people', text: 'ENCUENTRA A TU TIPO DE GENTE.' },
+      { id: 'vibe-hl-make-friends', text: 'HAZ NUEVOS AMIGOS QUE TE ENTIENDAN.' },
+      { id: 'vibe-hl-local-activities', text: 'PLANES Y ACTIVIDADES EN TU CIUDAD.' }
     ],
     ru: [
       { id: 'vibe-hl-into-what', text: 'НАЙДИ ЛЮДЕЙ С ТВОИМИ ИНТЕРЕСАМИ.' },
@@ -80,7 +93,9 @@ export const HEADLINE_VARIANTS = {
       { id: 'vibe-hl-your-people', text: 'ТВОИ ИНТЕРЕСЫ. ТВОИ ЛЮДИ.' },
       { id: 'vibe-hl-do-more', text: 'ДЕЛАЙ БОЛЬШЕ С ТЕМИ, КТО ТЕБЯ ПОНИМАЕТ.' },
       { id: 'vibe-hl-love-doing', text: 'ЗНАКОМЬТЕСЬ ЧЕРЕЗ ТО, ЧТО ЛЮБИТЕ.' },
-      { id: 'vibe-hl-kind-of-people', text: 'НАЙДИ СВОИХ ЛЮДЕЙ.' }
+      { id: 'vibe-hl-kind-of-people', text: 'НАЙДИ СВОИХ ЛЮДЕЙ.' },
+      { id: 'vibe-hl-make-friends', text: 'НАХОДИ НОВЫХ ДРУЗЕЙ В СВОЁМ ГОРОДЕ.' },
+      { id: 'vibe-hl-local-activities', text: 'СОБЫТИЯ И ПЛАНЫ РЯДОМ С ТОБОЙ.' }
     ]
   },
   DATE: {
@@ -92,7 +107,9 @@ export const HEADLINE_VARIANTS = {
       { id: 'date-hl-beyond-profile', text: 'MEET BEYOND THE PROFILE.' },
       { id: 'date-hl-actually-click', text: 'FIND SOMEONE YOU ACTUALLY CLICK WITH.' },
       { id: 'date-hl-less-swiping', text: 'LESS SWIPING. MORE CONNECTION.' },
-      { id: 'date-hl-lifestyle', text: 'MEET PEOPLE WHO GET YOUR LIFESTYLE.' }
+      { id: 'date-hl-lifestyle', text: 'MEET PEOPLE WHO GET YOUR LIFESTYLE.' },
+      { id: 'date-hl-active-dating', text: 'ACTIVE DATING FOR REAL LIFE.' },
+      { id: 'date-hl-meet-active', text: 'MEET ACTIVE SINGLES NEAR YOU.' }
     ],
     es: [
       { id: 'date-hl-energy', text: 'CONOCE A ALGUIEN QUE COMBINE CON TU ENERGÍA' },
@@ -102,7 +119,9 @@ export const HEADLINE_VARIANTS = {
       { id: 'date-hl-beyond-profile', text: 'CONOCE MÁS ALLÁ DEL PERFIL.' },
       { id: 'date-hl-actually-click', text: 'ENCUENTRA A ALGUIEN CON QUIEN HAYA CLIC.' },
       { id: 'date-hl-less-swiping', text: 'MENOS SWIPES. MÁS CONEXIÓN.' },
-      { id: 'date-hl-lifestyle', text: 'CONOCE GENTE QUE ENTIENDE TU ESTILO DE VIDA.' }
+      { id: 'date-hl-lifestyle', text: 'CONOCE GENTE QUE ENTIENDE TU ESTILO DE VIDA.' },
+      { id: 'date-hl-active-dating', text: 'CITAS ACTIVAS PARA LA VIDA REAL.' },
+      { id: 'date-hl-meet-active', text: 'CONOCE SOLTEROS ACTIVOS CERCA DE TI.' }
     ],
     ru: [
       { id: 'date-hl-energy', text: 'НАЙДИ КОГО-ТО ПОД ТВОЮ ЭНЕРГИЮ' },
@@ -112,7 +131,9 @@ export const HEADLINE_VARIANTS = {
       { id: 'date-hl-beyond-profile', text: 'ЗНАКОМСТВА ЗА ПРЕДЕЛАМИ ПРОФИЛЯ.' },
       { id: 'date-hl-actually-click', text: 'НАЙДИ ТОГО, С КЕМ ЕСТЬ КЛИК.' },
       { id: 'date-hl-less-swiping', text: 'МЕНЬШЕ СВАЙПОВ. БОЛЬШЕ ОБЩЕНИЯ.' },
-      { id: 'date-hl-lifestyle', text: 'ЗНАКОМЬТЕСЬ С ТЕМИ, КТО ПОНИМАЕТ ТВОЙ СТИЛЬ ЖИЗНИ.' }
+      { id: 'date-hl-lifestyle', text: 'ЗНАКОМЬТЕСЬ С ТЕМИ, КТО ПОНИМАЕТ ТВОЙ СТИЛЬ ЖИЗНИ.' },
+      { id: 'date-hl-active-dating', text: 'ЗНАКОМСТВА ДЛЯ АКТИВНЫХ ЛЮДЕЙ.' },
+      { id: 'date-hl-meet-active', text: 'АКТИВНЫЕ СИНГЛЫ В ТВОЁМ ГОРОДЕ.' }
     ]
   }
 };
@@ -264,6 +285,22 @@ export const POST_VARIANTS = {
         differentiator: 'GetTrainMate TRAIN — partners first. VIBE and DATE are separate modes.',
         ctaLine: 'Find your next training partner.',
         disclaimer: 'No guaranteed training partners.'
+      },
+      {
+        id: 'train-post-social-fitness',
+        hook: 'Fitness is better with company.',
+        benefit: 'Connect with people who train like you — running, gym, cycling, sports, or HYROX.',
+        differentiator: 'TRAIN mode pairs you by fitness goals and schedule, not endless small talk.',
+        ctaLine: 'Find your workout partner on GetTrainMate.',
+        disclaimer: 'No guaranteed partners. You choose who you train with.'
+      },
+      {
+        id: 'train-post-meet-active',
+        hook: 'Looking for active people in your city?',
+        benefit: 'Discover workout partners and training buddies who share your intensity.',
+        differentiator: 'GetTrainMate TRAIN connects you directly for workouts. VIBE and DATE are separate.',
+        ctaLine: 'Meet active people who train.',
+        disclaimer: 'No guaranteed training partners. You control your profile.'
       }
     ],
     es: [
@@ -298,6 +335,22 @@ export const POST_VARIANTS = {
         differentiator: 'GetTrainMate TRAIN — socios primero. VIBE y DATE son otros modos.',
         ctaLine: 'Encuentra tu próximo socio de entreno.',
         disclaimer: 'Sin socios de entrenamiento garantizados.'
+      },
+      {
+        id: 'train-post-social-fitness',
+        hook: '¿Entrenar en compañía?',
+        benefit: 'Conecta con gente que entrena como tú — gym, running, ciclismo o HYROX.',
+        differentiator: 'El modo TRAIN te une por objetivos y horarios, sin charlas vacías.',
+        ctaLine: 'Encuentra tu socio de entreno en GetTrainMate.',
+        disclaimer: 'Sin socios garantizados. Tú decides con quién entrenar.'
+      },
+      {
+        id: 'train-post-meet-active',
+        hook: '¿Buscas gente activa en tu ciudad?',
+        benefit: 'Descubre compañeros de entrenamiento que comparten tu ritmo y motivación.',
+        differentiator: 'GetTrainMate TRAIN te conecta directo para entrenar. VIBE y DATE van aparte.',
+        ctaLine: 'Conoce gente activa que entrena.',
+        disclaimer: 'Sin socios de entrenamiento garantizados. Tú controlas tu perfil.'
       }
     ],
     ru: [
@@ -332,6 +385,22 @@ export const POST_VARIANTS = {
         differentiator: 'GetTrainMate TRAIN — сначала партнёры. VIBE и DATE — отдельные режимы.',
         ctaLine: 'Найдите следующего партнёра для тренировок.',
         disclaimer: 'Партнёров для тренировок не гарантируем.'
+      },
+      {
+        id: 'train-post-social-fitness',
+        hook: 'Фитнес лучше в компании.',
+        benefit: 'Знакомьтесь с теми, кто тренируется как вы — зал, пробежки, велосипед или подготовка к стартам.',
+        differentiator: 'Режим TRAIN подбирает по целям и расписанию, без пустой переписки.',
+        ctaLine: 'Найдите партнёра по тренировкам в GetTrainMate.',
+        disclaimer: 'Мы не обещаем партнёров. Вы сами выбираете, с кем тренироваться.'
+      },
+      {
+        id: 'train-post-meet-active',
+        hook: 'Ищете активных людей в своём городе?',
+        benefit: 'Откройте партнёров для зала и пробежек, которые разделяют вашу интенсивность.',
+        differentiator: 'GetTrainMate TRAIN объединяет именно для тренировок. VIBE и DATE — отдельные режимы.',
+        ctaLine: 'Знакомьтесь с активными людьми для тренировок.',
+        disclaimer: 'Партнёров для тренировок не гарантируем. Профиль контролируете вы.'
       }
     ]
   },
@@ -368,6 +437,22 @@ export const POST_VARIANTS = {
         differentiator: 'GetTrainMate VIBE — community first.',
         ctaLine: 'Explore VIBE and find your people.',
         disclaimer: 'No guaranteed hangouts. You choose who you talk to.'
+      },
+      {
+        id: 'vibe-post-shared-interests',
+        hook: 'Find people who share your exact interests.',
+        benefit: 'From weekend hikes to coffee chats and local events, meet people on your wavelength.',
+        differentiator: 'VIBE is built for real-life plans and friendships — zero dating pressure.',
+        ctaLine: 'Find people with shared interests on GetTrainMate.',
+        disclaimer: 'No guaranteed hangouts. You decide who you connect with.'
+      },
+      {
+        id: 'vibe-post-local-activities',
+        hook: 'Want to do more in your city?',
+        benefit: 'Connect with locals for activities, exploring new spots, and weekend plans.',
+        differentiator: 'GetTrainMate VIBE connects you through what you love doing.',
+        ctaLine: 'Discover local activities and friends.',
+        disclaimer: 'No guaranteed meetups. You control your connections.'
       }
     ],
     es: [
@@ -402,6 +487,22 @@ export const POST_VARIANTS = {
         differentiator: 'GetTrainMate VIBE — primero comunidad.',
         ctaLine: 'Explora VIBE y encuentra tu gente.',
         disclaimer: 'Sin planes garantizados. Tú eliges con quién hablar.'
+      },
+      {
+        id: 'vibe-post-shared-interests',
+        hook: 'Encuentra gente con tus mismos intereses.',
+        benefit: 'Desde senderismo hasta tomar un café y eventos locales, conoce a quien sintoniza contigo.',
+        differentiator: 'VIBE es para planes reales y amistad — sin presión de citas.',
+        ctaLine: 'Encuentra gente con intereses en común en GetTrainMate.',
+        disclaimer: 'Sin quedadas garantizadas. Tú decides con quién conectar.'
+      },
+      {
+        id: 'vibe-post-local-activities',
+        hook: '¿Quieres hacer más planes en tu ciudad?',
+        benefit: 'Conecta con gente local para actividades, descubrir lugares y planes de finde.',
+        differentiator: 'GetTrainMate VIBE te conecta a través de lo que disfrutas hacer.',
+        ctaLine: 'Descubre actividades locales y nuevas amistades.',
+        disclaimer: 'Sin quedadas garantizadas. Tú controlas tus conexiones.'
       }
     ],
     ru: [
@@ -436,6 +537,22 @@ export const POST_VARIANTS = {
         differentiator: 'GetTrainMate VIBE — сначала сообщество.',
         ctaLine: 'Смотрите VIBE и найдите своих.',
         disclaimer: 'Встречи не гарантируем. Вы выбираете, с кем писать.'
+      },
+      {
+        id: 'vibe-post-shared-interests',
+        hook: 'Найдите людей с вашими интересами.',
+        benefit: 'От походов выходного дня до кофе и городских событий — знакомьтесь на одной волне.',
+        differentiator: 'VIBE создан для реальных планов и дружбы — без давления дейтинга.',
+        ctaLine: 'Находите людей с общими интересами в GetTrainMate.',
+        disclaimer: 'Встречи не гарантируем. Вы сами решаете, с кем общаться.'
+      },
+      {
+        id: 'vibe-post-local-activities',
+        hook: 'Хотите больше интересных планов в городе?',
+        benefit: 'Знакомьтесь с местными для совместных активностей, новых мест и выходных.',
+        differentiator: 'GetTrainMate VIBE объединяет через то, что вам действительно нравится.',
+        ctaLine: 'Откройте локальные события и новых друзей.',
+        disclaimer: 'Встречи не гарантируем. Вы контролируете свои связи.'
       }
     ]
   },
@@ -472,6 +589,14 @@ export const POST_VARIANTS = {
         differentiator: 'Shared interests. Real connections.',
         ctaLine: 'Discover people on GetTrainMate.',
         disclaimer: 'No guaranteed dates or relationships. You decide.'
+      },
+      {
+        id: 'date-post-active-dating',
+        hook: 'Active dating for people who actually do things.',
+        benefit: 'Meet singles who prioritize fitness, outdoor adventures, and healthy living.',
+        differentiator: 'DATE mode connects you through lifestyle and real interests — not superficial games.',
+        ctaLine: 'Try active dating on GetTrainMate.',
+        disclaimer: 'No guaranteed dates or relationships. You control your profile.'
       }
     ],
     es: [
@@ -506,6 +631,14 @@ export const POST_VARIANTS = {
         differentiator: 'Intereses en común. Conexiones reales.',
         ctaLine: 'Descubre personas en GetTrainMate.',
         disclaimer: 'Sin citas ni relaciones garantizadas. Tú decides.'
+      },
+      {
+        id: 'date-post-active-dating',
+        hook: 'Citas activas para gente que de verdad hace cosas.',
+        benefit: 'Conoce solteros que valoran el deporte, la vida sana y las salidas al aire libre.',
+        differentiator: 'El modo DATE te conecta por estilo de vida e intereses — sin juegos superficiales.',
+        ctaLine: 'Prueba citas activas en GetTrainMate.',
+        disclaimer: 'Sin citas ni relaciones garantizadas. Tú controlas tu perfil.'
       }
     ],
     ru: [
@@ -540,6 +673,14 @@ export const POST_VARIANTS = {
         differentiator: 'Общие интересы. Настоящие связи.',
         ctaLine: 'Откройте людей в GetTrainMate.',
         disclaimer: 'Свидания и отношения не гарантируем. Вы решаете.'
+      },
+      {
+        id: 'date-post-active-dating',
+        hook: 'Знакомства для тех, кто живёт активно.',
+        benefit: 'Знакомьтесь с синглами, которые ценят спорт, движение и здоровый образ жизни.',
+        differentiator: 'Режим DATE объединяет по интересам и стилю жизни — без пустых игр.',
+        ctaLine: 'Попробуйте активный дейтинг в GetTrainMate.',
+        disclaimer: 'Свидания и отношения не гарантируем. Профиль контролируете вы.'
       }
     ]
   }

@@ -303,6 +303,121 @@ export function resolveAcquisitionLead({ snapshot, notes, acquisition } = {}) {
   return out;
 }
 
+export function computeBusinessScoreboard(snapshot, md) {
+  const board7 = snapshot?.scoreboard?.['7d'] || {};
+
+  // Qualified traffic: GA4 landing_page_view events (canonical definition for landing visits)
+  // or fallback to sessions if landings not available
+  const rawTraffic = board7.landings?.available
+    ? Number(board7.landings.value ?? 0)
+    : board7.sessions?.available
+      ? Number(board7.sessions.value ?? 0)
+      : 0;
+
+  // Total traffic (all sessions):
+  const totalTraffic = board7.sessions?.available
+    ? Number(board7.sessions.value ?? 0)
+    : rawTraffic;
+
+  // External signups: GA4 completed_signups (or fallback to signup_starts)
+  const signups = board7.completed_signups?.available
+    ? Number(board7.completed_signups.value ?? 0)
+    : board7.signup_starts?.available
+      ? Number(board7.signup_starts.value ?? 0)
+      : 0;
+
+  // Completed profiles:
+  const completedProfiles = board7.completed_profiles?.available
+    ? Number(board7.completed_profiles.value ?? 0)
+    : 0;
+
+  // Interactions (discover users, connection requests, mutual matches, first messages):
+  const discoverUsers = board7.discover_users?.available ? Number(board7.discover_users.value ?? 0) : 0;
+  const requests = board7.connections_sent?.available ? Number(board7.connections_sent.value ?? 0) : 0;
+  const matches = board7.matches_created?.available ? Number(board7.matches_created.value ?? 0) : 0;
+  const firstMessages = board7.first_messages?.available ? Number(board7.first_messages.value ?? 0) : 0;
+  const interactions = discoverUsers || requests || matches || firstMessages || 0;
+
+  // Verified paying customers:
+  const payingCustomers = board7.unique_paying_customers?.available
+    ? Number(board7.unique_paying_customers.value ?? 0)
+    : 0;
+
+  // Verified revenue:
+  const rawRev = board7.revenue?.value;
+  const revenueStr =
+    rawRev != null && !isNaN(Number(rawRev))
+      ? `$${Number(rawRev).toFixed(2)}`
+      : typeof rawRev === 'string' && rawRev.startsWith('$')
+        ? rawRev
+        : '$0.00';
+
+  // Conversions:
+  const visitorToSignupPct = rawTraffic > 0 ? ((signups / rawTraffic) * 100).toFixed(1) + '%' : '0.0%';
+  const signupToProfilePct = signups > 0 ? ((completedProfiles / signups) * 100).toFixed(1) + '%' : '0.0%';
+  const profileToInteractionPct = completedProfiles > 0 ? ((interactions / completedProfiles) * 100).toFixed(1) + '%' : '0.0%';
+
+  // Decision & Bottleneck logic according to User Policy:
+  // "Use approximately 100–200 qualified landing visits as the minimum initial checkpoint for evaluating visitor → signup performance.
+  //  Before that threshold: Decision = HOLD / KEEP / COLLECT DATA"
+  let primaryBottleneck = 'TRAFFIC';
+  let decision = 'HOLD / KEEP / COLLECT DATA';
+  let nextAction = 'Daily multi-mode owned social (TRAIN / VIBE / DATE) to build traffic sample; review EXP-002 partner drafts.';
+
+  if (rawTraffic < 100) {
+    primaryBottleneck = 'TRAFFIC';
+    decision = 'HOLD / KEEP / COLLECT DATA';
+    nextAction = 'Daily multi-mode owned social (TRAIN / VIBE / DATE) to build traffic sample; review EXP-002 partner drafts.';
+  } else {
+    // Traffic >= 100: Evaluate first statistically meaningful bottleneck
+    const visitorToSignupRatio = signups / rawTraffic;
+    const signupToProfileRatio = signups > 0 ? completedProfiles / signups : 0;
+    const profileToInteractionRatio = completedProfiles > 0 ? interactions / completedProfiles : 0;
+
+    if (visitorToSignupRatio < 0.05) {
+      primaryBottleneck = 'SIGNUP CONVERSION';
+      decision = 'EVALUATE_SIGNUP_FLOW';
+      nextAction = 'Analyze landing-to-signup dropoff by campaign and mode before modifying copy.';
+    } else if (signupToProfileRatio < 0.50) {
+      primaryBottleneck = 'ACTIVATION';
+      decision = 'EVALUATE_ONBOARDING';
+      nextAction = 'Analyze profile completion dropoff in onboarding.';
+    } else if (profileToInteractionRatio < 0.40) {
+      primaryBottleneck = 'ACTIVATION';
+      decision = 'EVALUATE_DISCOVERY';
+      nextAction = 'Analyze Discover and connection request engagement among active profiles.';
+    } else if (payingCustomers === 0) {
+      primaryBottleneck = 'PAYMENT';
+      decision = 'EVALUATE_PAYMENT_CONVERSION';
+      nextAction = 'Review pricing/checkout view funnel among active interacting users.';
+    } else {
+      primaryBottleneck = 'TRAFFIC';
+      decision = 'SCALE_DISTRIBUTION';
+      nextAction = 'Double down on top-performing acquisition campaigns and markets.';
+    }
+  }
+
+  return {
+    qualifiedTraffic: rawTraffic,
+    totalTraffic,
+    signups,
+    completedProfiles,
+    discoverUsers,
+    requests,
+    matches,
+    firstMessages,
+    interactions,
+    payingCustomers,
+    revenue: revenueStr,
+    visitorToSignup: visitorToSignupPct,
+    signupToProfile: signupToProfilePct,
+    profileToInteraction: profileToInteractionPct,
+    primaryBottleneck,
+    decision,
+    nextAction
+  };
+}
+
 export function defaultDecision({ health, reconciliation, shipped, snapshot } = {}) {
   const healthOk = health?.ok !== false;
   const reconOk = reconciliation?.ok !== false;
@@ -321,14 +436,22 @@ export function defaultDecision({ health, reconciliation, shipped, snapshot } = 
           metaAuth === 'VALID' && !igIsAuth ? ' Meta authentication remains VALID.' : ''
         }`
       : '';
+  const board7 = snapshot?.scoreboard?.['7d'] || {};
+  const traffic = board7.landings?.available ? Number(board7.landings.value ?? 0) : Number(board7.sessions?.value ?? 0);
+  const decisionPhase = traffic < 100
+    ? 'HOLD / KEEP / COLLECT DATA (traffic sample below 100–200 visit evaluation threshold; no product/funnel changes)'
+    : 'EVALUATE FUNNEL';
+
   return (
-    `${shippedLine} ` +
+    `DECISION: ${decisionPhase}. ${shippedLine} ` +
     `GetTrainMate is TRAIN + VIBE + DATE, multilingual and international. Atlanta TRAIN is one acquisition experiment, not the product. ` +
     `Owned social: ${social.executed}. ` +
     (metaAuth ? `Meta authentication: ${metaAuth}. ` : '') +
     (igLine ? `${igLine} ` : social.blocker && !igFail ? `Blocker: ${social.blocker}. ` : '') +
     'Partner email remains fail-closed. ' +
-    'EXP-001 KEEP (Atlanta landing experiment). EXP-002 BLOCKED_NO_DISTRIBUTION (partner drafts approved; 0 emails sent). EXP-003 referral is user-initiated, not a wait action. ' +
+    'EXP-001 KEEP (Atlanta landing experiment). ' +
+    'EXP-002 ACQUISITION_OPPORTUNITY (5 partner drafts prepared in CRM; awaiting owner approval to send). ' +
+    'EXP-003 referral is user-initiated, not a wait action. ' +
     'Existing verified customers: 0. New customers acquired by this run: 0. ' +
     `Production is ${healthOk ? 'healthy' : 'FAILED'}.` +
     (reconOk ? '' : ' Data quality warning is in effect.')
@@ -463,6 +586,23 @@ export function composeGrowthEmailBody({
   t.push(`GA4 data through: ${formatMonthDayYearFromYmd(ga4Through)}`);
   t.push(`Site: ${SITE.origin}`);
   t.push('');
+
+  const sb = computeBusinessScoreboard(snapshot, md);
+
+  t.push('BUSINESS SCOREBOARD (HOLD / COLLECT DATA PHASE)');
+  t.push('-----------------------------------------------');
+  t.push(`Qualified traffic 7d:             ${sb.qualifiedTraffic} / 250 target`);
+  t.push(`External signups 7d:              ${sb.signups} / 10 target`);
+  t.push(`Verified paying customers 7d:     ${sb.payingCustomers} / 1–3 target`);
+  t.push(`Verified revenue 7d:              ${sb.revenue}`);
+  t.push(`Visitor -> signup conversion:     ${sb.visitorToSignup}`);
+  t.push(`Signup -> profile conversion:     ${sb.signupToProfile}`);
+  t.push(`Profile -> interaction conversion: ${sb.profileToInteraction}`);
+  t.push('');
+  t.push(`PRIMARY BOTTLENECK: ${sb.primaryBottleneck}`);
+  t.push(`DECISION: ${sb.decision}`);
+  t.push(`NEXT ACTION: ${sb.nextAction}`);
+  t.push('');
   t.push('CUSTOMER / MARKETPLACE SCOREBOARD');
   t.push('--------------------------------');
   t.push(`New users 7d (GA4): ${formatCell(board7.new_users ?? board7.active_users)}`);
@@ -559,6 +699,12 @@ export function composeGrowthEmailBody({
   t.push('');
   t.push('4) ACQUISITION');
   t.push('-------------');
+  t.push(`Total traffic 7d (all sessions): ${sb.totalTraffic}`);
+  t.push(`Qualified campaign traffic 7d (landing visits): ${sb.qualifiedTraffic} / 250 target`);
+  t.push(`New external signups 7d: ${sb.signups} / 10 target`);
+  t.push(`Activated users 7d (completed profiles): ${sb.completedProfiles}`);
+  t.push(`Verified external paying customers 7d: ${sb.payingCustomers} / 1–3 target`);
+  t.push(`Verified attributed revenue: ${sb.revenue}`);
   t.push(`Distribution attempted: ${ascii(lead.distributionAttempted)}`);
   t.push(`Distribution executed: ${ascii(lead.distributionExecuted)}`);
   t.push(`Technical distribution result: ${ascii(lead.technicalDistributionResult)}`);
@@ -571,6 +717,7 @@ export function composeGrowthEmailBody({
   t.push(`Checkout starts: ${ascii(lead.checkoutStarts)}`);
   t.push(`Newly attributed external customers: ${ascii(lead.newlyAttributedExternalCustomers)}`);
   t.push(`Verified revenue (this run): ${ascii(lead.verifiedRevenue)}`);
+  t.push(`Funnel progression: distributed -> landing visit (${sb.qualifiedTraffic}) -> signup (${sb.signups}) -> completed profile (${sb.completedProfiles}) -> discover (${sb.discoverUsers}) -> request (${sb.requests}) -> match (${sb.matches}) -> first message (${sb.firstMessages}) -> payment (${sb.payingCustomers})`);
   t.push('Draft prepared / failed API call does not count as distribution.');
   t.push('');
   t.push('5) OWNED SOCIAL + META AUTHENTICATION');
@@ -663,7 +810,7 @@ export function composeGrowthEmailBody({
     );
   }
   t.push('');
-  t.push(`EXP-002 — Atlanta partner hub and invite-code acquisition`);
+  t.push(`EXP-002 — Atlanta partner hub and invite-code acquisition (Acquisition Opportunity)`);
   t.push(`  Evaluation: ${EXP002.evaluationWeekday} (${EXP002.evaluationDate})`);
   if (exp002row) {
     t.push(`  Status: ${exp002row.status} | Stage: ${exp002row.funnelStage || 'n/a'}`);
@@ -672,7 +819,7 @@ export function composeGrowthEmailBody({
   t.push(`  Partner pages created: ${exp002.partnerPagesCreated}`);
   t.push(`  Invite codes created: ${exp002.inviteCodesCreated}`);
   t.push(`  Drafts prepared: ${exp002.draftsPrepared}; recipients approved: ${exp002.recipientsApproved}; emails sent: ${exp002.emailsSent}`);
-  t.push(`  Status: BLOCKED_NO_DISTRIBUTION — partner outreach was not distributed (drafts ≠ send). Lack of conversions is not evidence the concept failed.`);
+  t.push(`  Status: ACQUISITION_OPPORTUNITY — 5 partner drafts prepared in CRM; awaiting owner approval to send (drafts != send; not a completed experiment).`);
   t.push(`  Delivered when known: ${exp002.delivered}`);
   t.push(`  Partner responses: ${exp002.partnerResponses}`);
   t.push(`  Partner-attributed visits: ${exp002.partnerVisits}`);
@@ -692,7 +839,9 @@ export function composeGrowthEmailBody({
   t.push('');
   t.push('9) NEXT ACTIONS');
   t.push('---------------');
-  t.push('Owner action required:');
+  t.push(`Primary Acquisition Action: ${sb.nextAction}`);
+  t.push('Owner action required / opportunities:');
+  t.push('  - EXP-002: Review the 5 prepared Atlanta TRAIN partner outreach drafts in Admin CRM when ready to distribute.');
   if (md?.status !== 'ok') {
     t.push('  - Configure the metro read token (GROWTH_METRO_READ_TOKEN) so country/metro/mode ranking is available.');
   }
@@ -806,7 +955,56 @@ export function composeGrowthEmailBody({
           <div style="margin-top:14px;line-height:1.8;">${links}</div>
         </td></tr>
         <tr><td style="padding:24px 28px 32px;">
-      <h2 style="${H2_FIRST}">GetTrainMate — Today</h2>
+      <h2 style="${H2_FIRST}">Business Scoreboard</h2>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:2px solid #0284c7;border-radius:10px;background:#f0f9ff;overflow:hidden;border-collapse:separate;">
+        <tr><td style="padding:12px 16px;background:#0284c7;color:#ffffff;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="font-size:15px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:#ffffff;">Core Targets &amp; Conversion Funnel</td>
+              <td align="right"><span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#e0f2fe;color:#0369a1;font-weight:700;font-size:11px;">HOLD / COLLECT DATA</span></td>
+            </tr>
+          </table>
+          <div style="font-size:12px;opacity:0.9;margin-top:2px;">Target: 250+ visits/wk · 10+ signups · 1–3 customers · No product changes during data collection</div>
+        </td></tr>
+        <tr><td style="padding:14px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:15px;">
+            <tr>
+              <td style="padding:6px 0;width:55%;"><b>Qualified traffic 7d:</b></td>
+              <td style="padding:6px 0;text-align:right;"><b>${escapeHtml(String(sb.qualifiedTraffic))}</b> / 250 target</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;border-top:1px solid #e0f2fe;"><b>External signups 7d:</b></td>
+              <td style="padding:6px 0;text-align:right;border-top:1px solid #e0f2fe;"><b>${escapeHtml(String(sb.signups))}</b> / 10 target</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;border-top:1px solid #e0f2fe;"><b>Verified paying customers 7d:</b></td>
+              <td style="padding:6px 0;text-align:right;border-top:1px solid #e0f2fe;"><b>${escapeHtml(String(sb.payingCustomers))}</b> / 1–3 target</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;border-top:1px solid #e0f2fe;"><b>Verified revenue 7d:</b></td>
+              <td style="padding:6px 0;text-align:right;border-top:1px solid #e0f2fe;"><b>${escapeHtml(sb.revenue)}</b></td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;border-top:1px solid #e0f2fe;"><b>Visitor → signup conversion:</b></td>
+              <td style="padding:6px 0;text-align:right;border-top:1px solid #e0f2fe;">${escapeHtml(sb.visitorToSignup)}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;border-top:1px solid #e0f2fe;"><b>Signup → profile conversion:</b></td>
+              <td style="padding:6px 0;text-align:right;border-top:1px solid #e0f2fe;">${escapeHtml(sb.signupToProfile)}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;border-top:1px solid #e0f2fe;"><b>Profile → interaction conversion:</b></td>
+              <td style="padding:6px 0;text-align:right;border-top:1px solid #e0f2fe;">${escapeHtml(sb.profileToInteraction)}</td>
+            </tr>
+          </table>
+          <div style="margin-top:12px;padding:12px;background:#ffffff;border:1px solid #bae6fd;border-radius:6px;font-size:14px;line-height:1.5;">
+            <div><b>PRIMARY BOTTLENECK:</b> <span style="color:#b91c1c;font-weight:700;">${escapeHtml(sb.primaryBottleneck)}</span> <span style="color:#64748b;">(traffic sample below 100–200 visit evaluation checkpoint)</span></div>
+            <div style="margin-top:4px;"><b>DECISION:</b> <span style="color:#0369a1;font-weight:700;">${escapeHtml(sb.decision)}</span> <span style="color:#64748b;">(hold treatments; collect data)</span></div>
+            <div style="margin-top:4px;"><b>NEXT ACTION:</b> ${escapeHtml(sb.nextAction)}</div>
+          </div>
+        </td></tr>
+      </table>
+      <h2 style="${H2}">GetTrainMate — Today</h2>
       ${kvTable([
         { label: 'Visitors / landings 7d (GA4 events)', value: formatCell(board7.landings) },
         { label: 'New signups 7d (GA4 users)', value: formatCell(board7.completed_signups) },
@@ -824,6 +1022,12 @@ export function composeGrowthEmailBody({
       <h2 style="${H2}">Acquisition</h2>
       ${kvTable(
         [
+          { label: 'Total traffic 7d (all sessions)', value: String(sb.totalTraffic) },
+          { label: 'Qualified campaign traffic 7d', value: `${sb.qualifiedTraffic} / 250 target` },
+          { label: 'New external signups 7d', value: `${sb.signups} / 10 target` },
+          { label: 'Activated users 7d (completed profiles)', value: String(sb.completedProfiles) },
+          { label: 'Verified paying customers 7d', value: `${sb.payingCustomers} / 1–3 target` },
+          { label: 'Verified revenue 7d', value: sb.revenue },
           { label: 'Distribution attempted', value: lead.distributionAttempted },
           { label: 'Distribution executed', value: lead.distributionExecuted },
           { label: 'Technical distribution result', value: lead.technicalDistributionResult },
@@ -895,10 +1099,11 @@ export function composeGrowthEmailBody({
       </table>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;border:1px solid #e2e8f0;border-radius:8px;border-collapse:separate;">
         <tr><td style="padding:14px 16px;">
-          <div style="font-size:17px;font-weight:700;">EXP-002 — Atlanta partner hub and invite-code acquisition</div>
+          <div style="font-size:17px;font-weight:700;">EXP-002 — Atlanta partner hub and invite-code acquisition <span style="font-size:13px;color:#0369a1;font-weight:600;">(Acquisition Opportunity)</span></div>
           <div style="margin-top:10px;font-size:15px;line-height:1.5;color:#334155;">
             <div><b>Evaluation:</b> ${escapeHtml(EXP002.evaluationWeekday)} (${escapeHtml(EXP002.evaluationDate)})</div>
-            <div><b>Drafts prepared:</b> ${escapeHtml(exp002.draftsPrepared)} (not approved, not sent)</div>
+            <div><b>Status:</b> ACQUISITION_OPPORTUNITY (5 drafts prepared; awaiting owner approval to send; not completed)</div>
+            <div><b>Drafts prepared:</b> ${escapeHtml(exp002.draftsPrepared)} (approved in CRM: ${escapeHtml(exp002.recipientsApproved)}, sent: ${escapeHtml(exp002.emailsSent)})</div>
           </div>
         </td></tr>
       </table>
@@ -907,7 +1112,11 @@ export function composeGrowthEmailBody({
         return { label: parts[0], value: parts.slice(1).join(': ') || l, left: String(l).length > 48 };
       }))}
       <h2 style="${H2}">Next Actions</h2>
+      <div style="margin:0 0 12px;padding:12px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:15px;line-height:1.5;">
+        <b>Primary Acquisition Action:</b> ${escapeHtml(sb.nextAction)}
+      </div>
       <ol style="margin:0 0 18px;padding-left:22px;font-size:15px;line-height:1.55;">
+        <li style="margin:0 0 8px;">EXP-002: Review the 5 prepared Atlanta TRAIN partner outreach drafts in Admin CRM when ready to distribute. <span style="color:#64748b;">(acquisition opportunity)</span></li>
         <li style="margin:0 0 8px;">If Metro CRM is unavailable, configure GROWTH_METRO_READ_TOKEN. <span style="color:#64748b;">(needs Max)</span></li>
         <li style="margin:0 0 8px;">If Facebook/Instagram Published=NO: store Meta credentials in /gettrainmate/growth/* and retry publish-owned-social.mjs. <span style="color:#64748b;">(automatic)</span></li>
         <li style="margin:0 0 8px;">Partner email stays paused until a verified public recipient is approved. Never invent inboxes. <span style="color:#64748b;">(needs Max)</span></li>
