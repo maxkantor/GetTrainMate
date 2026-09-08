@@ -38,21 +38,63 @@ export const DEFAULT_NEGATIVE_PROMPT = [
   'corporate clipart',
   'blurry faces',
   'deformed limbs',
-  'uncanny valley'
+  'uncanny valley',
+  // Strict non-work exclusions:
+  'laptops',
+  'computer screens',
+  'office desks',
+  'office meetings',
+  'coworking space',
+  'business meetings',
+  'conference rooms',
+  'people working on laptops',
+  'people studying with textbooks',
+  'corporate networking',
+  'business suits'
 ].join(', ');
 
 export function buildPhotographyPrompt(concept) {
+  const mode = String(concept?.mode || 'TRAIN').toUpperCase();
   const activity =
-    concept.photoPrompt ||
-    concept.visualConcept ||
-    'training together in a premium modern gym with natural chemistry';
+    concept?.photoPrompt ||
+    concept?.visualConcept ||
+    (mode === 'VIBE'
+      ? 'friends enjoying drinks at a rooftop bar at sunset, candid laughing'
+      : mode === 'DATE'
+        ? 'attractive adult couple having coffee at a chic cafe, playful romantic chemistry'
+        : 'workout partners training together in a modern gym, motivating each other');
+
+  if (mode === 'VIBE') {
+    return (
+      'Premium photorealistic commercial lifestyle photography of attractive adult friends in their late 20s to 30s enjoying a social activity together: ' +
+      `${activity}. ` +
+      'All people are adults. Stylish casual weekend attire, genuine laughter, warm authentic friendship, candid interaction. ' +
+      'Cinematic lighting, dynamic composition, shallow depth of field, sophisticated modern urban environment, ' +
+      'high-end social lifestyle photography, aspirational friendship and community campaign. ' +
+      'People occupy most of the frame as the hero subjects. Completely free of laptops, office gear, desks, or working environments. ' +
+      'Leave natural negative space at the bottom for a short advertising headline overlay. No text, no logo, no watermark.'
+    );
+  }
+
+  if (mode === 'DATE') {
+    return (
+      'Premium photorealistic commercial lifestyle photography of an attractive adult man and woman in their late 20s to 30s on a date: ' +
+      `${activity}. ` +
+      'Natural romantic chemistry, mutual eye contact, playful flirty smiles, intimate connection. ' +
+      'Stylish modern date attire, cinematic lighting, sophisticated evening or golden hour ambiance, shallow depth of field, ' +
+      'high-end dating app lifestyle campaign, realistic skin texture and anatomy. ' +
+      'The couple occupies most of the frame as the hero subjects. Leave natural negative space at the bottom for a short advertising headline overlay. ' +
+      'No text, no logo, no watermark.'
+    );
+  }
+
+  // TRAIN mode
   return (
-    'Premium photorealistic commercial lifestyle photography of an athletic adult woman and an athletic adult man ' +
+    'Premium photorealistic commercial sports and lifestyle photography of athletic adults training together: ' +
     `${activity}. ` +
-    'Both are clearly adults approximately 25–45 years old with natural athletic physiques and stylish modern premium fitness clothing. ' +
-    'Natural chemistry between them, confident expressions, playful authentic interaction, realistic skin texture, realistic anatomy, ' +
-    'professional sports photography, cinematic lighting, dynamic composition, shallow depth of field, sophisticated modern environment, ' +
-    'aspirational fitness lifestyle campaign, high-end social app advertising photography. ' +
+    'Both are clearly adults approximately 25–45 years old with natural athletic physiques and stylish modern premium fitness sportswear. ' +
+    'Active partnership, motivating and encouraging each other, confident expressions, realistic skin texture, realistic anatomy, ' +
+    'professional sports photography, cinematic lighting, dynamic action composition, shallow depth of field, sophisticated modern fitness environment. ' +
     'People occupy most of the frame as the hero subjects. Leave natural negative space at the bottom for a short advertising headline overlay. ' +
     'No text, no logo, no watermark.'
   );

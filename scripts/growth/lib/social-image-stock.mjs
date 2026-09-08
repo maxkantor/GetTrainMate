@@ -1,8 +1,14 @@
 /**
  * Free stock photography for owned social — curated Unsplash URLs, no Bedrock cost.
+ * Guaranteed semantic matching to mode and post activity.
+ * Guaranteed zero laptops/office/coworking for VIBE mode.
  */
 import { assessPhotoQuality } from './social-image-bedrock.mjs';
-import { stockPhotosForMode, unsplashCropUrl } from './social-image-stock-library.mjs';
+import {
+  PROHIBITED_VIBE_KEYWORDS,
+  stockPhotosForMode,
+  unsplashCropUrl
+} from './social-image-stock-library.mjs';
 
 function hashSeed(input) {
   let h = 2166136261;
@@ -20,19 +26,38 @@ export function selectStockPhoto({
   activity = '',
   recentEntries = []
 } = {}) {
-  let pool = stockPhotosForMode(mode);
-  const act = String(activity || '').toLowerCase();
+  const m = String(mode || 'TRAIN').toUpperCase();
+  let pool = stockPhotosForMode(m);
+  const act = String(activity || '').toLowerCase().trim();
+
   if (act) {
-    const matched = pool.filter((p) => (p.activities || []).includes(act));
-    if (matched.length) pool = matched;
+    const actTokens = act.split(/[\s,/_]+/).filter(Boolean);
+    const matched = pool.filter((p) => {
+      const pActs = (p.activities || []).map((a) => a.toLowerCase());
+      const sceneLower = (p.scene || '').toLowerCase();
+      return actTokens.some((token) => pActs.includes(token) || sceneLower.includes(token));
+    });
+    if (matched.length) {
+      pool = matched;
+    }
   }
+
+  // Hard safety: filter out any prohibited keywords for VIBE
+  if (m === 'VIBE') {
+    pool = pool.filter((p) => {
+      const text = `${p.scene || ''} ${(p.activities || []).join(' ')}`.toLowerCase();
+      return !PROHIBITED_VIBE_KEYWORDS.some((bad) => text.includes(bad));
+    });
+  }
+
   const usedIds = new Set(
     (recentEntries || []).map((e) => e.stockPhotoId || '').filter(Boolean)
   );
-  const seed = hashSeed(`${isoDate}:${contentId}:${mode}`);
+  const seed = hashSeed(`${isoDate}:${contentId}:${m}:${act}`);
   const sorted = [...pool].sort((a, b) => a.id.localeCompare(b.id));
   const fresh = sorted.filter((p) => !usedIds.has(p.id));
   const candidates = fresh.length ? fresh : sorted;
+
   for (let offset = 0; offset < candidates.length; offset++) {
     const photo = candidates[(seed + offset * 17) % candidates.length];
     const visualUsed = (recentEntries || []).some(
@@ -73,12 +98,13 @@ export async function generateStockPhoto(
   { isoDate, activity, recentEntries = [], sharpImpl, maxAttempts = 3, fetchImpl } = {}
 ) {
   let lastError = 'unknown';
+  const resolvedActivity = activity || concept?.semanticActivity || '';
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const photo = selectStockPhoto({
       mode: concept.mode,
       contentId: `${concept.contentId}:${attempt}`,
       isoDate: `${isoDate}:${attempt}`,
-      activity,
+      activity: resolvedActivity,
       recentEntries
     });
     const fetched = await fetchStockPhotoBuffer(photo, { fetchImpl });

@@ -1,6 +1,12 @@
 /**
  * TRAIN / VIBE / DATE scene labels for stock photo selection and overlay copy.
  * Headlines / CTAs come from locale-aware conversion copy (social-copy-variants).
+ *
+ * All scenes represent genuine lifestyle activities:
+ * - TRAIN: gym partners, running together, pickleball, tennis, cycling, functional fitness, outdoor workouts.
+ * - VIBE: friends at rooftop bar, social coffee meetup, patio restaurant dining, hiking group, festivals, city exploring.
+ *   STRICTLY EXCLUDED FOR VIBE: laptops, office meetings, coworking, business meetings, conference rooms, people working/studying.
+ * - DATE: attractive adult couple having drinks, coffee date, romantic walk, restaurant date, casual outdoor date, playful/flirty chemistry.
  */
 import {
   ctaTextsFor,
@@ -8,33 +14,42 @@ import {
   selectCopyPackage
 } from './social-copy-variants.mjs';
 
+export const SCENES_BY_ACTIVITY = {
+  TRAIN: {
+    pickleball: 'pickleball partners playing an active doubles game on a vibrant blue court, dynamic athletic action',
+    tennis: 'tennis players moving dynamically on an outdoor court, holding rackets and balls, energetic athletic lifestyle',
+    running: 'athletic running partners running together outdoors along a scenic route at golden hour, authentic training chemistry',
+    cycling: 'road cyclists in athletic gear riding road bikes together along coastal highway, natural active partnership',
+    functional: 'functional fitness workout partners training together in a bright boutique gym, high energy',
+    strength: 'athlete deadlifting heavy barbell in modern gym with chalk and weights',
+    partner: 'training partners in modern gym reviewing workout goals together on a clipboard, motivating partnership',
+    workout: 'two workout partners training together in a modern gym, smiling and encouraging each other'
+  },
+  VIBE: {
+    hiking: 'friends hiking an alpine mountain trail with backpacks, admiring scenic mountain views together',
+    coffee: 'friends socializing at the counter of a trendy modern coffee shop with espresso cups, genuine smiles, no laptops',
+    drinks: 'friends clinking craft cocktails together in a moody evening bar, warm vibrant social nightlife',
+    dining: 'friends enjoying dinner and drinks at a stylish outdoor patio restaurant, laughing together in lively conversation',
+    festival: 'friends laughing and dancing together outdoors at golden hour music festival, energetic social atmosphere',
+    outdoors: 'group of friends standing on a scenic hilltop at sunset with arms around each other, outdoor adventure',
+    city: 'friends laughing and chatting casually while walking together down a lively city street on the weekend',
+    social: 'five friends sitting shoulder to shoulder on a ledge overlooking beautiful coastal scenery, warm authentic friendship'
+  },
+  DATE: {
+    coffee: 'attractive adult couple in intimate romantic conversation at upscale cafe with coffee cups',
+    drinks: 'couple clinking cocktails together on romantic evening date in an atmospheric cocktail lounge',
+    walk: 'couple holding hands walking together along a sunlit city avenue, smiling candidly at each other',
+    dinner: 'couple enjoying a romantic dinner date on a candlelit terrace, laughing affectionately across the table',
+    lifestyle: 'attractive man and woman laughing together outdoors in golden hour, natural athletic lifestyle chemistry',
+    chemistry: 'happy attractive couple laughing together in romantic embrace, touching noses, genuine connection',
+    romantic: 'romantic couple silhouette embrace at sunset with warm golden glow, intimate romantic atmosphere'
+  }
+};
+
 export const MODE_PHOTO_SCENES = {
-  TRAIN: [
-    'training together in a luxurious modern gym, smiling at each other between exercises, premium sportswear, cinematic gym lighting',
-    'athletic running partners on an urban trail at golden hour, natural chemistry, fitted running apparel',
-    'doing functional fitness together in a boutique gym, playful competitive energy, realistic post-workout glow',
-    'mixed-gender pickleball partners on a premium court, laughing between points, stylish athletic outfits',
-    'spotting each other during a bench press in a high-end gym, confident eye contact, authentic connection',
-    'doing HIIT together in a modern fitness studio, energetic atmosphere, dynamic action composition',
-    'stretching together after an intense workout, relaxed chemistry, premium gym environment',
-    'outdoor conditioning together in a city park, athletic wear, candid interaction'
-  ],
-  VIBE: [
-    'at a stylish rooftop bar at sunset, fit adults in casual premium athleisure, laughing together',
-    'sporty adults at a beach boardwalk, confident and photogenic, natural social chemistry',
-    'at an outdoor concert, fit couple enjoying music, evening city energy',
-    'coffee together after a workout, warm smiles, modern cafe, athletic casual style',
-    'walking through a vibrant international city, stylish fit adults, candid connection',
-    'at an outdoor festival, athletic group, energetic social atmosphere'
-  ],
-  DATE: [
-    'having coffee together in a chic cafe, warm romantic chemistry, fit adults, post-workout glow',
-    'walking together after a workout through a city street, holding smoothies, warm connection',
-    'rooftop date at dusk, athletic stylish couple, cinematic city backdrop',
-    'beach sunset walk, fit adults, natural romantic tension, tasteful and premium',
-    'playful pickleball date on a premium court, friendly competitive energy',
-    'post-workout smoothie date, laughing together, modern healthy lifestyle aesthetic'
-  ]
+  TRAIN: Object.values(SCENES_BY_ACTIVITY.TRAIN),
+  VIBE: Object.values(SCENES_BY_ACTIVITY.VIBE),
+  DATE: Object.values(SCENES_BY_ACTIVITY.DATE)
 };
 
 /** @deprecated Prefer headlineTextsFor(mode, language) — English-only fallback retained for imports. */
@@ -77,6 +92,78 @@ export function normalizeConceptKey(value) {
     .trim();
 }
 
+/**
+ * Determine the specific activity and intent of the post based on post body, headlines, and mode.
+ * Multi-lingual keyword matching for en, es, ru.
+ */
+export function determinePostActivity({ mode = 'TRAIN', copyPackage, catalogItem, overrides, text = '' } = {}) {
+  const m = String(mode || overrides?.mode || catalogItem?.mode || copyPackage?.mode || 'TRAIN').toUpperCase();
+  const corpus = [
+    text,
+    overrides?.activity,
+    catalogItem?.activity,
+    copyPackage?.copyVariant,
+    copyPackage?.headlineVariant,
+    copyPackage?.headline,
+    overrides?.imageHeadline,
+    copyPackage?.post?.hook,
+    copyPackage?.post?.benefit,
+    copyPackage?.post?.differentiator,
+    copyPackage?.post?.ctaLine,
+    catalogItem?.facebook,
+    catalogItem?.instagram
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (m === 'TRAIN') {
+    if (/pickleball|пиклбол/i.test(corpus)) return 'pickleball';
+    if (/tennis|tenis|теннис/i.test(corpus)) return 'tennis';
+    if (/cycling|cyclist|bike|ciclismo|bici|велосипед/i.test(corpus)) return 'cycling';
+    if (/running|runner|jogging|race|correr|бег|пробежк|старт/i.test(corpus)) return 'running';
+    if (/hyrox|crossfit|functional|hiit|conditioning/i.test(corpus)) return 'functional';
+    if (/weights|deadlift|barbell|strength|fuerza|силов|тяжел/i.test(corpus)) return 'strength';
+    if (/accountability|shows up|alone|motivation|partner|socio|compañero|solo|партнёр|в одиночку/i.test(corpus)) {
+      return 'partner';
+    }
+    return 'workout';
+  }
+
+  if (m === 'VIBE') {
+    if (/hike|hiking|trail|mountain|senderismo|montaña|поход|горы/i.test(corpus)) return 'hiking';
+    if (/coffee|cafe|café|espresso|кофе|кафе/i.test(corpus)) return 'coffee';
+    if (/rooftop|cocktail|cocktails|drinks|bar|nightlife|copas|terracitas|бар|коктейл|вечер/i.test(corpus)) return 'drinks';
+    if (/restaurant|dinner|dining|food|brunch|restaurante|comida|ресторан|еда|бранч/i.test(corpus)) return 'dining';
+    if (/concert|festival|live music|music|concierto|música|концерт|музык|фестивал/i.test(corpus)) return 'festival';
+    if (/nature|outdoors|park|beach|parque|playa|природ|парк|пляж/i.test(corpus)) return 'outdoors';
+    if (/city|spots|plans|weekend|activities|explore|ciudad|lugares|planes|actividades|город|мест|план|выходн/i.test(corpus)) return 'city';
+    return 'social';
+  }
+
+  if (m === 'DATE') {
+    if (/coffee|cafe|café|кофе|кафе/i.test(corpus)) return 'coffee';
+    if (/drinks|cocktail|cocktails|bar|rooftop|copas|бар|коктейл/i.test(corpus)) return 'drinks';
+    if (/walk|walking|stroll|caminar|paseo|прогулк/i.test(corpus)) return 'walk';
+    if (/dinner|restaurant|cena|restaurante|ужин/i.test(corpus)) return 'dinner';
+    if (/active|fitness|energy|adventure|lifestyle|estilo de vida|energía|активн|энерги/i.test(corpus)) return 'lifestyle';
+    if (/laugh|smile|playful|chemistry|swiping|química|deslizar|химия|свайп/i.test(corpus)) return 'chemistry';
+    return 'romantic';
+  }
+
+  return 'workout';
+}
+
+export function sceneForActivity(mode, activity, seed = 0) {
+  const m = String(mode || 'TRAIN').toUpperCase();
+  const byAct = SCENES_BY_ACTIVITY[m];
+  if (byAct && byAct[activity]) {
+    return byAct[activity];
+  }
+  const allScenes = MODE_PHOTO_SCENES[m] || MODE_PHOTO_SCENES.TRAIN;
+  return pickFrom(allScenes, seed);
+}
+
 export function isDuplicateConcept(concept, recentEntries = []) {
   const headline = normalizeConceptKey(concept.imageHeadline);
   const visual = normalizeConceptKey(concept.visualConcept || concept.photoPrompt);
@@ -98,6 +185,7 @@ export function isDuplicateConcept(concept, recentEntries = []) {
 
 /**
  * Build image concept with photography-first metadata.
+ * Determines the semantic activity from the actual post so the visual concept matches.
  * Supports explicit overrides (preview / manual).
  * Image text language always matches catalog/campaign locale.
  */
@@ -106,7 +194,6 @@ export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [
   const language = String(overrides.language || catalogItem?.language || 'en').toLowerCase().slice(0, 2);
   const seedBase = `${isoDate}:${catalogItem?.contentId || 'preview'}:${mode}:${language}:${recentEntries.length}`;
   const seed = hashSeed(seedBase);
-  const scenes = MODE_PHOTO_SCENES[mode] || MODE_PHOTO_SCENES.TRAIN;
 
   const copyPackage =
     overrides.copyPackage ||
@@ -119,6 +206,13 @@ export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [
       recentEntries
     });
 
+  const semanticActivity = determinePostActivity({
+    mode,
+    copyPackage,
+    catalogItem,
+    overrides
+  });
+
   let attempt = 0;
   let concept = null;
   while (attempt < 12) {
@@ -128,11 +222,18 @@ export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [
     const ctaVariants = catalogItem?.imageCtas || ctaTextsFor(mode, language) || [MODE_CTA_DEFAULTS[mode]];
     const headlineFromCopy = attempt === 0 ? copyPackage.headline : '';
     const ctaFromCopy = attempt === 0 ? copyPackage.cta : '';
+    const matchedScene =
+      overrides.photoPrompt ||
+      overrides.visualConcept ||
+      catalogItem?.visualConcept ||
+      sceneForActivity(mode, semanticActivity, attemptSeed);
+
     concept = {
       mode,
       contentId: catalogItem?.contentId || 'preview',
       language,
       locale: language,
+      semanticActivity,
       imageHeadline:
         overrides.imageHeadline ||
         catalogItem?.imageHeadline ||
@@ -150,15 +251,8 @@ export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [
         pickFrom(ctaVariants, attemptSeed + 11) ||
         MODE_CTA_DEFAULTS[mode] ||
         'FIND YOUR MATCH',
-      photoPrompt:
-        overrides.photoPrompt ||
-        overrides.visualConcept ||
-        catalogItem?.visualConcept ||
-        pickFrom(scenes, attemptSeed + 17),
-      visualConcept:
-        overrides.visualConcept ||
-        catalogItem?.visualConcept ||
-        pickFrom(scenes, attemptSeed + 17),
+      photoPrompt: matchedScene,
+      visualConcept: matchedScene,
       destinationUrl: 'https://gettrainmate.com',
       backgroundSeed: attemptSeed,
       headlineVariant: attempt === 0 ? copyPackage.headlineVariant : '',

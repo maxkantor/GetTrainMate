@@ -62,7 +62,7 @@ export async function generateSocialImage({
 
   const photo = await generatePhotoBuffer(concept, {
     isoDate,
-    activity: catalogItem?.activity,
+    activity: concept.semanticActivity || catalogItem?.activity,
     recentEntries: recentImageEntries,
     sharpImpl
   });

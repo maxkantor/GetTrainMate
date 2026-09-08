@@ -2,10 +2,12 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildImageConcept,
+  determinePostActivity,
   isDuplicateConcept,
   normalizeConceptKey,
   wrapHeadlineLines
 } from '../lib/social-image-concept.mjs';
+import { DEFAULT_NEGATIVE_PROMPT, buildPhotographyPrompt } from '../lib/social-image-bedrock.mjs';
 import { buildSocialImageKey, publicUrlForKey } from '../lib/social-image-storage.mjs';
 import { buildBackgroundSvg } from '../lib/social-image-composer.mjs';
 import { buildMinimalOverlaySvg } from '../lib/social-image-photo-compose.mjs';
@@ -14,6 +16,8 @@ import { findCatalogItemByContentId, selectCatalogItem, CATALOG } from '../lib/o
 import { publishFacebookPagePhoto } from '../lib/meta-graph.mjs';
 import { selectStockPhoto } from '../lib/social-image-stock.mjs';
 import {
+  PROHIBITED_VIBE_KEYWORDS,
+  STOCK_PHOTOS,
   allStockPhotos,
   unsplashCropUrl,
   validateStockPhotoEntry
@@ -210,5 +214,107 @@ describe('headline quality', () => {
     const item = findCatalogItemByContentId('train-en-workout-partner');
     const concept = buildImageConcept(item, { isoDate: '20260902', recentEntries: [] });
     assert.doesNotMatch(normalizeConceptKey(concept.imageHeadline), /30k|members|reviews/);
+  });
+});
+
+describe('semantic activity matching', () => {
+  it('extracts precise activity from post text for TRAIN', () => {
+    assert.equal(determinePostActivity({ mode: 'TRAIN', text: 'Looking for a pickleball partner for weekend games' }), 'pickleball');
+    assert.equal(determinePostActivity({ mode: 'TRAIN', text: 'Find someone to hit tennis balls with this Tuesday' }), 'tennis');
+    assert.equal(determinePostActivity({ mode: 'TRAIN', text: 'Outdoor running group for 5k and 10k prep' }), 'running');
+    assert.equal(determinePostActivity({ mode: 'TRAIN', text: 'Long cycling rides on Saturday mornings' }), 'cycling');
+    assert.equal(determinePostActivity({ mode: 'TRAIN', text: 'HYROX and functional fitness workout partner' }), 'functional');
+    assert.equal(determinePostActivity({ mode: 'TRAIN', text: 'Someone who shows up so you never train alone' }), 'partner');
+  });
+
+  it('extracts precise activity from post text for VIBE', () => {
+    assert.equal(determinePostActivity({ mode: 'VIBE', text: 'Anyone want to hike this mountain trail on Saturday?' }), 'hiking');
+    assert.equal(determinePostActivity({ mode: 'VIBE', text: 'Let us grab social coffee and check out new local spots' }), 'coffee');
+    assert.equal(determinePostActivity({ mode: 'VIBE', text: 'Rooftop cocktails and drinks with good people' }), 'drinks');
+    assert.equal(determinePostActivity({ mode: 'VIBE', text: 'Casual patio restaurant dinner with a small group' }), 'dining');
+    assert.equal(determinePostActivity({ mode: 'VIBE', text: 'Live music concert and local street festival this weekend' }), 'festival');
+    assert.equal(determinePostActivity({ mode: 'VIBE', text: 'Exploring city spots and fun weekend plans' }), 'city');
+  });
+
+  it('extracts precise activity from post text for DATE', () => {
+    assert.equal(determinePostActivity({ mode: 'DATE', text: 'A relaxed coffee date where conversation actually flows' }), 'coffee');
+    assert.equal(determinePostActivity({ mode: 'DATE', text: 'Evening drinks at a speakeasy or rooftop bar' }), 'drinks');
+    assert.equal(determinePostActivity({ mode: 'DATE', text: 'Romantic walk through the city holding hands' }), 'walk');
+    assert.equal(determinePostActivity({ mode: 'DATE', text: 'Dinner date at a cozy neighborhood restaurant' }), 'dinner');
+    assert.equal(determinePostActivity({ mode: 'DATE', text: 'Meet someone with active lifestyle and real chemistry' }), 'lifestyle');
+  });
+
+  it('selects stock photos matching semantic activity', () => {
+    const picklePhoto = selectStockPhoto({ mode: 'TRAIN', activity: 'pickleball' });
+    assert.ok(picklePhoto.activities.includes('pickleball'));
+    assert.match(picklePhoto.scene, /pickleball/i);
+
+    const hikePhoto = selectStockPhoto({ mode: 'VIBE', activity: 'hiking' });
+    assert.ok(hikePhoto.activities.includes('hiking'));
+    assert.match(hikePhoto.scene, /hiking/i);
+
+    const coffeePhoto = selectStockPhoto({ mode: 'VIBE', activity: 'coffee' });
+    assert.ok(coffeePhoto.activities.includes('coffee'));
+    assert.match(coffeePhoto.scene, /coffee/i);
+
+    const diningPhoto = selectStockPhoto({ mode: 'VIBE', activity: 'dining' });
+    assert.ok(diningPhoto.activities.includes('dining') || diningPhoto.activities.includes('restaurant'));
+
+    const dateCoffee = selectStockPhoto({ mode: 'DATE', activity: 'coffee' });
+    assert.ok(dateCoffee.activities.includes('coffee'));
+    assert.match(dateCoffee.scene, /couple|cafe|coffee/i);
+
+    const dateWalk = selectStockPhoto({ mode: 'DATE', activity: 'walk' });
+    assert.ok(dateWalk.activities.includes('walk'));
+  });
+
+  it('strictly enforces no laptops/offices in VIBE stock photos', () => {
+    for (const photo of STOCK_PHOTOS.VIBE) {
+      const text = `${photo.scene} ${photo.activities.join(' ')}`.toLowerCase();
+      for (const forbidden of PROHIBITED_VIBE_KEYWORDS) {
+        assert.equal(
+          text.includes(forbidden),
+          false,
+          `VIBE photo ${photo.id} contains prohibited keyword: "${forbidden}" in "${text}"`
+        );
+      }
+    }
+  });
+
+  it('includes strict office exclusions in Bedrock prompt and negative prompt', () => {
+    for (const word of ['laptops', 'computer screens', 'office desks', 'coworking space', 'business meetings']) {
+      assert.ok(
+        DEFAULT_NEGATIVE_PROMPT.includes(word),
+        `DEFAULT_NEGATIVE_PROMPT missing "${word}"`
+      );
+    }
+
+    const vibePrompt = buildPhotographyPrompt({ mode: 'VIBE', photoPrompt: 'friends having coffee at a cafe' });
+    assert.match(vibePrompt, /social activity/i);
+    assert.match(vibePrompt, /completely free of laptops/i);
+
+    const datePrompt = buildPhotographyPrompt({ mode: 'DATE', photoPrompt: 'couple enjoying drinks' });
+    assert.match(datePrompt, /romantic chemistry/i);
+
+    const trainPrompt = buildPhotographyPrompt({ mode: 'TRAIN', photoPrompt: 'gym partners workout' });
+    assert.match(trainPrompt, /sports and lifestyle photography/i);
+  });
+
+  it('guarantees mode consistency: TRAIN post -> TRAIN imagery/CTA, VIBE post -> VIBE, DATE post -> DATE', () => {
+    const trainItem = findCatalogItemByContentId('train-en-workout-partner');
+    const trainConcept = buildImageConcept(trainItem, { isoDate: '20260908' });
+    assert.equal(trainConcept.mode, 'TRAIN');
+    assert.match(trainConcept.cta, /PARTNER|TRAIN|START|WORKOUT|FIND/i);
+
+    const vibeItem = findCatalogItemByContentId('vibe-en-new-in-town');
+    const vibeConcept = buildImageConcept(vibeItem, { isoDate: '20260908' });
+    assert.equal(vibeConcept.mode, 'VIBE');
+    assert.match(vibeConcept.cta, /VIBE|EXPLORE|MEET|FRIENDS|PEOPLE|DISCOVER/i);
+    assert.doesNotMatch(vibeConcept.photoPrompt.toLowerCase(), /laptop|office|coworking|study|working/);
+
+    const dateItem = findCatalogItemByContentId('date-en-active-singles');
+    const dateConcept = buildImageConcept(dateItem, { isoDate: '20260908' });
+    assert.equal(dateConcept.mode, 'DATE');
+    assert.match(dateConcept.cta, /DATE|MATCH|FIND|MEET|CONNECT/i);
   });
 });
