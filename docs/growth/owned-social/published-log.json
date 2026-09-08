@@ -404,6 +404,34 @@
       "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/07/train-es-socio-entrenamiento-20260907-93e95c.jpg",
       "imageProvider": "unsplash_stock",
       "imageFallback": false
+    },
+    {
+      "publishedAtUtc": "2026-09-08T14:00:23.037Z",
+      "contentId": "vibe-en-new-in-town",
+      "mode": "VIBE",
+      "language": "en",
+      "locale": "en",
+      "campaign": "owned-vibe-en-2026-09-08",
+      "copy_variant": "vibe-post-local-activities",
+      "headline_variant": "vibe-hl-do-more",
+      "cta_variant": "vibe-cta-explore",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122131577156773778",
+      "instagramPostId": "18088831331669142",
+      "igCreationId": "18106624802150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "imageHeadline": "DO MORE WITH PEOPLE WHO GET YOU.",
+      "visualConcept": "group of friends connecting at table",
+      "photoPrompt": "coffee together after a workout, warm smiles, modern cafe, athletic casual style",
+      "imageCta": "EXPLORE VIBE",
+      "imageSeed": 1397877478,
+      "stockPhotoId": "vibe-team-collab-5",
+      "imageKey": "social/generated/2026/09/08/vibe-en-new-in-town-20260908-4620e1.jpg",
+      "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/08/vibe-en-new-in-town-20260908-4620e1.jpg",
+      "imageProvider": "unsplash_stock",
+      "imageFallback": false
     }
   ]
 }
