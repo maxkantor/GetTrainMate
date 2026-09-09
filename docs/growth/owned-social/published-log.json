@@ -432,6 +432,34 @@
       "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/08/vibe-en-new-in-town-20260908-4620e1.jpg",
       "imageProvider": "unsplash_stock",
       "imageFallback": false
+    },
+    {
+      "publishedAtUtc": "2026-09-09T14:00:21.982Z",
+      "contentId": "date-es-citas-actividad",
+      "mode": "DATE",
+      "language": "es",
+      "locale": "es",
+      "campaign": "owned-date-es-2026-09-09",
+      "copy_variant": "date-post-swiping",
+      "headline_variant": "date-hl-meet-active",
+      "cta_variant": "date-cta-meet",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122131767422773778",
+      "instagramPostId": "18102762242361610",
+      "igCreationId": "18106755878150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "imageHeadline": "CONOCE SOLTEROS ACTIVOS CERCA DE TI.",
+      "visualConcept": "attractive man and woman laughing together outdoors in golden hour",
+      "photoPrompt": "attractive man and woman laughing together outdoors in golden hour, natural athletic lifestyle chemistry",
+      "imageCta": "CONOCE A ALGUIEN",
+      "imageSeed": 752208065,
+      "stockPhotoId": "date-couple-daytime-laughter",
+      "imageKey": "social/generated/2026/09/09/date-es-citas-actividad-20260909-1ee1fe.jpg",
+      "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/09/date-es-citas-actividad-20260909-1ee1fe.jpg",
+      "imageProvider": "unsplash_stock",
+      "imageFallback": false
     }
   ]
 }
