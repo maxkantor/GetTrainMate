@@ -208,11 +208,20 @@ export async function assessPhotoQuality(buffer, sharpImpl) {
   const channels = stats.channels || [];
   const avgStdev =
     channels.reduce((sum, c) => sum + (c.stdev || 0), 0) / Math.max(channels.length, 1);
+  const avgMean =
+    channels.reduce((sum, c) => sum + (c.mean || 0), 0) / Math.max(channels.length, 1);
   // Flat gradients / empty cards have very low channel variance
   if (avgStdev < 18) {
-    return { ok: false, reason: 'flat_or_empty_background', avgStdev };
+    return { ok: false, reason: 'flat_or_empty_background', avgStdev, avgMean };
   }
-  return { ok: true, bytes: buffer.length, avgStdev, meta };
+  // Reject washed-out / overexposed lifestyle shots (white blowout, weak contrast)
+  if (avgMean > 185) {
+    return { ok: false, reason: 'overexposed_washed_out', avgStdev, avgMean };
+  }
+  if (avgMean < 28) {
+    return { ok: false, reason: 'underexposed', avgStdev, avgMean };
+  }
+  return { ok: true, bytes: buffer.length, avgStdev, avgMean, meta };
 }
 
 export async function generateBedrockPhoto(concept, { seed, sharpImpl, maxAttempts = 2 } = {}) {

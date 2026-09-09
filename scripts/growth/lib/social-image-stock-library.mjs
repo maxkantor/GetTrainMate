@@ -151,46 +151,40 @@ export const STOCK_PHOTOS = {
   ],
   DATE: [
     {
-      id: 'date-couple-romantic-cafe',
-      unsplashId: 'photo-1755810922274-7cd40d0fc8df',
-      scene: 'attractive adult couple in intimate romantic conversation at upscale cafe with coffee',
-      activities: ['dating', 'coffee', 'cafe', 'romantic', 'intimate']
+      id: 'date-couple-candid-outdoors',
+      unsplashId: 'photo-1663579167845-c73285e3805b',
+      scene: 'candid adult couple smiling closely together outdoors in outdoor jackets',
+      activities: ['dating', 'outdoor', 'chemistry', 'lifestyle', 'romantic', 'active']
     },
     {
       id: 'date-couple-laughing-close',
       unsplashId: 'photo-1746813629190-80f67d5050fa',
-      scene: 'happy attractive couple laughing together in romantic embrace',
-      activities: ['dating', 'romantic', 'chemistry', 'laughter', 'playful']
-    },
-    {
-      id: 'date-couple-daytime-laughter',
-      unsplashId: 'photo-1466979939565-131c4b39a51b',
-      scene: 'attractive man and woman laughing together outdoors in golden hour',
-      activities: ['dating', 'outdoor', 'chemistry', 'lifestyle', 'romantic']
+      scene: 'happy attractive couple laughing together in romantic close embrace',
+      activities: ['dating', 'romantic', 'chemistry', 'laughter']
     },
     {
       id: 'date-couple-walking-holding-hands',
       unsplashId: 'photo-1473867832923-830c92cece07',
       scene: 'couple holding hands walking together on romantic outdoor stroll',
-      activities: ['dating', 'walk', 'outdoor', 'romantic']
+      activities: ['dating', 'walk', 'outdoor', 'romantic', 'lifestyle', 'active']
     },
     {
-      id: 'date-couple-smiling-outdoors',
-      unsplashId: 'photo-1663579167845-c73285e3805b',
-      scene: 'candid couple smiling closely together outdoors during shared activity',
-      activities: ['dating', 'outdoor', 'chemistry', 'lifestyle']
-    },
-    {
-      id: 'date-couple-sunset-embrace',
-      unsplashId: 'photo-1494774157365-9e04c6720e47',
-      scene: 'romantic couple silhouette embrace at sunset with warm golden glow',
-      activities: ['dating', 'romantic', 'sunset', 'evening', 'drinks']
+      id: 'date-couple-cafe-social',
+      unsplashId: 'photo-1525610553991-2bede1a236e2',
+      scene: 'adults socializing at modern coffee shop counter with barista and espresso cups',
+      activities: ['dating', 'coffee', 'cafe', 'romantic', 'intimate']
     },
     {
       id: 'date-cocktails-cheers-date',
       unsplashId: 'photo-1617524455617-ce1e266aa810',
-      scene: 'cocktails cheering on romantic evening date in atmospheric bar',
+      scene: 'craft cocktails cheering on romantic evening date in atmospheric bar',
       activities: ['dating', 'drinks', 'cocktails', 'nightlife', 'bar', 'evening']
+    },
+    {
+      id: 'date-wine-celebration-toast',
+      unsplashId: 'photo-1519671482749-fd09be7ccebf',
+      scene: 'warm evening toast with wine glasses in romantic celebration atmosphere',
+      activities: ['dating', 'drinks', 'celebration', 'evening', 'romantic']
     }
   ]
 };

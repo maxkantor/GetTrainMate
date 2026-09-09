@@ -43,28 +43,37 @@ export function buildMinimalOverlaySvg({ width, height, concept }) {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
+    <linearGradient id="topFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </linearGradient>
     <linearGradient id="bottomFade" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#000000" stop-opacity="0"/>
-      <stop offset="45%" stop-color="#000000" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#000000" stop-opacity="0.82"/>
+      <stop offset="40%" stop-color="#000000" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.88"/>
     </linearGradient>
   </defs>
-  <rect x="0" y="${height * 0.55}" width="${width}" height="${height * 0.45}" fill="url(#bottomFade)"/>
+  <rect x="0" y="0" width="${width}" height="${Math.round(height * 0.22)}" fill="url(#topFade)"/>
+  <rect x="0" y="${height * 0.52}" width="${width}" height="${height * 0.48}" fill="url(#bottomFade)"/>
   <text x="56" y="88" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" letter-spacing="1">${brand}</text>
-  <rect x="56" y="108" rx="14" ry="14" width="120" height="40" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.55)" stroke-width="1.5"/>
+  <rect x="56" y="108" rx="14" ry="14" width="120" height="40" fill="rgba(0,0,0,0.45)" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>
   <text x="74" y="136" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="2">${mode}</text>
   <text x="56" y="${height - 220}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="700">${line1}</text>
   ${line2 ? `<text x="56" y="${height - 150}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="700">${line2}</text>` : ''}
   <rect x="56" y="${height - 110}" rx="22" ry="22" width="360" height="64" fill="#7C5CFF"/>
   <text x="86" y="${height - 68}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" letter-spacing="1">${cta}</text>
-  <text x="56" y="${height - 28}" fill="rgba(255,255,255,0.75)" font-family="Arial, Helvetica, sans-serif" font-size="22" letter-spacing="0.5">${url}</text>
+  <text x="56" y="${height - 28}" fill="rgba(255,255,255,0.85)" font-family="Arial, Helvetica, sans-serif" font-size="22" letter-spacing="0.5">${url}</text>
 </svg>`;
 }
 
 export async function composeSocialImageFromPhoto(photoBuffer, concept, { width = SOCIAL_IMAGE_WIDTH, height = SOCIAL_IMAGE_HEIGHT, sharpImpl } = {}) {
   const sharp = sharpImpl || (await import('sharp')).default;
 
-  let photo = sharp(photoBuffer).rotate().resize(width, height, { fit: 'cover', position: 'centre' });
+  let photo = sharp(photoBuffer)
+    .rotate()
+    .resize(width, height, { fit: 'cover', position: 'centre' })
+    .modulate({ brightness: 1.0, saturation: 1.05 })
+    .linear(1.04, -4);
 
   let logoComposite = null;
   if (fs.existsSync(LOGO_SVG)) {

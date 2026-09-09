@@ -32,13 +32,35 @@ export function selectStockPhoto({
 
   if (act) {
     const actTokens = act.split(/[\s,/_]+/).filter(Boolean);
-    const matched = pool.filter((p) => {
-      const pActs = (p.activities || []).map((a) => a.toLowerCase());
-      const sceneLower = (p.scene || '').toLowerCase();
-      return actTokens.some((token) => pActs.includes(token) || sceneLower.includes(token));
-    });
-    if (matched.length) {
-      pool = matched;
+    // For DATE lifestyle / active singles, prefer energetic outdoor/playful couple shots
+    // over tight face-only portraits.
+    if (m === 'DATE' && (act === 'lifestyle' || actTokens.includes('active'))) {
+      const preferred = pool.filter((p) => {
+        const tags = (p.activities || []).map((a) => a.toLowerCase());
+        return tags.includes('lifestyle') || tags.includes('active') || tags.includes('playful');
+      });
+      const energetic = preferred.filter((p) => {
+        const tags = (p.activities || []).map((a) => a.toLowerCase());
+        const scene = (p.scene || '').toLowerCase();
+        const isOutdoorActive =
+          tags.includes('active') ||
+          tags.includes('outdoor') ||
+          /outdoor|park|walk|active|jacket|candid couple/.test(scene);
+        const isGroupNotCouple = /group of|friends|communal|brewery|patio restaurant/.test(scene);
+        const isTightFaceOnly = /close embrace|romantic close/.test(scene);
+        return isOutdoorActive && !isGroupNotCouple && !isTightFaceOnly;
+      });
+      if (energetic.length) pool = energetic;
+      else if (preferred.length) pool = preferred;
+    } else {
+      const matched = pool.filter((p) => {
+        const pActs = (p.activities || []).map((a) => a.toLowerCase());
+        const sceneLower = (p.scene || '').toLowerCase();
+        return actTokens.some((token) => pActs.includes(token) || sceneLower.includes(token));
+      });
+      if (matched.length) {
+        pool = matched;
+      }
     }
   }
 

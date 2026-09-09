@@ -36,13 +36,13 @@ export const SCENES_BY_ACTIVITY = {
     social: 'five friends sitting shoulder to shoulder on a ledge overlooking beautiful coastal scenery, warm authentic friendship'
   },
   DATE: {
-    coffee: 'attractive adult couple in intimate romantic conversation at upscale cafe with coffee cups',
-    drinks: 'couple clinking cocktails together on romantic evening date in an atmospheric cocktail lounge',
-    walk: 'couple holding hands walking together along a sunlit city avenue, smiling candidly at each other',
-    dinner: 'couple enjoying a romantic dinner date on a candlelit terrace, laughing affectionately across the table',
-    lifestyle: 'attractive man and woman laughing together outdoors in golden hour, natural athletic lifestyle chemistry',
-    chemistry: 'happy attractive couple laughing together in romantic embrace, touching noses, genuine connection',
-    romantic: 'romantic couple silhouette embrace at sunset with warm golden glow, intimate romantic atmosphere'
+    coffee: 'attractive adults on a coffee date at a modern cafe, warm conversation, no laptops',
+    drinks: 'couple clinking craft cocktails together on a romantic evening date in an atmospheric bar',
+    walk: 'couple holding hands walking together outdoors, candid smiles, natural romantic energy',
+    dinner: 'attractive adult couple on a romantic dinner date with drinks, intimate conversation',
+    lifestyle: 'candid attractive adult couple outdoors sharing a joyful moment, energetic outdoor chemistry, clearly a romantic pair',
+    chemistry: 'happy attractive couple laughing closely together with genuine playful romantic connection',
+    romantic: 'candid attractive adult couple smiling closely outdoors with warm intimate chemistry'
   }
 };
 
@@ -142,11 +142,14 @@ export function determinePostActivity({ mode = 'TRAIN', copyPackage, catalogItem
   }
 
   if (m === 'DATE') {
+    // Prefer active/lifestyle when "active singles" / solteros activos appears (even alongside swiping copy).
+    if (/active|activo|activos|activas|fitness|energy|adventure|lifestyle|estilo de vida|energía|активн|энерги|solteros activos|active singles/i.test(corpus)) {
+      return 'lifestyle';
+    }
     if (/coffee|cafe|café|кофе|кафе/i.test(corpus)) return 'coffee';
     if (/drinks|cocktail|cocktails|bar|rooftop|copas|бар|коктейл/i.test(corpus)) return 'drinks';
     if (/walk|walking|stroll|caminar|paseo|прогулк/i.test(corpus)) return 'walk';
     if (/dinner|restaurant|cena|restaurante|ужин/i.test(corpus)) return 'dinner';
-    if (/active|fitness|energy|adventure|lifestyle|estilo de vida|energía|активн|энерги/i.test(corpus)) return 'lifestyle';
     if (/laugh|smile|playful|chemistry|swiping|química|deslizar|химия|свайп/i.test(corpus)) return 'chemistry';
     return 'romantic';
   }

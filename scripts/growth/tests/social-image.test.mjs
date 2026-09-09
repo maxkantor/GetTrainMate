@@ -237,11 +237,12 @@ describe('semantic activity matching', () => {
   });
 
   it('extracts precise activity from post text for DATE', () => {
+    assert.equal(determinePostActivity({ mode: 'DATE', text: 'Meet someone with active lifestyle and real chemistry' }), 'lifestyle');
+    assert.equal(determinePostActivity({ mode: 'DATE', text: 'Conoce solteros activos cerca de ti. Cansado de deslizar sin parar?' }), 'lifestyle');
     assert.equal(determinePostActivity({ mode: 'DATE', text: 'A relaxed coffee date where conversation actually flows' }), 'coffee');
     assert.equal(determinePostActivity({ mode: 'DATE', text: 'Evening drinks at a speakeasy or rooftop bar' }), 'drinks');
     assert.equal(determinePostActivity({ mode: 'DATE', text: 'Romantic walk through the city holding hands' }), 'walk');
     assert.equal(determinePostActivity({ mode: 'DATE', text: 'Dinner date at a cozy neighborhood restaurant' }), 'dinner');
-    assert.equal(determinePostActivity({ mode: 'DATE', text: 'Meet someone with active lifestyle and real chemistry' }), 'lifestyle');
   });
 
   it('selects stock photos matching semantic activity', () => {
@@ -262,7 +263,15 @@ describe('semantic activity matching', () => {
 
     const dateCoffee = selectStockPhoto({ mode: 'DATE', activity: 'coffee' });
     assert.ok(dateCoffee.activities.includes('coffee'));
-    assert.match(dateCoffee.scene, /couple|cafe|coffee/i);
+    assert.match(dateCoffee.scene, /cafe|coffee|espresso/i);
+
+    const dateLifestyle = selectStockPhoto({ mode: 'DATE', activity: 'lifestyle' });
+    assert.ok(
+      dateLifestyle.activities.includes('lifestyle') ||
+        dateLifestyle.activities.includes('active') ||
+        dateLifestyle.activities.includes('outdoor')
+    );
+    assert.doesNotMatch(dateLifestyle.id, /daytime-laughter/);
 
     const dateWalk = selectStockPhoto({ mode: 'DATE', activity: 'walk' });
     assert.ok(dateWalk.activities.includes('walk'));
