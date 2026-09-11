@@ -460,6 +460,34 @@
       "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/09/date-es-citas-actividad-20260909-1ee1fe.jpg",
       "imageProvider": "unsplash_stock",
       "imageFallback": false
+    },
+    {
+      "publishedAtUtc": "2026-09-11T14:00:21.972Z",
+      "contentId": "vibe-ru-kompaniya-v-gorode",
+      "mode": "VIBE",
+      "language": "ru",
+      "locale": "ru",
+      "campaign": "owned-vibe-ru-2026-09-11",
+      "copy_variant": "vibe-post-shared-interests",
+      "headline_variant": "vibe-hl-kind-of-people",
+      "cta_variant": "vibe-cta-discover",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122132090864773778",
+      "instagramPostId": "17885770731618325",
+      "igCreationId": "18107073554150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "imageHeadline": "НАЙДИ СВОИХ ЛЮДЕЙ.",
+      "visualConcept": "friends hiking mountain trail toward scenic alpine peak",
+      "photoPrompt": "friends hiking an alpine mountain trail with backpacks, admiring scenic mountain views together",
+      "imageCta": "ОТКРЫТЬ ЛЮДЕЙ",
+      "imageSeed": 2002780746,
+      "stockPhotoId": "vibe-hiking-mountain-trail",
+      "imageKey": "social/generated/2026/09/11/vibe-ru-kompaniya-v-gorode-20260911-4657a7.jpg",
+      "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/11/vibe-ru-kompaniya-v-gorode-20260911-4657a7.jpg",
+      "imageProvider": "unsplash_stock",
+      "imageFallback": false
     }
   ]
 }
