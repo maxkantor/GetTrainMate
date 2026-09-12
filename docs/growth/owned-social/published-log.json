@@ -488,6 +488,48 @@
       "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/11/vibe-ru-kompaniya-v-gorode-20260911-4657a7.jpg",
       "imageProvider": "unsplash_stock",
       "imageFallback": false
+    },
+    {
+      "publishedAtUtc": "2026-09-12T14:00:29.003Z",
+      "contentId": "date-en-active-singles",
+      "mode": "DATE",
+      "language": "en",
+      "status": "failed",
+      "blocker": "s3_not_publicly_readable:http_not_ok",
+      "imageHeadline": "SHARED INTERESTS. REAL CONNECTIONS.",
+      "visualConcept": "candid adult couple smiling closely together outdoors in outdoor jackets",
+      "photoPrompt": "happy attractive couple laughing closely together with genuine playful romantic connection",
+      "imageCta": "DISCOVER PEOPLE",
+      "imageSeed": 2094181892,
+      "imageKey": "social/generated/2026/09/12/date-en-active-singles-20260912-12d6bd.jpg"
+    },
+    {
+      "publishedAtUtc": "2026-09-12T14:30:18.331Z",
+      "contentId": "date-en-active-singles",
+      "mode": "DATE",
+      "language": "en",
+      "locale": "en",
+      "campaign": "owned-date-en-2026-09-12",
+      "copy_variant": "date-post-beyond-profile",
+      "headline_variant": "date-hl-less-swiping",
+      "cta_variant": "date-cta-meet",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122132221550773778",
+      "instagramPostId": "18621356827051411",
+      "igCreationId": "18107222951150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "imageHeadline": "LESS SWIPING. MORE CONNECTION.",
+      "visualConcept": "happy attractive couple laughing together in romantic close embrace",
+      "photoPrompt": "happy attractive couple laughing closely together with genuine playful romantic connection",
+      "imageCta": "MEET SOMEONE",
+      "imageSeed": 2110959511,
+      "stockPhotoId": "date-couple-laughing-close",
+      "imageKey": "social/generated/2026/09/12/date-en-active-singles-20260912-a7749c.jpg",
+      "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/12/date-en-active-singles-20260912-a7749c.jpg",
+      "imageProvider": "unsplash_stock",
+      "imageFallback": false
     }
   ]
 }
