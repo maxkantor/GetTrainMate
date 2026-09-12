@@ -106,8 +106,6 @@ export const PartnerOutreachPage: React.FC = () => {
     setError(null); setNotice(null); setDiscovering(true); setDiscoverProgress(15);
     setDiscoverStage(onlyCampaignId ? 'Discovering organizations across this market…' : 'Discovering organizations across active markets…');
     try {
-      // IMPORTANT: this is intentionally full discovery. The old UI used seedsOnly=true and repeatedly rechecked
-      // the same small seed catalog, which is why runs often reported Created: 0.
       const res:DiscoveryReport = await adminApiService.post('/api/admin/partner-outreach/discover/automated', {
         prepareDrafts:true, maxPerMarket:40, seedsOnly:false, ...(onlyCampaignId ? { onlyCampaignId } : {})
       });
@@ -166,7 +164,7 @@ export const PartnerOutreachPage: React.FC = () => {
     <Typography variant="h6" sx={{fontWeight:700,mb:1}}>Markets</Typography>
     <Box sx={{display:'grid',gap:1,mb:3}}>
       {(campaigns.length?campaigns:INITIAL_MARKET_CANDIDATES).map(c=><Box key={c.campaignId} sx={{display:'flex',flexWrap:'wrap',gap:1,alignItems:'center',p:1.25,border:'1px solid',borderColor:'divider',borderRadius:1.5}}>
-        <Typography sx={{minWidth:220,fontWeight:700}}>{c.displayName||c.name||c.campaignId}</Typography>
+        <Typography sx={{minWidth:220,fontWeight:700}}>{c.displayName||c.campaignId}</Typography>
         <Chip size="small" label={c.status}/><Chip size="small" variant="outlined" label={`${c.country}/${c.market}`}/><Chip size="small" variant="outlined" label={c.primaryMode||'TRAIN'}/>
         <Box sx={{flex:1}}/><Button size="small" disabled={discovering} onClick={()=>void runAutomatedDiscovery(c.campaignId)}>Discover new partners</Button>
         {c.status!=='active'&&<Button size="small" onClick={()=>void setStatus(c.campaignId,'active')}>Activate</Button>}
