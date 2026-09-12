@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -16,624 +16,199 @@ import {
   Typography,
 } from '@mui/material';
 import { adminApiService } from '@/services/adminApiService';
-import {
-  INITIAL_MARKET_CANDIDATES,
-  MAX_ACTIVE_MARKETS,
-  partnerInvitePath,
-  slugPart,
-} from '@/data/markets';
-import { localPartnerSeeds } from '@/data/partnerSeedCatalog';
+import { INITIAL_MARKET_CANDIDATES, MAX_ACTIVE_MARKETS, partnerInvitePath, slugPart } from '@/data/markets';
 
 type Prospect = {
-  prospectId: string;
-  organizationName: string;
-  organizationType: string;
-  email: string;
-  emailSource: string;
-  metro: string;
-  city?: string;
-  country?: string;
-  campaignLanguage?: string;
-  mode?: string;
-  activity: string;
-  partnerCode?: string;
-  landingUrl?: string;
-  status: string;
-  website?: string;
-  sourceUrl?: string;
+  prospectId: string; organizationName: string; organizationType: string; email: string; emailSource: string;
+  metro: string; city?: string; country?: string; campaignLanguage?: string; mode?: string; activity: string;
+  partnerCode?: string; landingUrl?: string; status: string; website?: string; sourceUrl?: string; fitScore?: number;
 };
+type QueueItem = { queueId: string; organizationName: string; recipient: string; subject: string; bodyText: string; status: string; partnerUrl: string; };
+type Campaign = { campaignId: string; displayName?: string; name?: string; country: string; market: string; status: string; primaryMode?: string; languages?: string[]; };
+type DiscoveryReport = { organizationsDiscovered?: number; qualifiedOrganizations?: number; verifiedPublicContacts?: number; draftsGenerated?: number; approvalReadyRecipients?: number; contactsUnavailable?: number; skippedDuplicate?: number; markets?: Array<{ displayName?: string; organizationsDiscovered?: number; qualifiedOrganizations?: number; verifiedPublicContacts?: number; contactsUnavailable?: number; draftsGenerated?: number; skippedDuplicate?: number; errors?: number; }>; };
 
-type QueueItem = {
-  queueId: string;
-  organizationName: string;
-  recipient: string;
-  subject: string;
-  bodyText: string;
-  status: string;
-  partnerUrl: string;
+const TABS = ['prospect','discovered','no_verified_public_email','qualified_language_unavailable','draft','approved','queued','sent','replied','opted_out','bounced','complained'];
+const LABELS: Record<string,string> = {
+  prospect: 'Ready', discovered: 'Discovered', no_verified_public_email: 'No public email', qualified_language_unavailable: 'Language blocked',
+  draft: 'Needs approval', approved: 'Approved', queued: 'Queued', sent: 'Sent', replied: 'Replied', opted_out: 'Opted out', bounced: 'Bounced', complained: 'Complained'
 };
+const PROSPECT_STATUS_RANK: Record<string,number> = { replied: 80, sent: 70, queued: 60, approved: 50, draft: 40, prospect: 30, discovered: 20, no_verified_public_email: 10 };
+const QUEUE_STATUS_RANK: Record<string,number> = { replied: 80, sent: 70, queued: 60, approved: 50, draft: 40 };
 
-type Campaign = {
-  campaignId: string;
-  displayName?: string;
-  name?: string;
-  country: string;
-  market: string;
-  status: string;
-  primaryMode?: string;
-  languages?: string[];
-};
-
-const TABS = [
-  'prospect',
-  'discovered',
-  'no_verified_public_email',
-  'qualified_language_unavailable',
-  'draft',
-  'approved',
-  'queued',
-  'sent',
-  'replied',
-  'opted_out',
-  'bounced',
-  'complained',
-];
-
-type DiscoverySeed = {
-  partnerCode: string;
-  organizationName: string;
-  campaignId: string;
-};
-
-type DiscoveryReport = {
-  organizationsDiscovered?: number;
-  qualifiedOrganizations?: number;
-  verifiedPublicContacts?: number;
-  draftsGenerated?: number;
-  approvalReadyRecipients?: number;
-  contactsUnavailable?: number;
-  seedsOnly?: boolean;
-};
-
-const ATLANTA_CAMPAIGN_ID = 'us_atlanta_train_partners';
-
-function emptyDiscoveryTotals(): Required<DiscoveryReport> {
-  return {
-    organizationsDiscovered: 0,
-    qualifiedOrganizations: 0,
-    verifiedPublicContacts: 0,
-    draftsGenerated: 0,
-    approvalReadyRecipients: 0,
-    contactsUnavailable: 0,
-    seedsOnly: true,
-  };
-}
-
-function mergeDiscoveryTotals(totals: Required<DiscoveryReport>, res: DiscoveryReport) {
-  totals.organizationsDiscovered += res.organizationsDiscovered ?? 0;
-  totals.qualifiedOrganizations += res.qualifiedOrganizations ?? 0;
-  totals.verifiedPublicContacts += res.verifiedPublicContacts ?? 0;
-  totals.draftsGenerated += res.draftsGenerated ?? 0;
-  totals.approvalReadyRecipients += res.approvalReadyRecipients ?? 0;
-  totals.contactsUnavailable += res.contactsUnavailable ?? 0;
-}
-
-const PROSPECT_STATUS_RANK: Record<string, number> = {
-  approved: 60,
-  queued: 50,
-  sent: 45,
-  replied: 40,
-  draft: 30,
-  prospect: 20,
-  discovered: 10,
-};
-
-const QUEUE_STATUS_RANK: Record<string, number> = {
-  approved: 60,
-  queued: 50,
-  sent: 45,
-  replied: 40,
-  draft: 30,
-};
-
-function dedupeProspects(items: Prospect[]): Prospect[] {
-  const byKey = new Map<string, Prospect>();
+function dedupeProspects(items: Prospect[]) {
+  const map = new Map<string,Prospect>();
   for (const p of items) {
-    const key = (
-      p.email?.toLowerCase() ||
-      p.partnerCode?.toLowerCase() ||
-      p.organizationName?.toLowerCase() ||
-      p.prospectId
-    ).trim();
-    const prev = byKey.get(key);
-    const rank = (s: string) => PROSPECT_STATUS_RANK[s] ?? 0;
-    if (!prev || rank(p.status) > rank(prev.status)) byKey.set(key, p);
+    const key = (p.email?.toLowerCase() || p.partnerCode?.toLowerCase() || p.organizationName?.toLowerCase() || p.prospectId).trim();
+    const prev = map.get(key);
+    if (!prev || (PROSPECT_STATUS_RANK[p.status] ?? 0) > (PROSPECT_STATUS_RANK[prev.status] ?? 0)) map.set(key,p);
   }
-  return [...byKey.values()];
+  return [...map.values()];
 }
-
-function dedupeQueue(items: QueueItem[]): QueueItem[] {
-  const byKey = new Map<string, QueueItem>();
+function dedupeQueue(items: QueueItem[]) {
+  const map = new Map<string,QueueItem>();
   for (const q of items) {
     const key = (q.recipient?.toLowerCase() || q.organizationName?.toLowerCase() || q.queueId).trim();
-    const prev = byKey.get(key);
-    const rank = (s: string) => QUEUE_STATUS_RANK[s] ?? 0;
-    if (!prev || rank(q.status) > rank(prev.status)) byKey.set(key, q);
+    const prev = map.get(key);
+    if (!prev || (QUEUE_STATUS_RANK[q.status] ?? 0) > (QUEUE_STATUS_RANK[prev.status] ?? 0)) map.set(key,q);
   }
-  return [...byKey.values()];
+  return [...map.values()];
+}
+function MetricCard({ label, value, note, attention=false }: { label:string; value:unknown; note?:string; attention?:boolean }) {
+  return <Box sx={{ p:1.5, border:'1px solid', borderColor: attention ? 'warning.main' : 'divider', borderRadius:2, minWidth:145, flex:'1 1 145px' }}>
+    <Typography variant="caption" color="text.secondary">{label}</Typography>
+    <Typography variant="h5" sx={{ fontWeight:800, lineHeight:1.2 }}>{String(value ?? 0)}</Typography>
+    {note && <Typography variant="caption" color="text.secondary">{note}</Typography>}
+  </Box>;
 }
 
 export const PartnerOutreachPage: React.FC = () => {
-  const [tab, setTab] = useState(0);
-  const [prospects, setProspects] = useState<Prospect[]>([]);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [metrics, setMetrics] = useState<Record<string, unknown> | null>(null);
-  const [discoverySummary, setDiscoverySummary] = useState<Record<string, unknown> | null>(null);
-  const [discoverNote, setDiscoverNote] = useState<string | null>(null);
-  const [discovering, setDiscovering] = useState(false);
-  const [discoverProgress, setDiscoverProgress] = useState(0);
-  const [discoverStage, setDiscoverStage] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    organizationName: '',
-    organizationType: 'run_club',
-    email: '',
-    emailSource: 'public_listing',
-    website: '',
-    sourceUrl: '',
-    partnerCode: '',
-    landingUrl: '',
-    activity: 'training',
-    country: 'us',
-    city: '',
-    campaignLanguage: 'en',
-    mode: 'TRAIN',
-  });
-  const [approveItem, setApproveItem] = useState<QueueItem | null>(null);
-  const [deduping, setDeduping] = useState(false);
+  const [tab,setTab] = useState(0);
+  const [prospects,setProspects] = useState<Prospect[]>([]);
+  const [queue,setQueue] = useState<QueueItem[]>([]);
+  const [campaigns,setCampaigns] = useState<Campaign[]>([]);
+  const [metrics,setMetrics] = useState<Record<string,unknown>|null>(null);
+  const [discoverySummary,setDiscoverySummary] = useState<Record<string,unknown>|null>(null);
+  const [error,setError] = useState<string|null>(null);
+  const [notice,setNotice] = useState<string|null>(null);
+  const [discovering,setDiscovering] = useState(false);
+  const [discoverProgress,setDiscoverProgress] = useState(0);
+  const [discoverStage,setDiscoverStage] = useState<string|null>(null);
+  const [deduping,setDeduping] = useState(false);
+  const [approveItem,setApproveItem] = useState<QueueItem|null>(null);
+  const [showManual,setShowManual] = useState(false);
+  const [form,setForm] = useState({ organizationName:'', organizationType:'run_club', email:'', emailSource:'public_listing', website:'', sourceUrl:'', partnerCode:'', landingUrl:'', activity:'training', country:'us', city:'', campaignLanguage:'en', mode:'TRAIN' });
 
   const load = async () => {
     setError(null);
     try {
-      const [p, q, m, c, d] = await Promise.all([
-        adminApiService.get('/api/admin/partner-outreach/prospects'),
-        adminApiService.get('/api/admin/partner-outreach/queue'),
-        adminApiService.get('/api/admin/partner-outreach/metrics'),
-        adminApiService.get('/api/admin/partner-outreach/campaigns'),
-        adminApiService.get('/api/admin/partner-outreach/discovery/summary'),
+      const [p,q,m,c,d] = await Promise.all([
+        adminApiService.get('/api/admin/partner-outreach/prospects'), adminApiService.get('/api/admin/partner-outreach/queue'),
+        adminApiService.get('/api/admin/partner-outreach/metrics'), adminApiService.get('/api/admin/partner-outreach/campaigns'),
+        adminApiService.get('/api/admin/partner-outreach/discovery/summary')
       ]);
-      setProspects(Array.isArray(p) ? p : p?.items ?? []);
-      setQueue(Array.isArray(q) ? q : q?.items ?? []);
-      setMetrics(m);
-      setDiscoverySummary(d);
-      setCampaigns(Array.isArray(c) ? c : c?.items ?? INITIAL_MARKET_CANDIDATES);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
-    }
+      setProspects(Array.isArray(p)?p:p?.items??[]); setQueue(Array.isArray(q)?q:q?.items??[]); setMetrics(m); setDiscoverySummary(d);
+      setCampaigns(Array.isArray(c)?c:c?.items??INITIAL_MARKET_CANDIDATES);
+    } catch(e:unknown) { setError(e instanceof Error?e.message:'Failed to load partner outreach'); }
   };
+  useEffect(()=>{ void load(); },[]);
 
-  useEffect(() => {
-    void load();
-  }, []);
-
+  const uniqueProspects = useMemo(()=>dedupeProspects(prospects),[prospects]);
+  const uniqueQueue = useMemo(()=>dedupeQueue(queue),[queue]);
   const status = TABS[tab];
-  const shownProspects = dedupeProspects(
-    prospects.filter((p) => {
-      if (status === 'prospect') return p.status === 'prospect' || p.status === 'draft';
-      if (status === 'discovered') return p.status === 'discovered';
-      if (status === 'no_verified_public_email') return p.status === 'no_verified_public_email';
-      if (status === 'qualified_language_unavailable') return p.status === 'qualified_language_unavailable';
-      return p.status === status;
-    })
-  );
-  const shownQueue = dedupeQueue(
-    queue.filter((q) =>
-      status === 'prospect' || status === 'discovered'
-        ? true
-        : q.status === status || (status === 'draft' && q.status === 'draft')
-    )
-  );
+  const shownProspects = uniqueProspects.filter(p => status==='prospect' ? p.status==='prospect'||p.status==='draft' : p.status===status);
+  const shownQueue = uniqueQueue.filter(q => status==='prospect'||status==='discovered' ? true : q.status===status);
+  const draftCount = uniqueQueue.filter(q=>q.status==='draft').length;
+  const approvedCount = uniqueQueue.filter(q=>q.status==='approved').length;
+  const noEmailCount = uniqueProspects.filter(p=>p.status==='no_verified_public_email').length;
+  const sendEnabled = Boolean(metrics?.sendEnabled);
 
-  const loadSeedsForRun = async (onlyCampaignId?: string): Promise<DiscoverySeed[]> => {
-    const catalog = campaigns.length ? campaigns : INITIAL_MARKET_CANDIDATES;
-    const targets = onlyCampaignId
-      ? catalog.filter((c) => c.campaignId === onlyCampaignId)
-      : catalog.filter((c) => c.status === 'active');
-
-    const seeds: DiscoverySeed[] = [];
-    for (const campaign of targets) {
-      const local = localPartnerSeeds(campaign.campaignId);
-      for (const row of local) {
-        seeds.push({
-          partnerCode: row.partnerCode,
-          organizationName: row.organizationName,
-          campaignId: campaign.campaignId,
-        });
-      }
-    }
-
-    if (seeds.length === 0 && !onlyCampaignId) {
-      for (const row of localPartnerSeeds(ATLANTA_CAMPAIGN_ID)) {
-        seeds.push({
-          partnerCode: row.partnerCode,
-          organizationName: row.organizationName,
-          campaignId: ATLANTA_CAMPAIGN_ID,
-        });
-      }
-    }
-
-    if (seeds.length > 0) return seeds;
-
-    // Optional API catalog when Lambda is deployed (never block UI on 404).
-    for (const campaign of targets) {
-      try {
-        const rows = await adminApiService.get(
-          `/api/admin/partner-outreach/discover/seeds?campaignId=${encodeURIComponent(campaign.campaignId)}`
-        );
-        const list = Array.isArray(rows) ? rows : [];
-        for (const row of list) {
-          if (!row?.partnerCode) continue;
-          seeds.push({
-            partnerCode: String(row.partnerCode),
-            organizationName: String(row.organizationName ?? row.partnerCode),
-            campaignId: campaign.campaignId,
-          });
-        }
-      } catch {
-        /* use local catalog only */
-      }
-    }
-
-    return seeds;
-  };
-
-  const runAutomatedDiscovery = async (onlyCampaignId?: string) => {
-    setError(null);
-    setDiscoverNote(null);
-    setDiscovering(true);
-    setDiscoverProgress(0);
-    setDiscoverStage('Loading seed catalog…');
-
-    const totals = emptyDiscoveryTotals();
-    const failures: string[] = [];
-
+  const runAutomatedDiscovery = async (onlyCampaignId?:string) => {
+    setError(null); setNotice(null); setDiscovering(true); setDiscoverProgress(15);
+    setDiscoverStage(onlyCampaignId ? 'Discovering organizations across this market…' : 'Discovering organizations across active markets…');
     try {
-      const seeds = await loadSeedsForRun(onlyCampaignId);
-      if (seeds.length === 0) {
-        throw new Error(
-          onlyCampaignId
-            ? 'No seed catalog for this market yet. Only Atlanta has seed orgs; other markets need full OSM discovery via CLI.'
-            : 'No active markets with a seed catalog. Activate Atlanta or run discovery on the Atlanta row.'
-        );
-      }
-
-      for (let i = 0; i < seeds.length; i++) {
-        const seed = seeds[i];
-        setDiscoverStage(`Verifying ${seed.organizationName} (${i + 1}/${seeds.length})…`);
-        setDiscoverProgress(Math.round((i / seeds.length) * 100));
-        try {
-          const res = await adminApiService.post('/api/admin/partner-outreach/discover/automated', {
-            prepareDrafts: true,
-            maxPerMarket: 40,
-            seedsOnly: true,
-            onlyCampaignId: seed.campaignId,
-            onlyPartnerCode: seed.partnerCode,
-          });
-          mergeDiscoveryTotals(totals, res);
-        } catch (e: unknown) {
-          failures.push(
-            `${seed.organizationName}: ${e instanceof Error ? e.message : 'failed'}`
-          );
-        }
-        setDiscoverProgress(Math.round(((i + 1) / seeds.length) * 100));
-      }
-
-      setDiscoverProgress(100);
-      setDiscoverStage('Refreshing CRM…');
-      await load();
-
-      const failNote =
-        failures.length > 0 ? ` Failed: ${failures.slice(0, 3).join('; ')}${failures.length > 3 ? '…' : ''}` : '';
-      setDiscoverNote(
-        `Seed discovery complete. Created: ${totals.organizationsDiscovered}. Qualified: ${totals.qualifiedOrganizations}. Verified contacts: ${totals.verifiedPublicContacts}. Drafts: ${totals.draftsGenerated}. Approval-ready: ${totals.approvalReadyRecipients}. No verified email: ${totals.contactsUnavailable}.${failNote}`
-      );
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Automated discovery failed';
-      if (/404|HTTP 404/i.test(msg)) {
-        setError(
-          `${msg} — deploy the latest API Lambda (commit 80c08fd+) so onlyPartnerCode discovery works, or run: node scripts/growth/run-market-discovery.mjs`
-        );
-      } else {
-        setError(msg);
-      }
-    } finally {
-      setDiscovering(false);
-      setDiscoverStage(null);
-      setDiscoverProgress(0);
-    }
-  };
-
-  const setStatus = async (campaignId: string, next: string) => {
-    setError(null);
-    try {
-      await adminApiService.post(`/api/admin/partner-outreach/campaigns/${encodeURIComponent(campaignId)}/status`, {
-        status: next,
+      // IMPORTANT: this is intentionally full discovery. The old UI used seedsOnly=true and repeatedly rechecked
+      // the same small seed catalog, which is why runs often reported Created: 0.
+      const res:DiscoveryReport = await adminApiService.post('/api/admin/partner-outreach/discover/automated', {
+        prepareDrafts:true, maxPerMarket:40, seedsOnly:false, ...(onlyCampaignId ? { onlyCampaignId } : {})
       });
-      await load();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Could not update campaign');
-    }
+      setDiscoverProgress(85); setDiscoverStage('Refreshing pipeline…'); await load(); setDiscoverProgress(100);
+      const markets = Array.isArray(res?.markets) ? res.markets : [];
+      const dupes = markets.reduce((n,m)=>n+(m.skippedDuplicate??0),0);
+      setNotice(`Discovery finished: ${res.organizationsDiscovered??0} new organizations, ${res.verifiedPublicContacts??0} verified public contacts, ${res.draftsGenerated??0} drafts, ${res.contactsUnavailable??0} without a verified public email${dupes ? `, ${dupes} duplicates skipped` : ''}.`);
+    } catch(e:unknown) { setError(e instanceof Error?e.message:'Full market discovery failed'); }
+    finally { setDiscovering(false); setDiscoverStage(null); setTimeout(()=>setDiscoverProgress(0),500); }
   };
 
-  return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Partner Outreach
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        International TRAIN partner campaigns. Max {MAX_ACTIVE_MARKETS} active markets. Primary workflow: automated
-        discovery → website resolution → public contact verification → CRM → dedupe → scoring → invite code → landing URL
-        → personalized draft → approval queue. Never infer emails. Sending stays disabled until PARTNER_OUTREACH_SEND_ENABLED=true,
-        postal address is set, and you approve each recipient.
-      </Typography>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-      {metrics && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          sendEnabled={String(metrics.sendEnabled)} approved={String(metrics.approvedRecipients)} sent=
-          {String(metrics.sent)} delivered={String(metrics.delivered)} replies={String(metrics.replies)} complaints=
-          {String(metrics.complaints)} pause={String(metrics.complaintPause)} maxActive=
-          {String(metrics.maxActiveMarkets ?? MAX_ACTIVE_MARKETS)}
-        </Alert>
-      )}
-      {discoverySummary && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          discovered={String(discoverySummary.organizationsDiscovered)} qualified=
-          {String(discoverySummary.qualifiedOrganizations)} verifiedContacts=
-          {String(discoverySummary.verifiedPublicContacts)} noEmail={String(discoverySummary.contactsUnavailable)}{' '}
-          drafts={String(discoverySummary.draftsGenerated)} approvalReady=
-          {String(discoverySummary.approvalReadyRecipients)}
-        </Alert>
-      )}
-      {discoverNote && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setDiscoverNote(null)}>
-          {discoverNote}
-        </Alert>
-      )}
-      {discovering && (
-        <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-            <Typography variant="body2" color="text.secondary">
-              {discoverStage ?? 'Running discovery…'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {discoverProgress}%
-            </Typography>
-          </Box>
-          <LinearProgress variant="determinate" value={discoverProgress} sx={{ height: 8, borderRadius: 1 }} />
-        </Box>
-      )}
+  const setStatus = async (campaignId:string,next:string) => {
+    setError(null); try { await adminApiService.post(`/api/admin/partner-outreach/campaigns/${encodeURIComponent(campaignId)}/status`,{status:next}); await load(); }
+    catch(e:unknown){ setError(e instanceof Error?e.message:'Could not update campaign'); }
+  };
 
-      <Typography variant="h6" sx={{ mb: 1 }}>
-        Market campaigns
-      </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-        <Button
-          variant="contained"
-          size="small"
-          disabled={discovering}
-          onClick={() => void runAutomatedDiscovery()}
-        >
-          {discovering ? 'Running discovery…' : 'Run seed discovery (active markets)'}
-        </Button>
-        <Button
-          variant="outlined"
-          size="small"
-          disabled={deduping || discovering}
-          onClick={async () => {
-            setError(null);
-            setDeduping(true);
-            try {
-              const preview = await adminApiService.post('/api/admin/partner-outreach/dedupe', { dryRun: true });
-              const removed = Number(preview?.prospectsRemoved ?? 0) + Number(preview?.queueRemoved ?? 0);
-              if (removed === 0) {
-                setDiscoverNote('No duplicate prospects or queue items found.');
-                await load();
-                return;
-              }
-              const result = await adminApiService.post('/api/admin/partner-outreach/dedupe', { dryRun: false });
-              setDiscoverNote(
-                `Removed ${result?.prospectsRemoved ?? 0} duplicate prospect(s) and ${result?.queueRemoved ?? 0} duplicate queue item(s). Kept approved/draft records.`
-              );
-              await load();
-            } catch (e: unknown) {
-              setError(e instanceof Error ? e.message : 'Dedupe failed');
-            } finally {
-              setDeduping(false);
-            }
-          }}
-        >
-          {deduping ? 'Removing duplicates…' : 'Remove duplicates'}
-        </Button>
+  return <Box sx={{ maxWidth:1500 }}>
+    <Box sx={{ display:'flex', justifyContent:'space-between', gap:2, flexWrap:'wrap', alignItems:'flex-start', mb:2 }}>
+      <Box>
+        <Typography variant="h4" sx={{ fontWeight:800 }}>Partner Outreach</Typography>
+        <Typography variant="body2" color="text.secondary">Find fitness/community partners → verify public business contacts → prepare personalized drafts → approve → send → measure replies.</Typography>
       </Box>
-      <Box sx={{ display: 'grid', gap: 1, mb: 3 }}>
-        {(campaigns.length ? campaigns : INITIAL_MARKET_CANDIDATES).map((c) => (
-          <Box
-            key={c.campaignId}
-            sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', py: 1, borderBottom: '1px solid #eee' }}
-          >
-            <Typography sx={{ minWidth: 220, fontWeight: 600 }}>{c.displayName || c.campaignId}</Typography>
-            <Chip size="small" label={c.status} />
-            <Chip size="small" variant="outlined" label={`${c.country}/${c.market}`} />
-            <Chip size="small" variant="outlined" label={c.primaryMode || 'TRAIN'} />
-            <Button
-              size="small"
-              disabled={discovering}
-              onClick={() => void runAutomatedDiscovery(c.campaignId)}
-            >
-              {discovering ? 'Running…' : 'Run seed discovery'}
-            </Button>
-            {c.status !== 'active' && (
-              <Button size="small" onClick={() => void setStatus(c.campaignId, 'active')}>
-                Activate
-              </Button>
-            )}
-            {c.status === 'active' && (
-              <Button size="small" onClick={() => void setStatus(c.campaignId, 'paused')}>
-                Pause
-              </Button>
-            )}
-            {c.status === 'paused' && (
-              <Button size="small" onClick={() => void setStatus(c.campaignId, 'candidate')}>
-                Demote
-              </Button>
-            )}
-          </Box>
-        ))}
+      <Box sx={{ display:'flex', gap:1 }}>
+        <Button variant="outlined" onClick={()=>void load()}>Refresh</Button>
+        <Button variant="contained" disabled={discovering} onClick={()=>void runAutomatedDiscovery()}>{discovering?'Discovering…':'Discover new partners'}</Button>
       </Box>
-
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" sx={{ mb: 2 }}>
-        {TABS.map((t) => (
-          <Tab key={t} label={t.replace('_', ' ')} />
-        ))}
-      </Tabs>
-
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>
-        Optional manual override (not primary workflow)
-      </Typography>
-      <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', mb: 2 }}>
-        <TextField size="small" label="Organization" value={form.organizationName} onChange={(e) => setForm({ ...form, organizationName: e.target.value })} />
-        <TextField size="small" label="Public business email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} helperText="Only if already verified on an org-controlled page. Leave blank — automation verifies contacts." />
-        <TextField size="small" select label="Email source" value={form.emailSource} onChange={(e) => setForm({ ...form, emailSource: e.target.value })}>
-          <MenuItem value="public_listing">public_listing</MenuItem>
-          <MenuItem value="owner_supplied">owner_supplied</MenuItem>
-          <MenuItem value="prior_engagement">prior_engagement</MenuItem>
-        </TextField>
-        <TextField size="small" label="Country (ISO)" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
-        <TextField size="small" label="City / metro" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-        <TextField size="small" select label="Campaign language" value={form.campaignLanguage} onChange={(e) => setForm({ ...form, campaignLanguage: e.target.value })} helperText="Approved human-reviewed templates: en, es, ru.">
-          <MenuItem value="en">en (approved)</MenuItem>
-          <MenuItem value="es">es (approved)</MenuItem>
-          <MenuItem value="ru">ru (approved)</MenuItem>
-        </TextField>
-        <TextField size="small" select label="Mode" value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
-          <MenuItem value="TRAIN">TRAIN</MenuItem>
-          <MenuItem value="VIBE">VIBE (app mode; not this campaign)</MenuItem>
-          <MenuItem value="DATE">DATE (app mode; not this campaign)</MenuItem>
-        </TextField>
-        <TextField size="small" label="Website" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
-        <TextField size="small" label="Source URL" value={form.sourceUrl} onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })} />
-        <TextField size="small" label="Partner code" value={form.partnerCode} onChange={(e) => setForm({ ...form, partnerCode: e.target.value })} />
-        <TextField size="small" label="Landing URL" value={form.landingUrl} onChange={(e) => setForm({ ...form, landingUrl: e.target.value })} />
-      </Box>
-      <Button
-        variant="contained"
-        onClick={async () => {
-          setError(null);
-          try {
-            const landing =
-              form.landingUrl ||
-              (form.partnerCode
-                ? `https://gettrainmate.com${partnerInvitePath(form.country, slugPart(form.city) || 'market', form.partnerCode)}`
-                : '');
-            await adminApiService.post('/api/admin/partner-outreach/prospects', {
-              ...form,
-              metro: form.city,
-              landingUrl: landing,
-            });
-            await load();
-          } catch (e: unknown) {
-            setError(e instanceof Error ? e.message : 'Could not add prospect');
-          }
-        }}
-      >
-        Add prospect (override)
-      </Button>
-
-      <Typography variant="h6" sx={{ mt: 3 }}>
-        Prospects
-      </Typography>
-      {shownProspects.map((p) => (
-        <Box key={p.prospectId} sx={{ py: 1, borderBottom: '1px solid #eee' }}>
-          <Typography>
-            {p.organizationName} — {p.email || '(no email yet)'}{' '}
-            <Chip size="small" label={p.status} sx={{ ml: 1 }} />
-            <Chip size="small" variant="outlined" label={`${p.country || '?'}/${p.metro || p.city || '?'}`} sx={{ ml: 1 }} />
-          </Typography>
-          <Button
-            size="small"
-            disabled={!p.email}
-            onClick={async () => {
-              setError(null);
-              try {
-                await adminApiService.post('/api/admin/partner-outreach/drafts', { prospectId: p.prospectId });
-                await load();
-              } catch (e: unknown) {
-                setError(e instanceof Error ? e.message : 'Could not prepare draft');
-              }
-            }}
-          >
-            Prepare draft
-          </Button>
-        </Box>
-      ))}
-
-      <Typography variant="h6" sx={{ mt: 3 }}>
-        Queue
-      </Typography>
-      {shownQueue.map((q) => (
-        <Box key={q.queueId} sx={{ py: 1, borderBottom: '1px solid #eee' }}>
-          <Typography>
-            {q.organizationName} → {q.recipient} <Chip size="small" label={q.status} />
-          </Typography>
-          <Typography variant="body2">{q.subject}</Typography>
-          {q.status === 'draft' && (
-            <Button size="small" onClick={() => setApproveItem(q)}>
-              Review &amp; approve
-            </Button>
-          )}
-        </Box>
-      ))}
-
-      <Dialog open={!!approveItem} onClose={() => setApproveItem(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Approve this recipient only</DialogTitle>
-        <DialogContent>
-          {approveItem && (
-            <>
-              <Typography sx={{ mb: 1 }}>
-                {approveItem.organizationName} / {approveItem.recipient}
-              </Typography>
-              <Typography variant="subtitle2">{approveItem.subject}</Typography>
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: 1 }}>
-                {approveItem.bodyText}
-              </Typography>
-              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                {approveItem.partnerUrl}
-              </Typography>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setApproveItem(null)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={async () => {
-              if (!approveItem) return;
-              await adminApiService.post(`/api/admin/partner-outreach/queue/${approveItem.queueId}/approve`, {
-                confirm: true,
-              });
-              setApproveItem(null);
-              await load();
-            }}
-          >
-            Approve this message
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
-  );
+
+    {error && <Alert severity="error" sx={{mb:2}}>{error}</Alert>}
+    {notice && <Alert severity="success" sx={{mb:2}} onClose={()=>setNotice(null)}>{notice}</Alert>}
+    {!sendEnabled && approvedCount>0 && <Alert severity="warning" sx={{mb:2}}><b>{approvedCount} approved message{approvedCount===1?' is':'s are'} waiting.</b> Sending is currently disabled, so approval alone cannot produce outreach. Keep the safety gate, but enable partner sending in the deployed API configuration when you are ready to dispatch approved recipients.</Alert>}
+    {sendEnabled && <Alert severity="success" sx={{mb:2}}>Sending is enabled. Only individually approved recipients can be dispatched, subject to the existing daily limit and safety gates.</Alert>}
+
+    <Box sx={{ display:'flex', gap:1, flexWrap:'wrap', mb:2 }}>
+      <MetricCard label="Discovered" value={discoverySummary?.organizationsDiscovered ?? uniqueProspects.length} note="organizations" />
+      <MetricCard label="Verified contacts" value={discoverySummary?.verifiedPublicContacts ?? uniqueProspects.filter(p=>!!p.email).length} note="public business emails" />
+      <MetricCard label="No public email" value={discoverySummary?.contactsUnavailable ?? noEmailCount} note="needs another source" attention={noEmailCount>0} />
+      <MetricCard label="Needs approval" value={draftCount} note="review drafts" attention={draftCount>0} />
+      <MetricCard label="Approved" value={metrics?.approvedRecipients ?? approvedCount} note={sendEnabled?'ready to dispatch':'blocked by send gate'} attention={!sendEnabled&&approvedCount>0} />
+      <MetricCard label="Sent" value={metrics?.sent ?? 0} note="messages" />
+      <MetricCard label="Replies" value={metrics?.replies ?? 0} note="partner responses" />
+    </Box>
+
+    {discovering && <Box sx={{mb:2}}><Box sx={{display:'flex',justifyContent:'space-between'}}><Typography variant="body2">{discoverStage}</Typography><Typography variant="caption">{discoverProgress}%</Typography></Box><LinearProgress variant="determinate" value={discoverProgress} sx={{height:8,borderRadius:1,mt:.5}}/></Box>}
+
+    <Box sx={{ p:2, border:'1px solid', borderColor:'divider', borderRadius:2, mb:2 }}>
+      <Typography variant="h6" sx={{fontWeight:700,mb:.5}}>What needs attention</Typography>
+      <Box sx={{display:'flex',gap:1,flexWrap:'wrap'}}>
+        <Button variant={draftCount?'contained':'outlined'} disabled={!draftCount} onClick={()=>setTab(TABS.indexOf('draft'))}>Review {draftCount} draft{draftCount===1?'':'s'}</Button>
+        <Button variant="outlined" disabled={!noEmailCount} onClick={()=>setTab(TABS.indexOf('no_verified_public_email'))}>Inspect {noEmailCount} without email</Button>
+        <Button variant="outlined" onClick={()=>setTab(TABS.indexOf('approved'))}>View approved ({approvedCount})</Button>
+        <Button variant="text" onClick={()=>setShowManual(v=>!v)}>{showManual?'Hide manual tools':'Manual tools'}</Button>
+      </Box>
+    </Box>
+
+    <Typography variant="h6" sx={{fontWeight:700,mb:1}}>Markets</Typography>
+    <Box sx={{display:'grid',gap:1,mb:3}}>
+      {(campaigns.length?campaigns:INITIAL_MARKET_CANDIDATES).map(c=><Box key={c.campaignId} sx={{display:'flex',flexWrap:'wrap',gap:1,alignItems:'center',p:1.25,border:'1px solid',borderColor:'divider',borderRadius:1.5}}>
+        <Typography sx={{minWidth:220,fontWeight:700}}>{c.displayName||c.name||c.campaignId}</Typography>
+        <Chip size="small" label={c.status}/><Chip size="small" variant="outlined" label={`${c.country}/${c.market}`}/><Chip size="small" variant="outlined" label={c.primaryMode||'TRAIN'}/>
+        <Box sx={{flex:1}}/><Button size="small" disabled={discovering} onClick={()=>void runAutomatedDiscovery(c.campaignId)}>Discover new partners</Button>
+        {c.status!=='active'&&<Button size="small" onClick={()=>void setStatus(c.campaignId,'active')}>Activate</Button>}
+        {c.status==='active'&&<Button size="small" onClick={()=>void setStatus(c.campaignId,'paused')}>Pause</Button>}
+      </Box>)}
+    </Box>
+
+    <Tabs value={tab} onChange={(_,v)=>setTab(v)} variant="scrollable" sx={{mb:2,borderBottom:'1px solid',borderColor:'divider'}}>
+      {TABS.map(t=>{ const count=t==='draft'?draftCount:t==='approved'?approvedCount:t==='no_verified_public_email'?noEmailCount:undefined; return <Tab key={t} label={`${LABELS[t]||t}${count!==undefined?` (${count})`:''}`}/>; })}
+    </Tabs>
+
+    {showManual && <Box sx={{p:2,border:'1px solid',borderColor:'divider',borderRadius:2,mb:3}}>
+      <Typography variant="subtitle1" sx={{fontWeight:700,mb:1}}>Manual prospect override</Typography>
+      <Typography variant="caption" color="text.secondary">Use only when you already have a legitimate organization and public business contact. The automated workflow is primary.</Typography>
+      <Box sx={{display:'grid',gap:1,gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',mt:1,mb:1}}>
+        <TextField size="small" label="Organization" value={form.organizationName} onChange={e=>setForm({...form,organizationName:e.target.value})}/>
+        <TextField size="small" label="Public business email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
+        <TextField size="small" select label="Email source" value={form.emailSource} onChange={e=>setForm({...form,emailSource:e.target.value})}><MenuItem value="public_listing">public_listing</MenuItem><MenuItem value="owner_supplied">owner_supplied</MenuItem><MenuItem value="prior_engagement">prior_engagement</MenuItem></TextField>
+        <TextField size="small" label="Country" value={form.country} onChange={e=>setForm({...form,country:e.target.value})}/>
+        <TextField size="small" label="City / metro" value={form.city} onChange={e=>setForm({...form,city:e.target.value})}/>
+        <TextField size="small" select label="Language" value={form.campaignLanguage} onChange={e=>setForm({...form,campaignLanguage:e.target.value})}><MenuItem value="en">English</MenuItem><MenuItem value="es">Spanish</MenuItem><MenuItem value="ru">Russian</MenuItem></TextField>
+        <TextField size="small" label="Website" value={form.website} onChange={e=>setForm({...form,website:e.target.value})}/>
+        <TextField size="small" label="Source URL" value={form.sourceUrl} onChange={e=>setForm({...form,sourceUrl:e.target.value})}/>
+        <TextField size="small" label="Partner code" value={form.partnerCode} onChange={e=>setForm({...form,partnerCode:e.target.value})}/>
+      </Box>
+      <Box sx={{display:'flex',gap:1}}><Button variant="contained" onClick={async()=>{ setError(null); try { const landing=form.landingUrl||(form.partnerCode?`https://gettrainmate.com${partnerInvitePath(form.country,slugPart(form.city)||'market',form.partnerCode)}`:''); await adminApiService.post('/api/admin/partner-outreach/prospects',{...form,metro:form.city,landingUrl:landing}); setNotice('Prospect added.'); await load(); } catch(e:unknown){setError(e instanceof Error?e.message:'Could not add prospect');} }}>Add prospect</Button>
+      <Button variant="outlined" disabled={deduping} onClick={async()=>{setDeduping(true);try{const r=await adminApiService.post('/api/admin/partner-outreach/dedupe',{dryRun:false});setNotice(`Removed ${r?.prospectsRemoved??0} duplicate prospects and ${r?.queueRemoved??0} duplicate queue items.`);await load();}catch(e:unknown){setError(e instanceof Error?e.message:'Dedupe failed');}finally{setDeduping(false);}}}>{deduping?'Cleaning…':'Remove duplicates'}</Button></Box>
+    </Box>}
+
+    <Typography variant="h6" sx={{fontWeight:700}}>Prospects</Typography>
+    {shownProspects.length===0 && <Typography variant="body2" color="text.secondary" sx={{py:2}}>Nothing in this stage.</Typography>}
+    {shownProspects.map(p=><Box key={p.prospectId} sx={{display:'flex',gap:1,alignItems:'center',flexWrap:'wrap',py:1.25,borderBottom:'1px solid',borderColor:'divider'}}>
+      <Box sx={{minWidth:260,flex:1}}><Typography sx={{fontWeight:600}}>{p.organizationName}</Typography><Typography variant="caption" color="text.secondary">{p.email||'No verified public email'} · {p.country||'?'}/{p.metro||p.city||'?'}{p.fitScore?` · fit ${p.fitScore}`:''}</Typography></Box>
+      <Chip size="small" label={LABELS[p.status]||p.status}/>
+      {p.website&&<Button size="small" href={p.website} target="_blank">Website</Button>}
+      {(p.status==='prospect'||p.status==='draft')&&<Button size="small" disabled={!p.email} onClick={async()=>{try{await adminApiService.post('/api/admin/partner-outreach/drafts',{prospectId:p.prospectId});await load();}catch(e:unknown){setError(e instanceof Error?e.message:'Could not prepare draft');}}}>Prepare draft</Button>}
+    </Box>)}
+
+    <Typography variant="h6" sx={{fontWeight:700,mt:3}}>Message queue</Typography>
+    {shownQueue.length===0 && <Typography variant="body2" color="text.secondary" sx={{py:2}}>Nothing in this stage.</Typography>}
+    {shownQueue.map(q=><Box key={q.queueId} sx={{py:1.25,borderBottom:'1px solid',borderColor:'divider'}}><Box sx={{display:'flex',gap:1,alignItems:'center',flexWrap:'wrap'}}><Typography sx={{fontWeight:600}}>{q.organizationName}</Typography><Typography variant="body2">→ {q.recipient}</Typography><Chip size="small" label={LABELS[q.status]||q.status}/>{q.status==='draft'&&<Button size="small" variant="contained" onClick={()=>setApproveItem(q)}>Review & approve</Button>}</Box><Typography variant="body2" color="text.secondary">{q.subject}</Typography></Box>)}
+
+    <Dialog open={!!approveItem} onClose={()=>setApproveItem(null)} maxWidth="sm" fullWidth><DialogTitle>Review partner message</DialogTitle><DialogContent>{approveItem&&<><Typography sx={{mb:1,fontWeight:700}}>{approveItem.organizationName} / {approveItem.recipient}</Typography><Typography variant="subtitle2">{approveItem.subject}</Typography><Typography variant="body2" sx={{whiteSpace:'pre-wrap',mt:1}}>{approveItem.bodyText}</Typography><Typography variant="caption" display="block" sx={{mt:1}}>{approveItem.partnerUrl}</Typography></>}</DialogContent><DialogActions><Button onClick={()=>setApproveItem(null)}>Cancel</Button><Button variant="contained" onClick={async()=>{if(!approveItem)return;await adminApiService.post(`/api/admin/partner-outreach/queue/${approveItem.queueId}/approve`,{confirm:true});setApproveItem(null);await load();}}>Approve this recipient</Button></DialogActions></Dialog>
+  </Box>;
 };
