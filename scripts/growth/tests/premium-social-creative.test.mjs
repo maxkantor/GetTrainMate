@@ -1,12 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildMinimalOverlaySvg } from '../lib/social-image-photo-compose.mjs';
+import { SOCIAL_IMAGE_PROVIDER } from '../lib/social-image-generator.mjs';
 import {
   CATALOG,
   resolveOwnedSocialCreative,
   modeForWeekday,
   languageForWeekday
 } from '../lib/owned-social-catalog.mjs';
+
+test('production social imagery defaults to Bedrock', () => {
+  assert.equal(SOCIAL_IMAGE_PROVIDER, (process.env.SOCIAL_IMAGE_PROVIDER || 'bedrock').toLowerCase());
+});
 
 test('Sunday 2026-09-13 resolves to English VIBE', () => {
   assert.equal(modeForWeekday(0), 'VIBE');
