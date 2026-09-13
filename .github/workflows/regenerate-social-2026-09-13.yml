@@ -11,12 +11,15 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   regenerate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      AWS_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
       TZ: America/New_York
     steps:
       - uses: actions/checkout@v4
@@ -35,39 +38,16 @@ jobs:
         run: node --test scripts/growth/tests/social-image.test.mjs scripts/growth/tests/social-copy.test.mjs
       - name: Generate corrected creative without publishing
         run: node scripts/growth/publish-owned-social.mjs --dry-run --skip-instagram
-      - name: Publish corrected Facebook post directly
-        env:
-          META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
-          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
-          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
-          META_FACEBOOK_PAGE_ID: ${{ secrets.META_FACEBOOK_PAGE_ID }}
+      - name: Assume growth AWS role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::718522948657:role/GoHyroxGitHubGrowth
+          aws-region: us-east-1
+      - name: Verify GetTrainMate Meta parameters are accessible
         shell: bash
         run: |
-          node --input-type=module <<'NODE'
-          import { easternIsoDate, easternWeekday, selectCatalogItem, resolveOwnedSocialCreative, renderFacebookCopy, shortTrackedUrl } from './scripts/growth/lib/owned-social-catalog.mjs';
-          import { readPublishedLog, recentlyUsedContentIds, recentPublishedLanguages } from './scripts/growth/lib/owned-social-log.mjs';
-          import { loadRecentImageHistory } from './scripts/growth/lib/social-image-history.mjs';
-          import { generateSocialImage } from './scripts/growth/lib/social-image-generator.mjs';
-          import { publishFacebookPagePhoto } from './scripts/growth/lib/meta-graph.mjs';
-
-          const token=(process.env.META_PAGE_ACCESS_TOKEN||process.env.FACEBOOK_PAGE_ACCESS_TOKEN||'').trim();
-          const pageId=(process.env.FACEBOOK_PAGE_ID||process.env.META_FACEBOOK_PAGE_ID||'').trim();
-          if(!token || !pageId) throw new Error(`meta_action_secrets_missing token=${Boolean(token)} pageId=${Boolean(pageId)}`);
-
-          const now=new Date();
-          const isoHyphen=easternIsoDate(now);
-          const isoDate=isoHyphen.replace(/-/g,'');
-          const weekday=easternWeekday(now);
-          const log=readPublishedLog();
-          let item=selectCatalogItem({weekday,recentlyUsedIds:recentlyUsedContentIds(log),recentLanguages:recentPublishedLanguages(log),isoDate:isoHyphen});
-          const history=loadRecentImageHistory({days:30});
-          item=resolveOwnedSocialCreative(item,{isoDate:isoHyphen,recentEntries:history});
-          const tracking={mode:item.mode,language:item.language,contentId:item.contentId,landingPath:item.landingPath,isoDate,market:item.market,copyVariant:item.copy_variant,headlineVariant:item.headline_variant,ctaVariant:item.cta_variant};
-          const url=shortTrackedUrl({network:'facebook',...tracking});
-          const caption=renderFacebookCopy(item.facebook,url);
-          const image=await generateSocialImage({catalogItem:item,isoDate,isoHyphen,recentImageEntries:history,dryRun:true,conceptOverrides:{language:item.language,imageHeadline:item.imageHeadline,imageSubheadline:item.imageSubheadline||'',cta:item.imageCta,copyPackage:item.copyPackage}});
-          if(!image?.ok || !image.imageBuffer) throw new Error('corrected_creative_generation_failed');
-          const out=await publishFacebookPagePhoto({pageId,pageToken:token,caption,imageBuffer:image.imageBuffer,imageUrl:null});
-          if(!out.ok || !out.postId) throw new Error(`facebook_publish_failed:${out.blocker||'unknown'}`);
-          console.log(JSON.stringify({ok:true,published:true,postId:out.postId,postUrl:out.postUrl,contentId:item.contentId,mode:item.mode,headline:image.concept?.imageHeadline,layoutId:'GTM_UNIFIED'}));
-          NODE
+          set -euo pipefail
+          aws ssm get-parameter --name /gettrainmate/growth/meta-page-access-token --with-decryption --query Parameter.Name --output text >/dev/null
+          aws ssm get-parameter --name /gettrainmate/growth/facebook-page-id --query Parameter.Name --output text >/dev/null
+      - name: Publish corrected Facebook post only
+        run: node scripts/growth/publish-owned-social.mjs --force-publish --skip-instagram
