@@ -1,9 +1,8 @@
 /**
- * Human-reviewed owned-social catalog metadata + conversion caption resolution.
- * Captions/headlines/CTAs are selected from locale-aware social-copy-variants.
- * Never promises matches, dates, or outcomes.
+ * GetTrainMate owned-social catalog.
+ * Creative policy: strong mode-first messaging, short captions, no doom/negative hooks,
+ * no generic feed/scrolling language, no guaranteed outcomes.
  */
-import { selectCopyPackage } from './social-copy-variants.mjs';
 
 export const OWNED_ACCOUNTS = {
   facebook: {
@@ -26,12 +25,7 @@ export const MODE_LANDINGS = {
 
 const IMAGE = 'https://gettrainmate.com/images/og-image.jpg';
 
-/** Day of week (America/New_York, 0=Sun, 6=Sat) → balanced TRAIN / VIBE / DATE rotation. */
 export function modeForWeekday(weekday) {
-  // Mon (1), Thu (4) -> TRAIN
-  // Tue (2), Fri (5) -> VIBE
-  // Wed (3), Sat (6) -> DATE
-  // Sun (0) -> VIBE (community & plans before the week begins)
   if (weekday === 1 || weekday === 4) return 'TRAIN';
   if (weekday === 2 || weekday === 5 || weekday === 0) return 'VIBE';
   if (weekday === 3 || weekday === 6) return 'DATE';
@@ -41,12 +35,8 @@ export function modeForWeekday(weekday) {
 export function languageForWeekday(weekday, isoDate = '') {
   const week = isoWeekNumber(isoDate);
   const cycle = week % 3;
-  // User policy: English is default (5 posts/week). Exactly 1 Spanish and 1 Russian post per week.
-  // Rotates which days and modes receive the non-English post across weeks:
-  // Cycle 0: Tue (2 - VIBE) = es, Thu (4 - TRAIN) = ru
-  // Cycle 1: Wed (3 - DATE) = es, Fri (5 - VIBE) = ru
-  // Cycle 2: Thu (4 - TRAIN) = es, Sat (6 - DATE) = ru
-  let esDay, ruDay;
+  let esDay;
+  let ruDay;
   if (cycle === 0) {
     esDay = 2;
     ruDay = 4;
@@ -71,7 +61,6 @@ function hashSeed(input) {
   return Math.abs(h);
 }
 
-/** ISO week number from YYYY-MM-DD for language/content rotation. */
 export function isoWeekNumber(isoDate = '') {
   const raw = String(isoDate || '').slice(0, 10);
   const d = raw.match(/^\d{4}-\d{2}-\d{2}$/) ? new Date(`${raw}T12:00:00Z`) : new Date();
@@ -81,11 +70,6 @@ export function isoWeekNumber(isoDate = '') {
   return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
 
-/**
- * Catalog entries are campaign/locale anchors. Caption + image text are resolved
- * at publish time via resolveOwnedSocialCreative (conversion copy rotation).
- * Optional facebook/instagram strings are legacy fallbacks only.
- */
 export const CATALOG = [
   {
     contentId: 'train-en-workout-partner',
@@ -190,6 +174,97 @@ export const CATALOG = [
   }
 ];
 
+const PREMIUM_COPY = {
+  TRAIN: {
+    en: {
+      headline: 'TRAIN BETTER. TOGETHER.',
+      subheadline: 'Find people who match your workout style.',
+      cta: 'FIND A TRAINMATE',
+      facebook: 'Your workout is better with the right partner.\n\nFind active people near you for gym, running, sports and race prep. TRAIN is built for real workouts and real accountability.\n\nFind your TrainMate: {{url}}',
+      instagram: 'Your workout is better with the right partner.\n\nFind active people near you for gym, running, sports and race prep. TRAIN is built for real workouts and real accountability.\n\nFind your TrainMate: {{url}}'
+    },
+    es: {
+      headline: 'ENTRENA MEJOR. JUNTOS.',
+      subheadline: 'Encuentra gente con tu mismo estilo de entrenamiento.',
+      cta: 'ENCUENTRA TU TRAINMATE',
+      facebook: 'Entrenar es mejor con la persona adecuada.\n\nEncuentra gente activa cerca para gym, running, deporte y preparación de carrera. TRAIN está hecho para entrenar de verdad y mantener la constancia.\n\nEncuentra tu TrainMate: {{url}}',
+      instagram: 'Entrenar es mejor con la persona adecuada.\n\nEncuentra gente activa cerca para gym, running, deporte y preparación de carrera. TRAIN está hecho para entrenar de verdad y mantener la constancia.\n\nEncuentra tu TrainMate: {{url}}'
+    },
+    ru: {
+      headline: 'ТРЕНИРУЙТЕСЬ ЛУЧШЕ. ВМЕСТЕ.',
+      subheadline: 'Найдите людей с вашим стилем тренировок.',
+      cta: 'НАЙТИ TRAINMATE',
+      facebook: 'Тренировки лучше с подходящим партнёром.\n\nНайдите рядом активных людей для зала, бега, спорта и подготовки к стартам. TRAIN создан для реальных тренировок и взаимной мотивации.\n\nНайдите своего TrainMate: {{url}}',
+      instagram: 'Тренировки лучше с подходящим партнёром.\n\nНайдите рядом активных людей для зала, бега, спорта и подготовки к стартам. TRAIN создан для реальных тренировок и взаимной мотивации.\n\nНайдите своего TrainMate: {{url}}'
+    }
+  },
+  VIBE: {
+    en: {
+      headline: 'FIND YOUR PEOPLE. MAKE REAL PLANS.',
+      subheadline: 'Events, hobbies, weekends — together.',
+      cta: 'EXPLORE VIBE',
+      facebook: 'More plans. Better company.\n\nMeet people near you who share your interests — coffee, concerts, hiking, food, local events and more. VIBE is for friendship, shared interests and real-world plans.\n\nFind your people: {{url}}',
+      instagram: 'More plans. Better company.\n\nMeet people near you who share your interests — coffee, concerts, hiking, food, local events and more. VIBE is for friendship, shared interests and real-world plans.\n\nFind your people: {{url}}'
+    },
+    es: {
+      headline: 'ENCUENTRA TU GENTE. HAZ PLANES REALES.',
+      subheadline: 'Eventos, hobbies y fines de semana — juntos.',
+      cta: 'EXPLORA VIBE',
+      facebook: 'Más planes. Mejor compañía.\n\nConoce gente cerca con tus mismos intereses — café, conciertos, senderismo, comida, eventos locales y más. VIBE es para amistad, intereses compartidos y planes reales.\n\nEncuentra tu gente: {{url}}',
+      instagram: 'Más planes. Mejor compañía.\n\nConoce gente cerca con tus mismos intereses — café, conciertos, senderismo, comida, eventos locales y más. VIBE es para amistad, intereses compartidos y planes reales.\n\nEncuentra tu gente: {{url}}'
+    },
+    ru: {
+      headline: 'НАЙДИ СВОИХ. СТРОЙ РЕАЛЬНЫЕ ПЛАНЫ.',
+      subheadline: 'События, хобби и выходные — вместе.',
+      cta: 'ОТКРЫТЬ VIBE',
+      facebook: 'Больше планов. Лучше компания.\n\nЗнакомьтесь рядом с людьми с похожими интересами — кофе, концерты, походы, еда, городские события и не только. VIBE — для дружбы, общих интересов и реальных планов.\n\nНайдите своих: {{url}}',
+      instagram: 'Больше планов. Лучше компания.\n\nЗнакомьтесь рядом с людьми с похожими интересами — кофе, концерты, походы, еда, городские события и не только. VIBE — для дружбы, общих интересов и реальных планов.\n\nНайдите своих: {{url}}'
+    }
+  },
+  DATE: {
+    en: {
+      headline: 'MEET SOMEONE WHO LIVES LIKE YOU.',
+      subheadline: 'Shared interests. Real chemistry.',
+      cta: 'EXPLORE DATE',
+      facebook: 'Meet people who fit your lifestyle.\n\nDATE connects active people through shared interests, energy and the things they actually like doing.\n\nExplore DATE: {{url}}',
+      instagram: 'Meet people who fit your lifestyle.\n\nDATE connects active people through shared interests, energy and the things they actually like doing.\n\nExplore DATE: {{url}}'
+    },
+    es: {
+      headline: 'CONOCE A ALGUIEN QUE VIVA COMO TÚ.',
+      subheadline: 'Intereses compartidos. Química real.',
+      cta: 'EXPLORA DATE',
+      facebook: 'Conoce gente que encaje con tu estilo de vida.\n\nDATE conecta a personas activas por intereses, energía y las cosas que realmente disfrutan hacer.\n\nExplora DATE: {{url}}',
+      instagram: 'Conoce gente que encaje con tu estilo de vida.\n\nDATE conecta a personas activas por intereses, energía y las cosas que realmente disfrutan hacer.\n\nExplora DATE: {{url}}'
+    },
+    ru: {
+      headline: 'ВСТРЕТЬТЕ ТОГО, КТО ЖИВЁТ КАК ВЫ.',
+      subheadline: 'Общие интересы. Настоящая химия.',
+      cta: 'ОТКРЫТЬ DATE',
+      facebook: 'Знакомьтесь с людьми, которым близок ваш образ жизни.\n\nDATE соединяет активных людей через общие интересы, энергию и реальные занятия.\n\nОткройте DATE: {{url}}',
+      instagram: 'Знакомьтесь с людьми, которым близок ваш образ жизни.\n\nDATE соединяет активных людей через общие интересы, энергию и реальные занятия.\n\nОткройте DATE: {{url}}'
+    }
+  }
+};
+
+function premiumCopyFor(item, isoDate = '') {
+  const mode = String(item?.mode || 'TRAIN').toUpperCase();
+  const language = String(item?.language || 'en').toLowerCase().slice(0, 2);
+  const byMode = PREMIUM_COPY[mode] || PREMIUM_COPY.TRAIN;
+  const copy = byMode[language] || byMode.en;
+  return {
+    headline: copy.headline,
+    subheadline: copy.subheadline,
+    cta: copy.cta,
+    facebook: copy.facebook,
+    instagram: copy.instagram,
+    copyVariant: `premium-${mode.toLowerCase()}-${language}-v2`,
+    headlineVariant: `premium-${mode.toLowerCase()}-headline-v2`,
+    ctaVariant: `premium-${mode.toLowerCase()}-cta-v2`,
+    locale: language,
+    campaign: `owned-${mode.toLowerCase()}-${language}-${String(isoDate || '').replace(/-/g, '')}`
+  };
+}
+
 function withMarketHook(body, marketHook) {
   if (!marketHook || !body) return body;
   const lines = String(body).split('\n');
@@ -198,18 +273,9 @@ function withMarketHook(body, marketHook) {
   return lines.join('\n');
 }
 
-/**
- * Resolve conversion copy for a catalog item so image + caption share one locale.
- */
-export function resolveOwnedSocialCreative(catalogItem, { isoDate = '', recentEntries = [] } = {}) {
+export function resolveOwnedSocialCreative(catalogItem, { isoDate = '' } = {}) {
   const item = catalogItem || CATALOG[0];
-  const copyPackage = selectCopyPackage({
-    mode: item.mode,
-    language: item.language,
-    isoDate,
-    contentId: item.contentId,
-    recentEntries
-  });
+  const copyPackage = premiumCopyFor(item, isoDate);
   let facebook = copyPackage.facebook;
   let instagram = copyPackage.instagram;
   if (item.marketHook) {
@@ -231,6 +297,7 @@ export function resolveOwnedSocialCreative(catalogItem, { isoDate = '', recentEn
     campaign: copyPackage.campaign
   };
 }
+
 export function goCodeForDestination({ mode, landingPath } = {}) {
   const path = String(landingPath || '').replace(/\/$/, '') || '';
   if (path === '/san-francisco') return 'sf';
@@ -239,11 +306,6 @@ export function goCodeForDestination({ mode, landingPath } = {}) {
   return 't';
 }
 
-/**
- * Click destination for organic posts: route each mode to its dedicated informative
- * landing page (/workout-partner, /meet-people, /active-dating) where visitors see
- * the value proposition and a clear CTA to join free.
- */
 export function ownedSocialClickPath({ mode, landingPath } = {}) {
   const path = String(landingPath || '').replace(/\/$/, '');
   if (path === '/san-francisco') return '/san-francisco';
@@ -258,10 +320,6 @@ export function ownedSocialClickPath({ mode, landingPath } = {}) {
   return '/workout-partner';
 }
 
-/**
- * Full tracked URL (used for Facebook `link` attachment — clickable image/card).
- * Preserves existing UTMs; adds copy analytics params when provided.
- */
 export function trackedUrl({
   network,
   mode,
@@ -299,18 +357,12 @@ export function trackedUrl({
   return `https://gettrainmate.com${path}?${params.toString()}`;
 }
 
-/**
- * Short branded URL for Instagram captions (IG cannot attach links to images via Graph API).
- * Example: https://gettrainmate.com/go/t?utm_source=instagram&...
- * Resolves via SPA /go/:code → real landing while preserving UTMs.
- */
 export function shortTrackedUrl(opts) {
   const code = goCodeForDestination(opts);
   const full = new URL(trackedUrl(opts));
   return `https://gettrainmate.com/go/${code}?${full.searchParams.toString()}`;
 }
 
-/** Permanent bio / hub URL — set Instagram website to this once. */
 export const OWNED_SOCIAL_BIO_URL = 'https://gettrainmate.com/go';
 
 export function renderCopy(template, url) {
@@ -323,27 +375,24 @@ const BIO_LINK_LINES = {
   ru: 'Ссылка также в профиле → gettrainmate.com/go'
 };
 
-/** Facebook caption: prefer short URL; link attachment carries the real click target. */
 export function renderFacebookCopy(template, shortUrl) {
-  const body = String(template || '').replaceAll('{{url}}', shortUrl || '').trim();
-  return body;
+  return String(template || '').replaceAll('{{url}}', shortUrl || '').trim();
 }
 
-/** Instagram caption: short URL on its own line + localized bio fallback. */
 export function renderInstagramCopy(template, shortUrl, { language = 'en' } = {}) {
   const locale = String(language || 'en').toLowerCase().slice(0, 2);
   const body = String(template || '')
     .replaceAll('{{url}}', '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  const linkBlock = [shortUrl || OWNED_SOCIAL_BIO_URL, '', BIO_LINK_LINES[locale] || BIO_LINK_LINES.en].join('\n');
+  const linkBlock = [
+    shortUrl || OWNED_SOCIAL_BIO_URL,
+    '',
+    BIO_LINK_LINES[locale] || BIO_LINK_LINES.en
+  ].join('\n');
   return `${body}\n\n${linkBlock}`;
 }
 
-/**
- * Pick the next catalog item for a weekday, skipping recently used contentIds.
- * Always prefers the campaign locale — never mix languages for one creative.
- */
 export function selectCatalogItem({
   weekday,
   recentlyUsedIds = [],
@@ -354,7 +403,6 @@ export function selectCatalogItem({
 } = {}) {
   const mode = preferMode || modeForWeekday(weekday ?? 1);
   let language = preferLanguage || languageForWeekday(weekday ?? 1, isoDate);
-  // English is default; prevent non-English languages from repeating consecutively
   if (!preferLanguage && language !== 'en' && recentLanguages.length && recentLanguages[0] === language) {
     language = 'en';
   }
@@ -362,7 +410,6 @@ export function selectCatalogItem({
   const pool = CATALOG.filter((c) => c.mode === mode);
   let candidates = pool.filter((c) => c.language === language && !used.has(c.contentId));
   if (!candidates.length) candidates = pool.filter((c) => c.language === language);
-  // Last resort only: same mode, other locales (should be rare with 1+ item per locale).
   if (!candidates.length) candidates = pool.filter((c) => !used.has(c.contentId));
   if (!candidates.length) candidates = pool.slice();
   candidates.sort((a, b) => a.contentId.localeCompare(b.contentId));
@@ -395,10 +442,6 @@ export function easternIsoDate(date = new Date()) {
   return `${y}-${m}-${d}`;
 }
 
-/**
- * Checks whether an owned social post was already published to Meta today (EST).
- * Protects against accidental multiple posts from automated task retries or backup schedules.
- */
 export function alreadyPublishedToday(log = [], isoDate = easternIsoDate()) {
   if (!Array.isArray(log) || !log.length) return false;
   return log.some((entry) => {
@@ -411,4 +454,3 @@ export function alreadyPublishedToday(log = [], isoDate = easternIsoDate()) {
     return entryDate === isoDate || campaignMatch;
   });
 }
-
