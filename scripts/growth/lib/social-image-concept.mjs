@@ -52,6 +52,18 @@ export const MODE_PHOTO_SCENES = {
   DATE: Object.values(SCENES_BY_ACTIVITY.DATE)
 };
 
+// Deterministic daily activity rotation for broad mode-first campaigns. This changes
+// the underlying Bedrock scene while preserving the approved overlay/layout/copy.
+export const MODE_ACTIVITY_ROTATION = {
+  TRAIN: ['pickleball', 'functional', 'running', 'cycling', 'tennis', 'workout'],
+  VIBE: ['coffee', 'festival', 'dining', 'city', 'drinks', 'outdoors', 'hiking', 'social'],
+  DATE: ['lifestyle', 'coffee', 'walk', 'drinks', 'dinner', 'chemistry']
+};
+
+const GENERIC_ROTATABLE_ACTIVITIES = new Set([
+  'events','event','social','friendship','dating','date','workout','gym','accountability','community','plans','activities','people'
+]);
+
 /** @deprecated Prefer headlineTextsFor(mode, language) — English-only fallback retained for imports. */
 export const MODE_HEADLINE_VARIANTS = {
   TRAIN: headlineTextsFor('TRAIN', 'en'),
@@ -92,6 +104,19 @@ export function normalizeConceptKey(value) {
     .trim();
 }
 
+export function rotatedActivityForMode(mode, { isoDate = '', contentId = '', language = 'en', offset = 0 } = {}) {
+  const m = String(mode || 'TRAIN').toUpperCase();
+  const pool = MODE_ACTIVITY_ROTATION[m] || MODE_ACTIVITY_ROTATION.TRAIN;
+  const rotationSeed = hashSeed(`${String(isoDate).slice(0, 10)}:${contentId}:${m}:${language}:activity:${offset}`);
+  return pickFrom(pool, rotationSeed);
+}
+
+function shouldUseDailyActivityRotation({ catalogItem, overrides } = {}) {
+  if (overrides?.activity || overrides?.photoPrompt || overrides?.visualConcept) return false;
+  const declared = normalizeConceptKey(catalogItem?.activity);
+  return !declared || GENERIC_ROTATABLE_ACTIVITIES.has(declared);
+}
+
 /**
  * Determine the specific activity and intent of the post based on post body, headlines, and mode.
  * Multi-lingual keyword matching for en, es, ru.
@@ -124,9 +149,7 @@ export function determinePostActivity({ mode = 'TRAIN', copyPackage, catalogItem
     if (/running|runner|jogging|race|correr|бег|пробежк|старт/i.test(corpus)) return 'running';
     if (/hyrox|crossfit|functional|hiit|conditioning/i.test(corpus)) return 'functional';
     if (/weights|deadlift|barbell|strength|fuerza|силов|тяжел/i.test(corpus)) return 'strength';
-    if (/accountability|shows up|alone|motivation|partner|socio|compañero|solo|партнёр|в одиночку/i.test(corpus)) {
-      return 'partner';
-    }
+    if (/accountability|shows up|alone|motivation|partner|socio|compañero|solo|партнёр|в одиночку/i.test(corpus)) return 'partner';
     return 'workout';
   }
 
@@ -142,10 +165,7 @@ export function determinePostActivity({ mode = 'TRAIN', copyPackage, catalogItem
   }
 
   if (m === 'DATE') {
-    // Prefer active/lifestyle when "active singles" / solteros activos appears (even alongside swiping copy).
-    if (/active|activo|activos|activas|fitness|energy|adventure|lifestyle|estilo de vida|energía|активн|энерги|solteros activos|active singles/i.test(corpus)) {
-      return 'lifestyle';
-    }
+    if (/active|activo|activos|activas|fitness|energy|adventure|lifestyle|estilo de vida|energía|активн|энерги|solteros activos|active singles/i.test(corpus)) return 'lifestyle';
     if (/coffee|cafe|café|кофе|кафе/i.test(corpus)) return 'coffee';
     if (/drinks|cocktail|cocktails|bar|rooftop|copas|бар|коктейл/i.test(corpus)) return 'drinks';
     if (/walk|walking|stroll|caminar|paseo|прогулк/i.test(corpus)) return 'walk';
@@ -160,9 +180,7 @@ export function determinePostActivity({ mode = 'TRAIN', copyPackage, catalogItem
 export function sceneForActivity(mode, activity, seed = 0) {
   const m = String(mode || 'TRAIN').toUpperCase();
   const byAct = SCENES_BY_ACTIVITY[m];
-  if (byAct && byAct[activity]) {
-    return byAct[activity];
-  }
+  if (byAct && byAct[activity]) return byAct[activity];
   const allScenes = MODE_PHOTO_SCENES[m] || MODE_PHOTO_SCENES.TRAIN;
   return pickFrom(allScenes, seed);
 }
@@ -173,24 +191,19 @@ export function isDuplicateConcept(concept, recentEntries = []) {
   const cta = normalizeConceptKey(concept.cta);
   const seed = concept.backgroundSeed;
   for (const entry of recentEntries) {
-    if (entry.stockPhotoId && concept.stockPhotoId && entry.stockPhotoId === concept.stockPhotoId) {
-      return 'stockPhoto';
-    }
+    if (entry.stockPhotoId && concept.stockPhotoId && entry.stockPhotoId === concept.stockPhotoId) return 'stockPhoto';
     if (normalizeConceptKey(entry.imageHeadline) === headline) return 'headline';
     if (normalizeConceptKey(entry.visualConcept || entry.photoPrompt) === visual) return 'visualConcept';
     if (entry.imageSeed != null && seed != null && entry.imageSeed === seed) return 'seed';
-    if (normalizeConceptKey(entry.cta) === cta && normalizeConceptKey(entry.visualConcept) === visual) {
-      return 'cta_visual';
-    }
+    if (normalizeConceptKey(entry.cta) === cta && normalizeConceptKey(entry.visualConcept) === visual) return 'cta_visual';
   }
   return null;
 }
 
 /**
  * Build image concept with photography-first metadata.
- * Determines the semantic activity from the actual post so the visual concept matches.
- * Supports explicit overrides (preview / manual).
- * Image text language always matches catalog/campaign locale.
+ * Broad mode-first campaigns rotate the underlying real-world activity by date while
+ * preserving the approved copy, overlay and layout. Explicit/specific activities still win.
  */
 export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [], overrides = {} } = {}) {
   const mode = String(overrides.mode || catalogItem?.mode || 'TRAIN').toUpperCase();
@@ -198,62 +211,37 @@ export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [
   const seedBase = `${isoDate}:${catalogItem?.contentId || 'preview'}:${mode}:${language}:${recentEntries.length}`;
   const seed = hashSeed(seedBase);
 
-  const copyPackage =
-    overrides.copyPackage ||
-    catalogItem?.copyPackage ||
-    selectCopyPackage({
-      mode,
-      language,
-      isoDate,
-      contentId: catalogItem?.contentId || 'preview',
-      recentEntries
-    });
+  const copyPackage = overrides.copyPackage || catalogItem?.copyPackage || selectCopyPackage({ mode, language, isoDate, contentId: catalogItem?.contentId || 'preview', recentEntries });
 
-  const semanticActivity = determinePostActivity({
-    mode,
-    copyPackage,
-    catalogItem,
-    overrides
-  });
+  const detectedActivity = determinePostActivity({ mode, copyPackage, catalogItem, overrides });
+  const useRotation = shouldUseDailyActivityRotation({ catalogItem, overrides });
+  const semanticActivity = useRotation
+    ? rotatedActivityForMode(mode, { isoDate, contentId: catalogItem?.contentId || 'preview', language })
+    : detectedActivity;
 
   let attempt = 0;
   let concept = null;
   while (attempt < 12) {
     const attemptSeed = seed + attempt * 9973;
-    const headlineVariants =
-      catalogItem?.imageHeadlines || headlineTextsFor(mode, language) || [MODE_HEADLINE_DEFAULTS[mode]];
+    const headlineVariants = catalogItem?.imageHeadlines || headlineTextsFor(mode, language) || [MODE_HEADLINE_DEFAULTS[mode]];
     const ctaVariants = catalogItem?.imageCtas || ctaTextsFor(mode, language) || [MODE_CTA_DEFAULTS[mode]];
     const headlineFromCopy = attempt === 0 ? copyPackage.headline : '';
     const ctaFromCopy = attempt === 0 ? copyPackage.cta : '';
-    const matchedScene =
-      overrides.photoPrompt ||
-      overrides.visualConcept ||
-      catalogItem?.visualConcept ||
-      sceneForActivity(mode, semanticActivity, attemptSeed);
+    const attemptActivity = useRotation && attempt > 0
+      ? rotatedActivityForMode(mode, { isoDate, contentId: catalogItem?.contentId || 'preview', language, offset: attempt })
+      : semanticActivity;
+    const matchedScene = overrides.photoPrompt || overrides.visualConcept || catalogItem?.visualConcept || sceneForActivity(mode, attemptActivity, attemptSeed);
 
     concept = {
       mode,
       contentId: catalogItem?.contentId || 'preview',
       language,
       locale: language,
-      semanticActivity,
-      imageHeadline:
-        overrides.imageHeadline ||
-        catalogItem?.imageHeadline ||
-        headlineFromCopy ||
-        pickFrom(headlineVariants, attemptSeed + 3) ||
-        'Find Your Match',
-      imageSubheadline:
-        overrides.imageSubheadline ||
-        catalogItem?.imageSubheadline ||
-        (attempt === 0 ? copyPackage.subheadline || '' : ''),
-      cta:
-        overrides.cta ||
-        catalogItem?.imageCta ||
-        ctaFromCopy ||
-        pickFrom(ctaVariants, attemptSeed + 11) ||
-        MODE_CTA_DEFAULTS[mode] ||
-        'FIND YOUR MATCH',
+      semanticActivity: attemptActivity,
+      activityRotationEnabled: useRotation,
+      imageHeadline: overrides.imageHeadline || catalogItem?.imageHeadline || headlineFromCopy || pickFrom(headlineVariants, attemptSeed + 3) || 'Find Your Match',
+      imageSubheadline: overrides.imageSubheadline || catalogItem?.imageSubheadline || (attempt === 0 ? copyPackage.subheadline || '' : ''),
+      cta: overrides.cta || catalogItem?.imageCta || ctaFromCopy || pickFrom(ctaVariants, attemptSeed + 11) || MODE_CTA_DEFAULTS[mode] || 'FIND YOUR MATCH',
       photoPrompt: matchedScene,
       visualConcept: matchedScene,
       destinationUrl: 'https://gettrainmate.com',
@@ -277,12 +265,7 @@ export function wrapHeadlineLines(text, { maxCharsPerLine = 22, maxLines = 2 } =
   let current = '';
   for (const word of words) {
     const next = current ? `${current} ${word}` : word;
-    if (next.length > maxCharsPerLine && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = next;
-    }
+    if (next.length > maxCharsPerLine && current) { lines.push(current); current = word; } else { current = next; }
     if (lines.length >= maxLines) break;
   }
   if (current && lines.length < maxLines) lines.push(current);
@@ -290,6 +273,4 @@ export function wrapHeadlineLines(text, { maxCharsPerLine = 22, maxLines = 2 } =
 }
 
 /** @deprecated use buildImageConcept */
-export function deriveHeadlineCandidates() {
-  return [];
-}
+export function deriveHeadlineCandidates() { return []; }
