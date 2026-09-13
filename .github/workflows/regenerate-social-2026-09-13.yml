@@ -11,7 +11,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   regenerate:
@@ -36,18 +35,17 @@ jobs:
           node --check scripts/growth/publish-owned-social.mjs
       - name: Regression tests
         run: node --test scripts/growth/tests/social-image.test.mjs scripts/growth/tests/social-copy.test.mjs
-      - name: Generate corrected creative without publishing
-        run: node scripts/growth/publish-owned-social.mjs --dry-run --skip-instagram
-      - name: Assume growth AWS role
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::718522948657:role/GoHyroxGitHubGrowth
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      - name: Verify GetTrainMate Meta parameters are accessible
-        shell: bash
+      - name: Verify Meta parameters
         run: |
-          set -euo pipefail
-          aws ssm get-parameter --name /gettrainmate/growth/meta-page-access-token --with-decryption --query Parameter.Name --output text >/dev/null
-          aws ssm get-parameter --name /gettrainmate/growth/facebook-page-id --query Parameter.Name --output text >/dev/null
+          aws ssm get-parameter --name /gettrainmate/growth/meta-page-access-token --with-decryption --query Parameter.Name --output text
+          aws ssm get-parameter --name /gettrainmate/growth/facebook-page-id --query Parameter.Name --output text
+      - name: Generate corrected creative without publishing
+        run: node scripts/growth/publish-owned-social.mjs --dry-run --skip-instagram
       - name: Publish corrected Facebook post only
         run: node scripts/growth/publish-owned-social.mjs --force-publish --skip-instagram
