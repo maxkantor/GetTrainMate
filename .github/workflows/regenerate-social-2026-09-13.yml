@@ -24,12 +24,6 @@ jobs:
           node-version: '20.x'
       - name: Install dependencies without lifecycle hooks
         run: npm ci --ignore-scripts
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
       - name: Syntax checks
         run: |
           node --check scripts/growth/lib/social-image-photo-compose.mjs
@@ -39,5 +33,11 @@ jobs:
         run: node --test scripts/growth/tests/social-image.test.mjs scripts/growth/tests/social-copy.test.mjs
       - name: Generate corrected creative without publishing
         run: node scripts/growth/publish-owned-social.mjs --dry-run --skip-instagram
+      - name: Configure AWS Credentials for live publish
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
       - name: Publish corrected Facebook post
         run: node scripts/growth/publish-owned-social.mjs --force-publish --skip-instagram
