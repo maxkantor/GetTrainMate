@@ -530,6 +530,34 @@
       "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/12/date-en-active-singles-20260912-a7749c.jpg",
       "imageProvider": "unsplash_stock",
       "imageFallback": false
+    },
+    {
+      "publishedAtUtc": "2026-09-13T14:00:24.669Z",
+      "contentId": "vibe-en-new-in-town",
+      "mode": "VIBE",
+      "language": "en",
+      "locale": "en",
+      "campaign": "owned-vibe-en-2026-09-13",
+      "copy_variant": "vibe-post-love-doing",
+      "headline_variant": "vibe-hl-love-doing",
+      "cta_variant": "vibe-cta-connect",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122132349620773778",
+      "instagramPostId": "18009955139764813",
+      "igCreationId": "18107366165150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "imageHeadline": "MEET THROUGH WHAT YOU LOVE DOING.",
+      "visualConcept": "friends celebrating on rooftop overlooking city at sunset",
+      "photoPrompt": "friends laughing and chatting casually while walking together down a lively city street on the weekend",
+      "imageCta": "START CONNECTING",
+      "imageSeed": 244293318,
+      "stockPhotoId": "vibe-friends-rooftop-sunset",
+      "imageKey": "social/generated/2026/09/13/vibe-en-new-in-town-20260913-f5f296.jpg",
+      "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/13/vibe-en-new-in-town-20260913-f5f296.jpg",
+      "imageProvider": "unsplash_stock",
+      "imageFallback": false
     }
   ]
 }
