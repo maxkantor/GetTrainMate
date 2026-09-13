@@ -8,14 +8,39 @@ import { PROHIBITED_VIBE_KEYWORDS, stockPhotosForMode, unsplashCropUrl } from '.
 function hashSeed(input) { let h=2166136261; for (let i=0;i<input.length;i++){ h^=input.charCodeAt(i); h=Math.imul(h,16777619); } return Math.abs(h); }
 
 const HARD_BLOCKED_IDS = new Set([
-  'vibe-hiking-mountain-trail',       // distant backs-to-camera hikers; weak human connection
-  'train-tennis-player-lifestyle',    // solo athlete; does not communicate TrainMate
-  'train-tennis-court-action',        // solo athlete; does not communicate TrainMate
-  'train-gym-strength-lifting',       // solo lifter; does not communicate TrainMate
-  'date-couple-cafe-social',          // generic group/cafe image, not clearly a date
-  'date-cocktails-cheers-date',       // hands/drinks can hide the couple
-  'date-wine-celebration-toast'       // generic toast can read as party, not date
+  'vibe-hiking-mountain-trail',
+  'vibe-friends-street-chat',       // today's weak generic street creative
+  'vibe-friends-coastal-scenery',   // people too small / scenery dominates
+  'train-tennis-player-lifestyle',
+  'train-tennis-court-action',
+  'train-gym-strength-lifting',
+  'date-couple-cafe-social',
+  'date-cocktails-cheers-date',
+  'date-wine-celebration-toast'
 ]);
+
+const PREMIUM_PREFERRED_IDS = {
+  TRAIN: new Set([
+    'train-gym-partners-goals',
+    'train-pickleball-match',
+    'train-pickleball-doubles',
+    'train-running-outdoor-group',
+    'train-cycling-road-partners',
+    'train-functional-gym-class'
+  ]),
+  VIBE: new Set([
+    'vibe-friends-rooftop-sunset',
+    'vibe-friends-laughing-golden',
+    'vibe-friends-park-social',
+    'vibe-friends-patio-dining',
+    'vibe-cafe-coffee-culture'
+  ]),
+  DATE: new Set([
+    'date-couple-candid-outdoors',
+    'date-couple-walking-holding-hands',
+    'date-couple-laughing-close'
+  ])
+};
 
 function connectionPool(mode, input, activity='') {
   let pool=[...input].filter(p=>!HARD_BLOCKED_IDS.has(p.id));
@@ -38,6 +63,12 @@ function connectionPool(mode, input, activity='') {
   if (mode==='DATE') {
     const coupleOnly=pool.filter(p=>/couple|romantic|holding hands|close embrace|chemistry/i.test(sceneText(p)));
     if (coupleOnly.length) pool=coupleOnly;
+  }
+
+  const preferredIds = PREMIUM_PREFERRED_IDS[mode];
+  if (preferredIds?.size) {
+    const preferred = pool.filter((p) => preferredIds.has(p.id));
+    if (preferred.length) pool = preferred;
   }
 
   return pool;
