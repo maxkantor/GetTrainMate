@@ -9,13 +9,13 @@ function hashSeed(input) {
   let h=2166136261; for (let i=0;i<input.length;i++){ h^=input.charCodeAt(i); h=Math.imul(h,16777619); } return Math.abs(h);
 }
 
-function socialFirstPool(mode, input) {
+function socialFirstPool(mode, input, activity='') {
   let pool=[...input];
   if (mode==='TRAIN') {
     const social=pool.filter(p=>/partner|partners|players|doubles|runners|cyclists|group|together|class/i.test(`${p.scene||''} ${(p.activities||[]).join(' ')}`));
     if (social.length) pool=social;
   }
-  if (mode==='VIBE') {
+  if (mode==='VIBE' && activity!=='hiking') {
     const human=pool.filter(p=>!/(hiking mountain trail|scenic hilltop|toward scenic alpine peak)/i.test(p.scene||''));
     if (human.length) pool=human;
   }
@@ -24,8 +24,8 @@ function socialFirstPool(mode, input) {
 
 export function selectStockPhoto({ mode, contentId='', isoDate='', activity='', recentEntries=[] }={}) {
   const m=String(mode||'TRAIN').toUpperCase();
-  let pool=socialFirstPool(m, stockPhotosForMode(m));
   const act=String(activity||'').toLowerCase().trim();
+  let pool=socialFirstPool(m, stockPhotosForMode(m), act);
 
   if (act) {
     const actTokens=act.split(/[\s,/_]+/).filter(Boolean);
@@ -40,7 +40,7 @@ export function selectStockPhoto({ mode, contentId='', isoDate='', activity='', 
   }
 
   if (m==='VIBE') pool=pool.filter(p=>{const text=`${p.scene||''} ${(p.activities||[]).join(' ')}`.toLowerCase(); return !PROHIBITED_VIBE_KEYWORDS.some(b=>text.includes(b));});
-  if (!pool.length) pool=socialFirstPool(m, stockPhotosForMode(m));
+  if (!pool.length) pool=socialFirstPool(m, stockPhotosForMode(m), act);
 
   const usedIds=new Set((recentEntries||[]).map(e=>e.stockPhotoId||'').filter(Boolean));
   const seed=hashSeed(`${isoDate}:${contentId}:${m}:${act}`);
