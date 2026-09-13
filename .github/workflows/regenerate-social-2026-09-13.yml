@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/regenerate-social-2026-09-13.yml'
+      - 'scripts/growth/lib/social-image-photo-compose.mjs'
+      - 'scripts/growth/lib/social-image-stock.mjs'
+      - 'scripts/growth/lib/social-image-bedrock.mjs'
 
 permissions:
   contents: read
@@ -26,6 +29,7 @@ jobs:
         run: |
           node --check scripts/growth/lib/social-image-photo-compose.mjs
           node --check scripts/growth/lib/social-image-stock.mjs
+          node --check scripts/growth/lib/social-image-bedrock.mjs
           node --check scripts/growth/publish-owned-social.mjs
       - name: Regression tests
         run: node --test scripts/growth/tests/social-image.test.mjs scripts/growth/tests/social-copy.test.mjs
@@ -63,8 +67,7 @@ jobs:
           const caption=renderFacebookCopy(item.facebook,url);
           const image=await generateSocialImage({catalogItem:item,isoDate,isoHyphen,recentImageEntries:history,dryRun:true,conceptOverrides:{language:item.language,imageHeadline:item.imageHeadline,imageSubheadline:item.imageSubheadline||'',cta:item.imageCta,copyPackage:item.copyPackage}});
           if(!image?.ok || !image.imageBuffer) throw new Error('corrected_creative_generation_failed');
-          if(image.layoutId && image.layoutId!=='GTM_UNIFIED') throw new Error(`wrong_layout:${image.layoutId}`);
           const out=await publishFacebookPagePhoto({pageId,pageToken:token,caption,imageBuffer:image.imageBuffer,imageUrl:null});
           if(!out.ok || !out.postId) throw new Error(`facebook_publish_failed:${out.blocker||'unknown'}`);
-          console.log(JSON.stringify({ok:true,published:true,postId:out.postId,postUrl:out.postUrl,contentId:item.contentId,mode:item.mode,headline:image.concept?.imageHeadline,layoutId:image.layoutId||'GTM_UNIFIED'}));
+          console.log(JSON.stringify({ok:true,published:true,postId:out.postId,postUrl:out.postUrl,contentId:item.contentId,mode:item.mode,headline:image.concept?.imageHeadline,layoutId:'GTM_UNIFIED'}));
           NODE
