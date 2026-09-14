@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
 import { useI18n } from '@/hooks/useI18n';
@@ -11,15 +11,17 @@ const STEPS = [
   { mode: 'DATE', titleKey: 'landing.journey_date_title', bodyKey: 'landing.journey_date_body' },
 ] as const;
 
+/** Bold TRAIN → VIBE → DATE differentiation — not three equal SaaS cards. */
 export const JourneyProgression: React.FC = () => {
   const { t } = useI18n();
+  const reduceMotion = useReducedMotion();
 
   return (
     <Section id="journey" background="subtle" paddingSize="md" className={`${styles.section} premium-section-bg`}>
-      <Container>
+      <Container size="wide">
         <motion.div
           className={styles.header}
-          initial={{ opacity: 0, y: 12 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.4 }}
@@ -29,30 +31,18 @@ export const JourneyProgression: React.FC = () => {
           <p className={styles.sub}>{t('landing.journey_sub')}</p>
         </motion.div>
 
-        <div className={styles.flow} role="list">
+        <ol className={styles.strip}>
           {STEPS.map((step, i) => (
-            <React.Fragment key={step.mode}>
-              {i > 0 ? (
-                <div className={styles.arrow} aria-hidden>
-                  →
-                </div>
-              ) : null}
-              <motion.article
-                role="listitem"
-                className={styles.step}
-                data-mode={step.mode}
-                initial={{ opacity: 0, y: 14 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-40px' }}
-                transition={{ delay: i * 0.06, duration: 0.4 }}
-              >
-                <span className={styles.mode}>{step.mode}</span>
-                <h3 className={styles.stepTitle}>{t(step.titleKey)}</h3>
-                <p className={styles.stepBody}>{t(step.bodyKey)}</p>
-              </motion.article>
-            </React.Fragment>
+            <li key={step.mode} className={styles.stripItem} data-mode={step.mode}>
+              <div className={styles.stripModeRow}>
+                <span className={styles.stripMode}>{step.mode}</span>
+                {i < STEPS.length - 1 ? <span className={styles.stripArrow} aria-hidden>→</span> : null}
+              </div>
+              <h3 className={styles.stripTitle}>{t(step.titleKey)}</h3>
+              <p className={styles.stripBody}>{t(step.bodyKey)}</p>
+            </li>
           ))}
-        </div>
+        </ol>
 
         <p className={styles.contrast}>{t('landing.journey_contrast')}</p>
       </Container>

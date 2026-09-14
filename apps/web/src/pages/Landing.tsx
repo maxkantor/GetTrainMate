@@ -7,11 +7,11 @@ import { useActiveEvents } from '@/hooks/useActiveEvents';
 import { LoggedInActionHero } from '@/components/app/LoggedInActionHero';
 import { Hero } from '@/sections/Hero';
 import { EventPromoSection } from '@/sections/EventPromoSection';
-import { SwipeDemoSection } from '@/sections/SwipeDemoSection';
+import { ProductJourneySection } from '@/sections/ProductJourneySection';
 import { JourneyProgression } from '@/sections/JourneyProgression';
-import { Features } from '@/sections/Features';
 import { AiMatchingShowcase } from '@/sections/AiMatchingShowcase';
 import { GlobalCommunity } from '@/sections/GlobalCommunity';
+import { TrustSafetySection } from '@/sections/TrustSafetySection';
 import { FinalCTA } from '@/sections/FinalCTA';
 import { trackEvent } from '@/utils/analytics';
 import { featureFlagsService } from '@/services/featureFlagsService';
@@ -82,12 +82,12 @@ export const LandingPage: React.FC = () => {
     <div className={landingStyles.landing}>
       <Hero />
       {showEventPromo && featuredEvent ? <EventPromoSection event={featuredEvent} /> : null}
-      <SwipeDemoSection />
+      <ProductJourneySection />
       <div className={styles.sectionDivider} aria-hidden />
       <JourneyProgression />
-      <Features />
       <AiMatchingShowcase />
       <GlobalCommunity />
+      <TrustSafetySection />
       <FinalCTA />
     </div>
   );
