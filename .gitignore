@@ -66,6 +66,9 @@ secrets.json
 docs/growth/snapshots/funnel-*.json
 docs/growth/previews/*.html
 docs/growth/previews/*.txt
+docs/growth/previews/hero-options/
+scripts/tmp-*-screenshots.mjs
+scripts/tmp-*-sheet.mjs
 scripts/growth/node_modules/
 scripts/growth/var/
 scripts/growth/config/partner-outreach-approvals.local.json
