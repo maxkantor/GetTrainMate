@@ -558,6 +558,34 @@
       "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/13/vibe-en-new-in-town-20260913-f5f296.jpg",
       "imageProvider": "unsplash_stock",
       "imageFallback": false
+    },
+    {
+      "publishedAtUtc": "2026-09-14T14:00:23.755Z",
+      "contentId": "train-en-workout-partner",
+      "mode": "TRAIN",
+      "language": "en",
+      "locale": "en",
+      "campaign": "owned-train-en-20260914",
+      "copy_variant": "premium-train-en-v2",
+      "headline_variant": "premium-train-headline-v2",
+      "cta_variant": "premium-train-cta-v2",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122132466878773778",
+      "instagramPostId": "18266714458305782",
+      "igCreationId": "18107518754150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "imageHeadline": "TRAIN BETTER. TOGETHER.",
+      "visualConcept": "athletic running partners running together outdoors along a scenic route at golden hour, authentic training chemistry",
+      "photoPrompt": "athletic running partners running together outdoors along a scenic route at golden hour, authentic training chemistry",
+      "imageCta": "FIND A TRAINMATE",
+      "imageSeed": 756101769,
+      "stockPhotoId": "",
+      "imageKey": "social/generated/2026/09/14/train-en-workout-partner-20260914-bb96ed.jpg",
+      "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/14/train-en-workout-partner-20260914-bb96ed.jpg",
+      "imageProvider": "stability.stable-image-core-v1:1",
+      "imageFallback": false
     }
   ]
 }
