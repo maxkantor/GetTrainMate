@@ -54,7 +54,7 @@ describe('social image concept', () => {
     assert.equal(dup, 'headline');
   });
 
-  it('renders TRAIN/VIBE/DATE badge in overlay svg', () => {
+  it('renders journey brand line in overlay svg without mode pill', () => {
     const concept = buildImageConcept(findCatalogItemByContentId('date-en-active-singles'), {
       isoDate: '20260902',
       recentEntries: []
@@ -64,7 +64,8 @@ describe('social image concept', () => {
       height: 1350,
       concept
     });
-    assert.match(svg, />DATE</);
+    assert.match(svg, /Train • Vibe • Date/);
+    assert.match(svg, /GetTrainMate/);
     assert.match(svg, /gettrainmate\.com/);
   });
 
@@ -299,31 +300,31 @@ describe('semantic activity matching', () => {
     }
 
     const vibePrompt = buildPhotographyPrompt({ mode: 'VIBE', photoPrompt: 'friends having coffee at a cafe' });
-    assert.match(vibePrompt, /social activity/i);
+    assert.match(vibePrompt, /hang out|social lighting|sport → social/i);
     assert.match(vibePrompt, /completely free of laptops/i);
 
     const datePrompt = buildPhotographyPrompt({ mode: 'DATE', photoPrompt: 'couple enjoying drinks' });
-    assert.match(datePrompt, /romantic chemistry/i);
+    assert.match(datePrompt, /subtle|chemistry|believable/i);
 
     const trainPrompt = buildPhotographyPrompt({ mode: 'TRAIN', photoPrompt: 'gym partners workout' });
-    assert.match(trainPrompt, /sports and lifestyle photography/i);
+    assert.match(trainPrompt, /editorial sports photography|partnership is the story/i);
   });
 
   it('guarantees mode consistency: TRAIN post -> TRAIN imagery/CTA, VIBE post -> VIBE, DATE post -> DATE', () => {
     const trainItem = findCatalogItemByContentId('train-en-workout-partner');
     const trainConcept = buildImageConcept(trainItem, { isoDate: '20260908' });
     assert.equal(trainConcept.mode, 'TRAIN');
-    assert.match(trainConcept.cta, /PARTNER|TRAIN|START|WORKOUT|FIND/i);
+    assert.match(trainConcept.cta, /PARTNER|TRAIN|START|WORKOUT|FIND|PEOPLE/i);
 
     const vibeItem = findCatalogItemByContentId('vibe-en-new-in-town');
     const vibeConcept = buildImageConcept(vibeItem, { isoDate: '20260908' });
     assert.equal(vibeConcept.mode, 'VIBE');
-    assert.match(vibeConcept.cta, /VIBE|EXPLORE|MEET|FRIENDS|PEOPLE|DISCOVER/i);
+    assert.match(vibeConcept.cta, /VIBE|EXPLORE|MEET|FRIENDS|PEOPLE|DISCOVER|KEEP/i);
     assert.doesNotMatch(vibeConcept.photoPrompt.toLowerCase(), /laptop|office|coworking|study|working/);
 
     const dateItem = findCatalogItemByContentId('date-en-active-singles');
     const dateConcept = buildImageConcept(dateItem, { isoDate: '20260908' });
     assert.equal(dateConcept.mode, 'DATE');
-    assert.match(dateConcept.cta, /DATE|MATCH|FIND|MEET|CONNECT/i);
+    assert.match(dateConcept.cta, /DATE|MATCH|FIND|MEET|CONNECT|SEE WHAT HAPPENS|HAPPENS/i);
   });
 });

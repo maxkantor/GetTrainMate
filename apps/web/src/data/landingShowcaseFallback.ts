@@ -1,8 +1,6 @@
 /**
- * Offline fallbacks when /api/public/landing-showcase is unavailable, or when the API
- * returns only stock/placeholder URLs (we still show curated demo faces — not CRM S3).
- * Use base URLs only — sizing is CSS (`object-fit`). Never append query params to S3
- * presigned URLs (that invalidates signatures and shows broken images).
+ * Offline fallbacks when /api/public/landing-showcase is unavailable.
+ * Product mode cards only — never invent named users or fake match activity.
  */
 import { DUMMY_USER_PRIMARY_PHOTO } from '@/utils/profilePhotos';
 
@@ -10,20 +8,24 @@ export type LandingStackFallbackItem = {
   text: string;
   avatar: string;
   secondaryAvatar?: string;
+  mode?: 'TRAIN' | 'VIBE' | 'DATE';
 };
 
+/** Mode journey cards — used when live CRM showcase data is unavailable. */
 export const LANDING_SHOWCASE_STACK_FALLBACK: LandingStackFallbackItem[] = [
   {
-    text: 'Sarah found someone to train and vibe with',
+    mode: 'TRAIN',
+    text: 'TRAIN — Find someone for your next workout.',
     avatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-1'],
-    secondaryAvatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
   },
   {
-    text: 'Mike matched this week',
+    mode: 'VIBE',
+    text: 'VIBE — Workout went well? Keep hanging out.',
     avatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
   },
   {
-    text: 'New matches daily for training, vibes, or dating',
+    mode: 'DATE',
+    text: "DATE — There's chemistry? You decide what's next.",
     avatar: DUMMY_USER_PRIMARY_PHOTO['dummy-user-3'],
   },
 ];
@@ -36,47 +38,48 @@ export type LandingDeckFallback = {
   matchPct: number;
 };
 
+/** Swipe demo placeholders — generic role labels, not fabricated social-proof names. */
 export const LANDING_SHOWCASE_DECK_FALLBACK: LandingDeckFallback[] = [
   {
-    name: 'Sarah Runner',
+    name: 'Runner',
     age: 28,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-1'],
     tags: ['RUNNING', 'YOGA', 'HIKING'],
     matchPct: 94,
   },
   {
-    name: 'Mike Cyclist',
+    name: 'Cyclist',
     age: 32,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
     tags: ['CYCLING', 'GYM', 'CROSSFIT'],
     matchPct: 91,
   },
   {
-    name: 'Emma Yoga',
+    name: 'Yoga',
     age: 27,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-3'],
-    tags: ['YOGA', 'PILATES', 'MEDITATION'],
+    tags: ['YOGA', 'PILATES', 'HIKING'],
     matchPct: 88,
   },
   {
-    name: 'Sarah Runner',
+    name: 'Runner',
     age: 28,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-1'],
     tags: ['RUNNING', 'YOGA', 'HIKING'],
     matchPct: 92,
   },
   {
-    name: 'Mike Cyclist',
+    name: 'Cyclist',
     age: 32,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
     tags: ['CYCLING', 'GYM', 'CROSSFIT'],
     matchPct: 89,
   },
   {
-    name: 'Emma Yoga',
+    name: 'Yoga',
     age: 27,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-3'],
-    tags: ['YOGA', 'PILATES', 'MEDITATION'],
+    tags: ['YOGA', 'PILATES', 'HIKING'],
     matchPct: 90,
   },
 ];

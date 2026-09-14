@@ -174,92 +174,105 @@ export const CATALOG = [
   }
 ];
 
-const PREMIUM_COPY = {
+const PREMIUM_HEADLINES = {
   TRAIN: {
-    en: {
-      headline: 'TRAIN BETTER. TOGETHER.',
-      subheadline: 'Find people who match your workout style.',
-      cta: 'FIND A TRAINMATE',
-      facebook: 'Your workout is better with the right partner.\n\nFind active people near you for gym, running, sports and race prep. TRAIN is built for real workouts and real accountability.\n\nFind your TrainMate: {{url}}',
-      instagram: 'Your workout is better with the right partner.\n\nFind active people near you for gym, running, sports and race prep. TRAIN is built for real workouts and real accountability.\n\nFind your TrainMate: {{url}}'
-    },
-    es: {
-      headline: 'ENTRENA MEJOR. JUNTOS.',
-      subheadline: 'Encuentra gente con tu mismo estilo de entrenamiento.',
-      cta: 'ENCUENTRA TU TRAINMATE',
-      facebook: 'Entrenar es mejor con la persona adecuada.\n\nEncuentra gente activa cerca para gym, running, deporte y preparación de carrera. TRAIN está hecho para entrenar de verdad y mantener la constancia.\n\nEncuentra tu TrainMate: {{url}}',
-      instagram: 'Entrenar es mejor con la persona adecuada.\n\nEncuentra gente activa cerca para gym, running, deporte y preparación de carrera. TRAIN está hecho para entrenar de verdad y mantener la constancia.\n\nEncuentra tu TrainMate: {{url}}'
-    },
-    ru: {
-      headline: 'ТРЕНИРУЙТЕСЬ ЛУЧШЕ. ВМЕСТЕ.',
-      subheadline: 'Найдите людей с вашим стилем тренировок.',
-      cta: 'НАЙТИ TRAINMATE',
-      facebook: 'Тренировки лучше с подходящим партнёром.\n\nНайдите рядом активных людей для зала, бега, спорта и подготовки к стартам. TRAIN создан для реальных тренировок и взаимной мотивации.\n\nНайдите своего TrainMate: {{url}}',
-      instagram: 'Тренировки лучше с подходящим партнёром.\n\nНайдите рядом активных людей для зала, бега, спорта и подготовки к стартам. TRAIN создан для реальных тренировок и взаимной мотивации.\n\nНайдите своего TrainMate: {{url}}'
-    }
+    en: [
+      { headline: 'NEED A WORKOUT PARTNER?', subheadline: 'Start with a workout. See what happens.', caption: 'Gym tonight? Find someone who actually wants to go.\n\n{{url}}' },
+      { headline: 'GOOD GAME. DRINKS AFTER?', subheadline: 'Train first. Hang out after.', caption: 'Need a pickleball partner this weekend? Find someone nearby. If you hit it off, grab a drink after.\n\n{{url}}' },
+      { headline: 'RUN TOGETHER. COFFEE AFTER?', subheadline: 'The workout brought you together.', caption: 'Running after work? Find someone to join you. Coffee afterward is optional.\n\n{{url}}' },
+      { headline: 'FIND SOMEONE WHO CAN KEEP UP.', subheadline: 'Same sport. Same energy.', caption: 'Find someone who likes the same sport. What happens after is up to you.\n\n{{url}}' },
+      { headline: 'START WITH A WORKOUT. SEE WHAT HAPPENS.', subheadline: 'Train • Vibe • Date', caption: 'Start with a workout. If the vibe is there, you already have something in common.\n\n{{url}}' },
+      { headline: 'START WITH A HIKE. SEE WHAT HAPPENS.', subheadline: 'Activity first. Chemistry optional.', caption: 'Start with a hike. If the vibe is there, you already have something in common.\n\n{{url}}' }
+    ],
+    es: [
+      { headline: '¿NECESITAS COMPAÑERO DE ENTRENO?', subheadline: 'Empieza con un entreno. Mira qué pasa.', caption: '¿Gym esta noche? Encuentra a alguien que de verdad quiera ir.\n\n{{url}}' },
+      { headline: 'BUEN PARTIDO. ¿LUEGO UNAS COPAS?', subheadline: 'Primero entrenar. Después quedar.', caption: '¿Buscas pareja de pickleball este finde? Si hay vibe, luego unas copas.\n\n{{url}}' },
+      { headline: 'CORRED JUNTOS. ¿CAFÉ DESPUÉS?', subheadline: 'El entreno os juntó.', caption: '¿Salir a correr después del trabajo? Encuentra a alguien. El café es opcional.\n\n{{url}}' }
+    ],
+    ru: [
+      { headline: 'НУЖЕН ПАРТНЁР ПО ТРЕНИРОВКАМ?', subheadline: 'Начните с тренировки. Посмотрите, что будет.', caption: 'Зал сегодня вечером? Найдите человека, который реально хочет идти.\n\n{{url}}' },
+      { headline: 'ХОРОШАЯ ИГРА. ПОТОМ НАПИТКИ?', subheadline: 'Сначала тренировка. Потом общение.', caption: 'Нужен партнёр по пиклболу на выходные? Если есть вайб — потом можно и выпить.\n\n{{url}}' },
+      { headline: 'БЕГИТЕ ВМЕСТЕ. КОФЕ ПОТОМ?', subheadline: 'Тренировка вас свела.', caption: 'Пробежка после работы? Найдите компанию. Кофе — по желанию.\n\n{{url}}' }
+    ]
   },
   VIBE: {
-    en: {
-      headline: 'FIND YOUR PEOPLE. MAKE REAL PLANS.',
-      subheadline: 'Events, hobbies, weekends — together.',
-      cta: 'EXPLORE VIBE',
-      facebook: 'More plans. Better company.\n\nMeet people near you who share your interests — coffee, concerts, hiking, food, local events and more. VIBE is for friendship, shared interests and real-world plans.\n\nFind your people: {{url}}',
-      instagram: 'More plans. Better company.\n\nMeet people near you who share your interests — coffee, concerts, hiking, food, local events and more. VIBE is for friendship, shared interests and real-world plans.\n\nFind your people: {{url}}'
-    },
-    es: {
-      headline: 'ENCUENTRA TU GENTE. HAZ PLANES REALES.',
-      subheadline: 'Eventos, hobbies y fines de semana — juntos.',
-      cta: 'EXPLORA VIBE',
-      facebook: 'Más planes. Mejor compañía.\n\nConoce gente cerca con tus mismos intereses — café, conciertos, senderismo, comida, eventos locales y más. VIBE es para amistad, intereses compartidos y planes reales.\n\nEncuentra tu gente: {{url}}',
-      instagram: 'Más planes. Mejor compañía.\n\nConoce gente cerca con tus mismos intereses — café, conciertos, senderismo, comida, eventos locales y más. VIBE es para amistad, intereses compartidos y planes reales.\n\nEncuentra tu gente: {{url}}'
-    },
-    ru: {
-      headline: 'НАЙДИ СВОИХ. СТРОЙ РЕАЛЬНЫЕ ПЛАНЫ.',
-      subheadline: 'События, хобби и выходные — вместе.',
-      cta: 'ОТКРЫТЬ VIBE',
-      facebook: 'Больше планов. Лучше компания.\n\nЗнакомьтесь рядом с людьми с похожими интересами — кофе, концерты, походы, еда, городские события и не только. VIBE — для дружбы, общих интересов и реальных планов.\n\nНайдите своих: {{url}}',
-      instagram: 'Больше планов. Лучше компания.\n\nЗнакомьтесь рядом с людьми с похожими интересами — кофе, концерты, походы, еда, городские события и не только. VIBE — для дружбы, общих интересов и реальных планов.\n\nНайдите своих: {{url}}'
-    }
+    en: [
+      { headline: 'WORK OUT. HANG OUT. MAYBE MORE.', subheadline: 'If you click, keep the vibe going.', caption: 'Gym partner today. Drinks tonight? That\'s between you two.\n\n{{url}}' },
+      { headline: 'GOOD WORKOUT. YOUR MOVE.', subheadline: 'Keep hanging out.', caption: 'Training is easier with someone else. Meeting people can be too.\n\n{{url}}' },
+      { headline: 'FIND YOUR GAME. FIND YOUR PEOPLE.', subheadline: 'Plans after the workout.', caption: 'Find someone nearby to play. If you click, keep the vibe going.\n\n{{url}}' },
+      { headline: 'SAME ENERGY. NOW SAY HI.', subheadline: 'Start with activity. Stay for the vibe.', caption: 'Need someone to ride with? Start here.\n\n{{url}}' }
+    ],
+    es: [
+      { headline: 'ENTRENA. QUEDAD. QUIZÁ MÁS.', subheadline: 'Si hay vibe, seguid.', caption: 'Compañero de gym hoy. ¿Copas esta noche? Eso lo decidís vosotros.\n\n{{url}}' },
+      { headline: 'BUEN ENTRENO. TU TURNO.', subheadline: 'Seguid quedando.', caption: 'Entrenar es más fácil con alguien. Conocer gente también.\n\n{{url}}' }
+    ],
+    ru: [
+      { headline: 'ТРЕНИРОВКА. ОБЩЕНИЕ. МОЖЕТ, БОЛЬШЕ.', subheadline: 'Если есть вайб — продолжайте.', caption: 'Партнёр по залу сегодня. Напитки вечером? Это уже между вами.\n\n{{url}}' },
+      { headline: 'ХОРОШАЯ ТРЕНИРОВКА. ТВОЙ ХОД.', subheadline: 'Продолжайте общение.', caption: 'Тренироваться легче с кем-то. Знакомиться — тоже.\n\n{{url}}' }
+    ]
   },
   DATE: {
-    en: {
-      headline: 'MEET SOMEONE WHO LIVES LIKE YOU.',
-      subheadline: 'Shared interests. Real chemistry.',
-      cta: 'EXPLORE DATE',
-      facebook: 'Meet people who fit your lifestyle.\n\nDATE connects active people through shared interests, energy and the things they actually like doing.\n\nExplore DATE: {{url}}',
-      instagram: 'Meet people who fit your lifestyle.\n\nDATE connects active people through shared interests, energy and the things they actually like doing.\n\nExplore DATE: {{url}}'
-    },
-    es: {
-      headline: 'CONOCE A ALGUIEN QUE VIVA COMO TÚ.',
-      subheadline: 'Intereses compartidos. Química real.',
-      cta: 'EXPLORA DATE',
-      facebook: 'Conoce gente que encaje con tu estilo de vida.\n\nDATE conecta a personas activas por intereses, energía y las cosas que realmente disfrutan hacer.\n\nExplora DATE: {{url}}',
-      instagram: 'Conoce gente que encaje con tu estilo de vida.\n\nDATE conecta a personas activas por intereses, energía y las cosas que realmente disfrutan hacer.\n\nExplora DATE: {{url}}'
-    },
-    ru: {
-      headline: 'ВСТРЕТЬТЕ ТОГО, КТО ЖИВЁТ КАК ВЫ.',
-      subheadline: 'Общие интересы. Настоящая химия.',
-      cta: 'ОТКРЫТЬ DATE',
-      facebook: 'Знакомьтесь с людьми, которым близок ваш образ жизни.\n\nDATE соединяет активных людей через общие интересы, энергию и реальные занятия.\n\nОткройте DATE: {{url}}',
-      instagram: 'Знакомьтесь с людьми, которым близок ваш образ жизни.\n\nDATE соединяет активных людей через общие интересы, энергию и реальные занятия.\n\nОткройте DATE: {{url}}'
-    }
+    en: [
+      { headline: 'START WITH A WORKOUT. SEE WHAT HAPPENS.', subheadline: 'Dating is optional.', caption: 'Start with a workout. See what happens.\n\n{{url}}' },
+      { headline: 'NEED A SPOT? MAYBE A DATE?', subheadline: 'Chemistry is up to you.', caption: 'Gym partner today. What happens next is up to you.\n\n{{url}}' },
+      { headline: 'TRAIN FIRST. FLIRT LATER.', subheadline: 'Activity first. Chemistry optional.', caption: 'Find someone who can keep up. If there\'s chemistry, you decide what\'s next.\n\n{{url}}' },
+      { headline: 'GOOD MATCH. YOUR MOVE.', subheadline: 'You already have something in common.', caption: 'Meet through something active. If the vibe is there, take it further — or don\'t.\n\n{{url}}' }
+    ],
+    es: [
+      { headline: 'EMPIEZA CON UN ENTRENO. MIRA QUÉ PASA.', subheadline: 'La cita es opcional.', caption: 'Empieza con un entreno. Mira qué pasa.\n\n{{url}}' },
+      { headline: '¿NECESITAS SPOT? ¿QUIZÁ UNA CITA?', subheadline: 'La química la decidís vosotros.', caption: 'Compañero de gym hoy. Lo que sigue lo decidís vosotros.\n\n{{url}}' }
+    ],
+    ru: [
+      { headline: 'НАЧНИТЕ С ТРЕНИРОВКИ. ПОСМОТРИТЕ, ЧТО БУДЕТ.', subheadline: 'Свидание — по желанию.', caption: 'Начните с тренировки. Посмотрите, что будет.\n\n{{url}}' },
+      { headline: 'НУЖНА СТРАХОВКА? МОЖЕТ, СВИДАНИЕ?', subheadline: 'Химию решаете вы.', caption: 'Партнёр по залу сегодня. Что дальше — решаете вы.\n\n{{url}}' }
+    ]
   }
 };
+
+function premiumCta(mode, language) {
+  const lang = String(language || 'en').toLowerCase().slice(0, 2);
+  const m = String(mode || 'TRAIN').toUpperCase();
+  const byLang = {
+    en: { TRAIN: 'FIND YOUR PEOPLE', VIBE: 'KEEP THE VIBE', DATE: 'SEE WHAT HAPPENS' },
+    es: { TRAIN: 'ENCUENTRA TU GENTE', VIBE: 'SIGUE EL VIBE', DATE: 'MIRA QUÉ PASA' },
+    ru: { TRAIN: 'НАЙДИ СВОИХ', VIBE: 'СОХРАНИ ВАЙБ', DATE: 'ПОСМОТРИ, ЧТО БУДЕТ' }
+  };
+  const table = byLang[lang] || byLang.en;
+  return table[m] || table.TRAIN;
+}
+
+function withComplianceFooter(caption, language) {
+  const lang = String(language || 'en').toLowerCase().slice(0, 2);
+  const footer =
+    lang === 'es'
+      ? 'GetTrainMate. Sin coincidencias garantizadas — tú decides con quién quedar.'
+      : lang === 'ru'
+        ? 'GetTrainMate. Совпадения не гарантируем — вы сами решаете, с кем общаться.'
+        : 'GetTrainMate. No guaranteed matches — you decide who you meet.';
+  const body = String(caption || '').trim();
+  if (/GetTrainMate/i.test(body) && /no guaranteed|sin coincidencias|не гарантируем/i.test(body)) {
+    return body;
+  }
+  return `${body}\n\n${footer}`;
+}
 
 function premiumCopyFor(item, isoDate = '') {
   const mode = String(item?.mode || 'TRAIN').toUpperCase();
   const language = String(item?.language || 'en').toLowerCase().slice(0, 2);
-  const byMode = PREMIUM_COPY[mode] || PREMIUM_COPY.TRAIN;
-  const copy = byMode[language] || byMode.en;
+  const byMode = PREMIUM_HEADLINES[mode] || PREMIUM_HEADLINES.TRAIN;
+  const pool = byMode[language] || byMode.en;
+  const seed = hashSeed(`${isoDate}:${item?.contentId || mode}:${language}`);
+  const copy = pool[seed % pool.length];
+  const caption = withComplianceFooter(copy.caption, language);
   return {
     headline: copy.headline,
     subheadline: copy.subheadline,
-    cta: copy.cta,
-    facebook: copy.facebook,
-    instagram: copy.instagram,
-    copyVariant: `premium-${mode.toLowerCase()}-${language}-v2`,
-    headlineVariant: `premium-${mode.toLowerCase()}-headline-v2`,
-    ctaVariant: `premium-${mode.toLowerCase()}-cta-v2`,
+    cta: premiumCta(mode, language),
+    facebook: caption,
+    instagram: caption,
+    copyVariant: `premium-${mode.toLowerCase()}-${language}-v3-${seed % pool.length}`,
+    headlineVariant: `premium-${mode.toLowerCase()}-headline-v3-${seed % pool.length}`,
+    ctaVariant: `premium-${mode.toLowerCase()}-cta-v3`,
     locale: language,
     campaign: `owned-${mode.toLowerCase()}-${language}-${String(isoDate || '').replace(/-/g, '')}`
   };

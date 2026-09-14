@@ -1,12 +1,7 @@
 /**
  * TRAIN / VIBE / DATE scene labels for stock photo selection and overlay copy.
- * Headlines / CTAs come from locale-aware conversion copy (social-copy-variants).
- *
- * All scenes represent genuine lifestyle activities:
- * - TRAIN: gym partners, running together, pickleball, tennis, cycling, functional fitness, outdoor workouts.
- * - VIBE: friends at rooftop bar, social coffee meetup, patio restaurant dining, hiking group, festivals, city exploring.
- *   STRICTLY EXCLUDED FOR VIBE: laptops, office meetings, coworking, business meetings, conference rooms, people working/studying.
- * - DATE: attractive adult couple having drinks, coffee date, romantic walk, restaurant date, casual outdoor date, playful/flirty chemistry.
+ * Journey: TRAIN (activity) → VIBE (hang out after) → DATE (optional chemistry).
+ * Attractive athletic adults, natural and believable — not AI fitness ads.
  */
 import {
   ctaTextsFor,
@@ -16,33 +11,49 @@ import {
 
 export const SCENES_BY_ACTIVITY = {
   TRAIN: {
-    pickleball: 'pickleball partners playing an active doubles game on a vibrant blue court, dynamic athletic action',
-    tennis: 'tennis players moving dynamically on an outdoor court, holding rackets and balls, energetic athletic lifestyle',
-    running: 'athletic running partners running together outdoors along a scenic route at golden hour, authentic training chemistry',
-    cycling: 'road cyclists in athletic gear riding road bikes together along coastal highway, natural active partnership',
-    functional: 'functional fitness workout partners training together in a bright boutique gym, high energy',
-    strength: 'athlete deadlifting heavy barbell in modern gym with chalk and weights',
-    partner: 'training partners in modern gym reviewing workout goals together on a clipboard, motivating partnership',
-    workout: 'two workout partners training together in a modern gym, smiling and encouraging each other'
+    pickleball: 'attractive athletic adult man and woman playing mixed pickleball doubles, competitive playful energy, realistic sweat, candid court photography',
+    tennis: 'attractive athletic adults as tennis partners mid-rally on outdoor court, natural movement, subtle chemistry without romantic posing',
+    running: 'attractive athletic man and woman running together outdoors, realistic sweat, natural skin texture, candid editorial sports photography',
+    cycling: 'athletic man and woman cycling together on a scenic route, individual non-matching gear, natural partnership',
+    functional: 'mixed functional-fitness partners training together in a real gym, helping with equipment, natural talk between sets',
+    strength: 'attractive athletic man and woman lifting together, spotting and laughing between sets, realistic sweat and natural physiques',
+    volleyball: 'mixed beach volleyball group of attractive athletic adults, sunset light, playful competition, candid movement',
+    hiking: 'attractive athletic man and woman hiking a trail together, laughing mid-conversation, natural outdoor chemistry',
+    partner: 'training partners in a modern gym talking between sets with natural eye contact and subtle chemistry',
+    workout: 'attractive athletic man and woman finishing a workout together, sweaty, walking and talking naturally'
   },
   VIBE: {
-    hiking: 'friends hiking an alpine mountain trail with backpacks, admiring scenic mountain views together',
-    coffee: 'friends socializing at the counter of a trendy modern coffee shop with espresso cups, genuine smiles, no laptops',
-    drinks: 'friends clinking craft cocktails together in a moody evening bar, warm vibrant social nightlife',
-    dining: 'friends enjoying dinner and drinks at a stylish outdoor patio restaurant, laughing together in lively conversation',
-    festival: 'friends laughing and dancing together outdoors at golden hour music festival, energetic social atmosphere',
-    outdoors: 'group of friends standing on a scenic hilltop at sunset with arms around each other, outdoor adventure',
-    city: 'friends laughing and chatting casually while walking together down a lively city street on the weekend',
-    social: 'five friends sitting shoulder to shoulder on a ledge overlooking beautiful coastal scenery, warm authentic friendship'
+    coffee_after_run: 'attractive athletic man and woman post-run at a café patio, still in workout clothes with realistic sweat, laughing over coffee',
+    drinks_after_pickleball: 'pickleball partners walking from court toward an outdoor bar patio, rackets in hand, playful hangout energy',
+    rooftop_after_workout: 'athletic adults after a fitness class hanging out on a casual rooftop, drinks, candid social energy, no office vibe',
+    brewery_after_hike: 'hikers arriving at a patio brewery after a trail, dusty trail clothes, laughing over drinks',
+    sports_bar_after_soccer: 'mixed recreational soccer players at a sports bar after the game, casual social energy',
+    cafe_after_cycle: 'cyclists stopping at a café after a ride, helmets nearby, natural conversation',
+    city_walk_after_class: 'man and woman walking through the city after a workout class, athletic casual clothes, subtle chemistry',
+    social: 'attractive athletic friends hanging out after training, outdoor patio, candid laughs, no laptops',
+    // legacy activity keys still used by catalog/tests
+    coffee: 'attractive athletic adults grabbing coffee after training, candid patio hangout, no laptops',
+    drinks: 'friends toasting drinks after a shared sport, outdoor bar, warm social nightlife',
+    dining: 'friends enjoying patio dinner after a workout, lively conversation',
+    hiking: 'friends hiking together then transitioning toward a social hangout energy',
+    festival: 'athletic friends at an outdoor evening social gathering after training',
+    outdoors: 'friends outdoors after an active day, candid social energy',
+    city: 'athletic friends walking a city street after a workout, casual hangout'
   },
   DATE: {
-    coffee: 'attractive adults on a coffee date at a modern cafe, warm conversation, no laptops',
-    drinks: 'couple clinking craft cocktails together on a romantic evening date in an atmospheric bar',
-    walk: 'couple holding hands walking together outdoors, candid smiles, natural romantic energy',
-    dinner: 'attractive adult couple on a romantic dinner date with drinks, intimate conversation',
-    lifestyle: 'candid attractive adult couple outdoors sharing a joyful moment, energetic outdoor chemistry, clearly a romantic pair',
-    chemistry: 'happy attractive couple laughing closely together with genuine playful romantic connection',
-    romantic: 'candid attractive adult couple smiling closely outdoors with warm intimate chemistry'
+    coffee_after_train: 'attractive athletic man and woman grabbing coffee after training, subtle flirt without cheesy posing, natural chemistry',
+    drinks_after_game: 'tennis or pickleball partners having drinks after a match, outdoor bar, playful chemistry',
+    walk_after_workout: 'man and woman walking off together after training, talking closely, subtle spark, not kissing or staged embrace',
+    dinner_after_hike: 'athletic pair at a casual dinner after hiking, natural conversation, tasteful and modern',
+    spot_maybe_date: 'attractive adults spotting each other in the gym with playful eye contact and teasing energy, not sexual posing',
+    lifestyle: 'attractive athletic man and woman after a shared workout transitioning into a social moment, subtle chemistry',
+    chemistry: 'happy athletic pair laughing together post-workout with genuine playful chemistry, not dramatic romance',
+    // legacy keys
+    coffee: 'attractive athletic adults on a coffee stop after training, warm conversation, no laptops',
+    drinks: 'athletic pair clinking drinks after a shared sport, playful chemistry without cheesy romance',
+    walk: 'man and woman walking together after training, candid smiles, natural chemistry',
+    dinner: 'athletic pair at a casual dinner after activity, intimate conversation without staged posing',
+    romantic: 'athletic pair with subtle chemistry after a shared workout, tasteful and modern'
   }
 };
 
@@ -52,12 +63,10 @@ export const MODE_PHOTO_SCENES = {
   DATE: Object.values(SCENES_BY_ACTIVITY.DATE)
 };
 
-// Deterministic daily activity rotation for broad mode-first campaigns. This changes
-// the underlying Bedrock scene while preserving the approved overlay/layout/copy.
 export const MODE_ACTIVITY_ROTATION = {
-  TRAIN: ['pickleball', 'functional', 'running', 'cycling', 'tennis', 'workout'],
-  VIBE: ['coffee', 'festival', 'dining', 'city', 'drinks', 'outdoors', 'hiking', 'social'],
-  DATE: ['lifestyle', 'coffee', 'walk', 'drinks', 'dinner', 'chemistry']
+  TRAIN: ['pickleball', 'strength', 'running', 'tennis', 'volleyball', 'hiking', 'cycling', 'functional', 'workout'],
+  VIBE: ['coffee_after_run', 'drinks_after_pickleball', 'rooftop_after_workout', 'brewery_after_hike', 'cafe_after_cycle', 'city_walk_after_class', 'sports_bar_after_soccer', 'social'],
+  DATE: ['coffee_after_train', 'drinks_after_game', 'walk_after_workout', 'spot_maybe_date', 'dinner_after_hike', 'lifestyle', 'chemistry']
 };
 
 const GENERIC_ROTATABLE_ACTIVITIES = new Set([
@@ -188,14 +197,20 @@ export function sceneForActivity(mode, activity, seed = 0) {
 export function isDuplicateConcept(concept, recentEntries = []) {
   const headline = normalizeConceptKey(concept.imageHeadline);
   const visual = normalizeConceptKey(concept.visualConcept || concept.photoPrompt);
+  const activity = normalizeConceptKey(concept.semanticActivity);
   const cta = normalizeConceptKey(concept.cta);
   const seed = concept.backgroundSeed;
   for (const entry of recentEntries) {
-    if (entry.stockPhotoId && concept.stockPhotoId && entry.stockPhotoId === concept.stockPhotoId) return 'stockPhoto';
+    if (entry.stockPhotoId && concept.stockPhotoId && entry.stockPhotoId === concept.stockPhotoId) {
+      return 'stockPhoto';
+    }
     if (normalizeConceptKey(entry.imageHeadline) === headline) return 'headline';
+    if (activity && normalizeConceptKey(entry.semanticActivity) === activity) return 'activity';
     if (normalizeConceptKey(entry.visualConcept || entry.photoPrompt) === visual) return 'visualConcept';
     if (entry.imageSeed != null && seed != null && entry.imageSeed === seed) return 'seed';
-    if (normalizeConceptKey(entry.cta) === cta && normalizeConceptKey(entry.visualConcept) === visual) return 'cta_visual';
+    if (normalizeConceptKey(entry.cta) === cta && normalizeConceptKey(entry.visualConcept) === visual) {
+      return 'cta_visual';
+    }
   }
   return null;
 }

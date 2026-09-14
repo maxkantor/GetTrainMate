@@ -85,14 +85,8 @@ export const STOCK_PHOTOS = {
     {
       id: 'vibe-friends-patio-dining',
       unsplashId: 'photo-1528605248644-14dd04022da1',
-      scene: 'friends enjoying social meal and drinks at outdoor patio restaurant',
-      activities: ['dining', 'restaurant', 'food', 'social', 'drinks', 'friends', 'events']
-    },
-    {
-      id: 'vibe-cafe-coffee-culture',
-      unsplashId: 'photo-1525610553991-2bede1a236e2',
-      scene: 'friends socializing at counter of modern coffee shop with barista',
-      activities: ['coffee', 'cafe', 'social', 'friends', 'meetup']
+      scene: 'friends enjoying coffee drinks and a social meal at outdoor patio after training',
+      activities: ['dining', 'restaurant', 'food', 'social', 'drinks', 'friends', 'events', 'coffee', 'cafe', 'meetup']
     },
     {
       id: 'vibe-cocktail-toast-night',
@@ -142,19 +136,13 @@ export const STOCK_PHOTOS = {
       scene: 'group of friends hiking together on scenic hilltop at sunset',
       activities: ['hiking', 'outdoors', 'nature', 'social', 'weekend']
     },
-    {
-      id: 'vibe-friends-park-social',
-      unsplashId: 'photo-1517486808906-6ca8b3f04846',
-      scene: 'group of friends smiling and socializing together outdoors',
-      activities: ['social', 'park', 'friendship', 'meetup']
-    }
   ],
   DATE: [
     {
       id: 'date-couple-candid-outdoors',
       unsplashId: 'photo-1663579167845-c73285e3805b',
-      scene: 'candid adult couple smiling closely together outdoors in outdoor jackets',
-      activities: ['dating', 'outdoor', 'chemistry', 'lifestyle', 'romantic', 'active']
+      scene: 'candid athletic adult couple smiling closely outdoors after coffee',
+      activities: ['dating', 'outdoor', 'chemistry', 'lifestyle', 'romantic', 'active', 'coffee', 'cafe']
     },
     {
       id: 'date-couple-laughing-close',
@@ -167,12 +155,6 @@ export const STOCK_PHOTOS = {
       unsplashId: 'photo-1473867832923-830c92cece07',
       scene: 'couple holding hands walking together on romantic outdoor stroll',
       activities: ['dating', 'walk', 'outdoor', 'romantic', 'lifestyle', 'active']
-    },
-    {
-      id: 'date-couple-cafe-social',
-      unsplashId: 'photo-1525610553991-2bede1a236e2',
-      scene: 'adults socializing at modern coffee shop counter with barista and espresso cups',
-      activities: ['dating', 'coffee', 'cafe', 'romantic', 'intimate']
     },
     {
       id: 'date-cocktails-cheers-date',

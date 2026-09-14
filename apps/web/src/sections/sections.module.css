@@ -38,7 +38,7 @@
     ),
     radial-gradient(900px 520px at 23% 44%, rgba(91, 33, 182, 0.23), transparent 58%),
     radial-gradient(760px 420px at 86% 70%, rgba(217, 70, 239, 0.14), transparent 62%),
-    url('/images/hero-couples-night-waterfront.png') center center / cover no-repeat,
+    url('/images/hero-train-together.png') center 35% / cover no-repeat,
     #050510;
   pointer-events: none;
 }
@@ -403,7 +403,7 @@
         rgba(3, 5, 18, 0.76) 100%
       ),
       radial-gradient(760px 420px at 26% 36%, rgba(91, 33, 182, 0.2), transparent 60%),
-      url('/images/hero-couples-night-waterfront.png') center center / cover no-repeat,
+      url('/images/hero-train-together.png') center 35% / cover no-repeat,
       #050510;
   }
 
@@ -463,7 +463,7 @@
         rgba(3, 5, 18, 0.86) 100%
       ),
       radial-gradient(560px 360px at 18% 28%, rgba(139, 92, 246, 0.18), transparent 62%),
-      url('/images/hero-couples-night-waterfront.png') center center / cover no-repeat,
+      url('/images/hero-train-together.png') center 35% / cover no-repeat,
       #050510;
   }
 

@@ -9,12 +9,14 @@ function hashSeed(input) { let h=2166136261; for (let i=0;i<input.length;i++){ h
 
 const HARD_BLOCKED_IDS = new Set([
   'vibe-hiking-mountain-trail',
-  'vibe-friends-street-chat',       // today's weak generic street creative
-  'vibe-friends-coastal-scenery',   // people too small / scenery dominates
+  'vibe-friends-street-chat',
+  'vibe-friends-coastal-scenery',
+  'vibe-friends-park-social', // purged: photo-1517486808906
+  'vibe-cafe-coffee-culture', // purged: photo-1525610553991
+  'date-couple-cafe-social', // purged: same cafe stock
   'train-tennis-player-lifestyle',
   'train-tennis-court-action',
   'train-gym-strength-lifting',
-  'date-couple-cafe-social',
   'date-cocktails-cheers-date',
   'date-wine-celebration-toast'
 ]);
@@ -31,9 +33,9 @@ const PREMIUM_PREFERRED_IDS = {
   VIBE: new Set([
     'vibe-friends-rooftop-sunset',
     'vibe-friends-laughing-golden',
-    'vibe-friends-park-social',
     'vibe-friends-patio-dining',
-    'vibe-cafe-coffee-culture'
+    'vibe-cocktail-toast-night',
+    'vibe-wine-celebration-toast'
   ]),
   DATE: new Set([
     'date-couple-candid-outdoors',
@@ -65,12 +67,6 @@ function connectionPool(mode, input, activity='') {
     if (coupleOnly.length) pool=coupleOnly;
   }
 
-  const preferredIds = PREMIUM_PREFERRED_IDS[mode];
-  if (preferredIds?.size) {
-    const preferred = pool.filter((p) => preferredIds.has(p.id));
-    if (preferred.length) pool = preferred;
-  }
-
   return pool;
 }
 
@@ -87,6 +83,12 @@ export function selectStockPhoto({ mode, contentId='', isoDate='', activity='', 
     } else {
       const matched=pool.filter(p=>{const acts=(p.activities||[]).map(a=>a.toLowerCase()); const scene=(p.scene||'').toLowerCase(); return actTokens.some(t=>acts.includes(t)||scene.includes(t));});
       if (matched.length) pool=matched;
+    }
+  } else {
+    const preferredIds = PREMIUM_PREFERRED_IDS[m];
+    if (preferredIds?.size) {
+      const preferred = pool.filter((p) => preferredIds.has(p.id));
+      if (preferred.length) pool = preferred;
     }
   }
 

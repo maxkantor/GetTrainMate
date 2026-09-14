@@ -1,11 +1,12 @@
 /**
  * Premium photo-first GetTrainMate social creative.
- * HARD RULES:
- * - full-bleed lifestyle photography dominates the canvas
- * - no split panels / giant dark blocks / dead space
- * - TRAIN / VIBE / DATE are always visible
- * - one short headline, one short subheadline, one CTA
- * - people remain unobstructed as much as possible
+ * HARD RULES (final creative direction):
+ * - full-bleed lifestyle photography dominates
+ * - ONE headline (+ optional short second line)
+ * - small GetTrainMate branding
+ * - NO fake buttons
+ * - NO redundant mode badge clutter
+ * - people remain unobstructed
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,19 +21,16 @@ export const SOCIAL_IMAGE_HEIGHT = 1350;
 
 const MODE_COPY = {
   TRAIN: {
-    headline: 'TRAIN BETTER. TOGETHER.',
-    subheadline: 'Find people who match your workout style.',
-    cta: 'FIND A TRAINMATE'
+    headline: 'NEED A WORKOUT PARTNER?',
+    subheadline: 'Start with a workout. See what happens.'
   },
   VIBE: {
-    headline: 'FIND YOUR PEOPLE. MAKE REAL PLANS.',
-    subheadline: 'Events, hobbies, weekends — together.',
-    cta: 'EXPLORE VIBE'
+    headline: 'WORK OUT. HANG OUT. MAYBE MORE.',
+    subheadline: 'If you click, keep the vibe going.'
   },
   DATE: {
-    headline: 'MEET SOMEONE WHO LIVES LIKE YOU.',
-    subheadline: 'Shared interests. Real chemistry.',
-    cta: 'EXPLORE DATE'
+    headline: 'START WITH A WORKOUT. SEE WHAT HAPPENS.',
+    subheadline: 'Chemistry is optional — and up to you.'
   }
 };
 
@@ -53,8 +51,8 @@ function splitHeadline(value) {
 }
 
 /**
- * Exported for regression tests.
- * This SVG intentionally contains no full-height side panel or opaque full-canvas dark rectangle.
+ * Minimal overlay: brand + headline (+ optional short second line) + URL.
+ * No CTA buttons. No mode pill badge.
  */
 export function buildMinimalOverlaySvg({ width, height, concept }) {
   const mode = String(concept.mode || 'TRAIN').toUpperCase();
@@ -62,55 +60,40 @@ export function buildMinimalOverlaySvg({ width, height, concept }) {
   const headline = concept.imageHeadline && !/feed|scroll|weekend is empty/i.test(String(concept.imageHeadline))
     ? String(concept.imageHeadline)
     : copy.headline;
-  const subheadline = concept.imageSubheadline && String(concept.imageSubheadline).length <= 70
+  const subheadlineRaw = concept.imageSubheadline != null
     ? String(concept.imageSubheadline)
     : copy.subheadline;
-  const ctaRaw = String(concept.cta || copy.cta).toUpperCase();
+  const subheadline = subheadlineRaw && subheadlineRaw.length <= 70 ? subheadlineRaw : '';
   const lines = splitHeadline(headline).slice(0, 2).map(escapeXml);
-  const accent = '#7C5CFF';
   const margin = 48;
-  const cardX = 34;
-  const cardW = width - 68;
-  const cardH = 268;
-  const cardY = height - cardH - 34;
-  const headlineSize = lines.some((line) => line.length > 23) ? 44 : 50;
-  const ctaW = Math.min(330, Math.max(220, 70 + ctaRaw.length * 11));
-  const ctaH = 52;
-  const ctaX = width - margin - ctaW;
-  const ctaY = height - 96;
+  const headlineSize = lines.some((line) => line.length > 22) ? 46 : 54;
+  const line1Y = height - (subheadline ? 168 : 128);
+  const line2Y = line1Y + (lines[1] ? 58 : 0);
+  const subY = (lines[1] ? line2Y : line1Y) + 48;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <defs>
       <linearGradient id="topShade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#05060B" stop-opacity="0.48"/>
+        <stop offset="0%" stop-color="#05060B" stop-opacity="0.42"/>
         <stop offset="100%" stop-color="#05060B" stop-opacity="0"/>
       </linearGradient>
-      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.28"/>
-      </filter>
+      <linearGradient id="bottomShade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#05060B" stop-opacity="0"/>
+        <stop offset="45%" stop-color="#05060B" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#05060B" stop-opacity="0.78"/>
+      </linearGradient>
     </defs>
 
-    <!-- Only a shallow top fade for brand readability; photography remains full bleed. -->
-    <rect width="${width}" height="170" fill="url(#topShade)"/>
+    <rect width="${width}" height="140" fill="url(#topShade)"/>
+    <rect y="${height * 0.58}" width="${width}" height="${height * 0.42}" fill="url(#bottomShade)"/>
 
-    <!-- Compact brand header. -->
-    <rect x="${margin}" y="42" width="6" height="40" rx="3" fill="${accent}"/>
-    <text x="${margin + 18}" y="72" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="800">GetTrainMate</text>
-    <text x="${margin}" y="112" fill="#E8E3FF" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" letter-spacing="2.2">TRAIN • VIBE • DATE</text>
-    <rect x="${width - margin - 124}" y="42" width="124" height="42" rx="21" fill="${accent}" fill-opacity="0.96"/>
-    <text x="${width - margin - 62}" y="70" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="900" letter-spacing="1.5">${escapeXml(mode)}</text>
+    <text x="${margin}" y="72" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800">GetTrainMate</text>
+    <text x="${margin}" y="102" fill="rgba(255,255,255,0.78)" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing="1.5">Train • Vibe • Date</text>
 
-    <!-- Small glass-style lower card. Never covers more than ~20% of the image height. -->
-    <rect x="${cardX}" y="${cardY}" width="${cardW}" height="${cardH}" rx="30" fill="#07080D" fill-opacity="0.68" filter="url(#shadow)"/>
-    <rect x="${cardX + 18}" y="${cardY + 18}" width="6" height="58" rx="3" fill="${accent}"/>
-
-    <text x="${margin + 20}" y="${cardY + 66}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="900" letter-spacing="-0.8">${lines[0] || ''}</text>
-    ${lines[1] ? `<text x="${margin + 20}" y="${cardY + 118}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="900" letter-spacing="-0.8">${lines[1]}</text>` : ''}
-    <text x="${margin + 20}" y="${cardY + (lines[1] ? 158 : 112)}" fill="#ECEAF4" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">${escapeXml(subheadline)}</text>
-
-    <text x="${margin + 20}" y="${height - 62}" fill="#FFFFFF" fill-opacity="0.94" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700">gettrainmate.com</text>
-    <rect x="${ctaX}" y="${ctaY}" width="${ctaW}" height="${ctaH}" rx="26" fill="${accent}"/>
-    <text x="${ctaX + ctaW / 2}" y="${ctaY + 34}" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="900">${escapeXml(ctaRaw)}</text>
+    <text x="${margin}" y="${line1Y}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="900" letter-spacing="-0.6">${lines[0] || ''}</text>
+    ${lines[1] ? `<text x="${margin}" y="${line2Y}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="900" letter-spacing="-0.6">${lines[1]}</text>` : ''}
+    ${subheadline ? `<text x="${margin}" y="${subY}" fill="rgba(255,255,255,0.88)" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="600">${escapeXml(subheadline)}</text>` : ''}
+    <text x="${margin}" y="${height - 36}" fill="rgba(255,255,255,0.82)" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">gettrainmate.com</text>
   </svg>`;
 }
 
@@ -121,17 +104,16 @@ export async function composeSocialImageFromPhoto(
 ) {
   const sharp = sharpImpl || (await import('sharp')).default;
 
-  // Attention crop keeps faces / people in-frame instead of centering on empty scenery.
   const photo = sharp(photoBuffer)
     .rotate()
     .resize(width, height, { fit: 'cover', position: 'attention' })
-    .modulate({ brightness: 1.07, saturation: 1.08 })
-    .linear(1.03, -1);
+    .modulate({ brightness: 1.04, saturation: 1.05 })
+    .linear(1.03, -2);
 
   let logoComposite = null;
   if (fs.existsSync(LOGO_SVG)) {
     const logoBuffer = await sharp(fs.readFileSync(LOGO_SVG)).resize(58, 58).png().toBuffer();
-    logoComposite = { input: logoBuffer, top: 31, left: width - 112 };
+    logoComposite = { input: logoBuffer, top: 28, left: width - 108 };
   }
 
   const composites = [
@@ -151,15 +133,16 @@ export async function composeSocialImageFromPhoto(
     width,
     height,
     format: 'jpeg',
-    source: 'photo_overlay',
-    layoutId: 'GTM_FULL_BLEED_PREMIUM_V2'
+    source: 'photo_overlay'
   };
 }
 
-/**
- * Deliberately disabled for autonomous publishing. A generic procedural card is worse
- * than skipping a post; social-image-generator.mjs already fails closed when no photo exists.
- */
-export async function composeProceduralFallback() {
-  throw new Error('procedural_fallback_disabled_for_gettrainmate_social');
+export async function composeProceduralFallback(concept, opts = {}) {
+  const { composeSocialImage } = await import('./social-image-composer.mjs');
+  const palette = concept.palette || {
+    a: '#0B1220',
+    b: '#134E4A',
+    accent: '#7C5CFF'
+  };
+  return composeSocialImage({ ...concept, palette }, opts);
 }

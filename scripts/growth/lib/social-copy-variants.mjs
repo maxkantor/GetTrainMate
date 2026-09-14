@@ -29,111 +29,111 @@ function pickAvoiding(list, seed, recentKeys = [], keyFn = (x) => x.id || x) {
   return pool[seed % pool.length];
 }
 
-/** Benefit-driven image headlines by mode + locale. */
+/** Journey-voice image headlines by mode + locale (TRAIN → VIBE → MAYBE DATE). */
 export const HEADLINE_VARIANTS = {
   TRAIN: {
     en: [
-      { id: 'train-hl-stop-alone', text: 'STOP TRAINING ALONE.' },
-      { id: 'train-hl-next-partner', text: 'FIND YOUR NEXT WORKOUT PARTNER.' },
-      { id: 'train-hl-better-together', text: 'BETTER WORKOUTS START TOGETHER.' },
-      { id: 'train-hl-trains-like-you', text: 'FIND SOMEONE WHO TRAINS LIKE YOU.' },
-      { id: 'train-hl-partner-here', text: 'YOUR NEXT TRAINING PARTNER IS HERE.' },
-      { id: 'train-hl-match-goals', text: 'MATCH YOUR GOALS. TRAIN TOGETHER.' },
-      { id: 'train-hl-meet-active', text: 'MEET ACTIVE PEOPLE WHO TRAIN.' },
-      { id: 'train-hl-gym-accountability', text: 'GYM ACCOUNTABILITY STARTS HERE.' },
-      { id: 'train-hl-social-fitness', text: 'SOCIAL FITNESS. REAL PARTNERS.' }
+      { id: 'train-hl-stop-alone', text: 'NEED A WORKOUT PARTNER?' },
+      { id: 'train-hl-next-partner', text: 'FIND SOMEONE WHO CAN KEEP UP.' },
+      { id: 'train-hl-better-together', text: 'GOOD GAME. DRINKS AFTER?' },
+      { id: 'train-hl-trains-like-you', text: 'RUN TOGETHER. COFFEE AFTER?' },
+      { id: 'train-hl-partner-here', text: 'START WITH A WORKOUT. SEE WHAT HAPPENS.' },
+      { id: 'train-hl-match-goals', text: 'START WITH A HIKE. SEE WHAT HAPPENS.' },
+      { id: 'train-hl-meet-active', text: 'FIND YOUR GAME. FIND YOUR PEOPLE.' },
+      { id: 'train-hl-gym-accountability', text: 'TRAIN TOGETHER. SEE WHERE IT GOES.' },
+      { id: 'train-hl-social-fitness', text: 'SAME SPORT. SAME ENERGY.' }
     ],
     es: [
-      { id: 'train-hl-stop-alone', text: 'DEJA DE ENTRENAR SOLO.' },
-      { id: 'train-hl-next-partner', text: 'ENCUENTRA TU PRÓXIMO SOCIO DE ENTRENO.' },
-      { id: 'train-hl-better-together', text: 'MEJORES ENTRENOS EMPIEZAN JUNTOS.' },
-      { id: 'train-hl-trains-like-you', text: 'ENCUENTRA A QUIEN ENTRENA COMO TÚ.' },
-      { id: 'train-hl-partner-here', text: 'TU PRÓXIMO SOCIO DE ENTRENO ESTÁ AQUÍ.' },
-      { id: 'train-hl-match-goals', text: 'MISMO OBJETIVO. ENTRENAD JUNTOS.' },
-      { id: 'train-hl-meet-active', text: 'CONOCE GENTE ACTIVA QUE ENTRENA.' },
-      { id: 'train-hl-gym-accountability', text: 'COMPROMISO DE GYM QUE FUNCIONA.' },
-      { id: 'train-hl-social-fitness', text: 'FITNESS SOCIAL. COMPAÑEROS REALES.' }
+      { id: 'train-hl-stop-alone', text: '¿NECESITAS COMPAÑERO DE ENTRENO?' },
+      { id: 'train-hl-next-partner', text: 'ENCUENTRA A QUIEN AGUANTE TU RITMO.' },
+      { id: 'train-hl-better-together', text: 'BUEN PARTIDO. ¿LUEGO UNAS COPAS?' },
+      { id: 'train-hl-trains-like-you', text: 'CORRED JUNTOS. ¿CAFÉ DESPUÉS?' },
+      { id: 'train-hl-partner-here', text: 'EMPIEZA CON UN ENTRENO. MIRA QUÉ PASA.' },
+      { id: 'train-hl-match-goals', text: 'EMPIEZA CON UNA RUTA. MIRA QUÉ PASA.' },
+      { id: 'train-hl-meet-active', text: 'ENCUENTRA TU DEPORTE. ENCUENTRA TU GENTE.' },
+      { id: 'train-hl-gym-accountability', text: 'ENTRENA JUNTOS. MIRA A DÓNDE LLEGA.' },
+      { id: 'train-hl-social-fitness', text: 'MISMO DEPORTE. MISMA ENERGÍA.' }
     ],
     ru: [
-      { id: 'train-hl-stop-alone', text: 'ХВАТИТ ТРЕНИРОВАТЬСЯ В ОДИНОЧКУ.' },
-      { id: 'train-hl-next-partner', text: 'НАЙДИ ПАРТНЁРА ДЛЯ ТРЕНИРОВОК.' },
-      { id: 'train-hl-better-together', text: 'ЛУЧШИЕ ТРЕНИРОВКИ — ВМЕСТЕ.' },
-      { id: 'train-hl-trains-like-you', text: 'НАЙДИ ТОГО, КТО ТРЕНИРУЕТСЯ КАК ТЫ.' },
-      { id: 'train-hl-partner-here', text: 'ТВОЙ ПАРТНЁР ПО ТРЕНИРОВКАМ УЖЕ ЗДЕСЬ.' },
-      { id: 'train-hl-match-goals', text: 'ОДИНАКОВЫЕ ЦЕЛИ. ТРЕНИРУЙТЕСЬ ВМЕСТЕ.' },
-      { id: 'train-hl-meet-active', text: 'ЗНАКОМЬСЯ С АКТИВНЫМИ ЛЮДЬМИ.' },
-      { id: 'train-hl-gym-accountability', text: 'МОТИВАЦИЯ ДЛЯ ЗАЛА НАЧИНАЕТСЯ ЗДЕСЬ.' },
-      { id: 'train-hl-social-fitness', text: 'ТРЕНИРУЙТЕСЬ ВМЕСТЕ. РЕАЛЬНЫЕ ПАРТНЁРЫ.' }
+      { id: 'train-hl-stop-alone', text: 'НУЖЕН ПАРТНЁР ПО ТРЕНИРОВКАМ?' },
+      { id: 'train-hl-next-partner', text: 'НАЙДИ ТОГО, КТО УСПЕВАЕТ ЗА ТОБОЙ.' },
+      { id: 'train-hl-better-together', text: 'ХОРОШАЯ ИГРА. ПОТОМ НАПИТКИ?' },
+      { id: 'train-hl-trains-like-you', text: 'БЕГИТЕ ВМЕСТЕ. КОФЕ ПОТОМ?' },
+      { id: 'train-hl-partner-here', text: 'НАЧНИТЕ С ТРЕНИРОВКИ. ПОСМОТРИТЕ, ЧТО БУДЕТ.' },
+      { id: 'train-hl-match-goals', text: 'НАЧНИТЕ С ПОХОДА. ПОСМОТРИТЕ, ЧТО БУДЕТ.' },
+      { id: 'train-hl-meet-active', text: 'НАЙДИ СВОЙ СПОРТ. НАЙДИ СВОИХ ЛЮДЕЙ.' },
+      { id: 'train-hl-gym-accountability', text: 'ТРЕНИРУЙТЕСЬ ВМЕСТЕ. ПОСМОТРИТЕ, КУДА ЭТО ЗАВЕДЁТ.' },
+      { id: 'train-hl-social-fitness', text: 'ОДИН СПОРТ. ОДНА ЭНЕРГИЯ.' }
     ]
   },
   VIBE: {
     en: [
-      { id: 'vibe-hl-into-what', text: "FIND PEOPLE WHO ARE INTO WHAT YOU'RE INTO." },
-      { id: 'vibe-hl-beyond-feed', text: 'MEET PEOPLE BEYOND THE FEED.' },
-      { id: 'vibe-hl-your-people', text: 'YOUR INTERESTS. YOUR PEOPLE.' },
-      { id: 'vibe-hl-do-more', text: 'DO MORE WITH PEOPLE WHO GET YOU.' },
-      { id: 'vibe-hl-love-doing', text: 'MEET THROUGH WHAT YOU LOVE DOING.' },
-      { id: 'vibe-hl-kind-of-people', text: 'FIND YOUR KIND OF PEOPLE.' },
-      { id: 'vibe-hl-make-friends', text: 'MAKE NEW FRIENDS WHO GET YOU.' },
-      { id: 'vibe-hl-local-activities', text: 'FIND LOCAL ACTIVITIES AND PLANS.' }
+      { id: 'vibe-hl-into-what', text: 'WORK OUT. HANG OUT. MAYBE MORE.' },
+      { id: 'vibe-hl-beyond-feed', text: 'GOOD WORKOUT. YOUR MOVE.' },
+      { id: 'vibe-hl-your-people', text: 'FIND YOUR GAME. FIND YOUR PEOPLE.' },
+      { id: 'vibe-hl-do-more', text: 'SAME ENERGY. NOW SAY HI.' },
+      { id: 'vibe-hl-love-doing', text: 'TRAIN FIRST. HANG OUT AFTER.' },
+      { id: 'vibe-hl-kind-of-people', text: 'IF YOU CLICK, KEEP THE VIBE GOING.' },
+      { id: 'vibe-hl-make-friends', text: 'GYM TODAY. DRINKS TONIGHT?' },
+      { id: 'vibe-hl-local-activities', text: 'START WITH ACTIVITY. STAY FOR THE VIBE.' }
     ],
     es: [
-      { id: 'vibe-hl-into-what', text: 'ENCUENTRA GENTE CON TUS MISMOS GUSTOS.' },
-      { id: 'vibe-hl-beyond-feed', text: 'CONOCE GENTE FUERA DEL FEED.' },
-      { id: 'vibe-hl-your-people', text: 'TUS INTERESES. TU GENTE.' },
-      { id: 'vibe-hl-do-more', text: 'HAZ MÁS CON QUIEN TE ENTIENDE.' },
-      { id: 'vibe-hl-love-doing', text: 'CONOCE A TRAVÉS DE LO QUE TE GUSTA.' },
-      { id: 'vibe-hl-kind-of-people', text: 'ENCUENTRA A TU TIPO DE GENTE.' },
-      { id: 'vibe-hl-make-friends', text: 'HAZ NUEVOS AMIGOS QUE TE ENTIENDAN.' },
-      { id: 'vibe-hl-local-activities', text: 'PLANES Y ACTIVIDADES EN TU CIUDAD.' }
+      { id: 'vibe-hl-into-what', text: 'ENTRENA. QUEDAD. QUIZÁ MÁS.' },
+      { id: 'vibe-hl-beyond-feed', text: 'BUEN ENTRENO. TU TURNO.' },
+      { id: 'vibe-hl-your-people', text: 'ENCUENTRA TU DEPORTE. ENCUENTRA TU GENTE.' },
+      { id: 'vibe-hl-do-more', text: 'MISMA ENERGÍA. AHORA SALUDA.' },
+      { id: 'vibe-hl-love-doing', text: 'PRIMERO ENTRENA. LUEGO QUEDAD.' },
+      { id: 'vibe-hl-kind-of-people', text: 'SI HAY VIBE, SEGUID.' },
+      { id: 'vibe-hl-make-friends', text: 'GYM HOY. ¿COPAS ESTA NOCHE?' },
+      { id: 'vibe-hl-local-activities', text: 'EMPIEZA CON ACTIVIDAD. QUÉDATE POR EL VIBE.' }
     ],
     ru: [
-      { id: 'vibe-hl-into-what', text: 'НАЙДИ ЛЮДЕЙ С ТВОИМИ ИНТЕРЕСАМИ.' },
-      { id: 'vibe-hl-beyond-feed', text: 'ЗНАКОМСТВА ЗА ПРЕДЕЛАМИ ЛЕНТЫ.' },
-      { id: 'vibe-hl-your-people', text: 'ТВОИ ИНТЕРЕСЫ. ТВОИ ЛЮДИ.' },
-      { id: 'vibe-hl-do-more', text: 'ДЕЛАЙ БОЛЬШЕ С ТЕМИ, КТО ТЕБЯ ПОНИМАЕТ.' },
-      { id: 'vibe-hl-love-doing', text: 'ЗНАКОМЬТЕСЬ ЧЕРЕЗ ТО, ЧТО ЛЮБИТЕ.' },
-      { id: 'vibe-hl-kind-of-people', text: 'НАЙДИ СВОИХ ЛЮДЕЙ.' },
-      { id: 'vibe-hl-make-friends', text: 'НАХОДИ НОВЫХ ДРУЗЕЙ В СВОЁМ ГОРОДЕ.' },
-      { id: 'vibe-hl-local-activities', text: 'СОБЫТИЯ И ПЛАНЫ РЯДОМ С ТОБОЙ.' }
+      { id: 'vibe-hl-into-what', text: 'ТРЕНИРОВКА. ОБЩЕНИЕ. МОЖЕТ, БОЛЬШЕ.' },
+      { id: 'vibe-hl-beyond-feed', text: 'ХОРОШАЯ ТРЕНИРОВКА. ТВОЙ ХОД.' },
+      { id: 'vibe-hl-your-people', text: 'НАЙДИ СВОЙ СПОРТ. НАЙДИ СВОИХ ЛЮДЕЙ.' },
+      { id: 'vibe-hl-do-more', text: 'ОДНА ЭНЕРГИЯ. ТЕПЕРЬ СКАЖИ ПРИВЕТ.' },
+      { id: 'vibe-hl-love-doing', text: 'СНАЧАЛА ТРЕНИРОВКА. ПОТОМ ОБЩЕНИЕ.' },
+      { id: 'vibe-hl-kind-of-people', text: 'ЕСЛИ ЕСТЬ ВАЙБ — ПРОДОЛЖАЙТЕ.' },
+      { id: 'vibe-hl-make-friends', text: 'ЗАЛ СЕГОДНЯ. НАПИТКИ ВЕЧЕРОМ?' },
+      { id: 'vibe-hl-local-activities', text: 'НАЧНИ С АКТИВНОСТИ. ОСТАНЬСЯ РАДИ ВАЙБА.' }
     ]
   },
   DATE: {
     en: [
       { id: 'date-hl-energy', text: 'MEET SOMEONE WHO MATCHES YOUR ENERGY' },
-      { id: 'date-hl-tired-swiping', text: 'TIRED OF ENDLESS SWIPING?' },
-      { id: 'date-hl-live-like-you', text: 'DATE PEOPLE WHO LIVE LIKE YOU' },
-      { id: 'date-hl-shared-interests', text: 'SHARED INTERESTS. REAL CONNECTIONS.' },
-      { id: 'date-hl-beyond-profile', text: 'MEET BEYOND THE PROFILE.' },
-      { id: 'date-hl-actually-click', text: 'FIND SOMEONE YOU ACTUALLY CLICK WITH.' },
-      { id: 'date-hl-less-swiping', text: 'LESS SWIPING. MORE CONNECTION.' },
-      { id: 'date-hl-lifestyle', text: 'MEET PEOPLE WHO GET YOUR LIFESTYLE.' },
-      { id: 'date-hl-active-dating', text: 'ACTIVE DATING FOR REAL LIFE.' },
-      { id: 'date-hl-meet-active', text: 'MEET ACTIVE SINGLES NEAR YOU.' }
+      { id: 'date-hl-tired-swiping', text: 'NEED A SPOT? MAYBE A DATE?' },
+      { id: 'date-hl-live-like-you', text: 'TRAIN FIRST. FLIRT LATER.' },
+      { id: 'date-hl-shared-interests', text: 'START WITH A WORKOUT. SEE WHAT HAPPENS.' },
+      { id: 'date-hl-beyond-profile', text: 'GOOD MATCH. YOUR MOVE.' },
+      { id: 'date-hl-actually-click', text: 'IF THERE\'S CHEMISTRY, YOU DECIDE.' },
+      { id: 'date-hl-less-swiping', text: 'ACTIVITY FIRST. DATING OPTIONAL.' },
+      { id: 'date-hl-lifestyle', text: 'GYM PARTNER TODAY. WHAT\'S NEXT IS UP TO YOU.' },
+      { id: 'date-hl-active-dating', text: 'YOU ALREADY HAVE SOMETHING IN COMMON.' },
+      { id: 'date-hl-meet-active', text: 'SEE WHERE IT GOES.' }
     ],
     es: [
       { id: 'date-hl-energy', text: 'CONOCE A ALGUIEN QUE COMBINE CON TU ENERGÍA' },
-      { id: 'date-hl-tired-swiping', text: '¿CANSADO DE DESLIZAR SIN PARAR?' },
-      { id: 'date-hl-live-like-you', text: 'SAL CON GENTE QUE VIVE COMO TÚ' },
-      { id: 'date-hl-shared-interests', text: 'INTERESES EN COMÚN. CONEXIONES REALES.' },
-      { id: 'date-hl-beyond-profile', text: 'CONOCE MÁS ALLÁ DEL PERFIL.' },
-      { id: 'date-hl-actually-click', text: 'ENCUENTRA A ALGUIEN CON QUIEN HAYA CLIC.' },
-      { id: 'date-hl-less-swiping', text: 'MENOS SWIPES. MÁS CONEXIÓN.' },
-      { id: 'date-hl-lifestyle', text: 'CONOCE GENTE QUE ENTIENDE TU ESTILO DE VIDA.' },
-      { id: 'date-hl-active-dating', text: 'CITAS ACTIVAS PARA LA VIDA REAL.' },
-      { id: 'date-hl-meet-active', text: 'CONOCE SOLTEROS ACTIVOS CERCA DE TI.' }
+      { id: 'date-hl-tired-swiping', text: '¿NECESITAS SPOT? ¿QUIZÁ UNA CITA?' },
+      { id: 'date-hl-live-like-you', text: 'PRIMERO ENTRENA. LUEGO FLIRTEA.' },
+      { id: 'date-hl-shared-interests', text: 'EMPIEZA CON UN ENTRENO. MIRA QUÉ PASA.' },
+      { id: 'date-hl-beyond-profile', text: 'BUEN MATCH. TU TURNO.' },
+      { id: 'date-hl-actually-click', text: 'SI HAY QUÍMICA, TÚ DECIDES.' },
+      { id: 'date-hl-less-swiping', text: 'ACTIVIDAD PRIMERO. CITA OPCIONAL.' },
+      { id: 'date-hl-lifestyle', text: 'COMPAÑERO DE GYM HOY. LO QUE SIGUE LO DECIDES TÚ.' },
+      { id: 'date-hl-active-dating', text: 'YA TENÉIS ALGO EN COMÚN.' },
+      { id: 'date-hl-meet-active', text: 'MIRA A DÓNDE LLEGA.' }
     ],
     ru: [
       { id: 'date-hl-energy', text: 'НАЙДИ КОГО-ТО ПОД ТВОЮ ЭНЕРГИЮ' },
-      { id: 'date-hl-tired-swiping', text: 'УСТАЛИ ОТ БЕСКОНЕЧНЫХ СВАЙПОВ?' },
-      { id: 'date-hl-live-like-you', text: 'ЗНАКОМЬТЕСЬ С ТЕМИ, КТО ЖИВЁТ КАК ВЫ' },
-      { id: 'date-hl-shared-interests', text: 'ОБЩИЕ ИНТЕРЕСЫ. НАСТОЯЩИЕ СВЯЗИ.' },
-      { id: 'date-hl-beyond-profile', text: 'ЗНАКОМСТВА ЗА ПРЕДЕЛАМИ ПРОФИЛЯ.' },
-      { id: 'date-hl-actually-click', text: 'НАЙДИ ТОГО, С КЕМ ЕСТЬ КЛИК.' },
-      { id: 'date-hl-less-swiping', text: 'МЕНЬШЕ СВАЙПОВ. БОЛЬШЕ ОБЩЕНИЯ.' },
-      { id: 'date-hl-lifestyle', text: 'ЗНАКОМЬТЕСЬ С ТЕМИ, КТО ПОНИМАЕТ ТВОЙ СТИЛЬ ЖИЗНИ.' },
-      { id: 'date-hl-active-dating', text: 'ЗНАКОМСТВА ДЛЯ АКТИВНЫХ ЛЮДЕЙ.' },
-      { id: 'date-hl-meet-active', text: 'АКТИВНЫЕ СИНГЛЫ В ТВОЁМ ГОРОДЕ.' }
+      { id: 'date-hl-tired-swiping', text: 'НУЖНА СТРАХОВКА? МОЖЕТ, СВИДАНИЕ?' },
+      { id: 'date-hl-live-like-you', text: 'СНАЧАЛА ТРЕНИРОВКА. ПОТОМ ФЛИРТ.' },
+      { id: 'date-hl-shared-interests', text: 'НАЧНИТЕ С ТРЕНИРОВКИ. ПОСМОТРИТЕ, ЧТО БУДЕТ.' },
+      { id: 'date-hl-beyond-profile', text: 'ХОРОШИЙ МАТЧ. ТВОЙ ХОД.' },
+      { id: 'date-hl-actually-click', text: 'ЕСЛИ ЕСТЬ ХИМИЯ — РЕШАЕТЕ ВЫ.' },
+      { id: 'date-hl-less-swiping', text: 'СНАЧАЛА АКТИВНОСТЬ. СВИДАНИЕ — ПО ЖЕЛАНИЮ.' },
+      { id: 'date-hl-lifestyle', text: 'ПАРТНЁР ПО ЗАЛУ СЕГОДНЯ. ДАЛЬШЕ — РЕШАЕТЕ ВЫ.' },
+      { id: 'date-hl-active-dating', text: 'У ВАС УЖЕ ЕСТЬ ЧТО-ТО ОБЩЕЕ.' },
+      { id: 'date-hl-meet-active', text: 'ПОСМОТРИТЕ, КУДА ЭТО ЗАВЕДЁТ.' }
     ]
   }
 };
@@ -408,42 +408,42 @@ export const POST_VARIANTS = {
     en: [
       {
         id: 'vibe-post-not-dating',
-        hook: "Making friends shouldn't feel like another dating app.",
-        benefit: 'Meet people through the activities and interests you actually enjoy.',
-        differentiator: 'VIBE is for plans, events, and shared hobbies — not dating-first unless you pick DATE.',
+        hook: 'Workout went well? Keep hanging out.',
+        benefit: 'Find people nearby to train with — then grab coffee, drinks, or plans after.',
+        differentiator: 'Start with an activity. Stay for the vibe. Dating is a separate choice.',
         ctaLine: 'Find your people on GetTrainMate.',
         disclaimer: 'No guaranteed hangouts. You control who you meet.'
       },
       {
         id: 'vibe-post-beyond-feed',
-        hook: 'Tired of scrolling people you never meet?',
-        benefit: 'Find your kind of people for concerts, coffee, weekends, and real plans.',
-        differentiator: 'Your interests. Your people. TRAIN and DATE stay separate modes.',
-        ctaLine: 'Discover people on GetTrainMate (VIBE).',
+        hook: 'Good game. Drinks after?',
+        benefit: 'Meet through pickleball, runs, gym sessions, or rides — then keep the night going if you want.',
+        differentiator: 'Activity first. Chemistry optional. TRAIN and DATE stay separate modes.',
+        ctaLine: 'Keep the vibe going on GetTrainMate.',
         disclaimer: 'No guaranteed plans. You decide.'
       },
       {
         id: 'vibe-post-new-city',
-        hook: 'New in town — or just out of plans?',
-        benefit: 'Connect with people who are into what you are into.',
-        differentiator: 'Do more with people who get you.',
-        ctaLine: 'Start connecting on GetTrainMate.',
+        hook: 'Same energy. Now say hi.',
+        benefit: 'Find someone nearby who likes the same sport. If you click, keep hanging out.',
+        differentiator: 'Train together. Catch a vibe. Maybe more — or not.',
+        ctaLine: 'Start on GetTrainMate.',
         disclaimer: 'No guaranteed meetups. You control your profile.'
       },
       {
         id: 'vibe-post-love-doing',
-        hook: 'Your feed is full. Your weekend is empty.',
-        benefit: 'Meet through what you love doing — events, hobbies, and shared energy.',
-        differentiator: 'GetTrainMate VIBE — community first.',
-        ctaLine: 'Explore VIBE and find your people.',
+        hook: 'Gym partner today. Drinks tonight?',
+        benefit: 'Training is easier with someone else. Meeting people can be too.',
+        differentiator: 'GetTrainMate VIBE — hangouts that start from real activity.',
+        ctaLine: 'Find your people.',
         disclaimer: 'No guaranteed hangouts. You choose who you talk to.'
       },
       {
         id: 'vibe-post-shared-interests',
-        hook: 'Find people who share your exact interests.',
-        benefit: 'From weekend hikes to coffee chats and local events, meet people on your wavelength.',
-        differentiator: 'VIBE is built for real-life plans and friendships — zero dating pressure.',
-        ctaLine: 'Find people with shared interests on GetTrainMate.',
+        hook: 'Find your game. Find your people.',
+        benefit: 'Play, train, then decide if you want coffee or drinks after.',
+        differentiator: 'VIBE is for plans after the workout — zero dating pressure.',
+        ctaLine: 'Find people nearby on GetTrainMate.',
         disclaimer: 'No guaranteed hangouts. You decide who you connect with.'
       },
       {
@@ -560,42 +560,42 @@ export const POST_VARIANTS = {
     en: [
       {
         id: 'date-post-swiping',
-        hook: 'Tired of endless swiping?',
-        benefit: 'Meet active people who share your interests, lifestyle, and energy.',
-        differentiator: 'Less swiping. More real connections.',
-        ctaLine: 'Find your match on GetTrainMate.',
+        hook: 'Need a spot? Maybe a date?',
+        benefit: 'Start with a workout. If there’s chemistry, you decide what’s next.',
+        differentiator: 'Activity first. Dating optional. TRAIN and VIBE stay available when dating isn’t the intent.',
+        ctaLine: 'See what happens on GetTrainMate.',
         disclaimer: 'No guaranteed dates or relationships. You control your profile.'
       },
       {
         id: 'date-post-energy',
-        hook: 'Looking for someone who matches your energy?',
-        benefit: 'DATE on GetTrainMate is for people who want connection through real interests — not a swipe factory.',
-        differentiator: 'Shared lifestyle. Real chemistry. TRAIN and VIBE stay available if dating is not your intent.',
-        ctaLine: 'Meet someone who gets how you live.',
+        hook: 'Train first. Flirt later.',
+        benefit: 'Meet someone who can keep up — gym, run, hike, or play — then see if there’s a spark.',
+        differentiator: 'Chemistry is up to you. Not a swipe factory.',
+        ctaLine: 'Start with a workout on GetTrainMate.',
         disclaimer: 'No guaranteed dates. You choose who you talk to.'
       },
       {
         id: 'date-post-beyond-profile',
-        hook: 'Profiles look the same. Chemistry does not.',
-        benefit: 'Meet beyond the profile — through activities, interests, and how you actually live.',
-        differentiator: 'Find someone you actually click with.',
-        ctaLine: 'Start connecting on GetTrainMate (DATE).',
+        hook: 'Good match. Your move.',
+        benefit: 'You already have something in common — the activity that brought you together.',
+        differentiator: 'If the vibe is there, take it further — or don’t.',
+        ctaLine: 'See where it goes on GetTrainMate.',
         disclaimer: 'No guaranteed matches. You control your profile.'
       },
       {
         id: 'date-post-lifestyle',
-        hook: 'Want dating that fits your lifestyle?',
-        benefit: 'Date people who live like you — active, social, and intentional.',
-        differentiator: 'Shared interests. Real connections.',
-        ctaLine: 'Discover people on GetTrainMate.',
+        hook: 'Start with a workout. See what happens.',
+        benefit: 'Find someone nearby who trains like you. Dating is optional.',
+        differentiator: 'Shared activity. Real chemistry — only if you both want it.',
+        ctaLine: 'Find your people on GetTrainMate.',
         disclaimer: 'No guaranteed dates or relationships. You decide.'
       },
       {
         id: 'date-post-active-dating',
-        hook: 'Active dating for people who actually do things.',
-        benefit: 'Meet singles who prioritize fitness, outdoor adventures, and healthy living.',
-        differentiator: 'DATE mode connects you through lifestyle and real interests — not superficial games.',
-        ctaLine: 'Try active dating on GetTrainMate.',
+        hook: 'Gym partner today. What’s next is up to you.',
+        benefit: 'Meet through something active — then coffee, drinks, or a date if you click.',
+        differentiator: 'DATE mode is optional. The journey starts with TRAIN.',
+        ctaLine: 'Try GetTrainMate.',
         disclaimer: 'No guaranteed dates or relationships. You control your profile.'
       }
     ],

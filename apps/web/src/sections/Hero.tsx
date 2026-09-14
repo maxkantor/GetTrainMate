@@ -10,7 +10,7 @@ import { trackEvent } from '@/utils/analytics';
 import styles from './sections.module.css';
 
 const ease = [0.16, 1, 0.3, 1] as const;
-const ENGLISH_ACCENT_PHRASE = 'Maybe More.';
+const ENGLISH_ACCENT_PHRASE = 'SEE WHERE IT GOES.';
 
 function renderHeroTitle(title: string) {
   const englishAccentIndex = title.indexOf(ENGLISH_ACCENT_PHRASE);
