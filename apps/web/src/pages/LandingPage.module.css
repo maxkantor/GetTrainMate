@@ -1,14 +1,17 @@
 /* Landing page — dense premium rhythm, minimal dead space */
 .landing {
-  --landing-section-gap: clamp(12px, 2vw, 24px);
+  --landing-section-gap: clamp(8px, 1.5vw, 16px);
+  --section-py-desktop: 40px;
+  --section-py-tablet: 32px;
+  --section-py-mobile: 28px;
 }
 
 .landing > * + * {
   margin-top: 0;
 }
 
-/* Defer paint for below-fold bands */
+/* Defer paint for below-fold bands without reserving huge empty boxes */
 .landing > *:nth-child(n + 2) {
   content-visibility: auto;
-  contain-intrinsic-size: auto 520px;
+  contain-intrinsic-size: auto 360px;
 }

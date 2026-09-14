@@ -9,7 +9,7 @@
     url('/images/section-footer-bg.png') center center / cover no-repeat,
     linear-gradient(180deg, #050712 0%, #070b1a 100%);
   color: rgba(255, 255, 255, 0.8);
-  padding: 44px 0 32px;
+  padding: 36px 0 28px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 

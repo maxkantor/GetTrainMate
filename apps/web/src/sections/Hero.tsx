@@ -49,7 +49,6 @@ export const Hero: React.FC = () => {
     : !profileComplete
       ? t('landing.cta_finish_profile')
       : t('nav.dashboard');
-  const showCtaSubtext = !isAuthenticated || profileComplete;
   const heroTitle = t('landing.hero_premium_title');
 
   return (
@@ -110,12 +109,6 @@ export const Hero: React.FC = () => {
                 {!isAuthenticated && (
                   <span className={styles.heroCtaSub}>{t('landing.landing_hero_sub_guest')}</span>
                 )}
-                {isAuthenticated && showCtaSubtext && (
-                  <>
-                    <span className={styles.heroCtaSub}>{t('landing.landing_cta_sub')}</span>
-                    <span className={styles.heroScarcityLine}>{t('landing.landing_scarcity')}</span>
-                  </>
-                )}
               </div>
               <a
                 href="#how-it-works"
@@ -130,33 +123,34 @@ export const Hero: React.FC = () => {
                 {t('landing.hero_see_how')}
               </a>
             </motion.div>
-            <motion.div
-              className={styles.heroTrustStrip}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, ease, delay: 0.14 }}
-            >
-              <span className={styles.heroExclusivityBadge}>{t('landing.hero_badge_serious')}</span>
-              <p className={styles.heroTrustStripText}>{t('landing.hero_hook')}</p>
-            </motion.div>
+
             <motion.ul
-              className={styles.socialProof}
+              className={styles.heroModeJourney}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease, delay: 0.18 }}
               aria-label={t('landing.hero_proof_aria')}
             >
-              <li>{t('landing.hero_proof_1')}</li>
-              <li>{t('landing.hero_proof_2')}</li>
-              <li>{t('landing.hero_proof_3')}</li>
+              <li className={styles.heroModeCard} data-mode="TRAIN">
+                <span className={styles.heroModeLabel}>TRAIN</span>
+                <p className={styles.heroModeBody}>{t('landing.hero_mode_train')}</p>
+              </li>
+              <li className={styles.heroModeCard} data-mode="VIBE">
+                <span className={styles.heroModeLabel}>VIBE</span>
+                <p className={styles.heroModeBody}>{t('landing.hero_mode_vibe')}</p>
+              </li>
+              <li className={styles.heroModeCard} data-mode="DATE">
+                <span className={styles.heroModeLabel}>DATE</span>
+                <p className={styles.heroModeBody}>{t('landing.hero_mode_date')}</p>
+              </li>
             </motion.ul>
           </div>
 
           <motion.div
             className={styles.heroPremiumRight}
-            initial={{ opacity: 0, scale: 0.96, y: 16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.65, ease, delay: 0.1 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.65, ease, delay: 0.14 }}
           >
             <HeroFloatingStack />
           </motion.div>

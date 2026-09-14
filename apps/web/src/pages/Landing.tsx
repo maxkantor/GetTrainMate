@@ -8,9 +8,10 @@ import { LoggedInActionHero } from '@/components/app/LoggedInActionHero';
 import { Hero } from '@/sections/Hero';
 import { EventPromoSection } from '@/sections/EventPromoSection';
 import { SwipeDemoSection } from '@/sections/SwipeDemoSection';
+import { JourneyProgression } from '@/sections/JourneyProgression';
 import { Features } from '@/sections/Features';
-import { WhoIsThisFor } from '@/sections/WhoIsThisFor';
-import { Testimonials } from '@/sections/Testimonials';
+import { AiMatchingShowcase } from '@/sections/AiMatchingShowcase';
+import { GlobalCommunity } from '@/sections/GlobalCommunity';
 import { FinalCTA } from '@/sections/FinalCTA';
 import { trackEvent } from '@/utils/analytics';
 import { featureFlagsService } from '@/services/featureFlagsService';
@@ -47,10 +48,10 @@ export const LandingPage: React.FC = () => {
     if (isAuthenticated && me) return;
     if (location.pathname !== '/') return;
     if (location.hash !== '#how-it-works') return;
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
-    return () => clearTimeout(t);
+    return () => window.clearTimeout(timer);
   }, [isAuthenticated, me, location.pathname, location.hash]);
 
   useEffect(() => {
@@ -83,9 +84,10 @@ export const LandingPage: React.FC = () => {
       {showEventPromo && featuredEvent ? <EventPromoSection event={featuredEvent} /> : null}
       <SwipeDemoSection />
       <div className={styles.sectionDivider} aria-hidden />
+      <JourneyProgression />
       <Features />
-      <WhoIsThisFor />
-      <Testimonials />
+      <AiMatchingShowcase />
+      <GlobalCommunity />
       <FinalCTA />
     </div>
   );

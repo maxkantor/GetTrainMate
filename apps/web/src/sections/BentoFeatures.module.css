@@ -184,3 +184,218 @@
     margin-bottom: 20px;
   }
 }
+
+/* Product showcase — mini UI previews instead of emoji boxes */
+.showcase {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.showcaseCard {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(155deg, rgba(11, 12, 30, 0.94), rgba(36, 22, 72, 0.42));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.showcaseCard:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  max-width: 520px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.showcaseCopy .cardTitle {
+  margin-bottom: 6px;
+}
+
+.showcaseCopy .cardDesc {
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.miniUi {
+  height: 88px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(5, 6, 16, 0.85);
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.miniCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.miniAvatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #db2777);
+  flex-shrink: 0;
+}
+
+.miniLines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.miniLineWide,
+.miniLine {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.miniLineWide {
+  width: 78%;
+}
+
+.miniLine {
+  width: 52%;
+}
+
+.miniTags {
+  display: flex;
+  gap: 4px;
+}
+
+.miniTags i {
+  width: 28px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.35);
+}
+
+.miniPct {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #c4b5fd;
+}
+
+.miniChat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.bubbleLeft,
+.bubbleRight,
+.bubbleLeftShort {
+  height: 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.bubbleLeft {
+  width: 68%;
+  align-self: flex-start;
+}
+
+.bubbleRight {
+  width: 58%;
+  align-self: flex-end;
+  background: rgba(99, 102, 241, 0.45);
+}
+
+.bubbleLeftShort {
+  width: 42%;
+  align-self: flex-start;
+}
+
+.miniEvent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.miniEventDate {
+  width: 40px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(244, 114, 182, 0.35);
+}
+
+.miniAi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  align-items: flex-start;
+}
+
+.miniAiScore {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: linear-gradient(90deg, #a78bfa, #f472b6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.miniMomentum {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 48px;
+  width: 100%;
+  justify-content: center;
+}
+
+.miniMomentum span {
+  width: 12px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(180deg, #a78bfa, #6366f1);
+}
+
+.miniMomentum span:nth-child(1) {
+  height: 28%;
+}
+.miniMomentum span:nth-child(2) {
+  height: 48%;
+}
+.miniMomentum span:nth-child(3) {
+  height: 72%;
+}
+.miniMomentum span:nth-child(4) {
+  height: 92%;
+}
+
+@media (max-width: 720px) {
+  .showcase {
+    grid-template-columns: 1fr;
+  }
+
+  .showcaseCard,
+  .showcaseCard:last-child:nth-child(odd) {
+    grid-template-columns: 110px minmax(0, 1fr);
+    max-width: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .showcaseCard,
+  .showcaseCard:last-child:nth-child(odd) {
+    grid-template-columns: 1fr;
+  }
+}

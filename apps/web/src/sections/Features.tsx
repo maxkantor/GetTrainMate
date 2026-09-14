@@ -5,54 +5,107 @@ import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
 import styles from './BentoFeatures.module.css';
 
-const bento = [
+const FEATURES = [
   {
-    key: 'ai',
+    key: 'match',
     titleKey: 'landing.features_bento_ai_title',
     descKey: 'landing.features_bento_ai_desc',
-    icon: '✨',
-    size: 'large',
+    preview: 'match' as const,
   },
   {
     key: 'chat',
     titleKey: 'landing.features_bento_chat_title',
     descKey: 'landing.features_bento_chat_desc',
-    icon: '💬',
-    size: 'small',
+    preview: 'chat' as const,
   },
   {
     key: 'events',
     titleKey: 'landing.features_bento_events_title',
     descKey: 'landing.features_bento_events_desc',
-    icon: '📍',
-    size: 'small',
+    preview: 'events' as const,
   },
   {
-    key: 'progress',
+    key: 'ai',
+    titleKey: 'landing.features_showcase_ai_title',
+    descKey: 'landing.features_showcase_ai_desc',
+    preview: 'ai' as const,
+  },
+  {
+    key: 'momentum',
     titleKey: 'landing.features_bento_progress_title',
     descKey: 'landing.features_bento_progress_desc',
-    icon: '📈',
-    size: 'medium',
+    preview: 'momentum' as const,
   },
 ] as const;
 
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.07, delayChildren: 0.05 },
-  },
-};
-
-const item = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } },
-};
+function MiniPreview({ kind }: { kind: (typeof FEATURES)[number]['preview'] }) {
+  if (kind === 'match') {
+    return (
+      <div className={styles.miniUi} aria-hidden>
+        <div className={styles.miniCard}>
+          <div className={styles.miniAvatar} />
+          <div className={styles.miniLines}>
+            <span className={styles.miniLineWide} />
+            <span className={styles.miniLine} />
+            <span className={styles.miniTags}>
+              <i />
+              <i />
+            </span>
+          </div>
+          <span className={styles.miniPct}>94%</span>
+        </div>
+      </div>
+    );
+  }
+  if (kind === 'chat') {
+    return (
+      <div className={styles.miniUi} aria-hidden>
+        <div className={styles.miniChat}>
+          <span className={styles.bubbleLeft} />
+          <span className={styles.bubbleRight} />
+          <span className={styles.bubbleLeftShort} />
+        </div>
+      </div>
+    );
+  }
+  if (kind === 'events') {
+    return (
+      <div className={styles.miniUi} aria-hidden>
+        <div className={styles.miniEvent}>
+          <span className={styles.miniEventDate} />
+          <span className={styles.miniLineWide} />
+          <span className={styles.miniLine} />
+        </div>
+      </div>
+    );
+  }
+  if (kind === 'ai') {
+    return (
+      <div className={styles.miniUi} aria-hidden>
+        <div className={styles.miniAi}>
+          <span className={styles.miniAiScore}>87%</span>
+          <span className={styles.miniLine} />
+          <span className={styles.miniLine} />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.miniUi} aria-hidden>
+      <div className={styles.miniMomentum}>
+        <span />
+        <span />
+        <span />
+        <span />
+      </div>
+    </div>
+  );
+}
 
 export const Features: React.FC = () => {
   const { t } = useI18n();
   return (
-    <Section id="features" background="subtle" paddingSize="lg" className={`${styles.section} premium-section-bg`}>
+    <Section id="features" background="subtle" paddingSize="md" className={`${styles.section} premium-section-bg`}>
       <Container>
         <motion.div
           className={styles.header}
@@ -66,43 +119,24 @@ export const Features: React.FC = () => {
           <p className={styles.subtitle}>{t('landing.features_bento_subtitle')}</p>
         </motion.div>
 
-        <motion.div
-          className={styles.bento}
-          variants={container}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: '-40px' }}
-        >
-          {bento.map((card) => (
+        <div className={styles.showcase}>
+          {FEATURES.map((card, i) => (
             <motion.article
               key={card.key}
-              variants={item}
-              className={`${styles.card} ${styles[`size_${card.size}`]}`}
-              onMouseMove={(e) => {
-                const el = e.currentTarget;
-                const r = el.getBoundingClientRect();
-                el.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`);
-                el.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`);
-                const nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
-                const ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
-                el.style.setProperty('--rx', `${ny * -5}deg`);
-                el.style.setProperty('--ry', `${nx * 5}deg`);
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget;
-                el.style.setProperty('--mx', '50%');
-                el.style.setProperty('--my', '50%');
-                el.style.setProperty('--rx', '0deg');
-                el.style.setProperty('--ry', '0deg');
-              }}
+              className={styles.showcaseCard}
+              initial={{ opacity: 0, y: 14 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ delay: i * 0.04, duration: 0.4 }}
             >
-              <div className={styles.cardGlow} aria-hidden />
-              <span className={styles.cardIcon}>{card.icon}</span>
-              <h3 className={styles.cardTitle}>{t(card.titleKey)}</h3>
-              <p className={styles.cardDesc}>{t(card.descKey)}</p>
+              <MiniPreview kind={card.preview} />
+              <div className={styles.showcaseCopy}>
+                <h3 className={styles.cardTitle}>{t(card.titleKey)}</h3>
+                <p className={styles.cardDesc}>{t(card.descKey)}</p>
+              </div>
             </motion.article>
           ))}
-        </motion.div>
+        </div>
       </Container>
     </Section>
   );

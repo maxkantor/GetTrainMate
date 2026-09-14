@@ -312,6 +312,15 @@ export const SwipeDemoSection: React.FC = () => {
             {t('landing.swipe_demo_title')}
           </h2>
           <p className={styles.subtitle}>{t('landing.swipe_demo_subtitle')}</p>
+          <ol className={styles.flowSteps} aria-label={t('landing.swipe_flow_aria')}>
+            <li>{t('landing.swipe_flow_discover')}</li>
+            <li aria-hidden>↓</li>
+            <li>{t('landing.swipe_flow_match')}</li>
+            <li aria-hidden>↓</li>
+            <li>{t('landing.swipe_flow_chat')}</li>
+            <li aria-hidden>↓</li>
+            <li>{t('landing.swipe_flow_meet')}</li>
+          </ol>
           <p className={styles.trustLine}>{t('landing.swipe_demo_trust')}</p>
         </div>
 
@@ -406,7 +415,7 @@ export const SwipeDemoSection: React.FC = () => {
 
         <div className={styles.ctaColumn}>
           {!isAuthenticated ? (
-            <Link to="/signup" className={styles.cta}>
+            <Link to="/signup?src=homepage_demo" className={styles.cta}>
               {t('landing.landing_primary_cta')}
             </Link>
           ) : (
@@ -415,7 +424,6 @@ export const SwipeDemoSection: React.FC = () => {
             </Link>
           )}
           <p className={styles.ctaSub}>{t('landing.landing_cta_sub')}</p>
-          <p className={styles.scarcityLine}>{t('landing.landing_scarcity')}</p>
         </div>
       </Container>
     </section>

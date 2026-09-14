@@ -46,7 +46,7 @@ export const FinalCTA: React.FC = () => {
           <h2 className={styles.title}>{t('landing.final_cta_card_title')}</h2>
           <p className={styles.sub}>{t('landing.final_cta_card_sub')}</p>
           {!isAuthenticated ? (
-            <Link to="/signup" className={styles.btn}>
+            <Link to="/signup?src=homepage_final" className={styles.btn}>
               {t('landing.landing_primary_cta')}
             </Link>
           ) : (
@@ -54,8 +54,7 @@ export const FinalCTA: React.FC = () => {
               {t('landing.landing_primary_cta')}
             </Link>
           )}
-          <p className={styles.btnSub}>{t('landing.landing_cta_sub')}</p>
-          <p className={styles.scarcityLine}>{t('landing.landing_scarcity')}</p>
+          <p className={styles.btnSub}>{t('landing.final_cta_micro')}</p>
         </motion.div>
       </Container>
     </section>
