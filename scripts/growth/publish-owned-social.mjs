@@ -370,6 +370,40 @@ async function main() {
     process.exit(2);
   }
 
+  if (!socialImage?.ok) {
+    const reason = socialImage?.error || socialImage?.uploadError || 'photo_required';
+    baseReport.facebook.blocker = reason;
+    baseReport.instagram.blocker = reason;
+    baseReport.technicalDistributionResult = 'FAILED';
+    baseReport.socialImage = {
+      mode: socialImage?.concept?.mode || item.mode,
+      imageHeadline: socialImage?.concept?.imageHeadline || '',
+      visualConcept: socialImage?.concept?.visualConcept || '',
+      provider: socialImage?.provider || '',
+      fallback: Boolean(socialImage?.fallback),
+      error: reason
+    };
+    appendPublishedLog({
+      publishedAtUtc: now.toISOString(),
+      contentId: item.contentId,
+      mode: item.mode,
+      language: item.language,
+      status: 'failed',
+      blocker: reason,
+      imageHeadline: socialImage?.concept?.imageHeadline,
+      visualConcept: socialImage?.concept?.visualConcept,
+      photoPrompt: socialImage?.concept?.photoPrompt || socialImage?.concept?.visualConcept,
+      imageCta: socialImage?.concept?.cta,
+      imageSeed: socialImage?.concept?.backgroundSeed,
+      imageKey: socialImage?.imageKey || '',
+      imageProvider: socialImage?.provider || '',
+      imageFallback: Boolean(socialImage?.fallback)
+    });
+    console.log(JSON.stringify(baseReport, null, 2));
+    process.exitCode = 2;
+    return;
+  }
+
   const generatedImageUrl = socialImage.imageUrl || null;
   const publishImageUrl = generatedImageUrl;
 

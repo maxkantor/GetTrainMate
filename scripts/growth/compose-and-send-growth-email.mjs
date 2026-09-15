@@ -317,11 +317,15 @@ if (invokedAsCli) {
         subject
       });
     }
+    console.error(
+      `=== DAILY REPORT EMAIL SENT ===\nRecipient: ${result.to}\nSES Message ID: ${result.messageId}`
+    );
     console.log(
       JSON.stringify(
         {
           ok: true,
           messageId: result.messageId,
+          to: result.to,
           subject,
           snapshotPath: snapPath,
           activeExperiments: experiments.map((e) => e.idLine),
@@ -336,7 +340,9 @@ if (invokedAsCli) {
     if (!args.testEmail && !args.forceEmail && claim.claimed && claim.claimId !== 'forced') {
       releaseAdminEmailDayClaim({ isoDate });
     }
-    console.error(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }));
+    const err = e instanceof Error ? e.message : String(e);
+    console.error(`=== DAILY REPORT EMAIL FAILED ===\n${err}`);
+    console.error(JSON.stringify({ ok: false, error: err }));
     process.exit(1);
   }
 }

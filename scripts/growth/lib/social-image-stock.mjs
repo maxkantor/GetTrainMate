@@ -4,6 +4,7 @@
  */
 import { assessPhotoQuality } from './social-image-bedrock.mjs';
 import { PROHIBITED_VIBE_KEYWORDS, stockPhotosForMode, unsplashCropUrl } from './social-image-stock-library.mjs';
+import { assessCreativeProductFit } from './social-creative-quality.mjs';
 
 function hashSeed(input) { let h=2166136261; for (let i=0;i<input.length;i++){ h^=input.charCodeAt(i); h=Math.imul(h,16777619); } return Math.abs(h); }
 
@@ -18,7 +19,9 @@ const HARD_BLOCKED_IDS = new Set([
   'train-tennis-court-action',
   'train-gym-strength-lifting',
   'date-cocktails-cheers-date',
-  'date-wine-celebration-toast'
+  'date-wine-celebration-toast',
+  // Sep 15 regression: generic restaurant / long-table dining stock
+  'vibe-friends-patio-dining'
 ]);
 
 const PREMIUM_PREFERRED_IDS = {
@@ -33,7 +36,7 @@ const PREMIUM_PREFERRED_IDS = {
   VIBE: new Set([
     'vibe-friends-rooftop-sunset',
     'vibe-friends-laughing-golden',
-    'vibe-friends-patio-dining',
+    'vibe-outdoor-hilltop-friends',
     'vibe-cocktail-toast-night',
     'vibe-wine-celebration-toast'
   ]),
@@ -124,6 +127,14 @@ export async function generateStockPhoto(concept,{isoDate,activity,recentEntries
     catch(e) { lastError=e instanceof Error?e.message:String(e); break; }
     const fetched=await fetchStockPhotoBuffer(photo,{fetchImpl}); if(!fetched.ok){lastError=fetched.error;continue;}
     const quality=await assessPhotoQuality(fetched.buffer,sharpImpl); if(!quality.ok){lastError=quality.reason;continue;}
+    const fit=assessCreativeProductFit({
+      mode: concept.mode,
+      stockPhotoId: photo.id,
+      scene: photo.scene,
+      photoPrompt: concept?.photoPrompt,
+      visualConcept: concept?.visualConcept
+    });
+    if(!fit.ok){lastError=fit.reason; continue;}
     return{ok:true,buffer:fetched.buffer,modelId:'unsplash_stock',stockPhotoId:photo.id,sourceUrl:fetched.url,scene:photo.scene,seed:hashSeed(`${isoDate}:${concept.contentId}:${photo.id}`),quality};
   }
   return{ok:false,error:lastError};

@@ -9,7 +9,8 @@ import { buildImageConcept } from './social-image-concept.mjs';
 import { generateStockPhoto } from './social-image-stock.mjs';
 import { composeSocialImageFromPhoto } from './social-image-photo-compose.mjs';
 import { logSocialImageEvent } from './social-image-logger.mjs';
-import { buildSocialImageKey, saveLocalSocialImage, uploadAndVerifySocialImageBuffer } from './social-image-storage.mjs';
+import { buildSocialImageKey, saveLocalSocialImage, uploadAndVerifySocialImageBuffer, publicUrlForKey } from './social-image-storage.mjs';
+import { assessCreativeProductFit, selectEvergreenCreative } from './social-creative-quality.mjs';
 
 // Bedrock is intentionally the default. Set SOCIAL_IMAGE_PROVIDER=stock only for an explicit stock-only run.
 export const SOCIAL_IMAGE_PROVIDER = (process.env.SOCIAL_IMAGE_PROVIDER || 'bedrock').toLowerCase();
@@ -41,6 +42,31 @@ async function tryStock(concept, { isoDate, activity, recentEntries, sharpImpl }
   return { ok: false, error: result?.error || result?.reason || 'stock_generation_failed', provider: 'stock' };
 }
 
+async function fetchEvergreenBuffer(entry, { fetchImpl = globalThis.fetch } = {}) {
+  const url =
+    entry?.imageUrl ||
+    (entry?.imageKey ? publicUrlForKey(entry.imageKey) : '');
+  if (!url) return { ok: false, error: 'evergreen_missing_url' };
+  try {
+    const res = await fetchImpl(url);
+    if (!res.ok) return { ok: false, error: `evergreen_fetch_${res.status}` };
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (!buffer.length) return { ok: false, error: 'evergreen_empty' };
+    return {
+      ok: true,
+      buffer,
+      provider: 'evergreen',
+      modelId: entry.imageProvider || 'evergreen_prior_publish',
+      stockPhotoId: entry.stockPhotoId || '',
+      scene: entry.visualConcept || entry.photoPrompt || 'evergreen prior creative',
+      seed: 0,
+      evergreenFrom: entry.imageKey || entry.imageUrl
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'evergreen_fetch_failed' };
+  }
+}
+
 async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, sharpImpl } = {}) {
   if (SOCIAL_IMAGE_PROVIDER === 'procedural') {
     return { ok: false, error: 'procedural_disabled_for_social_quality', provider: 'procedural' };
@@ -48,29 +74,88 @@ async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, 
 
   // Explicit stock-only mode remains available for diagnostics, but production defaults to Bedrock.
   if (SOCIAL_IMAGE_PROVIDER === 'stock') {
-    return tryStock(concept, { isoDate, activity, recentEntries, sharpImpl });
+    const stockOnly = await tryStock(concept, { isoDate, activity, recentEntries, sharpImpl });
+    if (stockOnly.ok) {
+      const fit = assessCreativeProductFit({
+        mode: concept.mode,
+        stockPhotoId: stockOnly.stockPhotoId,
+        scene: stockOnly.scene,
+        photoPrompt: concept.photoPrompt,
+        visualConcept: concept.visualConcept
+      });
+      if (!fit.ok) return { ok: false, error: fit.reason, provider: 'stock' };
+    }
+    return stockOnly;
   }
 
   // Production path: Bedrock first. Only if Bedrock fails every quality-gated attempt do we try curated stock.
   const bedrock = await tryBedrock(concept, { sharpImpl });
-  if (bedrock.ok) return bedrock;
+  if (bedrock.ok) {
+    const fit = assessCreativeProductFit({
+      mode: concept.mode,
+      scene: concept.visualConcept || concept.photoPrompt,
+      photoPrompt: concept.photoPrompt,
+      visualConcept: concept.visualConcept
+    });
+    if (fit.ok) return bedrock;
+    logSocialImageEvent('SocialImageRejected', {
+      mode: concept.mode,
+      contentId: concept.contentId,
+      reason: fit.reason,
+      provider: 'bedrock'
+    });
+  }
 
   logSocialImageEvent('SocialImagePrimaryProviderFailed', {
     mode: concept.mode,
     contentId: concept.contentId,
     provider: 'bedrock',
-    reason: bedrock.error,
+    reason: bedrock.error || 'bedrock_product_fit_reject',
     fallbackProvider: 'stock'
   });
 
   const stock = await tryStock(concept, { isoDate, activity, recentEntries, sharpImpl });
   if (stock.ok) {
-    return { ...stock, primaryFailure: bedrock.error };
+    const fit = assessCreativeProductFit({
+      mode: concept.mode,
+      stockPhotoId: stock.stockPhotoId,
+      scene: stock.scene,
+      photoPrompt: concept.photoPrompt,
+      visualConcept: concept.visualConcept
+    });
+    if (fit.ok) {
+      return { ...stock, primaryFailure: bedrock.error };
+    }
+    logSocialImageEvent('SocialImageRejected', {
+      mode: concept.mode,
+      contentId: concept.contentId,
+      reason: fit.reason,
+      provider: 'stock',
+      stockPhotoId: stock.stockPhotoId
+    });
+  }
+
+  const evergreenEntry = selectEvergreenCreative(recentEntries, { mode: concept.mode });
+  if (evergreenEntry) {
+    const evergreen = await fetchEvergreenBuffer(evergreenEntry);
+    if (evergreen.ok) {
+      logSocialImageEvent('SocialImageEvergreenUsed', {
+        mode: concept.mode,
+        contentId: concept.contentId,
+        evergreenFrom: evergreen.evergreenFrom,
+        bedrockError: bedrock.error || null,
+        stockError: stock.error || null
+      });
+      return {
+        ...evergreen,
+        primaryFailure: bedrock.error || stock.error || 'generation_failed_quality_gate'
+      };
+    }
   }
 
   return {
     ok: false,
-    error: `bedrock:${bedrock.error}; stock:${stock.error}`,
+    error: `bedrock:${bedrock.error || 'n/a'}; stock:${stock.error || 'n/a'}; evergreen:unavailable`,
     provider: 'bedrock+stock'
   };
 }
@@ -123,6 +208,8 @@ export async function generateSocialImage({ catalogItem, isoDate, isoHyphen, rec
   const composed = await composeSocialImageFromPhoto(photo.buffer, concept, { sharpImpl });
   const provider = photo.provider === 'bedrock'
     ? (photo.modelId || 'bedrock_stable_image_core')
+    : photo.provider === 'evergreen'
+      ? (photo.modelId || 'evergreen_prior_publish')
     : (photo.modelId || 'unsplash_stock');
 
   logSocialImageEvent('SocialImageGenerationSucceeded', {
@@ -130,6 +217,7 @@ export async function generateSocialImage({ catalogItem, isoDate, isoHyphen, rec
     contentId: concept.contentId,
     provider,
     fallback: photo.provider === 'stock' && SOCIAL_IMAGE_PROVIDER !== 'stock',
+    evergreen: photo.provider === 'evergreen',
     photoBytes: photo.buffer.length,
     seed: photo.seed,
     stockPhotoId: photo.stockPhotoId || null,
@@ -149,7 +237,7 @@ export async function generateSocialImage({ catalogItem, isoDate, isoHyphen, rec
       localPath: saved.localPath,
       imageKey: key,
       provider,
-      fallback: photo.provider === 'stock' && SOCIAL_IMAGE_PROVIDER !== 'stock',
+      fallback: (photo.provider === 'stock' || photo.provider === 'evergreen') && SOCIAL_IMAGE_PROVIDER !== 'stock',
       width: composed.width,
       height: composed.height,
       imageBuffer: composed.buffer,
@@ -167,7 +255,7 @@ export async function generateSocialImage({ catalogItem, isoDate, isoHyphen, rec
       localPath: saved.localPath,
       imageKey: key,
       provider,
-      fallback: photo.provider === 'stock' && SOCIAL_IMAGE_PROVIDER !== 'stock',
+      fallback: (photo.provider === 'stock' || photo.provider === 'evergreen') && SOCIAL_IMAGE_PROVIDER !== 'stock',
       uploadError: uploaded.error,
       durationMs: Date.now() - started
     };
@@ -176,7 +264,7 @@ export async function generateSocialImage({ catalogItem, isoDate, isoHyphen, rec
   logSocialImageEvent('SocialImageUploaded', {
     key,
     provider,
-    fallback: photo.provider === 'stock' && SOCIAL_IMAGE_PROVIDER !== 'stock'
+    fallback: (photo.provider === 'stock' || photo.provider === 'evergreen') && SOCIAL_IMAGE_PROVIDER !== 'stock'
   });
 
   return {
@@ -186,7 +274,7 @@ export async function generateSocialImage({ catalogItem, isoDate, isoHyphen, rec
     imageKey: key,
     bucket: uploaded.bucket,
     provider,
-    fallback: photo.provider === 'stock' && SOCIAL_IMAGE_PROVIDER !== 'stock',
+    fallback: (photo.provider === 'stock' || photo.provider === 'evergreen') && SOCIAL_IMAGE_PROVIDER !== 'stock',
     width: composed.width,
     height: composed.height,
     imageBuffer: composed.buffer,

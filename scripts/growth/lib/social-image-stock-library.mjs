@@ -21,7 +21,12 @@ export const PROHIBITED_VIBE_KEYWORDS = [
   'studying',
   'corporate',
   'computer',
-  'desk'
+  'desk',
+  'restaurant',
+  'dining',
+  'banquet',
+  'buffet',
+  'social meal'
 ];
 
 export const STOCK_PHOTOS = {
@@ -82,12 +87,7 @@ export const STOCK_PHOTOS = {
     }
   ],
   VIBE: [
-    {
-      id: 'vibe-friends-patio-dining',
-      unsplashId: 'photo-1528605248644-14dd04022da1',
-      scene: 'friends enjoying coffee drinks and a social meal at outdoor patio after training',
-      activities: ['dining', 'restaurant', 'food', 'social', 'drinks', 'friends', 'events', 'coffee', 'cafe', 'meetup']
-    },
+    // vibe-friends-patio-dining REMOVED — Sep 15 regression (generic restaurant stock)
     {
       id: 'vibe-cocktail-toast-night',
       unsplashId: 'photo-1617524455617-ce1e266aa810',
@@ -104,7 +104,7 @@ export const STOCK_PHOTOS = {
       id: 'vibe-friends-rooftop-sunset',
       unsplashId: 'photo-1529333166437-7750a6dd5a70',
       scene: 'friends celebrating on rooftop overlooking city at sunset',
-      activities: ['rooftop', 'sunset', 'social', 'city', 'events', 'celebration']
+      activities: ['rooftop', 'sunset', 'social', 'city', 'events', 'celebration', 'coffee', 'cafe', 'meetup', 'plans']
     },
     {
       id: 'vibe-hiking-mountain-trail',
@@ -122,7 +122,7 @@ export const STOCK_PHOTOS = {
       id: 'vibe-friends-laughing-golden',
       unsplashId: 'photo-1511988617509-a57c8a288659',
       scene: 'friends laughing and dancing together outdoors at golden hour',
-      activities: ['social', 'events', 'festival', 'friendship', 'music']
+      activities: ['social', 'events', 'festival', 'friendship', 'music', 'coffee', 'meetup', 'plans']
     },
     {
       id: 'vibe-friends-street-chat',

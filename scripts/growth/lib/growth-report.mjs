@@ -129,7 +129,7 @@ export function growthEmailSubject({ et, shipped = false, social, testEmail = fa
           : 'No change deployed';
   const n = Number(newCustomersThisRun) || 0;
   const customers = n === 1 ? '1 new customer this run' : `${n} new customers this run`;
-  const base = `GetTrainMate Growth — ${phrase} · ${customers} · ${et.shortDate}`;
+  const base = `GetTrainMate Growth - ${phrase} - ${customers} - ${et.shortDate}`;
   return testEmail ? `[TEST] ${base}` : base;
 }
 
@@ -180,8 +180,12 @@ function ownedSocialSummary(snapshot) {
   const os = snapshot?.ownedSocial || {};
   const fb = os.facebook || {};
   const ig = os.instagram || {};
-  const fbYes = fb.published === true;
-  const igYes = ig.published === true;
+  const fbYes =
+    fb.published === true ||
+    Boolean(String(fb.postId || '').trim() && /already_published/i.test(String(fb.reason || '')));
+  const igYes =
+    ig.published === true ||
+    Boolean(String(ig.postId || '').trim() && /already_published/i.test(String(ig.reason || '')));
   const parts = [];
   if (fbYes) parts.push(`Facebook ${fb.postId || 'published'}`);
   if (igYes) parts.push(`Instagram ${ig.postId || 'published'}`);
@@ -578,13 +582,32 @@ export function composeGrowthEmailBody({
   });
 
   const t = [];
-  t.push('GetTrainMate Growth Report');
-  t.push('==========================');
+  t.push('GETTRAINMATE - DAILY GROWTH REPORT');
+  t.push('==================================');
   t.push('Product: multilingual international TRAIN + VIBE + DATE. Atlanta TRAIN is one experiment, not the product.');
-  t.push(`Local time: ${et.dateStr} ${et.timeStr}`);
+  t.push(`Local time (America/New_York): ${et.dateStr} ${et.timeStr}`);
   t.push(`Report generated: ${et.monthDayYear}`);
   t.push(`GA4 data through: ${formatMonthDayYearFromYmd(ga4Through)}`);
   t.push(`Site: ${SITE.origin}`);
+  t.push('');
+
+  const published = Boolean(social.fbYes || social.igYes);
+  const creative = social.os?.socialImage || social.os?.creative || {};
+  const runStatus = published
+    ? 'SUCCESS'
+    : social.attempted
+      ? 'PARTIAL FAILURE'
+      : 'FAILURE';
+  t.push('RUN STATUS');
+  t.push('----------');
+  t.push(`Status: ${runStatus}`);
+  t.push(`Facebook: ${social.fbYes ? 'POSTED' : social.attempted ? 'FAILED / SKIPPED' : 'NOT ATTEMPTED'}`);
+  t.push(`Mode: ${ascii(creative.mode || social.os?.contentId || 'n/a')}`);
+  t.push(`Creative headline: ${ascii(creative.imageHeadline || 'n/a')}`);
+  t.push(`Creative provider: ${ascii(creative.provider || 'n/a')}`);
+  t.push(`Creative fallback: ${creative.fallback === true ? 'YES' : 'NO'}`);
+  t.push(`Facebook post ID: ${social.fb.postId || 'n/a'}`);
+  t.push(`Instagram post ID: ${social.ig.postId || 'n/a'}`);
   t.push('');
 
   const sb = computeBusinessScoreboard(snapshot, md);

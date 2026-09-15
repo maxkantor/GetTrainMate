@@ -23,22 +23,22 @@ export const SCENES_BY_ACTIVITY = {
     workout: 'attractive athletic man and woman finishing a workout together, sweaty, walking and talking naturally'
   },
   VIBE: {
-    coffee_after_run: 'attractive athletic man and woman post-run at a café patio, still in workout clothes with realistic sweat, laughing over coffee',
-    drinks_after_pickleball: 'pickleball partners walking from court toward an outdoor bar patio, rackets in hand, playful hangout energy',
-    rooftop_after_workout: 'athletic adults after a fitness class hanging out on a casual rooftop, drinks, candid social energy, no office vibe',
-    brewery_after_hike: 'hikers arriving at a patio brewery after a trail, dusty trail clothes, laughing over drinks',
-    sports_bar_after_soccer: 'mixed recreational soccer players at a sports bar after the game, casual social energy',
-    cafe_after_cycle: 'cyclists stopping at a café after a ride, helmets nearby, natural conversation',
-    city_walk_after_class: 'man and woman walking through the city after a workout class, athletic casual clothes, subtle chemistry',
-    social: 'attractive athletic friends hanging out after training, outdoor patio, candid laughs, no laptops',
+    coffee_after_run: 'attractive athletic adults still in running gear meeting outdoors after a run, city park path, laughing and making plans — not a restaurant dining table',
+    drinks_after_pickleball: 'pickleball partners walking from court toward an outdoor hangout, rackets visible, playful social energy, 2–4 people clearly visible',
+    rooftop_after_workout: 'athletic adults after a fitness class hanging out on a casual rooftop with skyline, drinks optional, candid social energy, no office vibe, small group',
+    brewery_after_hike: 'hikers with backpacks arriving together after a trail, outdoor social energy, dusty trail clothes, laughing — activity-first not restaurant stock',
+    sports_bar_after_soccer: 'mixed recreational soccer players socializing after the game in athletic wear, casual social energy, faces visible',
+    cafe_after_cycle: 'cyclists with bikes and helmets stopping together outdoors after a ride, natural conversation, activity gear visible — not indoor restaurant dining',
+    city_walk_after_class: 'man and woman walking through the city after a workout class, athletic casual clothes, making plans together',
+    social: 'attractive athletic friends making real plans outdoors after training, candid laughs, 2–4 people, no laptops, no restaurant banquet table',
     // legacy activity keys still used by catalog/tests
-    coffee: 'attractive athletic adults grabbing coffee after training, candid patio hangout, no laptops',
-    drinks: 'friends toasting drinks after a shared sport, outdoor bar, warm social nightlife',
-    dining: 'friends enjoying patio dinner after a workout, lively conversation',
-    hiking: 'friends hiking together then transitioning toward a social hangout energy',
-    festival: 'athletic friends at an outdoor evening social gathering after training',
-    outdoors: 'friends outdoors after an active day, candid social energy',
-    city: 'athletic friends walking a city street after a workout, casual hangout'
+    coffee: 'attractive athletic adults grabbing coffee outdoors after training with athletic wear still on, candid hangout, no laptops',
+    drinks: 'friends toasting drinks after a shared sport, outdoor bar, warm social nightlife, small group',
+    dining: 'friends making plans outdoors after a workout, lively conversation — activity context required, not anonymous restaurant crowd',
+    hiking: 'friends hiking together on a scenic trail with backpacks, clear faces, social adventure energy',
+    festival: 'athletic friends at an outdoor evening social gathering after training, 2–4 people clearly visible',
+    outdoors: 'friends outdoors after an active day, candid social energy, activity context visible',
+    city: 'athletic friends walking a city street after a workout, casual hangout, making plans'
   },
   DATE: {
     coffee_after_train: 'attractive athletic man and woman grabbing coffee after training, subtle flirt without cheesy posing, natural chemistry',
@@ -65,7 +65,7 @@ export const MODE_PHOTO_SCENES = {
 
 export const MODE_ACTIVITY_ROTATION = {
   TRAIN: ['pickleball', 'strength', 'running', 'tennis', 'volleyball', 'hiking', 'cycling', 'functional', 'workout'],
-  VIBE: ['coffee_after_run', 'drinks_after_pickleball', 'rooftop_after_workout', 'brewery_after_hike', 'cafe_after_cycle', 'city_walk_after_class', 'sports_bar_after_soccer', 'social'],
+  VIBE: ['rooftop_after_workout', 'city_walk_after_class', 'drinks_after_pickleball', 'hiking', 'brewery_after_hike', 'festival', 'coffee_after_run', 'cafe_after_cycle', 'sports_bar_after_soccer', 'social'],
   DATE: ['coffee_after_train', 'drinks_after_game', 'walk_after_workout', 'spot_maybe_date', 'dinner_after_hike', 'lifestyle', 'chemistry']
 };
 

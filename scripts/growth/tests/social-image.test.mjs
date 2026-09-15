@@ -256,11 +256,19 @@ describe('semantic activity matching', () => {
     assert.match(hikePhoto.scene, /hiking/i);
 
     const coffeePhoto = selectStockPhoto({ mode: 'VIBE', activity: 'coffee' });
-    assert.ok(coffeePhoto.activities.includes('coffee'));
-    assert.match(coffeePhoto.scene, /coffee/i);
+    assert.ok(coffeePhoto.activities.includes('coffee') || coffeePhoto.activities.includes('cafe') || coffeePhoto.activities.includes('meetup'));
+    assert.doesNotMatch(coffeePhoto.scene, /restaurant|dining|social meal/i);
 
     const diningPhoto = selectStockPhoto({ mode: 'VIBE', activity: 'dining' });
-    assert.ok(diningPhoto.activities.includes('dining') || diningPhoto.activities.includes('restaurant'));
+    // Dining copy must map to plans/social imagery — never restaurant stock
+    assert.ok(
+      diningPhoto.activities.includes('social') ||
+        diningPhoto.activities.includes('plans') ||
+        diningPhoto.activities.includes('meetup') ||
+        diningPhoto.activities.includes('drinks')
+    );
+    assert.doesNotMatch(diningPhoto.id, /patio-dining/);
+    assert.doesNotMatch(diningPhoto.scene, /restaurant|social meal/i);
 
     const dateCoffee = selectStockPhoto({ mode: 'DATE', activity: 'coffee' });
     assert.ok(dateCoffee.activities.includes('coffee'));

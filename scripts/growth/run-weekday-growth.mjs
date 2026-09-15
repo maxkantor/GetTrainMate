@@ -155,7 +155,7 @@ async function main() {
     if (args.dryRun) emailArgs.push('--dry-run');
 
     // Inject ownedSocial into latest snapshot when we have post IDs
-    if (report.facebookPostId || report.instagramPostId) {
+    if (report.facebookPostId || report.instagramPostId || publishJson) {
       const snapDir = path.join(ROOT, 'docs/growth/snapshots');
       if (fs.existsSync(snapDir)) {
         const files = fs
@@ -167,19 +167,29 @@ async function main() {
           // also write a sidecar for compose --skip-social honesty.
           const side = path.join(__dirname, 'var', `owned-social-${iso}.json`);
           fs.mkdirSync(path.dirname(side), { recursive: true });
+          const publishedToday = Boolean(report.published || report.socialSkippedDuplicate);
           fs.writeFileSync(
             side,
             JSON.stringify(
               {
                 contentId: publishJson?.contentId || '',
                 distributionAttempted: true,
-                distributionExecuted: report.published,
-                technicalDistributionResult: report.published ? 'SUCCEEDED' : 'FAILED',
+                distributionExecuted: publishedToday,
+                technicalDistributionResult: publishedToday ? 'SUCCEEDED' : 'FAILED',
                 connectorHealthy: publishJson?.connectorHealthy !== false,
                 connectorBlocker: publishJson?.connectorBlocker || '',
                 metaAuth: publishJson?.metaAuth || { authentication: 'VALID', status: 'META_VALID' },
-                facebook: publishJson?.facebook || { published: false },
-                instagram: publishJson?.instagram || { published: false }
+                socialImage: publishJson?.socialImage || null,
+                facebook: {
+                  ...(publishJson?.facebook || {}),
+                  published: publishedToday || Boolean(publishJson?.facebook?.published),
+                  postId: report.facebookPostId || publishJson?.facebook?.postId || ''
+                },
+                instagram: {
+                  ...(publishJson?.instagram || {}),
+                  published: publishedToday || Boolean(publishJson?.instagram?.published),
+                  postId: report.instagramPostId || publishJson?.instagram?.postId || ''
+                }
               },
               null,
               2
@@ -200,21 +210,32 @@ async function main() {
       ? fs.readdirSync(snapDir).filter((f) => /^funnel-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort()
       : [];
     let snapPath = files.length ? path.join(snapDir, files[files.length - 1]) : null;
-    if (snapPath && (report.facebookPostId || report.instagramPostId || publishJson)) {
+    if (snapPath && (report.facebookPostId || report.instagramPostId || publishJson || args.skipSocial)) {
       try {
         const snap = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
+        const publishedToday = Boolean(report.published || report.socialSkippedDuplicate);
         snap.ownedSocial = {
-          contentId: publishJson?.contentId || '',
+          contentId: publishJson?.contentId || snap.ownedSocial?.contentId || '',
           distributionAttempted: true,
-          distributionExecuted: Boolean(report.published || args.skipSocial),
-          technicalDistributionResult: report.published ? 'SUCCEEDED' : args.skipSocial ? 'SKIPPED' : 'FAILED',
+          distributionExecuted: publishedToday || Boolean(args.skipSocial && (report.facebookPostId || report.instagramPostId)),
+          technicalDistributionResult: publishedToday
+            ? 'SUCCEEDED'
+            : args.skipSocial
+              ? 'SKIPPED'
+              : 'FAILED',
           connectorHealthy: publishJson?.connectorHealthy !== false,
           connectorBlocker: publishJson?.connectorBlocker || '',
-          metaAuth: publishJson?.metaAuth || null,
-          facebook: publishJson?.facebook || { published: Boolean(report.facebookPostId), postId: report.facebookPostId },
-          instagram: publishJson?.instagram || {
-            published: Boolean(report.instagramPostId),
-            postId: report.instagramPostId
+          metaAuth: publishJson?.metaAuth || snap.ownedSocial?.metaAuth || null,
+          socialImage: publishJson?.socialImage || snap.ownedSocial?.socialImage || null,
+          facebook: {
+            published: publishedToday || Boolean(report.facebookPostId),
+            postId: report.facebookPostId || publishJson?.facebook?.postId || snap.ownedSocial?.facebook?.postId || '',
+            reason: report.socialSkippedDuplicate ? 'already_published_today' : publishJson?.facebook?.reason || ''
+          },
+          instagram: {
+            published: publishedToday || Boolean(report.instagramPostId),
+            postId: report.instagramPostId || publishJson?.instagram?.postId || snap.ownedSocial?.instagram?.postId || '',
+            reason: report.socialSkippedDuplicate ? 'already_published_today' : publishJson?.instagram?.reason || ''
           }
         };
         fs.writeFileSync(snapPath, JSON.stringify(snap, null, 2));
@@ -225,36 +246,58 @@ async function main() {
     }
 
     const email = runNode('compose-and-send-growth-email.mjs', emailArgs);
-    const emailJson = tryParseJson(email.stdout);
+    const emailJson = tryParseJson(email.stdout) || tryParseJson(email.stderr);
     if (email.status === 0 && emailJson?.ok && (emailJson?.messageId || emailJson?.skipped)) {
       // skipped = same-day guard (another agent already emailed) — still counts as notified
       report.emailSent = true;
       report.messageId = emailJson.messageId || '';
       report.subject = emailJson.subject || '';
       report.emailSkippedDuplicate = Boolean(emailJson.skipped);
+      report.emailTo = emailJson.to || '';
+      console.error(
+        `=== DAILY REPORT EMAIL ${emailJson.skipped ? 'SKIPPED (already sent today)' : 'SENT'} ===\n` +
+          `Recipient: ${emailJson.to || '(see SES config)'}\n` +
+          `SES Message ID: ${report.messageId || '(prior send)'}`
+      );
     } else if (args.dryRun && email.status === 0) {
       report.emailSent = true;
       report.subject = 'dry-run';
     } else {
-      report.errors.push(email.stderr || email.stdout || 'email_failed');
+      const detail = email.stderr || email.stdout || 'email_failed';
+      report.errors.push(detail);
+      console.error(`=== DAILY REPORT EMAIL FAILED ===\n${String(detail).slice(0, 800)}`);
     }
   } finally {
     runNode('release-growth-lock.mjs');
   }
 
-  report.ok =
-    report.emailSent &&
-    (args.dryRun ||
+  const socialOk = Boolean(
+    args.dryRun ||
       args.skipSocial ||
       report.published ||
       report.socialSkippedDuplicate ||
-      report.errors.some((e) => /META_|Meta |credentials/i.test(e)));
+      report.errors.some((e) => /META_|Meta |credentials/i.test(e))
+  );
+  report.runStatus =
+    report.emailSent && socialOk && (report.published || report.socialSkippedDuplicate || args.skipSocial || args.dryRun)
+      ? 'SUCCESS'
+      : report.emailSent && !socialOk
+        ? 'PARTIAL_FAILURE'
+        : !report.emailSent && (report.published || report.socialSkippedDuplicate)
+          ? 'PARTIAL_FAILURE'
+          : 'FAILURE';
+
+  report.ok = report.runStatus === 'SUCCESS';
   // Strict: email always required; publish required unless dry-run, skip-social, already published today, or Meta config missing was emailed
   if (!args.dryRun && !args.skipSocial && !report.published && !report.socialSkippedDuplicate && !report.errors.length) {
     report.ok = false;
+    report.runStatus = 'FAILURE';
     report.errors.push('publish_did_not_execute');
   }
-  if (!report.emailSent) report.ok = false;
+  if (!report.emailSent) {
+    report.ok = false;
+    if (report.runStatus === 'SUCCESS') report.runStatus = 'PARTIAL_FAILURE';
+  }
 
   console.log(JSON.stringify(report, null, 2));
   process.exit(report.ok ? 0 : 1);
