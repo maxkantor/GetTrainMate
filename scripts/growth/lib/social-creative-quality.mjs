@@ -30,7 +30,7 @@ export const GENERIC_SOCIAL_REJECT_PATTERNS = [
 ];
 
 const ACTIVITY_SIGNAL =
-  /\b(run|running|gym|train|workout|pickleball|paddle|tennis|cycl|hike|hiking|sport|lift|fitness|partner|court|class|trail|athletic|match|game|after (a |the )?(run|workout|class|match|game|ride|hike))\b/i;
+  /\b(run|running|gym|train|workout|pickleball|paddle|padel|tennis|cycl|hike|hiking|sport|lift|fitness|partner|court|class|trail|athletic|match|game|soccer|football|volleyball|basketball|softball|hyrox|climb|surf|ski|swim|yoga|golf|boxing|after (a |the )?(run|workout|class|match|game|ride|hike))\b/i;
 
 const CONNECTION_SIGNAL =
   /\b(friends?|talk(?:ing)?|laugh(?:ing)?|walk(?:ing)?|together|partners?|chemistry|plans?|smiling|conversation|hang(?:ing|out)?|social|celebrat\w*|meetup|couple|man and woman|connect\w*)\b/i;

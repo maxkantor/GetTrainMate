@@ -8,6 +8,7 @@ import {
   headlineTextsFor,
   selectCopyPackage
 } from './social-copy-variants.mjs';
+import { selectCreativePlan } from './social-creative-standard.mjs';
 
 export const SCENES_BY_ACTIVITY = {
   TRAIN: {
@@ -216,9 +217,9 @@ export function isDuplicateConcept(concept, recentEntries = []) {
 }
 
 /**
- * Build image concept with photography-first metadata.
- * Broad mode-first campaigns rotate the underlying real-world activity by date while
- * preserving the approved copy, overlay and layout. Explicit/specific activities still win.
+ * Build image concept from the permanent creative standard.
+ * Sequence: sport → stage → scene → sport-specific headline → CTA.
+ * Explicit overrides (approved file / tests) still win.
  */
 export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [], overrides = {} } = {}) {
   const mode = String(overrides.mode || catalogItem?.mode || 'TRAIN').toUpperCase();
@@ -227,6 +228,56 @@ export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [
   const seed = hashSeed(seedBase);
 
   const copyPackage = overrides.copyPackage || catalogItem?.copyPackage || selectCopyPackage({ mode, language, isoDate, contentId: catalogItem?.contentId || 'preview', recentEntries });
+
+  const forceManual = Boolean(
+    overrides.useLegacyConcept ||
+      overrides.photoPrompt ||
+      overrides.visualConcept ||
+      (overrides.activity && overrides.forceActivity)
+  );
+  if (!forceManual) {
+    let attempt = 0;
+    let concept = null;
+    while (attempt < 12) {
+      const plan = selectCreativePlan({
+        mode,
+        isoDate,
+        contentId: catalogItem?.contentId || 'preview',
+        recentEntries,
+        offset: attempt
+      });
+      concept = {
+        mode,
+        contentId: catalogItem?.contentId || 'preview',
+        language,
+        locale: language,
+        sport: plan.sport,
+        category: plan.category,
+        stage: plan.stage,
+        people: plan.people,
+        semanticActivity: plan.semanticActivity,
+        activityRotationEnabled: true,
+        imageHeadline: plan.imageHeadline,
+        imageSubheadline: overrides.imageSubheadline != null ? overrides.imageSubheadline : plan.imageSubheadline,
+        cta: overrides.cta || plan.cta,
+        photoPrompt: plan.photoPrompt,
+        visualConcept: plan.visualConcept,
+        destinationUrl: 'https://gettrainmate.com',
+        backgroundSeed: seed + attempt * 9973,
+        headlineVariant: `standard-${plan.sport}-${plan.stage}`,
+        ctaVariant: 'find-your-people',
+        subheadlineVariant: plan.imageSubheadline ? 'love-doing' : '',
+        copyVariant: copyPackage.copyVariant || '',
+        campaign: copyPackage.campaign || '',
+        standardVersion: plan.standardVersion,
+        baselineRef: plan.baselineRef
+      };
+      const dup = isDuplicateConcept(concept, recentEntries);
+      if (!dup) break;
+      attempt += 1;
+    }
+    return concept;
+  }
 
   const detectedActivity = determinePostActivity({ mode, copyPackage, catalogItem, overrides });
   const useRotation = shouldUseDailyActivityRotation({ catalogItem, overrides });
@@ -256,7 +307,7 @@ export function buildImageConcept(catalogItem, { isoDate = '', recentEntries = [
       activityRotationEnabled: useRotation,
       imageHeadline: overrides.imageHeadline || catalogItem?.imageHeadline || headlineFromCopy || pickFrom(headlineVariants, attemptSeed + 3) || 'Find Your Match',
       imageSubheadline: overrides.imageSubheadline || catalogItem?.imageSubheadline || (attempt === 0 ? copyPackage.subheadline || '' : ''),
-      cta: overrides.cta || catalogItem?.imageCta || ctaFromCopy || pickFrom(ctaVariants, attemptSeed + 11) || MODE_CTA_DEFAULTS[mode] || 'FIND YOUR MATCH',
+      cta: overrides.cta || catalogItem?.imageCta || ctaFromCopy || pickFrom(ctaVariants, attemptSeed + 11) || MODE_CTA_DEFAULTS[mode] || 'FIND YOUR PEOPLE →',
       photoPrompt: matchedScene,
       visualConcept: matchedScene,
       destinationUrl: 'https://gettrainmate.com',

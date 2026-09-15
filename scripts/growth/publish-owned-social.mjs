@@ -429,9 +429,6 @@ async function main() {
         dryRun: args.dryRun,
         conceptOverrides: {
           language: item.language,
-          imageHeadline: item.imageHeadline,
-          imageSubheadline: item.imageSubheadline || '',
-          cta: item.imageCta,
           copyPackage: item.copyPackage
         }
       });
@@ -489,6 +486,10 @@ async function main() {
     socialImage: {
       mode: socialImage.concept?.mode || item.mode,
       locale: socialImage.concept?.locale || item.language,
+      sport: socialImage.concept?.sport || '',
+      stage: socialImage.concept?.stage || '',
+      category: socialImage.concept?.category || '',
+      standardVersion: socialImage.concept?.standardVersion || '',
       imageHeadline: socialImage.concept?.imageHeadline || '',
       imageSubheadline: socialImage.concept?.imageSubheadline || '',
       visualConcept: socialImage.concept?.visualConcept || '',
@@ -671,6 +672,11 @@ async function main() {
     photoPrompt: socialImage.concept?.photoPrompt || socialImage.concept?.visualConcept,
     imageCta: socialImage.concept?.cta,
     imageSeed: socialImage.concept?.backgroundSeed,
+    sport: socialImage.concept?.sport || '',
+    stage: socialImage.concept?.stage || '',
+    category: socialImage.concept?.category || '',
+    semanticActivity: socialImage.concept?.semanticActivity || socialImage.concept?.sport || '',
+    standardVersion: socialImage.concept?.standardVersion || '',
     stockPhotoId: socialImage.concept?.stockPhotoId || '',
     imageKey: socialImage.imageKey || '',
     imageUrl: publishImageUrl,

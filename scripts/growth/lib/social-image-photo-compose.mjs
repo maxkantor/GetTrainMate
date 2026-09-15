@@ -1,11 +1,12 @@
 /**
  * Premium photo-first GetTrainMate social creative.
- * Brand invariant: TRAIN → VIBE → DATE on every creative.
- * - full-bleed lifestyle photography dominates
- * - journey mode strip (emphasized mode highlighted)
- * - ONE headline (+ optional short support line)
- * - CTA line + URL (no fake buttons)
- * - people remain unobstructed
+ * Permanent hierarchy (2026-09-15 standard):
+ * 1) photo (people + activity + connection)
+ * 2) large headline
+ * 3) TRAIN → VIBE → DATE (clearly readable)
+ * 4) CTA
+ * 5) optional support (drop if tight)
+ * 6) URL
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,7 +25,7 @@ const MODE_COPY = {
     subheadline: 'Start with fitness. Stay for the connection.'
   },
   VIBE: {
-    headline: 'THE MATCH ENDS.\nTHE CONNECTION DOESN\'T HAVE TO.',
+    headline: "THE MATCH ENDS.\nTHE CONNECTION DOESN'T HAVE TO.",
     subheadline: 'Meet through what you already love doing.'
   },
   DATE: {
@@ -45,7 +46,7 @@ function escapeXml(value) {
 function splitHeadline(value) {
   const raw = String(value || '').trim();
   if (raw.includes('\n')) {
-    return raw.split(/\n+/).map((l) => l.trim()).filter(Boolean).slice(0, 2);
+    return raw.split(/\n+/).map((l) => l.trim()).filter(Boolean).slice(0, 3);
   }
   const words = raw.split(/\s+/).filter(Boolean);
   if (words.length <= 4) return [words.join(' ')];
@@ -53,7 +54,7 @@ function splitHeadline(value) {
   return [words.slice(0, target).join(' '), words.slice(target).join(' ')].filter(Boolean);
 }
 
-function modeJourneyRow(emphasize, { x = 48, y = 108 } = {}) {
+function journeySignature({ x, y, emphasize, size = 22 }) {
   const modes = ['TRAIN', 'VIBE', 'DATE'];
   let cursor = x;
   const parts = [];
@@ -61,21 +62,21 @@ function modeJourneyRow(emphasize, { x = 48, y = 108 } = {}) {
     const m = modes[i];
     const on = m === String(emphasize || '').toUpperCase();
     parts.push(
-      `<text x="${cursor}" y="${y}" fill="${on ? '#C084FC' : 'rgba(255,255,255,0.72)'}" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="${on ? 800 : 600}" letter-spacing="2">${m}</text>`
+      `<text x="${cursor}" y="${y}" fill="${on ? '#C084FC' : '#FFFFFF'}" font-family="Arial, Helvetica, sans-serif" font-size="${size}" font-weight="${on ? 800 : 700}" letter-spacing="1.5">${m}</text>`
     );
-    cursor += m.length * 11 + 8;
+    cursor += m.length * (size * 0.72) + 6;
     if (i < modes.length - 1) {
       parts.push(
-        `<text x="${cursor}" y="${y}" fill="rgba(255,255,255,0.45)" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600">→</text>`
+        `<text x="${cursor}" y="${y}" fill="rgba(255,255,255,0.55)" font-family="Arial, Helvetica, sans-serif" font-size="${size}" font-weight="700">→</text>`
       );
-      cursor += 22;
+      cursor += size * 0.95;
     }
   }
   return parts.join('\n');
 }
 
 /**
- * Journey overlay: brand + TRAIN→VIBE→DATE + headline + support + CTA + URL.
+ * Journey overlay per permanent creative standard.
  */
 export function buildMinimalOverlaySvg({ width, height, concept }) {
   const mode = String(concept.mode || 'TRAIN').toUpperCase();
@@ -83,46 +84,64 @@ export function buildMinimalOverlaySvg({ width, height, concept }) {
   const headline = concept.imageHeadline && !/feed|scroll|weekend is empty|same energy\. now say hi/i.test(String(concept.imageHeadline))
     ? String(concept.imageHeadline)
     : copy.headline;
-  const subheadlineRaw = concept.imageSubheadline != null
-    ? String(concept.imageSubheadline)
-    : copy.subheadline;
-  const subheadline = subheadlineRaw && subheadlineRaw.length <= 80 ? subheadlineRaw : '';
-  const lines = splitHeadline(headline).slice(0, 2).map(escapeXml);
+  const lines = splitHeadline(headline).slice(0, 3).map(escapeXml);
+  const longHeadline = lines.length >= 3 || lines.some((line) => line.length > 24);
+  const includeSupport = Boolean(
+    concept.imageSubheadline &&
+      String(concept.imageSubheadline).length <= 70 &&
+      !longHeadline
+  );
+  const support = includeSupport
+    ? escapeXml(concept.imageSubheadline)
+    : '';
+
   const margin = 48;
-  const long = lines.some((line) => line.length > 24);
-  const headlineSize = long ? 42 : 50;
-  const line1Y = height - 220;
-  const line2Y = line1Y + (lines[1] ? 52 : 0);
-  const subY = (lines[1] ? line2Y : line1Y) + 46;
-  const journeyY = subY + 40;
-  const ctaY = height - 52;
-  const cta = escapeXml(concept.cta && String(concept.cta).length <= 28 ? concept.cta : 'FIND YOUR PEOPLE');
+  const headlineSize = longHeadline ? 40 : lines.some((l) => l.length > 22) ? 44 : 50;
+  const lineGap = headlineSize + 8;
+  const blockBottom = 56;
+  const ctaY = height - blockBottom;
+  const urlY = height - 28;
+  const journeyY = ctaY - 44;
+  const supportY = journeyY - (support ? 36 : 0);
+  const line1Y = supportY - (lines.length - 1) * lineGap - 8;
+
+  let ctaRaw = String(concept.cta || 'FIND YOUR PEOPLE →').trim();
+  if (!/→$/.test(ctaRaw) && /FIND YOUR PEOPLE|FIND A TRAINMATE|MEET YOUR PEOPLE|START CONNECTING/i.test(ctaRaw)) {
+    ctaRaw = `${ctaRaw.replace(/\s*→\s*$/, '')} →`;
+  }
+  if (/learn more|click here|discover more/i.test(ctaRaw)) ctaRaw = 'FIND YOUR PEOPLE →';
+  const cta = escapeXml(ctaRaw);
+
+  const lineEls = lines
+    .map(
+      (line, i) =>
+        `<text x="${margin}" y="${line1Y + i * lineGap}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="900" letter-spacing="-0.6">${line}</text>`
+    )
+    .join('\n');
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <defs>
       <linearGradient id="topShade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#05060B" stop-opacity="0.48"/>
+        <stop offset="0%" stop-color="#05060B" stop-opacity="0.38"/>
         <stop offset="100%" stop-color="#05060B" stop-opacity="0"/>
       </linearGradient>
       <linearGradient id="bottomShade" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#05060B" stop-opacity="0"/>
-        <stop offset="40%" stop-color="#05060B" stop-opacity="0.4"/>
-        <stop offset="100%" stop-color="#05060B" stop-opacity="0.82"/>
+        <stop offset="35%" stop-color="#05060B" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="#05060B" stop-opacity="0.78"/>
       </linearGradient>
     </defs>
 
-    <rect width="${width}" height="150" fill="url(#topShade)"/>
-    <rect y="${height * 0.52}" width="${width}" height="${height * 0.48}" fill="url(#bottomShade)"/>
+    <rect width="${width}" height="120" fill="url(#topShade)"/>
+    <rect y="${height * 0.55}" width="${width}" height="${height * 0.45}" fill="url(#bottomShade)"/>
 
-    <text x="${margin}" y="72" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800">GetTrainMate</text>
-    ${modeJourneyRow(mode, { x: margin, y: 108 })}
+    <text x="${margin}" y="68" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800">GetTrainMate</text>
 
-    <text x="${margin}" y="${line1Y}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="900" letter-spacing="-0.6">${lines[0] || ''}</text>
-    ${lines[1] ? `<text x="${margin}" y="${line2Y}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="900" letter-spacing="-0.6">${lines[1]}</text>` : ''}
-    ${subheadline ? `<text x="${margin}" y="${subY}" fill="rgba(255,255,255,0.88)" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">${escapeXml(subheadline)}</text>` : ''}
-    <text x="${margin}" y="${journeyY}" fill="rgba(255,255,255,0.7)" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing="1.5">TRAIN  →  VIBE  →  DATE</text>
-    <text x="${margin}" y="${ctaY}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" letter-spacing="1.2">${cta}</text>
-    <text x="${margin + 280}" y="${ctaY}" fill="rgba(255,255,255,0.75)" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">gettrainmate.com</text>
+    ${lineEls}
+    ${support ? `<text x="${margin}" y="${supportY}" fill="rgba(255,255,255,0.88)" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">${support}</text>` : ''}
+    ${journeySignature({ x: margin, y: journeyY, emphasize: mode, size: 22 })}
+    <text x="${margin}" y="${ctaY}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800" letter-spacing="1.1">${cta}</text>
+    <text x="${margin}" y="${urlY}" fill="rgba(255,255,255,0.78)" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">gettrainmate.com</text>
   </svg>`;
 }
 

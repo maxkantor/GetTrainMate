@@ -11,9 +11,26 @@ import { composeSocialImageFromPhoto } from './social-image-photo-compose.mjs';
 import { logSocialImageEvent } from './social-image-logger.mjs';
 import { buildSocialImageKey, saveLocalSocialImage, uploadAndVerifySocialImageBuffer, publicUrlForKey } from './social-image-storage.mjs';
 import { assessCreativeProductFit, selectEvergreenCreative } from './social-creative-quality.mjs';
+import { assessCreativeStandard } from './social-creative-standard.mjs';
 
 // Bedrock is intentionally the default. Set SOCIAL_IMAGE_PROVIDER=stock only for an explicit stock-only run.
 export const SOCIAL_IMAGE_PROVIDER = (process.env.SOCIAL_IMAGE_PROVIDER || 'bedrock').toLowerCase();
+
+function evaluateCreativeGate(concept, photo = {}) {
+  const payload = {
+    mode: concept.mode,
+    sport: concept.sport,
+    stage: concept.stage,
+    stockPhotoId: photo.stockPhotoId || concept.stockPhotoId,
+    scene: photo.scene || concept.visualConcept || concept.photoPrompt,
+    photoPrompt: concept.photoPrompt,
+    visualConcept: concept.visualConcept,
+    imageHeadline: concept.imageHeadline
+  };
+  const product = assessCreativeProductFit(payload);
+  if (!product.ok) return product;
+  return assessCreativeStandard(payload);
+}
 
 async function tryBedrock(concept, { sharpImpl } = {}) {
   const { generateBedrockPhoto } = await import('./social-image-bedrock.mjs');
@@ -76,13 +93,7 @@ async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, 
   if (SOCIAL_IMAGE_PROVIDER === 'stock') {
     const stockOnly = await tryStock(concept, { isoDate, activity, recentEntries, sharpImpl });
     if (stockOnly.ok) {
-      const fit = assessCreativeProductFit({
-        mode: concept.mode,
-        stockPhotoId: stockOnly.stockPhotoId,
-        scene: stockOnly.scene,
-        photoPrompt: concept.photoPrompt,
-        visualConcept: concept.visualConcept
-      });
+      const fit = evaluateCreativeGate(concept, stockOnly);
       if (!fit.ok) return { ok: false, error: fit.reason, provider: 'stock' };
     }
     return stockOnly;
@@ -91,18 +102,14 @@ async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, 
   // Production path: Bedrock first. Only if Bedrock fails every quality-gated attempt do we try curated stock.
   const bedrock = await tryBedrock(concept, { sharpImpl });
   if (bedrock.ok) {
-    const fit = assessCreativeProductFit({
-      mode: concept.mode,
-      scene: concept.visualConcept || concept.photoPrompt,
-      photoPrompt: concept.photoPrompt,
-      visualConcept: concept.visualConcept
-    });
+    const fit = evaluateCreativeGate(concept, { scene: concept.visualConcept || concept.photoPrompt });
     if (fit.ok) return bedrock;
     logSocialImageEvent('SocialImageRejected', {
       mode: concept.mode,
       contentId: concept.contentId,
       reason: fit.reason,
-      provider: 'bedrock'
+      provider: 'bedrock',
+      score: fit.score || null
     });
   }
 
@@ -116,13 +123,7 @@ async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, 
 
   const stock = await tryStock(concept, { isoDate, activity, recentEntries, sharpImpl });
   if (stock.ok) {
-    const fit = assessCreativeProductFit({
-      mode: concept.mode,
-      stockPhotoId: stock.stockPhotoId,
-      scene: stock.scene,
-      photoPrompt: concept.photoPrompt,
-      visualConcept: concept.visualConcept
-    });
+    const fit = evaluateCreativeGate(concept, stock);
     if (fit.ok) {
       return { ...stock, primaryFailure: bedrock.error };
     }
@@ -131,7 +132,8 @@ async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, 
       contentId: concept.contentId,
       reason: fit.reason,
       provider: 'stock',
-      stockPhotoId: stock.stockPhotoId
+      stockPhotoId: stock.stockPhotoId,
+      score: fit.score || null
     });
   }
 
