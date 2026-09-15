@@ -1,11 +1,10 @@
 /**
  * Premium photo-first GetTrainMate social creative.
- * HARD RULES (final creative direction):
+ * Brand invariant: TRAIN → VIBE → DATE on every creative.
  * - full-bleed lifestyle photography dominates
- * - ONE headline (+ optional short second line)
- * - small GetTrainMate branding
- * - NO fake buttons
- * - NO redundant mode badge clutter
+ * - journey mode strip (emphasized mode highlighted)
+ * - ONE headline (+ optional short support line)
+ * - CTA line + URL (no fake buttons)
  * - people remain unobstructed
  */
 import fs from 'node:fs';
@@ -21,15 +20,15 @@ export const SOCIAL_IMAGE_HEIGHT = 1350;
 
 const MODE_COPY = {
   TRAIN: {
-    headline: 'NEED A WORKOUT PARTNER?',
-    subheadline: 'Start with a workout. See what happens.'
+    headline: 'TRAIN TOGETHER.\nSEE WHERE IT GOES.',
+    subheadline: 'Start with fitness. Stay for the connection.'
   },
   VIBE: {
-    headline: 'WORK OUT. HANG OUT. MAYBE MORE.',
-    subheadline: 'If you click, keep the vibe going.'
+    headline: 'THE MATCH ENDS.\nTHE CONNECTION DOESN\'T HAVE TO.',
+    subheadline: 'Meet through what you already love doing.'
   },
   DATE: {
-    headline: 'START WITH A WORKOUT. SEE WHAT HAPPENS.',
+    headline: 'START WITH A WORKOUT.\nSEE WHAT HAPPENS.',
     subheadline: 'Chemistry is optional — and up to you.'
   }
 };
@@ -44,56 +43,86 @@ function escapeXml(value) {
 }
 
 function splitHeadline(value) {
-  const words = String(value || '').trim().split(/\s+/).filter(Boolean);
+  const raw = String(value || '').trim();
+  if (raw.includes('\n')) {
+    return raw.split(/\n+/).map((l) => l.trim()).filter(Boolean).slice(0, 2);
+  }
+  const words = raw.split(/\s+/).filter(Boolean);
   if (words.length <= 4) return [words.join(' ')];
   const target = Math.ceil(words.length / 2);
   return [words.slice(0, target).join(' '), words.slice(target).join(' ')].filter(Boolean);
 }
 
+function modeJourneyRow(emphasize, { x = 48, y = 108 } = {}) {
+  const modes = ['TRAIN', 'VIBE', 'DATE'];
+  let cursor = x;
+  const parts = [];
+  for (let i = 0; i < modes.length; i++) {
+    const m = modes[i];
+    const on = m === String(emphasize || '').toUpperCase();
+    parts.push(
+      `<text x="${cursor}" y="${y}" fill="${on ? '#C084FC' : 'rgba(255,255,255,0.72)'}" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="${on ? 800 : 600}" letter-spacing="2">${m}</text>`
+    );
+    cursor += m.length * 11 + 8;
+    if (i < modes.length - 1) {
+      parts.push(
+        `<text x="${cursor}" y="${y}" fill="rgba(255,255,255,0.45)" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600">→</text>`
+      );
+      cursor += 22;
+    }
+  }
+  return parts.join('\n');
+}
+
 /**
- * Minimal overlay: brand + headline (+ optional short second line) + URL.
- * No CTA buttons. No mode pill badge.
+ * Journey overlay: brand + TRAIN→VIBE→DATE + headline + support + CTA + URL.
  */
 export function buildMinimalOverlaySvg({ width, height, concept }) {
   const mode = String(concept.mode || 'TRAIN').toUpperCase();
   const copy = MODE_COPY[mode] || MODE_COPY.TRAIN;
-  const headline = concept.imageHeadline && !/feed|scroll|weekend is empty/i.test(String(concept.imageHeadline))
+  const headline = concept.imageHeadline && !/feed|scroll|weekend is empty|same energy\. now say hi/i.test(String(concept.imageHeadline))
     ? String(concept.imageHeadline)
     : copy.headline;
   const subheadlineRaw = concept.imageSubheadline != null
     ? String(concept.imageSubheadline)
     : copy.subheadline;
-  const subheadline = subheadlineRaw && subheadlineRaw.length <= 70 ? subheadlineRaw : '';
+  const subheadline = subheadlineRaw && subheadlineRaw.length <= 80 ? subheadlineRaw : '';
   const lines = splitHeadline(headline).slice(0, 2).map(escapeXml);
   const margin = 48;
-  const headlineSize = lines.some((line) => line.length > 22) ? 46 : 54;
-  const line1Y = height - (subheadline ? 168 : 128);
-  const line2Y = line1Y + (lines[1] ? 58 : 0);
-  const subY = (lines[1] ? line2Y : line1Y) + 48;
+  const long = lines.some((line) => line.length > 24);
+  const headlineSize = long ? 42 : 50;
+  const line1Y = height - 220;
+  const line2Y = line1Y + (lines[1] ? 52 : 0);
+  const subY = (lines[1] ? line2Y : line1Y) + 46;
+  const journeyY = subY + 40;
+  const ctaY = height - 52;
+  const cta = escapeXml(concept.cta && String(concept.cta).length <= 28 ? concept.cta : 'FIND YOUR PEOPLE');
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <defs>
       <linearGradient id="topShade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#05060B" stop-opacity="0.42"/>
+        <stop offset="0%" stop-color="#05060B" stop-opacity="0.48"/>
         <stop offset="100%" stop-color="#05060B" stop-opacity="0"/>
       </linearGradient>
       <linearGradient id="bottomShade" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#05060B" stop-opacity="0"/>
-        <stop offset="45%" stop-color="#05060B" stop-opacity="0.35"/>
-        <stop offset="100%" stop-color="#05060B" stop-opacity="0.78"/>
+        <stop offset="40%" stop-color="#05060B" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="#05060B" stop-opacity="0.82"/>
       </linearGradient>
     </defs>
 
-    <rect width="${width}" height="140" fill="url(#topShade)"/>
-    <rect y="${height * 0.58}" width="${width}" height="${height * 0.42}" fill="url(#bottomShade)"/>
+    <rect width="${width}" height="150" fill="url(#topShade)"/>
+    <rect y="${height * 0.52}" width="${width}" height="${height * 0.48}" fill="url(#bottomShade)"/>
 
     <text x="${margin}" y="72" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="800">GetTrainMate</text>
-    <text x="${margin}" y="102" fill="rgba(255,255,255,0.78)" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing="1.5">Train • Vibe • Date</text>
+    ${modeJourneyRow(mode, { x: margin, y: 108 })}
 
     <text x="${margin}" y="${line1Y}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="900" letter-spacing="-0.6">${lines[0] || ''}</text>
     ${lines[1] ? `<text x="${margin}" y="${line2Y}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="${headlineSize}" font-weight="900" letter-spacing="-0.6">${lines[1]}</text>` : ''}
-    ${subheadline ? `<text x="${margin}" y="${subY}" fill="rgba(255,255,255,0.88)" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="600">${escapeXml(subheadline)}</text>` : ''}
-    <text x="${margin}" y="${height - 36}" fill="rgba(255,255,255,0.82)" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">gettrainmate.com</text>
+    ${subheadline ? `<text x="${margin}" y="${subY}" fill="rgba(255,255,255,0.88)" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">${escapeXml(subheadline)}</text>` : ''}
+    <text x="${margin}" y="${journeyY}" fill="rgba(255,255,255,0.7)" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" letter-spacing="1.5">TRAIN  →  VIBE  →  DATE</text>
+    <text x="${margin}" y="${ctaY}" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" letter-spacing="1.2">${cta}</text>
+    <text x="${margin + 280}" y="${ctaY}" fill="rgba(255,255,255,0.75)" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">gettrainmate.com</text>
   </svg>`;
 }
 
@@ -121,28 +150,10 @@ export async function composeSocialImageFromPhoto(
   ];
   if (logoComposite) composites.push(logoComposite);
 
-  const jpeg = await photo
+  const buffer = await photo
     .composite(composites)
-    .jpeg({ quality: 92, mozjpeg: true })
+    .jpeg({ quality: 90, mozjpeg: true })
     .toBuffer();
 
-  if (jpeg.length < 45_000) throw new Error('gettrainmate_composed_image_too_small');
-
-  return {
-    buffer: jpeg,
-    width,
-    height,
-    format: 'jpeg',
-    source: 'photo_overlay'
-  };
-}
-
-export async function composeProceduralFallback(concept, opts = {}) {
-  const { composeSocialImage } = await import('./social-image-composer.mjs');
-  const palette = concept.palette || {
-    a: '#0B1220',
-    b: '#134E4A',
-    accent: '#7C5CFF'
-  };
-  return composeSocialImage({ ...concept, palette }, opts);
+  return { buffer, width, height };
 }

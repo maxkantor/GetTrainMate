@@ -27,13 +27,26 @@ test('rejects generic restaurant dining scenes for VIBE', () => {
   assert.equal(r.ok, false);
 });
 
-test('accepts rooftop / plans-oriented VIBE scenes', () => {
+test('accepts activity-first VIBE scenes with human connection', () => {
   const r = assessCreativeProductFit({
     mode: 'VIBE',
     stockPhotoId: 'vibe-friends-rooftop-sunset',
-    scene: 'friends celebrating on rooftop overlooking city at sunset'
+    scene: 'friends celebrating on rooftop overlooking city at sunset after a workout'
   });
   assert.equal(r.ok, true);
+});
+
+test('rejects cocktail-only nightlife without TRAIN context', () => {
+  const r = assessCreativeProductFit({
+    mode: 'VIBE',
+    stockPhotoId: 'vibe-cocktail-toast-night',
+    scene: 'friends toasting craft cocktails in moody bar at night'
+  });
+  assert.equal(r.ok, false);
+});
+
+test('rejects wine-toast nightlife stock', () => {
+  assert.equal(HARD_REJECT_STOCK_IDS.has('vibe-wine-celebration-toast'), true);
 });
 
 test('accepts TRAIN partner workout scenes', () => {

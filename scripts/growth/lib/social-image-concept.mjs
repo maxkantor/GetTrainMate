@@ -24,8 +24,8 @@ export const SCENES_BY_ACTIVITY = {
   },
   VIBE: {
     coffee_after_run: 'attractive athletic adults still in running gear meeting outdoors after a run, city park path, laughing and making plans — not a restaurant dining table',
-    drinks_after_pickleball: 'pickleball partners walking from court toward an outdoor hangout, rackets visible, playful social energy, 2–4 people clearly visible',
-    rooftop_after_workout: 'athletic adults after a fitness class hanging out on a casual rooftop with skyline, drinks optional, candid social energy, no office vibe, small group',
+    drinks_after_pickleball: 'attractive athletic man and woman finishing a pickleball game, paddles visible, walking away from the court talking and laughing naturally',
+    rooftop_after_workout: 'athletic adults after a fitness class hanging out on a casual rooftop with skyline, athletic wear still on, candid social energy, small group',
     brewery_after_hike: 'hikers with backpacks arriving together after a trail, outdoor social energy, dusty trail clothes, laughing — activity-first not restaurant stock',
     sports_bar_after_soccer: 'mixed recreational soccer players socializing after the game in athletic wear, casual social energy, faces visible',
     cafe_after_cycle: 'cyclists with bikes and helmets stopping together outdoors after a ride, natural conversation, activity gear visible — not indoor restaurant dining',
@@ -33,7 +33,7 @@ export const SCENES_BY_ACTIVITY = {
     social: 'attractive athletic friends making real plans outdoors after training, candid laughs, 2–4 people, no laptops, no restaurant banquet table',
     // legacy activity keys still used by catalog/tests
     coffee: 'attractive athletic adults grabbing coffee outdoors after training with athletic wear still on, candid hangout, no laptops',
-    drinks: 'friends toasting drinks after a shared sport, outdoor bar, warm social nightlife, small group',
+    drinks: 'pickleball or tennis partners walking from court after a match, paddles or rackets visible, talking and laughing — activity-first not cocktail nightlife',
     dining: 'friends making plans outdoors after a workout, lively conversation — activity context required, not anonymous restaurant crowd',
     hiking: 'friends hiking together on a scenic trail with backpacks, clear faces, social adventure energy',
     festival: 'athletic friends at an outdoor evening social gathering after training, 2–4 people clearly visible',
@@ -65,7 +65,7 @@ export const MODE_PHOTO_SCENES = {
 
 export const MODE_ACTIVITY_ROTATION = {
   TRAIN: ['pickleball', 'strength', 'running', 'tennis', 'volleyball', 'hiking', 'cycling', 'functional', 'workout'],
-  VIBE: ['rooftop_after_workout', 'city_walk_after_class', 'drinks_after_pickleball', 'hiking', 'brewery_after_hike', 'festival', 'coffee_after_run', 'cafe_after_cycle', 'sports_bar_after_soccer', 'social'],
+  VIBE: ['drinks_after_pickleball', 'coffee_after_run', 'city_walk_after_class', 'rooftop_after_workout', 'brewery_after_hike', 'hiking', 'cafe_after_cycle', 'sports_bar_after_soccer', 'festival', 'social'],
   DATE: ['coffee_after_train', 'drinks_after_game', 'walk_after_workout', 'spot_maybe_date', 'dinner_after_hike', 'lifestyle', 'chemistry']
 };
 

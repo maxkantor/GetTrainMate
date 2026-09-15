@@ -88,23 +88,13 @@ export const STOCK_PHOTOS = {
   ],
   VIBE: [
     // vibe-friends-patio-dining REMOVED — Sep 15 regression (generic restaurant stock)
-    {
-      id: 'vibe-cocktail-toast-night',
-      unsplashId: 'photo-1617524455617-ce1e266aa810',
-      scene: 'friends toasting craft cocktails in moody bar at night',
-      activities: ['drinks', 'cocktails', 'nightlife', 'bar', 'social', 'rooftop']
-    },
-    {
-      id: 'vibe-wine-celebration-toast',
-      unsplashId: 'photo-1519671482749-fd09be7ccebf',
-      scene: 'group of friends clinking wine glasses in warm evening toast',
-      activities: ['drinks', 'celebration', 'social', 'nightlife', 'party']
-    },
+    // vibe-cocktail-toast-night REMOVED — cocktail hands without TRAIN context
+    // vibe-wine-celebration-toast REMOVED — nightlife toast without activity
     {
       id: 'vibe-friends-rooftop-sunset',
       unsplashId: 'photo-1529333166437-7750a6dd5a70',
-      scene: 'friends celebrating on rooftop overlooking city at sunset',
-      activities: ['rooftop', 'sunset', 'social', 'city', 'events', 'celebration', 'coffee', 'cafe', 'meetup', 'plans']
+      scene: 'friends celebrating on rooftop overlooking city at sunset after a workout',
+      activities: ['rooftop', 'sunset', 'social', 'city', 'events', 'celebration', 'coffee', 'cafe', 'meetup', 'plans', 'workout', 'fitness']
     },
     {
       id: 'vibe-hiking-mountain-trail',
@@ -121,20 +111,20 @@ export const STOCK_PHOTOS = {
     {
       id: 'vibe-friends-laughing-golden',
       unsplashId: 'photo-1511988617509-a57c8a288659',
-      scene: 'friends laughing and dancing together outdoors at golden hour',
-      activities: ['social', 'events', 'festival', 'friendship', 'music', 'coffee', 'meetup', 'plans']
+      scene: 'friends laughing and dancing together outdoors at golden hour after training',
+      activities: ['social', 'events', 'festival', 'friendship', 'music', 'coffee', 'meetup', 'plans', 'workout', 'fitness']
     },
     {
       id: 'vibe-friends-street-chat',
       unsplashId: 'photo-1543807535-eceef0bc6599',
-      scene: 'friends laughing and chatting casually on sunny city street',
-      activities: ['social', 'city', 'friendship', 'explore', 'local']
+      scene: 'friends laughing and chatting casually on sunny city street after a workout',
+      activities: ['social', 'city', 'friendship', 'explore', 'local', 'workout']
     },
     {
       id: 'vibe-outdoor-hilltop-friends',
       unsplashId: 'photo-1506869640319-fe1a24fd76dc',
       scene: 'group of friends hiking together on scenic hilltop at sunset',
-      activities: ['hiking', 'outdoors', 'nature', 'social', 'weekend']
+      activities: ['hiking', 'outdoors', 'nature', 'social', 'weekend', 'trail', 'fitness']
     },
   ],
   DATE: [

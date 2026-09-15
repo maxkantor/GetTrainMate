@@ -200,7 +200,9 @@ const PREMIUM_HEADLINES = {
       { headline: 'WORK OUT. HANG OUT. MAYBE MORE.', subheadline: 'If you click, keep the vibe going.', caption: 'Gym partner today. Drinks tonight? That\'s between you two.\n\n{{url}}' },
       { headline: 'GOOD WORKOUT. YOUR MOVE.', subheadline: 'Keep hanging out.', caption: 'Training is easier with someone else. Meeting people can be too.\n\n{{url}}' },
       { headline: 'FIND YOUR GAME. FIND YOUR PEOPLE.', subheadline: 'Plans after the workout.', caption: 'Find someone nearby to play. If you click, keep the vibe going.\n\n{{url}}' },
-      { headline: 'SAME ENERGY. NOW SAY HI.', subheadline: 'Start with activity. Stay for the vibe.', caption: 'Need someone to ride with? Start here.\n\n{{url}}' }
+      { headline: 'THE MATCH ENDS. THE CONNECTION DOESN\'T HAVE TO.', subheadline: 'Meet through what you already love doing.', caption: 'Start with pickleball, a run, or the gym. Stay for the connection.\n\n{{url}}' },
+      { headline: 'TRAIN TOGETHER. SEE WHERE IT GOES.', subheadline: 'Start with fitness. Stay for the connection.', caption: 'Find someone to train with. See where it goes.\n\n{{url}}' },
+      { headline: 'START WITH AN ACTIVITY. SEE WHERE IT GOES.', subheadline: 'Your workout. Your people. Your connection.', caption: 'Meet through what you already love doing.\n\n{{url}}' }
     ],
     es: [
       { headline: 'ENTRENA. QUEDAD. QUIZÁ MÁS.', subheadline: 'Si hay vibe, seguid.', caption: 'Compañero de gym hoy. ¿Copas esta noche? Eso lo decidís vosotros.\n\n{{url}}' },

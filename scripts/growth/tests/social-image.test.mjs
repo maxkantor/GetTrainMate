@@ -64,7 +64,9 @@ describe('social image concept', () => {
       height: 1350,
       concept
     });
-    assert.match(svg, /Train • Vibe • Date/);
+    assert.match(svg, /TRAIN/);
+    assert.match(svg, /VIBE/);
+    assert.match(svg, /DATE/);
     assert.match(svg, /GetTrainMate/);
     assert.match(svg, /gettrainmate\.com/);
   });

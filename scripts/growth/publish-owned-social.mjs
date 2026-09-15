@@ -36,10 +36,12 @@ import { loadRecentImageHistory } from './lib/social-image-history.mjs';
 import { generateSocialImage } from './lib/social-image-generator.mjs';
 import { logSocialImageEvent } from './lib/social-image-logger.mjs';
 import { purgeOldSocialImages } from './lib/social-image-purge.mjs';
+import { buildSocialImageKey, uploadAndVerifySocialImageBuffer } from './lib/social-image-storage.mjs';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
+import crypto from 'node:crypto';
 const __growthDir = path.dirname(fileURLToPath(import.meta.url));
 
 function ensureSocialImageBucketPublic() {
@@ -53,7 +55,14 @@ function ensureSocialImageBucketPublic() {
 }
 
 function parseArgs(argv) {
-  const out = { dryRun: false, skipFacebook: false, skipInstagram: false, contentId: null, forcePublish: false };
+  const out = {
+    dryRun: false,
+    skipFacebook: false,
+    skipInstagram: false,
+    contentId: null,
+    forcePublish: false,
+    imageFile: null
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') out.dryRun = true;
@@ -61,6 +70,7 @@ function parseArgs(argv) {
     if (a === '--skip-instagram') out.skipInstagram = true;
     if (a === '--content-id') out.contentId = argv[++i] || null;
     if (a === '--force-publish' || a === '--force') out.forcePublish = true;
+    if (a === '--image-file') out.imageFile = argv[++i] || null;
   }
   return out;
 }
@@ -345,20 +355,87 @@ async function main() {
   }
   let socialImage;
   try {
-    socialImage = await generateSocialImage({
-      catalogItem: item,
-      isoDate,
-      isoHyphen,
-      recentImageEntries,
-      dryRun: args.dryRun,
-      conceptOverrides: {
-        language: item.language,
-        imageHeadline: item.imageHeadline,
-        imageSubheadline: item.imageSubheadline || '',
-        cta: item.imageCta,
-        copyPackage: item.copyPackage
+    if (args.imageFile) {
+      const abs = path.isAbsolute(args.imageFile)
+        ? args.imageFile
+        : path.join(process.cwd(), args.imageFile);
+      if (!fs.existsSync(abs)) {
+        throw new Error(`image_file_missing:${abs}`);
       }
-    });
+      const buffer = fs.readFileSync(abs);
+      const uniqueId = `${item.contentId}-${isoDate}-approved-${crypto.randomBytes(3).toString('hex')}`;
+      const key = buildSocialImageKey({ isoHyphen, uniqueId });
+      const concept = {
+        mode: item.mode,
+        contentId: item.contentId,
+        language: item.language,
+        locale: item.language,
+        imageHeadline: item.imageHeadline || 'THE MATCH ENDS. THE CONNECTION DOESN\'T HAVE TO.',
+        imageSubheadline: item.imageSubheadline || 'Meet through what you already love doing.',
+        cta: item.imageCta || 'FIND YOUR PEOPLE',
+        visualConcept: 'approved journey creative: pickleball partners after match connecting',
+        photoPrompt: 'approved journey creative: pickleball partners after match connecting',
+        stockPhotoId: 'approved-journey-candidate-2',
+        backgroundSeed: 0,
+        headlineVariant: item.headline_variant || 'approved-journey-c2',
+        ctaVariant: item.cta_variant || 'find-your-people',
+        copyVariant: item.copy_variant || 'approved-journey-c2'
+      };
+      if (args.dryRun) {
+        socialImage = {
+          ok: true,
+          concept,
+          imageUrl: null,
+          localPath: abs,
+          imageKey: key,
+          provider: 'approved_local_file',
+          fallback: false,
+          width: 1080,
+          height: 1350,
+          imageBuffer: buffer,
+          durationMs: 0
+        };
+      } else {
+        const uploaded = await uploadAndVerifySocialImageBuffer({ buffer, key, localPath: abs });
+        if (!uploaded.ok) {
+          throw new Error(uploaded.error || 'approved_image_upload_failed');
+        }
+        socialImage = {
+          ok: true,
+          concept,
+          imageUrl: uploaded.url,
+          localPath: abs,
+          imageKey: key,
+          provider: 'approved_local_file',
+          fallback: false,
+          width: 1080,
+          height: 1350,
+          imageBuffer: buffer,
+          durationMs: 0
+        };
+      }
+      logSocialImageEvent('SocialImageApprovedFileUsed', {
+        mode: item.mode,
+        contentId: item.contentId,
+        imageFile: abs,
+        imageKey: key
+      });
+    } else {
+      socialImage = await generateSocialImage({
+        catalogItem: item,
+        isoDate,
+        isoHyphen,
+        recentImageEntries,
+        dryRun: args.dryRun,
+        conceptOverrides: {
+          language: item.language,
+          imageHeadline: item.imageHeadline,
+          imageSubheadline: item.imageSubheadline || '',
+          cta: item.imageCta,
+          copyPackage: item.copyPackage
+        }
+      });
+    }
   } catch (e) {
     console.error(
       JSON.stringify({

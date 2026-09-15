@@ -71,31 +71,31 @@ export const HEADLINE_VARIANTS = {
       { id: 'vibe-hl-into-what', text: 'WORK OUT. HANG OUT. MAYBE MORE.' },
       { id: 'vibe-hl-beyond-feed', text: 'GOOD WORKOUT. YOUR MOVE.' },
       { id: 'vibe-hl-your-people', text: 'FIND YOUR GAME. FIND YOUR PEOPLE.' },
-      { id: 'vibe-hl-do-more', text: 'SAME ENERGY. NOW SAY HI.' },
+      { id: 'vibe-hl-do-more', text: 'THE MATCH ENDS. THE CONNECTION DOESN\'T HAVE TO.' },
       { id: 'vibe-hl-love-doing', text: 'TRAIN FIRST. HANG OUT AFTER.' },
-      { id: 'vibe-hl-kind-of-people', text: 'IF YOU CLICK, KEEP THE VIBE GOING.' },
-      { id: 'vibe-hl-make-friends', text: 'GYM TODAY. DRINKS TONIGHT?' },
-      { id: 'vibe-hl-local-activities', text: 'START WITH ACTIVITY. STAY FOR THE VIBE.' }
+      { id: 'vibe-hl-kind-of-people', text: 'TRAIN TOGETHER. SEE WHERE IT GOES.' },
+      { id: 'vibe-hl-make-friends', text: 'START WITH AN ACTIVITY. SEE WHERE IT GOES.' },
+      { id: 'vibe-hl-local-activities', text: 'START WITH FITNESS. STAY FOR THE CONNECTION.' }
     ],
     es: [
       { id: 'vibe-hl-into-what', text: 'ENTRENA. QUEDAD. QUIZÁ MÁS.' },
       { id: 'vibe-hl-beyond-feed', text: 'BUEN ENTRENO. TU TURNO.' },
       { id: 'vibe-hl-your-people', text: 'ENCUENTRA TU DEPORTE. ENCUENTRA TU GENTE.' },
-      { id: 'vibe-hl-do-more', text: 'MISMA ENERGÍA. AHORA SALUDA.' },
+      { id: 'vibe-hl-do-more', text: 'EL PARTIDO TERMINA. LA CONEXIÓN NO TIENE POR QUÉ.' },
       { id: 'vibe-hl-love-doing', text: 'PRIMERO ENTRENA. LUEGO QUEDAD.' },
-      { id: 'vibe-hl-kind-of-people', text: 'SI HAY VIBE, SEGUID.' },
-      { id: 'vibe-hl-make-friends', text: 'GYM HOY. ¿COPAS ESTA NOCHE?' },
-      { id: 'vibe-hl-local-activities', text: 'EMPIEZA CON ACTIVIDAD. QUÉDATE POR EL VIBE.' }
+      { id: 'vibe-hl-kind-of-people', text: 'ENTRENAD JUNTOS. MIRAD A DÓNDE LLEGA.' },
+      { id: 'vibe-hl-make-friends', text: 'EMPIEZA CON UNA ACTIVIDAD. MIRA A DÓNDE LLEGA.' },
+      { id: 'vibe-hl-local-activities', text: 'EMPIEZA CON FITNESS. QUÉDATE POR LA CONEXIÓN.' }
     ],
     ru: [
       { id: 'vibe-hl-into-what', text: 'ТРЕНИРОВКА. ОБЩЕНИЕ. МОЖЕТ, БОЛЬШЕ.' },
       { id: 'vibe-hl-beyond-feed', text: 'ХОРОШАЯ ТРЕНИРОВКА. ТВОЙ ХОД.' },
       { id: 'vibe-hl-your-people', text: 'НАЙДИ СВОЙ СПОРТ. НАЙДИ СВОИХ ЛЮДЕЙ.' },
-      { id: 'vibe-hl-do-more', text: 'ОДНА ЭНЕРГИЯ. ТЕПЕРЬ СКАЖИ ПРИВЕТ.' },
+      { id: 'vibe-hl-do-more', text: 'МАТЧ ЗАКОНЧИЛСЯ. СВЯЗЬ — НЕТ.' },
       { id: 'vibe-hl-love-doing', text: 'СНАЧАЛА ТРЕНИРОВКА. ПОТОМ ОБЩЕНИЕ.' },
-      { id: 'vibe-hl-kind-of-people', text: 'ЕСЛИ ЕСТЬ ВАЙБ — ПРОДОЛЖАЙТЕ.' },
-      { id: 'vibe-hl-make-friends', text: 'ЗАЛ СЕГОДНЯ. НАПИТКИ ВЕЧЕРОМ?' },
-      { id: 'vibe-hl-local-activities', text: 'НАЧНИ С АКТИВНОСТИ. ОСТАНЬСЯ РАДИ ВАЙБА.' }
+      { id: 'vibe-hl-kind-of-people', text: 'ТРЕНИРУЙТЕСЬ ВМЕСТЕ. ПОСМОТРИТЕ, КУДА ЭТО ЗАВЕДЁТ.' },
+      { id: 'vibe-hl-make-friends', text: 'НАЧНИ С АКТИВНОСТИ. ПОСМОТРИ, КУДА ЭТО ЗАВЕДЁТ.' },
+      { id: 'vibe-hl-local-activities', text: 'НАЧНИ С ФИТНЕСА. ОСТАНЬСЯ РАДИ СВЯЗИ.' }
     ]
   },
   DATE: {

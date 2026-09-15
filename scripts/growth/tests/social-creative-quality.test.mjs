@@ -19,7 +19,9 @@ test('TRAIN VIBE DATE stays visible as one brand without mode pill badge', () =>
       height: 1350,
       concept: { mode, imageHeadline: 'FIND YOUR PEOPLE' }
     });
-    assert.match(svg, /Train • Vibe • Date/);
+    assert.match(svg, /TRAIN/);
+    assert.match(svg, /VIBE/);
+    assert.match(svg, /DATE/);
     assert.match(svg, /GetTrainMate/);
     assert.match(svg, /gettrainmate\.com/);
     // No redundant mode pill

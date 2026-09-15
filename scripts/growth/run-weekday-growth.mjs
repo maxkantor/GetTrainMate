@@ -20,13 +20,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '../..');
 
 function parseArgs(argv) {
-  const out = { dryRun: false, skipSocial: false, contentId: null, notes: '' };
+  const out = {
+    dryRun: false,
+    skipSocial: false,
+    contentId: null,
+    notes: '',
+    forcePublish: false,
+    imageFile: null
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') out.dryRun = true;
     else if (a === '--skip-social') out.skipSocial = true;
     else if (a === '--content-id') out.contentId = argv[++i] || null;
     else if (a === '--notes') out.notes = argv[++i] || '';
+    else if (a === '--force-publish' || a === '--force') out.forcePublish = true;
+    else if (a === '--image-file') out.imageFile = argv[++i] || null;
   }
   return out;
 }
@@ -108,6 +117,8 @@ async function main() {
       const pubArgs = [];
       if (args.dryRun) pubArgs.push('--dry-run');
       if (args.contentId) pubArgs.push('--content-id', args.contentId);
+      if (args.forcePublish) pubArgs.push('--force-publish');
+      if (args.imageFile) pubArgs.push('--image-file', args.imageFile);
       const pub = runNode('publish-owned-social.mjs', pubArgs);
       publishJson = tryParseJson(pub.stdout);
       if (pub.status !== 0 && pub.status !== 2) {

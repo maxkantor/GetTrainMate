@@ -24,7 +24,7 @@ const CONCEPTS = [
   { id: '07-rooftop', contentId: 'vibe-en-new-in-town', isoDate: '2026-09-21', headline: 'WORK OUT. HANG OUT. MAYBE MORE.', activity: 'rooftop_after_workout' },
   { id: '08-spot', contentId: 'date-en-active-singles', isoDate: '2026-09-22', headline: 'NEED A SPOT? MAYBE A DATE?', activity: 'strength' },
   { id: '09-soccer', contentId: 'vibe-en-new-in-town', isoDate: '2026-09-23', headline: 'GOOD WORKOUT. YOUR MOVE.', activity: 'sports_bar_after_soccer' },
-  { id: '10-cycling', contentId: 'vibe-en-new-in-town', isoDate: '2026-09-24', headline: 'SAME ENERGY. NOW SAY HI.', activity: 'cafe_after_cycle' }
+  { id: '10-cycling', contentId: 'vibe-en-new-in-town', isoDate: '2026-09-24', headline: 'THE MATCH ENDS. THE CONNECTION DOESN\'T HAVE TO.', activity: 'drinks_after_pickleball' }
 ];
 
 async function main() {

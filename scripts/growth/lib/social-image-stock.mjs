@@ -20,8 +20,10 @@ const HARD_BLOCKED_IDS = new Set([
   'train-gym-strength-lifting',
   'date-cocktails-cheers-date',
   'date-wine-celebration-toast',
-  // Sep 15 regression: generic restaurant / long-table dining stock
-  'vibe-friends-patio-dining'
+  // Sep 15 regressions: restaurant crowd + cocktail/nightlife without TRAIN context
+  'vibe-friends-patio-dining',
+  'vibe-cocktail-toast-night',
+  'vibe-wine-celebration-toast'
 ]);
 
 const PREMIUM_PREFERRED_IDS = {
@@ -36,9 +38,7 @@ const PREMIUM_PREFERRED_IDS = {
   VIBE: new Set([
     'vibe-friends-rooftop-sunset',
     'vibe-friends-laughing-golden',
-    'vibe-outdoor-hilltop-friends',
-    'vibe-cocktail-toast-night',
-    'vibe-wine-celebration-toast'
+    'vibe-outdoor-hilltop-friends'
   ]),
   DATE: new Set([
     'date-couple-candid-outdoors',

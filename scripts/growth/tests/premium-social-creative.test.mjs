@@ -48,22 +48,24 @@ test('TRAIN and DATE use journey voice and rotate by date', () => {
   assert.ok(train2.imageHeadline);
 });
 
-test('overlay is photo-first: brand + headline only, no fake CTA button', () => {
+test('overlay shows TRAIN→VIBE→DATE journey strip with CTA text (no fake button)', () => {
   const svg = buildMinimalOverlaySvg({
     width: 1080,
     height: 1350,
     concept: {
       mode: 'VIBE',
-      imageHeadline: 'WORK OUT. HANG OUT. MAYBE MORE.',
-      imageSubheadline: 'If you click, keep the vibe going.',
-      cta: 'KEEP THE VIBE'
+      imageHeadline: 'THE MATCH ENDS. THE CONNECTION DOESN\'T HAVE TO.',
+      imageSubheadline: 'Meet through what you already love doing.',
+      cta: 'FIND YOUR PEOPLE'
     }
   });
-  assert.match(svg, /Train • Vibe • Date/);
-  assert.match(svg, /WORK OUT/);
+  assert.match(svg, /TRAIN/);
+  assert.match(svg, /VIBE/);
+  assert.match(svg, /DATE/);
+  assert.match(svg, /THE MATCH ENDS/);
   assert.match(svg, /GetTrainMate/);
   assert.match(svg, /gettrainmate\.com/);
-  assert.doesNotMatch(svg, /KEEP THE VIBE/); // no fake button
-  assert.doesNotMatch(svg, /width="[4-9][0-9]{2}" height="1350"[^>]*fill="#0/);
-  assert.doesNotMatch(svg, /feed|weekend is empty/i);
+  assert.match(svg, /FIND YOUR PEOPLE/);
+  assert.doesNotMatch(svg, /rx="999"|rounded-full|fill="#7C3AED"[^>]*width="2/);
+  assert.doesNotMatch(svg, /feed|weekend is empty|SAME ENERGY/i);
 });
