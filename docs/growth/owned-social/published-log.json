@@ -586,6 +586,34 @@
       "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/14/train-en-workout-partner-20260914-bb96ed.jpg",
       "imageProvider": "stability.stable-image-core-v1:1",
       "imageFallback": false
+    },
+    {
+      "publishedAtUtc": "2026-09-15T14:00:21.430Z",
+      "contentId": "vibe-en-new-in-town",
+      "mode": "VIBE",
+      "language": "en",
+      "locale": "en",
+      "campaign": "owned-vibe-en-20260915",
+      "copy_variant": "premium-vibe-en-v3-3",
+      "headline_variant": "premium-vibe-headline-v3-3",
+      "cta_variant": "premium-vibe-cta-v3",
+      "status": "published",
+      "facebookPostId": "1138684902641972_122132607776773778",
+      "instagramPostId": "17901012582583679",
+      "igCreationId": "18107656433150124",
+      "blocker": "",
+      "metaStatus": "META_VALID",
+      "instagramState": "INSTAGRAM_MEDIA_PUBLISHED",
+      "imageHeadline": "SAME ENERGY. NOW SAY HI.",
+      "visualConcept": "friends enjoying coffee drinks and a social meal at outdoor patio after training",
+      "photoPrompt": "cyclists stopping at a café after a ride, helmets nearby, natural conversation",
+      "imageCta": "KEEP THE VIBE",
+      "imageSeed": 952327554,
+      "stockPhotoId": "vibe-friends-patio-dining",
+      "imageKey": "social/generated/2026/09/15/vibe-en-new-in-town-20260915-3c3d1a.jpg",
+      "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/09/15/vibe-en-new-in-town-20260915-3c3d1a.jpg",
+      "imageProvider": "unsplash_stock",
+      "imageFallback": true
     }
   ]
 }
