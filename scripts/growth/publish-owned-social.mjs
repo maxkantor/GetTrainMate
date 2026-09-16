@@ -61,7 +61,11 @@ function parseArgs(argv) {
     skipInstagram: false,
     contentId: null,
     forcePublish: false,
-    imageFile: null
+    imageFile: null,
+    imageHeadline: null,
+    imageSport: null,
+    imageStage: null,
+    imageScene: null
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -71,6 +75,10 @@ function parseArgs(argv) {
     if (a === '--content-id') out.contentId = argv[++i] || null;
     if (a === '--force-publish' || a === '--force') out.forcePublish = true;
     if (a === '--image-file') out.imageFile = argv[++i] || null;
+    if (a === '--image-headline') out.imageHeadline = argv[++i] || null;
+    if (a === '--image-sport') out.imageSport = argv[++i] || null;
+    if (a === '--image-stage') out.imageStage = argv[++i] || null;
+    if (a === '--image-scene') out.imageScene = argv[++i] || null;
   }
   return out;
 }
@@ -370,12 +378,16 @@ async function main() {
         contentId: item.contentId,
         language: item.language,
         locale: item.language,
-        imageHeadline: item.imageHeadline || 'THE MATCH ENDS. THE CONNECTION DOESN\'T HAVE TO.',
+        sport: args.imageSport || 'approved_activity',
+        stage: args.imageStage || 'train_to_vibe',
+        semanticActivity: args.imageSport || 'approved_activity',
+        standardVersion: '2026-09-15-journey-v1',
+        imageHeadline: args.imageHeadline || item.imageHeadline || 'TRAIN TOGETHER. SEE WHERE IT GOES.',
         imageSubheadline: item.imageSubheadline || 'Meet through what you already love doing.',
         cta: item.imageCta || 'FIND YOUR PEOPLE',
-        visualConcept: 'approved journey creative: pickleball partners after match connecting',
-        photoPrompt: 'approved journey creative: pickleball partners after match connecting',
-        stockPhotoId: 'approved-journey-candidate-2',
+        visualConcept: args.imageScene || 'approved journey creative: shared activity followed by connection',
+        photoPrompt: args.imageScene || 'approved journey creative: shared activity followed by connection',
+        stockPhotoId: `approved-${args.imageSport || 'journey'}-recovery`,
         backgroundSeed: 0,
         headlineVariant: item.headline_variant || 'approved-journey-c2',
         ctaVariant: item.cta_variant || 'find-your-people',

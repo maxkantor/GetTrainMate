@@ -301,7 +301,7 @@ describe('semantic activity matching', () => {
     }
   });
 
-  it('includes strict office exclusions in Bedrock prompt and negative prompt', () => {
+  it('keeps exclusions in Bedrock negative prompt, not positive prompt', () => {
     for (const word of ['laptops', 'computer screens', 'office desks', 'coworking space', 'business meetings']) {
       assert.ok(
         DEFAULT_NEGATIVE_PROMPT.includes(word),
@@ -310,11 +310,12 @@ describe('semantic activity matching', () => {
     }
 
     const vibePrompt = buildPhotographyPrompt({ mode: 'VIBE', photoPrompt: 'friends having coffee at a cafe' });
-    assert.match(vibePrompt, /hang out|social lighting|sport → social/i);
-    assert.match(vibePrompt, /completely free of laptops/i);
+    assert.match(vibePrompt, /connect naturally|social lighting|sport-to-social/i);
+    assert.doesNotMatch(vibePrompt, /laptops|offices|sexual posing|kissing/i);
 
     const datePrompt = buildPhotographyPrompt({ mode: 'DATE', photoPrompt: 'couple enjoying drinks' });
     assert.match(datePrompt, /subtle|chemistry|believable/i);
+    assert.doesNotMatch(datePrompt, /sexual posing|kissing|dating-app clichés/i);
 
     const trainPrompt = buildPhotographyPrompt({ mode: 'TRAIN', photoPrompt: 'gym partners workout' });
     assert.match(trainPrompt, /editorial sports photography|partnership is the story/i);

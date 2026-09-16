@@ -371,7 +371,11 @@ export function selectCreativePlan({
 
   const sport = pool[seed % pool.length];
 
-  const stages = Object.values(STORY_STAGES);
+  const stages = Object.values(STORY_STAGES).filter((st) => {
+    if (m === 'DATE') return st.id === 'train_to_vibe' || st.id === 'vibe_to_date';
+    if (m === 'VIBE') return st.id === 'train_to_vibe' || st.id === 'vibe';
+    return st.id === 'train' || st.id === 'train_to_vibe';
+  });
   // DATE mode bias toward vibe_to_date / train_to_vibe; TRAIN bias toward train / train_to_vibe
   const stage = pickWeighted(stages, seed + 17, (st) => {
     if (m === 'TRAIN' && st.id === 'train') return 6;
@@ -391,11 +395,14 @@ export function selectCreativePlan({
   const headline = headlinePool[(seed + 31) % headlinePool.length];
 
   const people =
-    stage.id === 'vibe' || /soccer|volleyball|softball|flag|basketball/i.test(sport.id)
+    m !== 'DATE' && (stage.id === 'vibe' || /soccer|volleyball|softball|flag|basketball/i.test(sport.id))
       ? 2 + ((seed >> 3) % 2) // 2–3
       : 2;
 
-  const photoPrompt = `${stage.scenePrefix}${sport.scene}. ${people} attractive athletic adults, believable humans, natural eye contact or conversation, no staring at camera, no restaurant dining, no cocktail nightlife, no oversexualized posing. GetTrainMate journey: activity first then connection.`;
+  // Keep the positive prompt purely descriptive. Safety/exclusion language belongs
+  // in Bedrock's negative_prompt; mixing "no restaurant" into the scene caused
+  // both provider moderation and our own semantic gate to reject valid photos.
+  const photoPrompt = `${stage.scenePrefix}${sport.scene}. Show exactly ${people} attractive athletic adults as the main subjects. Make the ${sport.id.replace(/_/g, ' ')} setting and equipment unmistakable. They look at and talk to each other naturally. Premium realistic editorial lifestyle photography. Activity first, then connection.`;
 
   return {
     standardVersion: CREATIVE_STANDARD_VERSION,

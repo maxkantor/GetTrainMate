@@ -68,10 +68,10 @@ export const DEFAULT_NEGATIVE_PROMPT = [
 ].join(', ');
 
 const BRAND_CORE =
-  'GetTrainMate creative north star: TRAIN. CATCH A VIBE. MAYBE DATE. ' +
-  'People meet through an activity first — train, play, run, hike, compete — then hang out; dating is optional. ' +
-  'Attractive athletic adults who look NATURAL and BELIEVABLE (not AI supermodels). ' +
-  'Subtle chemistry via eye contact, laughing, teasing, high-fives — never exaggerated kissing, sexual posing, or staged embraces. ' +
+  'GetTrainMate creative north star: TRAIN TOGETHER. SEE WHERE IT GOES. ' +
+  'People meet through an activity first — train, play, run, hike, compete — then connect naturally. ' +
+  'Attractive athletic adults who look natural and believable. ' +
+  'Subtle chemistry via eye contact, laughing, conversation, and high-fives. ' +
   'Premium editorial sports/lifestyle photography with natural skin texture, realistic sweat, individual clothing, candid expressions. ';
 
 export function buildPhotographyPrompt(concept) {
@@ -91,8 +91,8 @@ export function buildPhotographyPrompt(concept) {
       BRAND_CORE +
       `Scene: ${activity}. ` +
       'Show 2–4 clearly identifiable attractive athletic adults as large hero subjects. ' +
-      'Prefer sport → social transitions: coffee after a run, drinks after pickleball, patio after hiking, rooftop after class. ' +
-      'Genuine laughter, eye contact, candid friendship. Completely free of laptops, offices, coworking, and corporate networking. ' +
+      'Prefer sport-to-social transitions: cooling down after a run, walking from a court, reaching a trail destination, or leaving a class. ' +
+      'Genuine laughter, eye contact, and candid friendship. ' +
       'Natural daylight or realistic evening social lighting. Leave clean negative space at the bottom for a short headline. No text, no logo, no watermark.'
     );
   }
@@ -104,8 +104,7 @@ export function buildPhotographyPrompt(concept) {
       `Scene: ${activity}. ` +
       'Show one attractive adult man and one attractive adult woman as large hero subjects. ' +
       'Chemistry is subtle and believable — they came to work out or play, and there might be something there. ' +
-      'Avoid dating-app clichés, dramatic romantic stares, kissing, and sexual posing. ' +
-      'Prefer after-training social moments: coffee, drinks, walk, casual dinner. ' +
+      'Prefer an after-training walk, cooldown, coffee stop, or conversation with sports clothing or equipment still visible. ' +
       'Leave clean negative space at the bottom for a short headline. No text, no logo, no watermark.'
     );
   }

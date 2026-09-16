@@ -101,9 +101,11 @@ export function buildMinimalOverlaySvg({ width, height, concept }) {
   const blockBottom = 56;
   const ctaY = height - blockBottom;
   const urlY = height - 28;
-  const journeyY = ctaY - 44;
-  const supportY = journeyY - (support ? 36 : 0);
-  const line1Y = supportY - (lines.length - 1) * lineGap - 8;
+  const journeyY = ctaY - 50;
+  const supportY = journeyY - 44;
+  // Keep a full text-line gap between headline and optional support.
+  const headlineBottomY = support ? supportY - 38 : journeyY - 36;
+  const line1Y = headlineBottomY - (lines.length - 1) * lineGap;
 
   let ctaRaw = String(concept.cta || 'FIND YOUR PEOPLE →').trim();
   if (!/→$/.test(ctaRaw) && /FIND YOUR PEOPLE|FIND A TRAINMATE|MEET YOUR PEOPLE|START CONNECTING/i.test(ctaRaw)) {

@@ -17,14 +17,17 @@ import { assessCreativeStandard } from './social-creative-standard.mjs';
 export const SOCIAL_IMAGE_PROVIDER = (process.env.SOCIAL_IMAGE_PROVIDER || 'bedrock').toLowerCase();
 
 function evaluateCreativeGate(concept, photo = {}) {
+  const actualScene = photo.scene || concept.visualConcept || concept.photoPrompt;
   const payload = {
     mode: concept.mode,
     sport: concept.sport,
     stage: concept.stage,
     stockPhotoId: photo.stockPhotoId || concept.stockPhotoId,
-    scene: photo.scene || concept.visualConcept || concept.photoPrompt,
-    photoPrompt: concept.photoPrompt,
-    visualConcept: concept.visualConcept,
+    scene: actualScene,
+    // Once a provider returns a concrete photo scene, assess that scene rather
+    // than contaminating the gate with prompt exclusion text.
+    photoPrompt: photo.scene ? '' : concept.photoPrompt,
+    visualConcept: photo.scene ? '' : concept.visualConcept,
     imageHeadline: concept.imageHeadline
   };
   const product = assessCreativeProductFit(payload);

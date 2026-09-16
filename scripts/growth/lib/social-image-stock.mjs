@@ -85,7 +85,13 @@ export function selectStockPhoto({ mode, contentId='', isoDate='', activity='', 
       if (preferred.length) pool=preferred;
     } else {
       const matched=pool.filter(p=>{const acts=(p.activities||[]).map(a=>a.toLowerCase()); const scene=(p.scene||'').toLowerCase(); return actTokens.some(t=>acts.includes(t)||scene.includes(t));});
-      if (matched.length) pool=matched;
+      if (matched.length) {
+        pool=matched;
+      } else if (String(activity || '').trim() && String(contentId || '').trim()) {
+        // Under the permanent journey standard, unrelated stock is not a
+        // fallback. A swimming concept cannot silently become a generic couple.
+        return null;
+      }
     }
   } else {
     const preferredIds = PREMIUM_PREFERRED_IDS[m];
@@ -114,6 +120,7 @@ export function selectStockPhoto({ mode, contentId='', isoDate='', activity='', 
 }
 
 export async function fetchStockPhotoBuffer(photo,{fetchImpl=globalThis.fetch,timeoutMs=20000}={}) {
+  if (!photo) return { ok:false,error:'no_activity_matched_stock',url:'' };
   const url=photo?.url||unsplashCropUrl(photo?.unsplashId); const controller=typeof AbortController!=='undefined'?new AbortController():null; const timer=controller?setTimeout(()=>controller.abort(),timeoutMs):null;
   try { const res=await fetchImpl(url,controller?{signal:controller.signal}:{}); if(!res.ok)return{ok:false,error:`stock_fetch_${res.status}`,url}; const buffer=Buffer.from(await res.arrayBuffer()); return{ok:true,buffer,url,photoId:photo?.id||'',modelId:'unsplash_stock'}; }
   catch(e){return{ok:false,error:e instanceof Error?e.message:'stock_fetch_failed',url};} finally{if(timer)clearTimeout(timer);}
@@ -127,12 +134,13 @@ export async function generateStockPhoto(concept,{isoDate,activity,recentEntries
     catch(e) { lastError=e instanceof Error?e.message:String(e); break; }
     const fetched=await fetchStockPhotoBuffer(photo,{fetchImpl}); if(!fetched.ok){lastError=fetched.error;continue;}
     const quality=await assessPhotoQuality(fetched.buffer,sharpImpl); if(!quality.ok){lastError=quality.reason;continue;}
+    // Evaluate the photograph we actually fetched. The generated concept prompt
+    // can contain exclusion wording or describe a different sport when no exact
+    // stock match exists; neither is evidence about this photo.
     const fit=assessCreativeProductFit({
       mode: concept.mode,
       stockPhotoId: photo.id,
-      scene: photo.scene,
-      photoPrompt: concept?.photoPrompt,
-      visualConcept: concept?.visualConcept
+      scene: photo.scene
     });
     if(!fit.ok){lastError=fit.reason; continue;}
     return{ok:true,buffer:fetched.buffer,modelId:'unsplash_stock',stockPhotoId:photo.id,sourceUrl:fetched.url,scene:photo.scene,seed:hashSeed(`${isoDate}:${concept.contentId}:${photo.id}`),quality};

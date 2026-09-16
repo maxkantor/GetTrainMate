@@ -5,6 +5,8 @@ export function recentImageEntries(log, { days = 30, now = Date.now() } = {}) {
   return (log.entries || [])
     .filter((e) => Date.parse(e.publishedAtUtc || e.generatedAtUtc || 0) >= cutoff)
     .map((e) => ({
+      status: e.status || '',
+      publishedAtUtc: e.publishedAtUtc || '',
       contentId: e.contentId,
       imageHeadline: e.imageHeadline || '',
       visualConcept: e.visualConcept || e.photoPrompt || '',
@@ -15,8 +17,16 @@ export function recentImageEntries(log, { days = 30, now = Date.now() } = {}) {
       copyVariant: e.copy_variant || e.copyVariant || '',
       colorTreatment: e.colorTreatment || '',
       imageKey: e.imageKey || '',
+      imageUrl: e.imageUrl || '',
+      imageProvider: e.imageProvider || '',
+      imageFallback: Boolean(e.imageFallback),
       imageSeed: e.imageSeed ?? null,
       stockPhotoId: e.stockPhotoId || '',
+      sport: e.sport || e.semanticActivity || '',
+      stage: e.stage || '',
+      category: e.category || '',
+      semanticActivity: e.semanticActivity || e.sport || '',
+      standardVersion: e.standardVersion || '',
       mode: e.mode || '',
       language: e.language || e.locale || ''
     }))

@@ -11,6 +11,8 @@ import {
 import { buildImageConcept } from '../lib/social-image-concept.mjs';
 import { buildMinimalOverlaySvg } from '../lib/social-image-photo-compose.mjs';
 import { findCatalogItemByContentId } from '../lib/owned-social-catalog.mjs';
+import { selectStockPhoto } from '../lib/social-image-stock.mjs';
+import { recentImageEntries } from '../lib/social-image-history.mjs';
 
 test('approved baseline is pickleball train_to_vibe reference', () => {
   assert.equal(APPROVED_BASELINE.sport, 'pickleball');
@@ -69,6 +71,43 @@ test('buildImageConcept uses permanent standard by default', () => {
   assert.ok(concept.sport);
   assert.notEqual(concept.sport, 'pickleball');
   assert.doesNotMatch(concept.imageHeadline, /SAME ENERGY/i);
+  assert.doesNotMatch(concept.photoPrompt, /no restaurant|no cocktail|oversexualized/i);
+});
+
+test('stock fallback fails closed when selected sport is unavailable', () => {
+  const photo = selectStockPhoto({
+    mode: 'DATE',
+    contentId: 'date-en-sf-bay',
+    isoDate: '2026-09-16',
+    activity: 'swimming'
+  });
+  assert.equal(photo, null);
+});
+
+test('recent image history preserves publish and evergreen metadata', () => {
+  const entries = recentImageEntries(
+    {
+      entries: [
+        {
+          publishedAtUtc: new Date().toISOString(),
+          status: 'published',
+          contentId: 'x',
+          imageHeadline: 'Headline',
+          imageKey: 'social/generated/x.jpg',
+          imageUrl: 'https://example.com/x.jpg',
+          imageProvider: 'bedrock',
+          imageFallback: false,
+          sport: 'soccer',
+          stage: 'train_to_vibe'
+        }
+      ]
+    },
+    { days: 1 }
+  );
+  assert.equal(entries[0].status, 'published');
+  assert.equal(entries[0].imageUrl, 'https://example.com/x.jpg');
+  assert.equal(entries[0].sport, 'soccer');
+  assert.equal(entries[0].stage, 'train_to_vibe');
 });
 
 test('overlay prioritizes headline + journey signature + CTA arrow', () => {
