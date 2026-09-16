@@ -10,6 +10,7 @@ import { logSocialImageEvent } from './social-image-logger.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOCAL_GENERATED_ROOT = path.join(__dirname, '../../../docs/growth/owned-social/generated');
+export const SOCIAL_IMAGE_RETENTION_DAYS = 7;
 
 export function parseDateFromSocialKey(key) {
   const m = String(key || '').match(/social\/generated\/(\d{4})\/(\d{2})\/(\d{2})\//);
@@ -17,7 +18,11 @@ export function parseDateFromSocialKey(key) {
   return new Date(`${m[1]}-${m[2]}-${m[3]}T12:00:00Z`);
 }
 
-export function purgeLocalGeneratedImages({ days = 30, rootDir = LOCAL_GENERATED_ROOT, now = Date.now() } = {}) {
+export function purgeLocalGeneratedImages({
+  days = SOCIAL_IMAGE_RETENTION_DAYS,
+  rootDir = LOCAL_GENERATED_ROOT,
+  now = Date.now()
+} = {}) {
   const cutoff = now - days * 24 * 60 * 60 * 1000;
   let deleted = 0;
   let scanned = 0;
@@ -45,7 +50,7 @@ export function purgeLocalGeneratedImages({ days = 30, rootDir = LOCAL_GENERATED
 }
 
 export function purgeS3SocialImages({
-  days = 30,
+  days = SOCIAL_IMAGE_RETENTION_DAYS,
   bucket = DEFAULT_SOCIAL_IMAGE_BUCKET,
   region = DEFAULT_SOCIAL_IMAGE_REGION,
   now = Date.now()
@@ -91,7 +96,7 @@ export function purgeOldSocialImages(opts = {}) {
   const local = purgeLocalGeneratedImages(opts);
   const s3 = purgeS3SocialImages(opts);
   logSocialImageEvent('SocialImagePurgeCompleted', {
-    days: opts.days ?? 30,
+    days: opts.days ?? SOCIAL_IMAGE_RETENTION_DAYS,
     localDeleted: local.deleted,
     s3Deleted: s3.deleted,
     s3Ok: s3.ok

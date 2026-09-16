@@ -35,7 +35,7 @@ import { appendPublishedLog, readPublishedLog, recentlyUsedContentIds, recentPub
 import { loadRecentImageHistory } from './lib/social-image-history.mjs';
 import { generateSocialImage } from './lib/social-image-generator.mjs';
 import { logSocialImageEvent } from './lib/social-image-logger.mjs';
-import { purgeOldSocialImages } from './lib/social-image-purge.mjs';
+import { purgeOldSocialImages, SOCIAL_IMAGE_RETENTION_DAYS } from './lib/social-image-purge.mjs';
 import { buildSocialImageKey, uploadAndVerifySocialImageBuffer } from './lib/social-image-storage.mjs';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -359,7 +359,9 @@ async function main() {
 
   if (!args.dryRun) {
     ensureSocialImageBucketPublic();
-    purgeOldSocialImages({ days: Number(process.env.SOCIAL_IMAGE_RETENTION_DAYS || 30) });
+    purgeOldSocialImages({
+      days: Number(process.env.SOCIAL_IMAGE_RETENTION_DAYS || SOCIAL_IMAGE_RETENTION_DAYS)
+    });
   }
   let socialImage;
   try {

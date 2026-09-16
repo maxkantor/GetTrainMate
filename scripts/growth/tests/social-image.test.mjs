@@ -11,7 +11,10 @@ import { DEFAULT_NEGATIVE_PROMPT, buildPhotographyPrompt } from '../lib/social-i
 import { buildSocialImageKey, publicUrlForKey } from '../lib/social-image-storage.mjs';
 import { buildBackgroundSvg } from '../lib/social-image-composer.mjs';
 import { buildMinimalOverlaySvg } from '../lib/social-image-photo-compose.mjs';
-import { parseDateFromSocialKey } from '../lib/social-image-purge.mjs';
+import {
+  parseDateFromSocialKey,
+  SOCIAL_IMAGE_RETENTION_DAYS
+} from '../lib/social-image-purge.mjs';
 import { findCatalogItemByContentId, selectCatalogItem, CATALOG } from '../lib/owned-social-catalog.mjs';
 import { publishFacebookPagePhoto } from '../lib/meta-graph.mjs';
 import { selectStockPhoto } from '../lib/social-image-stock.mjs';
@@ -206,6 +209,10 @@ describe('stock photo selection', () => {
 });
 
 describe('social image purge', () => {
+  it('permanently retains generated social images for 7 days', () => {
+    assert.equal(SOCIAL_IMAGE_RETENTION_DAYS, 7);
+  });
+
   it('parses dated S3 keys', () => {
     const d = parseDateFromSocialKey('social/generated/2026/09/01/foo.jpg');
     assert.equal(d.toISOString().slice(0, 10), '2026-09-01');

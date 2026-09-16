@@ -50,3 +50,10 @@ Restaurant crowds, cocktail/nightlife heroes, isolated athletes, generic dating 
 - Reinterpret the brand each morning  
 - Publish multiple candidates  
 - Generate important marketing text inside the image model  
+
+## Generated-image retention
+
+Generated social assets under local `docs/growth/owned-social/generated/`
+and S3 `social/generated/` are retained for **7 days**. Every production
+publish run purges older generated assets. Approved baseline/reference
+assets under `docs/growth/owned-social/approved/` are permanent and excluded.
