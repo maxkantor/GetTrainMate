@@ -7,7 +7,7 @@ import {
   normalizeConceptKey,
   wrapHeadlineLines
 } from '../lib/social-image-concept.mjs';
-import { DEFAULT_NEGATIVE_PROMPT, buildPhotographyPrompt } from '../lib/social-image-bedrock.mjs';
+import { DEFAULT_NEGATIVE_PROMPT, buildPhotographyPrompt, sanitizePhotographyScene } from '../lib/social-image-bedrock.mjs';
 import { buildSocialImageKey, publicUrlForKey } from '../lib/social-image-storage.mjs';
 import { buildBackgroundSvg } from '../lib/social-image-composer.mjs';
 import { buildMinimalOverlaySvg } from '../lib/social-image-photo-compose.mjs';
@@ -309,7 +309,7 @@ describe('semantic activity matching', () => {
   });
 
   it('keeps exclusions in Bedrock negative prompt, not positive prompt', () => {
-    for (const word of ['laptops', 'computer screens', 'office desks', 'coworking space', 'business meetings']) {
+    for (const word of ['laptops', 'computer screens', 'office desks', 'coworking space', 'business meetings', 'railroad tracks', 'locomotive']) {
       assert.ok(
         DEFAULT_NEGATIVE_PROMPT.includes(word),
         `DEFAULT_NEGATIVE_PROMPT missing "${word}"`
@@ -317,15 +317,36 @@ describe('semantic activity matching', () => {
     }
 
     const vibePrompt = buildPhotographyPrompt({ mode: 'VIBE', photoPrompt: 'friends having coffee at a cafe' });
-    assert.match(vibePrompt, /connect naturally|social lighting|sport-to-social/i);
+    assert.match(vibePrompt, /fitness social app|sport-to-social|real photograph/i);
+    // Forbidden subjects stay in the negative prompt only — naming them in the
+    // positive prompt causes Stable Image to draw them (Sep 17 railroad regression).
+    assert.doesNotMatch(vibePrompt, /TRAIN TOGETHER|railroad|locomotive|train tracks/i);
     assert.doesNotMatch(vibePrompt, /laptops|offices|sexual posing|kissing/i);
 
-    const datePrompt = buildPhotographyPrompt({ mode: 'DATE', photoPrompt: 'couple enjoying drinks' });
-    assert.match(datePrompt, /subtle|chemistry|believable/i);
-    assert.doesNotMatch(datePrompt, /sexual posing|kissing|dating-app clichés/i);
+    const datePrompt = buildPhotographyPrompt({ mode: 'DATE', photoPrompt: 'couple enjoying drinks', sport: 'running' });
+    assert.match(datePrompt, /subtle|chemistry|believable|running/i);
+    assert.doesNotMatch(datePrompt, /sexual posing|kissing|dating-app clichés|TRAIN TOGETHER|railroad/i);
 
-    const trainPrompt = buildPhotographyPrompt({ mode: 'TRAIN', photoPrompt: 'gym partners workout' });
-    assert.match(trainPrompt, /editorial sports photography|partnership is the story/i);
+    const trainPrompt = buildPhotographyPrompt({ mode: 'TRAIN', photoPrompt: 'gym partners workout', sport: 'tennis' });
+    assert.match(trainPrompt, /editorial sports photography|partnership is the story|tennis/i);
+    assert.doesNotMatch(trainPrompt, /TRAIN TOGETHER|railroad|locomotive|train tracks/i);
+  });
+
+  it('sanitizes brand TRAIN wording that causes railroad generations', () => {
+    const cleaned = sanitizePhotographyScene('GetTrainMate TRAIN TOGETHER on railroad train tracks');
+    assert.doesNotMatch(cleaned, /GetTrainMate|TRAIN TOGETHER|railroad|train tracks/i);
+  });
+
+  it('selects real tennis partner stock for TRAIN tennis concepts', () => {
+    const photo = selectStockPhoto({
+      mode: 'TRAIN',
+      contentId: 'train-es-socio-entrenamiento',
+      isoDate: '2026-09-17',
+      activity: 'tennis'
+    });
+    assert.ok(photo);
+    assert.match(photo.id, /tennis|pickleball/);
+    assert.doesNotMatch(photo.id, /court-action/);
   });
 
   it('guarantees mode consistency: TRAIN post -> TRAIN imagery/CTA, VIBE post -> VIBE, DATE post -> DATE', () => {

@@ -44,6 +44,16 @@ test('selectCreativePlan avoids sports used in last 5 publishes', () => {
   }
 });
 
+test('rejects railroad AI scenes from brand-word confusion', () => {
+  const bad = assessCreativeStandard({
+    mode: 'TRAIN',
+    sport: 'tennis',
+    scene: 'two runners jogging toward camera on railroad tracks in a forest',
+    imageHeadline: 'START WITH A MATCH. SEE WHERE IT GOES.'
+  });
+  assert.equal(bad.ok, false);
+});
+
 test('score requires 12/14 and rejects cocktail nightlife', () => {
   const good = scoreCreativeQuality({
     sport: 'pickleball',

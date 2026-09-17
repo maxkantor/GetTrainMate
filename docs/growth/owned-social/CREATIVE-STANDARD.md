@@ -57,3 +57,12 @@ Generated social assets under local `docs/growth/owned-social/generated/`
 and S3 `social/generated/` are retained for **7 days**. Every production
 publish run purges older generated assets. Approved baseline/reference
 assets under `docs/growth/owned-social/approved/` are permanent and excluded.
+
+## Photography quality (permanent)
+
+Prefer curated real Unsplash stock when the selected sport has a match.
+Use Bedrock only as fallback, with prompts that never say the brand word
+"TRAIN" in a way that produces locomotives/railroads.
+
+Hard-reject railroad tracks, railway scenes, locomotive imagery, and
+camera-staring AI advertising compositions.

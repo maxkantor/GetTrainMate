@@ -1,6 +1,7 @@
 /**
  * Bedrock Stable Image Core — GetTrainMate final creative direction.
- * TRAIN. CATCH A VIBE. MAYBE DATE.
+ * Photography prompts must NEVER imply locomotives/railroads.
+ * The brand word "TRAIN" (workout) confuses image models into drawing trains.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -22,6 +23,8 @@ export const DEFAULT_NEGATIVE_PROMPT = [
   'extra fingers',
   'extra arms',
   'duplicated people',
+  'cloned faces',
+  'identical twins',
   'distorted faces',
   'plastic skin',
   'wax faces',
@@ -29,6 +32,8 @@ export const DEFAULT_NEGATIVE_PROMPT = [
   'illustration',
   'anime',
   'fake text',
+  'gibberish text on clothing',
+  'warped logos on shirts',
   'watermark',
   'random logo',
   'stock photo handshake pose',
@@ -45,15 +50,29 @@ export const DEFAULT_NEGATIVE_PROMPT = [
   'perfectly synchronized movement',
   'identical smiles',
   'everybody looking at camera',
+  'posing for camera',
   'excessive HDR',
   'fake cinematic glow',
   'hyper-muscular AI bodies',
   'sterile gym',
   'obvious AI advertising composition',
+  'CGI people',
+  '3D render look',
   'exaggerated kissing',
   'sexual posing',
   'staged romantic embrace',
   'dramatic staring into eyes',
+  // Sep 17 regression: brand word TRAIN → literal trains/railroads
+  'railroad tracks',
+  'railway tracks',
+  'train tracks',
+  'locomotive',
+  'freight train',
+  'passenger train',
+  'train cars',
+  'subway train',
+  'people running on train tracks',
+  'people jogging on railroad ballast',
   'laptops',
   'computer screens',
   'office desks',
@@ -67,32 +86,64 @@ export const DEFAULT_NEGATIVE_PROMPT = [
   'business suits'
 ].join(', ');
 
+/**
+ * Strip brand wording that makes Stable Image render locomotives/railroads.
+ * Keep the sport scene; never say "TRAIN" as a brand mode token in photo prompts.
+ */
+export function sanitizePhotographyScene(raw = '') {
+  return String(raw || '')
+    .replace(/\bGetTrainMate\b/gi, 'fitness social app')
+    .replace(/\bTRAIN\s*→\s*VIBE\s*→\s*DATE\b/gi, 'workout then social connection')
+    .replace(/\bTRAIN TOGETHER\b/gi, 'work out together')
+    .replace(/\btrain_to_vibe\b/gi, 'after workout social moment')
+    .replace(/\bvibe_to_date\b/gi, 'subtle chemistry after activity')
+    .replace(/\brailroad\b/gi, 'outdoor path')
+    .replace(/\brailway\b/gi, 'outdoor path')
+    .replace(/\btrain tracks?\b/gi, 'park path')
+    .replace(/\blocomotive\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 const BRAND_CORE =
-  'GetTrainMate creative north star: TRAIN TOGETHER. SEE WHERE IT GOES. ' +
-  'People meet through an activity first — train, play, run, hike, compete — then connect naturally. ' +
-  'Attractive athletic adults who look natural and believable. ' +
-  'Subtle chemistry via eye contact, laughing, conversation, and high-fives. ' +
-  'Premium editorial sports/lifestyle photography with natural skin texture, realistic sweat, individual clothing, candid expressions. ';
+  'Fitness social app creative: people meet through a shared workout or sport, then connect naturally. ' +
+  'Attractive athletic adults who look like real humans in a real photograph — natural skin texture, realistic sweat, individual non-matching clothing, candid expressions. ' +
+  'Subtle chemistry via eye contact, laughing, and conversation. ';
 
 export function buildPhotographyPrompt(concept) {
   const mode = String(concept?.mode || 'TRAIN').toUpperCase();
-  const activity =
+  const sport = String(concept?.sport || concept?.semanticActivity || '').replace(/_/g, ' ').trim();
+  const activity = sanitizePhotographyScene(
     concept?.photoPrompt ||
-    concept?.visualConcept ||
-    (mode === 'VIBE'
-      ? 'attractive athletic adults hanging out after a shared workout, coffee or drinks, candid laughs'
-      : mode === 'DATE'
-        ? 'attractive athletic man and woman after training with subtle chemistry, coffee or walk, not cheesy romance'
-        : 'attractive athletic man and woman training together with natural partnership and realistic sweat');
+      concept?.visualConcept ||
+      (mode === 'VIBE'
+        ? 'attractive athletic adults hanging out after a shared workout, candid laughs'
+        : mode === 'DATE'
+          ? 'attractive athletic man and woman after a workout with subtle chemistry, walking and talking'
+          : 'attractive athletic man and woman working out together with natural partnership and realistic sweat')
+  );
+
+  const sportLock = sport
+    ? `The sport must clearly be ${sport} with unmistakable equipment and setting for ${sport}. `
+    : '';
+
+  // Keep forbidden subjects out of the positive prompt (models latch onto them).
+  // Railroad/locomotive bans live only in DEFAULT_NEGATIVE_PROMPT.
+  const realismLock =
+    'Photorealistic camera photograph, not AI art, not CGI, not a 3D render. ' +
+    'People look at each other, not at the camera. ' +
+    'Setting must be a real sports venue only: court, gym, trail, park path, track, or field. ';
 
   if (mode === 'VIBE') {
     return (
       'Premium photorealistic editorial lifestyle photography. ' +
       BRAND_CORE +
+      sportLock +
       `Scene: ${activity}. ` +
       'Show 2–4 clearly identifiable attractive athletic adults as large hero subjects. ' +
       'Prefer sport-to-social transitions: cooling down after a run, walking from a court, reaching a trail destination, or leaving a class. ' +
       'Genuine laughter, eye contact, and candid friendship. ' +
+      realismLock +
       'Natural daylight or realistic evening social lighting. Leave clean negative space at the bottom for a short headline. No text, no logo, no watermark.'
     );
   }
@@ -101,10 +152,12 @@ export function buildPhotographyPrompt(concept) {
     return (
       'Premium photorealistic editorial lifestyle photography. ' +
       BRAND_CORE +
+      sportLock +
       `Scene: ${activity}. ` +
       'Show one attractive adult man and one attractive adult woman as large hero subjects. ' +
       'Chemistry is subtle and believable — they came to work out or play, and there might be something there. ' +
-      'Prefer an after-training walk, cooldown, coffee stop, or conversation with sports clothing or equipment still visible. ' +
+      'Prefer an after-workout walk, cooldown, coffee stop, or conversation with sports clothing or equipment still visible. ' +
+      realismLock +
       'Leave clean negative space at the bottom for a short headline. No text, no logo, no watermark.'
     );
   }
@@ -112,11 +165,12 @@ export function buildPhotographyPrompt(concept) {
   return (
     'Premium photorealistic editorial sports photography. ' +
     BRAND_CORE +
+    sportLock +
     `Scene: ${activity}. ` +
-    'Show exactly two or a small mixed group of attractive athletic adults training or playing together as large hero subjects. ' +
-    'Rotate sports: pickleball, tennis, lifting, running, volleyball, hiking, cycling, functional fitness. ' +
+    'Show exactly two attractive athletic adults working out or playing together as large hero subjects. ' +
     'Partnership is the story: spotting, pacing, high-fives, talk between sets, playful competition. ' +
     'Realistic sweat, natural skin, individual non-matching athletic wear. ' +
+    realismLock +
     'Leave clean negative space at the bottom for a short headline. No text, no logo, no watermark.'
   );
 }

@@ -1,7 +1,12 @@
 /**
  * GetTrainMate social image generator.
  * Quality rule: publish only a real lifestyle photo that matches the semantic activity.
- * Bedrock Stable Image Core is the PRIMARY provider. Curated stock is a guarded fallback only.
+ *
+ * Provider order (Sep 17 quality lesson):
+ * 1) Curated real Unsplash stock when the sport/activity has a match
+ * 2) Bedrock Stable Image Core with railroad/AI-hardened prompts
+ * 3) Evergreen prior approved publish
+ *
  * A missing or rejected image is a failed creative, never permission to publish a generic card.
  */
 import crypto from 'node:crypto';
@@ -13,8 +18,8 @@ import { buildSocialImageKey, saveLocalSocialImage, uploadAndVerifySocialImageBu
 import { assessCreativeProductFit, selectEvergreenCreative } from './social-creative-quality.mjs';
 import { assessCreativeStandard } from './social-creative-standard.mjs';
 
-// Bedrock is intentionally the default. Set SOCIAL_IMAGE_PROVIDER=stock only for an explicit stock-only run.
-export const SOCIAL_IMAGE_PROVIDER = (process.env.SOCIAL_IMAGE_PROVIDER || 'bedrock').toLowerCase();
+// Prefer curated real photography by default. Set SOCIAL_IMAGE_PROVIDER=bedrock to force AI-first.
+export const SOCIAL_IMAGE_PROVIDER = (process.env.SOCIAL_IMAGE_PROVIDER || 'stock').toLowerCase();
 
 function evaluateCreativeGate(concept, photo = {}) {
   const actualScene = photo.scene || concept.visualConcept || concept.photoPrompt;
@@ -92,43 +97,22 @@ async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, 
     return { ok: false, error: 'procedural_disabled_for_social_quality', provider: 'procedural' };
   }
 
-  // Explicit stock-only mode remains available for diagnostics, but production defaults to Bedrock.
-  if (SOCIAL_IMAGE_PROVIDER === 'stock') {
-    const stockOnly = await tryStock(concept, { isoDate, activity, recentEntries, sharpImpl });
-    if (stockOnly.ok) {
-      const fit = evaluateCreativeGate(concept, stockOnly);
-      if (!fit.ok) return { ok: false, error: fit.reason, provider: 'stock' };
+  // Explicit Bedrock-only mode remains available for diagnostics.
+  if (SOCIAL_IMAGE_PROVIDER === 'bedrock') {
+    const bedrockOnly = await tryBedrock(concept, { sharpImpl });
+    if (bedrockOnly.ok) {
+      const fit = evaluateCreativeGate(concept, { scene: concept.visualConcept || concept.photoPrompt });
+      if (!fit.ok) return { ok: false, error: fit.reason, provider: 'bedrock' };
     }
-    return stockOnly;
+    return bedrockOnly;
   }
 
-  // Production path: Bedrock first. Only if Bedrock fails every quality-gated attempt do we try curated stock.
-  const bedrock = await tryBedrock(concept, { sharpImpl });
-  if (bedrock.ok) {
-    const fit = evaluateCreativeGate(concept, { scene: concept.visualConcept || concept.photoPrompt });
-    if (fit.ok) return bedrock;
-    logSocialImageEvent('SocialImageRejected', {
-      mode: concept.mode,
-      contentId: concept.contentId,
-      reason: fit.reason,
-      provider: 'bedrock',
-      score: fit.score || null
-    });
-  }
-
-  logSocialImageEvent('SocialImagePrimaryProviderFailed', {
-    mode: concept.mode,
-    contentId: concept.contentId,
-    provider: 'bedrock',
-    reason: bedrock.error || 'bedrock_product_fit_reject',
-    fallbackProvider: 'stock'
-  });
-
+  // Production / stock mode: curated real photography first.
   const stock = await tryStock(concept, { isoDate, activity, recentEntries, sharpImpl });
   if (stock.ok) {
     const fit = evaluateCreativeGate(concept, stock);
     if (fit.ok) {
-      return { ...stock, primaryFailure: bedrock.error };
+      return stock;
     }
     logSocialImageEvent('SocialImageRejected', {
       mode: concept.mode,
@@ -136,6 +120,29 @@ async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, 
       reason: fit.reason,
       provider: 'stock',
       stockPhotoId: stock.stockPhotoId,
+      score: fit.score || null
+    });
+  }
+
+  logSocialImageEvent('SocialImagePrimaryProviderFailed', {
+    mode: concept.mode,
+    contentId: concept.contentId,
+    provider: 'stock',
+    reason: stock.error || 'stock_unavailable_or_rejected',
+    fallbackProvider: 'bedrock'
+  });
+
+  const bedrock = await tryBedrock(concept, { sharpImpl });
+  if (bedrock.ok) {
+    const fit = evaluateCreativeGate(concept, { scene: concept.visualConcept || concept.photoPrompt });
+    if (fit.ok) {
+      return { ...bedrock, primaryFailure: stock.error };
+    }
+    logSocialImageEvent('SocialImageRejected', {
+      mode: concept.mode,
+      contentId: concept.contentId,
+      reason: fit.reason,
+      provider: 'bedrock',
       score: fit.score || null
     });
   }
@@ -148,20 +155,20 @@ async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, 
         mode: concept.mode,
         contentId: concept.contentId,
         evergreenFrom: evergreen.evergreenFrom,
-        bedrockError: bedrock.error || null,
-        stockError: stock.error || null
+        stockError: stock.error || null,
+        bedrockError: bedrock.error || null
       });
       return {
         ...evergreen,
-        primaryFailure: bedrock.error || stock.error || 'generation_failed_quality_gate'
+        primaryFailure: stock.error || bedrock.error || 'generation_failed_quality_gate'
       };
     }
   }
 
   return {
     ok: false,
-    error: `bedrock:${bedrock.error || 'n/a'}; stock:${stock.error || 'n/a'}; evergreen:unavailable`,
-    provider: 'bedrock+stock'
+    error: `stock:${stock.error || 'n/a'}; bedrock:${bedrock.error || 'n/a'}; evergreen:unavailable`,
+    provider: 'stock+bedrock'
   };
 }
 

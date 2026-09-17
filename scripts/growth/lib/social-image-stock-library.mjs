@@ -53,13 +53,19 @@ export const STOCK_PHOTOS = {
       id: 'train-tennis-court-action',
       unsplashId: 'photo-1622279457486-62dcc4a431d6',
       scene: 'athletic tennis player moving dynamically on outdoor court',
-      activities: ['tennis', 'sports', 'court', 'partner']
+      activities: ['tennis', 'sports', 'court']
+    },
+    {
+      id: 'train-tennis-partners-talk',
+      unsplashId: 'photo-1634840542403-1a9b1067aaa0',
+      scene: 'tennis partners talking together on outdoor court with rackets visible after playing',
+      activities: ['tennis', 'sports', 'court', 'partner', 'workout', 'racquet']
     },
     {
       id: 'train-tennis-player-lifestyle',
       unsplashId: 'photo-1595435934249-5df7ed86e1c0',
-      scene: 'tennis player resting on blue court with racket and balls',
-      activities: ['tennis', 'sports', 'workout']
+      scene: 'tennis partners resting together on blue court with rackets and balls',
+      activities: ['tennis', 'sports', 'workout', 'partner', 'court', 'racquet']
     },
     {
       id: 'train-running-outdoor-group',

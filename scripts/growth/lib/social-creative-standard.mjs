@@ -402,7 +402,7 @@ export function selectCreativePlan({
   // Keep the positive prompt purely descriptive. Safety/exclusion language belongs
   // in Bedrock's negative_prompt; mixing "no restaurant" into the scene caused
   // both provider moderation and our own semantic gate to reject valid photos.
-  const photoPrompt = `${stage.scenePrefix}${sport.scene}. Show exactly ${people} attractive athletic adults as the main subjects. Make the ${sport.id.replace(/_/g, ' ')} setting and equipment unmistakable. They look at and talk to each other naturally. Premium realistic editorial lifestyle photography. Activity first, then connection.`;
+  const photoPrompt = `${stage.scenePrefix}${sport.scene}. Show exactly ${people} attractive athletic adults as the main subjects. Make the ${sport.id.replace(/_/g, ' ')} setting and equipment unmistakable. They look at and talk to each other naturally. Premium realistic editorial sports lifestyle photograph from a real camera. Activity first, then connection.`;
 
   return {
     standardVersion: CREATIVE_STANDARD_VERSION,
@@ -492,10 +492,10 @@ export function scoreCreativeQuality(input = {}) {
     scores.imageRealism = input.anatomyRisk ? 1 : 2;
   }
 
-  // Brand fit — must not look like gym/bar/dating-only ad
-  if (/restaurant crowd|cocktail|nightlife|anonymous|generic gym stock|tinder|hookup/i.test(corpus)) {
+  // Brand fit — must not look like gym/bar/dating-only ad or railroad AI art
+  if (/restaurant crowd|cocktail|nightlife|anonymous|generic gym stock|tinder|hookup|railroad|railway|train track|locomotive/i.test(corpus)) {
     scores.brandFit = 0;
-  } else if (/activity|sport|train|connection|partner|after/i.test(corpus)) {
+  } else if (/activity|sport|workout|connection|partner|after|court|field|trail/i.test(corpus)) {
     scores.brandFit = 2;
   } else {
     scores.brandFit = 1;
@@ -542,7 +542,14 @@ export function assessCreativeStandard(input = {}) {
     /\beveryone staring at (the )?camera\b/i,
     /\bisolated athlete\b/i,
     /\bbedroom\b/i,
-    /\bkissing\b/i
+    /\bkissing\b/i,
+    // Sep 17: literal trains from brand-word confusion
+    /\brailroad\b/i,
+    /\brailway\b/i,
+    /\btrain tracks?\b/i,
+    /\blocomotive\b/i,
+    /\bfreight train\b/i,
+    /\bpassenger train\b/i
   ];
   for (const re of hardReject) {
     if (re.test(corpus)) {
