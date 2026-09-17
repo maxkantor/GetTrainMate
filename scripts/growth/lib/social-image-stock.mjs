@@ -28,7 +28,9 @@ const HARD_BLOCKED_IDS = new Set([
   // Sep 15 regressions: restaurant crowd + cocktail/nightlife without TRAIN context
   'vibe-friends-patio-dining',
   'vibe-cocktail-toast-night',
-  'vibe-wine-celebration-toast'
+  'vibe-wine-celebration-toast',
+  // Partner mostly cropped / same-gender only — prefer mixed man+woman pair
+  'train-cycling-coastal-pair'
 ]);
 
 const PREMIUM_PREFERRED_IDS = {
@@ -157,6 +159,18 @@ export function selectStockPhoto({ mode, contentId='', isoDate='', activity='', 
       const preferred = pool.filter((p) => preferredIds.has(p.id));
       if (preferred.length) pool = preferred;
     }
+  }
+
+  // Prefer mixed man+woman partnership when the activity pool has it.
+  if (m === 'TRAIN' || m === 'VIBE') {
+    const mixed = pool.filter((p) => {
+      const text = `${p.scene || ''} ${(p.activities || []).join(' ')}`.toLowerCase();
+      return (
+        (text.includes('mixed') || (/man/.test(text) && /woman/.test(text))) &&
+        !/three |group of|five friends|anonymous/i.test(text)
+      );
+    });
+    if (mixed.length) pool = mixed;
   }
 
   if (m==='VIBE') pool=pool.filter(p=>{

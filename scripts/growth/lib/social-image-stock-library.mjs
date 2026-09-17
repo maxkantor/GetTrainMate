@@ -75,6 +75,12 @@ export const STOCK_PHOTOS = {
     },
     {
       id: 'train-cycling-road-partners',
+      unsplashId: 'photo-1673889710449-9f52d8872ccd',
+      scene: 'athletic man and woman cycling together on a paved road, both fully visible on bikes, smiling with natural partnership',
+      activities: ['cycling', 'bike', 'workout', 'partner', 'mixed', 'man', 'woman']
+    },
+    {
+      id: 'train-cycling-coastal-pair',
       unsplashId: 'photo-1541625602330-2277a4c46182',
       scene: 'cyclists riding road bikes together along coastal route',
       activities: ['cycling', 'bike', 'workout', 'partner']

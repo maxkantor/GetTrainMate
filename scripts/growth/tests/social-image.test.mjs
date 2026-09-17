@@ -349,6 +349,18 @@ describe('semantic activity matching', () => {
     assert.doesNotMatch(photo.id, /court-action/);
   });
 
+  it('prefers mixed man+woman cycling stock for triathlon/cycling', () => {
+    const photo = selectStockPhoto({
+      mode: 'VIBE',
+      contentId: 'vibe-en-new-in-town',
+      isoDate: '2026-09-18',
+      activity: 'triathlon'
+    });
+    assert.ok(photo);
+    assert.equal(photo.id, 'train-cycling-road-partners');
+    assert.match(photo.scene, /man and woman/i);
+  });
+
   it('guarantees mode consistency: TRAIN post -> TRAIN imagery/CTA, VIBE post -> VIBE, DATE post -> DATE', () => {
     const trainItem = findCatalogItemByContentId('train-en-workout-partner');
     const trainConcept = buildImageConcept(trainItem, { isoDate: '20260908' });
