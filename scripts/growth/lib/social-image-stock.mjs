@@ -60,6 +60,10 @@ const ACTIVITY_ALIASES = {
   padel: ['pickleball', 'tennis', 'court'],
   running: ['running', 'run', 'cardio', 'workout'],
   cycling: ['cycling', 'bike', 'workout'],
+  // No dedicated triathlon stock yet — map to real bike/run partner photos.
+  // Keep tokens sport-specific (avoid bare "workout" matching generic VIBE hangouts).
+  triathlon: ['cycling', 'bike', 'running', 'cardio'],
+  swimming: ['swimming', 'swim', 'pool'],
   gym: ['gym', 'workout', 'fitness', 'partner'],
   functional: ['functional', 'gym', 'workout'],
   hyrox: ['functional', 'gym', 'workout'],
@@ -79,7 +83,7 @@ function connectionPool(mode, input, activity='') {
   }
 
   if (mode==='VIBE') {
-    const peopleFirst=pool.filter(p=>/friends|group|socializing|laughing|chatting|clinking|celebrating|shoulder to shoulder|partners|walking/i.test(sceneText(p)));
+    const peopleFirst=pool.filter(p=>/friends|group|socializing|laughing|chatting|clinking|celebrating|shoulder to shoulder|partners?|together|walking/i.test(sceneText(p)));
     if (peopleFirst.length) pool=peopleFirst;
     if (activity==='hiking') {
       const closeSocial=pool.filter(p=>/friends|group/i.test(sceneText(p)) && !/toward scenic alpine peak|backpacks.*peak/i.test(sceneText(p)));
@@ -89,7 +93,7 @@ function connectionPool(mode, input, activity='') {
 
   // DATE can use athletic partner imagery from the sport library when chemistry is present.
   if (mode==='DATE') {
-    const coupleOrPartners=pool.filter(p=>/couple|romantic|holding hands|close embrace|chemistry|partners|man and woman|walking from|after playing|together/i.test(sceneText(p)));
+    const coupleOrPartners=pool.filter(p=>/couple|romantic|holding hands|close embrace|chemistry|partners?|together|man and woman|walking from|after playing/i.test(sceneText(p)));
     if (coupleOrPartners.length) pool=coupleOrPartners;
   }
 
@@ -155,7 +159,14 @@ export function selectStockPhoto({ mode, contentId='', isoDate='', activity='', 
     }
   }
 
-  if (m==='VIBE') pool=pool.filter(p=>{const text=`${p.scene||''} ${(p.activities||[]).join(' ')}`.toLowerCase(); return !PROHIBITED_VIBE_KEYWORDS.some(b=>text.includes(b));});
+  if (m==='VIBE') pool=pool.filter(p=>{
+    const text=`${p.scene||''} ${(p.activities||[]).join(' ')}`.toLowerCase();
+    // Word-boundary for "working" so "workout" stock is not false-positive blocked.
+    return !PROHIBITED_VIBE_KEYWORDS.some((b) => {
+      if (b === 'working') return /\bworking\b/.test(text);
+      return text.includes(b);
+    });
+  });
   if (!pool.length) pool=connectionPool(m, stockPhotosForMode(m), act);
   if (!pool.length) throw new Error(`no_connection_photo_for_mode:${m}:${act}`);
 
