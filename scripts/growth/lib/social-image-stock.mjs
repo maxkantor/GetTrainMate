@@ -32,7 +32,9 @@ const HARD_BLOCKED_IDS = new Set([
   // Partner mostly cropped / same-gender only — prefer mixed man+woman pair
   'train-cycling-coastal-pair',
   // Rejected Sep 18: older cycling pair — not brand demographic
-  'train-cycling-road-partners'
+  'train-cycling-road-partners',
+  // Rejected Sep 18: clipboard coaching / schoolteacher vibe
+  'train-gym-partners-goals'
 ]);
 
 const PREMIUM_PREFERRED_IDS = {
