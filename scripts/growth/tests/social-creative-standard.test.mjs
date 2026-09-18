@@ -14,10 +14,11 @@ import { findCatalogItemByContentId } from '../lib/owned-social-catalog.mjs';
 import { selectStockPhoto } from '../lib/social-image-stock.mjs';
 import { recentImageEntries } from '../lib/social-image-history.mjs';
 
-test('approved baseline is pickleball train_to_vibe reference', () => {
-  assert.equal(APPROVED_BASELINE.sport, 'pickleball');
-  assert.equal(APPROVED_BASELINE.stage, 'train_to_vibe');
-  assert.match(APPROVED_BASELINE.headline, /THE MATCH ENDS/);
+test('approved baseline is Sep 16 running visual bar', () => {
+  assert.equal(APPROVED_BASELINE.sport, 'running');
+  assert.equal(APPROVED_BASELINE.stage, 'vibe_to_date');
+  assert.match(APPROVED_BASELINE.headline, /START WITH A RUN/);
+  assert.match(APPROVED_BASELINE.localPath, /journey-running-connection/);
 });
 
 test('selectCreativePlan avoids sports used in last 5 publishes', () => {

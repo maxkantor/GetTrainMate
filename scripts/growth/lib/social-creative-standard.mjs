@@ -1,12 +1,13 @@
 /**
  * PERMANENT GetTrainMate social creative standard.
- * Brand invariant: TRAIN → VIBE → DATE
+ * Brand invariant: TRAIN → VIBE → DATE (see where it goes — maybe more).
  *
- * Canonical reference (2026-09-15 approved):
- * Pickleball partners walking after a match —
- * "THE MATCH ENDS. THE CONNECTION DOESN'T HAVE TO."
+ * Primary visual bar (2026-09-16 Facebook approved direction):
+ * Young attractive athletic man + woman after a waterfront run —
+ * "START WITH A RUN. SEE WHERE IT GOES."
  *
- * Copy the LOGIC and QUALITY of that creative — not the same sport/people daily.
+ * Prior baseline (2026-09-15): pickleball after-match connection.
+ * Copy the LOGIC and QUALITY — not the same sport/people daily.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,23 +16,25 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '../../..');
 
-export const CREATIVE_STANDARD_VERSION = '2026-09-15-journey-v1';
+export const CREATIVE_STANDARD_VERSION = '2026-09-18-journey-v2';
 
 export const APPROVED_BASELINE = {
-  date: '2026-09-15',
-  sport: 'pickleball',
-  stage: 'train_to_vibe',
-  headline: "THE MATCH ENDS.\nTHE CONNECTION DOESN'T HAVE TO.",
-  support: 'Meet through what you already love doing.',
+  date: '2026-09-16',
+  sport: 'running',
+  stage: 'vibe_to_date',
+  headline: 'START WITH A RUN.\nSEE WHERE IT GOES.',
+  support: 'Start with fitness. Stay for the connection.',
   cta: 'FIND YOUR PEOPLE →',
   people: 2,
-  localPath: 'docs/growth/owned-social/approved/journey-pickleball-after-match.jpg',
+  localPath: 'docs/growth/owned-social/approved/journey-running-connection.jpg',
+  priorBaseline: 'docs/growth/owned-social/approved/journey-pickleball-after-match.jpg',
   logic: [
     'obvious shared activity',
     'both people participated',
     'activity still visually identifiable',
     'natural interaction afterward',
     'visible chemistry without forced romance',
+    'beautiful people who fit TRAIN → VIBE → DATE',
     'headline matches the activity',
     'photo works without text'
   ]

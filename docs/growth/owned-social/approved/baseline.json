@@ -1,23 +1,27 @@
 {
-  "standardVersion": "2026-09-15-journey-v1",
-  "approvedAt": "2026-09-15",
-  "sport": "pickleball",
-  "stage": "train_to_vibe",
-  "headline": "THE MATCH ENDS.\nTHE CONNECTION DOESN'T HAVE TO.",
-  "support": "Meet through what you already love doing.",
+  "standardVersion": "2026-09-18-journey-v2",
+  "approvedAt": "2026-09-16",
+  "sport": "running",
+  "stage": "vibe_to_date",
+  "headline": "START WITH A RUN.\nSEE WHERE IT GOES.",
+  "support": "Start with fitness. Stay for the connection.",
   "cta": "FIND YOUR PEOPLE →",
   "people": 2,
-  "localPath": "docs/growth/owned-social/approved/journey-pickleball-after-match.jpg",
+  "localPath": "docs/growth/owned-social/approved/journey-running-connection.jpg",
+  "priorBaseline": "docs/growth/owned-social/approved/journey-pickleball-after-match.jpg",
   "brandInvariant": "TRAIN → VIBE → DATE",
   "coreStory": "START WITH A SHARED ACTIVITY. BUILD A REAL CONNECTION. SEE WHERE IT GOES.",
+  "emotionalArc": "Train together → vibe → date → maybe more (friendship, romance, marriage). Never promise outcomes.",
+  "visualBar": "Young, attractive athletic man + woman, clear shared activity, natural chemistry looking at each other, aspirational lifestyle photography — not coaching, clipboard, schoolteacher, older stock, or railroad AI.",
   "logic": [
     "obvious shared activity",
     "both people participated",
     "activity still visually identifiable",
     "natural interaction afterward",
     "visible chemistry without forced romance",
+    "beautiful people who fit TRAIN → VIBE → DATE",
     "headline matches the activity",
     "photo works without text"
   ],
-  "note": "Copy QUALITY and LOGIC for future creatives. Do not repeat pickleball/people daily."
+  "note": "Sep 16 Facebook post is the visual quality bar. Copy QUALITY and LOGIC — not the same sport/people daily."
 }
