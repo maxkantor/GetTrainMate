@@ -70,6 +70,8 @@ const ACTIVITY_ALIASES = {
   gym: ['gym', 'workout', 'fitness', 'partner'],
   functional: ['functional', 'gym', 'workout'],
   hyrox: ['functional', 'gym', 'workout'],
+  boxing_fitness: ['gym', 'workout', 'fitness', 'partner'],
+  boxing: ['gym', 'workout', 'fitness', 'partner'],
   hiking: ['hiking', 'outdoors', 'trail', 'nature'],
   soccer: ['soccer', 'sports', 'partner'],
   volleyball: ['volleyball', 'sports', 'partner'],
@@ -167,7 +169,7 @@ export function selectStockPhoto({ mode, contentId='', isoDate='', activity='', 
   }
 
   // Prefer mixed man+woman partnership for named sports (not broad tags like workout).
-  const mixedSports = new Set(['gym', 'tennis', 'pickleball', 'padel', 'running', 'hiking', 'functional', 'hyrox']);
+  const mixedSports = new Set(['gym', 'tennis', 'pickleball', 'padel', 'running', 'hiking', 'functional', 'hyrox', 'boxing_fitness', 'boxing']);
   if ((m === 'TRAIN' || m === 'VIBE') && mixedSports.has(act)) {
     const mixed = pool.filter((p) => {
       const text = `${p.scene || ''} ${(p.activities || []).join(' ')}`.toLowerCase();
