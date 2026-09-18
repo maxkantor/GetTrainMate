@@ -74,4 +74,5 @@ scripts/growth/var/
 scripts/growth/config/partner-outreach-approvals.local.json
 docs/growth/partners/.local/
 docs/growth/owned-social/generated/
+.cursor/tmp-*/
 .DS_Store
