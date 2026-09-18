@@ -102,14 +102,18 @@ export function assessCreativeProductFit(input = {}) {
 
 /**
  * Pick an evergreen prior publish to reuse when live generation fails the gate.
- * Prefers same mode, non-fallback, successful publishes with an imageKey/URL.
+ * Prefers same mode, real/approved photography — never Bedrock AI fallbacks.
  */
-export function selectEvergreenCreative(entries = [], { mode } = {}) {
+export function selectEvergreenCreative(entries = [], { mode, recentSports = [] } = {}) {
   const m = String(mode || '').toUpperCase();
+  const usedSports = new Set((recentSports || []).map((s) => String(s || '').toLowerCase()).filter(Boolean));
   const published = (entries || [])
     .filter((e) => e && e.status === 'published' && (e.imageUrl || e.imageKey))
     .filter((e) => e.imageFallback !== true)
     .filter((e) => !HARD_REJECT_STOCK_IDS.has(String(e.stockPhotoId || '')))
+    // Never recycle fake AI publishes as "evergreen quality"
+    .filter((e) => !/stability|bedrock|stable-image/i.test(String(e.imageProvider || '')))
+    .filter((e) => !usedSports.has(String(e.sport || '').toLowerCase()))
     .slice()
     .reverse();
 

@@ -75,8 +75,12 @@ assets under `docs/growth/owned-social/approved/` are permanent and excluded.
 ## Photography quality (permanent)
 
 Prefer curated real Unsplash stock when the selected sport has a young,
-attractive, mixed-gender chemistry match. Use Bedrock / approved composed
-files when stock cannot hit the Sep 16 visual bar.
+attractive, mixed-gender chemistry match.
 
-Hard-reject railroad tracks, railway scenes, locomotive imagery,
-clipboard coaching compositions, and camera-staring AI advertising.
+**Never auto-publish Bedrock / Stable Image in production.**  
+If stock cannot hit the bar, reuse an evergreen prior approved publish
+(different sport/scene than the last 3 days). Bedrock only when
+`SOCIAL_IMAGE_ALLOW_BEDROCK=1` for diagnostics.
+
+Hard-reject railroad tracks, clipboard coaching, climbing AI heroes without
+real stock, and near-duplicate waterfront couple scenes vs recent posts.

@@ -196,15 +196,7 @@ export const SPORT_LIBRARY = [
       "THE VIEW'S BETTER\nWITH THE RIGHT COMPANY."
     ]
   },
-  {
-    id: 'climbing',
-    category: 'adventure_wellness',
-    scene: 'climbing partners celebrating after a bouldering session, talking and smiling — gear visible, natural connection',
-    headlines: [
-      'START WITH A CLIMB.\nSEE WHERE IT GOES.',
-      "FIND SOMEONE\nWHO'S UP FOR THE CLIMB."
-    ]
-  },
+  // climbing removed Sep 18 — no vetted real stock; Bedrock climb post was rejected as fake AI
   {
     id: 'yoga',
     category: 'adventure_wellness',
@@ -527,7 +519,13 @@ export function assessCreativeStandard(input = {}) {
     /\btrain tracks?\b/i,
     /\blocomotive\b/i,
     /\bfreight train\b/i,
-    /\bpassenger train\b/i
+    /\bpassenger train\b/i,
+    // Sep 18: coaching / AI climb disasters
+    /\bclipboard\b/i,
+    /\bschoolteacher\b/i,
+    /\bplanning workout goals\b/i,
+    /\bup for the climb\b/i,
+    /\bbouldering\b/i
   ];
   for (const re of hardReject) {
     if (re.test(corpus)) {

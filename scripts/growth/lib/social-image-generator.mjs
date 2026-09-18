@@ -129,25 +129,46 @@ async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, 
     contentId: concept.contentId,
     provider: 'stock',
     reason: stock.error || 'stock_unavailable_or_rejected',
-    fallbackProvider: 'bedrock'
+    // Sep 18 lesson: Bedrock fallbacks look fake and get rejected. Prefer evergreen.
+    fallbackProvider: 'evergreen'
   });
 
-  const bedrock = await tryBedrock(concept, { sharpImpl });
-  if (bedrock.ok) {
-    const fit = evaluateCreativeGate(concept, { scene: concept.visualConcept || concept.photoPrompt });
-    if (fit.ok) {
-      return { ...bedrock, primaryFailure: stock.error };
+  // Production quality rule: never auto-publish Bedrock AI when stock fails.
+  // Opt-in diagnostics only: SOCIAL_IMAGE_ALLOW_BEDROCK=1
+  const allowBedrock = String(process.env.SOCIAL_IMAGE_ALLOW_BEDROCK || '').trim() === '1';
+  let bedrock = { ok: false, error: 'bedrock_disabled_for_production_quality' };
+  if (allowBedrock) {
+    bedrock = await tryBedrock(concept, { sharpImpl });
+    if (bedrock.ok) {
+      const fit = evaluateCreativeGate(concept, { scene: concept.visualConcept || concept.photoPrompt });
+      if (fit.ok) {
+        return { ...bedrock, primaryFailure: stock.error };
+      }
+      logSocialImageEvent('SocialImageRejected', {
+        mode: concept.mode,
+        contentId: concept.contentId,
+        reason: fit.reason,
+        provider: 'bedrock',
+        score: fit.score || null
+      });
     }
-    logSocialImageEvent('SocialImageRejected', {
+  } else {
+    logSocialImageEvent('SocialImageBedrockSkipped', {
       mode: concept.mode,
       contentId: concept.contentId,
-      reason: fit.reason,
-      provider: 'bedrock',
-      score: fit.score || null
+      reason: 'allow_bedrock_not_enabled'
     });
   }
 
-  const evergreenEntry = selectEvergreenCreative(recentEntries, { mode: concept.mode });
+  const recentSports = (recentEntries || [])
+    .filter((e) => e?.status === 'published')
+    .slice(0, 5)
+    .map((e) => e.sport)
+    .filter(Boolean);
+  const evergreenEntry = selectEvergreenCreative(recentEntries, {
+    mode: concept.mode,
+    recentSports
+  });
   if (evergreenEntry) {
     const evergreen = await fetchEvergreenBuffer(evergreenEntry);
     if (evergreen.ok) {
@@ -168,7 +189,7 @@ async function generatePhotoBuffer(concept, { isoDate, activity, recentEntries, 
   return {
     ok: false,
     error: `stock:${stock.error || 'n/a'}; bedrock:${bedrock.error || 'n/a'}; evergreen:unavailable`,
-    provider: 'stock+bedrock'
+    provider: 'stock+evergreen'
   };
 }
 
