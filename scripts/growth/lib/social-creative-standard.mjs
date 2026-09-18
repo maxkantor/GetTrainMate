@@ -162,41 +162,16 @@ export const SPORT_LIBRARY = [
       'RUN TOGETHER.\nSTAY FOR THE CONNECTION.'
     ]
   },
-  {
-    id: 'cycling',
-    category: 'endurance_outdoor',
-    scene: 'cycling partners walking bikes together after a ride, helmets nearby, natural conversation — activity gear visible',
-    headlines: [
-      'SAME ROUTE.\nNEW CONNECTION.',
-      'RIDE TOGETHER.\nSEE WHERE IT GOES.'
-    ]
-  },
-  {
-    id: 'triathlon',
-    category: 'endurance_outdoor',
-    scene: 'endurance training partners recovering together after a brick bike/run session, talking and smiling',
-    headlines: [
-      'FINISH TOGETHER.\nSEE WHAT STARTS.',
-      'TRAIN HARD.\nCONNECT NATURALLY.'
-    ]
-  },
-  {
-    id: 'swimming',
-    category: 'endurance_outdoor',
-    scene: 'swim partners walking from the pool or beach after training, towels visible, talking naturally',
-    headlines: [
-      'START WITH AN ACTIVITY.\nSEE WHERE IT GOES.',
-      'SAME WORKOUT.\nNEW CONNECTION.'
-    ]
-  },
+  // cycling + triathlon + swimming removed Sep 18 — no young mixed athletic stock that meets brand bar
   {
     id: 'gym',
     category: 'gym_fitness',
-    scene: 'gym partners leaving the gym together after training, talking between the doors, natural chemistry — not isolated lifter posing',
+    scene: 'young athletic man and woman gym partners planning the next set together, clipboard visible, natural conversation — not isolated lifter posing',
     headlines: [
       'START WITH A WORKOUT.\nSEE WHERE IT GOES.',
       'SAME WORKOUT.\nNEW CONNECTION.',
-      'ONE MORE REP.\nMAYBE ONE MORE COFFEE.'
+      'ONE MORE REP.\nMAYBE ONE MORE COFFEE.',
+      'TRAIN HARD.\nCONNECT NATURALLY.'
     ]
   },
   {

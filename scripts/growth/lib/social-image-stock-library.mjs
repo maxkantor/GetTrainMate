@@ -34,8 +34,8 @@ export const STOCK_PHOTOS = {
     {
       id: 'train-gym-partners-goals',
       unsplashId: 'photo-1758875569399-99a7d80ace43',
-      scene: 'training partners in gym planning workout goals together',
-      activities: ['workout', 'gym', 'accountability', 'partner', 'goals', 'fitness']
+      scene: 'young athletic man and woman training partners in gym planning workout goals together on a clipboard',
+      activities: ['workout', 'gym', 'accountability', 'partner', 'goals', 'fitness', 'mixed', 'man', 'woman']
     },
     {
       id: 'train-pickleball-match',

@@ -30,7 +30,9 @@ const HARD_BLOCKED_IDS = new Set([
   'vibe-cocktail-toast-night',
   'vibe-wine-celebration-toast',
   // Partner mostly cropped / same-gender only — prefer mixed man+woman pair
-  'train-cycling-coastal-pair'
+  'train-cycling-coastal-pair',
+  // Rejected Sep 18: older cycling pair — not brand demographic
+  'train-cycling-road-partners'
 ]);
 
 const PREMIUM_PREFERRED_IDS = {
@@ -62,9 +64,8 @@ const ACTIVITY_ALIASES = {
   padel: ['pickleball', 'tennis', 'court'],
   running: ['running', 'run', 'cardio', 'workout'],
   cycling: ['cycling', 'bike', 'workout'],
-  // No dedicated triathlon stock yet — map to real bike/run partner photos.
-  // Keep tokens sport-specific (avoid bare "workout" matching generic VIBE hangouts).
-  triathlon: ['cycling', 'bike', 'running', 'cardio'],
+  // No dedicated triathlon stock with young mixed athletic partners — do not select this sport.
+  // triathlon removed Sep 18 after cycling fallback was rejected (wrong demographic).
   swimming: ['swimming', 'swim', 'pool'],
   gym: ['gym', 'workout', 'fitness', 'partner'],
   functional: ['functional', 'gym', 'workout'],
@@ -141,9 +142,13 @@ export function selectStockPhoto({ mode, contentId='', isoDate='', activity='', 
     } else {
       let matched=photosMatchingActivity(pool, actTokens, act);
       // Sport lives in TRAIN library — allow DATE/VIBE posts to reuse matching sport stock.
-      if (!matched.length) {
+      if (!matched.length || (act && !matched.some((p) => {
+        const acts = (p.activities || []).map((a) => a.toLowerCase());
+        return acts.includes(act) || String(p.scene || '').toLowerCase().includes(act);
+      }))) {
         const crossMode = connectionPool(m, allStockPhotos(), act);
-        matched = photosMatchingActivity(crossMode, actTokens, act);
+        const crossMatched = photosMatchingActivity(crossMode, actTokens, act);
+        if (crossMatched.length) matched = crossMatched;
       }
       if (matched.length) {
         pool=matched;
@@ -161,8 +166,9 @@ export function selectStockPhoto({ mode, contentId='', isoDate='', activity='', 
     }
   }
 
-  // Prefer mixed man+woman partnership when the activity pool has it.
-  if (m === 'TRAIN' || m === 'VIBE') {
+  // Prefer mixed man+woman partnership for named sports (not broad tags like workout).
+  const mixedSports = new Set(['gym', 'tennis', 'pickleball', 'padel', 'running', 'hiking', 'functional', 'hyrox']);
+  if ((m === 'TRAIN' || m === 'VIBE') && mixedSports.has(act)) {
     const mixed = pool.filter((p) => {
       const text = `${p.scene || ''} ${(p.activities || []).join(' ')}`.toLowerCase();
       return (

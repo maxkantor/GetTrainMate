@@ -349,15 +349,15 @@ describe('semantic activity matching', () => {
     assert.doesNotMatch(photo.id, /court-action/);
   });
 
-  it('prefers mixed man+woman cycling stock for triathlon/cycling', () => {
+  it('prefers young mixed gym stock when cycling/triathlon are unavailable', () => {
     const photo = selectStockPhoto({
       mode: 'VIBE',
       contentId: 'vibe-en-new-in-town',
       isoDate: '2026-09-18',
-      activity: 'triathlon'
+      activity: 'gym'
     });
     assert.ok(photo);
-    assert.equal(photo.id, 'train-cycling-road-partners');
+    assert.equal(photo.id, 'train-gym-partners-goals');
     assert.match(photo.scene, /man and woman/i);
   });
 
