@@ -2,8 +2,10 @@
 
 **Version:** `2026-09-18-journey-v2`  
 **Code:** `scripts/growth/lib/social-creative-standard.mjs`  
-**Primary visual bar:** `docs/growth/owned-social/approved/journey-running-connection.jpg` (Sep 16 Facebook — approved direction)  
-**Prior baseline:** `docs/growth/owned-social/approved/journey-pickleball-after-match.jpg`
+**Quality reference (look only):** `docs/growth/owned-social/approved/journey-running-connection.jpg`  
+**Quality reference (look only):** `docs/growth/owned-social/approved/journey-pickleball-after-match.jpg`
+
+Approved files are **style samples**, not daily publish sources. Never republish them as today's post.
 
 ## Brand invariant
 
@@ -18,14 +20,12 @@ Canonical homepage language:
 - Start with fitness. Stay for the connection.
 - FIND YOUR PEOPLE
 
-## Visual quality bar (2026-09-16)
+## Visual quality bar
 
-Young, attractive athletic **man + woman** after a shared workout (waterfront run),
+Young, attractive athletic **man + woman** after a shared workout,
 looking at each other with real chemistry. Activity-first, then vibe/date energy.
 
-Headline: **START WITH A RUN. SEE WHERE IT GOES.**
-
-Copy the **look and logic**, not the same sport/people every day.
+Copy the **look and logic** of the approved samples — never the same photo, sport, or people every day.
 
 ## What “right approach” means
 
@@ -33,9 +33,9 @@ Copy the **look and logic**, not the same sport/people every day.
 |-----------|----------|
 | Beautiful / fit young adults | Clipboard coaching / “schoolteacher” poses |
 | Clear sport or workout context | Restaurant / cocktail nightlife heroes |
-| Natural chemistry (eye contact, laugh, talk) | Older stock that breaks the brand promise |
+| Natural chemistry (eye contact, laugh, talk) | Recycled preexisting / evergreen creatives |
 | TRAIN → VIBE → DATE readable on image | Railroad / locomotive AI from brand word TRAIN |
-| One man + one woman preferred for chemistry posts | Camera-staring twin AI clones |
+| One man + one woman preferred for chemistry posts | Camera-staring twin AI clones / plastic CGI skin |
 
 ## Future automation sequence
 
@@ -44,8 +44,8 @@ Copy the **look and logic**, not the same sport/people every day.
 3. Select non-repetitive sport  
 4. Select TRAIN → VIBE → DATE stage (prefer TRAIN→VIBE)  
 5. Define connection moment with beautiful people + chemistry  
-6. Generate / select photo (people/activity/environment only)  
-7. Reject irrelevant or unattractive coaching photography  
+6. **Bedrock generates a NEW photorealistic photograph** (fail closed if quality gate fails)  
+7. Reject fake-AI look, irrelevant scenes, or unattractive coaching photography  
 8. Generate sport-specific headline  
 9. Apply deterministic branding  
 10. Make TRAIN → VIBE → DATE readable  
@@ -56,7 +56,7 @@ Copy the **look and logic**, not the same sport/people every day.
 
 ## Hard rejects
 
-Restaurant crowds, cocktail/nightlife heroes, isolated athletes, generic dating glamour without activity, clipboard/coaching lesson vibes, unreadable type, missing journey strip, railroad tracks, images that could advertise an unrelated gym/bar/dating app.
+Restaurant crowds, cocktail/nightlife heroes, isolated athletes, generic dating glamour without activity, clipboard/coaching lesson vibes, unreadable type, missing journey strip, railroad tracks, recycled prior posts, images that could advertise an unrelated gym/bar/dating app.
 
 ## Do not
 
@@ -64,6 +64,7 @@ Restaurant crowds, cocktail/nightlife heroes, isolated athletes, generic dating 
 - Publish multiple candidates  
 - Generate important marketing text inside the image model  
 - Treat TRAIN / VIBE / DATE as three unrelated campaign silos  
+- Select preexisting Unsplash/approved/evergreen files as today's hero  
 
 ## Generated-image retention
 
@@ -74,13 +75,13 @@ assets under `docs/growth/owned-social/approved/` are permanent and excluded.
 
 ## Photography quality (permanent)
 
-Prefer curated real Unsplash stock when the selected sport has a young,
-attractive, mixed-gender chemistry match.
+**Default provider: Bedrock Stable Diffusion 3.5 Large** — generate a **new** photograph every day.
+(`SOCIAL_IMAGE_BEDROCK_MODEL_ID` can override to Ultra / Core.)
 
-**Never auto-publish Bedrock / Stable Image in production.**  
-If stock cannot hit the bar, reuse an evergreen prior approved publish
-(different sport/scene than the last 3 days). Bedrock only when
-`SOCIAL_IMAGE_ALLOW_BEDROCK=1` for diagnostics.
+The image must look like a real camera photo (natural skin, candid moment, documentary sports photography), not AI art, CGI, or plastic advertising renders.
 
-Hard-reject railroad tracks, clipboard coaching, climbing AI heroes without
-real stock, and near-duplicate waterfront couple scenes vs recent posts.
+- Do **not** recycle evergreen prior publishes when generation fails — fail closed instead  
+- Do **not** use Unsplash stock rotation for daily production (`SOCIAL_IMAGE_PROVIDER=stock` is diagnostics only)  
+- `--image-file` is manual recovery only, never the daily default  
+
+Hard-reject railroad tracks, clipboard coaching, climbing AI heroes, near-duplicate waterfront couple scenes vs recent posts, and any creative that looks obviously AI-generated.
