@@ -13,7 +13,6 @@ const HIW_MATCH_PEER = '/images/hiw/match-peer.jpg';
 const meetPhoto = '/images/hero-train-together.png';
 
 const discoverDemo = {
-  age: 28,
   photo: HIW_DISCOVER_PHOTO,
   avatar: HIW_DISCOVER_AVATAR,
   matchPct: 94,
@@ -78,7 +77,7 @@ export const ProductJourneySection: React.FC = () => {
                 />
                 <div className={styles.discoverOverlay}>
                   <p className={styles.discoverName}>
-                    {t('landing.hiw_demo_name')}, {discoverDemo.age}
+                    {t('landing.hiw_demo_name')}, {t('landing.hiw_demo_age')}
                   </p>
                   <div className={styles.discoverTags}>
                     {discoverTags.map((tag) => (
@@ -132,7 +131,10 @@ export const ProductJourneySection: React.FC = () => {
                   />
                   <span className={styles.matchHeart}>♥</span>
                 </div>
-                <p className={styles.matchPct}>{discoverDemo.matchPct}%</p>
+                <p className={styles.matchPct}>
+                  {discoverDemo.matchPct}%{' '}
+                  <span className={styles.matchPctLabel}>{t('landing.hiw_match_compat_label')}</span>
+                </p>
                 <h3 className={styles.matchTitle}>{t('landing.hiw_match_title')}</h3>
                 <p className={styles.matchHint}>{t('landing.hiw_match_hint')}</p>
                 <ul className={styles.matchReasons}>

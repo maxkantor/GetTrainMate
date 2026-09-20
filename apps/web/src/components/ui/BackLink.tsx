@@ -1,13 +1,16 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useI18n } from '@/hooks/useI18n';
 import styles from './BackLink.module.css';
 
 interface BackLinkProps {
-  /** Optional label. Default: "Back" */
+  /** Optional label. Defaults to localized common.back */
   label?: string;
 }
 
-export const BackLink: React.FC<BackLinkProps> = ({ label = 'Back' }) => {
+export const BackLink: React.FC<BackLinkProps> = ({ label }) => {
+  const { t } = useI18n();
+  const text = label ?? t('common.back');
   const navigate = useNavigate();
 
   const handleClick = (e: React.MouseEvent) => {
@@ -25,9 +28,9 @@ export const BackLink: React.FC<BackLinkProps> = ({ label = 'Back' }) => {
       href={fallbackHref}
       className={styles.backLink}
       onClick={handleClick}
-      aria-label={label}
+      aria-label={text}
     >
-      ← {label}
+      ← {text}
     </a>
   );
 };

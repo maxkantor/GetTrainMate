@@ -117,9 +117,11 @@
   font-size: clamp(2.75rem, 3.2vw, 3.25rem); /* 44–52px */
   font-weight: 800;
   letter-spacing: -0.03em;
-  line-height: 1;
+  line-height: 1.05;
   text-transform: uppercase;
   color: #ffffff;
+  max-width: min(100%, 18ch);
+  text-wrap: balance;
 }
 
 .heroSerifLockup {
@@ -132,7 +134,9 @@
   font-weight: 400;
   font-size: clamp(72px, 6.2vw, 116px);
   letter-spacing: -0.03em;
-  line-height: 0.9;
+  line-height: 0.92;
+  max-width: min(100%, 14ch);
+  text-wrap: balance;
 }
 
 .heroSerifWhite {
@@ -175,6 +179,37 @@
   letter-spacing: 0.01em;
   color: #d0cdd7;
   text-align: center;
+  max-width: min(92vw, 28rem);
+  text-wrap: balance;
+}
+
+/* Longer locales — keep hero balanced without redesign */
+html[lang='ru'] .heroSansLine,
+html[lang='ua'] .heroSansLine,
+html[lang='de'] .heroSansLine {
+  font-size: clamp(2rem, 2.65vw, 2.85rem);
+  max-width: min(100%, 22ch);
+  line-height: 1.08;
+}
+
+html[lang='ru'] .heroSerifLockup,
+html[lang='ua'] .heroSerifLockup,
+html[lang='de'] .heroSerifLockup {
+  font-size: clamp(56px, 5.2vw, 96px);
+  max-width: min(100%, 18ch);
+}
+
+html[lang='es'] .heroSansLine,
+html[lang='fr'] .heroSansLine {
+  font-size: clamp(2.15rem, 2.75vw, 2.95rem);
+  max-width: min(100%, 20ch);
+}
+
+html[lang='hi'] .heroSansLine,
+html[lang='zh'] .heroSansLine {
+  font-size: clamp(2rem, 2.55vw, 2.75rem);
+  max-width: min(100%, 16ch);
+  letter-spacing: -0.02em;
 }
 
 .heroPremiumCtas {

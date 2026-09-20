@@ -41,42 +41,42 @@ export type LandingDeckFallback = {
 /** Swipe demo placeholders — generic role labels, not fabricated social-proof names. */
 export const LANDING_SHOWCASE_DECK_FALLBACK: LandingDeckFallback[] = [
   {
-    name: 'Runner',
+    name: 'Anna',
     age: 28,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-1'],
     tags: ['RUNNING', 'YOGA', 'HIKING'],
     matchPct: 94,
   },
   {
-    name: 'Cyclist',
+    name: 'Marcus',
     age: 32,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
     tags: ['CYCLING', 'GYM', 'CROSSFIT'],
     matchPct: 91,
   },
   {
-    name: 'Yoga',
+    name: 'Maria',
     age: 27,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-3'],
     tags: ['YOGA', 'PILATES', 'HIKING'],
     matchPct: 88,
   },
   {
-    name: 'Runner',
+    name: 'Anna',
     age: 28,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-1'],
     tags: ['RUNNING', 'YOGA', 'HIKING'],
     matchPct: 92,
   },
   {
-    name: 'Cyclist',
+    name: 'Marcus',
     age: 32,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-2'],
     tags: ['CYCLING', 'GYM', 'CROSSFIT'],
     matchPct: 89,
   },
   {
-    name: 'Yoga',
+    name: 'Maria',
     age: 27,
     photo: DUMMY_USER_PRIMARY_PHOTO['dummy-user-3'],
     tags: ['YOGA', 'PILATES', 'HIKING'],

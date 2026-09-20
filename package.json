@@ -50,6 +50,7 @@
     "growth:instagram:publish": "node scripts/growth/publish-owned-social.mjs",
     "growth:social:publish": "node scripts/growth/publish-owned-social.mjs",
     "growth:social:samples": "node scripts/growth/generate-social-image-samples.mjs",
+    "i18n:audit": "cd apps/web && npx tsx ../../scripts/audit-i18n.mjs",
     "prepare": "husky install"
   },
   "devDependencies": {

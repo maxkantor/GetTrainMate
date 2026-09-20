@@ -76,7 +76,7 @@ function buildOfflinePreviewDeck(training: string, level: string, timePref: stri
 
   const users: LandingMatchPreviewUser[] = [
     row('Alex Drogba', 'dummy-user-7', `${sport} · Soccer · Conditioning`, 'Stay match-fit year round', 29),
-    row('Sarah Runner', 'dummy-user-1', 'Running · Yoga · Hiking', 'Complete a sub-4 hour marathon', 28),
+    row('Anna', 'dummy-user-1', 'Running · Yoga · Hiking', 'Complete a sub-4 hour marathon', 28),
     row('Maria Chen', 'dummy-user-2', `${sport} · Strength · Mobility`, 'Build consistent gym habits', 27),
     row('Jordan Blake', 'dummy-user-5', `${sport} · HIIT · Core`, 'Improve work capacity for events', 26),
     row('Ken Okada', 'dummy-user-6', 'Swimming · Core · Recovery', 'Open-water confidence', 31),
