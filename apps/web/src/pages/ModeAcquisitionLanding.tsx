@@ -181,7 +181,7 @@ const OTHER_MODES: Record<string, { label: string; path: string }[]> = {
 
 export const ModeAcquisitionLanding: React.FC<{ copy: ModeLandingCopy }> = ({ copy }) => {
   const location = useLocation();
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
 
   const activeCopy = useMemo(() => {
     const loc = LOCALIZED_MODE_LANDINGS[locale]?.[copy.mode];
@@ -269,7 +269,7 @@ export const ModeAcquisitionLanding: React.FC<{ copy: ModeLandingCopy }> = ({ co
         </Typography>
 
         <Typography variant="body2" color="text.secondary" sx={{ mt: 4, lineHeight: 1.7 }}>
-          Looking for something else?{' '}
+          {t('landing.mode_landing_other_modes')}{' '}
           {OTHER_MODES[copy.mode].map((link, i) => (
             <React.Fragment key={link.path}>
               {i > 0 ? ' · ' : null}

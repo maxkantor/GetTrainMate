@@ -15,7 +15,7 @@ export function isDummyNearbyProfile(userId: string): boolean {
 const DEMO_CARDS: MatchFeedItem[] = [
   {
     userId: `${NEARBY_DUMMY_USER_PREFIX}0`,
-    name: 'Sarah Runner',
+    name: 'Anna',
     city: 'Near you',
     bio: 'Running and strength. Looking for a steady training buddy a few times a week.',
     sportTags: ['Running', 'Strength'],
@@ -30,7 +30,7 @@ const DEMO_CARDS: MatchFeedItem[] = [
   },
   {
     userId: `${NEARBY_DUMMY_USER_PREFIX}1`,
-    name: 'Mike Cyclist',
+    name: 'Marcus',
     city: 'Near you',
     bio: 'Gym and CrossFit. Prefer morning sessions. Down for lifting or cardio.',
     sportTags: ['CrossFit', 'Gym'],

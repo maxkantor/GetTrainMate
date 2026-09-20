@@ -39,7 +39,7 @@ export const PlatformPage: React.FC = () => {
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <div className={styles.backRow}>
-            <BackLink label="Back" />
+            <BackLink />
           </div>
           <h1 className={styles.title}>Platform</h1>
           <p className={styles.subtitle}>MK AI & Performance Systems</p>

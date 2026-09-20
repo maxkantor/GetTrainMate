@@ -25,7 +25,7 @@ export const SecondaryPageLayout: React.FC<SecondaryPageLayoutProps> = ({
       <div className={styles.inner}>
         {showBackLink && (
           <div className={styles.backStrip}>
-            <BackLink label="Back" />
+            <BackLink />
           </div>
         )}
         <div className={styles.card}>
