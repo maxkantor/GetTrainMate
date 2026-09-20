@@ -25,7 +25,7 @@ export const Hero: React.FC = () => {
   const profileComplete = me?.isProfileComplete ?? true;
   const ctaPrimaryHref = !isAuthenticated ? '/signup?src=homepage' : '/app';
   const ctaPrimaryLabel = !isAuthenticated
-    ? 'FIND YOUR PEOPLE'
+    ? t('landing.landing_primary_cta')
     : !profileComplete
       ? t('landing.cta_finish_profile')
       : t('nav.dashboard');
@@ -48,15 +48,16 @@ export const Hero: React.FC = () => {
       <Container size="wide" className={styles.heroContainer}>
         <div className={styles.heroCenter}>
           <p className={styles.heroEyebrow}>
-            <span>SAME WORKOUTS.</span> <span className={styles.heroEyebrowAccent}>NEW CONNECTIONS.</span>
+            <span>{t('landing.hero_campaign_eyebrow_1')}</span>{' '}
+            <span className={styles.heroEyebrowAccent}>{t('landing.hero_campaign_eyebrow_2')}</span>
           </p>
 
           <h1 className={styles.heroCampaign}>
-            <span className={styles.heroSansLine}>TRAIN TOGETHER.</span>
+            <span className={styles.heroSansLine}>{t('landing.hero_campaign_title_1')}</span>
             <span className={styles.heroSerifLockup}>
-              <span className={styles.heroSerifWhite}>SEE WHERE</span>
+              <span className={styles.heroSerifWhite}>{t('landing.hero_campaign_title_2')}</span>
               <span className={styles.heroSerifAccent}>
-                <span className={styles.heroWordGradient}>IT GOES.</span>
+                <span className={styles.heroWordGradient}>{t('landing.hero_campaign_title_3')}</span>
                 <svg
                   className={styles.heroSwoosh}
                   viewBox="0 0 280 18"
@@ -90,9 +91,9 @@ export const Hero: React.FC = () => {
           </h1>
 
           <p className={styles.heroPremiumSub}>
-            Start with fitness.
+            {t('landing.hero_campaign_sub_1')}
             <br />
-            Stay for the connection.
+            {t('landing.hero_campaign_sub_2')}
           </p>
 
           <div className={styles.heroPremiumCtas}>
@@ -124,20 +125,20 @@ export const Hero: React.FC = () => {
             </Link>
           </div>
 
-          <div className={styles.heroJourneyStrip} aria-label="Train, vibe, date">
+          <div className={styles.heroJourneyStrip} aria-label={t('landing.hero_journey_aria')}>
             <span className={styles.heroJourneyItem}>
               <FitnessCenterOutlinedIcon className={styles.heroJourneyIcon} aria-hidden />
-              <span className={styles.heroJourneyLabel}>TRAIN</span>
+              <span className={styles.heroJourneyLabel}>{t('landing.hero_mode_train_label')}</span>
             </span>
             <span className={styles.heroJourneyDivider} aria-hidden />
             <span className={styles.heroJourneyItem}>
               <GroupsOutlinedIcon className={styles.heroJourneyIcon} aria-hidden />
-              <span className={styles.heroJourneyLabel}>VIBE</span>
+              <span className={styles.heroJourneyLabel}>{t('landing.hero_mode_vibe_label')}</span>
             </span>
             <span className={styles.heroJourneyDivider} aria-hidden />
             <span className={styles.heroJourneyItem}>
               <FavoriteBorderOutlinedIcon className={styles.heroJourneyIcon} aria-hidden />
-              <span className={styles.heroJourneyLabel}>DATE</span>
+              <span className={styles.heroJourneyLabel}>{t('landing.hero_mode_date_label')}</span>
             </span>
           </div>
         </div>

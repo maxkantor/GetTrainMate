@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Box, Button, Container, Typography } from '@mui/material';
 import { PageShell } from '@/components/layout/PageShell';
+import { useI18n } from '@/hooks/useI18n';
 import { trackEvent } from '@/utils/analytics';
 
 /** Short owned-social destination codes → mode landing pages (with preserved UTMs). */
@@ -23,6 +24,7 @@ export const GO_CODE_LANDINGS: Record<string, string> = {
  * Preserves UTM + attribution query params onto the real landing.
  */
 export const GoRedirectPage: React.FC = () => {
+  const { t } = useI18n();
   const { code: rawCode } = useParams<{ code?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -52,7 +54,7 @@ export const GoRedirectPage: React.FC = () => {
     <PageShell variant="content" showBackLink={false}>
       <Container maxWidth="sm" sx={{ py: 6, textAlign: 'center' }}>
         <Typography variant="body1" color="text.secondary">
-          Opening GetTrainMate…
+          {t('landing.go_opening')}
         </Typography>
       </Container>
     </PageShell>
@@ -61,6 +63,8 @@ export const GoRedirectPage: React.FC = () => {
 
 /** Permanent Instagram bio / caption hub — always clickable once bio points here. */
 export const GoHubPage: React.FC = () => {
+  const { t } = useI18n();
+
   useEffect(() => {
     trackEvent('landing_page_view', {
       source_page: '/go',
@@ -76,17 +80,17 @@ export const GoHubPage: React.FC = () => {
           component="p"
           sx={{ letterSpacing: 1.2, color: 'primary.main', fontWeight: 700 }}
         >
-          GetTrainMate
+          {t('landing.go_hub_eyebrow')}
         </Typography>
         <Typography
           variant="h2"
           component="h1"
           sx={{ mt: 1, fontSize: { xs: '1.85rem', md: '2.4rem' }, fontWeight: 800, lineHeight: 1.15 }}
         >
-          Choose how you want to connect
+          {t('landing.go_hub_title')}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mt: 2, maxWidth: 560, lineHeight: 1.7 }}>
-          Free to join. TRAIN, VIBE, or DATE — you pick the mode. Matches are never guaranteed.
+          {t('landing.go_hub_sub')}
         </Typography>
         <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 1.5, maxWidth: 420 }}>
           <Button
@@ -96,7 +100,7 @@ export const GoHubPage: React.FC = () => {
             size="large"
             onClick={() => trackEvent('signup_started', { source_page: '/go', mode: 'TRAIN' })}
           >
-            TRAIN — find workout partners
+            {t('landing.go_hub_train_cta')}
           </Button>
           <Button
             component={RouterLink}
@@ -105,7 +109,7 @@ export const GoHubPage: React.FC = () => {
             size="large"
             onClick={() => trackEvent('signup_started', { source_page: '/go', mode: 'VIBE' })}
           >
-            VIBE — meet people
+            {t('landing.go_hub_vibe_cta')}
           </Button>
           <Button
             component={RouterLink}
@@ -114,7 +118,7 @@ export const GoHubPage: React.FC = () => {
             size="large"
             onClick={() => trackEvent('signup_started', { source_page: '/go', mode: 'DATE' })}
           >
-            DATE — activity dating
+            {t('landing.go_hub_date_cta')}
           </Button>
         </Box>
       </Container>
