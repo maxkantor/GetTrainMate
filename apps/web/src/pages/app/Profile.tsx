@@ -682,11 +682,14 @@ export const ProfilePage: React.FC = () => {
           }}
         >
           <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5 }}>
-            Add a clear training photo
+            {searchParams.get('setup') === '1' || searchParams.get('focus') === 'photos'
+              ? 'Photo required to join Discover'
+              : 'Add a clear training photo'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, maxWidth: 640 }}>
-            Your first photo is the cover card in Discover — bright, natural light, athletic kit, eyes visible. Scroll to{' '}
-            <strong>Profile photos</strong> below or jump there now.
+            {searchParams.get('setup') === '1' || searchParams.get('focus') === 'photos'
+              ? 'Upload at least one photo to finish setup. Profiles without a photo cannot appear in Discover.'
+              : 'Your first photo is the cover card in Discover — bright, natural light, athletic kit, eyes visible. Scroll to Profile photos below or jump there now. A photo is required to appear in Discover.'}
           </Typography>
           <Button
             type="button"
@@ -1330,9 +1333,17 @@ export const ProfilePage: React.FC = () => {
                   setBaseline((b) => (b ? { ...b, photoKeys: nextKeys } : null));
                   await refreshMe();
                   showSectionHint('photo');
-                  setSnack({ open: true, message: 'Profile updated successfully', severity: 'success' });
+                  const fromSetup = searchParams.get('setup') === '1' || searchParams.get('focus') === 'photos';
+                  setSnack({
+                    open: true,
+                    message: fromSetup ? 'Photo saved — you can open Discover now' : 'Profile updated successfully',
+                    severity: 'success',
+                  });
                   setCropOpen(false);
                   setPendingCropFile(null);
+                  if (fromSetup && nextKeys.length > 0) {
+                    navigate('/app/discover', { replace: true });
+                  }
                 } catch (e: unknown) {
                   const msg = e instanceof Error ? e.message : 'Upload failed';
                   setSnack({ open: true, message: msg, severity: 'error' });

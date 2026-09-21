@@ -22,6 +22,7 @@ import {
   rememberSignupDisplayName,
   setNewUserDashboardGreeting,
 } from '@/utils/pendingSignupStorage';
+import { reportPartnerAttribution } from '@/utils/acquisitionAttribution';
 
 export const VerifyEmailPage: React.FC = () => {
   const navigate = useNavigate();
@@ -125,6 +126,7 @@ export const VerifyEmailPage: React.FC = () => {
 
       trackEvent('signup_verified', { method: 'email', source_page: '/verify-email' });
       trackEvent('signup_completed', { method: 'email', source_page: '/verify-email' });
+      void reportPartnerAttribution('signup');
 
       navigate('/app', { replace: true });
     } catch (err) {

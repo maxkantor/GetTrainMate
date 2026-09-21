@@ -10,6 +10,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -149,11 +150,17 @@ export class GetTrainMateStack extends cdk.Stack {
         Bedrock__ModelId: bedrockModelId,
         BEDROCK_MODEL_ID: bedrockModelId,
         Bedrock__Region: this.region,
-        // Verified SES identity for outbound mail (chat notifications, etc.). Optional: omit until SES is set up.
+        // Verified SES identity for outbound mail (chat notifications, admin alerts, etc.).
+        // Prefer SSM so Lambda always has recipients even when context/env is empty at deploy.
         SES_FROM_EMAIL:
-          this.node.tryGetContext('sesFromEmail') ||
-          process.env.SES_FROM_EMAIL ||
-          '',
+          (this.node.tryGetContext('sesFromEmail') as string | undefined)?.trim() ||
+          (process.env.SES_FROM_EMAIL || '').trim() ||
+          ssm.StringParameter.valueForStringParameter(this, '/gettrainmate/ses-from-email'),
+        // Admin operational alerts: new signup, purchases, contact form.
+        SES_ADMIN_EMAIL:
+          (this.node.tryGetContext('sesAdminEmail') as string | undefined)?.trim() ||
+          (process.env.SES_ADMIN_EMAIL || '').trim() ||
+          ssm.StringParameter.valueForStringParameter(this, '/gettrainmate/ses-admin-email'),
       },
     });
 
@@ -905,6 +912,7 @@ export class GetTrainMateStack extends cdk.Stack {
       mk('PartnerSuppressions', 'gettrainmate-partner-suppressions', 'Email'),
       mk('PartnerSettings', 'gettrainmate-partner-settings', 'Id'),
       mk('PartnerInboundDedupe', 'gettrainmate-partner-inbound-dedupe', 'DedupeKey'),
+      mk('PartnerDiscoveryJobs', 'gettrainmate-partner-discovery-jobs', 'JobId'),
     ];
   }
 }

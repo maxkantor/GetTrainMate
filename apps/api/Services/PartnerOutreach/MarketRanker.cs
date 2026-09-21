@@ -38,29 +38,34 @@ public static class MarketRanker
     public static List<MarketEvidenceRow> Rank(IEnumerable<MarketEvidenceRow> rows) =>
         rows.OrderByDescending(Score).ThenBy(r => r.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
 
-    /// <summary>Select up to maxActive campaigns to run discovery against (active first, then ranked candidates).</summary>
+    /// <summary>
+    /// Select discovery targets: all active campaigns first, then ranked candidates
+    /// up to <paramref name="maxTargets"/> (soft ranking ceiling, not an activate block).
+    /// </summary>
     public static IEnumerable<MarketCampaignSeed> SelectDiscoveryTargets(
         IReadOnlyList<MarketCampaignSeed> catalog,
         IReadOnlyList<PartnerCampaign> stored,
         IReadOnlyList<MarketEvidenceRow> evidence,
-        int maxActive = 3)
+        int maxTargets = 50)
     {
+        if (maxTargets <= 0) maxTargets = 50;
         var ranked = Rank(evidence);
         var rankById = ranked.Select((r, i) => (r.CampaignId, i)).ToDictionary(x => x.CampaignId, x => x.i, StringComparer.OrdinalIgnoreCase);
-        var byId = catalog.ToDictionary(c => c.CampaignId, StringComparer.OrdinalIgnoreCase);
         var statusById = stored.ToDictionary(c => c.CampaignId, c => c.Status, StringComparer.OrdinalIgnoreCase);
 
         var active = catalog
             .Where(c => statusById.TryGetValue(c.CampaignId, out var st) && st == "active")
             .OrderBy(c => rankById.GetValueOrDefault(c.CampaignId, 999))
             .ToList();
-        if (active.Count >= maxActive)
-            return active.Take(maxActive);
 
-        var need = maxActive - active.Count;
+        // Prefer every active market; fill remaining slots with ranked candidates
+        if (active.Count >= maxTargets)
+            return active.Take(maxTargets);
+
+        var need = maxTargets - active.Count;
         var candidates = catalog
             .Where(c => !active.Any(a => a.CampaignId == c.CampaignId))
-            .Where(c => !statusById.TryGetValue(c.CampaignId, out var st) || st is "candidate" or "paused")
+            .Where(c => !statusById.TryGetValue(c.CampaignId, out var st) || st is "candidate" or "paused" or "draft")
             .OrderBy(c => rankById.GetValueOrDefault(c.CampaignId, 999))
             .Take(need);
         return active.Concat(candidates);

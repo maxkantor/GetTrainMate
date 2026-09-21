@@ -244,7 +244,13 @@ public class MatchService : IMatchService
                     if (intentTier == "relaxed" && previewReasons.Count == 0)
                         previewReasons = new List<string> { "Add overlapping intent modes on Profile (Train / Vibe / Date) for tighter matches." };
 
+                    // Do not show profiles without a real photo in Discover.
+                    if (!ProfileService.HasRealProfilePhoto(targetProfile))
+                        continue;
+
                     var photoUrls = ResolvePhotoUrlsForProfile(targetProfile);
+                    if (photoUrls.Count == 0)
+                        continue;
 
                     feedItems.Add(new MatchFeedItem
                     {

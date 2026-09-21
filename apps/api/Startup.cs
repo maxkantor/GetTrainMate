@@ -115,6 +115,7 @@ public class Startup
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IPartnerOutreachService, PartnerOutreachService>();
+        services.AddScoped<IPartnerDiscoveryJobService, PartnerDiscoveryJobService>();
         services.AddHttpClient<OverpassFitnessDiscoveryProvider>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(120);
@@ -122,7 +123,7 @@ public class Startup
         });
         services.AddHttpClient<PublicBusinessContactVerifier>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(5);
+            client.Timeout = TimeSpan.FromSeconds(15);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("GetTrainMatePartnerDiscovery/1.0 (+https://gettrainmate.com/contact)");
         });
         services.AddScoped<AutomatedMarketDiscoveryService>();
@@ -360,7 +361,10 @@ public class Startup
                             .GetAwaiter().GetResult();
                         sesAdminEmail = adminResp.Parameter?.Value?.Trim() ?? "";
                         if (!string.IsNullOrEmpty(sesAdminEmail))
+                        {
                             Environment.SetEnvironmentVariable("SES_ADMIN_EMAIL", sesAdminEmail);
+                            Log.Information("SES admin recipients loaded from SSM {Param}", ssmSesAdmin);
+                        }
                     }
                     catch (ParameterNotFoundException) { /* optional */ }
                 }
@@ -373,6 +377,21 @@ public class Startup
             {
                 Log.Warning(ex, "Could not load SES settings from SSM");
             }
+        }
+
+        if (!string.IsNullOrEmpty(sesFromEmail) && !string.IsNullOrEmpty(sesAdminEmail))
+        {
+            Log.Information(
+                "Admin email alerts enabled (from={From}, admins configured={HasAdmins})",
+                sesFromEmail,
+                true);
+        }
+        else
+        {
+            Log.Warning(
+                "Admin email alerts may be incomplete: SES_FROM_EMAIL set={HasFrom}, SES_ADMIN_EMAIL set={HasAdmin}",
+                !string.IsNullOrEmpty(sesFromEmail),
+                !string.IsNullOrEmpty(sesAdminEmail));
         }
 
         services.AddAuthorization(options =>

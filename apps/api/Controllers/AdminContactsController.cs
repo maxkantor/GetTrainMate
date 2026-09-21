@@ -51,7 +51,7 @@ public class AdminContactsController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/admin/contacts?search=&status=&tag=&page=&pageSize=
+    /// GET /api/admin/contacts?search=&status=&tag=&spamLikely=&page=&pageSize=
     /// List contacts with pagination and filtering
     /// </summary>
     [HttpGet]
@@ -59,6 +59,7 @@ public class AdminContactsController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? status = null,
         [FromQuery] string? tag = null,
+        [FromQuery] bool? spamLikely = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
@@ -75,9 +76,10 @@ public class AdminContactsController : ControllerBase
             {
                 var q = search.Trim();
                 active = active.Where(c =>
-                    c.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
-                    || c.Email.Contains(q, StringComparison.OrdinalIgnoreCase)
-                    || (!string.IsNullOrEmpty(c.Phone) && c.Phone.Contains(q, StringComparison.OrdinalIgnoreCase))).ToList();
+                    (c.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || (c.Email ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || (!string.IsNullOrEmpty(c.Phone) && c.Phone.Contains(q, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrEmpty(c.Notes) && c.Notes.Contains(q, StringComparison.OrdinalIgnoreCase))).ToList();
             }
 
             if (!string.IsNullOrWhiteSpace(status))
@@ -92,6 +94,11 @@ public class AdminContactsController : ControllerBase
                 active = active.Where(c => c.Tags != null && c.Tags.Contains(t, StringComparer.OrdinalIgnoreCase)).ToList();
             }
 
+            if (spamLikely == true)
+                active = active.Where(IsLikelySpamContact).ToList();
+            else if (spamLikely == false)
+                active = active.Where(c => !IsLikelySpamContact(c)).ToList();
+
             var totalCount = active.Count;
             var paged = active
                 .OrderByDescending(c => c.CreatedAt)
@@ -105,7 +112,8 @@ public class AdminContactsController : ControllerBase
                     Phone = c.Phone,
                     Status = c.Status,
                     Tags = c.Tags ?? new List<string>(),
-                    CreatedAt = c.CreatedAt
+                    CreatedAt = c.CreatedAt,
+                    LikelySpam = IsLikelySpamContact(c),
                 })
                 .ToList();
 
@@ -276,6 +284,95 @@ public class AdminContactsController : ControllerBase
             _logger.LogError(ex, "Error deleting contact {ContactId}", contactId);
             return StatusCode(500, new { error = "Failed to delete contact" });
         }
+    }
+
+    /// <summary>
+    /// POST /api/admin/contacts/bulk-delete
+    /// Soft-delete many contacts (admin spam cleanup).
+    /// </summary>
+    [HttpPost("bulk-delete")]
+    public async Task<ActionResult> BulkDeleteContacts([FromBody] BulkDeleteContactsRequest request)
+    {
+        try
+        {
+            var admin = GetAdminIdentity();
+            var ids = (request.ContactIds ?? new List<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .Take(200)
+                .ToList();
+
+            if (ids.Count == 0)
+                return BadRequest(new { error = "contactIds required" });
+
+            var deleted = 0;
+            var missing = 0;
+            foreach (var contactId in ids)
+            {
+                var contact = await _context.LoadAsync<Contact>(contactId);
+                if (contact == null || contact.SoftDeleted)
+                {
+                    missing++;
+                    continue;
+                }
+
+                var before = JsonSerializer.Serialize(contact);
+                contact.SoftDeleted = true;
+                contact.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveAsync(contact);
+                await _auditLogService.LogActionAsync(
+                    admin,
+                    "contact.delete",
+                    "contact",
+                    contactId,
+                    before: JsonSerializer.Deserialize<object>(before),
+                    after: contact);
+                deleted++;
+            }
+
+            return Ok(new { deleted, missing, requested = ids.Count });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error bulk-deleting contacts");
+            return StatusCode(500, new { error = "Failed to bulk delete contacts" });
+        }
+    }
+
+    /// <summary>
+    /// Heuristic for contact-form spam: gibberish names and dot-stuffed emails.
+    /// </summary>
+    internal static bool IsLikelySpamContact(Contact c)
+    {
+        var name = (c.Name ?? "").Trim();
+        var email = (c.Email ?? "").Trim().ToLowerInvariant();
+
+        var at = email.IndexOf('@');
+        if (at > 0)
+        {
+            var local = email[..at];
+            var dotCount = local.Count(ch => ch == '.');
+            if (dotCount >= 3) return true;
+            if (dotCount >= 2 && local.Length >= 12)
+            {
+                var withoutDots = local.Replace(".", "", StringComparison.Ordinal);
+                if (withoutDots.Length <= local.Length - 2 && withoutDots.Length >= 6)
+                    return true;
+            }
+        }
+
+        if (name.Length >= 10 && !name.Contains(' ', StringComparison.Ordinal) && name.All(char.IsLetter))
+        {
+            var upper = name.Count(char.IsUpper);
+            var lower = name.Count(char.IsLower);
+            var vowels = name.Count(ch => "aeiouAEIOU".Contains(ch));
+            if (vowels == 0) return true;
+            if (name.Length >= 12 && upper >= 3 && lower >= 3) return true;
+            if (name.Length >= 14 && vowels * 4 < name.Length) return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -490,6 +587,12 @@ public class ContactListItem
     public string Status { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
     public DateTime CreatedAt { get; set; }
+    public bool LikelySpam { get; set; }
+}
+
+public class BulkDeleteContactsRequest
+{
+    public List<string>? ContactIds { get; set; }
 }
 
 public class CreateContactRequest

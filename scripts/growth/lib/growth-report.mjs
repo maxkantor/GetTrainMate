@@ -510,19 +510,36 @@ function stripeStatusLines(snapshot) {
 function exp002Stats(snapshot) {
   const s = snapshot?.partnerOutreach || {};
   const na = (v) => (v == null || v === '' ? 'Unavailable' : String(v));
+  const funnel = s.funnel || {};
+  const ns = s.northStars || {};
   return {
-    partnerPagesCreated: na(s.partnerPagesCreated ?? 10),
-    inviteCodesCreated: na(s.inviteCodesCreated ?? 10),
-    draftsPrepared: na(s.draftsPrepared ?? 9),
-    recipientsApproved: na(s.recipientsApproved ?? 0),
-    emailsSent: na(s.emailsSent ?? 'See private operational record'),
-    delivered: na(s.delivered ?? 'Unknown'),
-    partnerResponses: na(s.partnerResponses ?? 'Unknown'),
-    partnerVisits: na(s.partnerAttributedVisits ?? 'Unavailable'),
-    partnerSignups: na(s.partnerAttributedSignups ?? 'Unavailable'),
-    completedProfiles: na(s.completedProfiles ?? 'Unavailable'),
-    discoverUsers: na(s.discoverUsers ?? 'Unavailable'),
-    connectionRequests: na(s.connectionRequests ?? 'Unavailable')
+    status: s.status || 'unavailable',
+    partnerPagesCreated: na(s.partnerPagesCreated ?? funnel.discovered),
+    inviteCodesCreated: na(s.inviteCodesCreated),
+    draftsPrepared: na(s.draftsPrepared ?? funnel.drafts),
+    recipientsApproved: na(s.recipientsApproved ?? funnel.approved),
+    emailsSent: na(s.emailsSent ?? funnel.sent),
+    delivered: na(s.delivered),
+    partnerResponses: na(s.partnerResponses ?? funnel.replied),
+    partnerVisits: na(s.partnerAttributedVisits),
+    partnerSignups: na(s.partnerAttributedSignups ?? ns.referralSignups),
+    completedProfiles: na(s.completedProfiles ?? ns.activeUsersAcquired),
+    discoverUsers: na(s.discoverUsers),
+    connectionRequests: na(s.connectionRequests),
+    customersAcquired: na(ns.customersAcquired ?? s.customersAcquired ?? 0),
+    revenueAttributedCents: na(ns.revenueAttributedCents ?? s.revenueAttributedCents ?? 0),
+    awaitingApproval: na(funnel.awaitingApproval),
+    contactNeeded: na(funnel.contactNeeded),
+    interested: na(funnel.interested),
+    partners: na(funnel.partners),
+    outreachMode: na(s.settings?.outreachMode),
+    pauseAllOutreach: Boolean(s.settings?.pauseAllOutreach),
+    ownerAction: na(s.ownerAction),
+    approvalsAdminUrl: s.approvalsAdminUrl || 'https://gettrainmate.com/admin/partner-outreach',
+    discoveryNew: na(funnel.discovered),
+    highScore: 'See Admin CRM',
+    contactsFound: na(s.discovery?.verifiedPublicContacts),
+    draftsCreated: na(funnel.drafts ?? s.discovery?.draftsGenerated)
   };
 }
 
@@ -582,13 +599,22 @@ export function composeGrowthEmailBody({
   });
 
   const t = [];
-  t.push('GETTRAINMATE - DAILY GROWTH REPORT');
-  t.push('==================================');
+  t.push('GETTRAINMATE — CUSTOMER ACQUISITION REPORT');
+  t.push('=========================================');
   t.push('Product: multilingual international TRAIN + VIBE + DATE. Atlanta TRAIN is one experiment, not the product.');
+  t.push('North star: new accounts → activated users → paying customers → credit revenue.');
   t.push(`Local time (America/New_York): ${et.dateStr} ${et.timeStr}`);
   t.push(`Report generated: ${et.monthDayYear}`);
   t.push(`GA4 data through: ${formatMonthDayYearFromYmd(ga4Through)}`);
   t.push(`Site: ${SITE.origin}`);
+  t.push('');
+  t.push('CUSTOMERS (attributed where available)');
+  t.push('--------------------------------------');
+  t.push(`Signups (partner/referral attributed): ${exp002.partnerSignups}`);
+  t.push(`Activated (Discover after referral): ${exp002.completedProfiles}`);
+  t.push(`Paying customers attributed: ${exp002.customersAcquired}`);
+  t.push(`Revenue attributed (cents): ${exp002.revenueAttributedCents}`);
+  t.push(`Owner action: ${exp002.ownerAction}`);
   t.push('');
 
   const published = Boolean(social.fbYes || social.igYes);
@@ -833,23 +859,23 @@ export function composeGrowthEmailBody({
     );
   }
   t.push('');
-  t.push(`EXP-002 — Atlanta partner hub and invite-code acquisition (Acquisition Opportunity)`);
+  t.push(`EXP-002 — Customer Acquisition / invite-code (Acquisition Opportunity)`);
   t.push(`  Evaluation: ${EXP002.evaluationWeekday} (${EXP002.evaluationDate})`);
   if (exp002row) {
     t.push(`  Status: ${exp002row.status} | Stage: ${exp002row.funnelStage || 'n/a'}`);
     if (exp002row.commit) t.push(`  Commit: ${SITE.repo}/commit/${exp002row.commit}`);
   }
-  t.push(`  Partner pages created: ${exp002.partnerPagesCreated}`);
-  t.push(`  Invite codes created: ${exp002.inviteCodesCreated}`);
-  t.push(`  Drafts prepared: ${exp002.draftsPrepared}; recipients approved: ${exp002.recipientsApproved}; emails sent: ${exp002.emailsSent}`);
-  t.push(`  Status: ACQUISITION_OPPORTUNITY — 5 partner drafts prepared in CRM; awaiting owner approval to send (drafts != send; not a completed experiment).`);
-  t.push(`  Delivered when known: ${exp002.delivered}`);
-  t.push(`  Partner responses: ${exp002.partnerResponses}`);
+  t.push(`  CRM source: ${exp002.status}`);
+  t.push(`  Pause all: ${exp002.pauseAllOutreach ? 'YES' : 'no'}`);
+  t.push('  --- Customer Acquisition (live CRM) ---');
+  t.push(`  DISCOVERY: prospects=${exp002.discoveryNew} contacts_found=${exp002.contactsFound} contact_needed=${exp002.contactNeeded} drafts=${exp002.draftsCreated}`);
+  t.push(`  OUTREACH: awaiting_approval=${exp002.awaitingApproval} approved_for_next_send=${exp002.recipientsApproved} sent=${exp002.emailsSent} delivered=${exp002.delivered}`);
+  t.push(`  ENGAGEMENT: replies=${exp002.partnerResponses} interested=${exp002.interested} partners=${exp002.partners}`);
+  t.push(`  CUSTOMERS: attributed_signups=${exp002.partnerSignups} customers_acquired=${exp002.customersAcquired} revenue_cents=${exp002.revenueAttributedCents}`);
+  t.push(`  OWNER ACTION: ${exp002.ownerAction}`);
+  t.push(`  Approvals: ${exp002.approvalsAdminUrl}`);
   t.push(`  Partner-attributed visits: ${exp002.partnerVisits}`);
-  t.push(`  Partner-attributed signups: ${exp002.partnerSignups}`);
-  t.push(`  Completed profiles: ${exp002.completedProfiles}`);
-  t.push(`  Discover users: ${exp002.discoverUsers}`);
-  t.push(`  Connection requests: ${exp002.connectionRequests}`);
+  t.push(`  Completed profiles (attributed): ${exp002.completedProfiles}`);
   t.push('');
   t.push(`EXP-003 — Atlanta TRAIN user-initiated referral invite`);
   t.push(`  Evaluation: ${EXP003.evaluationWeekday} (${EXP003.evaluationDate})`);
@@ -864,12 +890,12 @@ export function composeGrowthEmailBody({
   t.push('---------------');
   t.push(`Primary Acquisition Action: ${sb.nextAction}`);
   t.push('Owner action required / opportunities:');
-  t.push('  - EXP-002: Review the 5 prepared Atlanta TRAIN partner outreach drafts in Admin CRM when ready to distribute.');
+  t.push(`  - Customer Acquisition: ${exp002.ownerAction}`);
   if (md?.status !== 'ok') {
     t.push('  - Configure the metro read token (GROWTH_METRO_READ_TOKEN) so country/metro/mode ranking is available.');
   }
   t.push('  - If Facebook/Instagram Published=NO: store Meta Page token + Page id + IG business id in SSM /gettrainmate/growth/* and retry node scripts/growth/publish-owned-social.mjs.');
-  t.push('  - Partner email stays paused until a verified public recipient is approved in Admin CRM. Never invent inboxes.');
+  t.push('  - Initial outreach sends only via Approvals → APPROVE & SEND (or approved-for-next-send). Never invent inboxes.');
   t.push('  - Concentrate the next owned-social rotation on the highest-ranked metro/mode pocket above — not Atlanta-only by default.');
   t.push('  - Configure Stripe Product/Price allowlists if still incomplete.');
   t.push('');
@@ -972,7 +998,7 @@ export function composeGrowthEmailBody({
     <tr><td align="center" style="padding:24px 12px;">
       <table role="presentation" width="840" cellpadding="0" cellspacing="0" style="width:840px;max-width:840px;background:#ffffff;border:1px solid #cbd5e1;border-radius:12px;">
         <tr><td style="padding:22px 28px;background:#0f172a;color:#fff;border-radius:12px 12px 0 0;">
-          <div style="font-size:22px;font-weight:700;line-height:1.3;">GetTrainMate — Growth report</div>
+          <div style="font-size:22px;font-weight:700;line-height:1.3;">GetTrainMate — Customer Acquisition Report</div>
           <div style="font-size:14px;opacity:0.9;margin-top:6px;">${escapeHtml(et.dateStr)} ${escapeHtml(et.timeStr)}</div>
           <div style="font-size:14px;opacity:0.9;margin-top:4px;">Report generated: ${escapeHtml(et.monthDayYear)} · GA4 data through: ${escapeHtml(formatMonthDayYearFromYmd(ga4Through))}</div>
           <div style="margin-top:14px;line-height:1.8;">${links}</div>
@@ -1122,11 +1148,15 @@ export function composeGrowthEmailBody({
       </table>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;border:1px solid #e2e8f0;border-radius:8px;border-collapse:separate;">
         <tr><td style="padding:14px 16px;">
-          <div style="font-size:17px;font-weight:700;">EXP-002 — Atlanta partner hub and invite-code acquisition <span style="font-size:13px;color:#0369a1;font-weight:600;">(Acquisition Opportunity)</span></div>
+          <div style="font-size:17px;font-weight:700;">Customer Acquisition CRM <span style="font-size:13px;color:#0369a1;font-weight:600;">(EXP-002)</span></div>
           <div style="margin-top:10px;font-size:15px;line-height:1.5;color:#334155;">
-            <div><b>Evaluation:</b> ${escapeHtml(EXP002.evaluationWeekday)} (${escapeHtml(EXP002.evaluationDate)})</div>
-            <div><b>Status:</b> ACQUISITION_OPPORTUNITY (5 drafts prepared; awaiting owner approval to send; not completed)</div>
-            <div><b>Drafts prepared:</b> ${escapeHtml(exp002.draftsPrepared)} (approved in CRM: ${escapeHtml(exp002.recipientsApproved)}, sent: ${escapeHtml(exp002.emailsSent)})</div>
+            <div><b>CRM source:</b> ${escapeHtml(exp002.status)} · emergency pause ${exp002.pauseAllOutreach ? 'ON' : 'off'}</div>
+            <div><b>Discovery:</b> prospects ${escapeHtml(exp002.discoveryNew)}, contacts ${escapeHtml(exp002.contactsFound)}, needed ${escapeHtml(exp002.contactNeeded)}, drafts ${escapeHtml(exp002.draftsCreated)}</div>
+            <div><b>Outreach:</b> awaiting approval ${escapeHtml(exp002.awaitingApproval)}, approved for next send ${escapeHtml(exp002.recipientsApproved)}, sent ${escapeHtml(exp002.emailsSent)}</div>
+            <div><b>Engagement:</b> replies ${escapeHtml(exp002.partnerResponses)}, interested ${escapeHtml(exp002.interested)}, partners ${escapeHtml(exp002.partners)}</div>
+            <div><b>Customers:</b> signups ${escapeHtml(exp002.partnerSignups)}, paid ${escapeHtml(exp002.customersAcquired)}, revenue_cents ${escapeHtml(exp002.revenueAttributedCents)}</div>
+            <div style="margin-top:8px;"><b>Owner action:</b> ${escapeHtml(exp002.ownerAction)}</div>
+            <div><a href="${escapeHtml(exp002.approvalsAdminUrl)}" style="color:#0369a1;">Open Approvals → APPROVE &amp; SEND</a></div>
           </div>
         </td></tr>
       </table>
@@ -1139,10 +1169,10 @@ export function composeGrowthEmailBody({
         <b>Primary Acquisition Action:</b> ${escapeHtml(sb.nextAction)}
       </div>
       <ol style="margin:0 0 18px;padding-left:22px;font-size:15px;line-height:1.55;">
-        <li style="margin:0 0 8px;">EXP-002: Review the 5 prepared Atlanta TRAIN partner outreach drafts in Admin CRM when ready to distribute. <span style="color:#64748b;">(acquisition opportunity)</span></li>
+        <li style="margin:0 0 8px;">Customer Acquisition: ${escapeHtml(exp002.ownerAction)} <span style="color:#64748b;">(needs Max)</span></li>
         <li style="margin:0 0 8px;">If Metro CRM is unavailable, configure GROWTH_METRO_READ_TOKEN. <span style="color:#64748b;">(needs Max)</span></li>
         <li style="margin:0 0 8px;">If Facebook/Instagram Published=NO: store Meta credentials in /gettrainmate/growth/* and retry publish-owned-social.mjs. <span style="color:#64748b;">(automatic)</span></li>
-        <li style="margin:0 0 8px;">Partner email stays paused until a verified public recipient is approved. Never invent inboxes. <span style="color:#64748b;">(needs Max)</span></li>
+        <li style="margin:0 0 8px;">Initial outreach sends only via Approvals → APPROVE &amp; SEND (or approved-for-next-send queue). Never invent inboxes. <span style="color:#64748b;">(needs Max)</span></li>
         <li style="margin:0 0 8px;">Concentrate the next owned-social rotation on the highest-ranked metro/mode pocket. <span style="color:#64748b;">(automatic)</span></li>
       </ol>
       <h2 style="${H2}">Production Health</h2>

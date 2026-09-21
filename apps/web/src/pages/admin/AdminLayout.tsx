@@ -48,7 +48,7 @@ const menuItems = [
   { path: '/admin/stripe', label: 'Stripe / Payments', icon: <PaymentIcon /> },
   { path: '/admin/credit-packs', label: 'Credit Packs', icon: <PaymentIcon /> },
   { path: '/admin/contacts', label: 'Contacts CRM', icon: <ContactsIcon /> },
-  { path: '/admin/partner-outreach', label: 'Partner Outreach', icon: <CampaignIcon /> },
+  { path: '/admin/partner-outreach', label: 'Customer Acquisition', icon: <CampaignIcon /> },
   { path: '/admin/audit', label: 'Audit Logs', icon: <AssessmentIcon /> },
 ];
 

@@ -1,5 +1,6 @@
 /**
- * Partner outreach copy + MIME (UTF-8 quoted-printable).
+ * Customer acquisition outreach copy + MIME (UTF-8 quoted-printable).
+ * Brand-led only — never personal founder identity or partnership pitch.
  * Never sends mail.
  */
 import { createHash } from 'node:crypto';
@@ -7,8 +8,8 @@ import { decodeQuotedPrintable, encodeQuotedPrintable } from './mime-qp.mjs';
 
 export { decodeQuotedPrintable };
 
-export const TEMPLATE_VERSION = 'partner-v2-2026-08-14';
-export const DEFAULT_FROM_NAME = 'Max from GetTrainMate';
+export const TEMPLATE_VERSION = 'partner-v5-2026-09-21';
+export const DEFAULT_FROM_NAME = 'GetTrainMate';
 export const DEFAULT_FROM_EMAIL = 'partners@gettrainmate.com';
 export const DEFAULT_REPLY_TO = 'partners@gettrainmate.com';
 export const MOJIBAKE_MARKERS = ['Â', 'â€™', 'â€œ', 'â€', 'â†’'];
@@ -53,39 +54,63 @@ export function messageFingerprint({ to, subject, text, templateVersion }) {
     .digest('hex');
 }
 
+export function containsObsoleteOutreachCopy(...parts) {
+  const hay = parts.map((p) => String(p ?? '')).join('\n');
+  const markers = [
+    "I'm Max",
+    'I’m Max',
+    'Founder, GetTrainMate',
+    'founder of GetTrainMate',
+    'Max from GetTrainMate',
+    'Partner code',
+    'already have a partnership',
+    'Unsubscribe from partnership emails',
+    'partner member lists'
+  ];
+  if (markers.some((m) => hay.toLowerCase().includes(m.toLowerCase()))) return true;
+  return /^Thanks,?\s*\nMax\b/im.test(hay);
+}
+
+/**
+ * Brand-led acquisition copy. partnerCode is accepted for API compat but never rendered.
+ */
 export function renderPartnerCopy({
   organizationName,
   partnerUrl,
   partnerCode,
-  activity = 'pickleball'
+  activity = 'pickleball',
+  market = 'your area',
+  unsubscribeUrl = 'https://gettrainmate.com/email/unsubscribe',
+  postalAddress = ''
 }) {
   const org = String(organizationName || '').trim();
   const url = String(partnerUrl || '').trim();
-  const code = String(partnerCode || '').trim();
-  const act = String(activity || 'pickleball').trim();
-  if (!org || !url || !code) throw new Error('organizationName, partnerUrl, and partnerCode are required');
+  const marketLabel = String(market || 'your area').trim() || 'your area';
+  const unsub = String(unsubscribeUrl || '').trim();
+  const postal = String(postalAddress || '').trim();
+  void partnerCode;
+  void activity;
+  if (!org || !url) throw new Error('organizationName and partnerUrl are required');
 
-  const subject = `Help ${org} members find local ${act} partners`;
+  const subject = `Help ${org} members find local training partners`;
   const text = `Hi ${org} team,
 
-I\u2019m Max, the founder of GetTrainMate, a platform that helps people find local partners for workouts, running, pickleball, and other activities.
+GetTrainMate helps people connect through workouts, sports and real-world activities — from gym training and running to pickleball, tennis and more.
 
-I created a dedicated invitation page for your community:
+We're introducing GetTrainMate to fitness communities in ${marketLabel}, and thought it could be useful for ${org}.
+
+You can try GetTrainMate yourself or share this invitation with your members:
 
 ${url}
 
-Partner code: ${code}
+There is no cost to share it and no integration required.
 
-There is no cost for your organization. This invitation does not mean we already have a partnership. If you think it would be useful, would you be open to sharing the invitation with members looking for additional local ${act} partners?
-
-I\u2019m happy to answer any questions.
-
-Thanks,
-Max
-Founder, GetTrainMate
+GetTrainMate
 https://gettrainmate.com/
 
-GetTrainMate does not sell partner member lists, and participation does not guarantee a match.`;
+GetTrainMate does not sell member lists, and participation does not guarantee a match.
+Unsubscribe: ${unsub}
+${postal}`.trimEnd();
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -98,30 +123,27 @@ GetTrainMate does not sell partner member lists, and participation does not guar
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;">
     <tr>
       <td align="center" style="padding:24px 12px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
           <tr>
             <td style="padding:20px 24px;background:#0f172a;color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
               <div style="font-size:20px;font-weight:700;letter-spacing:0.02em;">GetTrainMate</div>
-              <div style="font-size:13px;opacity:0.85;margin-top:4px;">Local training partners</div>
+              <div style="font-size:13px;opacity:0.85;margin-top:4px;">${escapeHtml(marketLabel)}</div>
             </td>
           </tr>
           <tr>
-            <td style="padding:28px 24px 8px;font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:16px;line-height:1.6;">
+            <td style="padding:28px 24px;font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:16px;line-height:1.6;">
               <p style="margin:0 0 16px;">Hi ${escapeHtml(org)} team,</p>
-              <p style="margin:0 0 16px;">I\u2019m Max, the founder of GetTrainMate, a platform that helps people find local partners for workouts, running, pickleball, and other activities.</p>
-              <p style="margin:0 0 16px;">I created a dedicated invitation page for your community.</p>
+              <p style="margin:0 0 16px;">GetTrainMate helps people connect through workouts, sports and real-world activities — from gym training and running to pickleball, tennis and more.</p>
+              <p style="margin:0 0 16px;">We're introducing GetTrainMate to fitness communities in ${escapeHtml(marketLabel)}, and thought it could be useful for ${escapeHtml(org)}.</p>
+              <p style="margin:0 0 16px;">You can try GetTrainMate yourself or share this invitation with your members:</p>
               <p style="margin:0 0 20px;text-align:center;">
-                <a href="${escapeHtml(url)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:700;">Open invitation page</a>
+                <a href="${escapeHtml(url)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:700;">Explore GetTrainMate</a>
               </p>
-              <p style="margin:0 0 8px;font-size:14px;color:#374151;">Partner code: <strong>${escapeHtml(code)}</strong></p>
               <p style="margin:0 0 16px;font-size:13px;color:#6b7280;word-break:break-all;">${escapeHtml(url)}</p>
-              <p style="margin:0 0 16px;">There is no cost for your organization. If you think it would be useful, would you be open to sharing the invitation with members looking for additional local ${escapeHtml(act)} partners?</p>
-              <p style="margin:0 0 24px;">I\u2019m happy to answer any questions.</p>
-              <p style="margin:0 0 4px;">Thanks,</p>
-              <p style="margin:0 0 2px;"><strong>Max</strong></p>
-              <p style="margin:0 0 2px;font-size:14px;color:#374151;">Founder, GetTrainMate</p>
+              <p style="margin:0 0 16px;">There is no cost to share it and no integration required.</p>
+              <p style="margin:0 0 4px;"><strong>GetTrainMate</strong></p>
               <p style="margin:0 0 24px;font-size:14px;"><a href="https://gettrainmate.com/" style="color:#0f172a;">https://gettrainmate.com/</a></p>
-              <p style="margin:0;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280;">GetTrainMate does not sell partner member lists, and participation does not guarantee a match.</p>
+              <p style="margin:0;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280;">GetTrainMate does not sell member lists, and participation does not guarantee a match.<br><a href="${escapeHtml(unsub)}">Unsubscribe</a><br>${escapeHtml(postal)}</p>
             </td>
           </tr>
         </table>
@@ -134,6 +156,9 @@ GetTrainMate does not sell partner member lists, and participation does not guar
   assertNoMojibake(subject, 'subject');
   assertNoMojibake(text, 'text');
   assertNoMojibake(html, 'html');
+  if (containsObsoleteOutreachCopy(subject, text, html)) {
+    throw new Error('Obsolete personal/partnership outreach copy detected');
+  }
   if (/TRAIN-mode|not dating-first|We don.t sell member data/i.test(text)) {
     throw new Error('Forbidden opening-pitch language');
   }
@@ -167,6 +192,9 @@ export async function buildPartnerMime({
   assertNoMojibake(subject, 'subject');
   assertNoMojibake(text, 'text');
   assertNoMojibake(html, 'html');
+  if (containsObsoleteOutreachCopy(subject, text, html)) {
+    throw new Error('Obsolete personal/partnership outreach copy blocked');
+  }
 
   const boundary = `gtm${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
   const fromHeader = `${fromName} <${fromEmail}>`;
@@ -219,9 +247,6 @@ export async function buildPartnerMime({
     throw new Error('MIME missing CRLF');
   }
   assertNoMojibake(rawStr, 'raw-mime');
-  if (!rawStr.includes('=E2=80=99') && text.includes('\u2019')) {
-    throw new Error('UTF-8 apostrophe was not quoted-printable encoded');
-  }
   return Buffer.from(rawStr, 'utf8');
 }
 

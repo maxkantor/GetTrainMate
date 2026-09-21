@@ -40,10 +40,13 @@ function sampleCopy() {
 }
 
 describe('partner email UTF-8 / MIME', () => {
-  it('keeps UTF-8 apostrophes and rejects mojibake markers', async () => {
+  it('keeps brand-led copy without personal Max identity', async () => {
     const copy = sampleCopy();
-    assert.match(copy.text, /I\u2019m Max/);
-    assert.match(copy.subject, /Help Example Pickleball Club members find local pickleball partners/);
+    assert.match(copy.text, /GetTrainMate helps people connect/);
+    assert.match(copy.subject, /Help Example Pickleball Club members find local training partners/);
+    assert.doesNotMatch(copy.text, /I[\u2019']m Max|Founder, GetTrainMate|Partner code|partnership/i);
+    assert.doesNotMatch(copy.html, /I[\u2019']m Max|Founder, GetTrainMate|Partner code/i);
+    assert.match(copy.html, /Explore GetTrainMate/);
     assert.doesNotMatch(copy.text, /TRAIN-mode|not dating-first|Reply to this email/);
     assertNoMojibake(copy.html);
     for (const m of MOJIBAKE_MARKERS) assert.equal(copy.html.includes(m), false);
@@ -60,10 +63,12 @@ describe('partner email UTF-8 / MIME', () => {
     assert.match(raw, /Content-Type:\s*text\/html;\s*charset=UTF-8/i);
     assert.match(raw, /Content-Transfer-Encoding:\s*quoted-printable/i);
     assert.match(raw, /^Reply-To:.*partners@gettrainmate.com/mi);
+    assert.match(raw, /^From: GetTrainMate </mi);
     assert.match(raw, /\r\n/);
     assertNoMojibake(raw, 'raw');
     const decoded = decodeQuotedPrintable(raw);
-    assert.match(decoded, /I\u2019m Max/);
+    assert.match(decoded, /GetTrainMate helps people connect/);
+    assert.doesNotMatch(decoded, /I[\u2019']m Max|Founder, GetTrainMate/);
     assert.doesNotMatch(decoded, /Weâ€™re|donâ€™t|Â/);
   });
 
@@ -81,9 +86,9 @@ describe('partner email UTF-8 / MIME', () => {
 
   it('includes mobile-friendly markup', () => {
     const copy = sampleCopy();
-    assert.match(copy.html, /max-width:560px/);
+    assert.match(copy.html, /max-width:600px/);
     assert.match(copy.html, /viewport/);
-    assert.match(copy.html, /Open invitation page/);
+    assert.match(copy.html, /Explore GetTrainMate/);
     assert.doesNotMatch(copy.html, /fonts\.google|tracking\.gif|pixel/i);
   });
 });
@@ -391,12 +396,37 @@ describe('growth report experiments and technical details', () => {
           }
         },
         partnerOutreach: {
+          status: 'ok',
           partnerPagesCreated: 10,
           inviteCodesCreated: 10,
           draftsPrepared: 9,
           recipientsApproved: 0,
           emailsSent: 0,
-          delivered: 'Unknown'
+          delivered: 'Unknown',
+          partnerResponses: 0,
+          partnerAttributedVisits: 'Unavailable',
+          partnerAttributedSignups: 0,
+          customersAcquired: 0,
+          revenueAttributedCents: 0,
+          ownerAction: '9 messages need approval. Open Admin → Customer Acquisition → Approvals → APPROVE & SEND.',
+          approvalsAdminUrl: 'https://gettrainmate.com/admin/partner-outreach',
+          settings: { outreachMode: 'off', pauseAllOutreach: false, sendEnabled: false },
+          northStars: { customersAcquired: 0, activeUsersAcquired: 0, revenueAttributedCents: 0, referralSignups: 0 },
+          funnel: {
+            discovered: 10,
+            qualified: 8,
+            contactNeeded: 2,
+            drafts: 9,
+            awaitingApproval: 9,
+            approved: 0,
+            scheduled: 0,
+            sent: 0,
+            contacted: 0,
+            replied: 0,
+            interested: 0,
+            partners: 0
+          },
+          discovery: { verifiedPublicContacts: 5, draftsGenerated: 9 }
         }
       },
       health: { ok: true, checks: [{ name: 'homepage', ok: true }] },
@@ -422,7 +452,9 @@ describe('growth report experiments and technical details', () => {
     });
 
     assert.match(text, /EXP-001 — Atlanta training-partners landing page/);
-    assert.match(text, /EXP-002 — Atlanta partner hub and invite-code acquisition/);
+    assert.match(text, /EXP-002 — Customer Acquisition \/ invite-code/);
+    assert.match(text, /Customer Acquisition \(live CRM\)/);
+    assert.match(text, /OWNER ACTION:/);
     assert.match(text, /Original evaluation date: Sunday, August 16, 2026 \(2026-08-16\)/);
     assert.match(text, /Actual evaluation date: Monday, August 17, 2026 \(2026-08-17\)/);
     assert.match(text, /Decision: KEEP \(treatment unchanged\)/);
@@ -436,10 +468,13 @@ describe('growth report experiments and technical details', () => {
     assert.match(text, /Cause: GROWTH_METRO_READ_TOKEN is not configured/);
     assert.match(text, /HTTP status: 503 Configuration unavailable/);
     assert.match(text, /Customer data exposed: No/);
-    assert.match(text, /Drafts prepared: 9/);
+    assert.match(text, /drafts=9|awaiting_approval=9/);
+    assert.match(text, /9 messages need approval/);
     assert.match(text, /Unattributed payments: 1/);
     assert.match(html, /EXP-001 — Atlanta training-partners landing page/);
-    assert.match(html, /EXP-002 — Atlanta partner hub and invite-code acquisition/);
+    assert.match(html, /Customer Acquisition CRM/);
+    assert.match(html, /EXP-002/);
+    assert.match(html, /Open Approvals → APPROVE/);
     assert.doesNotMatch(text, /Truth rule: Only GetTrainMate-attributed Stripe payments count as revenue[\s\S]*Truth rule:/);
     assert.doesNotMatch(html, /Never include credentials[\s\S]*Never include credentials/);
     assert.match(text, /\$0\.00/);
@@ -454,7 +489,7 @@ describe('growth report experiments and technical details', () => {
     assert.match(text, /facebook\.com\/gettrainmate/);
     assert.match(html, /<h2[^>]*>Decision<\/h2>/);
     assert.match(html, /New customers acquired by the current run|Customers this run/);
-    assert.match(html, /GetTrainMate — Growth report/);
+    assert.match(html, /GetTrainMate — Customer Acquisition Report/);
     assert.match(html, /America\/New_York/);
     assert.doesNotMatch(text, /APPROVED IG-2026-08-17/);
     assert.doesNotMatch(html, /Looking for a consistent training partner in Atlanta/);

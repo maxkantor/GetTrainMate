@@ -49,11 +49,55 @@ public class PartnerOutreachInternalController : ControllerBase
         return Ok(new { ok = true });
     }
 
+    /// <summary>Growth script: limited discovery using settings caps (ProspectsPerRun etc).</summary>
     [HttpPost("discover")]
-    public async Task<IActionResult> DiscoverScheduled()
+    public async Task<IActionResult> DiscoverScheduled([FromBody] InternalDiscoverRequest? req)
     {
         if (!Authorized()) return Unauthorized();
-        return Ok(await _discovery.RunAsync(prepareDrafts: true));
+        var settingsObj = await _svc.GetOutreachSettingsAsync();
+        var type = settingsObj.GetType();
+        int ReadInt(string name, int fallback)
+        {
+            var v = type.GetProperty(name)?.GetValue(settingsObj);
+            return v is int i && i > 0 ? i : fallback;
+        }
+
+        var maxProspects = req?.MaxProspects ?? ReadInt("ProspectsPerRun", 8);
+        var maxResearch = req?.MaxResearchAttempts ?? ReadInt("ResearchAttemptsPerRun", 15);
+        var maxDrafts = req?.MaxDrafts ?? ReadInt("DraftsPerRun", 5);
+        var maxContactResearch = req?.MaxContactResearch ?? ReadInt("ResearchContactsPerRun", 10);
+
+        var report = await _discovery.RunLimitedAsync(
+            maxProspects,
+            maxResearch,
+            maxDrafts,
+            req?.OnlyCampaignId,
+            req?.SeedsOnly ?? false,
+            req?.PrepareDrafts ?? true);
+
+        object? contactResearch = null;
+        try
+        {
+            contactResearch = await _svc.ResearchContactNeededBatchAsync(maxContactResearch, "internal_discover");
+        }
+        catch (Exception)
+        {
+            // Discovery report still returned even if contact research batch fails
+        }
+
+        return Ok(new { discovery = report, contactResearch });
+    }
+
+    [HttpGet("metrics")]
+    public async Task<IActionResult> Metrics()
+    {
+        if (!Authorized()) return Unauthorized();
+        return Ok(new
+        {
+            metrics = await _svc.MetricsAsync(),
+            dashboard = await _svc.AcquisitionDashboardAsync(),
+            settings = await _svc.GetOutreachSettingsAsync(),
+        });
     }
 
     [HttpPost("dispatch")]
@@ -61,6 +105,17 @@ public class PartnerOutreachInternalController : ControllerBase
     {
         if (!Authorized()) return Unauthorized();
         return Ok(await _svc.DispatchDueAsync(scheduledCursorAutomation: false));
+    }
+
+    [HttpPost("research/contact-needed")]
+    public async Task<IActionResult> ResearchContactNeeded([FromBody] InternalResearchContactRequest? req)
+    {
+        if (!Authorized()) return Unauthorized();
+        var settingsObj = await _svc.GetOutreachSettingsAsync();
+        var prop = settingsObj.GetType().GetProperty("ResearchContactsPerRun");
+        var fallback = prop?.GetValue(settingsObj) is int i && i > 0 ? i : 10;
+        var max = req?.Max is > 0 ? req.Max.Value : fallback;
+        return Ok(await _svc.ResearchContactNeededBatchAsync(max, "internal"));
     }
 }
 
@@ -74,4 +129,20 @@ public class SesEventPayload
 {
     public string InternalMessageId { get; set; } = "";
     public string EventType { get; set; } = "";
+}
+
+public class InternalDiscoverRequest
+{
+    public bool PrepareDrafts { get; set; } = true;
+    public bool SeedsOnly { get; set; }
+    public string? OnlyCampaignId { get; set; }
+    public int? MaxProspects { get; set; }
+    public int? MaxResearchAttempts { get; set; }
+    public int? MaxDrafts { get; set; }
+    public int? MaxContactResearch { get; set; }
+}
+
+public class InternalResearchContactRequest
+{
+    public int? Max { get; set; }
 }

@@ -216,7 +216,7 @@ describe('growth report positioning', () => {
     assert.doesNotMatch(text, /Atlanta TRAIN profiles: see Metro CRM/);
     assert.doesNotMatch(text, /APPROVED IG-2026-08-17/);
     assert.doesNotMatch(html, /Atlanta TRAIN profiles/);
-    assert.match(html, /GetTrainMate — Growth report/);
+    assert.match(html, /GetTrainMate — Customer Acquisition Report/);
     assert.match(html, /<h2[^>]*>GetTrainMate — Today<\/h2>/);
     assert.match(html, /<h2[^>]*>Meta authentication<\/h2>/);
     assert.match(html, /America\/New_York/);
