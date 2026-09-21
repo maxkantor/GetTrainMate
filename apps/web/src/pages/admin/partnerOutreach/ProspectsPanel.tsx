@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
+  Checkbox,
   Divider,
   Drawer,
   FormControl,
@@ -18,27 +19,76 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { PanelSharedProps, PartnerCampaign, PartnerProspect, PartnerQueueItem, ProspectFilters } from './types';
+import type { PanelSharedProps, PartnerProspect, PartnerQueueItem, ProspectFilters } from './types';
 import {
   API,
   EmptyState,
   PanelSkeleton,
+  ScoreBar,
   StatusChip,
   asArray,
-  formatCents,
-  formatDate,
+  formatContactability,
+  formatLifecycle,
+  formatNextAction,
+  formatProspectType,
+  formatResultsCompact,
   hasEmail,
   marketLabel,
+  needsContactResearch,
   parseTimeline,
   previewText,
   prospectScore,
   queueForProspect,
+  formatDate,
 } from './components';
 import { adminApiService } from '@/services/adminApiService';
 
 interface Props extends PanelSharedProps {
   initialFilters?: ProspectFilters;
 }
+
+const stickyProspectSx = {
+  position: 'sticky' as const,
+  left: 40,
+  zIndex: 2,
+  bgcolor: 'background.paper',
+  minWidth: 160,
+  maxWidth: 220,
+};
+
+const stickyProspectHeadSx = {
+  ...stickyProspectSx,
+  zIndex: 3,
+  fontWeight: 700,
+};
+
+const stickyActionsSx = {
+  position: 'sticky' as const,
+  right: 0,
+  zIndex: 2,
+  bgcolor: 'background.paper',
+  minWidth: 150,
+};
+
+const stickyActionsHeadSx = {
+  ...stickyActionsSx,
+  zIndex: 3,
+  fontWeight: 700,
+};
+
+const stickyCheckSx = {
+  position: 'sticky' as const,
+  left: 0,
+  zIndex: 2,
+  bgcolor: 'background.paper',
+  width: 40,
+  px: 0.5,
+};
+
+const stickyCheckHeadSx = {
+  ...stickyCheckSx,
+  zIndex: 3,
+};
 
 export const ProspectsPanel: React.FC<Props> = ({
   onError,
@@ -49,9 +99,10 @@ export const ProspectsPanel: React.FC<Props> = ({
 }) => {
   const [prospects, setProspects] = useState<PartnerProspect[]>([]);
   const [queue, setQueue] = useState<PartnerQueueItem[]>([]);
-  const [campaigns, setCampaigns] = useState<PartnerCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<PartnerProspect | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
   const [filters, setFilters] = useState<ProspectFilters>({
     contactAvailable: 'any',
     ...initialFilters,
@@ -69,14 +120,12 @@ export const ProspectsPanel: React.FC<Props> = ({
     setLoading(true);
     onError(null);
     try {
-      const [p, q, c] = await Promise.all([
+      const [p, q] = await Promise.all([
         adminApiService.get(`${API}/prospects`),
         adminApiService.get(`${API}/queue`),
-        adminApiService.get(`${API}/campaigns`),
       ]);
       setProspects(asArray<PartnerProspect>(p));
       setQueue(asArray<PartnerQueueItem>(q));
-      setCampaigns(asArray<PartnerCampaign>(c));
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : 'Failed to load prospects');
     } finally {
@@ -87,12 +136,6 @@ export const ProspectsPanel: React.FC<Props> = ({
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
-
-  const campaignMap = useMemo(() => {
-    const m = new Map<string, PartnerCampaign>();
-    for (const c of campaigns) m.set(c.campaignId, c);
-    return m;
-  }, [campaigns]);
 
   const markets = useMemo(() => {
     const set = new Set<string>();
@@ -123,7 +166,7 @@ export const ProspectsPanel: React.FC<Props> = ({
         if (cat !== filters.category.toLowerCase()) return false;
       }
       if (filters.prospectType && filters.prospectType !== 'any') {
-        const t = (p.prospectType || 'organization').toLowerCase();
+        const t = (p.prospectKind || p.prospectType || p.organizationType || 'organization').toLowerCase();
         if (t !== filters.prospectType.toLowerCase()) return false;
       }
       if (filters.scoreMin != null && filters.scoreMin > 0) {
@@ -131,18 +174,15 @@ export const ProspectsPanel: React.FC<Props> = ({
       }
       if (filters.contactAvailable === 'available' && !hasEmail(p)) return false;
       if (filters.contactAvailable === 'needed') {
-        const needed =
-          p.contactState === 'CONTACT_NEEDED' ||
-          p.status === 'no_verified_public_email' ||
-          !hasEmail(p);
-        if (!needed) return false;
+        if (!needsContactResearch(p)) return false;
       }
       if (filters.lifecycle) {
         const life = (p.crmLifecycle || '').toUpperCase();
         if (life !== filters.lifecycle.toUpperCase()) return false;
       }
       if (filters.contactState) {
-        if ((p.contactState || '').toUpperCase() !== filters.contactState.toUpperCase()) return false;
+        const state = (p.contactabilityState || p.contactState || '').toUpperCase();
+        if (state !== filters.contactState.toUpperCase()) return false;
       }
       if (filters.search) {
         const q = filters.search.toLowerCase();
@@ -158,6 +198,13 @@ export const ProspectsPanel: React.FC<Props> = ({
 
   const applySearch = () => setFilters((f) => ({ ...f, search: searchInput.trim() }));
 
+  const refreshSelected = async (prospectId: string) => {
+    const refreshed = asArray<PartnerProspect>(await adminApiService.get(`${API}/prospects`));
+    setProspects(refreshed);
+    const next = refreshed.find((x) => x.prospectId === prospectId) || null;
+    setSelected(next);
+  };
+
   const act = async (label: string, fn: () => Promise<unknown>) => {
     onError(null);
     try {
@@ -165,13 +212,61 @@ export const ProspectsPanel: React.FC<Props> = ({
       onNotice(label);
       requestRefresh();
       await load();
-      if (selected) {
-        const refreshed = asArray<PartnerProspect>(await adminApiService.get(`${API}/prospects`));
-        const next = refreshed.find((x) => x.prospectId === selected.prospectId) || null;
-        setSelected(next);
-      }
+      if (selected) await refreshSelected(selected.prospectId);
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : 'Action failed');
+    }
+  };
+
+  const toggleId = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(filtered.map((p) => p.prospectId)));
+  };
+
+  const researchOne = async (p: PartnerProspect) => {
+    setBusy(true);
+    onError(null);
+    try {
+      await adminApiService.post(`${API}/prospects/${encodeURIComponent(p.prospectId)}/research-contact`, {});
+      onNotice(`Researched contact for ${p.organizationName || p.prospectId}`);
+      requestRefresh();
+      await load();
+      if (selected?.prospectId === p.prospectId) await refreshSelected(p.prospectId);
+    } catch (e: unknown) {
+      onError(e instanceof Error ? e.message : 'Contact research failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const researchBulk = async () => {
+    if (selectedIds.size === 0) return;
+    setBusy(true);
+    onError(null);
+    try {
+      await adminApiService.post(`${API}/prospects/research-contacts`, {
+        prospectIds: [...selectedIds],
+      });
+      onNotice(`Research contacts started for ${selectedIds.size} prospect(s)`);
+      setSelectedIds(new Set());
+      requestRefresh();
+      await load();
+    } catch (e: unknown) {
+      onError(e instanceof Error ? e.message : 'Bulk contact research failed');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -179,6 +274,8 @@ export const ProspectsPanel: React.FC<Props> = ({
 
   const drawerQueue = selected ? queueForProspect(queue, selected.prospectId) : [];
   const timeline = selected ? parseTimeline(selected.timelineJson) : [];
+  const strategic = selected?.strategicScore ?? selected?.historicalCategoryScore;
+  const contactabilityLabel = selected ? formatContactability(selected) : '';
 
   return (
     <Box>
@@ -219,7 +316,7 @@ export const ProspectsPanel: React.FC<Props> = ({
             <MenuItem value="">All</MenuItem>
             {categories.map((c) => (
               <MenuItem key={c} value={c}>
-                {c}
+                {formatProspectType(c)}
               </MenuItem>
             ))}
           </Select>
@@ -232,6 +329,16 @@ export const ProspectsPanel: React.FC<Props> = ({
             onChange={(e) => setFilters((f) => ({ ...f, prospectType: e.target.value }))}
           >
             <MenuItem value="any">Any</MenuItem>
+            <MenuItem value="GYM">Gym</MenuItem>
+            <MenuItem value="STUDIO">Studio</MenuItem>
+            <MenuItem value="SPORTS_CLUB">Sports club</MenuItem>
+            <MenuItem value="RUN_CLUB">Running club</MenuItem>
+            <MenuItem value="REC_LEAGUE">Rec league</MenuItem>
+            <MenuItem value="COACH">Coach</MenuItem>
+            <MenuItem value="TRAINER">Trainer</MenuItem>
+            <MenuItem value="CREATOR">Creator</MenuItem>
+            <MenuItem value="COMMUNITY">Community</MenuItem>
+            <MenuItem value="EVENT_ORGANIZER">Event organizer</MenuItem>
             <MenuItem value="organization">Organization</MenuItem>
             <MenuItem value="individual">Individual</MenuItem>
           </Select>
@@ -263,7 +370,7 @@ export const ProspectsPanel: React.FC<Props> = ({
             <MenuItem value="">All</MenuItem>
             {['NEW', 'QUALIFIED', 'CONTACTED', 'FOLLOW_UP', 'REPLIED', 'INTERESTED', 'PARTNER', 'CLOSED'].map((l) => (
               <MenuItem key={l} value={l}>
-                {l}
+                {formatLifecycle(l)}
               </MenuItem>
             ))}
           </Select>
@@ -281,109 +388,137 @@ export const ProspectsPanel: React.FC<Props> = ({
           }
           sx={{ width: 110 }}
         />
+        <Box sx={{ flex: 1 }} />
+        <Button size="small" onClick={toggleAll} disabled={filtered.length === 0}>
+          {selectedIds.size === filtered.length && filtered.length > 0 ? 'Clear selection' : 'Select all'}
+        </Button>
+        <Button
+          size="small"
+          variant="contained"
+          disabled={selectedIds.size === 0 || busy}
+          onClick={() => void researchBulk()}
+        >
+          Research contacts ({selectedIds.size})
+        </Button>
       </Stack>
 
       {filtered.length === 0 ? (
         <EmptyState title="No prospects match" detail="Adjust filters or run discovery from Acquisition." />
       ) : (
-        <TableContainer sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, maxHeight: '70vh' }}>
-          <Table stickyHeader size="small">
+        <TableContainer
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            maxHeight: '70vh',
+            overflowX: 'auto',
+          }}
+        >
+          <Table stickyHeader size="small" sx={{ tableLayout: 'fixed', minWidth: 960 }}>
             <TableHead>
               <TableRow>
-                {[
-                  'Organization / Person',
-                  'Type',
-                  'Market',
-                  'Category',
-                  'Website',
-                  'Contact',
-                  'Email',
-                  'Verification',
-                  'Score',
-                  'Lifecycle',
-                  'Campaign',
-                  'Last Contact',
-                  'Next Action',
-                  'Referral Users',
-                  'Customers',
-                  'Revenue',
-                  'Actions',
-                ].map((h) => (
-                  <TableCell key={h} sx={{ whiteSpace: 'nowrap', fontWeight: 700 }}>
-                    {h}
-                  </TableCell>
-                ))}
+                <TableCell padding="checkbox" sx={stickyCheckHeadSx}>
+                  <Checkbox
+                    size="small"
+                    checked={selectedIds.size === filtered.length && filtered.length > 0}
+                    indeterminate={selectedIds.size > 0 && selectedIds.size < filtered.length}
+                    onChange={toggleAll}
+                  />
+                </TableCell>
+                <TableCell sx={stickyProspectHeadSx}>Prospect</TableCell>
+                <TableCell sx={{ fontWeight: 700, width: 110 }}>Type</TableCell>
+                <TableCell sx={{ fontWeight: 700, width: 130 }}>Market</TableCell>
+                <TableCell sx={{ fontWeight: 700, width: 64 }}>Score</TableCell>
+                <TableCell sx={{ fontWeight: 700, width: 130 }}>Contact</TableCell>
+                <TableCell sx={{ fontWeight: 700, width: 100 }}>Lifecycle</TableCell>
+                <TableCell sx={{ fontWeight: 700, width: 140 }}>Next Action</TableCell>
+                <TableCell sx={{ fontWeight: 700, width: 120 }}>Results</TableCell>
+                <TableCell sx={stickyActionsHeadSx}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filtered.map((p) => {
-                const camp = p.campaignId ? campaignMap.get(p.campaignId) : undefined;
                 const qItems = queueForProspect(queue, p.prospectId);
-                const next =
-                  qItems.find((q) => q.status === 'draft')
-                    ? 'Approve draft'
-                    : qItems.find((q) => q.status === 'scheduled')
-                      ? 'Follow-up due'
-                      : !hasEmail(p)
-                        ? 'Find contact'
-                        : p.crmLifecycle === 'REPLIED'
-                          ? 'Reply'
-                          : 'Review';
+                const next = formatNextAction(p, qItems);
+                const canDraft = hasEmail(p) && !qItems.some((q) => q.status === 'draft');
+                const canResearch = needsContactResearch(p);
                 return (
                   <TableRow
                     key={p.prospectId}
                     hover
+                    selected={selectedIds.has(p.prospectId)}
                     sx={{ cursor: 'pointer' }}
                     onClick={() => setSelected(p)}
                   >
-                    <TableCell>
-                      <Typography sx={{ fontWeight: 600 }}>{p.organizationName || '—'}</Typography>
+                    <TableCell
+                      padding="checkbox"
+                      sx={stickyCheckSx}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Checkbox
+                        size="small"
+                        checked={selectedIds.has(p.prospectId)}
+                        onChange={() => toggleId(p.prospectId)}
+                      />
+                    </TableCell>
+                    <TableCell sx={stickyProspectSx}>
+                      <Typography sx={{ fontWeight: 600, fontSize: 13, lineHeight: 1.3 }} noWrap>
+                        {p.organizationName || '—'}
+                      </Typography>
                       {p.contactName && (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" color="text.secondary" noWrap display="block">
                           {p.contactName}
                           {p.contactRole ? ` · ${p.contactRole}` : ''}
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell>{p.prospectType || 'organization'}</TableCell>
-                    <TableCell>{marketLabel(p)}</TableCell>
-                    <TableCell>{p.organizationType || p.activity || '—'}</TableCell>
-                    <TableCell>
-                      {p.website ? (
-                        <Button
-                          size="small"
-                          href={p.website}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Open
-                        </Button>
-                      ) : (
-                        '—'
+                    <TableCell sx={{ fontSize: 13 }}>{formatProspectType(p)}</TableCell>
+                    <TableCell sx={{ fontSize: 13 }}>{marketLabel(p)}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{prospectScore(p)}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>
+                      <Typography variant="body2" sx={{ fontSize: 12, lineHeight: 1.3 }}>
+                        {formatContactability(p)}
+                      </Typography>
+                      {hasEmail(p) && (
+                        <Typography variant="caption" color="text.secondary" noWrap display="block">
+                          {p.email}
+                        </Typography>
                       )}
                     </TableCell>
-                    <TableCell>{p.contactName || '—'}</TableCell>
-                    <TableCell sx={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {p.email || '—'}
-                    </TableCell>
                     <TableCell>
-                      <StatusChip label={p.emailVerificationStatus || (hasEmail(p) ? 'email' : 'needed')} />
+                      <StatusChip label={formatLifecycle(p.crmLifecycle || p.status)} color="info" />
                     </TableCell>
-                    <TableCell>{prospectScore(p)}</TableCell>
-                    <TableCell>
-                      <StatusChip label={p.crmLifecycle || p.status || '—'} color="info" />
+                    <TableCell sx={{ fontSize: 12 }}>{next}</TableCell>
+                    <TableCell sx={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, whiteSpace: 'nowrap' }}>
+                      {formatResultsCompact(p)}
                     </TableCell>
-                    <TableCell>{camp?.displayName || camp?.name || p.campaignId || '—'}</TableCell>
-                    <TableCell>{formatDate(p.lastContactedAt)}</TableCell>
-                    <TableCell>{next}</TableCell>
-                    <TableCell>{p.referralSignups ?? 0}</TableCell>
-                    <TableCell>{p.paidCustomers ?? 0}</TableCell>
-                    <TableCell>{formatCents(p.attributedRevenueCents)}</TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Button size="small" onClick={() => setSelected(p)}>
-                        Open
-                      </Button>
+                    <TableCell sx={stickyActionsSx} onClick={(e) => e.stopPropagation()}>
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                        {canResearch && (
+                          <Button size="small" disabled={busy} onClick={() => void researchOne(p)}>
+                            Research contact
+                          </Button>
+                        )}
+                        {canDraft && (
+                          <Button
+                            size="small"
+                            disabled={busy}
+                            onClick={() =>
+                              void act('Draft prepared', () =>
+                                adminApiService.post(`${API}/drafts`, {
+                                  prospectId: p.prospectId,
+                                  campaignId: p.campaignId,
+                                }),
+                              )
+                            }
+                          >
+                            Prepare draft
+                          </Button>
+                        )}
+                        <Button size="small" onClick={() => setSelected(p)}>
+                          Open
+                        </Button>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 );
@@ -393,36 +528,78 @@ export const ProspectsPanel: React.FC<Props> = ({
         </TableContainer>
       )}
 
-      <Drawer anchor="right" open={!!selected} onClose={() => setSelected(null)} PaperProps={{ sx: { width: { xs: '100%', sm: 440 } } }}>
+      <Drawer anchor="right" open={!!selected} onClose={() => setSelected(null)} PaperProps={{ sx: { width: { xs: '100%', sm: 460 } } }}>
         {selected && (
           <Box sx={{ p: 2.5 }}>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
               {selected.organizationName}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {marketLabel(selected)} · {selected.prospectType || 'organization'}
+              {marketLabel(selected)} · {formatProspectType(selected)}
             </Typography>
 
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
               Identity
             </Typography>
             <Typography variant="body2">Email: {selected.email || '—'}</Typography>
-            <Typography variant="body2">Contact: {selected.contactName || '—'} {selected.contactRole ? `(${selected.contactRole})` : ''}</Typography>
+            <Typography variant="body2">
+              Contact: {selected.contactName || '—'} {selected.contactRole ? `(${selected.contactRole})` : ''}
+            </Typography>
             <Typography variant="body2">Website: {selected.website || '—'}</Typography>
             <Typography variant="body2" sx={{ mb: 2 }}>
-              Verification: {selected.emailVerificationStatus || '—'} · Contact state: {selected.contactState || '—'}
+              Source: {selected.discoverySource || selected.sourceUrl || '—'}
             </Typography>
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Score
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+              Acquisition score
             </Typography>
-            <Typography variant="body2">Acquisition: {selected.acquisitionScore ?? '—'} · Fit: {selected.fitScore ?? '—'}</Typography>
-            <Typography variant="body2">Audience {selected.audienceFitScore ?? '—'} · Market {selected.marketRelevanceScore ?? '—'} · Community {selected.communityFitScore ?? '—'} · Contact {selected.contactQualityScore ?? '—'}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>
+              Total {selected.acquisitionScore ?? prospectScore(selected)}/100
+            </Typography>
+            <ScoreBar label="Audience fit" value={selected.audienceFitScore} max={25} />
+            <ScoreBar label="Market" value={selected.marketRelevanceScore} max={20} />
+            <ScoreBar label="Community" value={selected.communityFitScore} max={22} />
+            <ScoreBar label="Strategic / Historical" value={strategic} max={15} />
+            {selected.activityScore != null && (
+              <ScoreBar label="Activity" value={selected.activityScore} max={20} />
+            )}
             {selected.scoreExplanation && (
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, mb: 2 }}>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, mb: 1.5 }}>
                 {selected.scoreExplanation}
               </Typography>
             )}
+
+            <Divider sx={{ my: 1.5 }} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+              Contactability
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              {contactabilityLabel}
+              {selected.contactabilityScore != null ? ` · score ${selected.contactabilityScore}/100` : ''}
+            </Typography>
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={busy || !selected.website}
+              onClick={() => void researchOne(selected)}
+              sx={{ mb: 1.5 }}
+            >
+              Research contact
+            </Button>
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Next action
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              {formatNextAction(selected, drawerQueue)}
+            </Typography>
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Lifecycle
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              {formatLifecycle(selected.crmLifecycle || selected.status)}
+            </Typography>
 
             <Divider sx={{ my: 1.5 }} />
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
@@ -435,7 +612,7 @@ export const ProspectsPanel: React.FC<Props> = ({
             ) : (
               drawerQueue.map((q) => (
                 <Box key={q.queueId} sx={{ mb: 1.25, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                  <StatusChip label={q.status} />
+                  <StatusChip label={formatLifecycle(q.status)} />
                   <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
                     {q.subject}
                   </Typography>
@@ -461,21 +638,22 @@ export const ProspectsPanel: React.FC<Props> = ({
             )}
 
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 3 }}>
-              <Button
-                variant="contained"
-                size="small"
-                disabled={!hasEmail(selected)}
-                onClick={() =>
-                  void act('Draft prepared', () =>
-                    adminApiService.post(`${API}/drafts`, {
-                      prospectId: selected.prospectId,
-                      campaignId: selected.campaignId,
-                    }),
-                  )
-                }
-              >
-                Prepare draft
-              </Button>
+              {hasEmail(selected) && !drawerQueue.some((q) => q.status === 'draft') && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={() =>
+                    void act('Draft prepared', () =>
+                      adminApiService.post(`${API}/drafts`, {
+                        prospectId: selected.prospectId,
+                        campaignId: selected.campaignId,
+                      }),
+                    )
+                  }
+                >
+                  Prepare draft
+                </Button>
+              )}
               <Button
                 size="small"
                 variant="outlined"

@@ -100,6 +100,8 @@ export const AcquisitionPanel: React.FC<Props> = ({
   const funnel = dashboard?.funnel;
   const rates = dashboard?.conversionRates;
   const awaiting = funnel?.awaitingApproval ?? 0;
+  const approvedReady = funnel?.approved ?? 0;
+  const blockedApproved = mode === 'off' && approvedReady > 0;
 
   const funnelNav = (key: keyof NonNullable<typeof funnel>) => {
     if (key === 'awaitingApproval' || key === 'drafts' || key === 'approved' || key === 'scheduled') {
@@ -160,7 +162,40 @@ export const AcquisitionPanel: React.FC<Props> = ({
 
   return (
     <Box>
-      {mode === 'off' && (
+      {blockedApproved && (
+        <Alert
+          severity="error"
+          sx={{
+            mb: 2,
+            border: '2px solid',
+            borderColor: 'error.main',
+            '& .MuiAlert-message': { width: '100%' },
+          }}
+          action={
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, alignItems: 'stretch' }}>
+              <Button
+                color="inherit"
+                size="small"
+                variant="outlined"
+                onClick={() => onNavigate({ tab: 'approvals', approvalsStatus: 'approved' })}
+              >
+                Review approved
+              </Button>
+              <Button color="inherit" size="small" variant="contained" onClick={() => onNavigate({ tab: 'settings' })}>
+                Enable outreach
+              </Button>
+            </Box>
+          }
+        >
+          <Typography sx={{ fontWeight: 800, letterSpacing: 0.4, lineHeight: 1.35 }}>
+            {approvedReady} APPROVED — READY TO SEND
+          </Typography>
+          <Typography sx={{ fontWeight: 800, letterSpacing: 0.4, mt: 0.5 }}>
+            BLOCKED: OUTREACH MODE OFF
+          </Typography>
+        </Alert>
+      )}
+      {mode === 'off' && !blockedApproved && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           Outreach mode is <b>OFF</b>. Discovery and drafts can still run; sending is blocked.
         </Alert>

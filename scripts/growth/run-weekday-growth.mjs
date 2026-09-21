@@ -17,6 +17,7 @@ import { easternIsoDate } from './lib/owned-social-catalog.mjs';
 import { ensureGrowthDeps } from './lib/ensure-growth-deps.mjs';
 import {
   dispatchApprovedPartnerOutreach,
+  researchContactNeededBatch,
   runLimitedPartnerDiscovery
 } from './lib/partner-outreach-crm.mjs';
 
@@ -232,6 +233,17 @@ async function main() {
       }
     } catch (e) {
       report.errors.push(`partner_discovery:${e instanceof Error ? e.message : String(e)}`);
+    }
+    try {
+      const contactResearch = await researchContactNeededBatch({ dryRun: args.dryRun });
+      report.partnerContactResearch = contactResearch;
+      if (contactResearch?.ok && contactResearch.result) {
+        notesObj.partnerContactResearch = JSON.stringify(contactResearch.result).slice(0, 240);
+      } else if (contactResearch?.status !== 'skipped' && contactResearch?.status !== 'dry_run') {
+        report.errors.push(`partner_contact_research:${contactResearch?.reason || contactResearch?.status || 'failed'}`);
+      }
+    } catch (e) {
+      report.errors.push(`partner_contact_research:${e instanceof Error ? e.message : String(e)}`);
     }
     try {
       partnerDispatch = await dispatchApprovedPartnerOutreach({ dryRun: args.dryRun });

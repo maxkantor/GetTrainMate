@@ -220,6 +220,7 @@ public sealed class PartnerDiscoveryJobService : IPartnerDiscoveryJobService
             {
                 if (row.ProspectsPerRun <= 0) row.ProspectsPerRun = 8;
                 if (row.ResearchAttemptsPerRun <= 0) row.ResearchAttemptsPerRun = 15;
+                if (row.ResearchContactsPerRun <= 0) row.ResearchContactsPerRun = 10;
                 if (row.DraftsPerRun <= 0) row.DraftsPerRun = 5;
                 if (string.IsNullOrWhiteSpace(row.OutreachMode)) row.OutreachMode = "off";
                 return row;

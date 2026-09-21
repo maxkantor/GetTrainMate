@@ -143,10 +143,17 @@ export const CampaignsPanel: React.FC<PanelSharedProps> = ({
               <Box sx={{ minWidth: 220, flex: '1 1 220px' }}>
                 <Typography sx={{ fontWeight: 700 }}>{campaignLabel(c)}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {c.country}/{c.market} · {c.primaryMode || 'TRAIN'} · {c.campaignId}
+                  {c.country}/{c.market} · {c.campaignId}
                 </Typography>
               </Box>
               <StatusChip label={status.toUpperCase()} color={statusColor(status)} />
+              <Chip
+                size="small"
+                color="primary"
+                variant="outlined"
+                label={`PrimaryMode ${(c.primaryMode || 'TRAIN').toUpperCase()}`}
+                sx={{ fontWeight: 700 }}
+              />
               {c.dailyDiscoveryLimit != null && (
                 <Chip size="small" variant="outlined" label={`Discover ≤${c.dailyDiscoveryLimit}/day`} />
               )}

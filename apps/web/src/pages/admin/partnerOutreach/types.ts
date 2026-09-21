@@ -68,6 +68,8 @@ export interface PartnerProspect {
   organizationName: string;
   organizationType?: string;
   prospectType?: string;
+  /** Normalized kind: GYM | STUDIO | SPORTS_CLUB | RUN_CLUB | … */
+  prospectKind?: string;
   website?: string;
   email?: string;
   emailSource?: string;
@@ -89,6 +91,14 @@ export interface PartnerProspect {
   crmLifecycle?: string;
   contactState?: string;
   emailState?: string;
+  /** CONTACT_NEEDED | RESEARCHING | CONTACT_FOUND | NO_PUBLIC_CONTACT | RETRY_LATER | MANUAL_REVIEW */
+  contactabilityState?: string;
+  contactabilityScore?: number;
+  contactSourceUrl?: string;
+  contactSourceType?: string;
+  researchAttempts?: number;
+  lastResearchAt?: string;
+  nextResearchAt?: string;
   notes?: string;
   fitScore?: number;
   acquisitionScore?: number;
@@ -97,6 +107,9 @@ export interface PartnerProspect {
   communityFitScore?: number;
   contactQualityScore?: number;
   historicalCategoryScore?: number;
+  /** Optional activity component when API provides it */
+  activityScore?: number;
+  strategicScore?: number;
   scoreExplanation?: string;
   discoverySource?: string;
   emailVerificationStatus?: string;
@@ -178,6 +191,7 @@ export interface OutreachSettings {
   testRecipients?: string[];
   prospectsPerRun?: number;
   researchAttemptsPerRun?: number;
+  researchContactsPerRun?: number;
   draftsPerRun?: number;
   complaintPause?: boolean;
   sentCount?: number;

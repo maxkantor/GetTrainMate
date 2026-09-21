@@ -37,6 +37,15 @@ public interface IPartnerOutreachService
     Task<object> MarkInterestedAsync(string prospectId, string actor);
     Task<object> ApproveAndSendAsync(string queueId, string actor, bool confirm);
     Task<object> SendQueueItemByIdAsync(string queueId);
+    Task<object> ResearchContactAsync(string prospectId, string actor, bool force = false);
+    Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20);
+    Task<object> ResearchContactNeededBatchAsync(int max, string actor);
+    /// <summary>
+    /// Increment attribution counters on a prospect matched by PartnerCode.
+    /// eventType: signup | activated | paid
+    /// Active user = Discover started (discover_started) after partner referral signup.
+    /// </summary>
+    Task<object> RecordPartnerAttributionAsync(string partnerOrRefCode, string eventType, long? revenueCents = null);
 }
 
 public sealed class PartnerOutreachService : IPartnerOutreachService
@@ -46,18 +55,21 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     private readonly IConfiguration _cfg;
     private readonly ILogger<PartnerOutreachService> _log;
     private readonly IAuditLogService? _audit;
+    private readonly PublicBusinessContactVerifier _contactVerifier;
 
     public PartnerOutreachService(
         IDynamoDBContext db,
         IEmailService email,
         IConfiguration cfg,
         ILogger<PartnerOutreachService> log,
+        PublicBusinessContactVerifier contactVerifier,
         IAuditLogService? audit = null)
     {
         _db = db;
         _email = email;
         _cfg = cfg;
         _log = log;
+        _contactVerifier = contactVerifier;
         _audit = audit;
     }
 
@@ -138,6 +150,37 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         prospect.FirstDiscoveredAt ??= prospect.CreatedAt;
         if (prospect.DiscoveryCount <= 0) prospect.DiscoveryCount = 1;
         prospect.Owner = string.IsNullOrWhiteSpace(prospect.Owner) ? actor : prospect.Owner;
+        if (string.IsNullOrWhiteSpace(prospect.ProspectKind))
+            prospect.ProspectKind = PartnerCrmLifecycle.NormalizeProspectKind(prospect.OrganizationType);
+        var hasEmailNow = !string.IsNullOrWhiteSpace(prospect.Email) && prospect.Email.Contains('@');
+        if (string.IsNullOrWhiteSpace(prospect.ContactabilityState))
+            prospect.ContactabilityState = hasEmailNow
+                ? PartnerCrmLifecycle.ContactFound
+                : PartnerCrmLifecycle.ContactNeeded;
+        // Acquisition scoring does not require email
+        if (prospect.AcquisitionScore <= 0 && !string.IsNullOrWhiteSpace(prospect.OrganizationType))
+        {
+            var scored = AutomatedMarketDiscoveryService.ScoreProspect(new DiscoveredOrganization
+            {
+                OrganizationName = prospect.OrganizationName,
+                OrganizationType = prospect.OrganizationType,
+                DiscoverySource = prospect.DiscoverySource ?? "",
+                Market = prospect.Metro ?? prospect.City ?? "",
+            }, hasEmailNow);
+            prospect.AcquisitionScore = scored.AcquisitionScore;
+            prospect.AudienceFitScore = scored.AudienceFitScore;
+            prospect.MarketRelevanceScore = scored.MarketRelevanceScore;
+            prospect.CommunityFitScore = scored.CommunityFitScore;
+            prospect.ContactQualityScore = scored.ContactQualityScore;
+            prospect.ContactabilityScore = scored.ContactQualityScore;
+            prospect.HistoricalCategoryScore = scored.HistoricalCategoryScore;
+            prospect.ScoreExplanation = scored.ScoreExplanation;
+            prospect.FitScore = scored.AcquisitionScore;
+        }
+        else if (hasEmailNow && prospect.ContactabilityScore <= 0)
+        {
+            prospect.ContactabilityScore = Math.Max(prospect.ContactQualityScore, 90);
+        }
         PartnerCrmLifecycle.ApplyLegacyNormalization(prospect);
         await _db.SaveAsync(prospect);
         return prospect;
@@ -230,8 +273,9 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
 
         var unsub = BuildUnsubUrl(p.ProspectId);
         var marketLabel = string.IsNullOrWhiteSpace(p.Metro) ? p.City : p.Metro;
-        var copy = PartnerEmailMime.RenderDefault(p.OrganizationName, p.LandingUrl, p.PartnerCode, unsub, Postal, marketLabel, p.CampaignLanguage);
-        var fp = PartnerOutreachRules.Fingerprint(p.Email, copy.Subject, copy.Text, p.LandingUrl, campaignId);
+        var landingWithUtm = PartnerEmailMime.AppendPartnerUtm(p.LandingUrl!, campaignId, p.PartnerCode);
+        var copy = PartnerEmailMime.RenderForProspect(p, landingWithUtm, unsub, Postal, marketLabel);
+        var fp = PartnerOutreachRules.Fingerprint(p.Email, copy.Subject, copy.Text, landingWithUtm, campaignId);
         var item = new PartnerQueueItem
         {
             ProspectId = p.ProspectId,
@@ -241,7 +285,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             Subject = copy.Subject,
             BodyText = copy.Text,
             BodyHtml = copy.Html,
-            PartnerUrl = p.LandingUrl,
+            PartnerUrl = landingWithUtm,
             Fingerprint = fp,
             Status = "draft",
             MessageVersion = 1,
@@ -1035,6 +1079,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             s.TestRecipients,
             s.ProspectsPerRun,
             s.ResearchAttemptsPerRun,
+            s.ResearchContactsPerRun,
             s.DraftsPerRun,
             s.ComplaintPause,
             s.SentCount,
@@ -1064,6 +1109,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                 .ToList();
         if (patch.ProspectsPerRun > 0) s.ProspectsPerRun = patch.ProspectsPerRun;
         if (patch.ResearchAttemptsPerRun > 0) s.ResearchAttemptsPerRun = patch.ResearchAttemptsPerRun;
+        if (patch.ResearchContactsPerRun > 0) s.ResearchContactsPerRun = patch.ResearchContactsPerRun;
         if (patch.DraftsPerRun > 0) s.DraftsPerRun = patch.DraftsPerRun;
         await _db.SaveAsync(s);
         return await GetOutreachSettingsAsync();
@@ -1130,9 +1176,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             throw new InvalidOperationException("Status must be draft, active, paused, or completed (candidate maps to draft).");
         if (status == "candidate") status = "draft";
         var all = await ListCampaignsAsync();
-        var active = all.Count(c => c.Status == "active" && !string.Equals(c.CampaignId, campaignId, StringComparison.OrdinalIgnoreCase));
-        if (status == "active" && active >= MarketCampaignCatalog.MaxActiveMarkets)
-            throw new InvalidOperationException($"At most {MarketCampaignCatalog.MaxActiveMarkets} markets can be active.");
+        // Soft portfolio size via MaxActiveMarkets / daily discovery+outreach limits — do not hard-block activation.
         var row = await _db.LoadAsync<PartnerCampaign>(campaignId)
             ?? all.FirstOrDefault(c => string.Equals(c.CampaignId, campaignId, StringComparison.OrdinalIgnoreCase))
             ?? throw new KeyNotFoundException("Campaign not found");
@@ -1220,6 +1264,257 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         };
     }
 
+    public async Task<object> ResearchContactAsync(string prospectId, string actor, bool force = false)
+    {
+        var p = await _db.LoadAsync<PartnerProspect>(prospectId) ?? throw new KeyNotFoundException("Prospect not found");
+        if (string.IsNullOrWhiteSpace(p.Website) || !Uri.TryCreate(p.Website, UriKind.Absolute, out var siteUri))
+            return new { ok = false, error = "no_website", prospectId, message = "Prospect has no website to research." };
+
+        if (p.ResearchAttempts >= 5 && !force)
+        {
+            p.ContactabilityState = p.ResearchAttempts >= 8
+                ? PartnerCrmLifecycle.ManualReview
+                : PartnerCrmLifecycle.NoPublicContact;
+            p.ContactState = PartnerCrmLifecycle.ContactNeeded;
+            p.NextResearchAt = null;
+            await _db.SaveAsync(p);
+            return new
+            {
+                ok = false,
+                skipped = true,
+                reason = "max_research_attempts",
+                prospectId,
+                p.ResearchAttempts,
+                p.ContactabilityState,
+            };
+        }
+
+        if (!force && p.NextResearchAt is DateTime next && next > DateTime.UtcNow)
+        {
+            return new
+            {
+                ok = false,
+                skipped = true,
+                reason = "retry_later",
+                prospectId,
+                nextResearchAt = next,
+                p.ContactabilityState,
+            };
+        }
+
+        p.ContactabilityState = PartnerCrmLifecycle.ContactResearching;
+        p.ContactState = PartnerCrmLifecycle.ContactResearching;
+        p.ResearchAttempts++;
+        p.LastResearchAt = DateTime.UtcNow;
+        await _db.SaveAsync(p);
+
+        VerifiedPublicContact? verified = null;
+        try
+        {
+            verified = await _contactVerifier.TryVerifyAsync(siteUri);
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug(ex, "Research contact failed for {Id}", prospectId);
+        }
+
+        if (verified != null && !string.IsNullOrWhiteSpace(verified.Email))
+        {
+            p.Email = verified.Email.Trim().ToLowerInvariant();
+            p.SourceUrl = verified.SourceUrl;
+            p.ContactSourceUrl = verified.SourceUrl;
+            p.ContactSourceType = verified.SourceType ?? "website_mailto";
+            if (!string.IsNullOrWhiteSpace(verified.ContactName))
+                p.ContactName = verified.ContactName;
+            p.SourceVerifiedOn = verified.VerifiedOnUtc.ToString("yyyy-MM-dd");
+            p.EmailVerifiedOn = verified.VerifiedOnUtc.ToString("yyyy-MM-dd");
+            p.OfficialDomain = p.Email.Contains('@') ? p.Email.Split('@')[1] : p.OfficialDomain;
+            p.EmailVerificationStatus = "verified_public";
+            p.EmailSource = "public_listing";
+            p.ContactState = PartnerCrmLifecycle.ContactFound;
+            p.ContactabilityState = PartnerCrmLifecycle.ContactFound;
+            p.NextResearchAt = null;
+            if (string.Equals(p.Status, "no_verified_public_email", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p.Status, "discovered", StringComparison.OrdinalIgnoreCase))
+                p.Status = "prospect";
+            p.CrmLifecycle ??= PartnerCrmLifecycle.Qualified;
+            if (p.CrmLifecycle == PartnerCrmLifecycle.New)
+                p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
+
+            var scored = AutomatedMarketDiscoveryService.ScoreProspect(new DiscoveredOrganization
+            {
+                OrganizationName = p.OrganizationName,
+                OrganizationType = p.OrganizationType,
+                DiscoverySource = p.DiscoverySource ?? "",
+                Market = p.Metro ?? p.City ?? "",
+            }, hasEmail: true);
+            p.AcquisitionScore = scored.AcquisitionScore;
+            p.AudienceFitScore = scored.AudienceFitScore;
+            p.MarketRelevanceScore = scored.MarketRelevanceScore;
+            p.CommunityFitScore = scored.CommunityFitScore;
+            p.ContactQualityScore = scored.ContactQualityScore;
+            p.ContactabilityScore = scored.ContactQualityScore;
+            p.HistoricalCategoryScore = scored.HistoricalCategoryScore;
+            p.ScoreExplanation = scored.ScoreExplanation;
+            p.FitScore = scored.AcquisitionScore;
+            p.ProspectKind ??= PartnerCrmLifecycle.NormalizeProspectKind(p.OrganizationType);
+            p.LastEvaluatedAt = DateTime.UtcNow;
+            await _db.SaveAsync(p);
+
+            object? draft = null;
+            if (MarketCampaignCatalog.IsApprovedOutreachLanguage(p.CampaignLanguage))
+            {
+                try
+                {
+                    draft = await CreateDraftAndQueuePreviewAsync(p.ProspectId, p.CampaignId ?? "");
+                }
+                catch (Exception ex)
+                {
+                    _log.LogDebug(ex, "Draft after research skipped for {Id}", prospectId);
+                }
+            }
+
+            await TryAuditAsync(actor, "partner_outreach.research_contact", "partner_prospect", prospectId, null,
+                new { found = true, p.Email, p.ContactSourceUrl, p.ResearchAttempts });
+            return new
+            {
+                ok = true,
+                found = true,
+                prospectId,
+                email = p.Email,
+                contactSourceUrl = p.ContactSourceUrl,
+                contactSourceType = p.ContactSourceType,
+                contactName = p.ContactName,
+                p.ResearchAttempts,
+                p.ContactabilityState,
+                p.ContactabilityScore,
+                p.AcquisitionScore,
+                draft,
+            };
+        }
+
+        // Not found — never invent email
+        p.ContactabilityState = p.ResearchAttempts >= 3
+            ? PartnerCrmLifecycle.NoPublicContact
+            : PartnerCrmLifecycle.RetryLater;
+        p.ContactState = PartnerCrmLifecycle.ContactNeeded;
+        p.NextResearchAt = DateTime.UtcNow.AddDays(Math.Max(1, p.ResearchAttempts * 2));
+        p.EmailVerificationStatus = "no_verified_public_email";
+        if (string.IsNullOrWhiteSpace(p.Email))
+            p.Status = "no_verified_public_email";
+        p.ContactabilityScore = 0;
+        p.ContactQualityScore = 0;
+        p.LastEvaluatedAt = DateTime.UtcNow;
+        await _db.SaveAsync(p);
+        await TryAuditAsync(actor, "partner_outreach.research_contact", "partner_prospect", prospectId, null,
+            new { found = false, p.ResearchAttempts, p.ContactabilityState, p.NextResearchAt });
+        return new
+        {
+            ok = true,
+            found = false,
+            prospectId,
+            p.ResearchAttempts,
+            p.ContactabilityState,
+            nextResearchAt = p.NextResearchAt,
+        };
+    }
+
+    public async Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20)
+    {
+        var ids = (prospectIds ?? Array.Empty<string>())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .Take(Math.Clamp(max, 1, 50))
+            .ToList();
+        var results = new List<object>();
+        foreach (var id in ids)
+        {
+            try
+            {
+                results.Add(await ResearchContactAsync(id, actor, force: false));
+            }
+            catch (Exception ex)
+            {
+                results.Add(new { ok = false, prospectId = id, error = ex.Message });
+            }
+        }
+        return new { researched = results.Count, results };
+    }
+
+    public async Task<object> ResearchContactNeededBatchAsync(int max, string actor)
+    {
+        max = Math.Clamp(max <= 0 ? 10 : max, 1, 50);
+        var prospects = await ListProspectsAsync(null);
+        var now = DateTime.UtcNow;
+        var candidates = prospects
+            .Where(p => !string.IsNullOrWhiteSpace(p.Website))
+            .Where(p => string.IsNullOrWhiteSpace(p.Email) || !p.Email.Contains('@'))
+            .Where(p =>
+            {
+                var state = (p.ContactabilityState ?? p.ContactState ?? "").ToUpperInvariant();
+                if (state is PartnerCrmLifecycle.ContactFound) return false;
+                if (state is PartnerCrmLifecycle.NoPublicContact or PartnerCrmLifecycle.ManualReview)
+                    return false;
+                if (p.NextResearchAt is DateTime next && next > now) return false;
+                if (p.ResearchAttempts >= 5) return false;
+                return state is "" or PartnerCrmLifecycle.ContactNeeded or PartnerCrmLifecycle.RetryLater
+                    or PartnerCrmLifecycle.ContactUnknown or PartnerCrmLifecycle.ContactResearching
+                    || p.Status == "no_verified_public_email";
+            })
+            .OrderBy(p => p.ResearchAttempts)
+            .ThenBy(p => p.NextResearchAt ?? DateTime.MinValue)
+            .Take(max)
+            .Select(p => p.ProspectId)
+            .ToList();
+
+        return await ResearchContactsBulkAsync(candidates, actor, max);
+    }
+
+    public async Task<object> RecordPartnerAttributionAsync(string partnerOrRefCode, string eventType, long? revenueCents = null)
+    {
+        var code = (partnerOrRefCode ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(code))
+            return new { ok = false, error = "missing_code" };
+        var evt = (eventType ?? "").Trim().ToLowerInvariant();
+        if (evt is not ("signup" or "activated" or "paid"))
+            return new { ok = false, error = "invalid_event" };
+
+        var all = await ListProspectsAsync(null);
+        var p = all.FirstOrDefault(x =>
+            string.Equals(x.PartnerCode, code, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(x.PartnerCode, MarketCampaignCatalog.Slug(code), StringComparison.OrdinalIgnoreCase));
+        if (p == null)
+            return new { ok = false, error = "prospect_not_found", code };
+
+        switch (evt)
+        {
+            case "signup":
+                p.ReferralSignups++;
+                break;
+            case "activated":
+                p.ActivatedUsers++;
+                break;
+            case "paid":
+                p.PaidCustomers++;
+                if (revenueCents is > 0) p.AttributedRevenueCents += revenueCents.Value;
+                break;
+        }
+        p.LastEvaluatedAt = DateTime.UtcNow;
+        await _db.SaveAsync(p);
+        return new
+        {
+            ok = true,
+            prospectId = p.ProspectId,
+            partnerCode = p.PartnerCode,
+            evt,
+            p.ReferralSignups,
+            p.ActivatedUsers,
+            p.PaidCustomers,
+            p.AttributedRevenueCents,
+        };
+    }
+
     public async Task<PartnerThread?> GetThreadAsync(string threadId) =>
         await _db.LoadAsync<PartnerThread>(threadId);
 
@@ -1243,6 +1538,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (string.IsNullOrWhiteSpace(row.OutreachMode)) row.OutreachMode = "off";
         if (row.ProspectsPerRun <= 0) row.ProspectsPerRun = 8;
         if (row.ResearchAttemptsPerRun <= 0) row.ResearchAttemptsPerRun = 15;
+        if (row.ResearchContactsPerRun <= 0) row.ResearchContactsPerRun = 10;
         if (row.DraftsPerRun <= 0) row.DraftsPerRun = 5;
         row.TestRecipients ??= new List<string>();
         return row;

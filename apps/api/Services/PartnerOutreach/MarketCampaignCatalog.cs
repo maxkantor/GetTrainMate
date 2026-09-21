@@ -6,18 +6,19 @@ namespace GetTrainMate.Api.Services.PartnerOutreach;
 /// </summary>
 public static class MarketCampaignCatalog
 {
-    public const int MaxActiveMarkets = 3;
+    /// <summary>Soft ceiling for ranking / discovery target selection (not a hard activate block).</summary>
+    public const int MaxActiveMarkets = 50;
 
     public static readonly string[] ApprovedOutreachLanguages = { "en", "es", "ru" };
     public static readonly string[] PendingOutreachLanguages = Array.Empty<string>();
 
     public static IReadOnlyList<MarketCampaignSeed> Candidates { get; } = new[]
     {
-        Seed("us_atlanta_train_partners", "us", "atlanta", "Atlanta", "America/New_York", new[] { "en" }, "active"),
-        Seed("us_miami_train_partners", "us", "miami", "Miami / Fort Lauderdale", "America/New_York", new[] { "en", "es" }, "candidate"),
-        Seed("us_new_york_train_partners", "us", "new-york", "New York City", "America/New_York", new[] { "en", "es", "ru" }, "candidate"),
-        Seed("gb_london_train_partners", "gb", "london", "London", "Europe/London", new[] { "en" }, "candidate"),
-        Seed("ca_toronto_train_partners", "ca", "toronto", "Toronto", "America/Toronto", new[] { "en" }, "candidate"),
+        Seed("us_atlanta_train_partners", "us", "atlanta", "Atlanta Fitness & Sports Communities", "America/New_York", new[] { "en" }, "active", "CROSS_MODE"),
+        Seed("us_miami_train_partners", "us", "miami", "Miami Active Lifestyle", "America/New_York", new[] { "en", "es" }, "candidate", "VIBE"),
+        Seed("us_new_york_train_partners", "us", "new-york", "NYC Social Sports", "America/New_York", new[] { "en", "es", "ru" }, "candidate", "CROSS_MODE"),
+        Seed("gb_london_train_partners", "gb", "london", "London Training Communities", "Europe/London", new[] { "en" }, "candidate", "TRAIN"),
+        Seed("ca_toronto_train_partners", "ca", "toronto", "Toronto Active Lifestyle", "America/Toronto", new[] { "en" }, "candidate", "CROSS_MODE"),
     };
 
     public static bool IsApprovedOutreachLanguage(string? language) =>
@@ -64,8 +65,8 @@ public static class MarketCampaignCatalog
     }
 
     static MarketCampaignSeed Seed(
-        string id, string country, string market, string display, string tz, string[] langs, string status) =>
-        new(id, country, market, display, tz, langs, status, "TRAIN");
+        string id, string country, string market, string display, string tz, string[] langs, string status, string primaryMode) =>
+        new(id, country, market, display, tz, langs, status, primaryMode);
 }
 
 public sealed record MarketCampaignSeed(

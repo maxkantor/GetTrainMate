@@ -130,3 +130,34 @@ export function markReferralLandingVisit(
     ...(refCode ? { ref: refCode } : {}),
   });
 }
+
+/**
+ * Notify Partner Outreach CRM of a referral conversion (non-PII).
+ * Active user definition used by CRM: event "activated" = Discover started after partner referral.
+ */
+export async function reportPartnerAttribution(
+  event: 'signup' | 'activated' | 'paid',
+  revenueCents?: number
+): Promise<void> {
+  try {
+    const a = readAcquisitionAttribution();
+    const code = a.partner || a.ref;
+    if (!code) return;
+    const base = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '')
+      || 'https://goskwzjzjg.execute-api.us-east-1.amazonaws.com';
+    await fetch(`${base}/api/public/partner-attribution`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        partnerCode: a.partner || undefined,
+        ref: a.ref || undefined,
+        event,
+        ...(revenueCents != null ? { revenueCents } : {}),
+      }),
+      keepalive: true,
+    });
+  } catch {
+    /* never block UX on attribution beacon */
+  }
+}
+

@@ -85,30 +85,41 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
   const rates = dashboard.conversionRates;
   const customers = ns?.customersAcquired ?? 0;
   const revenue = ns?.revenueAttributedCents ?? 0;
-  const attributionEmpty = customers === 0 && revenue === 0 && (ns?.referralSignups ?? 0) === 0;
+  const activeUsers = ns?.activeUsersAcquired ?? 0;
+  const referralSignups = ns?.referralSignups ?? 0;
+  const attributionEmpty = customers === 0 && revenue === 0 && referralSignups === 0 && activeUsers === 0;
+  const emptyNote = 'No attributed customers yet — referral tracking starts after first approved sends.';
 
   return (
     <Box>
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
         North star
       </Typography>
+      {attributionEmpty && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          {emptyNote}
+        </Typography>
+      )}
       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 3 }}>
         <MetricCard
           label="Customers acquired"
-          value={attributionEmpty ? 'Unavailable' : customers}
-          note={attributionEmpty ? 'No attributed customers yet' : 'Verified partner attribution'}
+          value={customers}
+          note={attributionEmpty ? emptyNote : 'Verified partner attribution'}
         />
         <MetricCard
           label="Active users acquired"
-          value={attributionEmpty && (ns?.activeUsersAcquired ?? 0) === 0 ? 'Unavailable' : ns?.activeUsersAcquired ?? 0}
+          value={activeUsers}
+          note={attributionEmpty ? emptyNote : undefined}
         />
         <MetricCard
           label="Revenue attributed"
-          value={attributionEmpty ? 'Unavailable' : formatCents(revenue)}
+          value={formatCents(revenue)}
+          note={attributionEmpty ? emptyNote : undefined}
         />
         <MetricCard
           label="Referral signups"
-          value={attributionEmpty && (ns?.referralSignups ?? 0) === 0 ? 'Unavailable' : ns?.referralSignups ?? 0}
+          value={referralSignups}
+          note={attributionEmpty ? emptyNote : undefined}
         />
       </Box>
 

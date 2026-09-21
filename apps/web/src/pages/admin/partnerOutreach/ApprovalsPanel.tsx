@@ -12,13 +12,15 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { PanelSharedProps, PartnerProspect, PartnerQueueItem } from './types';
+import type { OutreachSettings, PanelSharedProps, PartnerProspect, PartnerQueueItem } from './types';
 import {
   API,
   EmptyState,
   PanelSkeleton,
   StatusChip,
   asArray,
+  formatProspectType,
+  marketLabel,
   previewText,
   prospectScore,
 } from './components';
@@ -37,6 +39,7 @@ export const ApprovalsPanel: React.FC<Props> = ({
 }) => {
   const [queue, setQueue] = useState<PartnerQueueItem[]>([]);
   const [prospects, setProspects] = useState<PartnerProspect[]>([]);
+  const [settings, setSettings] = useState<OutreachSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [viewItem, setViewItem] = useState<PartnerQueueItem | null>(null);
@@ -57,12 +60,14 @@ export const ApprovalsPanel: React.FC<Props> = ({
     setLoading(true);
     onError(null);
     try {
-      const [q, p] = await Promise.all([
+      const [q, p, s] = await Promise.all([
         adminApiService.get(`${API}/queue`),
         adminApiService.get(`${API}/prospects`),
+        adminApiService.get(`${API}/settings`),
       ]);
       setQueue(asArray<PartnerQueueItem>(q));
       setProspects(asArray<PartnerProspect>(p));
+      setSettings(s as OutreachSettings);
       setSelectedIds(new Set());
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : 'Failed to load approval queue');
@@ -80,6 +85,10 @@ export const ApprovalsPanel: React.FC<Props> = ({
     for (const p of prospects) m.set(p.prospectId, p);
     return m;
   }, [prospects]);
+
+  const mode = (settings?.outreachMode || 'off').toLowerCase();
+  const sendEnabled = settings?.sendEnabled !== false;
+  const canEmphasizeSend = mode === 'live' && sendEnabled;
 
   const allDrafts = useMemo(() => queue.filter((q) => q.status === 'draft'), [queue]);
 
@@ -138,6 +147,16 @@ export const ApprovalsPanel: React.FC<Props> = ({
 
   return (
     <Box>
+      {!canEmphasizeSend && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {mode === 'off'
+            ? 'Outreach is OFF — approve queues for later send.'
+            : mode === 'test'
+              ? 'Outreach is TEST — Approve & Send only targets configured test recipients when the send gate is on.'
+              : 'Sending is gated — approve queues; Approve & Send is available when LIVE and send is enabled.'}
+        </Alert>
+      )}
+
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }} alignItems="center">
         <Button
           size="small"
@@ -200,7 +219,8 @@ export const ApprovalsPanel: React.FC<Props> = ({
           <Box sx={{ display: 'grid', gap: 1.5 }}>
             {items.map((q) => {
               const prospect = q.prospectId ? prospectMap.get(q.prospectId) : undefined;
-              const market = prospect ? [prospect.metro || prospect.city, prospect.country].filter(Boolean).join(', ') : '';
+              const market = prospect ? marketLabel(prospect) : '';
+              const source = prospect?.discoverySource || prospect?.sourceUrl;
               return (
                 <Box
                   key={q.queueId}
@@ -222,8 +242,10 @@ export const ApprovalsPanel: React.FC<Props> = ({
                       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                         <Typography sx={{ fontWeight: 700 }}>{q.organizationName}</Typography>
                         <StatusChip label={q.status} color={q.status === 'draft' ? 'warning' : 'default'} />
-                        {market && <StatusChip label={market} />}
+                        {prospect && <StatusChip label={formatProspectType(prospect)} />}
+                        {market && market !== '—' && <StatusChip label={market} />}
                         {prospect && <StatusChip label={`Score ${prospectScore(prospect)}`} color="info" />}
+                        {source && <StatusChip label={`Source ${source}`} />}
                         {(q.followUpNumber ?? 0) > 0 && <StatusChip label={`Follow-up ${q.followUpNumber}`} />}
                       </Stack>
                       <Typography variant="body2" color="text.secondary">
@@ -253,24 +275,40 @@ export const ApprovalsPanel: React.FC<Props> = ({
                               size="small"
                               variant="contained"
                               disabled={busy}
-                              onClick={() => setConfirmSend(q)}
+                              onClick={() => {
+                                if (canEmphasizeSend) setConfirmSend(q);
+                                else {
+                                  void run('Approved', () =>
+                                    adminApiService.post(`${API}/queue/${encodeURIComponent(q.queueId)}/approve`, {
+                                      confirm: true,
+                                    }),
+                                  );
+                                }
+                              }}
                             >
-                              Approve & Send
+                              {canEmphasizeSend ? 'Approve & Send' : 'Approve'}
                             </Button>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              disabled={busy}
-                              onClick={() =>
-                                void run('Approved', () =>
-                                  adminApiService.post(`${API}/queue/${encodeURIComponent(q.queueId)}/approve`, {
-                                    confirm: true,
-                                  }),
-                                )
-                              }
-                            >
-                              Approve
-                            </Button>
+                            {canEmphasizeSend && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                disabled={busy}
+                                onClick={() =>
+                                  void run('Approved', () =>
+                                    adminApiService.post(`${API}/queue/${encodeURIComponent(q.queueId)}/approve`, {
+                                      confirm: true,
+                                    }),
+                                  )
+                                }
+                              >
+                                Approve only
+                              </Button>
+                            )}
+                            {!canEmphasizeSend && mode === 'off' && (
+                              <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                                Outreach is OFF — approve queues for later send
+                              </Typography>
+                            )}
                             <Button size="small" color="error" onClick={() => { setRejectItem(q); setRejectReason(''); }}>
                               Reject
                             </Button>

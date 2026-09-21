@@ -60,6 +60,18 @@ public class PartnerProspect
     public int DiscoveryCount { get; set; }
     /// <summary>verified_public | no_verified_public_email | pending</summary>
     public string? EmailVerificationStatus { get; set; }
+    public int ResearchAttempts { get; set; }
+    public DateTime? LastResearchAt { get; set; }
+    public DateTime? NextResearchAt { get; set; }
+    public string? ContactSourceUrl { get; set; }
+    /// <summary>website_mailto | website_page | owner_supplied</summary>
+    public string? ContactSourceType { get; set; }
+    /// <summary>CONTACT_NEEDED|RESEARCHING|CONTACT_FOUND|NO_PUBLIC_CONTACT|RETRY_LATER|MANUAL_REVIEW</summary>
+    public string? ContactabilityState { get; set; }
+    /// <summary>0–100 contactability, separate from AcquisitionScore.</summary>
+    public int ContactabilityScore { get; set; }
+    /// <summary>GYM|STUDIO|SPORTS_CLUB|RUN_CLUB|REC_LEAGUE|COACH|TRAINER|CREATOR|COMMUNITY|EVENT_ORGANIZER|OTHER</summary>
+    public string? ProspectKind { get; set; }
     public int ReferralSignups { get; set; }
     public int ActivatedUsers { get; set; }
     public int PaidCustomers { get; set; }
@@ -216,6 +228,8 @@ public class PartnerOutreachSettingsRow
     public List<string> TestRecipients { get; set; } = new();
     public int ProspectsPerRun { get; set; } = 8;
     public int ResearchAttemptsPerRun { get; set; } = 15;
+    /// <summary>Max contact-research attempts per growth/internal run.</summary>
+    public int ResearchContactsPerRun { get; set; } = 10;
     public int DraftsPerRun { get; set; } = 5;
 }
 

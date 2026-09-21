@@ -18,6 +18,7 @@ import {
   graphqlSeedDemoData,
 } from '@/services/graphqlService';
 import { handleApiError, getErrorMessage, isNetworkError } from '@/utils/apiErrorHandler';
+import { reportPartnerAttribution } from '@/utils/acquisitionAttribution';
 import {
   getMultiplePhotoUrls,
   isLikelyStockDiscoverPhoto,
@@ -279,6 +280,7 @@ export const DiscoverPage: React.FC = () => {
       source_page: '/app/discover',
       mode: mePrimaryMode(me?.profile),
     });
+    void reportPartnerAttribution('activated');
   }, [me?.isProfileComplete, me?.profile]);
 
   useEffect(() => {

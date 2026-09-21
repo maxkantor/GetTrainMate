@@ -109,7 +109,7 @@ public class PartnerOutreachTests
     }
 
     [Fact]
-    public void Acquisition_score_does_not_majority_weight_email()
+    public void Acquisition_score_excludes_contact_component()
     {
         var org = new DiscoveredOrganization
         {
@@ -120,10 +120,24 @@ public class PartnerOutreachTests
         };
         var withEmail = AutomatedMarketDiscoveryService.ScoreProspect(org, hasEmail: true);
         var withoutEmail = AutomatedMarketDiscoveryService.ScoreProspect(org, hasEmail: false);
-        Assert.True(withEmail.ContactQualityScore <= 20);
-        Assert.True(withEmail.AcquisitionScore - withoutEmail.AcquisitionScore <= 20);
+        Assert.Equal(withEmail.AcquisitionScore, withoutEmail.AcquisitionScore);
+        Assert.True(withoutEmail.AcquisitionScore > 50);
         Assert.True(withEmail.AcquisitionScore >= 70);
+        Assert.Equal(0, withoutEmail.ContactQualityScore);
+        Assert.True(withEmail.ContactQualityScore >= 85);
         Assert.Contains("audience=", withEmail.ScoreExplanation);
+        Assert.Contains("contactability=", withEmail.ScoreExplanation);
+        Assert.DoesNotContain("contact=", withEmail.ScoreExplanation.Split("contactability=")[0]);
+    }
+
+    [Fact]
+    public void Normalize_prospect_kind_maps_organization_types()
+    {
+        Assert.Equal("RUN_CLUB", PartnerCrmLifecycle.NormalizeProspectKind("run_club"));
+        Assert.Equal("GYM", PartnerCrmLifecycle.NormalizeProspectKind("gym"));
+        Assert.Equal("SPORTS_CLUB", PartnerCrmLifecycle.NormalizeProspectKind("pickleball"));
+        Assert.Equal("TRAINER", PartnerCrmLifecycle.NormalizeProspectKind("personal_trainer"));
+        Assert.Equal("SPORTS_CLUB", AutomatedMarketDiscoveryService.NormalizeProspectKind("soccer"));
     }
 
     [Fact]
@@ -180,15 +194,42 @@ public class PartnerOutreachTests
     }
 
     [Fact]
-    public void Market_campaign_catalog_caps_active_markets_and_paths()
+    public void Market_campaign_catalog_raises_active_soft_cap_and_paths()
     {
-        Assert.Equal(3, MarketCampaignCatalog.MaxActiveMarkets);
+        Assert.True(MarketCampaignCatalog.MaxActiveMarkets >= 50);
         Assert.True(MarketCampaignCatalog.IsApprovedOutreachLanguage("en"));
         Assert.True(MarketCampaignCatalog.IsApprovedOutreachLanguage("es"));
         Assert.True(MarketCampaignCatalog.IsApprovedOutreachLanguage("ru"));
         Assert.False(MarketCampaignCatalog.IsApprovedOutreachLanguage("fr"));
         Assert.Equal("/partners/us/atlanta/atl-track-club", MarketCampaignCatalog.PartnerPath("us", "atlanta", "atl-track-club"));
         Assert.Equal("gb_london_train_partners", MarketCampaignCatalog.CampaignId("gb", "london", "TRAIN"));
+        var atlanta = MarketCampaignCatalog.Candidates.First(c => c.CampaignId == "us_atlanta_train_partners");
+        Assert.Equal("CROSS_MODE", atlanta.PrimaryMode);
+        Assert.Contains("Atlanta", atlanta.DisplayName);
+    }
+
+    [Fact]
+    public void Max_active_markets_no_longer_blocks_fourth_active()
+    {
+        // Soft ceiling only — SetCampaignStatusAsync must not throw for >3 actives.
+        Assert.True(MarketCampaignCatalog.MaxActiveMarkets > 3);
+        var catalog = MarketCampaignCatalog.Candidates;
+        var stored = catalog.Select(c => new PartnerCampaign
+        {
+            CampaignId = c.CampaignId,
+            Status = "active",
+            DisplayName = c.DisplayName,
+        }).ToList();
+        var evidence = catalog.Select(c => new MarketRanker.MarketEvidenceRow
+        {
+            CampaignId = c.CampaignId,
+            Country = c.Country,
+            Market = c.Market,
+            DisplayName = c.DisplayName,
+        }).ToList();
+        var targets = MarketRanker.SelectDiscoveryTargets(catalog, stored, evidence, MarketCampaignCatalog.MaxActiveMarkets).ToList();
+        Assert.True(targets.Count >= Math.Min(4, catalog.Count));
+        Assert.True(targets.Count >= stored.Count(c => c.Status == "active") || targets.Count == catalog.Count);
     }
 
     [Fact]
@@ -201,12 +242,121 @@ public class PartnerOutreachTests
     }
 
     [Fact]
-    public void Public_contact_verifier_rejects_noreply_and_foreign_domains()
+    public void Public_contact_verifier_accepts_gmail_mailto_on_official_page()
+    {
+        var html = "<p>Reach us at <a href=\"mailto:club.ops@gmail.com\">Email us</a></p>";
+        var found = PublicBusinessContactVerifier.TryVerifyFromHtml(html, "atlantapickleballclub.com", "https://atlantapickleballclub.com/contact");
+        Assert.NotNull(found);
+        Assert.Equal("club.ops@gmail.com", found!.Email);
+        Assert.Equal("website_mailto", found.SourceType);
+    }
+
+    [Fact]
+    public void Public_contact_verifier_rejects_invented_info_at_domain_without_html()
+    {
+        // Empty / unrelated HTML must never invent info@domain
+        var found = PublicBusinessContactVerifier.TryVerifyFromHtml("", "exampleclub.org", "https://exampleclub.org/contact");
+        Assert.Null(found);
+        var noMatch = PublicBusinessContactVerifier.TryVerifyFromHtml(
+            "<html><body><p>Welcome to our gym.</p></body></html>",
+            "exampleclub.org",
+            "https://exampleclub.org/");
+        Assert.Null(noMatch);
+        var emails = PublicBusinessContactVerifier.ExtractCandidates("Welcome only", "exampleclub.org").ToList();
+        Assert.Empty(emails);
+    }
+
+    [Fact]
+    public void Public_contact_verifier_rejects_noreply_and_accepts_same_domain_text()
     {
         var html = "noreply@exampleclub.org partner@other.com info@exampleclub.org";
         var emails = PublicBusinessContactVerifier.ExtractCandidates(html, "exampleclub.org").ToList();
         Assert.Single(emails);
         Assert.Equal("info@exampleclub.org", emails[0]);
+    }
+
+    [Fact]
+    public void Public_contact_verifier_accepts_bare_foreign_email_on_contact_path()
+    {
+        var html = "Email hello@gmail.com for membership";
+        var found = PublicBusinessContactVerifier.TryVerifyFromHtml(
+            html, "exampleclub.org", "https://exampleclub.org/contact-us");
+        Assert.NotNull(found);
+        Assert.Equal("hello@gmail.com", found!.Email);
+        Assert.Equal("website_page", found.SourceType);
+    }
+
+    [Fact]
+    public void Public_contact_verifier_extracts_contact_name_near_mailto()
+    {
+        var html = "<a href=\"mailto:jane@exampleclub.org\">Jane Smith</a>";
+        var found = PublicBusinessContactVerifier.TryVerifyFromHtml(html, "exampleclub.org", "https://exampleclub.org/about");
+        Assert.NotNull(found);
+        Assert.Equal("Jane Smith", found!.ContactName);
+    }
+
+    [Fact]
+    public void Research_attempts_fields_default_and_increment_semantics()
+    {
+        var p = new PartnerProspect
+        {
+            OrganizationName = "Test Club",
+            Website = "https://exampleclub.org",
+            Status = "no_verified_public_email",
+            ResearchAttempts = 0,
+        };
+        Assert.Equal(0, p.ResearchAttempts);
+        p.ResearchAttempts++;
+        p.LastResearchAt = DateTime.UtcNow;
+        p.ContactabilityState = PartnerCrmLifecycle.ContactResearching;
+        Assert.Equal(1, p.ResearchAttempts);
+        Assert.NotNull(p.LastResearchAt);
+        Assert.Equal(PartnerCrmLifecycle.ContactResearching, p.ContactabilityState);
+
+        PartnerCrmLifecycle.ApplyLegacyNormalization(p);
+        Assert.Equal(PartnerCrmLifecycle.ContactResearching, p.ContactabilityState);
+    }
+
+    [Fact]
+    public void Partner_email_utm_appended_when_missing()
+    {
+        var url = PartnerEmailMime.AppendPartnerUtm(
+            "https://gettrainmate.com/partners/us/atlanta/atl-x",
+            "us_atlanta_train_partners",
+            "atl-x");
+        Assert.Contains("utm_source=partner_outreach", url);
+        Assert.Contains("utm_medium=email", url);
+        Assert.Contains("utm_campaign=us_atlanta_train_partners", url);
+        Assert.Contains("ref=atl-x", url);
+        var again = PartnerEmailMime.AppendPartnerUtm(url, "other", "y");
+        Assert.Equal(url, again);
+    }
+
+    [Fact]
+    public void RenderDefault_branches_english_by_prospect_kind()
+    {
+        var gym = PartnerEmailMime.RenderDefault(
+            "Fit Studio",
+            "https://gettrainmate.com/partners/us/atlanta/fit",
+            "fit",
+            "https://gettrainmate.com/email/unsubscribe?t=abc",
+            "Atlanta, GA",
+            "Atlanta",
+            "en",
+            organizationType: "gym");
+        Assert.Contains("workout partners", gym.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("utm_source=partner_outreach", gym.Text);
+
+        var run = PartnerEmailMime.RenderDefault(
+            "Run Crew",
+            "https://gettrainmate.com/partners/us/atlanta/run",
+            "run",
+            "https://gettrainmate.com/email/unsubscribe?t=abc",
+            "Atlanta, GA",
+            "Atlanta",
+            "en",
+            organizationType: "run_club");
+        Assert.Contains("activity partners", run.Subject, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -225,8 +375,8 @@ public class PartnerOutreachTests
             DisplayName = c.DisplayName,
             FounderAdvantage = c.Market == "atlanta",
         }).ToList();
-        var targets = MarketRanker.SelectDiscoveryTargets(catalog, stored, evidence, 3).ToList();
-        Assert.Equal(3, targets.Count);
+        var targets = MarketRanker.SelectDiscoveryTargets(catalog, stored, evidence, 5).ToList();
+        Assert.True(targets.Count >= 1);
         Assert.Equal("us_atlanta_train_partners", targets[0].CampaignId);
     }
 

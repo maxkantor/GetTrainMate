@@ -228,6 +228,10 @@ public sealed class AutomatedMarketDiscoveryService
                 {
                     prospect.Email = verified.Email;
                     prospect.SourceUrl = verified.SourceUrl;
+                    prospect.ContactSourceUrl = verified.SourceUrl;
+                    prospect.ContactSourceType = verified.SourceType ?? "website_page";
+                    if (!string.IsNullOrWhiteSpace(verified.ContactName))
+                        prospect.ContactName = verified.ContactName;
                     prospect.SourceVerifiedOn = verified.VerifiedOnUtc.ToString("yyyy-MM-dd");
                     prospect.EmailVerifiedOn = verified.VerifiedOnUtc.ToString("yyyy-MM-dd");
                     prospect.OfficialDomain = verified.Email.Split('@')[1];
@@ -235,6 +239,8 @@ public sealed class AutomatedMarketDiscoveryService
                     prospect.Status = "prospect";
                     prospect.CrmLifecycle = PartnerCrmLifecycle.Qualified;
                     prospect.ContactState = PartnerCrmLifecycle.ContactFound;
+                    prospect.ContactabilityState = PartnerCrmLifecycle.ContactFound;
+                    prospect.ContactabilityScore = scored.ContactQualityScore;
                     marketReport.VerifiedPublicContacts++;
                     report.VerifiedPublicContacts++;
                 }
@@ -246,9 +252,15 @@ public sealed class AutomatedMarketDiscoveryService
                     prospect.Status = "no_verified_public_email";
                     prospect.CrmLifecycle = PartnerCrmLifecycle.New;
                     prospect.ContactState = PartnerCrmLifecycle.ContactNeeded;
+                    prospect.ContactabilityState = PartnerCrmLifecycle.ContactNeeded;
+                    prospect.ContactabilityScore = 0;
                     marketReport.ContactsUnavailable++;
                     report.ContactsUnavailable++;
                 }
+
+                prospect.ProspectKind = PartnerCrmLifecycle.NormalizeProspectKind(org.OrganizationType);
+                prospect.ResearchAttempts = 1;
+                prospect.LastResearchAt = DateTime.UtcNow;
 
                 try
                 {
@@ -347,8 +359,9 @@ public sealed class AutomatedMarketDiscoveryService
     }
 
     /// <summary>
-    /// Customer-acquisition likelihood 0–100. Contact quality is one component (~18 pts max),
-    /// not the majority of the score. Prefers pickleball/clubs/creators/community over generic gyms.
+    /// Customer-acquisition likelihood 0–100 from audience + market + community + historical only.
+    /// Contact quality is scored separately (ContactQualityScore / ContactabilityScore) and never
+    /// mixed into AcquisitionScore. Prefers pickleball/clubs/creators/community over generic gyms.
     /// </summary>
     public static AcquisitionScoreResult ScoreProspect(DiscoveredOrganization org, bool hasEmail)
     {
@@ -356,70 +369,69 @@ public sealed class AutomatedMarketDiscoveryService
         var name = (org.OrganizationName ?? "").ToLowerInvariant();
         var source = (org.DiscoverySource ?? "").Trim().ToLowerInvariant();
 
-        // Audience fit (0–25): how well members match TRAIN+VIBE+DATE seekers
+        // Audience fit (0–30)
         var audience = type switch
         {
-            "pickleball" => 25,
-            "run_club" => 24,
-            "cycling" => 22,
-            "crossfit_hyrox" => 20,
-            "personal_trainer" => 18,
-            "creator" or "influencer" or "community" => 23,
-            "gym" => 14,
-            _ => 12
+            "pickleball" => 30,
+            "run_club" => 28,
+            "cycling" => 26,
+            "crossfit_hyrox" or "rec_sports" or "soccer" or "volleyball" or "tennis" or "swimming" => 24,
+            "personal_trainer" => 22,
+            "creator" or "influencer" or "community" => 27,
+            "gym" => 16,
+            _ => 14
         };
-        if (name.Contains("pickleball") || name.Contains("pickle")) audience = Math.Max(audience, 25);
-        if (name.Contains("club") || name.Contains("crew") || name.Contains("community")) audience = Math.Min(25, audience + 2);
+        if (name.Contains("pickleball") || name.Contains("pickle")) audience = Math.Max(audience, 30);
+        if (name.Contains("club") || name.Contains("crew") || name.Contains("community")) audience = Math.Min(30, audience + 2);
         if (name.Contains("planet fitness") || name.Contains("la fitness") || name.Contains("24 hour"))
-            audience = Math.Min(audience, 10);
+            audience = Math.Min(audience, 12);
 
-        // Market relevance (0–20): seed catalog / known metros score higher
-        var market = 10;
-        if (source == "seed_catalog") market = 20;
-        else if (source.Contains("overpass") || source.Contains("osm")) market = 12;
-        if (string.Equals(org.Market, "atlanta", StringComparison.OrdinalIgnoreCase)) market = Math.Min(20, market + 3);
+        // Market relevance (0–25)
+        var market = 12;
+        if (source == "seed_catalog") market = 25;
+        else if (source.Contains("overpass") || source.Contains("osm")) market = 15;
+        if (string.Equals(org.Market, "atlanta", StringComparison.OrdinalIgnoreCase)) market = Math.Min(25, market + 3);
 
-        // Community fit (0–22): clubs/creators/community orgs beat generic gyms
+        // Community fit (0–25)
         var community = type switch
         {
-            "run_club" or "pickleball" or "cycling" => 22,
-            "creator" or "influencer" or "community" => 21,
-            "crossfit_hyrox" => 18,
-            "personal_trainer" => 14,
-            "gym" => 10,
-            _ => 11
+            "run_club" or "pickleball" or "cycling" or "rec_sports" => 25,
+            "creator" or "influencer" or "community" => 24,
+            "crossfit_hyrox" or "soccer" or "volleyball" or "tennis" or "swimming" => 22,
+            "personal_trainer" => 16,
+            "gym" => 12,
+            _ => 13
         };
         if (name.Contains("community") || name.Contains("collective") || name.Contains("social"))
-            community = Math.Min(22, community + 2);
+            community = Math.Min(25, community + 2);
 
-        // Contact quality (0–18): verified email helps but is not majority
-        var contact = hasEmail ? 18 : 4;
-        if (hasEmail && source == "seed_catalog") contact = 18;
-
-        // Historical category (0–15): categories that historically convert for GTM
+        // Historical category (0–20)
         var historical = type switch
         {
-            "pickleball" => 15,
-            "run_club" => 14,
-            "cycling" => 12,
-            "crossfit_hyrox" => 11,
-            "creator" or "community" => 13,
-            "personal_trainer" => 9,
-            "gym" => 6,
-            _ => 5
+            "pickleball" => 20,
+            "run_club" => 18,
+            "cycling" or "rec_sports" => 15,
+            "crossfit_hyrox" => 14,
+            "creator" or "community" => 16,
+            "personal_trainer" => 11,
+            "gym" => 7,
+            _ => 6
         };
 
-        var total = audience + market + community + contact + historical;
-        total = Math.Clamp(total, 0, 100);
+        // Contactability is separate — never folded into AcquisitionScore
+        var contact = hasEmail ? 90 : 0;
+        if (hasEmail && source == "seed_catalog") contact = 95;
+
+        var acquisition = Math.Clamp(audience + market + community + historical, 0, 100);
 
         var explanation =
-            $"audience={audience}/25 ({type}), market={market}/20 ({source}), " +
-            $"community={community}/22, contact={contact}/18 (email={hasEmail}), " +
-            $"category={historical}/15 → acquisition={total}/100";
+            $"audience={audience}/30 ({type}), market={market}/25 ({source}), " +
+            $"community={community}/25, category={historical}/20 → acquisition={acquisition}/100; " +
+            $"contactability={contact}/100 (email={hasEmail})";
 
         return new AcquisitionScoreResult
         {
-            AcquisitionScore = total,
+            AcquisitionScore = acquisition,
             AudienceFitScore = audience,
             MarketRelevanceScore = market,
             CommunityFitScore = community,
@@ -429,6 +441,9 @@ public sealed class AutomatedMarketDiscoveryService
         };
     }
 
+    public static string NormalizeProspectKind(string? organizationType) =>
+        PartnerCrmLifecycle.NormalizeProspectKind(organizationType);
+
     static string ActivityForType(string orgType) => orgType switch
     {
         "run_club" => "running",
@@ -436,6 +451,7 @@ public sealed class AutomatedMarketDiscoveryService
         "cycling" => "cycling",
         "crossfit_hyrox" => "training",
         "personal_trainer" => "training",
+        "soccer" or "volleyball" or "tennis" or "swimming" or "rec_sports" => "sports",
         _ => "training",
     };
 }

@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 
 namespace GetTrainMate.Api.Services.PartnerOutreach;
@@ -30,10 +29,13 @@ public sealed class OverpassFitnessDiscoveryProvider
               nwr["amenity"="gym"]({south},{west},{north},{east});
               nwr["leisure"="fitness_centre"]({south},{west},{north},{east});
               nwr["leisure"="sports_centre"]({south},{west},{north},{east});
-              nwr["sport"~"running|tennis|pickleball|cycling|crossfit|fitness|multi"]({south},{west},{north},{east});
+              nwr["leisure"="pitch"]({south},{west},{north},{east});
+              nwr["amenity"="community_centre"]({south},{west},{north},{east});
+              nwr["tourism"="attraction"]["sport"~"."]({south},{west},{north},{east});
+              nwr["sport"~"running|tennis|pickleball|cycling|crossfit|fitness|multi|soccer|volleyball|swimming"]({south},{west},{north},{east});
               nwr["club"="sport"]({south},{west},{north},{east});
             );
-            out center {Math.Min(maxResults * 3, 200)};
+            out center {Math.Min(maxResults * 4, 250)};
             """;
 
         try
@@ -50,12 +52,13 @@ public sealed class OverpassFitnessDiscoveryProvider
             if (!doc.RootElement.TryGetProperty("elements", out var elements))
                 return Array.Empty<DiscoveredOrganization>();
 
-            var results = new List<DiscoveredOrganization>();
+            var clubs = new List<DiscoveredOrganization>();
+            var gyms = new List<DiscoveredOrganization>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var el in elements.EnumerateArray())
             {
-                if (results.Count >= maxResults) break;
+                if (clubs.Count + gyms.Count >= maxResults * 2) break;
                 var tags = el.TryGetProperty("tags", out var t) ? t : default;
                 if (tags.ValueKind != JsonValueKind.Object) continue;
                 var name = GetTag(tags, "name");
@@ -71,7 +74,7 @@ public sealed class OverpassFitnessDiscoveryProvider
                 var key = siteUri.Host + "|" + name.Trim();
                 if (!seen.Add(key)) continue;
 
-                results.Add(new DiscoveredOrganization
+                var org = new DiscoveredOrganization
                 {
                     OrganizationName = name.Trim(),
                     OrganizationType = orgType,
@@ -83,10 +86,13 @@ public sealed class OverpassFitnessDiscoveryProvider
                     Timezone = campaign.Timezone,
                     PrimaryLanguage = InferLanguage(campaign),
                     DiscoverySource = "overpass_osm",
-                });
+                };
+                if (IsGymType(orgType)) gyms.Add(org);
+                else clubs.Add(org);
             }
 
-            return results;
+            // Prefer non-gym: interleave clubs before gyms when filling maxResults
+            return InterleavePreferClubs(clubs, gyms, maxResults);
         }
         catch (Exception ex)
         {
@@ -94,6 +100,28 @@ public sealed class OverpassFitnessDiscoveryProvider
             return Array.Empty<DiscoveredOrganization>();
         }
     }
+
+    static List<DiscoveredOrganization> InterleavePreferClubs(
+        List<DiscoveredOrganization> clubs,
+        List<DiscoveredOrganization> gyms,
+        int maxResults)
+    {
+        var results = new List<DiscoveredOrganization>(maxResults);
+        var ci = 0;
+        var gi = 0;
+        // Take two clubs for every one gym until full
+        while (results.Count < maxResults && (ci < clubs.Count || gi < gyms.Count))
+        {
+            for (var n = 0; n < 2 && results.Count < maxResults && ci < clubs.Count; n++)
+                results.Add(clubs[ci++]);
+            if (results.Count < maxResults && gi < gyms.Count)
+                results.Add(gyms[gi++]);
+        }
+        return results;
+    }
+
+    static bool IsGymType(string orgType) =>
+        string.Equals(orgType, "gym", StringComparison.OrdinalIgnoreCase);
 
     static string InferLanguage(MarketCampaignSeed campaign) =>
         campaign.Languages?.FirstOrDefault() ?? "en";
@@ -103,13 +131,21 @@ public sealed class OverpassFitnessDiscoveryProvider
         var sport = GetTag(tags, "sport")?.ToLowerInvariant() ?? "";
         var leisure = GetTag(tags, "leisure")?.ToLowerInvariant() ?? "";
         var amenity = GetTag(tags, "amenity")?.ToLowerInvariant() ?? "";
+        var tourism = GetTag(tags, "tourism")?.ToLowerInvariant() ?? "";
         if (sport.Contains("running")) return "run_club";
-        if (sport.Contains("pickleball") || sport.Contains("tennis")) return "pickleball";
+        if (sport.Contains("pickleball")) return "pickleball";
+        if (sport.Contains("tennis")) return "tennis";
         if (sport.Contains("cycling")) return "cycling";
         if (sport.Contains("crossfit")) return "crossfit_hyrox";
+        if (sport.Contains("soccer") || sport.Contains("football")) return "soccer";
+        if (sport.Contains("volleyball")) return "volleyball";
+        if (sport.Contains("swimming")) return "swimming";
+        if (amenity == "community_centre") return "community";
+        if (tourism == "attraction" && !string.IsNullOrWhiteSpace(sport)) return "rec_sports";
+        if (leisure == "pitch") return "rec_sports";
         if (leisure == "sports_centre" || GetTag(tags, "club") == "sport") return "rec_sports";
         if (amenity == "gym" || leisure == "fitness_centre") return "gym";
-        return "gym";
+        return "rec_sports";
     }
 
     static string? GetTag(JsonElement tags, string key)

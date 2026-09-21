@@ -65,6 +65,179 @@ export function hasEmail(p: PartnerProspect): boolean {
   return Boolean(p.email && p.email.includes('@'));
 }
 
+const PROSPECT_TYPE_LABELS: Record<string, string> = {
+  GYM: 'Gym',
+  STUDIO: 'Studio',
+  SPORTS_CLUB: 'Sports club',
+  RUN_CLUB: 'Running club',
+  REC_LEAGUE: 'Rec league',
+  COACH: 'Coach',
+  TRAINER: 'Trainer',
+  CREATOR: 'Creator',
+  COMMUNITY: 'Community',
+  EVENT_ORGANIZER: 'Event organizer',
+  OTHER: 'Other',
+  ORGANIZATION: 'Organization',
+  INDIVIDUAL: 'Individual',
+  organization: 'Organization',
+  individual: 'Individual',
+  gym: 'Gym',
+  studio: 'Studio',
+  run_club: 'Running club',
+  pickleball: 'Sports club',
+  personal_trainer: 'Trainer',
+  cycling: 'Sports club',
+  crossfit_hyrox: 'Studio',
+  creator: 'Creator',
+  influencer: 'Creator',
+  community: 'Community',
+  sports_club: 'Sports club',
+  rec_league: 'Rec league',
+  coach: 'Coach',
+  trainer: 'Trainer',
+  event_organizer: 'Event organizer',
+};
+
+export function formatProspectType(p: PartnerProspect | string | undefined | null): string {
+  if (p == null) return '—';
+  if (typeof p === 'string') {
+    const key = p.trim();
+    if (!key) return '—';
+    return PROSPECT_TYPE_LABELS[key] || PROSPECT_TYPE_LABELS[key.toUpperCase()] || titleCaseToken(key);
+  }
+  const raw = p.prospectKind || p.organizationType || p.prospectType || '';
+  return formatProspectType(raw);
+}
+
+function titleCaseToken(raw: string): string {
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Human contactability label — never surface raw snake_case as primary. */
+export function formatContactability(p: PartnerProspect | string | undefined | null): string {
+  if (p != null && typeof p !== 'string') {
+    if (hasEmail(p) || (p.emailVerificationStatus || '').toLowerCase() === 'verified_public') {
+      const state = (p.contactabilityState || p.contactState || '').toUpperCase();
+      if (state === 'RESEARCHING') return 'Researching';
+      return 'Verified email';
+    }
+    return formatContactability(p.contactabilityState || p.contactState || p.status || p.emailVerificationStatus);
+  }
+  const raw = (typeof p === 'string' ? p : '').trim();
+  if (!raw) return 'Contact needed';
+  const s = raw.toLowerCase().replace(/\s+/g, '_');
+  if (s === 'verified_public' || s === 'contact_found' || s === 'email' || s === 'available') return 'Verified email';
+  if (s === 'researching') return 'Researching';
+  if (s === 'no_verified_public_email' || s === 'no_public_contact' || s === 'contacts_unavailable') return 'No public email';
+  if (s === 'retry_later') return 'Retry later';
+  if (s === 'manual_review') return 'Manual review';
+  if (s === 'contact_needed' || s === 'needed' || s === 'unknown' || s === 'invalid') return 'Contact needed';
+  if (s.includes('verified')) return 'Verified email';
+  if (s.includes('research')) return 'Researching';
+  if (s.includes('no_') && s.includes('email')) return 'No public email';
+  return titleCaseToken(raw);
+}
+
+export function formatLifecycle(value?: string | null): string {
+  if (!value?.trim()) return '—';
+  const s = value.trim().toUpperCase().replace(/\s+/g, '_');
+  const map: Record<string, string> = {
+    NEW: 'New',
+    QUALIFIED: 'Qualified',
+    CONTACTED: 'Contacted',
+    FOLLOW_UP: 'Follow-up',
+    REPLIED: 'Replied',
+    INTERESTED: 'Interested',
+    PARTNER: 'Partner',
+    CLOSED: 'Closed',
+    DRAFT: 'Draft',
+    APPROVED: 'Approved',
+    SCHEDULED: 'Scheduled',
+    SENT: 'Sent',
+  };
+  return map[s] || titleCaseToken(value);
+}
+
+export function needsContactResearch(p: PartnerProspect): boolean {
+  if (hasEmail(p)) return false;
+  const state = (p.contactabilityState || p.contactState || '').toUpperCase();
+  if (state === 'CONTACT_FOUND') return false;
+  if (state === 'NO_PUBLIC_CONTACT' && (p.researchAttempts ?? 0) >= 5) return false;
+  return (
+    state === 'CONTACT_NEEDED' ||
+    state === 'RESEARCHING' ||
+    state === 'RETRY_LATER' ||
+    state === 'MANUAL_REVIEW' ||
+    state === 'UNKNOWN' ||
+    !state ||
+    p.status === 'no_verified_public_email' ||
+    (p.emailVerificationStatus || '').toLowerCase() === 'no_verified_public_email'
+  );
+}
+
+export function formatResultsCompact(p: PartnerProspect): string {
+  const u = p.referralSignups ?? 0;
+  const c = p.paidCustomers ?? 0;
+  const dollars = ((p.attributedRevenueCents ?? 0) / 100).toFixed(0);
+  return `U:${u} C:${c} $${dollars}`;
+}
+
+export function formatNextAction(
+  p: PartnerProspect,
+  queueItems: PartnerQueueItem[],
+): string {
+  const draft = queueItems.find((q) => q.status === 'draft');
+  if (draft) return 'Review draft';
+  const approved = queueItems.find((q) => q.status === 'approved');
+  if (approved) return 'Awaiting send';
+  const scheduled = queueItems.find((q) => q.status === 'scheduled');
+  if (scheduled) return 'Follow-up due';
+  const life = (p.crmLifecycle || '').toUpperCase();
+  if (life === 'REPLIED') return 'Reply in inbox';
+  if (life === 'INTERESTED') return 'Convert partner';
+  if (life === 'PARTNER') return 'Track referrals';
+  if (needsContactResearch(p)) return 'Research public contact';
+  if (hasEmail(p) && !queueItems.some((q) => ['draft', 'approved', 'scheduled', 'sent', 'queued'].includes(q.status))) {
+    return 'Prepare draft';
+  }
+  const emailState = (p.emailState || '').toUpperCase();
+  if (emailState === 'SENT' || emailState === 'DELIVERED') return 'Awaiting reply';
+  if (emailState === 'AWAITING_APPROVAL') return 'Review draft';
+  if (emailState === 'APPROVED' || emailState === 'SCHEDULED') return 'Awaiting send';
+  return 'Review';
+}
+
+export function ScoreBar({
+  label,
+  value,
+  max,
+}: {
+  label: string;
+  value: number | undefined | null;
+  max: number;
+}) {
+  const n = value == null || Number.isNaN(Number(value)) ? 0 : Number(value);
+  const pct = max > 0 ? Math.min(100, Math.max(0, (n / max) * 100)) : 0;
+  return (
+    <Box sx={{ mb: 1 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
+        <Typography variant="caption" color="text.secondary">
+          {label}
+        </Typography>
+        <Typography variant="caption" sx={{ fontWeight: 600 }}>
+          {value == null ? '—' : `${n}/${max}`}
+        </Typography>
+      </Box>
+      <Box sx={{ height: 8, bgcolor: 'rgba(255,255,255,0.08)', borderRadius: 1, overflow: 'hidden' }}>
+        <Box sx={{ width: `${pct}%`, height: '100%', bgcolor: 'primary.main', borderRadius: 1 }} />
+      </Box>
+    </Box>
+  );
+}
+
 export function parseTimeline(json?: string | null): Array<{ at?: string; type?: string; note?: string; label?: string }> {
   if (!json?.trim()) return [];
   try {

@@ -65,6 +65,44 @@ public class AdminPartnerOutreachController : ControllerBase
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    [HttpPost("prospects/{id}/research-contact")]
+    public async Task<IActionResult> ResearchContact(string id, [FromBody] ResearchContactRequest? req)
+    {
+        try { return Ok(await _svc.ResearchContactAsync(id, Actor(), req?.Force ?? false)); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("prospects/research-contacts")]
+    public async Task<IActionResult> ResearchContactsBulk([FromBody] ResearchContactsBulkRequest req)
+    {
+        try
+        {
+            return Ok(await _svc.ResearchContactsBulkAsync(
+                req.ProspectIds ?? Array.Empty<string>(),
+                Actor(),
+                req.Max > 0 ? req.Max : 20));
+        }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("research/contact-needed")]
+    public async Task<IActionResult> ResearchContactNeeded([FromBody] ResearchContactNeededRequest? req)
+    {
+        try
+        {
+            var max = req?.Max;
+            if (max is null or <= 0)
+            {
+                var settings = await _svc.GetOutreachSettingsAsync();
+                var prop = settings.GetType().GetProperty("ResearchContactsPerRun");
+                max = prop?.GetValue(settings) is int i && i > 0 ? i : 10;
+            }
+            return Ok(await _svc.ResearchContactNeededBatchAsync(max.Value, Actor()));
+        }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
     [HttpPost("drafts")]
     public async Task<IActionResult> Draft([FromBody] DraftRequest req)
     {
@@ -360,4 +398,21 @@ public class AutomatedDiscoverRequest
 public class DedupeRequest
 {
     public bool DryRun { get; set; }
+}
+
+public class ResearchContactRequest
+{
+    public bool Force { get; set; }
+}
+
+public class ResearchContactsBulkRequest
+{
+    public IEnumerable<string>? ProspectIds { get; set; }
+    public bool Force { get; set; }
+    public int Max { get; set; } = 20;
+}
+
+public class ResearchContactNeededRequest
+{
+    public int? Max { get; set; }
 }

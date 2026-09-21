@@ -123,7 +123,7 @@ public class Startup
         });
         services.AddHttpClient<PublicBusinessContactVerifier>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(5);
+            client.Timeout = TimeSpan.FromSeconds(15);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("GetTrainMatePartnerDiscovery/1.0 (+https://gettrainmate.com/contact)");
         });
         services.AddScoped<AutomatedMarketDiscoveryService>();

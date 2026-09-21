@@ -65,6 +65,7 @@ public class PartnerOutreachInternalController : ControllerBase
         var maxProspects = req?.MaxProspects ?? ReadInt("ProspectsPerRun", 8);
         var maxResearch = req?.MaxResearchAttempts ?? ReadInt("ResearchAttemptsPerRun", 15);
         var maxDrafts = req?.MaxDrafts ?? ReadInt("DraftsPerRun", 5);
+        var maxContactResearch = req?.MaxContactResearch ?? ReadInt("ResearchContactsPerRun", 10);
 
         var report = await _discovery.RunLimitedAsync(
             maxProspects,
@@ -73,7 +74,18 @@ public class PartnerOutreachInternalController : ControllerBase
             req?.OnlyCampaignId,
             req?.SeedsOnly ?? false,
             req?.PrepareDrafts ?? true);
-        return Ok(report);
+
+        object? contactResearch = null;
+        try
+        {
+            contactResearch = await _svc.ResearchContactNeededBatchAsync(maxContactResearch, "internal_discover");
+        }
+        catch (Exception)
+        {
+            // Discovery report still returned even if contact research batch fails
+        }
+
+        return Ok(new { discovery = report, contactResearch });
     }
 
     [HttpGet("metrics")]
@@ -93,6 +105,17 @@ public class PartnerOutreachInternalController : ControllerBase
     {
         if (!Authorized()) return Unauthorized();
         return Ok(await _svc.DispatchDueAsync(scheduledCursorAutomation: false));
+    }
+
+    [HttpPost("research/contact-needed")]
+    public async Task<IActionResult> ResearchContactNeeded([FromBody] InternalResearchContactRequest? req)
+    {
+        if (!Authorized()) return Unauthorized();
+        var settingsObj = await _svc.GetOutreachSettingsAsync();
+        var prop = settingsObj.GetType().GetProperty("ResearchContactsPerRun");
+        var fallback = prop?.GetValue(settingsObj) is int i && i > 0 ? i : 10;
+        var max = req?.Max is > 0 ? req.Max.Value : fallback;
+        return Ok(await _svc.ResearchContactNeededBatchAsync(max, "internal"));
     }
 }
 
@@ -116,4 +139,10 @@ public class InternalDiscoverRequest
     public int? MaxProspects { get; set; }
     public int? MaxResearchAttempts { get; set; }
     public int? MaxDrafts { get; set; }
+    public int? MaxContactResearch { get; set; }
+}
+
+public class InternalResearchContactRequest
+{
+    public int? Max { get; set; }
 }

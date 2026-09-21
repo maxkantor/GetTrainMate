@@ -114,10 +114,19 @@ export async function fetchPartnerOutreachSnapshot() {
       customersAcquired: ns.customersAcquired ?? 0,
       revenueAttributedCents: ns.revenueAttributedCents ?? 0,
       ownerAction:
-        awaiting > 0
-          ? `${awaiting} high-value outreach message${awaiting === 1 ? '' : 's'} waiting for approval. Open Admin → Partner Outreach → Approvals.`
-          : 'No drafts awaiting approval.',
-      approvalsAdminUrl: 'https://gettrainmate.com/admin/partner-outreach',
+        (() => {
+          const mode = (settings?.outreachMode ?? metrics?.outreachMode ?? 'off').toLowerCase();
+          const approved = funnel.approved ?? metrics?.approvedRecipients ?? 0;
+          const awaiting = funnel.awaitingApproval ?? metrics?.approvalReadyRecipients ?? 0;
+          if (approved > 0 && (mode === 'off' || !settings?.sendEnabled)) {
+            return `${approved} approved messages are waiting. Live outreach is OFF. Open Approvals, then Settings → Enable LIVE when ready.`;
+          }
+          if (awaiting > 0) {
+            return `${awaiting} high-value outreach message${awaiting === 1 ? '' : 's'} waiting for approval. Open Admin → Partner Outreach → Approvals.`;
+          }
+          return 'No drafts awaiting approval.';
+        })(),
+      approvalsAdminUrl: 'https://gettrainmate.com/admin/partner-outreach?tab=approvals',
     };
   } catch (e) {
     return {
@@ -179,6 +188,30 @@ export async function runLimitedPartnerDiscovery({
       stage: latest?.stage,
       error: latest?.error || null,
     };
+  } catch (e) {
+    return {
+      ok: false,
+      status: 'failed',
+      reason: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+/**
+ * Research CONTACT_NEEDED prospects (controlled batch). Never invents emails.
+ */
+export async function researchContactNeededBatch({ dryRun = false, max } = {}) {
+  const token = await adminCrmToken();
+  if (!token) {
+    return { ok: false, status: 'skipped', reason: 'Admin CRM credentials not configured' };
+  }
+  if (dryRun) {
+    return { ok: true, status: 'dry_run', note: 'Would POST research/contact-needed' };
+  }
+  try {
+    const body = max != null ? { max } : {};
+    const result = await adminPost(token, '/api/admin/partner-outreach/research/contact-needed', body);
+    return { ok: true, status: 'ok', result };
   } catch (e) {
     return {
       ok: false,

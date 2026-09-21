@@ -34,6 +34,7 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
   const [testRecipients, setTestRecipients] = useState('');
   const [prospectsPerRun, setProspectsPerRun] = useState(8);
   const [researchAttemptsPerRun, setResearchAttemptsPerRun] = useState(15);
+  const [researchContactsPerRun, setResearchContactsPerRun] = useState(10);
   const [draftsPerRun, setDraftsPerRun] = useState(5);
   const [confirmLive, setConfirmLive] = useState(false);
   const [pendingMode, setPendingMode] = useState<OutreachMode | null>(null);
@@ -45,6 +46,7 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
     setTestRecipients((s.testRecipients || []).join(', '));
     setProspectsPerRun(s.prospectsPerRun ?? 8);
     setResearchAttemptsPerRun(s.researchAttemptsPerRun ?? 15);
+    setResearchContactsPerRun(s.researchContactsPerRun ?? 10);
     setDraftsPerRun(s.draftsPerRun ?? 5);
   };
 
@@ -73,7 +75,7 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
         .split(/[,;\s]+/)
         .map((e) => e.trim())
         .filter((e) => e.includes('@'));
-      const body = {
+      const body: Record<string, unknown> = {
         outreachMode: nextMode ?? mode,
         pauseAllOutreach: pauseAll,
         testRecipients: recipients,
@@ -81,6 +83,9 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
         researchAttemptsPerRun,
         draftsPerRun,
       };
+      if (settings?.researchContactsPerRun != null || researchContactsPerRun != null) {
+        body.researchContactsPerRun = researchContactsPerRun;
+      }
       const updated = (await adminApiService.put(`${API}/settings`, body)) as OutreachSettings;
       applyLocal(updated);
       onNotice('Settings saved');
@@ -105,6 +110,9 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
 
   if (loading && !settings) return <PanelSkeleton rows={5} />;
 
+  const showResearchContacts =
+    settings != null && Object.prototype.hasOwnProperty.call(settings, 'researchContactsPerRun');
+
   return (
     <Box sx={{ maxWidth: 560 }}>
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
@@ -122,7 +130,7 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
         </Alert>
       )}
 
-      <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+      <FormControl fullWidth size="small" sx={{ mb: 1 }}>
         <InputLabel>Outreach mode</InputLabel>
         <Select
           label="Outreach mode"
@@ -134,6 +142,33 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
           <MenuItem value="live">LIVE</MenuItem>
         </Select>
       </FormControl>
+
+      <Box sx={{ mb: 2, display: 'grid', gap: 0.75 }}>
+        <Alert severity={mode === 'off' ? 'warning' : 'info'} sx={{ py: 0.75 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            OFF
+          </Typography>
+          <Typography variant="caption" display="block">
+            No external email. Discovery, research, drafts, and approvals still work; sending is blocked.
+          </Typography>
+        </Alert>
+        <Alert severity={mode === 'test' ? 'info' : 'info'} sx={{ py: 0.75, opacity: mode === 'test' ? 1 : 0.85 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            TEST
+          </Typography>
+          <Typography variant="caption" display="block">
+            Only configured internal test recipients may receive approved outreach.
+          </Typography>
+        </Alert>
+        <Alert severity={mode === 'live' ? 'success' : 'info'} sx={{ py: 0.75, opacity: mode === 'live' ? 1 : 0.85 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            LIVE
+          </Typography>
+          <Typography variant="caption" display="block">
+            Approved recipients may be contacted via SES. Recipient-level approval is still required — LIVE does not bypass Approve.
+          </Typography>
+        </Alert>
+      </Box>
 
       <FormControlLabel
         control={<Switch checked={pauseAll} onChange={(e) => setPauseAll(e.target.checked)} />}
@@ -154,7 +189,14 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
         Discovery limits per run
       </Typography>
-      <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: '1fr 1fr 1fr', mb: 2 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 1.5,
+          gridTemplateColumns: showResearchContacts ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr',
+          mb: 2,
+        }}
+      >
         <TextField
           size="small"
           type="number"
@@ -169,6 +211,16 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
           value={researchAttemptsPerRun}
           onChange={(e) => setResearchAttemptsPerRun(Number(e.target.value) || 0)}
         />
+        {showResearchContacts && (
+          <TextField
+            size="small"
+            type="number"
+            label="Research contacts"
+            value={researchContactsPerRun}
+            onChange={(e) => setResearchContactsPerRun(Number(e.target.value) || 0)}
+            helperText="ResearchContactsPerRun"
+          />
+        )}
         <TextField
           size="small"
           type="number"
@@ -193,7 +245,7 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
         <DialogTitle>Switch to LIVE mode?</DialogTitle>
         <DialogContent>
           <Typography>
-            LIVE mode allows approved partner outreach to go to real recipients (subject to send gates and pause). Confirm only if you intend to send externally.
+            LIVE enables SES sending to approved recipients. Recipient-level approval is still required. Confirm only if you intend to send external partner outreach via SES.
           </Typography>
         </DialogContent>
         <DialogActions>

@@ -22,6 +22,14 @@ public static class PartnerCrmLifecycle
     public const string ContactFound = "CONTACT_FOUND";
     public const string ContactNeeded = "CONTACT_NEEDED";
     public const string ContactInvalid = "INVALID";
+    public const string NoPublicContact = "NO_PUBLIC_CONTACT";
+    public const string RetryLater = "RETRY_LATER";
+    public const string ManualReview = "MANUAL_REVIEW";
+
+    static readonly HashSet<string> KnownContactabilityStates = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ContactNeeded, ContactResearching, ContactFound, NoPublicContact, RetryLater, ManualReview, ContactUnknown, ContactInvalid,
+    };
 
     public static void ApplyLegacyNormalization(PartnerProspect p)
     {
@@ -105,6 +113,26 @@ public static class PartnerCrmLifecycle
             }
         }
 
+        // Mirror / normalize ContactabilityState from ContactState and known research outcomes
+        if (string.IsNullOrWhiteSpace(p.ContactabilityState))
+        {
+            p.ContactabilityState = NormalizeContactabilityState(p.ContactState, hasEmail, status);
+        }
+        else
+        {
+            p.ContactabilityState = NormalizeContactabilityState(p.ContactabilityState, hasEmail, status);
+            // Keep ContactState aligned for research terminal states
+            if (p.ContactabilityState is NoPublicContact or RetryLater or ManualReview or ContactResearching)
+                p.ContactState = p.ContactabilityState is ContactResearching ? ContactResearching : ContactNeeded;
+            else if (p.ContactabilityState == ContactFound)
+                p.ContactState = ContactFound;
+            else if (p.ContactabilityState == ContactNeeded)
+                p.ContactState = ContactNeeded;
+        }
+
+        if (string.IsNullOrWhiteSpace(p.ProspectKind) && !string.IsNullOrWhiteSpace(p.OrganizationType))
+            p.ProspectKind = NormalizeProspectKind(p.OrganizationType);
+
         if (string.IsNullOrWhiteSpace(p.EmailState))
         {
             p.EmailState = status switch
@@ -121,6 +149,45 @@ public static class PartnerCrmLifecycle
                 _ => p.EmailState
             };
         }
+    }
+
+    public static string? NormalizeContactabilityState(string? raw, bool hasEmail = false, string? legacyStatus = null)
+    {
+        var s = (raw ?? "").Trim().ToUpperInvariant();
+        if (KnownContactabilityStates.Contains(s))
+            return s switch
+            {
+                "UNKNOWN" => hasEmail ? ContactFound : ContactNeeded,
+                "INVALID" => ManualReview,
+                _ => s
+            };
+
+        if (hasEmail) return ContactFound;
+        var status = (legacyStatus ?? "").Trim().ToLowerInvariant();
+        if (status == "no_verified_public_email") return ContactNeeded;
+        return string.IsNullOrWhiteSpace(s) ? (hasEmail ? ContactFound : ContactNeeded) : ContactNeeded;
+    }
+
+    /// <summary>Maps stored OrganizationType (snake_case) to ProspectKind enum-like values.</summary>
+    public static string NormalizeProspectKind(string? organizationType)
+    {
+        var t = (organizationType ?? "").Trim().ToLowerInvariant().Replace(' ', '_').Replace('-', '_');
+        return t switch
+        {
+            "gym" or "fitness_centre" or "fitness_center" => "GYM",
+            "studio" or "yoga_studio" or "pilates" => "STUDIO",
+            "pickleball" or "tennis" or "soccer" or "volleyball" or "swimming"
+                or "sports_club" or "sport_club" or "outdoor_club" or "hiking"
+                or "cycling" or "crossfit_hyrox" or "rec_sports" => "SPORTS_CLUB",
+            "run_club" or "running" or "running_club" => "RUN_CLUB",
+            "rec_league" or "league" or "softball" => "REC_LEAGUE",
+            "coach" or "coaching" => "COACH",
+            "personal_trainer" or "trainer" or "pt" => "TRAINER",
+            "creator" or "influencer" => "CREATOR",
+            "community" or "community_centre" or "community_center" => "COMMUNITY",
+            "event_organizer" or "event" or "events" or "race" => "EVENT_ORGANIZER",
+            _ => "OTHER",
+        };
     }
 
     public static void ApplyToList(IEnumerable<PartnerProspect> prospects)
