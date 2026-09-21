@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
   Button,
   Checkbox,
@@ -55,6 +56,8 @@ import {
   resolveNextAction,
 } from './components';
 import { adminApiService } from '@/services/adminApiService';
+import { summarizeBulkResearch, summarizeResearchResult } from './researchContact';
+import type { ResearchResult } from './researchContact';
 
 interface Props extends PanelSharedProps {
   initialFilters?: ProspectFilters;
@@ -122,6 +125,10 @@ export const ProspectsPanel: React.FC<Props> = ({
   >([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [researchBanner, setResearchBanner] = useState<{
+    severity: 'success' | 'error' | 'warning' | 'info';
+    text: string;
+  } | null>(null);
   const [filters, setFilters] = useState<ProspectFilters>({
     contactAvailable: 'any',
     ...initialFilters,
@@ -137,7 +144,6 @@ export const ProspectsPanel: React.FC<Props> = ({
 
   const load = useCallback(async () => {
     setLoading(true);
-    onError(null);
     try {
       const [p, q] = await Promise.all([
         adminApiService.get(`${API}/prospects`),
@@ -289,52 +295,19 @@ export const ProspectsPanel: React.FC<Props> = ({
     setSelectedIds(new Set(filtered.map((p) => p.prospectId)));
   };
 
-  type ResearchResult = {
-    ok?: boolean;
-    found?: boolean;
-    skipped?: boolean;
-    reason?: string;
-    error?: string;
-    message?: string;
-    email?: string;
-    prospectId?: string;
-    nextResearchAt?: string;
-    researchAttempts?: number;
-    contactabilityState?: string;
-  };
-
-  const summarizeResearch = (result: ResearchResult, name: string): { ok: boolean; text: string } => {
-    if (result?.found && result.email) {
-      return { ok: true, text: `Found ${result.email} for ${name}` };
-    }
-    if (result?.skipped) {
-      const why =
-        result.reason === 'retry_later'
-          ? 'still in cooldown'
-          : result.reason === 'max_research_attempts'
-            ? 'max attempts reached'
-            : result.reason || 'skipped';
-      return { ok: false, text: `${name}: ${why}` };
-    }
-    if (result?.ok === false) {
-      return {
-        ok: false,
-        text: `${name}: ${result.error || result.message || result.reason || 'research failed'}`,
-      };
-    }
-    if (result?.found === false) {
-      const when = result.nextResearchAt
-        ? ` · next ${new Date(result.nextResearchAt).toLocaleDateString()}`
-        : '';
-      return { ok: false, text: `No public email for ${name}${when}` };
-    }
-    return { ok: false, text: `${name}: no contact found` };
+  const publishResearch = (summary: { ok: boolean; text: string; kind: string }) => {
+    const severity =
+      summary.ok ? 'success' : summary.kind === 'not_found' ? 'warning' : 'error';
+    setResearchBanner({ severity, text: summary.text });
+    if (summary.ok) onNotice(summary.text);
+    else onError(summary.text);
   };
 
   const researchOne = async (p: PartnerProspect) => {
     setBusy(true);
     onError(null);
     onNotice(null);
+    setResearchBanner(null);
     const name = p.organizationName || p.prospectId;
     try {
       // Explicit admin click always forces through cooldown / attempt gates.
@@ -342,14 +315,14 @@ export const ProspectsPanel: React.FC<Props> = ({
         `${API}/prospects/${encodeURIComponent(p.prospectId)}/research-contact`,
         { force: true },
       )) as ResearchResult;
-      const summary = summarizeResearch(raw, name);
-      if (summary.ok) onNotice(summary.text);
-      else onError(summary.text);
-      requestRefresh();
+      // Reload first — load must NOT clear banners (that was the blink bug).
       await load();
       if (selected?.prospectId === p.prospectId) await refreshSelected(p.prospectId);
+      publishResearch(summarizeResearchResult(raw, name));
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : 'Contact research failed');
+      const text = e instanceof Error ? e.message : 'Contact research failed';
+      setResearchBanner({ severity: 'error', text });
+      onError(text);
     } finally {
       setBusy(false);
     }
@@ -362,35 +335,23 @@ export const ProspectsPanel: React.FC<Props> = ({
     setBusy(true);
     onError(null);
     onNotice(null);
+    setResearchBanner(null);
     try {
       const raw = (await adminApiService.post(`${API}/prospects/research-contacts`, {
         prospectIds: idList,
         force: true,
       })) as { researched?: number; results?: ResearchResult[] };
       const results = Array.isArray(raw?.results) ? raw.results : [];
-      const nameById = new Map(prospects.map((p) => [p.prospectId, p.organizationName || p.prospectId]));
-      let found = 0;
-      let missed = 0;
-      const notes: string[] = [];
-      for (const r of results) {
-        const name = nameById.get(String(r.prospectId || '')) || String(r.prospectId || 'prospect');
-        const summary = summarizeResearch(r, name);
-        if (summary.ok) found += 1;
-        else missed += 1;
-        if (notes.length < 3) notes.push(summary.text);
-      }
-      const headline =
-        found > 0
-          ? `Found ${found} contact${found === 1 ? '' : 's'}${missed ? ` · ${missed} no email` : ''} (of ${count})`
-          : `No contacts found (${missed || count} researched)`;
-      const detail = notes.join(' · ');
-      if (found > 0) onNotice(detail ? `${headline}. ${detail}` : headline);
-      else onError(detail ? `${headline}. ${detail}` : headline);
+      const nameById = new Map(
+        prospects.map((p) => [p.prospectId, p.organizationName || p.prospectId]),
+      );
       setSelectedIds(new Set());
-      requestRefresh();
       await load();
+      publishResearch(summarizeBulkResearch(results, nameById, count));
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : 'Bulk contact research failed');
+      const text = e instanceof Error ? e.message : 'Bulk contact research failed';
+      setResearchBanner({ severity: 'error', text });
+      onError(text);
     } finally {
       setBusy(false);
     }
@@ -453,6 +414,15 @@ export const ProspectsPanel: React.FC<Props> = ({
 
   return (
     <Box>
+      {researchBanner && (
+        <Alert
+          severity={researchBanner.severity}
+          sx={{ mb: 2 }}
+          onClose={() => setResearchBanner(null)}
+        >
+          {researchBanner.text}
+        </Alert>
+      )}
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }} useFlexGap flexWrap="wrap">
         <TextField
           size="small"

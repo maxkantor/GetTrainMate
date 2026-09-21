@@ -83,7 +83,6 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
 
   const load = useCallback(async () => {
     setLoading(true);
-    onError(null);
     try {
       const [q, s, dash] = await Promise.all([
         adminApiService.get(`${API}/queue`),

@@ -46,7 +46,6 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
 
   const load = useCallback(async () => {
     setLoading(true);
-    onError(null);
     try {
       const s = (await adminApiService.get(`${API}/settings`)) as OutreachSettings;
       applyLocal(s);

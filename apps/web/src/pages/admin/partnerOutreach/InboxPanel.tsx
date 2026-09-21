@@ -61,7 +61,6 @@ export const InboxPanel: React.FC<PanelSharedProps> = ({
 
   const load = useCallback(async () => {
     setLoading(true);
-    onError(null);
     try {
       const [t, p] = await Promise.all([
         adminApiService.get(`${API}/threads`),

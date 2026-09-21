@@ -87,7 +87,6 @@ export const AcquisitionPanel: React.FC<Props> = ({
 
   const load = useCallback(async () => {
     setLoading(true);
-    onError(null);
     try {
       const data = await adminApiService.get(`${API}/acquisition/dashboard`);
       setDashboard(data as AcquisitionDashboard);
@@ -221,7 +220,12 @@ export const AcquisitionPanel: React.FC<Props> = ({
       onNavigate({ tab: 'approvals', approvalsStatus: status });
       return;
     }
-    if (filter.includes('contactState=') || filter.includes('need_contact')) {
+    if (
+      filter.includes('contactState=') ||
+      filter.includes('need_contact') ||
+      filter.includes('CONTACT_NEEDED') ||
+      filter.includes('acquisitionStatus=CONTACT')
+    ) {
       onNavigate({
         tab: 'prospects',
         prospectFilters: { contactAvailable: 'needed', contactState: 'CONTACT_NEEDED' },

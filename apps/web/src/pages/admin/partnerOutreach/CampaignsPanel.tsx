@@ -37,7 +37,6 @@ export const CampaignsPanel: React.FC<PanelSharedProps> = ({
 
   const load = useCallback(async () => {
     setLoading(true);
-    onError(null);
     try {
       const c = await adminApiService.get(`${API}/campaigns`);
       setCampaigns(asArray<PartnerCampaign>(c));

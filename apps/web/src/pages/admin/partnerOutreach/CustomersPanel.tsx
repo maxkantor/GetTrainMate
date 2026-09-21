@@ -39,7 +39,6 @@ export const CustomersPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
 
   const load = useCallback(async () => {
     setLoading(true);
-    onError(null);
     try {
       const data = await adminApiService.get(`${API}/acquisition/customers`);
       setCustomers(asArray<AcquisitionCustomer>(data));

@@ -32,7 +32,6 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
 
   const load = useCallback(async () => {
     setLoading(true);
-    onError(null);
     try {
       const [d, m, p, c] = await Promise.all([
         adminApiService.get(`${API}/acquisition/dashboard`),
