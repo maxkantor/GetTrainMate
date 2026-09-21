@@ -24,6 +24,7 @@ import {
 import { reconcileSnapshot, applyReconciliationBlocks } from './lib/reconcile.mjs';
 import { fetchMetroDensity } from './lib/crm-metro.mjs';
 import { attributeExp001PaidConversions } from './lib/exp001-attribution.mjs';
+import { fetchPartnerOutreachSnapshot } from './lib/partner-outreach-crm.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MEASUREMENT_ID = 'G-C29M8NWNY4';
@@ -467,6 +468,24 @@ if (!recon.ok) {
   );
   report.notes.push('Reconciliation failed — affected metrics marked Unknown.');
   for (const w of recon.warnings) report.notes.push(`Reconcile: ${w}`);
+}
+
+try {
+  report.partnerOutreach = await fetchPartnerOutreachSnapshot();
+  report.sources.partnerOutreach =
+    report.partnerOutreach?.status === 'ok' ? 'ok' : 'unavailable';
+  if (report.partnerOutreach?.status !== 'ok') {
+    report.notes.push(
+      `Partner Outreach CRM: ${report.partnerOutreach?.reason || 'unavailable'}`
+    );
+  }
+} catch (e) {
+  report.partnerOutreach = {
+    status: 'unavailable',
+    reason: e instanceof Error ? e.message : String(e),
+  };
+  report.sources.partnerOutreach = 'unavailable';
+  report.notes.push(`Partner Outreach CRM fetch failed: ${report.partnerOutreach.reason}`);
 }
 
 fs.mkdirSync(outDir, { recursive: true });

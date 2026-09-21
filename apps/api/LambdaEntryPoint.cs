@@ -51,7 +51,19 @@ public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
             if (isDiscovery)
             {
                 var discovery = scope.ServiceProvider.GetRequiredService<AutomatedMarketDiscoveryService>();
-                return await discovery.RunAsync(prepareDrafts: true);
+                var outreach = scope.ServiceProvider.GetRequiredService<IPartnerOutreachService>();
+                var settingsObj = await outreach.GetOutreachSettingsAsync();
+                var t = settingsObj.GetType();
+                int ReadInt(string name, int fallback)
+                {
+                    var v = t.GetProperty(name)?.GetValue(settingsObj);
+                    return v is int i && i > 0 ? i : fallback;
+                }
+                return await discovery.RunLimitedAsync(
+                    maxProspects: ReadInt("ProspectsPerRun", 8),
+                    maxResearchAttempts: ReadInt("ResearchAttemptsPerRun", 15),
+                    maxDrafts: ReadInt("DraftsPerRun", 5),
+                    prepareDrafts: true);
             }
             var svc = scope.ServiceProvider.GetRequiredService<IPartnerOutreachService>();
             return await svc.DispatchDueAsync(scheduledCursorAutomation: false);

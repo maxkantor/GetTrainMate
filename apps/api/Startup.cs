@@ -115,6 +115,7 @@ public class Startup
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IPartnerOutreachService, PartnerOutreachService>();
+        services.AddScoped<IPartnerDiscoveryJobService, PartnerDiscoveryJobService>();
         services.AddHttpClient<OverpassFitnessDiscoveryProvider>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(120);

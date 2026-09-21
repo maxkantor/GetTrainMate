@@ -391,12 +391,37 @@ describe('growth report experiments and technical details', () => {
           }
         },
         partnerOutreach: {
+          status: 'ok',
           partnerPagesCreated: 10,
           inviteCodesCreated: 10,
           draftsPrepared: 9,
           recipientsApproved: 0,
           emailsSent: 0,
-          delivered: 'Unknown'
+          delivered: 'Unknown',
+          partnerResponses: 0,
+          partnerAttributedVisits: 'Unavailable',
+          partnerAttributedSignups: 0,
+          customersAcquired: 0,
+          revenueAttributedCents: 0,
+          ownerAction: '9 high-value outreach messages waiting for approval. Open Admin → Partner Outreach → Approvals.',
+          approvalsAdminUrl: 'https://gettrainmate.com/admin/partner-outreach',
+          settings: { outreachMode: 'off', pauseAllOutreach: false, sendEnabled: false },
+          northStars: { customersAcquired: 0, activeUsersAcquired: 0, revenueAttributedCents: 0, referralSignups: 0 },
+          funnel: {
+            discovered: 10,
+            qualified: 8,
+            contactNeeded: 2,
+            drafts: 9,
+            awaitingApproval: 9,
+            approved: 0,
+            scheduled: 0,
+            sent: 0,
+            contacted: 0,
+            replied: 0,
+            interested: 0,
+            partners: 0
+          },
+          discovery: { verifiedPublicContacts: 5, draftsGenerated: 9 }
         }
       },
       health: { ok: true, checks: [{ name: 'homepage', ok: true }] },
@@ -422,7 +447,9 @@ describe('growth report experiments and technical details', () => {
     });
 
     assert.match(text, /EXP-001 — Atlanta training-partners landing page/);
-    assert.match(text, /EXP-002 — Atlanta partner hub and invite-code acquisition/);
+    assert.match(text, /EXP-002 — Partner Outreach \/ invite-code acquisition/);
+    assert.match(text, /Partner Outreach \(live CRM\)/);
+    assert.match(text, /OWNER ACTION:/);
     assert.match(text, /Original evaluation date: Sunday, August 16, 2026 \(2026-08-16\)/);
     assert.match(text, /Actual evaluation date: Monday, August 17, 2026 \(2026-08-17\)/);
     assert.match(text, /Decision: KEEP \(treatment unchanged\)/);
@@ -436,10 +463,13 @@ describe('growth report experiments and technical details', () => {
     assert.match(text, /Cause: GROWTH_METRO_READ_TOKEN is not configured/);
     assert.match(text, /HTTP status: 503 Configuration unavailable/);
     assert.match(text, /Customer data exposed: No/);
-    assert.match(text, /Drafts prepared: 9/);
+    assert.match(text, /drafts=9|awaiting_approval=9/);
+    assert.match(text, /9 high-value outreach messages waiting for approval/);
     assert.match(text, /Unattributed payments: 1/);
     assert.match(html, /EXP-001 — Atlanta training-partners landing page/);
-    assert.match(html, /EXP-002 — Atlanta partner hub and invite-code acquisition/);
+    assert.match(html, /Partner Outreach CRM/);
+    assert.match(html, /EXP-002 acquisition channel/);
+    assert.match(html, /Open Approvals in Admin CRM/);
     assert.doesNotMatch(text, /Truth rule: Only GetTrainMate-attributed Stripe payments count as revenue[\s\S]*Truth rule:/);
     assert.doesNotMatch(html, /Never include credentials[\s\S]*Never include credentials/);
     assert.match(text, /\$0\.00/);

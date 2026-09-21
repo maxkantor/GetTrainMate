@@ -1,5 +1,4 @@
 using Amazon.DynamoDBv2.DataModel;
-using Amazon.DynamoDBv2.DocumentModel;
 using GetTrainMate.Api.Models;
 using Microsoft.Extensions.Configuration;
 
@@ -26,6 +25,18 @@ public interface IPartnerOutreachService
     Task<PartnerCampaign> SetCampaignStatusAsync(string campaignId, string status);
     Task<object> DiscoverAsync(string? country, string? market, string? language, string? mode);
     Task<object> DedupeAsync(bool dryRun = false);
+
+    Task<object> AcquisitionDashboardAsync();
+    Task<object> BulkApproveAsync(IEnumerable<string> queueIds, string actor, bool confirm);
+    Task<object> RejectQueueAsync(string queueId, string actor, string? reason);
+    Task<PartnerQueueItem> UpdateQueueDraftAsync(string queueId, string subject, string bodyText, string? bodyHtml, string actor);
+    Task<object> GetOutreachSettingsAsync();
+    Task<object> UpdateOutreachSettingsAsync(PartnerOutreachSettingsRow patch);
+    Task<List<PartnerThread>> ListThreadsAsync();
+    Task<object> ConvertToPartnerAsync(string prospectId, string actor);
+    Task<object> MarkInterestedAsync(string prospectId, string actor);
+    Task<object> ApproveAndSendAsync(string queueId, string actor, bool confirm);
+    Task<object> SendQueueItemByIdAsync(string queueId);
 }
 
 public sealed class PartnerOutreachService : IPartnerOutreachService
@@ -34,17 +45,20 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     private readonly IEmailService _email;
     private readonly IConfiguration _cfg;
     private readonly ILogger<PartnerOutreachService> _log;
+    private readonly IAuditLogService? _audit;
 
     public PartnerOutreachService(
         IDynamoDBContext db,
         IEmailService email,
         IConfiguration cfg,
-        ILogger<PartnerOutreachService> log)
+        ILogger<PartnerOutreachService> log,
+        IAuditLogService? audit = null)
     {
         _db = db;
         _email = email;
         _cfg = cfg;
         _log = log;
+        _audit = audit;
     }
 
     bool SendEnabled => string.Equals(Env("PARTNER_OUTREACH_SEND_ENABLED"), "true", StringComparison.OrdinalIgnoreCase);
@@ -78,6 +92,8 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             : prospect.CampaignId.Trim();
         if (string.IsNullOrWhiteSpace(prospect.LandingUrl) && !string.IsNullOrWhiteSpace(prospect.PartnerCode))
             prospect.LandingUrl = "https://gettrainmate.com" + MarketCampaignCatalog.PartnerPath(prospect.Country, prospect.Metro, prospect.PartnerCode);
+        if (string.IsNullOrWhiteSpace(prospect.ProspectType))
+            prospect.ProspectType = "organization";
 
         var email = (prospect.Email ?? "").Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(email))
@@ -114,11 +130,15 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (duplicate != null)
         {
             _log.LogDebug("Prospect dedupe: returning existing {Id} for {Org}", duplicate.ProspectId, prospect.OrganizationName);
+            PartnerCrmLifecycle.ApplyLegacyNormalization(duplicate);
             return duplicate;
         }
 
         prospect.CreatedAt = DateTime.UtcNow;
+        prospect.FirstDiscoveredAt ??= prospect.CreatedAt;
+        if (prospect.DiscoveryCount <= 0) prospect.DiscoveryCount = 1;
         prospect.Owner = string.IsNullOrWhiteSpace(prospect.Owner) ? actor : prospect.Owner;
+        PartnerCrmLifecycle.ApplyLegacyNormalization(prospect);
         await _db.SaveAsync(prospect);
         return prospect;
     }
@@ -128,6 +148,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         var all = await _db.ScanAsync<PartnerProspect>(new List<ScanCondition>()).GetRemainingAsync();
         if (!string.IsNullOrWhiteSpace(status))
             all = all.Where(p => string.Equals(p.Status, status, StringComparison.OrdinalIgnoreCase)).ToList();
+        PartnerCrmLifecycle.ApplyToList(all);
         return all.OrderByDescending(p => p.CreatedAt).ToList();
     }
 
@@ -139,6 +160,15 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (!string.IsNullOrWhiteSpace(patch.Status)) existing.Status = patch.Status;
         if (!string.IsNullOrWhiteSpace(patch.PartnerCode)) existing.PartnerCode = patch.PartnerCode;
         if (!string.IsNullOrWhiteSpace(patch.LandingUrl)) existing.LandingUrl = patch.LandingUrl;
+        if (!string.IsNullOrWhiteSpace(patch.CrmLifecycle)) existing.CrmLifecycle = patch.CrmLifecycle;
+        if (!string.IsNullOrWhiteSpace(patch.ContactState)) existing.ContactState = patch.ContactState;
+        if (!string.IsNullOrWhiteSpace(patch.EmailState)) existing.EmailState = patch.EmailState;
+        if (!string.IsNullOrWhiteSpace(patch.Phone)) existing.Phone = patch.Phone;
+        if (!string.IsNullOrWhiteSpace(patch.ContactRole)) existing.ContactRole = patch.ContactRole;
+        if (!string.IsNullOrWhiteSpace(patch.FacebookUrl)) existing.FacebookUrl = patch.FacebookUrl;
+        if (!string.IsNullOrWhiteSpace(patch.InstagramUrl)) existing.InstagramUrl = patch.InstagramUrl;
+        if (!string.IsNullOrWhiteSpace(patch.LinkedInUrl)) existing.LinkedInUrl = patch.LinkedInUrl;
+        PartnerCrmLifecycle.ApplyLegacyNormalization(existing);
         await _db.SaveAsync(existing);
         return existing;
     }
@@ -161,13 +191,15 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             {
                 CampaignId = campaignId,
                 Name = string.IsNullOrWhiteSpace(p.Metro) ? campaignId : $"{p.Metro} partners",
-                Status = "candidate",
+                Status = "draft",
                 Country = p.Country,
                 Market = MarketCampaignCatalog.Slug(p.Metro),
                 DisplayName = p.Metro,
                 PrimaryMode = p.Mode,
                 Timezone = p.Timezone ?? "",
-                Languages = new List<string> { p.CampaignLanguage }
+                Languages = new List<string> { p.CampaignLanguage },
+                FollowUpDays = new List<int> { 4, 9 },
+                MaxFollowUps = 2,
             };
             await _db.SaveAsync(campaign);
         }
@@ -175,7 +207,8 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             throw new InvalidOperationException("Partner landing URL and code are required.");
 
         var existingQueue = (await ListQueueAsync(null))
-            .Where(q => q.Status is "draft" or "approved" or "queued"
+            .Where(q => q.FollowUpNumber == 0
+                && q.Status is "draft" or "approved" or "queued"
                 && (string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
                     || (string.Equals(q.Recipient, p.Email, StringComparison.OrdinalIgnoreCase)
                         && string.Equals(q.CampaignId, campaignId, StringComparison.OrdinalIgnoreCase))))
@@ -188,6 +221,8 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             if (p.Status != "draft" && existingQueue.Status is "draft" or "approved" or "queued")
             {
                 p.Status = existingQueue.Status == "approved" ? "approved" : "draft";
+                p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
+                p.EmailState = existingQueue.Status == "approved" ? "APPROVED" : "AWAITING_APPROVAL";
                 await _db.SaveAsync(p);
             }
             return existingQueue;
@@ -208,10 +243,15 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             BodyHtml = copy.Html,
             PartnerUrl = p.LandingUrl,
             Fingerprint = fp,
-            Status = "draft"
+            Status = "draft",
+            MessageVersion = 1,
+            FollowUpNumber = 0,
         };
         await _db.SaveAsync(item);
         p.Status = "draft";
+        p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
+        p.ContactState = PartnerCrmLifecycle.ContactFound;
+        p.EmailState = "AWAITING_APPROVAL";
         await _db.SaveAsync(p);
         return item;
     }
@@ -220,6 +260,8 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     {
         if (!confirm) throw new InvalidOperationException("Explicit confirmation is required.");
         var item = await _db.LoadAsync<PartnerQueueItem>(queueId) ?? throw new KeyNotFoundException("Queue item not found");
+        if (item.Status == "rejected")
+            throw new InvalidOperationException("Cannot approve a rejected queue item.");
         var current = PartnerOutreachRules.Fingerprint(item.Recipient, item.Subject, item.BodyText, item.PartnerUrl, item.CampaignId);
         if (PartnerOutreachRules.ApprovalInvalidated(item.Fingerprint, current))
             throw new InvalidOperationException("Content changed; recreate the draft.");
@@ -239,10 +281,127 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         await _db.SaveAsync(approval);
         item.ApprovalId = approval.ApprovalId;
         item.Status = "approved";
+        item.ApprovedBy = approver;
+        item.ApprovedAt = DateTime.UtcNow;
+        item.Fingerprint = current;
         await _db.SaveAsync(item);
         var p = await _db.LoadAsync<PartnerProspect>(item.ProspectId);
-        if (p != null) { p.Status = "approved"; await _db.SaveAsync(p); }
+        if (p != null)
+        {
+            p.Status = "approved";
+            p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
+            p.EmailState = "APPROVED";
+            await _db.SaveAsync(p);
+        }
+        await TryAuditAsync(approver, "partner_outreach.approve", "partner_queue", queueId, null, new { approval.ApprovalId });
         return approval;
+    }
+
+    public async Task<object> BulkApproveAsync(IEnumerable<string> queueIds, string actor, bool confirm)
+    {
+        if (!confirm) throw new InvalidOperationException("Explicit confirmation is required.");
+        var approved = new List<string>();
+        var errors = new List<object>();
+        foreach (var id in queueIds.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal))
+        {
+            try
+            {
+                await ApproveAsync(id, actor, confirm: true);
+                approved.Add(id);
+            }
+            catch (Exception ex)
+            {
+                errors.Add(new { queueId = id, error = ex.Message });
+            }
+        }
+        return new { approved, errors, count = approved.Count };
+    }
+
+    public async Task<object> RejectQueueAsync(string queueId, string actor, string? reason)
+    {
+        var item = await _db.LoadAsync<PartnerQueueItem>(queueId) ?? throw new KeyNotFoundException("Queue item not found");
+        if (item.Status is "sent" or "delivered" or "replied")
+            throw new InvalidOperationException("Cannot reject an already-sent item.");
+        item.Status = "rejected";
+        item.RejectedAt = DateTime.UtcNow;
+        item.RejectedBy = actor;
+        item.RejectReason = reason ?? "";
+        item.ApprovalId = "";
+        await _db.SaveAsync(item);
+        var p = await _db.LoadAsync<PartnerProspect>(item.ProspectId);
+        if (p != null && item.FollowUpNumber == 0)
+        {
+            p.EmailState = "FAILED";
+            await _db.SaveAsync(p);
+        }
+        await TryAuditAsync(actor, "partner_outreach.reject", "partner_queue", queueId, null, new { reason });
+        return new { item.QueueId, item.Status, item.RejectReason };
+    }
+
+    public async Task<PartnerQueueItem> UpdateQueueDraftAsync(string queueId, string subject, string bodyText, string? bodyHtml, string actor)
+    {
+        var item = await _db.LoadAsync<PartnerQueueItem>(queueId) ?? throw new KeyNotFoundException("Queue item not found");
+        if (item.Status is "sent" or "delivered" or "replied" or "queued")
+            throw new InvalidOperationException("Cannot edit a sent or queued item.");
+        var wasApproved = !string.IsNullOrWhiteSpace(item.ApprovalId) || item.Status == "approved";
+        item.Subject = subject?.Trim() ?? "";
+        item.BodyText = bodyText ?? "";
+        if (bodyHtml != null) item.BodyHtml = bodyHtml;
+        item.MessageVersion = Math.Max(1, item.MessageVersion) + 1;
+        item.ApprovalId = "";
+        item.ApprovedAt = null;
+        item.ApprovedBy = null;
+        item.Status = "draft";
+        item.Fingerprint = PartnerOutreachRules.Fingerprint(item.Recipient, item.Subject, item.BodyText, item.PartnerUrl, item.CampaignId);
+        await _db.SaveAsync(item);
+        var p = await _db.LoadAsync<PartnerProspect>(item.ProspectId);
+        if (p != null)
+        {
+            p.Status = "draft";
+            p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
+            p.EmailState = "AWAITING_APPROVAL";
+            await _db.SaveAsync(p);
+        }
+        if (wasApproved)
+            await TryAuditAsync(actor, "partner_outreach.draft_invalidated", "partner_queue", queueId, null, new { item.MessageVersion });
+        return item;
+    }
+
+    public async Task<object> ApproveAndSendAsync(string queueId, string actor, bool confirm)
+    {
+        var approval = await ApproveAsync(queueId, actor, confirm);
+        object? sendResult = null;
+        string? sendError = null;
+        if (SendEnabled)
+        {
+            try
+            {
+                sendResult = await SendQueueItemByIdAsync(queueId);
+            }
+            catch (Exception ex)
+            {
+                sendError = ex.Message;
+            }
+        }
+        else
+        {
+            sendError = "send_disabled";
+        }
+        return new { approval, sendResult, sendError, sendEnabled = SendEnabled };
+    }
+
+    public async Task<object> SendQueueItemByIdAsync(string queueId)
+    {
+        if (!SendEnabled) throw new InvalidOperationException("send_disabled");
+        var item = await _db.LoadAsync<PartnerQueueItem>(queueId) ?? throw new KeyNotFoundException("Queue item not found");
+        var settings = await LoadSettingsAsync();
+        var gate = await BuildGateAsync(item, settings, scheduled: false);
+        var code = PartnerOutreachRules.EvaluateSendGate(gate);
+        if (code != null) throw new InvalidOperationException(code);
+        await SendQueueItemAsync(item);
+        settings.SentCount++;
+        await _db.SaveAsync(settings);
+        return new { item.QueueId, item.Status, item.SesMessageId, item.SentAt };
     }
 
     public async Task<PartnerQueueItem?> GetQueueAsync(string queueId) =>
@@ -264,23 +423,43 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             return new { sent = 0, error = "send_disabled" };
 
         var settings = await LoadSettingsAsync();
+        if (settings.PauseAllOutreach)
+            return new { sent = 0, error = "pause_all_outreach" };
+        if (string.Equals(settings.OutreachMode, "off", StringComparison.OrdinalIgnoreCase))
+            return new { sent = 0, error = "outreach_mode_off" };
+
         var tz = PartnerOutreachRules.EasternTimeZone();
         var now = DateTime.UtcNow;
         if (!PartnerOutreachRules.IsDispatchWindow(now, tz))
             return new { sent = 0, error = "outside_dispatch_window" };
 
-        var approved = (await ListQueueAsync("approved")).OrderBy(x => x.CreatedAt).ToList();
+        var allQueue = await ListQueueAsync(null);
+        var due = allQueue
+            .Where(x =>
+                x.Status == "approved"
+                || (x.Status == "scheduled"
+                    && x.FollowUpNumber > 0
+                    && x.AllowAutomatedFollowUp
+                    && (x.ScheduledAt == null || x.ScheduledAt <= now)))
+            .OrderBy(x => x.CreatedAt)
+            .ToList();
+
         var sent = 0;
         var skippedUnsub = 0;
         var errors = new List<string>();
         var usedEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var usedOrgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in approved)
+        var limit = settings.OutreachMode == "live"
+            ? DailyLimit
+            : Math.Min(DailyLimit, Math.Max(1, settings.TestRecipients?.Count ?? 1));
+
+        foreach (var item in due)
         {
-            if (sent >= DailyLimit)
+            if (sent >= limit)
                 break;
             var emailKey = item.Recipient.Trim().ToLowerInvariant();
-            if (usedEmails.Contains(emailKey) || usedOrgs.Contains(item.OrganizationName.Trim()))
+            var isFollowUp = item.FollowUpNumber > 0 && item.AllowAutomatedFollowUp;
+            if (!isFollowUp && (usedEmails.Contains(emailKey) || usedOrgs.Contains(item.OrganizationName.Trim())))
             {
                 errors.Add($"{item.QueueId}:duplicate_in_batch");
                 continue;
@@ -324,11 +503,12 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     {
         var suppress = await _db.LoadAsync<PartnerSuppression>(item.Recipient.ToLowerInvariant());
         var all = await _db.ScanAsync<PartnerQueueItem>(new List<ScanCondition>()).GetRemainingAsync();
-        var orgDup = all.Any(x =>
+        var isFollowUp = item.FollowUpNumber > 0 && item.AllowAutomatedFollowUp;
+        var orgDup = !isFollowUp && all.Any(x =>
             x.QueueId != item.QueueId
             && string.Equals(x.OrganizationName, item.OrganizationName, StringComparison.OrdinalIgnoreCase)
             && x.Status is "sent" or "delivered" or "replied");
-        var recent = all.Any(x =>
+        var recent = !isFollowUp && all.Any(x =>
             string.Equals(x.Recipient, item.Recipient, StringComparison.OrdinalIgnoreCase)
             && x.SentAt != null
             && x.SentAt > DateTime.UtcNow.AddDays(-PartnerOutreachRules.MinContactGapDays));
@@ -336,6 +516,23 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         var sentToday = all.Count(x => x.SentAt != null && TimeZoneInfo.ConvertTimeFromUtc(x.SentAt.Value, PartnerOutreachRules.EasternTimeZone()).Date == todayEt);
         var current = PartnerOutreachRules.Fingerprint(item.Recipient, item.Subject, item.BodyText, item.PartnerUrl, item.CampaignId);
         var bounceRate = settings.SentCount > 20 && settings.BounceCount / (double)settings.SentCount > 0.08;
+
+        var campaign = await _db.LoadAsync<PartnerCampaign>(item.CampaignId);
+        var campaignActive = campaign == null || string.Equals(campaign.Status, "active", StringComparison.OrdinalIgnoreCase);
+
+        var parentApproved = !string.IsNullOrWhiteSpace(item.ParentApprovalId)
+            || !string.IsNullOrWhiteSpace(item.ApprovalId);
+        if (isFollowUp && !string.IsNullOrWhiteSpace(item.ParentQueueId))
+        {
+            var parent = all.FirstOrDefault(x => x.QueueId == item.ParentQueueId)
+                ?? await _db.LoadAsync<PartnerQueueItem>(item.ParentQueueId);
+            parentApproved = parent != null
+                && !string.IsNullOrWhiteSpace(parent.ApprovalId)
+                && parent.Status is "sent" or "delivered" or "replied" or "approved";
+        }
+
+        var dailyCap = campaign?.DailyOutreachLimit > 0 ? campaign.DailyOutreachLimit : DailyLimit;
+
         return new PartnerSendContext
         {
             SendEnabled = SendEnabled,
@@ -344,7 +541,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             FromEmail = FromEmail,
             ReplyToEmail = ReplyTo,
             ComplaintPause = settings.ComplaintPause,
-            Approved = !string.IsNullOrWhiteSpace(item.ApprovalId),
+            Approved = !string.IsNullOrWhiteSpace(item.ApprovalId) || parentApproved,
             ApprovalFingerprint = item.Fingerprint,
             CurrentFingerprint = current,
             OptedOut = suppress != null && suppress.Reason is "opt_out" or "unsubscribe" or "list_unsubscribe",
@@ -353,16 +550,26 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             DuplicateOrganizationInitial = orgDup,
             AlreadySentThisRecipient = all.Any(x =>
                 x.QueueId != item.QueueId
+                && x.FollowUpNumber == 0
                 && string.Equals(x.Recipient, item.Recipient, StringComparison.OrdinalIgnoreCase)
                 && x.Status is "sent" or "delivered" or "replied" or "queued"),
             RecentlyContacted = recent,
             AlreadyQueuedOrSentSameRecipient = all.Any(x =>
                 x.QueueId != item.QueueId
+                && x.FollowUpNumber == 0
                 && string.Equals(x.Recipient, item.Recipient, StringComparison.OrdinalIgnoreCase)
                 && x.Status is "sent" or "queued" or "delivered" or "replied"),
             SentToday = sentToday,
-            DailyLimit = DailyLimit,
-            UnsafeBounceHealth = bounceRate
+            DailyLimit = dailyCap,
+            UnsafeBounceHealth = bounceRate,
+            OutreachMode = string.IsNullOrWhiteSpace(settings.OutreachMode) ? "off" : settings.OutreachMode,
+            PauseAllOutreach = settings.PauseAllOutreach,
+            TestRecipients = settings.TestRecipients ?? new List<string>(),
+            Recipient = item.Recipient,
+            IsAutomatedFollowUp = isFollowUp,
+            FollowUpNumber = item.FollowUpNumber,
+            ParentWasApproved = parentApproved,
+            CampaignActive = campaignActive,
         };
     }
 
@@ -423,9 +630,74 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (p != null)
         {
             p.Status = "sent";
+            p.CrmLifecycle = item.FollowUpNumber > 0 ? PartnerCrmLifecycle.FollowUp : PartnerCrmLifecycle.Contacted;
+            p.EmailState = "SENT";
             p.LastContactedAt = DateTime.UtcNow;
             await _db.SaveAsync(p);
         }
+
+        // Schedule follow-ups only after a successful INITIAL approved send.
+        if (item.FollowUpNumber == 0 && !string.IsNullOrWhiteSpace(item.ApprovalId))
+            await ScheduleFollowUpsAsync(item);
+    }
+
+    async Task ScheduleFollowUpsAsync(PartnerQueueItem parent)
+    {
+        var campaign = await _db.LoadAsync<PartnerCampaign>(parent.CampaignId);
+        var days = campaign?.FollowUpDays?.Where(d => d > 0).Distinct().OrderBy(d => d).ToList()
+            ?? new List<int> { 4, 9 };
+        var max = campaign?.MaxFollowUps > 0 ? campaign.MaxFollowUps : 2;
+        days = days.Take(max).ToList();
+        if (days.Count == 0) return;
+
+        var existing = await ListQueueAsync(null);
+        var n = 0;
+        foreach (var day in days)
+        {
+            n++;
+            var idem = $"fu:{parent.QueueId}:{n}";
+            if (existing.Any(x => x.IdempotencyKey == idem || (x.ParentQueueId == parent.QueueId && x.FollowUpNumber == n)))
+                continue;
+
+            var subject = parent.Subject.StartsWith("Re:", StringComparison.OrdinalIgnoreCase)
+                ? parent.Subject
+                : "Re: " + parent.Subject;
+            var bodyText = BuildFollowUpBody(parent.BodyText, n, parent.OrganizationName);
+            var bodyHtml = $"<p>{System.Net.WebUtility.HtmlEncode(bodyText).Replace("\n", "<br>")}</p>";
+            var fp = PartnerOutreachRules.Fingerprint(parent.Recipient, subject, bodyText, parent.PartnerUrl, parent.CampaignId);
+            var followUp = new PartnerQueueItem
+            {
+                ProspectId = parent.ProspectId,
+                CampaignId = parent.CampaignId,
+                Recipient = parent.Recipient,
+                OrganizationName = parent.OrganizationName,
+                Subject = subject,
+                BodyText = bodyText,
+                BodyHtml = bodyHtml,
+                PartnerUrl = parent.PartnerUrl,
+                Fingerprint = fp,
+                Status = "scheduled",
+                FollowUpNumber = n,
+                ParentQueueId = parent.QueueId,
+                ParentApprovalId = parent.ApprovalId,
+                ApprovalId = parent.ApprovalId,
+                AllowAutomatedFollowUp = true,
+                ScheduledAt = DateTime.UtcNow.AddDays(day),
+                IdempotencyKey = idem,
+                MessageVersion = 1,
+                ApprovedBy = parent.ApprovedBy,
+                ApprovedAt = parent.ApprovedAt,
+            };
+            await _db.SaveAsync(followUp);
+        }
+    }
+
+    static string BuildFollowUpBody(string originalBody, int followUpNumber, string orgName)
+    {
+        var intro = followUpNumber == 1
+            ? $"Hi {orgName} team — just a quick follow-up on my note below.\n\n"
+            : $"Hi {orgName} team — one last follow-up in case this is useful for your members.\n\n";
+        return intro + originalBody.Trim();
     }
 
     public async Task<object> SendCrmReplyAsync(string threadId, string bodyText, string actor, bool confirmSend)
@@ -502,6 +774,13 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                 ?? new PartnerThread { ProspectId = match.ProspectId, QueueId = match.QueueId, Subject = parsed.Subject };
             match.Status = "replied";
             await _db.SaveAsync(match);
+            var p = await _db.LoadAsync<PartnerProspect>(match.ProspectId);
+            if (p != null)
+            {
+                p.Status = "replied";
+                p.CrmLifecycle = PartnerCrmLifecycle.Replied;
+                await _db.SaveAsync(p);
+            }
         }
         else
         {
@@ -553,25 +832,30 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         var item = items.FirstOrDefault(x => x.InternalMessageId == internalMessageId);
         if (item == null) return;
         var settings = await LoadSettingsAsync();
+        var p = await _db.LoadAsync<PartnerProspect>(item.ProspectId);
         switch (eventType.ToLowerInvariant())
         {
             case "delivery":
                 item.Status = "delivered";
+                if (p != null) { p.Status = "delivered"; p.EmailState = "DELIVERED"; p.CrmLifecycle ??= PartnerCrmLifecycle.Contacted; }
                 break;
             case "bounce":
                 item.Status = "bounced";
                 settings.BounceCount++;
                 await _db.SaveAsync(new PartnerSuppression { Email = item.Recipient.ToLowerInvariant(), Reason = "hard_bounce" });
+                if (p != null) { p.Status = "bounced"; p.EmailState = "BOUNCED"; }
                 break;
             case "complaint":
                 item.Status = "complained";
                 settings.ComplaintCount++;
                 settings.ComplaintPause = true;
                 await _db.SaveAsync(new PartnerSuppression { Email = item.Recipient.ToLowerInvariant(), Reason = "complaint" });
+                if (p != null) { p.Status = "complained"; p.EmailState = "COMPLAINED"; p.CrmLifecycle = PartnerCrmLifecycle.Closed; }
                 break;
             case "reject":
             case "rendering failure":
                 item.Status = "failed";
+                if (p != null) p.EmailState = "FAILED";
                 break;
             case "delivery delay":
                 item.Status = "deferred";
@@ -579,6 +863,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         }
         await _db.SaveAsync(item);
         await _db.SaveAsync(settings);
+        if (p != null) await _db.SaveAsync(p);
     }
 
     public async Task UnsubscribeAsync(string recipientId)
@@ -596,6 +881,8 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (p != null)
         {
             p.Status = "opted_out";
+            p.CrmLifecycle = PartnerCrmLifecycle.Closed;
+            p.EmailState = "OPTED_OUT";
             await _db.SaveAsync(p);
         }
         var queue = await _db.ScanAsync<PartnerQueueItem>(new List<ScanCondition>()).GetRemainingAsync();
@@ -627,11 +914,14 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             partnerAttributedSignups = "Unavailable",
             sendEnabled = SendEnabled,
             complaintPause = s.ComplaintPause,
+            outreachMode = s.OutreachMode,
+            pauseAllOutreach = s.PauseAllOutreach,
             maxActiveMarkets = MarketCampaignCatalog.MaxActiveMarkets,
             approvedOutreachLanguages = MarketCampaignCatalog.ApprovedOutreachLanguages,
             pendingOutreachLanguages = MarketCampaignCatalog.PendingOutreachLanguages,
             organizationsDiscovered = p.Count,
-            qualifiedOrganizations = p.Count(x => x.Status is "prospect" or "draft" or "approved"),
+            qualifiedOrganizations = p.Count(x => x.Status is "prospect" or "draft" or "approved"
+                || x.CrmLifecycle is PartnerCrmLifecycle.Qualified or PartnerCrmLifecycle.Contacted),
             verifiedPublicContacts = p.Count(x => x.EmailVerificationStatus == "verified_public"),
             contactsUnavailable = p.Count(x => x.Status == "no_verified_public_email"),
             languageTemplateUnavailable = p.Count(x => x.Status == "qualified_language_unavailable"),
@@ -639,6 +929,170 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             draftsGenerated = q.Count(x => x.Status == "draft"),
             approvalReadyRecipients = q.Count(x => x.Status == "draft"),
         };
+    }
+
+    public async Task<object> AcquisitionDashboardAsync()
+    {
+        var prospects = await ListProspectsAsync(null);
+        var queue = await ListQueueAsync(null);
+        var settings = await LoadSettingsAsync();
+
+        var customersAcquired = prospects.Sum(p => p.PaidCustomers);
+        var activeUsersAcquired = prospects.Sum(p => p.ActivatedUsers);
+        var revenueAttributedCents = prospects.Sum(p => p.AttributedRevenueCents);
+        var referralSignups = prospects.Sum(p => p.ReferralSignups);
+
+        static double Rate(int num, int den) => den <= 0 ? 0d : (double)num / den;
+
+        var discovered = prospects.Count;
+        var qualified = prospects.Count(p =>
+            p.CrmLifecycle is PartnerCrmLifecycle.Qualified or PartnerCrmLifecycle.Contacted
+                or PartnerCrmLifecycle.FollowUp or PartnerCrmLifecycle.Replied
+                or PartnerCrmLifecycle.Interested or PartnerCrmLifecycle.Partner
+            || p.Status is "prospect" or "draft" or "approved" or "sent" or "delivered" or "replied");
+        var contacted = prospects.Count(p =>
+            p.CrmLifecycle is PartnerCrmLifecycle.Contacted or PartnerCrmLifecycle.FollowUp
+                or PartnerCrmLifecycle.Replied or PartnerCrmLifecycle.Interested or PartnerCrmLifecycle.Partner
+            || p.Status is "sent" or "delivered" or "replied");
+        var replied = prospects.Count(p =>
+            p.CrmLifecycle is PartnerCrmLifecycle.Replied or PartnerCrmLifecycle.Interested or PartnerCrmLifecycle.Partner
+            || p.Status == "replied");
+        var interested = prospects.Count(p => p.CrmLifecycle == PartnerCrmLifecycle.Interested);
+        var partners = prospects.Count(p => p.CrmLifecycle == PartnerCrmLifecycle.Partner);
+        var drafts = queue.Count(q => q.Status == "draft" && q.FollowUpNumber == 0);
+        var awaitingApproval = queue.Count(q => q.Status == "draft");
+        var approved = queue.Count(q => q.Status == "approved");
+        var scheduled = queue.Count(q => q.Status == "scheduled");
+        var sent = queue.Count(q => q.Status is "sent" or "delivered");
+        var contactNeeded = prospects.Count(p =>
+            p.ContactState == PartnerCrmLifecycle.ContactNeeded || p.Status == "no_verified_public_email");
+
+        var todayEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PartnerOutreachRules.EasternTimeZone()).Date;
+        var dueFollowUps = queue.Count(q =>
+            q.Status == "scheduled" && q.FollowUpNumber > 0
+            && (q.ScheduledAt == null || q.ScheduledAt.Value.Date <= todayEt));
+
+        return new
+        {
+            northStars = new
+            {
+                customersAcquired,
+                activeUsersAcquired,
+                revenueAttributedCents,
+                referralSignups,
+            },
+            funnel = new
+            {
+                discovered,
+                qualified,
+                contactNeeded,
+                drafts,
+                awaitingApproval,
+                approved,
+                scheduled,
+                sent,
+                contacted,
+                replied,
+                interested,
+                partners,
+            },
+            conversionRates = new
+            {
+                discoveredToQualified = Rate(qualified, discovered),
+                qualifiedToContacted = Rate(contacted, qualified),
+                contactedToReplied = Rate(replied, contacted),
+                repliedToInterested = Rate(interested, replied),
+                interestedToPartner = Rate(partners, interested),
+                draftToApproved = Rate(approved, drafts + approved),
+                approvedToSent = Rate(sent, approved + sent),
+            },
+            todaysActions = new object[]
+            {
+                new { key = "awaiting_approval", label = "Approve drafts", count = awaitingApproval, filter = "status=draft" },
+                new { key = "approved_ready", label = "Approved ready to send", count = approved, filter = "status=approved" },
+                new { key = "contact_needed", label = "Find contacts", count = contactNeeded, filter = "contactState=CONTACT_NEEDED" },
+                new { key = "due_follow_ups", label = "Due follow-ups", count = dueFollowUps, filter = "status=scheduled" },
+                new { key = "replies", label = "Replies to handle", count = replied, filter = "crmLifecycle=REPLIED" },
+            },
+            settings = new
+            {
+                settings.OutreachMode,
+                settings.PauseAllOutreach,
+                settings.ComplaintPause,
+                sendEnabled = SendEnabled,
+            },
+        };
+    }
+
+    public async Task<object> GetOutreachSettingsAsync()
+    {
+        var s = await LoadSettingsAsync();
+        return new
+        {
+            s.Id,
+            s.OutreachMode,
+            s.PauseAllOutreach,
+            s.TestRecipients,
+            s.ProspectsPerRun,
+            s.ResearchAttemptsPerRun,
+            s.DraftsPerRun,
+            s.ComplaintPause,
+            s.SentCount,
+            s.BounceCount,
+            s.ComplaintCount,
+            s.ReplyCount,
+            sendEnabled = SendEnabled,
+        };
+    }
+
+    public async Task<object> UpdateOutreachSettingsAsync(PartnerOutreachSettingsRow patch)
+    {
+        var s = await LoadSettingsAsync();
+        if (!string.IsNullOrWhiteSpace(patch.OutreachMode))
+        {
+            var mode = patch.OutreachMode.Trim().ToLowerInvariant();
+            if (mode is not ("off" or "test" or "live"))
+                throw new InvalidOperationException("OutreachMode must be off, test, or live.");
+            s.OutreachMode = mode;
+        }
+        s.PauseAllOutreach = patch.PauseAllOutreach;
+        if (patch.TestRecipients != null)
+            s.TestRecipients = patch.TestRecipients
+                .Where(e => !string.IsNullOrWhiteSpace(e) && e.Contains('@'))
+                .Select(e => e.Trim().ToLowerInvariant())
+                .Distinct()
+                .ToList();
+        if (patch.ProspectsPerRun > 0) s.ProspectsPerRun = patch.ProspectsPerRun;
+        if (patch.ResearchAttemptsPerRun > 0) s.ResearchAttemptsPerRun = patch.ResearchAttemptsPerRun;
+        if (patch.DraftsPerRun > 0) s.DraftsPerRun = patch.DraftsPerRun;
+        await _db.SaveAsync(s);
+        return await GetOutreachSettingsAsync();
+    }
+
+    public async Task<List<PartnerThread>> ListThreadsAsync()
+    {
+        var all = await _db.ScanAsync<PartnerThread>(new List<ScanCondition>()).GetRemainingAsync();
+        return all.OrderByDescending(t => t.LastMessageAt).ToList();
+    }
+
+    public async Task<object> ConvertToPartnerAsync(string prospectId, string actor)
+    {
+        var p = await _db.LoadAsync<PartnerProspect>(prospectId) ?? throw new KeyNotFoundException("Prospect not found");
+        p.CrmLifecycle = PartnerCrmLifecycle.Partner;
+        p.Status = "partner";
+        await _db.SaveAsync(p);
+        await TryAuditAsync(actor, "partner_outreach.convert_partner", "partner_prospect", prospectId, null, new { p.CrmLifecycle });
+        return new { p.ProspectId, p.CrmLifecycle, p.Status };
+    }
+
+    public async Task<object> MarkInterestedAsync(string prospectId, string actor)
+    {
+        var p = await _db.LoadAsync<PartnerProspect>(prospectId) ?? throw new KeyNotFoundException("Prospect not found");
+        p.CrmLifecycle = PartnerCrmLifecycle.Interested;
+        p.Status = "interested";
+        await _db.SaveAsync(p);
+        await TryAuditAsync(actor, "partner_outreach.mark_interested", "partner_prospect", prospectId, null, new { p.CrmLifecycle });
+        return new { p.ProspectId, p.CrmLifecycle, p.Status };
     }
 
     public async Task<List<PartnerCampaign>> ListCampaignsAsync()
@@ -655,23 +1109,26 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                 DisplayName = seed.DisplayName,
                 Country = seed.Country,
                 Market = seed.Market,
-                Status = seed.Status,
+                Status = PartnerCrmLifecycle.NormalizeCampaignStatus(seed.Status),
                 PrimaryMode = seed.PrimaryMode,
                 Timezone = seed.Timezone,
-                Languages = seed.Languages.ToList()
+                Languages = seed.Languages.ToList(),
+                FollowUpDays = new List<int> { 4, 9 },
+                MaxFollowUps = 2,
             };
         }
         return byId.Values
-            .OrderBy(c => c.Status == "active" ? 0 : c.Status == "paused" ? 1 : 2)
+            .OrderBy(c => c.Status == "active" ? 0 : c.Status is "paused" ? 1 : 2)
             .ThenBy(c => c.DisplayName)
             .ToList();
     }
 
     public async Task<PartnerCampaign> SetCampaignStatusAsync(string campaignId, string status)
     {
-        status = (status ?? "").Trim().ToLowerInvariant();
-        if (status is not ("active" or "paused" or "candidate"))
-            throw new InvalidOperationException("Status must be active, paused, or candidate.");
+        status = PartnerCrmLifecycle.NormalizeCampaignStatus(status);
+        if (status is not ("active" or "paused" or "draft" or "completed" or "candidate"))
+            throw new InvalidOperationException("Status must be draft, active, paused, or completed (candidate maps to draft).");
+        if (status == "candidate") status = "draft";
         var all = await ListCampaignsAsync();
         var active = all.Count(c => c.Status == "active" && !string.Equals(c.CampaignId, campaignId, StringComparison.OrdinalIgnoreCase));
         if (status == "active" && active >= MarketCampaignCatalog.MaxActiveMarkets)
@@ -681,6 +1138,12 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             ?? throw new KeyNotFoundException("Campaign not found");
         row.CampaignId = campaignId;
         row.Status = status;
+        if (row.FollowUpDays == null || row.FollowUpDays.Count == 0)
+            row.FollowUpDays = new List<int> { 4, 9 };
+        if (row.MaxFollowUps <= 0) row.MaxFollowUps = 2;
+        if (row.DailyDiscoveryLimit <= 0) row.DailyDiscoveryLimit = 10;
+        if (row.DailyOutreachLimit <= 0) row.DailyOutreachLimit = 3;
+        if (row.MinAcquisitionScore <= 0) row.MinAcquisitionScore = 50;
         await _db.SaveAsync(row);
         return row;
     }
@@ -689,7 +1152,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     {
         return Task.FromResult<object>(new
         {
-            note = "Use POST /api/admin/partner-outreach/discover/automated for the full pipeline (OSM discovery, email verification, drafts). Emails are never inferred.",
+            note = "Prefer POST /api/admin/partner-outreach/discovery/jobs for chunked discovery. POST /discover/automated remains for short sync/seedsOnly runs.",
             country,
             market,
             language,
@@ -775,7 +1238,32 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
 
     async Task<PartnerOutreachSettingsRow> LoadSettingsAsync()
     {
-        return await _db.LoadAsync<PartnerOutreachSettingsRow>("default")
+        var row = await _db.LoadAsync<PartnerOutreachSettingsRow>("default")
             ?? new PartnerOutreachSettingsRow();
+        if (string.IsNullOrWhiteSpace(row.OutreachMode)) row.OutreachMode = "off";
+        if (row.ProspectsPerRun <= 0) row.ProspectsPerRun = 8;
+        if (row.ResearchAttemptsPerRun <= 0) row.ResearchAttemptsPerRun = 15;
+        if (row.DraftsPerRun <= 0) row.DraftsPerRun = 5;
+        row.TestRecipients ??= new List<string>();
+        return row;
+    }
+
+    async Task TryAuditAsync(string actor, string action, string targetType, string? targetId, object? before, object? after)
+    {
+        if (_audit == null) return;
+        try
+        {
+            await _audit.LogActionAsync(
+                new AdminIdentity { Sub = actor, Email = actor, CognitoUsername = actor },
+                action,
+                targetType,
+                targetId,
+                before,
+                after);
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug(ex, "Audit log skipped for {Action}", action);
+        }
     }
 }

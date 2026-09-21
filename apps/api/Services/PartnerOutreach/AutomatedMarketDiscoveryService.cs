@@ -21,13 +21,57 @@ public sealed class AutomatedMarketDiscoveryService
         _log = log;
     }
 
-    public async Task<DiscoveryRunReport> RunAsync(
+    public Task<DiscoveryRunReport> RunAsync(
         bool prepareDrafts = true,
         int maxPerMarket = 35,
         bool seedsOnly = false,
         string? onlyCampaignId = null,
         string? onlyPartnerCode = null,
         CancellationToken ct = default)
+        => RunInternalAsync(
+            prepareDrafts,
+            maxPerMarket,
+            seedsOnly,
+            onlyCampaignId,
+            onlyPartnerCode,
+            maxProspects: null,
+            maxResearchAttempts: null,
+            maxDrafts: null,
+            ct);
+
+    /// <summary>
+    /// Lambda-safe limited discovery: stops when prospect/research/draft caps are hit.
+    /// Each prospect is persisted as found via CreateProspectAsync.
+    /// </summary>
+    public Task<DiscoveryRunReport> RunLimitedAsync(
+        int maxProspects,
+        int maxResearchAttempts,
+        int maxDrafts,
+        string? onlyCampaignId = null,
+        bool seedsOnly = false,
+        bool prepareDrafts = true,
+        CancellationToken ct = default)
+        => RunInternalAsync(
+            prepareDrafts,
+            maxPerMarket: Math.Max(maxProspects, 5),
+            seedsOnly,
+            onlyCampaignId,
+            onlyPartnerCode: null,
+            maxProspects,
+            maxResearchAttempts,
+            maxDrafts,
+            ct);
+
+    async Task<DiscoveryRunReport> RunInternalAsync(
+        bool prepareDrafts,
+        int maxPerMarket,
+        bool seedsOnly,
+        string? onlyCampaignId,
+        string? onlyPartnerCode,
+        int? maxProspects,
+        int? maxResearchAttempts,
+        int? maxDrafts,
+        CancellationToken ct)
     {
         var report = new DiscoveryRunReport { StartedAtUtc = DateTime.UtcNow, SeedsOnly = seedsOnly };
         var campaigns = await _outreach.ListCampaignsAsync();
@@ -52,9 +96,14 @@ public sealed class AutomatedMarketDiscoveryService
             campaigns.FirstOrDefault(x => x.CampaignId == c.CampaignId)?.Status == "active");
 
         var contactPathLimit = seedsOnly ? 2 : (int?)null;
+        var researchAttempts = 0;
+        var prospectsCreated = 0;
+        var draftsCreated = 0;
+        var hitLimit = false;
 
         foreach (var seed in targets)
         {
+            if (hitLimit) break;
             ct.ThrowIfCancellationRequested();
             var marketReport = new DiscoveryMarketReport
             {
@@ -64,7 +113,6 @@ public sealed class AutomatedMarketDiscoveryService
                 DisplayName = seed.DisplayName,
             };
 
-            // Seed catalog (verified official websites; emails verified automatically)
             var orgs = new List<DiscoveredOrganization>();
             if (seed.Country == "us" && seed.Market == "atlanta")
             {
@@ -101,6 +149,23 @@ public sealed class AutomatedMarketDiscoveryService
 
             foreach (var org in orgs)
             {
+                if (maxProspects.HasValue && prospectsCreated >= maxProspects.Value)
+                {
+                    hitLimit = true;
+                    report.StoppedReason = "max_prospects";
+                    break;
+                }
+                if (maxResearchAttempts.HasValue && researchAttempts >= maxResearchAttempts.Value)
+                {
+                    hitLimit = true;
+                    report.StoppedReason = "max_research_attempts";
+                    break;
+                }
+                if (maxDrafts.HasValue && draftsCreated >= maxDrafts.Value && prepareDrafts)
+                {
+                    // Still allow creating prospects without drafts once draft cap is hit
+                }
+
                 ct.ThrowIfCancellationRequested();
                 if (existing.Any(p => PartnerOutreachDedupe.MatchesDiscoveredOrg(p, org, seed.CampaignId)))
                 {
@@ -114,10 +179,21 @@ public sealed class AutomatedMarketDiscoveryService
                 if (!MarketCampaignCatalog.IsApprovedOutreachLanguage(lang))
                     lang = seed.Languages?.FirstOrDefault(l => MarketCampaignCatalog.IsApprovedOutreachLanguage(l)) ?? "en";
 
+                researchAttempts++;
+                report.ResearchAttempts = researchAttempts;
+
+                VerifiedPublicContact? verified = null;
+                if (Uri.TryCreate(org.Website, UriKind.Absolute, out var siteUri))
+                    verified = await _contactVerifier.TryVerifyAsync(siteUri, ct, contactPathLimit);
+
+                var hasEmail = verified != null;
+                var scored = ScoreProspect(org, hasEmail);
+
                 var prospect = new PartnerProspect
                 {
                     OrganizationName = org.OrganizationName,
                     OrganizationType = org.OrganizationType,
+                    ProspectType = "organization",
                     Website = org.Website,
                     Country = seed.Country,
                     City = seed.DisplayName,
@@ -131,12 +207,22 @@ public sealed class AutomatedMarketDiscoveryService
                     PartnerCode = partnerCode,
                     LandingUrl = landing,
                     DiscoverySource = org.DiscoverySource,
+                    DiscoverySourceUrl = org.Website,
                     EmailSource = "public_listing",
+                    FirstDiscoveredAt = DateTime.UtcNow,
+                    LastEvaluatedAt = DateTime.UtcNow,
+                    DiscoveryCount = 1,
+                    AcquisitionScore = scored.AcquisitionScore,
+                    AudienceFitScore = scored.AudienceFitScore,
+                    MarketRelevanceScore = scored.MarketRelevanceScore,
+                    CommunityFitScore = scored.CommunityFitScore,
+                    ContactQualityScore = scored.ContactQualityScore,
+                    HistoricalCategoryScore = scored.HistoricalCategoryScore,
+                    ScoreExplanation = scored.ScoreExplanation,
+                    FitScore = scored.AcquisitionScore,
+                    CrmLifecycle = PartnerCrmLifecycle.New,
+                    ContactState = PartnerCrmLifecycle.ContactUnknown,
                 };
-
-                VerifiedPublicContact? verified = null;
-                if (Uri.TryCreate(org.Website, UriKind.Absolute, out var siteUri))
-                    verified = await _contactVerifier.TryVerifyAsync(siteUri, ct, contactPathLimit);
 
                 if (verified != null)
                 {
@@ -147,7 +233,8 @@ public sealed class AutomatedMarketDiscoveryService
                     prospect.OfficialDomain = verified.Email.Split('@')[1];
                     prospect.EmailVerificationStatus = "verified_public";
                     prospect.Status = "prospect";
-                    prospect.FitScore = ScoreProspect(org, hasEmail: true);
+                    prospect.CrmLifecycle = PartnerCrmLifecycle.Qualified;
+                    prospect.ContactState = PartnerCrmLifecycle.ContactFound;
                     marketReport.VerifiedPublicContacts++;
                     report.VerifiedPublicContacts++;
                 }
@@ -157,7 +244,8 @@ public sealed class AutomatedMarketDiscoveryService
                     prospect.SourceUrl = org.Website;
                     prospect.EmailVerificationStatus = "no_verified_public_email";
                     prospect.Status = "no_verified_public_email";
-                    prospect.FitScore = ScoreProspect(org, hasEmail: false);
+                    prospect.CrmLifecycle = PartnerCrmLifecycle.New;
+                    prospect.ContactState = PartnerCrmLifecycle.ContactNeeded;
                     marketReport.ContactsUnavailable++;
                     report.ContactsUnavailable++;
                 }
@@ -166,11 +254,16 @@ public sealed class AutomatedMarketDiscoveryService
                 {
                     var saved = await _outreach.CreateProspectAsync(prospect, "automated_discovery");
                     existing.Add(saved);
+                    prospectsCreated++;
                     marketReport.ProspectsCreated++;
                     report.OrganizationsDiscovered++;
                     report.InviteCodesGenerated++;
 
-                    if (saved.Status == "prospect" && prepareDrafts)
+                    var canDraft = prepareDrafts
+                        && saved.Status == "prospect"
+                        && (!maxDrafts.HasValue || draftsCreated < maxDrafts.Value);
+
+                    if (canDraft)
                     {
                         if (!MarketCampaignCatalog.IsApprovedOutreachLanguage(saved.CampaignLanguage))
                         {
@@ -178,6 +271,7 @@ public sealed class AutomatedMarketDiscoveryService
                             {
                                 Status = "qualified_language_unavailable",
                                 Notes = "Qualified prospect — language template unavailable",
+                                CrmLifecycle = PartnerCrmLifecycle.Qualified,
                             });
                             marketReport.LanguageTemplateUnavailable++;
                             report.LanguageTemplateUnavailable++;
@@ -187,6 +281,7 @@ public sealed class AutomatedMarketDiscoveryService
                             try
                             {
                                 await _outreach.CreateDraftAndQueuePreviewAsync(saved.ProspectId, seed.CampaignId);
+                                draftsCreated++;
                                 marketReport.DraftsGenerated++;
                                 report.DraftsGenerated++;
                                 report.ApprovalReadyRecipients++;
@@ -215,6 +310,7 @@ public sealed class AutomatedMarketDiscoveryService
         }
 
         report.CompletedAtUtc = DateTime.UtcNow;
+        report.HitLimit = hitLimit;
         return report;
     }
 
@@ -225,7 +321,6 @@ public sealed class AutomatedMarketDiscoveryService
         var rows = new List<MarketRanker.MarketEvidenceRow>();
         foreach (var seed in MarketCampaignCatalog.Candidates)
         {
-            var metro = seed.DisplayName;
             var qualified = prospects.Count(p =>
                 string.Equals(p.CampaignId, seed.CampaignId, StringComparison.OrdinalIgnoreCase)
                 && p.Status is "prospect" or "draft" or "approved");
@@ -251,13 +346,87 @@ public sealed class AutomatedMarketDiscoveryService
         return $"{seed.Country}-{seed.Market}-{slug}".Trim('-');
     }
 
-    static int ScoreProspect(DiscoveredOrganization org, bool hasEmail)
+    /// <summary>
+    /// Customer-acquisition likelihood 0–100. Contact quality is one component (~18 pts max),
+    /// not the majority of the score. Prefers pickleball/clubs/creators/community over generic gyms.
+    /// </summary>
+    public static AcquisitionScoreResult ScoreProspect(DiscoveredOrganization org, bool hasEmail)
     {
-        var score = 10;
-        if (hasEmail) score += 50;
-        if (org.DiscoverySource == "seed_catalog") score += 15;
-        if (org.OrganizationType is "run_club" or "gym") score += 5;
-        return score;
+        var type = (org.OrganizationType ?? "").Trim().ToLowerInvariant();
+        var name = (org.OrganizationName ?? "").ToLowerInvariant();
+        var source = (org.DiscoverySource ?? "").Trim().ToLowerInvariant();
+
+        // Audience fit (0–25): how well members match TRAIN+VIBE+DATE seekers
+        var audience = type switch
+        {
+            "pickleball" => 25,
+            "run_club" => 24,
+            "cycling" => 22,
+            "crossfit_hyrox" => 20,
+            "personal_trainer" => 18,
+            "creator" or "influencer" or "community" => 23,
+            "gym" => 14,
+            _ => 12
+        };
+        if (name.Contains("pickleball") || name.Contains("pickle")) audience = Math.Max(audience, 25);
+        if (name.Contains("club") || name.Contains("crew") || name.Contains("community")) audience = Math.Min(25, audience + 2);
+        if (name.Contains("planet fitness") || name.Contains("la fitness") || name.Contains("24 hour"))
+            audience = Math.Min(audience, 10);
+
+        // Market relevance (0–20): seed catalog / known metros score higher
+        var market = 10;
+        if (source == "seed_catalog") market = 20;
+        else if (source.Contains("overpass") || source.Contains("osm")) market = 12;
+        if (string.Equals(org.Market, "atlanta", StringComparison.OrdinalIgnoreCase)) market = Math.Min(20, market + 3);
+
+        // Community fit (0–22): clubs/creators/community orgs beat generic gyms
+        var community = type switch
+        {
+            "run_club" or "pickleball" or "cycling" => 22,
+            "creator" or "influencer" or "community" => 21,
+            "crossfit_hyrox" => 18,
+            "personal_trainer" => 14,
+            "gym" => 10,
+            _ => 11
+        };
+        if (name.Contains("community") || name.Contains("collective") || name.Contains("social"))
+            community = Math.Min(22, community + 2);
+
+        // Contact quality (0–18): verified email helps but is not majority
+        var contact = hasEmail ? 18 : 4;
+        if (hasEmail && source == "seed_catalog") contact = 18;
+
+        // Historical category (0–15): categories that historically convert for GTM
+        var historical = type switch
+        {
+            "pickleball" => 15,
+            "run_club" => 14,
+            "cycling" => 12,
+            "crossfit_hyrox" => 11,
+            "creator" or "community" => 13,
+            "personal_trainer" => 9,
+            "gym" => 6,
+            _ => 5
+        };
+
+        var total = audience + market + community + contact + historical;
+        total = Math.Clamp(total, 0, 100);
+
+        var explanation =
+            $"audience={audience}/25 ({type}), market={market}/20 ({source}), " +
+            $"community={community}/22, contact={contact}/18 (email={hasEmail}), " +
+            $"category={historical}/15 → acquisition={total}/100";
+
+        return new AcquisitionScoreResult
+        {
+            AcquisitionScore = total,
+            AudienceFitScore = audience,
+            MarketRelevanceScore = market,
+            CommunityFitScore = community,
+            ContactQualityScore = contact,
+            HistoricalCategoryScore = historical,
+            ScoreExplanation = explanation,
+        };
     }
 
     static string ActivityForType(string orgType) => orgType switch
@@ -285,7 +454,10 @@ public sealed class DiscoveryRunReport
     public int DraftsGenerated { get; set; }
     public int ApprovalReadyRecipients { get; set; }
     public int LanguageTemplateUnavailable { get; set; }
+    public int ResearchAttempts { get; set; }
     public bool SeedsOnly { get; set; }
+    public bool HitLimit { get; set; }
+    public string? StoppedReason { get; set; }
     public List<DiscoveryMarketReport> Markets { get; set; } = new();
 }
 

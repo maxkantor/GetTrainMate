@@ -15,6 +15,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { easternIsoDate } from './lib/owned-social-catalog.mjs';
 import { ensureGrowthDeps } from './lib/ensure-growth-deps.mjs';
+import {
+  dispatchApprovedPartnerOutreach,
+  runLimitedPartnerDiscovery
+} from './lib/partner-outreach-crm.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '../..');
@@ -208,6 +212,41 @@ async function main() {
           );
         }
       }
+    }
+
+    // Limited partner discovery + dispatch of previously approved recipients only
+    // (initial cold email never auto-approves). Discovery failures do not abort social/report.
+    let partnerDiscovery = null;
+    let partnerDispatch = null;
+    try {
+      partnerDiscovery = await runLimitedPartnerDiscovery({
+        dryRun: args.dryRun,
+        prepareDrafts: true,
+        seedsOnly: false
+      });
+      report.partnerDiscovery = partnerDiscovery;
+      if (partnerDiscovery?.ok) {
+        notesObj.partnerDiscovery = `prospects=${partnerDiscovery.prospectsFound ?? 0} drafts=${partnerDiscovery.draftsCreated ?? 0} status=${partnerDiscovery.status}`;
+      } else if (partnerDiscovery?.status !== 'skipped' && partnerDiscovery?.status !== 'dry_run') {
+        report.errors.push(`partner_discovery:${partnerDiscovery?.reason || partnerDiscovery?.status || 'failed'}`);
+      }
+    } catch (e) {
+      report.errors.push(`partner_discovery:${e instanceof Error ? e.message : String(e)}`);
+    }
+    try {
+      partnerDispatch = await dispatchApprovedPartnerOutreach({ dryRun: args.dryRun });
+      report.partnerDispatch = partnerDispatch;
+      if (partnerDispatch?.ok && partnerDispatch.result) {
+        notesObj.partnerDispatch = `sent=${partnerDispatch.result.sent ?? 0}`;
+      }
+    } catch (e) {
+      report.errors.push(`partner_dispatch:${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    // Refresh notes after partner steps (emailArgs was built earlier)
+    const notesIdx = emailArgs.indexOf('--notes');
+    if (notesIdx >= 0 && notesIdx + 1 < emailArgs.length) {
+      emailArgs[notesIdx + 1] = JSON.stringify(notesObj);
     }
 
     // Collect snapshot then attach ownedSocial before email

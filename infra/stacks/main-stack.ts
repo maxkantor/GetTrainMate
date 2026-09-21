@@ -912,6 +912,7 @@ export class GetTrainMateStack extends cdk.Stack {
       mk('PartnerSuppressions', 'gettrainmate-partner-suppressions', 'Email'),
       mk('PartnerSettings', 'gettrainmate-partner-settings', 'Id'),
       mk('PartnerInboundDedupe', 'gettrainmate-partner-inbound-dedupe', 'DedupeKey'),
+      mk('PartnerDiscoveryJobs', 'gettrainmate-partner-discovery-jobs', 'JobId'),
     ];
   }
 }

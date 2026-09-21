@@ -21,6 +21,7 @@ public class PartnerOutreachTests
         var ctx = new PartnerSendContext
         {
             SendEnabled = true,
+            OutreachMode = "live",
             PostalAddress = "1 Main St",
             Approved = true,
             ApprovalFingerprint = "x",
@@ -52,6 +53,7 @@ public class PartnerOutreachTests
         var ctx = new PartnerSendContext
         {
             SendEnabled = true,
+            OutreachMode = "live",
             PostalAddress = "1 Main St",
             Approved = true,
             ApprovalFingerprint = "x",
@@ -62,6 +64,80 @@ public class PartnerOutreachTests
         ctx.ScheduledCursorAutomation = false;
         ctx.SendEnabled = false;
         Assert.Equal("send_disabled", PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
+    public void Outreach_mode_off_and_test_recipients()
+    {
+        var ctx = new PartnerSendContext
+        {
+            SendEnabled = true,
+            OutreachMode = "off",
+            PostalAddress = "1 Main St",
+            Approved = true,
+            ApprovalFingerprint = "x",
+            CurrentFingerprint = "x",
+            Recipient = "a@example.test",
+        };
+        Assert.Equal("outreach_mode_off", PartnerOutreachRules.EvaluateSendGate(ctx));
+        ctx.OutreachMode = "test";
+        ctx.TestRecipients = new List<string> { "other@example.test" };
+        Assert.Equal("test_recipient_not_allowed", PartnerOutreachRules.EvaluateSendGate(ctx));
+        ctx.TestRecipients = new List<string> { "a@example.test" };
+        Assert.Null(PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
+    public void Follow_up_bypasses_fingerprint_when_parent_approved()
+    {
+        var ctx = new PartnerSendContext
+        {
+            SendEnabled = true,
+            OutreachMode = "live",
+            PostalAddress = "1 Main St",
+            Approved = false,
+            ApprovalFingerprint = "parent",
+            CurrentFingerprint = "followup-differs",
+            IsAutomatedFollowUp = true,
+            FollowUpNumber = 1,
+            ParentWasApproved = true,
+            CampaignActive = true,
+        };
+        Assert.Null(PartnerOutreachRules.EvaluateSendGate(ctx));
+        ctx.ParentWasApproved = false;
+        Assert.Equal("missing_parent_approval", PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
+    public void Acquisition_score_does_not_majority_weight_email()
+    {
+        var org = new DiscoveredOrganization
+        {
+            OrganizationName = "Atlanta Pickleball Club",
+            OrganizationType = "pickleball",
+            DiscoverySource = "seed_catalog",
+            Market = "atlanta",
+        };
+        var withEmail = AutomatedMarketDiscoveryService.ScoreProspect(org, hasEmail: true);
+        var withoutEmail = AutomatedMarketDiscoveryService.ScoreProspect(org, hasEmail: false);
+        Assert.True(withEmail.ContactQualityScore <= 20);
+        Assert.True(withEmail.AcquisitionScore - withoutEmail.AcquisitionScore <= 20);
+        Assert.True(withEmail.AcquisitionScore >= 70);
+        Assert.Contains("audience=", withEmail.ScoreExplanation);
+    }
+
+    [Fact]
+    public void Crm_lifecycle_normalizes_legacy_status()
+    {
+        var p = new PartnerProspect { Status = "no_verified_public_email", Email = "" };
+        PartnerCrmLifecycle.ApplyLegacyNormalization(p);
+        Assert.Equal(PartnerCrmLifecycle.New, p.CrmLifecycle);
+        Assert.Equal(PartnerCrmLifecycle.ContactNeeded, p.ContactState);
+
+        var draft = new PartnerProspect { Status = "draft", Email = "a@b.com" };
+        PartnerCrmLifecycle.ApplyLegacyNormalization(draft);
+        Assert.Equal(PartnerCrmLifecycle.Qualified, draft.CrmLifecycle);
+        Assert.Equal("AWAITING_APPROVAL", draft.EmailState);
     }
 
     [Fact]

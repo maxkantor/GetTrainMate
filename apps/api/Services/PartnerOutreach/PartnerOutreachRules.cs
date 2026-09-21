@@ -61,6 +61,20 @@ public static class PartnerOutreachRules
     {
         if (ctx.ScheduledCursorAutomation) return "scheduled_automation_blocked";
         if (!ctx.SendEnabled) return "send_disabled";
+        if (ctx.PauseAllOutreach) return "pause_all_outreach";
+        var mode = (ctx.OutreachMode ?? "off").Trim().ToLowerInvariant();
+        if (mode is "off" or "")
+            return "outreach_mode_off";
+        if (mode == "test")
+        {
+            var recipient = (ctx.Recipient ?? "").Trim().ToLowerInvariant();
+            var allowed = ctx.TestRecipients ?? new List<string>();
+            if (!allowed.Any(r => string.Equals(r?.Trim(), recipient, StringComparison.OrdinalIgnoreCase)))
+                return "test_recipient_not_allowed";
+        }
+        else if (mode != "live")
+            return "outreach_mode_invalid";
+
         if (string.IsNullOrWhiteSpace(ctx.PostalAddress)) return "postal_address_missing";
         if (!string.Equals(ctx.FromEmail, PartnerFromEmail, StringComparison.OrdinalIgnoreCase))
             return "from_identity_invalid";
@@ -68,13 +82,25 @@ public static class PartnerOutreachRules
             || ctx.FromEmail.Contains("noreply@", StringComparison.OrdinalIgnoreCase))
             return "gmail_or_noreply_forbidden";
         if (ctx.ComplaintPause) return "complaint_pause";
-        if (!ctx.Approved) return "missing_authorization_record";
-        if (ctx.ApprovalFingerprint != ctx.CurrentFingerprint) return "approval_invalidated";
+
+        var isFollowUp = ctx.IsAutomatedFollowUp && ctx.FollowUpNumber > 0;
+        if (isFollowUp)
+        {
+            if (!ctx.ParentWasApproved) return "missing_parent_approval";
+            if (!ctx.CampaignActive) return "campaign_not_active";
+            // Follow-up content differs from the parent approval fingerprint by design.
+        }
+        else
+        {
+            if (!ctx.Approved) return "missing_authorization_record";
+            if (ctx.ApprovalFingerprint != ctx.CurrentFingerprint) return "approval_invalidated";
+        }
+
         if (ctx.OptedOut || ctx.Complained || ctx.HardBounced) return "suppressed";
-        if (ctx.AlreadySentThisRecipient) return "duplicate_recipient";
-        if (ctx.DuplicateOrganizationInitial) return "duplicate_organization";
-        if (ctx.RecentlyContacted) return "recent_contact";
-        if (ctx.AlreadyQueuedOrSentSameRecipient) return "duplicate_recipient";
+        if (ctx.AlreadySentThisRecipient && !isFollowUp) return "duplicate_recipient";
+        if (ctx.DuplicateOrganizationInitial && !isFollowUp) return "duplicate_organization";
+        if (ctx.RecentlyContacted && !isFollowUp) return "recent_contact";
+        if (ctx.AlreadyQueuedOrSentSameRecipient && !isFollowUp) return "duplicate_recipient";
         if (ctx.SentToday >= ctx.DailyLimit) return "daily_send_limit";
         if (ctx.UnsafeBounceHealth) return "bounce_health_pause";
         return null;
@@ -105,4 +131,25 @@ public sealed class PartnerSendContext
     public int SentToday { get; set; }
     public int DailyLimit { get; set; } = PartnerOutreachRules.DefaultDailyLimit;
     public bool UnsafeBounceHealth { get; set; }
+
+    /// <summary>off | test | live</summary>
+    public string OutreachMode { get; set; } = "off";
+    public bool PauseAllOutreach { get; set; }
+    public List<string> TestRecipients { get; set; } = new();
+    public string Recipient { get; set; } = "";
+    public bool IsAutomatedFollowUp { get; set; }
+    public int FollowUpNumber { get; set; }
+    public bool ParentWasApproved { get; set; }
+    public bool CampaignActive { get; set; } = true;
+}
+
+public sealed class AcquisitionScoreResult
+{
+    public int AcquisitionScore { get; set; }
+    public int AudienceFitScore { get; set; }
+    public int MarketRelevanceScore { get; set; }
+    public int CommunityFitScore { get; set; }
+    public int ContactQualityScore { get; set; }
+    public int HistoricalCategoryScore { get; set; }
+    public string ScoreExplanation { get; set; } = "";
 }

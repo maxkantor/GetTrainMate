@@ -14,11 +14,16 @@ public class AdminPartnerOutreachController : ControllerBase
 {
     private readonly IPartnerOutreachService _svc;
     private readonly AutomatedMarketDiscoveryService _discovery;
+    private readonly IPartnerDiscoveryJobService _jobs;
 
-    public AdminPartnerOutreachController(IPartnerOutreachService svc, AutomatedMarketDiscoveryService discovery)
+    public AdminPartnerOutreachController(
+        IPartnerOutreachService svc,
+        AutomatedMarketDiscoveryService discovery,
+        IPartnerDiscoveryJobService jobs)
     {
         _svc = svc;
         _discovery = discovery;
+        _jobs = jobs;
     }
 
     string Actor() =>
@@ -44,6 +49,22 @@ public class AdminPartnerOutreachController : ControllerBase
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
+    [HttpPost("prospects/{id}/interested")]
+    public async Task<IActionResult> MarkInterested(string id)
+    {
+        try { return Ok(await _svc.MarkInterestedAsync(id, Actor())); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("prospects/{id}/convert-partner")]
+    public async Task<IActionResult> ConvertPartner(string id)
+    {
+        try { return Ok(await _svc.ConvertToPartnerAsync(id, Actor())); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
     [HttpPost("drafts")]
     public async Task<IActionResult> Draft([FromBody] DraftRequest req)
     {
@@ -61,6 +82,47 @@ public class AdminPartnerOutreachController : ControllerBase
         try { return Ok(await _svc.ApproveAsync(queueId, Actor(), req.Confirm)); }
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
+
+    [HttpPost("queue/{id}/approve-and-send")]
+    public async Task<IActionResult> ApproveAndSend(string id, [FromBody] ConfirmRequest req)
+    {
+        try { return Ok(await _svc.ApproveAndSendAsync(id, Actor(), req.Confirm)); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("queue/bulk-approve")]
+    public async Task<IActionResult> BulkApprove([FromBody] BulkApproveRequest req)
+    {
+        try { return Ok(await _svc.BulkApproveAsync(req.QueueIds ?? Array.Empty<string>(), Actor(), req.Confirm)); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("queue/{id}/reject")]
+    public async Task<IActionResult> Reject(string id, [FromBody] RejectQueueRequest? req)
+    {
+        try
+        {
+            if (req?.Confirm == false)
+                return BadRequest(new { error = "Explicit confirmation is required." });
+            return Ok(await _svc.RejectQueueAsync(id, Actor(), req?.Reason));
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPut("queue/{id}")]
+    public async Task<IActionResult> UpdateQueue(string id, [FromBody] UpdateQueueDraftRequest req)
+    {
+        try
+        {
+            return Ok(await _svc.UpdateQueueDraftAsync(id, req.Subject ?? "", req.BodyText ?? "", req.BodyHtml, Actor()));
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpGet("threads")]
+    public async Task<IActionResult> Threads() => Ok(await _svc.ListThreadsAsync());
 
     [HttpGet("threads/{threadId}")]
     public async Task<IActionResult> Thread(string threadId)
@@ -80,6 +142,20 @@ public class AdminPartnerOutreachController : ControllerBase
 
     [HttpGet("metrics")]
     public async Task<IActionResult> Metrics() => Ok(await _svc.MetricsAsync());
+
+    [HttpGet("acquisition/dashboard")]
+    public async Task<IActionResult> AcquisitionDashboard() =>
+        Ok(await _svc.AcquisitionDashboardAsync());
+
+    [HttpGet("settings")]
+    public async Task<IActionResult> GetSettings() => Ok(await _svc.GetOutreachSettingsAsync());
+
+    [HttpPut("settings")]
+    public async Task<IActionResult> PutSettings([FromBody] PartnerOutreachSettingsRow body)
+    {
+        try { return Ok(await _svc.UpdateOutreachSettingsAsync(body)); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
 
     [HttpGet("campaigns")]
     public async Task<IActionResult> Campaigns() => Ok(await _svc.ListCampaignsAsync());
@@ -105,11 +181,30 @@ public class AdminPartnerOutreachController : ControllerBase
         }));
     }
 
+    /// <summary>
+    /// Sync discovery (22s budget). Prefer POST discovery/jobs for chunked Lambda-safe runs.
+    /// seedsOnly or onlyPartnerCode keep requests under API Gateway timeout.
+    /// </summary>
     [HttpPost("discover/automated")]
     public async Task<IActionResult> DiscoverAutomated([FromBody] AutomatedDiscoverRequest? req)
     {
         try
         {
+            // Prefer jobs for broad runs; keep sync path for seedsOnly / single-org.
+            if (!(req?.SeedsOnly ?? false) && string.IsNullOrWhiteSpace(req?.OnlyPartnerCode))
+            {
+                var job = await _jobs.StartJobAsync(new DiscoveryJobRequest
+                {
+                    PrepareDrafts = req?.PrepareDrafts ?? true,
+                    SeedsOnly = req?.SeedsOnly ?? false,
+                    OnlyCampaignId = req?.OnlyCampaignId,
+                    MaxProspects = req?.MaxProspects,
+                    MaxResearchAttempts = req?.MaxResearchAttempts,
+                    MaxDrafts = req?.MaxDrafts,
+                }, Actor());
+                return Ok(new { jobId = job.JobId, status = job.Status, note = "Use GET discovery/jobs/{jobId} to advance and poll." });
+            }
+
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(22));
             var report = await _discovery.RunAsync(
                 req?.PrepareDrafts ?? true,
@@ -125,9 +220,41 @@ public class AdminPartnerOutreachController : ControllerBase
             return StatusCode(503, new
             {
                 error = "discovery_timeout",
-                message = "Discovery exceeded the API time limit. Use per-org seed discovery from Admin UI or set onlyPartnerCode for one organization."
+                message = "Discovery exceeded the API time limit. Use POST discovery/jobs or set onlyPartnerCode / seedsOnly."
             });
         }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("discovery/jobs")]
+    public async Task<IActionResult> StartDiscoveryJob([FromBody] AutomatedDiscoverRequest? req)
+    {
+        try
+        {
+            var job = await _jobs.StartJobAsync(new DiscoveryJobRequest
+            {
+                PrepareDrafts = req?.PrepareDrafts ?? true,
+                SeedsOnly = req?.SeedsOnly ?? false,
+                OnlyCampaignId = req?.OnlyCampaignId,
+                MaxProspects = req?.MaxProspects,
+                MaxResearchAttempts = req?.MaxResearchAttempts,
+                MaxDrafts = req?.MaxDrafts,
+            }, Actor());
+            return Ok(job);
+        }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    /// <summary>Poll advances one chunk of work (~15s), then returns the job.</summary>
+    [HttpGet("discovery/jobs/{jobId}")]
+    public async Task<IActionResult> GetOrAdvanceDiscoveryJob(string jobId)
+    {
+        try
+        {
+            var job = await _jobs.AdvanceJobAsync(jobId);
+            return Ok(job);
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
@@ -139,7 +266,8 @@ public class AdminPartnerOutreachController : ControllerBase
         return Ok(new
         {
             organizationsDiscovered = prospects.Count,
-            qualifiedOrganizations = prospects.Count(p => p.Status is "prospect" or "draft" or "approved"),
+            qualifiedOrganizations = prospects.Count(p => p.Status is "prospect" or "draft" or "approved"
+                || p.CrmLifecycle == PartnerCrmLifecycle.Qualified),
             verifiedPublicContacts = prospects.Count(p => p.EmailVerificationStatus == "verified_public" || (!string.IsNullOrWhiteSpace(p.Email) && p.Email.Contains('@'))),
             contactsUnavailable = prospects.Count(p => p.Status == "no_verified_public_email"),
             languageTemplateUnavailable = prospects.Count(p => p.Status == "qualified_language_unavailable"),
@@ -176,6 +304,25 @@ public class ConfirmRequest
     public bool Confirm { get; set; }
 }
 
+public class BulkApproveRequest
+{
+    public IEnumerable<string>? QueueIds { get; set; }
+    public bool Confirm { get; set; }
+}
+
+public class RejectQueueRequest
+{
+    public string? Reason { get; set; }
+    public bool Confirm { get; set; } = true;
+}
+
+public class UpdateQueueDraftRequest
+{
+    public string Subject { get; set; } = "";
+    public string BodyText { get; set; } = "";
+    public string? BodyHtml { get; set; }
+}
+
 public class CrmReplyRequest
 {
     public string BodyText { get; set; } = "";
@@ -205,6 +352,9 @@ public class AutomatedDiscoverRequest
     public string? OnlyCampaignId { get; set; }
     /// <summary>Process a single seed-catalog org (keeps each request under API Gateway timeout).</summary>
     public string? OnlyPartnerCode { get; set; }
+    public int? MaxProspects { get; set; }
+    public int? MaxResearchAttempts { get; set; }
+    public int? MaxDrafts { get; set; }
 }
 
 public class DedupeRequest
