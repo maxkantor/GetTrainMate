@@ -213,7 +213,10 @@ public class PartnerOutreachTests
             "Miami, FL",
             "Miami",
             "es");
-        Assert.Contains("fundador de GetTrainMate", copy.Text);
+        Assert.Contains("GetTrainMate ayuda a las personas", copy.Text);
+        Assert.DoesNotContain("Soy Max", copy.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("fundador", copy.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("alianza", copy.Text, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -378,7 +381,7 @@ public class PartnerOutreachTests
             "Atlanta",
             "en",
             organizationType: "gym");
-        Assert.Contains("Help Fit Studio members find local workout partners", gym.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Help Fit Studio members find local training partners", gym.Subject, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("GetTrainMate helps people connect", gym.Text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("utm_source=partner_outreach", gym.Text);
         Assert.Contains("Explore GetTrainMate", gym.Html, StringComparison.OrdinalIgnoreCase);
@@ -398,9 +401,9 @@ public class PartnerOutreachTests
             "Atlanta",
             "en",
             organizationType: "run_club");
-        Assert.Contains("Help Run Crew members find local workout partners", run.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Help Run Crew members find local training partners", run.Subject, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(PartnerOutreachRules.PartnerFromName, "GetTrainMate");
-        Assert.Equal(PartnerOutreachRules.TemplateVersion, "partner-v4-2026-09-20");
+        Assert.Equal(PartnerOutreachRules.TemplateVersion, "partner-v5-2026-09-21");
         Assert.Equal(10, PartnerOutreachRules.DefaultDailyLimit);
     }
 
@@ -417,7 +420,7 @@ public class PartnerOutreachTests
         Assert.DoesNotContain("I\u2019m Max", copy.Text);
         Assert.DoesNotContain("Partner code", copy.Text, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("partnership", copy.Text, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Thanks,\nGetTrainMate", copy.Text);
+        Assert.Contains("GetTrainMate\nhttps://gettrainmate.com/", copy.Text);
         Assert.Equal("GetTrainMate", PartnerOutreachRules.PartnerFromName);
     }
 

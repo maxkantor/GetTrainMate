@@ -40,10 +40,13 @@ function sampleCopy() {
 }
 
 describe('partner email UTF-8 / MIME', () => {
-  it('keeps UTF-8 apostrophes and rejects mojibake markers', async () => {
+  it('keeps brand-led copy without personal Max identity', async () => {
     const copy = sampleCopy();
-    assert.match(copy.text, /I\u2019m Max/);
-    assert.match(copy.subject, /Help Example Pickleball Club members find local pickleball partners/);
+    assert.match(copy.text, /GetTrainMate helps people connect/);
+    assert.match(copy.subject, /Help Example Pickleball Club members find local training partners/);
+    assert.doesNotMatch(copy.text, /I[\u2019']m Max|Founder, GetTrainMate|Partner code|partnership/i);
+    assert.doesNotMatch(copy.html, /I[\u2019']m Max|Founder, GetTrainMate|Partner code/i);
+    assert.match(copy.html, /Explore GetTrainMate/);
     assert.doesNotMatch(copy.text, /TRAIN-mode|not dating-first|Reply to this email/);
     assertNoMojibake(copy.html);
     for (const m of MOJIBAKE_MARKERS) assert.equal(copy.html.includes(m), false);
@@ -60,10 +63,12 @@ describe('partner email UTF-8 / MIME', () => {
     assert.match(raw, /Content-Type:\s*text\/html;\s*charset=UTF-8/i);
     assert.match(raw, /Content-Transfer-Encoding:\s*quoted-printable/i);
     assert.match(raw, /^Reply-To:.*partners@gettrainmate.com/mi);
+    assert.match(raw, /^From: GetTrainMate </mi);
     assert.match(raw, /\r\n/);
     assertNoMojibake(raw, 'raw');
     const decoded = decodeQuotedPrintable(raw);
-    assert.match(decoded, /I\u2019m Max/);
+    assert.match(decoded, /GetTrainMate helps people connect/);
+    assert.doesNotMatch(decoded, /I[\u2019']m Max|Founder, GetTrainMate/);
     assert.doesNotMatch(decoded, /Weâ€™re|donâ€™t|Â/);
   });
 
@@ -81,9 +86,9 @@ describe('partner email UTF-8 / MIME', () => {
 
   it('includes mobile-friendly markup', () => {
     const copy = sampleCopy();
-    assert.match(copy.html, /max-width:560px/);
+    assert.match(copy.html, /max-width:600px/);
     assert.match(copy.html, /viewport/);
-    assert.match(copy.html, /Open invitation page/);
+    assert.match(copy.html, /Explore GetTrainMate/);
     assert.doesNotMatch(copy.html, /fonts\.google|tracking\.gif|pixel/i);
   });
 });

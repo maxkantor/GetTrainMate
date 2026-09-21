@@ -185,6 +185,16 @@ public class AdminPartnerOutreachController : ControllerBase
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    [HttpPost("queue/regenerate-obsolete")]
+    public async Task<IActionResult> RegenerateObsolete([FromBody] RegenerateObsoleteRequest? req)
+    {
+        try
+        {
+            return Ok(await _svc.RegenerateObsoleteUnsentDraftsAsync(Actor(), req?.ForceAllUnsentInitial ?? true));
+        }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
     [HttpPut("queue/{id}")]
     public async Task<IActionResult> UpdateQueue(string id, [FromBody] UpdateQueueDraftRequest req)
     {
@@ -394,6 +404,12 @@ public class BulkApproveRequest
 public class RescoreLowRequest
 {
     public int Max { get; set; } = 50;
+}
+
+public class RegenerateObsoleteRequest
+{
+    /// <summary>When true, regenerate every unsent initial draft (not only obsolete markers).</summary>
+    public bool ForceAllUnsentInitial { get; set; } = true;
 }
 
 public class RejectQueueRequest

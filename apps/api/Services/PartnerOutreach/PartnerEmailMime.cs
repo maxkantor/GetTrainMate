@@ -86,20 +86,21 @@ public static class PartnerEmailMime
             ? prospectKind.Trim().ToUpperInvariant()
             : PartnerCrmLifecycle.NormalizeProspectKind(organizationType);
 
+        // Brand-led only — never personal founder identity or partnership pitch.
+        _ = partnerCode;
         string subject;
         string text;
         if (lang == "es")
         {
             subject = $"Ayude a los miembros de {org} a encontrar compañeros de entrenamiento locales";
             text = $"Hola, equipo de {org},\n\n"
-                + $"Soy Max, fundador de GetTrainMate, una plataforma que ayuda a las personas a encontrar compañeros locales para entrenar, correr, pickleball y otras actividades en {market}.\n\n"
-                + "Creé una página de invitación dedicada para su comunidad:\n\n"
+                + "GetTrainMate ayuda a las personas a conectar a través de entrenamientos, deportes y actividades reales — desde el gimnasio y correr hasta pickleball, tenis y más.\n\n"
+                + $"Estamos presentando GetTrainMate a comunidades fitness en {market}, y pensamos que podría ser útil para {org}.\n\n"
+                + "Pueden probar GetTrainMate ustedes mismos o compartir esta invitación con sus miembros:\n\n"
                 + $"{url}\n\n"
-                + $"Código de invitación: {partnerCode}\n\n"
-                + "No tiene costo para su organización. Esta invitación no significa que ya tengamos una alianza. Si les parece útil, ¿estarían abiertos a compartir la invitación con miembros que busquen compañeros de entrenamiento locales?\n\n"
-                + "Con gusto respondo cualquier pregunta.\n\n"
-                + "Gracias,\nMax\nFundador, GetTrainMate\nhttps://gettrainmate.com/\n\n"
-                + "GetTrainMate no vende listas de miembros de socios y la participación no garantiza un match.\n"
+                + "No tiene costo compartirlo y no se requiere integración.\n\n"
+                + "GetTrainMate\nhttps://gettrainmate.com/\n\n"
+                + "GetTrainMate no vende listas de miembros y la participación no garantiza un match.\n"
                 + $"Cancelar suscripción: {unsubscribeUrl}\n"
                 + postalAddress;
         }
@@ -107,14 +108,13 @@ public static class PartnerEmailMime
         {
             subject = $"Помогите участникам {org} найти локальных партнёров для тренировок";
             text = $"Здравствуйте, команда {org},\n\n"
-                + $"Я Макс, основатель GetTrainMate — платформы, которая помогает людям находить локальных партнёров для тренировок, бега, pickleball и других активностей в {market}.\n\n"
-                + "Я создал отдельную страницу приглашения для вашего сообщества:\n\n"
+                + "GetTrainMate помогает людям знакомиться через тренировки, спорт и реальные активности — от зала и бега до pickleball, тенниса и другого.\n\n"
+                + $"Мы знакомим GetTrainMate с фитнес-сообществами в {market} и подумали, что это может быть полезно для {org}.\n\n"
+                + "Вы можете попробовать GetTrainMate сами или поделиться этим приглашением с участниками:\n\n"
                 + $"{url}\n\n"
-                + $"Код приглашения: {partnerCode}\n\n"
-                + "Для вашей организации это бесплатно. Это приглашение не означает, что у нас уже есть партнёрство. Если вам это полезно, не могли бы вы поделиться ссылкой с участниками, которые ищут локальных партнёров для тренировок?\n\n"
-                + "С радостью отвечу на вопросы.\n\n"
-                + "Спасибо,\nМакс\nОснователь, GetTrainMate\nhttps://gettrainmate.com/\n\n"
-                + "GetTrainMate не продаёт списки участников партнёров, участие не гарантирует match.\n"
+                + "Делиться приглашением бесплатно, интеграция не нужна.\n\n"
+                + "GetTrainMate\nhttps://gettrainmate.com/\n\n"
+                + "GetTrainMate не продаёт списки участников; участие не гарантирует match.\n"
                 + $"Отписаться: {unsubscribeUrl}\n"
                 + postalAddress;
         }
@@ -156,14 +156,14 @@ public static class PartnerEmailMime
         // Brand-led template — kind kept for API compatibility; copy is unified.
         _ = partnerCode;
         _ = kind;
-        var subject = $"Help {org} members find local workout partners";
+        var subject = $"Help {org} members find local training partners";
         var text = $"Hi {org} team,\n\n"
             + "GetTrainMate helps people connect through workouts, sports and real-world activities — from gym training and running to pickleball, tennis and more.\n\n"
             + $"We're introducing GetTrainMate to fitness communities in {market}, and thought it could be useful for {org}.\n\n"
-            + "You can try GetTrainMate yourself or share this dedicated invitation with your members:\n\n"
+            + "You can try GetTrainMate yourself or share this invitation with your members:\n\n"
             + $"{url}\n\n"
-            + "There is no cost to share the invitation and no integration required.\n\n"
-            + "Thanks,\nGetTrainMate\nhttps://gettrainmate.com/\n\n"
+            + "There is no cost to share it and no integration required.\n\n"
+            + "GetTrainMate\nhttps://gettrainmate.com/\n\n"
             + "GetTrainMate does not sell member lists, and participation does not guarantee a match.\n"
             + $"Unsubscribe: {unsub}\n"
             + postal;
@@ -208,11 +208,11 @@ public static class PartnerEmailMime
             + $"<p>Hi {E(org)} team,</p>"
             + "<p>GetTrainMate helps people connect through workouts, sports and real-world activities — from gym training and running to pickleball, tennis and more.</p>"
             + $"<p>We're introducing GetTrainMate to fitness communities in {E(market)}, and thought it could be useful for {E(org)}.</p>"
-            + "<p>You can try GetTrainMate yourself or share this dedicated invitation with your members:</p>"
+            + "<p>You can try GetTrainMate yourself or share this invitation with your members:</p>"
             + $"<p style=\"text-align:center;\"><a href=\"{E(url)}\" style=\"display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700;\">Explore GetTrainMate</a></p>"
             + $"<p style=\"font-size:13px;color:#6b7280;word-break:break-all;\">{E(url)}</p>"
-            + "<p>There is no cost to share the invitation and no integration required.</p>"
-            + "<p>Thanks,<br><strong>GetTrainMate</strong><br>"
+            + "<p>There is no cost to share it and no integration required.</p>"
+            + "<p><strong>GetTrainMate</strong><br>"
             + "<a href=\"https://gettrainmate.com/\" style=\"color:#0f172a;\">https://gettrainmate.com/</a></p>"
             + "<p style=\"font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:16px;\">GetTrainMate does not sell member lists, and participation does not guarantee a match.<br>"
             + $"<a href=\"{E(unsub)}\">Unsubscribe</a><br>{E(postal)}</p>"

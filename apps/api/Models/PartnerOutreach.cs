@@ -164,6 +164,8 @@ public class PartnerQueueItem
     public string BodyHtml { get; set; } = "";
     public string PartnerUrl { get; set; } = "";
     public string Fingerprint { get; set; } = "";
+    /// <summary>Copy template version used to generate BodyText/BodyHtml.</summary>
+    public string TemplateVersion { get; set; } = "";
     public string Status { get; set; } = "queued";
     public int MessageVersion { get; set; } = 1;
     /// <summary>0 = initial outreach; &gt;0 = follow-up N.</summary>
@@ -239,7 +241,7 @@ public class PartnerOutreachSettingsRow
     public int ComplaintCount { get; set; }
     public int ReplyCount { get; set; }
     /// <summary>off | test | live — deprecated for send gates; kept for UI backward compat.</summary>
-    public string OutreachMode { get; set; } = "off";
+    public string OutreachMode { get; set; } = "live";
     public bool PauseAllOutreach { get; set; }
     /// <summary>When true, sends only to addresses in TestRecipients.</summary>
     public bool TestRecipientsOnly { get; set; }

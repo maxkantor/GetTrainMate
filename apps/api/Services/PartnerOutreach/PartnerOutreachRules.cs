@@ -10,9 +10,42 @@ public static class PartnerOutreachRules
     public const int DefaultMinAcquisitionScore = 40;
     public const string PartnerFromEmail = "partners@gettrainmate.com";
     public const string PartnerFromName = "GetTrainMate";
-    public const string TemplateVersion = "partner-v4-2026-09-20";
+    public const string TemplateVersion = "partner-v5-2026-09-21";
 
     public static readonly string[] MojibakeMarkers = { "Â", "â€™", "â€œ", "â€", "â†’" };
+
+    /// <summary>Detects obsolete personal-identity / partnership pitch copy in unsent drafts.</summary>
+    public static bool ContainsObsoleteOutreachCopy(string? subject, string? bodyText, string? bodyHtml = null)
+    {
+        var hay = $"{subject}\n{bodyText}\n{bodyHtml}";
+        if (string.IsNullOrWhiteSpace(hay)) return false;
+        string[] markers =
+        {
+            "I'm Max",
+            "I’m Max",
+            "I\u2019m Max",
+            "Founder, GetTrainMate",
+            "Founder of GetTrainMate",
+            "founder of GetTrainMate",
+            "Max from GetTrainMate",
+            "Partner code",
+            "already have a partnership",
+            "Soy Max",
+            "Fundador, GetTrainMate",
+            "Я Макс",
+            "Основатель, GetTrainMate",
+            "Unsubscribe from partnership emails",
+            "partner member lists",
+        };
+        foreach (var m in markers)
+        {
+            if (hay.Contains(m, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        if (System.Text.RegularExpressions.Regex.IsMatch(hay, @"(?im)^Thanks,?\s*\r?\nMax\b"))
+            return true;
+        return false;
+    }
 
     public static string Fingerprint(string recipient, string subject, string bodyText, string partnerUrl, string campaignId)
     {

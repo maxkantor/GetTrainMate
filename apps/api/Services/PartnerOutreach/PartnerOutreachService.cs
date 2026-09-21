@@ -42,6 +42,12 @@ public interface IPartnerOutreachService
     Task<object> SendQueueItemByIdAsync(string queueId);
     Task<object> RescoreProspectAsync(string prospectId);
     Task<object> RescoreLowScoreProspectsAsync(int max = 50);
+    /// <summary>
+    /// Regenerates all unsent initial outreach drafts that still contain obsolete Max/partnership
+    /// copy (or any unsent initial when forceAllUnsentInitial is true). Invalidates prior approval
+    /// → status draft (NEEDS_APPROVAL). Does not modify sent history.
+    /// </summary>
+    Task<object> RegenerateObsoleteUnsentDraftsAsync(string actor, bool forceAllUnsentInitial = false);
     Task<object> ResearchContactAsync(string prospectId, string actor, bool force = false);
     Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20);
     Task<object> ResearchContactNeededBatchAsync(int max, string actor);
@@ -304,6 +310,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             PartnerUrl = landingWithUtm,
             Fingerprint = fp,
             Status = "draft",
+            TemplateVersion = PartnerOutreachRules.TemplateVersion,
             MessageVersion = 1,
             FollowUpNumber = 0,
         };
@@ -830,6 +837,9 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
 
     async Task SendQueueItemAsync(PartnerQueueItem item)
     {
+        if (PartnerOutreachRules.ContainsObsoleteOutreachCopy(item.Subject, item.BodyText, item.BodyHtml))
+            throw new InvalidOperationException("obsolete_outreach_copy_blocked");
+
         var internalId = "po_" + Guid.NewGuid().ToString("N")[..16];
         SesTagRules.AssertNoPii(SesTagRules.CampaignTags(internalId));
         var rfcId = $"<{internalId}@gettrainmate.com>";
@@ -2007,6 +2017,110 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         return new { count = rescored.Count, rescored };
     }
 
+    public async Task<object> RegenerateObsoleteUnsentDraftsAsync(string actor, bool forceAllUnsentInitial = false)
+    {
+        var queue = await ListQueueAsync(null);
+        var candidates = queue
+            .Where(q =>
+                q.FollowUpNumber == 0
+                && q.SentAt == null
+                && q.Status is "draft" or "approved" or "approved_for_next_send" or "queued" or "scheduled")
+            .ToList();
+
+        var found = candidates
+            .Where(q => forceAllUnsentInitial
+                || PartnerOutreachRules.ContainsObsoleteOutreachCopy(q.Subject, q.BodyText, q.BodyHtml)
+                || !string.Equals(q.TemplateVersion, PartnerOutreachRules.TemplateVersion, StringComparison.Ordinal))
+            .ToList();
+
+        var regenerated = new List<object>();
+        foreach (var item in found)
+        {
+            var p = await _db.LoadAsync<PartnerProspect>(item.ProspectId);
+            if (p == null) continue;
+
+            ApplyScoreToProspect(p);
+            if (string.IsNullOrWhiteSpace(p.Email) || !p.Email.Contains('@'))
+            {
+                regenerated.Add(new
+                {
+                    item.QueueId,
+                    p.OrganizationName,
+                    regenerated = false,
+                    error = "no_verified_email",
+                });
+                continue;
+            }
+
+            var campaignId = string.IsNullOrWhiteSpace(item.CampaignId) ? p.CampaignId : item.CampaignId;
+            var landing = !string.IsNullOrWhiteSpace(item.PartnerUrl)
+                ? item.PartnerUrl
+                : PartnerEmailMime.AppendPartnerUtm(p.LandingUrl ?? "", campaignId, p.PartnerCode);
+            var unsub = BuildUnsubUrl(p.ProspectId);
+            var marketLabel = string.IsNullOrWhiteSpace(p.Metro) ? p.City : p.Metro;
+            var copy = PartnerEmailMime.RenderForProspect(p, landing, unsub, Postal, marketLabel);
+            var fp = PartnerOutreachRules.Fingerprint(p.Email, copy.Subject, copy.Text, landing, campaignId ?? "");
+
+            var before = new { item.Status, item.Subject, item.ApprovalId, item.BodyText };
+            item.Recipient = p.Email.Trim();
+            item.OrganizationName = p.OrganizationName;
+            item.Subject = copy.Subject;
+            item.BodyText = copy.Text;
+            item.BodyHtml = copy.Html;
+            item.PartnerUrl = landing;
+            item.Fingerprint = fp;
+            item.TemplateVersion = PartnerOutreachRules.TemplateVersion;
+            item.Status = "draft";
+            item.ApprovalId = "";
+            item.ApprovedAt = null;
+            item.ApprovedBy = null;
+            item.LastError = null;
+            item.MessageVersion = Math.Max(1, item.MessageVersion) + 1;
+            await _db.SaveAsync(item);
+
+            p.Email = item.Recipient;
+            p.Status = "draft";
+            p.EmailState = "AWAITING_APPROVAL";
+            p.AcquisitionStatus = PartnerCrmLifecycle.AcqAwaitingApproval;
+            PartnerCrmLifecycle.AppendTimelineEvent(p, "draft_regenerated",
+                "Obsolete outreach copy regenerated; approval invalidated", DateTime.UtcNow,
+                new { item.QueueId, template = PartnerOutreachRules.TemplateVersion, actor });
+            PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
+            await _db.SaveAsync(p);
+
+            await TryAuditAsync(actor, "regenerate_obsolete_draft", "queue", item.QueueId, before,
+                new { item.Status, item.Subject, item.TemplateVersion, item.MessageVersion });
+
+            regenerated.Add(new
+            {
+                item.QueueId,
+                p.OrganizationName,
+                regenerated = true,
+                status = "draft",
+                acquisitionScore = p.AcquisitionScore,
+                subject = item.Subject,
+            });
+        }
+
+        // Normalize settings so leftover OFF mode is not the operational default.
+        var settings = await LoadSettingsAsync();
+        if (string.Equals(settings.OutreachMode, "off", StringComparison.OrdinalIgnoreCase))
+        {
+            settings.OutreachMode = "live";
+            await _db.SaveAsync(settings);
+        }
+
+        return new
+        {
+            obsoleteUnsentFound = found.Count,
+            regenerated = regenerated.Count,
+            items = regenerated,
+            templateVersion = PartnerOutreachRules.TemplateVersion,
+            outreachModeNormalized = settings.OutreachMode,
+            pauseAllOutreach = settings.PauseAllOutreach,
+        };
+    }
+
     /// <summary>
     /// Returns a needsOverride payload when score is below campaign min and override not confirmed; otherwise null.
     /// Always recalculates when AcquisitionScore is exactly 0.
@@ -2076,7 +2190,8 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     {
         var row = await _db.LoadAsync<PartnerOutreachSettingsRow>("default")
             ?? new PartnerOutreachSettingsRow();
-        if (string.IsNullOrWhiteSpace(row.OutreachMode)) row.OutreachMode = "off";
+        if (string.IsNullOrWhiteSpace(row.OutreachMode) || string.Equals(row.OutreachMode, "off", StringComparison.OrdinalIgnoreCase))
+            row.OutreachMode = "live";
         if (row.ProspectsPerRun <= 0) row.ProspectsPerRun = 8;
         if (row.ResearchAttemptsPerRun <= 0) row.ResearchAttemptsPerRun = 15;
         if (row.ResearchContactsPerRun <= 0) row.ResearchContactsPerRun = 10;
