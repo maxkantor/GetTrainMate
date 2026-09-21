@@ -337,9 +337,11 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         var item = await _db.LoadAsync<PartnerQueueItem>(queueId) ?? throw new KeyNotFoundException("Queue item not found");
         if (item.Status == "rejected")
             throw new InvalidOperationException("Cannot approve a rejected queue item.");
+        if (IsAlreadySentQueueItem(item))
+            throw new InvalidOperationException("Cannot re-approve an already-sent item.");
+        // Approving authorizes the CURRENT draft body/subject/url (refresh fingerprint).
+        // Do not reject on drift — Approve & Send is the human authorization of what's on screen.
         var current = PartnerOutreachRules.Fingerprint(item.Recipient, item.Subject, item.BodyText, item.PartnerUrl, item.CampaignId);
-        if (PartnerOutreachRules.ApprovalInvalidated(item.Fingerprint, current))
-            throw new InvalidOperationException("Content changed; recreate the draft.");
         var approval = new PartnerApproval
         {
             CampaignId = item.CampaignId,
@@ -613,8 +615,8 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                     }
                 }
 
-                if (item.Status == "draft" || string.IsNullOrWhiteSpace(item.ApprovalId))
-                    await ApproveAsync(item.QueueId, actor, confirm: true);
+                // Always re-authorize current content (fingerprint refresh) before send.
+                await ApproveAsync(item.QueueId, actor, confirm: true);
 
                 var fresh = await _db.LoadAsync<PartnerQueueItem>(item.QueueId)
                     ?? throw new KeyNotFoundException("Queue item not found");

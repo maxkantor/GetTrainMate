@@ -251,6 +251,7 @@ export const ApprovalsPanel: React.FC<Props> = ({
     let deferred = 0;
     let blocked = 0;
     const errors: string[] = [];
+    const reasonCounts = new Map<string, number>();
     // One-at-a-time avoids API Gateway timeout that left partial bulk sends re-sendable.
     for (const id of ids) {
       try {
@@ -263,14 +264,22 @@ export const ApprovalsPanel: React.FC<Props> = ({
           deferred?: boolean;
           error?: string;
           sendError?: string;
+          needsOverride?: boolean;
         };
         if (result?.alreadySent) alreadySent += 1;
         else if (result?.deferred) deferred += 1;
-        else if (result?.sent === false && (result.error || result.sendError)) {
+        else if (result?.needsOverride || (result?.sent === false && (result.error || result.sendError))) {
           blocked += 1;
-          errors.push(`${id}: ${result.error || result.sendError}`);
-        } else {
+          const reason = result.error || result.sendError || 'needs_override';
+          reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
+          errors.push(reason);
+        } else if (result?.sent === true) {
           sent += 1;
+        } else {
+          // Unknown payload — do not pretend it sent
+          blocked += 1;
+          reasonCounts.set('unknown_response', (reasonCounts.get('unknown_response') || 0) + 1);
+          errors.push('unknown_response');
         }
         setSelectedIds((prev) => {
           const next = new Set(prev);
@@ -279,17 +288,24 @@ export const ApprovalsPanel: React.FC<Props> = ({
         });
       } catch (e: unknown) {
         blocked += 1;
-        errors.push(`${id}: ${e instanceof Error ? e.message : 'send failed'}`);
+        const msg = e instanceof Error ? e.message : 'send failed';
+        reasonCounts.set(msg, (reasonCounts.get(msg) || 0) + 1);
+        errors.push(msg);
       }
     }
+    const topReasons = [...reasonCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([r, n]) => `${r}×${n}`)
+      .join('; ');
     const parts = [
       `Sent ${sent}`,
       alreadySent ? `already sent ${alreadySent}` : '',
       deferred ? `deferred ${deferred}` : '',
       blocked ? `blocked ${blocked}` : '',
     ].filter(Boolean);
-    onNotice(parts.join(' · '));
-    if (errors.length) onError(errors.slice(0, 3).join('; '));
+    onNotice(parts.join(' · ') + (topReasons ? ` — ${topReasons}` : ''));
+    if (errors.length) onError(topReasons || errors.slice(0, 3).join('; '));
     requestRefresh();
     await load();
     setBusy(false);
