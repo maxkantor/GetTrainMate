@@ -48,4 +48,7 @@ public interface IAdminNotificationService
         string message,
         string? contactId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Sends a one-off test alert to configured SES admin recipients.</summary>
+    Task NotifyTestAsync(CancellationToken cancellationToken = default);
 }

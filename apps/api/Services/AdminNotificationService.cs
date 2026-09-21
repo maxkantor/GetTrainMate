@@ -65,7 +65,26 @@ public class AdminNotificationService : IAdminNotificationService
             }
         }
 
+        if (sent > 0)
+        {
+            _logger.LogInformation(
+                "Admin notification sent to {Count} recipient(s): {Subject}",
+                sent,
+                subject);
+        }
+
         return sent;
+    }
+
+    public Task NotifyTestAsync(CancellationToken cancellationToken = default)
+    {
+        var subject = "[GetTrainMate] Admin notification test";
+        var text =
+            "This is a test of GetTrainMate admin alerts." + Environment.NewLine +
+            "You should also receive emails for: new user signup (free credits), credit purchases, and contact form submissions." + Environment.NewLine +
+            $"Time (UTC): {DateTime.UtcNow:O}";
+        var html = $"<p>{System.Net.WebUtility.HtmlEncode(text).Replace(Environment.NewLine, "</p><p>")}</p>";
+        return SendToAllAsync(subject, text, html, cancellationToken);
     }
 
     public Task NotifyNewSignupAsync(
