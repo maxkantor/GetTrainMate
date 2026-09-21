@@ -8,38 +8,59 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  LinearProgress,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
-import type { OutreachSettings, PanelSharedProps, PartnerProspect, PartnerQueueItem } from './types';
+import type { OutreachSettings, PanelSharedProps, PartnerQueueItem } from './types';
 import {
   API,
   EmptyState,
   PanelSkeleton,
-  StatusChip,
   asArray,
-  formatProspectType,
-  marketLabel,
   previewText,
-  prospectScore,
 } from './components';
 import { adminApiService } from '@/services/adminApiService';
 
 type ApprovalTab = 'needs' | 'sent' | 'blocked';
 
-interface Props extends PanelSharedProps {
-  initialStatus?: string;
+type RunResult = {
+  severity: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  detail?: string;
+};
+
+function easternTodayIso(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
 }
 
-export const ApprovalsPanel: React.FC<Props> = ({
+function isSentToday(item: PartnerQueueItem, todayEt: string): boolean {
+  if (!item.sentAt && !item.sesMessageId) return false;
+  if (!item.sentAt) return Boolean(item.sesMessageId);
+  const at = new Date(item.sentAt);
+  if (Number.isNaN(at.getTime())) return Boolean(item.sesMessageId);
+  const et = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(at);
+  return et === todayEt;
+}
+
+export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: string }> = ({
   onError,
   onNotice,
   refreshKey,
   requestRefresh,
 }) => {
   const [queue, setQueue] = useState<PartnerQueueItem[]>([]);
-  const [prospects, setProspects] = useState<PartnerProspect[]>([]);
   const [settings, setSettings] = useState<OutreachSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -48,12 +69,12 @@ export const ApprovalsPanel: React.FC<Props> = ({
   const [editSubject, setEditSubject] = useState('');
   const [editBody, setEditBody] = useState('');
   const [confirmBulk, setConfirmBulk] = useState(false);
-  const [confirmOne, setConfirmOne] = useState<PartnerQueueItem | null>(null);
   const [rejectItem, setRejectItem] = useState<PartnerQueueItem | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [lastRun, setLastRun] = useState<RunResult | null>(null);
   const [capacity, setCapacity] = useState({ dailyLimit: 10, sentToday: 0, remaining: 10 });
-
   const [overrideItem, setOverrideItem] = useState<{
     item: PartnerQueueItem;
     score?: number;
@@ -64,46 +85,31 @@ export const ApprovalsPanel: React.FC<Props> = ({
     setLoading(true);
     onError(null);
     try {
-      const [q, p, s, dash] = await Promise.all([
+      const [q, s, dash] = await Promise.all([
         adminApiService.get(`${API}/queue`),
-        adminApiService.get(`${API}/prospects`),
         adminApiService.get(`${API}/settings`),
         adminApiService.get(`${API}/acquisition/dashboard`).catch(() => null),
       ]);
-      setQueue(asArray<PartnerQueueItem>(q));
-      setProspects(asArray<PartnerProspect>(p));
+      const queueItems = asArray<PartnerQueueItem>(q);
+      setQueue(queueItems);
       setSettings(s as OutreachSettings);
-      const d = dash as {
-        funnel?: { sent?: number };
-        settings?: { dailyLimit?: number; sentToday?: number };
-      } | null;
+      const d = dash as { settings?: { dailyLimit?: number; sentToday?: number } } | null;
       const limit = Number((s as OutreachSettings)?.dailyLimit ?? d?.settings?.dailyLimit ?? 10) || 10;
-      const sentToday = Number(d?.settings?.sentToday ?? 0) || 0;
-      // Count in America/New_York (matches server daily limit), not UTC.
-      const todayEt = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/New_York',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }).format(new Date());
-      const sentFromQueue = asArray<PartnerQueueItem>(q).filter((item) => {
-        if (!item.sentAt && !item.sesMessageId) return false;
-        if (!['sent', 'delivered', 'replied', 'queued'].includes(String(item.status || ''))) {
-          if (!item.sesMessageId) return false;
-        }
-        const at = item.sentAt ? new Date(item.sentAt) : null;
-        if (!at || Number.isNaN(at.getTime())) return Boolean(item.sesMessageId);
-        const et = new Intl.DateTimeFormat('en-CA', {
-          timeZone: 'America/New_York',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-        }).format(at);
-        return et === todayEt;
-      }).length;
-      const sent = Math.max(sentToday, sentFromQueue);
+      const sentTodayDash = Number(d?.settings?.sentToday ?? 0) || 0;
+      const todayEt = easternTodayIso();
+      const sentFromQueue = queueItems.filter((item) => isSentToday(item, todayEt)).length;
+      const sent = Math.max(sentTodayDash, sentFromQueue);
       setCapacity({ dailyLimit: limit, sentToday: sent, remaining: Math.max(0, limit - sent) });
-      setSelectedIds(new Set());
+
+      const needsIds = queueItems
+        .filter((item) => {
+          if ((item.followUpNumber ?? 0) > 0) return false;
+          if (item.sentAt || item.sesMessageId) return false;
+          if (['sent', 'delivered', 'replied', 'queued'].includes(String(item.status || ''))) return false;
+          return item.status === 'draft' || item.status === 'approved';
+        })
+        .map((item) => item.queueId);
+      setSelectedIds(new Set(needsIds));
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : 'Failed to load approval queue');
     } finally {
@@ -115,24 +121,19 @@ export const ApprovalsPanel: React.FC<Props> = ({
     void load();
   }, [load, refreshKey]);
 
-  const prospectMap = useMemo(() => {
-    const m = new Map<string, PartnerProspect>();
-    for (const p of prospects) m.set(p.prospectId, p);
-    return m;
-  }, [prospects]);
-
   const paused = Boolean(settings?.pauseAllOutreach);
-  /** Drafts + approved-but-not-yet-sent. Never include SES-accepted / sent rows. */
+
   const needsApproval = useMemo(
     () =>
       queue.filter((q) => {
-        if (q.followUpNumber != null && q.followUpNumber > 0) return false;
+        if ((q.followUpNumber ?? 0) > 0) return false;
         if (q.sentAt || q.sesMessageId) return false;
         if (['sent', 'delivered', 'replied', 'queued'].includes(String(q.status || ''))) return false;
         return q.status === 'draft' || q.status === 'approved';
       }),
     [queue],
   );
+
   const recentlySent = useMemo(
     () =>
       queue
@@ -148,6 +149,7 @@ export const ApprovalsPanel: React.FC<Props> = ({
         .slice(0, 50),
     [queue],
   );
+
   const deferred = useMemo(
     () =>
       queue.filter(
@@ -158,7 +160,8 @@ export const ApprovalsPanel: React.FC<Props> = ({
       ),
     [queue],
   );
-  const blocked = useMemo(
+
+  const blockedRows = useMemo(
     () =>
       queue.filter((q) =>
         ['failed', 'bounced', 'opted_out', 'rejected', 'suppressed'].includes(q.status || ''),
@@ -167,11 +170,7 @@ export const ApprovalsPanel: React.FC<Props> = ({
   );
 
   const items =
-    tab === 'needs'
-      ? needsApproval
-      : tab === 'sent'
-        ? recentlySent
-        : [...deferred, ...blocked];
+    tab === 'needs' ? needsApproval : tab === 'sent' ? recentlySent : [...deferred, ...blockedRows];
 
   const toggle = (id: string) => {
     setSelectedIds((prev) => {
@@ -190,29 +189,10 @@ export const ApprovalsPanel: React.FC<Props> = ({
     setSelectedIds(new Set(items.map((i) => i.queueId)));
   };
 
-  const run = async (label: string, fn: () => Promise<unknown>) => {
-    setBusy(true);
-    onError(null);
-    try {
-      const result = await fn();
-      onNotice(label);
-      requestRefresh();
-      await load();
-      return result;
-    } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : 'Action failed');
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const approveAndSendOne = async (q: PartnerQueueItem, confirmOverride = false) => {
-    const result = (await run('Approve & Send completed', () =>
-      adminApiService.post(`${API}/queue/${encodeURIComponent(q.queueId)}/approve-and-send`, {
-        confirm: true,
-        confirmOverride,
-      }),
+  const sendOne = async (q: PartnerQueueItem, confirmOverride = false) => {
+    const result = (await adminApiService.post(
+      `${API}/queue/${encodeURIComponent(q.queueId)}/approve-and-send`,
+      { confirm: true, confirmOverride },
     )) as {
       sent?: boolean;
       alreadySent?: boolean;
@@ -222,22 +202,63 @@ export const ApprovalsPanel: React.FC<Props> = ({
       needsOverride?: boolean;
       acquisitionScore?: number;
       minAcquisitionScore?: number;
-    } | null;
-    setConfirmOne(null);
+    };
+
     if (result?.needsOverride) {
       setOverrideItem({
         item: q,
         score: result.acquisitionScore,
         min: result.minAcquisitionScore,
       });
-      return;
+      return { kind: 'override' as const };
     }
-    if (result?.deferred) {
-      onNotice('Approved for next send — daily capacity full. Scheduler will send when eligible.');
-    } else if (result?.alreadySent) {
-      onNotice('Already sent — skipped (will not resend).');
-    } else if (result?.sent === false && (result.error || result.sendError)) {
-      onError(result.error || result.sendError || 'Send blocked');
+    if (result?.alreadySent) return { kind: 'already' as const };
+    if (result?.deferred) return { kind: 'deferred' as const };
+    if (result?.sent === true) return { kind: 'sent' as const };
+    return {
+      kind: 'blocked' as const,
+      reason: result?.error || result?.sendError || 'send_blocked',
+    };
+  };
+
+  const approveAndSendOne = async (q: PartnerQueueItem, confirmOverride = false) => {
+    setBusy(true);
+    setLastRun(null);
+    onError(null);
+    onNotice(null);
+    try {
+      const outcome = await sendOne(q, confirmOverride);
+      if (outcome.kind === 'override') return;
+      if (outcome.kind === 'sent' || outcome.kind === 'already') {
+        setLastRun({
+          severity: 'success',
+          title: outcome.kind === 'already' ? 'Already sent' : 'Sent',
+          detail: `${q.organizationName} → ${q.recipient}`,
+        });
+        setTab('sent');
+      } else if (outcome.kind === 'deferred') {
+        setLastRun({
+          severity: 'warning',
+          title: 'Queued for next send window',
+          detail: 'Daily capacity full.',
+        });
+      } else {
+        setLastRun({
+          severity: 'error',
+          title: 'Send blocked',
+          detail: outcome.reason,
+        });
+      }
+      requestRefresh();
+      await load();
+    } catch (e: unknown) {
+      setLastRun({
+        severity: 'error',
+        title: 'Send failed',
+        detail: e instanceof Error ? e.message : 'Action failed',
+      });
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -245,67 +266,75 @@ export const ApprovalsPanel: React.FC<Props> = ({
     const ids = [...selectedIds];
     setConfirmBulk(false);
     setBusy(true);
+    setLastRun(null);
     onError(null);
+    onNotice(null);
+    setProgress({ done: 0, total: ids.length });
+
     let sent = 0;
     let alreadySent = 0;
-    let deferred = 0;
+    let deferredCount = 0;
     let blocked = 0;
-    const errors: string[] = [];
     const reasonCounts = new Map<string, number>();
-    // One-at-a-time avoids API Gateway timeout that left partial bulk sends re-sendable.
-    for (const id of ids) {
+
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      const row = queue.find((q) => q.queueId === id);
+      setProgress({ done: i, total: ids.length });
       try {
-        const result = (await adminApiService.post(
-          `${API}/queue/${encodeURIComponent(id)}/approve-and-send`,
-          { confirm: true },
-        )) as {
-          sent?: boolean;
-          alreadySent?: boolean;
-          deferred?: boolean;
-          error?: string;
-          sendError?: string;
-          needsOverride?: boolean;
-        };
-        if (result?.alreadySent) alreadySent += 1;
-        else if (result?.deferred) deferred += 1;
-        else if (result?.needsOverride || (result?.sent === false && (result.error || result.sendError))) {
+        if (!row) {
           blocked += 1;
-          const reason = result.error || result.sendError || 'needs_override';
-          reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
-          errors.push(reason);
-        } else if (result?.sent === true) {
-          sent += 1;
-        } else {
-          // Unknown payload — do not pretend it sent
-          blocked += 1;
-          reasonCounts.set('unknown_response', (reasonCounts.get('unknown_response') || 0) + 1);
-          errors.push('unknown_response');
+          reasonCounts.set('missing_row', (reasonCounts.get('missing_row') || 0) + 1);
+          continue;
         }
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
+        const outcome = await sendOne(row);
+        if (outcome.kind === 'override') {
+          blocked += 1;
+          reasonCounts.set('needs_override', (reasonCounts.get('needs_override') || 0) + 1);
+          setOverrideItem({
+            item: row,
+            score: undefined,
+            min: undefined,
+          });
+        } else if (outcome.kind === 'sent') sent += 1;
+        else if (outcome.kind === 'already') alreadySent += 1;
+        else if (outcome.kind === 'deferred') deferredCount += 1;
+        else {
+          blocked += 1;
+          reasonCounts.set(outcome.reason, (reasonCounts.get(outcome.reason) || 0) + 1);
+        }
       } catch (e: unknown) {
         blocked += 1;
         const msg = e instanceof Error ? e.message : 'send failed';
         reasonCounts.set(msg, (reasonCounts.get(msg) || 0) + 1);
-        errors.push(msg);
       }
+      setProgress({ done: i + 1, total: ids.length });
     }
+
     const topReasons = [...reasonCounts.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
-      .map(([r, n]) => `${r}×${n}`)
-      .join('; ');
-    const parts = [
-      `Sent ${sent}`,
-      alreadySent ? `already sent ${alreadySent}` : '',
-      deferred ? `deferred ${deferred}` : '',
-      blocked ? `blocked ${blocked}` : '',
-    ].filter(Boolean);
-    onNotice(parts.join(' · ') + (topReasons ? ` — ${topReasons}` : ''));
-    if (errors.length) onError(topReasons || errors.slice(0, 3).join('; '));
+      .map(([r, n]) => `${r} (${n})`)
+      .join(' · ');
+
+    const ok = sent + alreadySent;
+    setLastRun({
+      severity: blocked > 0 && ok === 0 ? 'error' : blocked > 0 ? 'warning' : 'success',
+      title:
+        ok > 0
+          ? `Sent ${sent}${alreadySent ? ` · already ${alreadySent}` : ''}`
+          : `Nothing sent (${blocked} blocked)`,
+      detail: [
+        deferredCount ? `${deferredCount} deferred` : '',
+        blocked ? `${blocked} blocked` : '',
+        topReasons,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    });
+
+    if (ok > 0) setTab('sent');
+    setProgress(null);
     requestRefresh();
     await load();
     setBusy(false);
@@ -313,231 +342,226 @@ export const ApprovalsPanel: React.FC<Props> = ({
 
   const saveEdit = async () => {
     if (!editItem) return;
-    await run('Saved — approval invalidated; Approve & Send again', () =>
-      adminApiService.put(`${API}/queue/${encodeURIComponent(editItem.queueId)}`, {
+    setBusy(true);
+    try {
+      await adminApiService.put(`${API}/queue/${encodeURIComponent(editItem.queueId)}`, {
         subject: editSubject,
         bodyText: editBody,
-      }),
-    );
-    setEditItem(null);
+      });
+      setEditItem(null);
+      setLastRun({ severity: 'info', title: 'Draft saved — send again to authorize' });
+      await load();
+    } catch (e: unknown) {
+      setLastRun({
+        severity: 'error',
+        title: 'Save failed',
+        detail: e instanceof Error ? e.message : 'Save failed',
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (loading && queue.length === 0) return <PanelSkeleton rows={5} />;
 
   const selectedCount = selectedIds.size;
-  const canSendNow = Math.min(selectedCount, capacity.remaining);
-  const deferredCount = Math.max(0, selectedCount - capacity.remaining);
 
   return (
     <Box>
       {paused && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          EMERGENCY PAUSE is on — no outreach will send. Resume in Settings only when ready.
+          Emergency pause is on — nothing will send until Settings turns it off.
         </Alert>
       )}
 
-      <Alert severity="info" sx={{ mb: 2 }}>
-        Daily capacity: {capacity.sentToday} sent today · limit {capacity.dailyLimit} ·{' '}
-        {capacity.remaining} remaining. Open <b>Recently sent</b> to see SES-accepted emails (those
-        will not be resent). Checkboxes work on <b>Needs approval</b>.
-      </Alert>
+      {lastRun && (
+        <Alert
+          severity={lastRun.severity}
+          sx={{ mb: 2 }}
+          onClose={() => setLastRun(null)}
+        >
+          <Typography sx={{ fontWeight: 800 }}>{lastRun.title}</Typography>
+          {lastRun.detail && (
+            <Typography variant="body2" sx={{ mt: 0.5, wordBreak: 'break-word' }}>
+              {lastRun.detail}
+            </Typography>
+          )}
+        </Alert>
+      )}
 
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }} alignItems="center">
-        <Button
-          size="small"
-          variant={tab === 'needs' ? 'contained' : 'outlined'}
-          onClick={() => setTab('needs')}
+      <Box
+        sx={{
+          mb: 2,
+          p: 2,
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          position: 'sticky',
+          top: 0,
+          zIndex: 2,
+        }}
+      >
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2}
+          alignItems={{ md: 'center' }}
+          justifyContent="space-between"
         >
-          Needs approval ({needsApproval.length})
-        </Button>
-        <Button
-          size="small"
-          variant={tab === 'sent' ? 'contained' : 'outlined'}
-          onClick={() => setTab('sent')}
-        >
-          Recently sent ({recentlySent.length})
-        </Button>
-        <Button
-          size="small"
-          variant={tab === 'blocked' ? 'contained' : 'outlined'}
-          onClick={() => setTab('blocked')}
-        >
-          Deferred / blocked ({deferred.length + blocked.length})
-        </Button>
-        <Box sx={{ flex: 1 }} />
-        {tab === 'needs' && (
-          <>
-            <Button size="small" onClick={toggleAll} disabled={items.length === 0}>
-              {selectedIds.size === items.length && items.length > 0 ? 'Clear' : 'Select all'}
+          <Box>
+            <Typography sx={{ fontWeight: 900, fontSize: 18 }}>Send queue</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {capacity.sentToday} sent today · {capacity.remaining} remaining (limit{' '}
+              {capacity.dailyLimit})
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button
+              size="small"
+              variant={tab === 'needs' ? 'contained' : 'outlined'}
+              onClick={() => setTab('needs')}
+            >
+              Ready ({needsApproval.length})
             </Button>
             <Button
-              variant="contained"
-              color="success"
-              disabled={selectedCount === 0 || busy || paused}
-              onClick={() => setConfirmBulk(true)}
-              sx={{ fontWeight: 900, minHeight: 48, px: 2.5 }}
+              size="small"
+              variant={tab === 'sent' ? 'contained' : 'outlined'}
+              onClick={() => setTab('sent')}
             >
-              APPROVE &amp; SEND {selectedCount || ''}
+              Sent ({recentlySent.length})
             </Button>
-          </>
+            <Button
+              size="small"
+              variant={tab === 'blocked' ? 'contained' : 'outlined'}
+              onClick={() => setTab('blocked')}
+            >
+              Held ({deferred.length + blockedRows.length})
+            </Button>
+            {tab === 'needs' && (
+              <>
+                <Button size="small" onClick={toggleAll} disabled={items.length === 0 || busy}>
+                  {selectedIds.size === items.length && items.length > 0 ? 'Clear' : 'Select all'}
+                </Button>
+                <Button
+                  variant="contained"
+                  color="success"
+                  disabled={selectedCount === 0 || busy || paused}
+                  onClick={() => setConfirmBulk(true)}
+                  sx={{ fontWeight: 900, minHeight: 44, px: 2.5 }}
+                >
+                  SEND {selectedCount || ''}
+                </Button>
+              </>
+            )}
+          </Stack>
+        </Stack>
+        {progress && (
+          <Box sx={{ mt: 1.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              Sending {progress.done}/{progress.total}…
+            </Typography>
+            <LinearProgress
+              variant="determinate"
+              value={progress.total ? (100 * progress.done) / progress.total : 0}
+              sx={{ mt: 0.5, height: 8, borderRadius: 1 }}
+            />
+          </Box>
         )}
-        <Button
-          size="small"
-          variant="outlined"
-          disabled={busy}
-          onClick={() =>
-            void run('Rescored low-score prospects', () =>
-              adminApiService.post(`${API}/prospects/rescore-low`, { max: 50 }),
-            )
-          }
-        >
-          Rescore low scores
-        </Button>
-      </Stack>
-
-      {tab === 'sent' && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          These were accepted by SES. Duplicate protection blocks resending the same recipient for
-          initial outreach.
-        </Alert>
-      )}
+      </Box>
 
       {items.length === 0 ? (
         <EmptyState
-          title={
-            tab === 'needs'
-              ? 'Nothing waiting to send'
-              : tab === 'sent'
-                ? 'Nothing sent yet'
-                : 'Nothing here'
-          }
+          title={tab === 'needs' ? 'Inbox clear' : tab === 'sent' ? 'Nothing sent yet' : 'Nothing held'}
           detail={
             tab === 'needs'
-              ? 'Drafts and approved-but-unsent messages appear here. Click APPROVE & SEND.'
+              ? 'When drafts are ready, they show here. One click sends.'
               : tab === 'sent'
-                ? 'After a successful SES send, recipient, time, and message id show here.'
-                : 'No deferred or blocked records.'
+                ? 'Successful SES accepts land here and cannot be resent.'
+                : 'Deferred capacity and rejected rows show here.'
           }
         />
       ) : (
-        <Box sx={{ display: 'grid', gap: 1.5 }}>
+        <Box sx={{ display: 'grid', gap: 1 }}>
           {items.map((q) => {
-            const prospect = q.prospectId ? prospectMap.get(q.prospectId) : undefined;
-            const market = prospect ? marketLabel(prospect) : '';
-            const score = prospectScore(prospect);
-            const why =
-              prospect?.whySelected ||
-              prospect?.scoreExplanation ||
-              (score > 0 ? `Score ${score}` : 'Score pending');
-            const alreadySent = Boolean(q.sentAt) || q.status === 'sent' || q.status === 'delivered';
+            const alreadySent = Boolean(q.sentAt) || Boolean(q.sesMessageId) || q.status === 'sent';
             return (
               <Box
                 key={q.queueId}
                 sx={{
-                  p: 2,
+                  display: 'grid',
+                  gridTemplateColumns: tab === 'needs' ? 'auto 1fr auto' : '1fr auto',
+                  gap: 1.5,
+                  alignItems: 'center',
+                  p: 1.5,
+                  borderRadius: 1.5,
                   border: '1px solid',
                   borderColor: selectedIds.has(q.queueId) ? 'success.main' : 'divider',
-                  borderRadius: 2,
+                  bgcolor: alreadySent ? 'action.hover' : 'background.paper',
                 }}
               >
-                <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                  {tab === 'needs' && (
-                    <Checkbox
-                      checked={selectedIds.has(q.queueId)}
-                      onChange={() => toggle(q.queueId)}
-                      inputProps={{ 'aria-label': `Select ${q.organizationName}` }}
-                    />
+                {tab === 'needs' && (
+                  <Checkbox
+                    checked={selectedIds.has(q.queueId)}
+                    onChange={() => toggle(q.queueId)}
+                    disabled={busy}
+                  />
+                )}
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 800 }} noWrap>
+                    {q.organizationName}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" noWrap>
+                    {q.recipient}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.25 }} noWrap>
+                    {q.subject}
+                  </Typography>
+                  {alreadySent ? (
+                    <Typography variant="caption" color="success.main" sx={{ fontWeight: 700 }}>
+                      Sent {q.sentAt ? new Date(q.sentAt).toLocaleString() : '—'}
+                    </Typography>
+                  ) : (
+                    <Typography variant="caption" color="text.secondary" noWrap>
+                      {previewText(q.bodyText, 120)}
+                    </Typography>
                   )}
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                      <Typography sx={{ fontWeight: 800 }}>{q.organizationName}</Typography>
-                      <StatusChip
-                        label={alreadySent ? 'SENT' : q.status}
-                        color={alreadySent ? 'success' : undefined}
-                      />
-                      {prospect && <StatusChip label={formatProspectType(prospect)} />}
-                      {market && market !== '—' && <StatusChip label={market} />}
-                      {prospect && (
-                        <StatusChip
-                          label={`Score ${score}`}
-                          color={score < 40 ? 'warning' : 'info'}
-                        />
-                      )}
-                    </Stack>
-                    <Typography variant="body2" color="text.secondary">
-                      {q.recipient}
-                    </Typography>
-                    {alreadySent && (
-                      <Typography
-                        variant="body2"
-                        sx={{ mt: 0.5, fontWeight: 700, color: 'success.main' }}
-                      >
-                        Sent {q.sentAt ? new Date(q.sentAt).toLocaleString() : '—'}
-                        {q.sesMessageId ? ` · SES ${q.sesMessageId}` : ''}
-                      </Typography>
-                    )}
-                    {!alreadySent && (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        display="block"
-                        sx={{ mt: 0.5 }}
-                      >
-                        Why: {why}
-                      </Typography>
-                    )}
-                    <Typography sx={{ fontWeight: 700, mt: 1 }}>{q.subject}</Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ mt: 0.75, whiteSpace: 'pre-wrap', maxHeight: 160, overflow: 'auto' }}
+                </Box>
+                {tab === 'needs' && (
+                  <Stack direction="row" spacing={0.75}>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setEditItem(q);
+                        setEditSubject(q.subject || '');
+                        setEditBody(q.bodyText || '');
+                      }}
+                      disabled={busy}
                     >
-                      {previewText(q.bodyText, 600)}
-                    </Typography>
-                    {q.partnerUrl && (
-                      <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                        CTA:{' '}
-                        <a href={q.partnerUrl} target="_blank" rel="noopener noreferrer">
-                          {q.partnerUrl}
-                        </a>
-                      </Typography>
-                    )}
-                    {tab === 'needs' && (
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
-                        <Button
-                          size="large"
-                          variant="outlined"
-                          onClick={() => {
-                            setEditItem(q);
-                            setEditSubject(q.subject || '');
-                            setEditBody(q.bodyText || '');
-                          }}
-                        >
-                          EDIT
-                        </Button>
-                        <Button
-                          size="large"
-                          color="inherit"
-                          onClick={() => {
-                            setRejectItem(q);
-                            setRejectReason('');
-                          }}
-                        >
-                          REJECT
-                        </Button>
-                        <Button
-                          size="large"
-                          variant="contained"
-                          color="success"
-                          disabled={busy || paused}
-                          onClick={() => setConfirmOne(q)}
-                          sx={{ fontWeight: 900, minHeight: 48 }}
-                        >
-                          APPROVE &amp; SEND
-                        </Button>
-                      </Stack>
-                    )}
-                  </Box>
-                </Stack>
+                      Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      color="inherit"
+                      onClick={() => {
+                        setRejectItem(q);
+                        setRejectReason('');
+                      }}
+                      disabled={busy}
+                    >
+                      Reject
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="success"
+                      disabled={busy || paused}
+                      onClick={() => void approveAndSendOne(q)}
+                      sx={{ fontWeight: 800 }}
+                    >
+                      Send
+                    </Button>
+                  </Stack>
+                )}
               </Box>
             );
           })}
@@ -565,11 +589,6 @@ export const ApprovalsPanel: React.FC<Props> = ({
             value={editBody}
             onChange={(e) => setEditBody(e.target.value)}
           />
-          {editItem?.partnerUrl && (
-            <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-              CTA: {editItem.partnerUrl}
-            </Typography>
-          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditItem(null)}>Cancel</Button>
@@ -579,52 +598,20 @@ export const ApprovalsPanel: React.FC<Props> = ({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!confirmOne} onClose={() => setConfirmOne(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Approve &amp; send this email?</DialogTitle>
+      <Dialog open={confirmBulk} onClose={() => !busy && setConfirmBulk(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Send {selectedCount} email{selectedCount === 1 ? '' : 's'}?</DialogTitle>
         <DialogContent>
           <Typography>
-            You are authorizing GetTrainMate to send this initial outreach via SES.
+            This authorizes SES delivery for the selected drafts. Already-sent addresses are skipped.
           </Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            {confirmOne?.organizationName} → {confirmOne?.recipient}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Remaining capacity today: {capacity.remaining} / {capacity.dailyLimit}
+          <Typography variant="body2" sx={{ mt: 1.5 }}>
+            Capacity left today: {capacity.remaining}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOne(null)}>Cancel</Button>
-          <Button
-            variant="contained"
-            color="success"
-            disabled={busy || paused}
-            onClick={() => confirmOne && void approveAndSendOne(confirmOne)}
-            sx={{ fontWeight: 900 }}
-          >
-            APPROVE &amp; SEND
+          <Button onClick={() => setConfirmBulk(false)} disabled={busy}>
+            Cancel
           </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={confirmBulk} onClose={() => setConfirmBulk(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Send {selectedCount} approved email{selectedCount === 1 ? '' : 's'}?</DialogTitle>
-        <DialogContent>
-          <Typography sx={{ mb: 1 }}>
-            You are authorizing GetTrainMate to send these initial outreach emails.
-          </Typography>
-          <Typography variant="body2">{selectedCount} selected</Typography>
-          <Typography variant="body2">Daily limit: {capacity.dailyLimit}</Typography>
-          <Typography variant="body2">Sent today: {capacity.sentToday}</Typography>
-          <Typography variant="body2">Remaining capacity: {capacity.remaining}</Typography>
-          {deferredCount > 0 && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              {canSendNow} can send now. {deferredCount} will be Approved for next send (no
-              re-approval needed).
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmBulk(false)}>Cancel</Button>
           <Button
             variant="contained"
             color="success"
@@ -632,22 +619,16 @@ export const ApprovalsPanel: React.FC<Props> = ({
             onClick={() => void approveAndSendSelected()}
             sx={{ fontWeight: 900 }}
           >
-            {deferredCount > 0
-              ? `SEND ${canSendNow} NOW (+${deferredCount} later)`
-              : `APPROVE & SEND ${selectedCount}`}
+            SEND NOW
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!overrideItem} onClose={() => setOverrideItem(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Score below minimum — override?</DialogTitle>
+      <Dialog open={!!overrideItem} onClose={() => setOverrideItem(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Low score — override?</DialogTitle>
         <DialogContent>
           <Typography>
-            Acquisition score {overrideItem?.score ?? 0} is below the campaign minimum (
-            {overrideItem?.min ?? '?'}). Sending requires an explicit override.
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            {overrideItem?.item.organizationName} → {overrideItem?.item.recipient}
+            Score {overrideItem?.score ?? '?'} is below minimum ({overrideItem?.min ?? '?'}).
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -661,15 +642,14 @@ export const ApprovalsPanel: React.FC<Props> = ({
               setOverrideItem(null);
               if (q) void approveAndSendOne(q, true);
             }}
-            sx={{ fontWeight: 900 }}
           >
-            OVERRIDE &amp; SEND
+            Override &amp; send
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={!!rejectItem} onClose={() => setRejectItem(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Reject message</DialogTitle>
+        <DialogTitle>Reject</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
@@ -687,12 +667,25 @@ export const ApprovalsPanel: React.FC<Props> = ({
             disabled={busy}
             onClick={() => {
               if (!rejectItem) return;
-              void run('Rejected', () =>
-                adminApiService.post(`${API}/queue/${encodeURIComponent(rejectItem.queueId)}/reject`, {
+              setBusy(true);
+              void adminApiService
+                .post(`${API}/queue/${encodeURIComponent(rejectItem.queueId)}/reject`, {
                   confirm: true,
                   reason: rejectReason,
-                }),
-              ).then(() => setRejectItem(null));
+                })
+                .then(async () => {
+                  setRejectItem(null);
+                  setLastRun({ severity: 'info', title: 'Rejected' });
+                  await load();
+                })
+                .catch((e: unknown) => {
+                  setLastRun({
+                    severity: 'error',
+                    title: 'Reject failed',
+                    detail: e instanceof Error ? e.message : 'Reject failed',
+                  });
+                })
+                .finally(() => setBusy(false));
             }}
           >
             Reject

@@ -70,18 +70,6 @@ public static class PartnerOutreachRules
         }
     }
 
-    public static bool IsWeekdayEastern(DateTime utc, TimeZoneInfo tz)
-    {
-        var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), tz);
-        return local.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday;
-    }
-
-    public static bool IsDispatchWindow(DateTime utc, TimeZoneInfo tz, int hour = 10)
-    {
-        var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), tz);
-        return IsWeekdayEastern(utc, tz) && local.Hour == hour;
-    }
-
     public static TimeZoneInfo EasternTimeZone()
     {
         try { return TimeZoneInfo.FindSystemTimeZoneById("America/New_York"); }
@@ -89,6 +77,40 @@ public static class PartnerOutreachRules
         {
             return TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
         }
+    }
+
+    /// <summary>
+    /// DynamoDB DateTimes often deserialize as <see cref="DateTimeKind.Unspecified"/>.
+    /// ConvertTimeFromUtc throws unless Kind is Utc — normalize first.
+    /// </summary>
+    public static DateTime AsUtc(DateTime value)
+    {
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
+        };
+    }
+
+    public static DateTime ToEasternDate(DateTime utcOrUnspecified)
+    {
+        var utc = AsUtc(utcOrUnspecified);
+        return TimeZoneInfo.ConvertTimeFromUtc(utc, EasternTimeZone()).Date;
+    }
+
+    public static DateTime EasternNowDate() => ToEasternDate(DateTime.UtcNow);
+
+    public static bool IsWeekdayEastern(DateTime utc, TimeZoneInfo tz)
+    {
+        var local = TimeZoneInfo.ConvertTimeFromUtc(AsUtc(utc), tz);
+        return local.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday;
+    }
+
+    public static bool IsDispatchWindow(DateTime utc, TimeZoneInfo tz, int hour = 10)
+    {
+        var local = TimeZoneInfo.ConvertTimeFromUtc(AsUtc(utc), tz);
+        return IsWeekdayEastern(utc, tz) && local.Hour == hour;
     }
 
     /// <summary>

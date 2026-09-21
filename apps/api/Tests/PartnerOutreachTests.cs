@@ -45,23 +45,20 @@ public class PartnerOutreachTests
         ctx.ComplaintPause = false;
         ctx.AlreadySentThisRecipient = true;
         Assert.Equal("duplicate_recipient", PartnerOutreachRules.EvaluateSendGate(ctx));
-    }
-
-    [Fact]
-    public void Duplicate_recipient_blocks_resend()
-    {
-        var ctx = new PartnerSendContext
-        {
-            PostalAddress = "1 Main St",
-            Approved = true,
-            ApprovalFingerprint = "x",
-            CurrentFingerprint = "x",
-            AlreadySentThisRecipient = true,
-        };
-        Assert.Equal("duplicate_recipient", PartnerOutreachRules.EvaluateSendGate(ctx));
         ctx.AlreadySentThisRecipient = false;
         ctx.AlreadyQueuedOrSentSameRecipient = true;
         Assert.Equal("duplicate_recipient", PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
+    public void AsUtc_normalizes_unspecified_dynamo_datetimes()
+    {
+        var unspecified = new DateTime(2026, 9, 21, 13, 33, 33, DateTimeKind.Unspecified);
+        var utc = PartnerOutreachRules.AsUtc(unspecified);
+        Assert.Equal(DateTimeKind.Utc, utc.Kind);
+        // Must not throw (regression: ConvertTimeFromUtc Kind error on Approve & Send)
+        var etDate = PartnerOutreachRules.ToEasternDate(unspecified);
+        Assert.Equal(new DateTime(2026, 9, 21), etDate);
     }
 
     [Fact]

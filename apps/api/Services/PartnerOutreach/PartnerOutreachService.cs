@@ -556,10 +556,10 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         var ids = queueIds.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal).ToList();
         var settings = await LoadSettingsAsync();
         var allQueue = await ListQueueAsync(null);
-        var todayEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PartnerOutreachRules.EasternTimeZone()).Date;
+        var todayEt = PartnerOutreachRules.EasternNowDate();
         var sentTodayBefore = allQueue.Count(x =>
             x.SentAt != null
-            && TimeZoneInfo.ConvertTimeFromUtc(x.SentAt.Value, PartnerOutreachRules.EasternTimeZone()).Date == todayEt);
+            && PartnerOutreachRules.ToEasternDate(x.SentAt.Value) == todayEt);
         var dailyLimit = DailyLimit;
         var remaining = Math.Max(0, dailyLimit - sentTodayBefore);
 
@@ -825,8 +825,8 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             string.Equals(x.Recipient, item.Recipient, StringComparison.OrdinalIgnoreCase)
             && x.SentAt != null
             && x.SentAt > DateTime.UtcNow.AddDays(-PartnerOutreachRules.MinContactGapDays));
-        var todayEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PartnerOutreachRules.EasternTimeZone()).Date;
-        var sentToday = all.Count(x => x.SentAt != null && TimeZoneInfo.ConvertTimeFromUtc(x.SentAt.Value, PartnerOutreachRules.EasternTimeZone()).Date == todayEt);
+        var todayEt = PartnerOutreachRules.EasternNowDate();
+        var sentToday = all.Count(x => x.SentAt != null && PartnerOutreachRules.ToEasternDate(x.SentAt.Value) == todayEt);
         var current = PartnerOutreachRules.Fingerprint(item.Recipient, item.Subject, item.BodyText, item.PartnerUrl, item.CampaignId);
         var bounceRate = settings.SentCount > 20 && settings.BounceCount / (double)settings.SentCount > 0.08;
 
@@ -1172,7 +1172,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         await _db.SaveAsync(settings);
 
         var preview = parsed.TextBody.Length > 280 ? parsed.TextBody[..280] + "…" : parsed.TextBody;
-        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PartnerOutreachRules.EasternTimeZone());
+        var et = TimeZoneInfo.ConvertTimeFromUtc(PartnerOutreachRules.AsUtc(DateTime.UtcNow), PartnerOutreachRules.EasternTimeZone());
         var admin = First(Env("SES_ADMIN_EMAIL"), Env("ADMIN_EMAIL"));
         if (!string.IsNullOrWhiteSpace(admin))
         {
@@ -1396,10 +1396,10 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             || p.Status == "no_verified_public_email"
             || string.IsNullOrWhiteSpace(p.Email) || !p.Email.Contains('@'));
 
-        var todayEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PartnerOutreachRules.EasternTimeZone()).Date;
+        var todayEt = PartnerOutreachRules.EasternNowDate();
         var dueFollowUps = queue.Count(q =>
             q.Status == "scheduled" && q.FollowUpNumber > 0
-            && (q.ScheduledAt == null || q.ScheduledAt.Value.Date <= todayEt));
+            && (q.ScheduledAt == null || PartnerOutreachRules.ToEasternDate(q.ScheduledAt.Value) <= todayEt));
 
         return new
         {
