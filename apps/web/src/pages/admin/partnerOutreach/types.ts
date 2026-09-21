@@ -1,0 +1,248 @@
+export type OutreachMode = 'off' | 'test' | 'live';
+
+export type PrimaryTab =
+  | 'acquisition'
+  | 'prospects'
+  | 'approvals'
+  | 'campaigns'
+  | 'inbox'
+  | 'analytics'
+  | 'settings';
+
+export interface NorthStars {
+  customersAcquired: number;
+  activeUsersAcquired: number;
+  revenueAttributedCents: number;
+  referralSignups: number;
+}
+
+export interface FunnelCounts {
+  discovered: number;
+  qualified: number;
+  contactNeeded: number;
+  drafts: number;
+  awaitingApproval: number;
+  approved: number;
+  scheduled: number;
+  sent: number;
+  contacted: number;
+  replied: number;
+  interested: number;
+  partners: number;
+}
+
+export interface ConversionRates {
+  discoveredToQualified: number;
+  qualifiedToContacted: number;
+  contactedToReplied: number;
+  repliedToInterested: number;
+  interestedToPartner: number;
+  draftToApproved: number;
+  approvedToSent: number;
+}
+
+export interface TodaysAction {
+  key: string;
+  label: string;
+  count: number;
+  filter: string;
+}
+
+export interface DashboardSettingsSnapshot {
+  outreachMode: OutreachMode | string;
+  pauseAllOutreach: boolean;
+  complaintPause: boolean;
+  sendEnabled: boolean;
+}
+
+export interface AcquisitionDashboard {
+  northStars: NorthStars;
+  funnel: FunnelCounts;
+  conversionRates: ConversionRates;
+  todaysActions: TodaysAction[];
+  settings: DashboardSettingsSnapshot;
+}
+
+export interface PartnerProspect {
+  prospectId: string;
+  organizationName: string;
+  organizationType?: string;
+  prospectType?: string;
+  website?: string;
+  email?: string;
+  emailSource?: string;
+  contactName?: string;
+  contactRole?: string;
+  phone?: string;
+  country?: string;
+  region?: string;
+  city?: string;
+  metro?: string;
+  campaignLanguage?: string;
+  mode?: string;
+  campaignId?: string;
+  activity?: string;
+  sourceUrl?: string;
+  partnerCode?: string;
+  landingUrl?: string;
+  status?: string;
+  crmLifecycle?: string;
+  contactState?: string;
+  emailState?: string;
+  notes?: string;
+  fitScore?: number;
+  acquisitionScore?: number;
+  audienceFitScore?: number;
+  marketRelevanceScore?: number;
+  communityFitScore?: number;
+  contactQualityScore?: number;
+  historicalCategoryScore?: number;
+  scoreExplanation?: string;
+  discoverySource?: string;
+  emailVerificationStatus?: string;
+  referralSignups?: number;
+  activatedUsers?: number;
+  paidCustomers?: number;
+  attributedRevenueCents?: number;
+  timelineJson?: string;
+  createdAt?: string;
+  lastContactedAt?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  linkedInUrl?: string;
+}
+
+export interface PartnerQueueItem {
+  queueId: string;
+  approvalId?: string;
+  prospectId?: string;
+  campaignId?: string;
+  recipient: string;
+  organizationName: string;
+  subject: string;
+  bodyText: string;
+  bodyHtml?: string;
+  partnerUrl?: string;
+  status: string;
+  followUpNumber?: number;
+  scheduledAt?: string;
+  createdAt?: string;
+  sentAt?: string;
+  approvedAt?: string;
+  lastError?: string;
+}
+
+export interface PartnerCampaign {
+  campaignId: string;
+  name?: string;
+  displayName?: string;
+  status: string;
+  country?: string;
+  market?: string;
+  primaryMode?: string;
+  languages?: string[];
+  categories?: string[];
+  dailyDiscoveryLimit?: number;
+  dailyOutreachLimit?: number;
+  minAcquisitionScore?: number;
+  allocationPercent?: number;
+  timezone?: string;
+}
+
+export interface PartnerThread {
+  threadId: string;
+  prospectId?: string;
+  queueId?: string;
+  subject?: string;
+  lastMessageAt?: string;
+  messageCount?: number;
+}
+
+export interface PartnerMessage {
+  threadId: string;
+  messageId: string;
+  direction: string;
+  from?: string;
+  to?: string;
+  subject?: string;
+  bodyText?: string;
+  bodyHtmlSafe?: string;
+  deliveryStatus?: string;
+  createdAt?: string;
+}
+
+export interface OutreachSettings {
+  id?: string;
+  outreachMode: OutreachMode | string;
+  pauseAllOutreach: boolean;
+  testRecipients?: string[];
+  prospectsPerRun?: number;
+  researchAttemptsPerRun?: number;
+  draftsPerRun?: number;
+  complaintPause?: boolean;
+  sentCount?: number;
+  bounceCount?: number;
+  complaintCount?: number;
+  replyCount?: number;
+  sendEnabled?: boolean;
+}
+
+export interface DiscoveryJob {
+  jobId: string;
+  status: string;
+  stage?: string;
+  progressPct?: number;
+  error?: string;
+  prospectsFound?: number;
+  draftsCreated?: number;
+  contactsFound?: number;
+  completedAt?: string;
+  reportJson?: string;
+}
+
+export interface OutreachMetrics {
+  approvedRecipients?: number;
+  sent?: number;
+  delivered?: number;
+  bounced?: number;
+  complaints?: number;
+  replies?: number;
+  positiveReplies?: string | number;
+  partnerLandingSessions?: string | number;
+  partnerAttributedSignups?: string | number;
+  sendEnabled?: boolean;
+  complaintPause?: boolean;
+  outreachMode?: string;
+  pauseAllOutreach?: boolean;
+  organizationsDiscovered?: number;
+  qualifiedOrganizations?: number;
+  verifiedPublicContacts?: number;
+  contactsUnavailable?: number;
+  draftsGenerated?: number;
+  approvalReadyRecipients?: number;
+}
+
+export interface ProspectFilters {
+  market?: string;
+  category?: string;
+  prospectType?: string;
+  scoreMin?: number;
+  contactAvailable?: 'any' | 'available' | 'needed';
+  lifecycle?: string;
+  search?: string;
+  contactState?: string;
+  status?: string;
+}
+
+export interface PanelSharedProps {
+  onError: (message: string | null) => void;
+  onNotice: (message: string | null) => void;
+  refreshKey: number;
+  requestRefresh: () => void;
+}
+
+export interface NavigateFilters {
+  tab: PrimaryTab;
+  prospectFilters?: ProspectFilters;
+  approvalsStatus?: string;
+}
