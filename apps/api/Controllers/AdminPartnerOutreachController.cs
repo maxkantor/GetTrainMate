@@ -73,6 +73,18 @@ public class AdminPartnerOutreachController : ControllerBase
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
+    [HttpPost("prospects/{id}/manual-contact")]
+    public async Task<IActionResult> SetManualContact(string id, [FromBody] ManualContactRequest? req)
+    {
+        try
+        {
+            return Ok(await _svc.SetManualContactAsync(id, req ?? new ManualContactRequest(), Actor()));
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+    }
+
     [HttpPost("prospects/{id}/research-contact")]
     public async Task<IActionResult> ResearchContact(string id, [FromBody] ResearchContactRequest? req)
     {

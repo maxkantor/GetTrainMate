@@ -311,11 +311,8 @@ public static class PartnerCrmLifecycle
     {
         NormalizeAcquisitionDimensions(p);
         var hasEmail = !string.IsNullOrWhiteSpace(p.Email) && p.Email.Contains('@');
-        var contactNeeded = !hasEmail
-            || string.Equals(p.ContactState, ContactNeeded, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(p.ContactabilityState, ContactNeeded, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(p.AcquisitionStatus, AcqContactNeeded, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(p.Status, "no_verified_public_email", StringComparison.OrdinalIgnoreCase);
+        // Email present ⇒ contact research is done (manual or verified). Never gate on stale CONTACT_NEEDED.
+        var contactNeeded = !hasEmail;
 
         var cust = (p.CustomerStatus ?? CustNotCustomer).Trim().ToUpperInvariant();
         var acq = (p.AcquisitionStatus ?? "").Trim().ToUpperInvariant();

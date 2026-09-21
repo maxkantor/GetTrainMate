@@ -52,6 +52,10 @@ public interface IPartnerOutreachService
     Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20, bool force = false);
     Task<object> ResearchContactNeededBatchAsync(int max, string actor);
     /// <summary>
+    /// Admin-entered contact. Does not send email. Does not auto-create drafts.
+    /// </summary>
+    Task<object> SetManualContactAsync(string prospectId, ManualContactRequest req, string actor);
+    /// <summary>
     /// Increment attribution counters on a prospect matched by PartnerCode.
     /// eventType: signup | activated | paid
     /// Active user = Discover started (discover_started) after partner referral signup.
@@ -1958,6 +1962,196 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
 
         return await ResearchContactsBulkAsync(candidates, actor, max);
     }
+
+    public async Task<object> SetManualContactAsync(string prospectId, ManualContactRequest req, string actor)
+    {
+        var p = await _db.LoadAsync<PartnerProspect>(prospectId) ?? throw new KeyNotFoundException("Prospect not found");
+        var email = ManualContactRules.NormalizeEmail(req.Email);
+        if (email is null || !ManualContactRules.IsValidEmailSyntax(email))
+            throw new InvalidOperationException("A valid email address is required.");
+
+        var previousEmail = p.Email;
+        var isReplace = !string.IsNullOrWhiteSpace(previousEmail)
+            && !string.Equals(previousEmail, email, StringComparison.OrdinalIgnoreCase);
+
+        // Duplicate check across other prospects (same email) — includes attributed customers.
+        var allProspects = await ListProspectsAsync(null);
+        var duplicateProspect = allProspects.FirstOrDefault(x =>
+            !string.Equals(x.ProspectId, prospectId, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(x.Email)
+            && string.Equals(x.Email.Trim(), email, StringComparison.OrdinalIgnoreCase));
+
+        if (duplicateProspect != null && !req.ConfirmDuplicate)
+        {
+            var isCustomer = PartnerCrmLifecycle.IsCustomerStatus(duplicateProspect.CustomerStatus)
+                || duplicateProspect.ReferralSignups > 0
+                || duplicateProspect.PaidCustomers > 0;
+            return new
+            {
+                ok = false,
+                needsConfirm = true,
+                reason = isCustomer ? "duplicate_customer" : "duplicate_prospect",
+                message = isCustomer
+                    ? $"Email already on customer {duplicateProspect.OrganizationName}."
+                    : $"Email already on prospect {duplicateProspect.OrganizationName}.",
+                duplicate = new
+                {
+                    type = isCustomer ? "customer" : "prospect",
+                    prospectId = duplicateProspect.ProspectId,
+                    organizationName = duplicateProspect.OrganizationName,
+                    email = duplicateProspect.Email,
+                    acquisitionStatus = duplicateProspect.AcquisitionStatus,
+                    customerStatus = duplicateProspect.CustomerStatus,
+                    campaignId = duplicateProspect.CampaignId,
+                },
+            };
+        }
+
+        // Suppression / unsubscribe — allow store, never make sendable via this path.
+        var suppression = await _db.LoadAsync<PartnerSuppression>(email);
+        var suppressed = suppression != null && !string.IsNullOrWhiteSpace(suppression.Reason);
+
+        ManualContactRules.ApplyManualContact(
+            p,
+            email,
+            req.ContactName,
+            req.ContactRole ?? req.JobTitle,
+            req.Phone,
+            req.SourceUrl,
+            req.Notes,
+            actor,
+            DateTime.UtcNow);
+
+        // Re-score with email present (does not send).
+        try
+        {
+            var scored = AutomatedMarketDiscoveryService.ScoreProspect(new DiscoveredOrganization
+            {
+                OrganizationName = p.OrganizationName,
+                OrganizationType = p.OrganizationType,
+                DiscoverySource = p.DiscoverySource ?? "",
+                Market = p.Metro ?? p.City ?? "",
+            }, hasEmail: true);
+            p.AcquisitionScore = Math.Max(p.AcquisitionScore, scored.AcquisitionScore);
+            p.AudienceFitScore = Math.Max(p.AudienceFitScore, scored.AudienceFitScore);
+            p.MarketRelevanceScore = Math.Max(p.MarketRelevanceScore, scored.MarketRelevanceScore);
+            p.CommunityFitScore = Math.Max(p.CommunityFitScore, scored.CommunityFitScore);
+            p.ContactQualityScore = Math.Max(p.ContactQualityScore, scored.ContactQualityScore);
+            p.ContactabilityScore = Math.Max(p.ContactabilityScore, scored.ContactQualityScore);
+            p.HistoricalCategoryScore = Math.Max(p.HistoricalCategoryScore, scored.HistoricalCategoryScore);
+            p.ScoreExplanation = scored.ScoreExplanation;
+            p.FitScore = Math.Max(p.FitScore, scored.AcquisitionScore);
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug(ex, "Rescore after manual contact skipped for {Id}", prospectId);
+        }
+
+        if (suppressed)
+        {
+            // Keep contact stored but block send path at status level when reason is opt-out.
+            var reason = (suppression!.Reason ?? "").ToLowerInvariant();
+            if (reason is "opt_out" or "unsubscribe" or "list_unsubscribe")
+            {
+                p.Status = "opted_out";
+                p.EmailState = "OPTED_OUT";
+                p.AcquisitionStatus = PartnerCrmLifecycle.AcqOptedOut;
+            }
+            else if (reason is "complaint")
+            {
+                p.EmailState = "COMPLAINED";
+                p.AcquisitionStatus = PartnerCrmLifecycle.AcqRejected;
+            }
+            else if (reason is "hard_bounce" or "bounce")
+            {
+                p.EmailState = "BOUNCED";
+                p.AcquisitionStatus = PartnerCrmLifecycle.AcqBounced;
+            }
+        }
+
+        await _db.SaveAsync(p);
+
+        var queue = await ListQueueAsync(null);
+        try
+        {
+            foreach (var q in queue.Where(q =>
+                         string.Equals(q.ProspectId, prospectId, StringComparison.Ordinal)
+                         && q.FollowUpNumber == 0
+                         && q.Status is "draft" or "approved" or "queued"
+                         && q.SentAt == null
+                         && string.IsNullOrWhiteSpace(q.SesMessageId)))
+            {
+                if (!string.Equals(q.Recipient, email, StringComparison.OrdinalIgnoreCase))
+                {
+                    q.Recipient = email;
+                    await _db.SaveAsync(q);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug(ex, "Queue recipient sync after manual contact skipped for {Id}", prospectId);
+        }
+
+        // Reload queue after sync for accurate next action
+        var refreshedQueue = (await ListQueueAsync(null))
+            .Where(q => string.Equals(q.ProspectId, prospectId, StringComparison.Ordinal))
+            .OrderByDescending(q => q.CreatedAt)
+            .ToList();
+        var draftOrApproved = refreshedQueue
+            .Where(q => q.FollowUpNumber == 0 && q.Status is "draft" or "approved" or "queued" or "sent" or "delivered" or "replied")
+            .OrderByDescending(q => PartnerOutreachDedupe.QueueRank(q.Status))
+            .ThenByDescending(q => q.CreatedAt)
+            .FirstOrDefault();
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
+        var nextAction = PartnerCrmLifecycle.ComputeNextAction(p, draftOrApproved);
+
+        await TryAuditAsync(
+            actor,
+            isReplace ? "partner_outreach.manual_contact_replaced" : "partner_outreach.manual_contact_added",
+            "partner_prospect",
+            prospectId,
+            new { email = previousEmail },
+            new
+            {
+                email,
+                p.ContactName,
+                p.ContactRole,
+                p.Phone,
+                p.ContactSourceUrl,
+                p.EmailSource,
+                p.ContactSourceType,
+                p.EmailVerificationStatus,
+                suppressed,
+                suppressionReason = suppression?.Reason,
+                duplicateProspectId = duplicateProspect?.ProspectId,
+            });
+
+        return new
+        {
+            ok = true,
+            saved = true,
+            replaced = isReplace,
+            sendable = !suppressed,
+            suppressed,
+            suppressionReason = suppression?.Reason,
+            email,
+            emailSource = p.EmailSource,
+            contactSourceType = p.ContactSourceType,
+            emailVerificationStatus = p.EmailVerificationStatus,
+            contactName = p.ContactName,
+            contactRole = p.ContactRole,
+            phone = p.Phone,
+            contactSourceUrl = p.ContactSourceUrl,
+            acquisitionStatus = p.AcquisitionStatus,
+            contactabilityState = p.ContactabilityState,
+            prospect = p,
+            nextAction,
+            queueItems = refreshedQueue,
+            timeline = PartnerCrmLifecycle.ParseTimeline(p),
+        };
+    }
+
 
     public async Task<object> RecordPartnerAttributionAsync(string partnerOrRefCode, string eventType, long? revenueCents = null, bool isDirectCustomer = false)
     {

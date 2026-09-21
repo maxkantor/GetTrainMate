@@ -112,3 +112,137 @@ describe('ProspectsPanel — Research contact', () => {
     expect(screen.getAllByText('Contact').length).toBeGreaterThan(0);
   });
 });
+
+describe('ProspectsPanel — manual contact entry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getMock.mockImplementation(async (url: string) => {
+      if (String(url).includes('/queue')) return [];
+      if (String(url).includes('/detail')) {
+        return { prospect: squareOne, nextAction: squareOne.nextAction, queueItems: [], timeline: [] };
+      }
+      return [squareOne];
+    });
+  });
+
+  it('opens Enter contact manually form in the drawer and saves', async () => {
+    postMock.mockResolvedValueOnce({
+      ok: true,
+      saved: true,
+      email: 'manager@square.example',
+      emailSource: 'manual_admin',
+      prospect: {
+        ...squareOne,
+        email: 'manager@square.example',
+        emailSource: 'manual_admin',
+        contactSourceType: 'MANUAL_ADMIN',
+        emailVerificationStatus: 'manual_unverified',
+        contactabilityState: 'CONTACT_FOUND',
+        acquisitionStatus: 'CONTACTABLE',
+        contactName: 'Pat',
+      },
+      nextAction: { key: 'CREATE_OUTREACH', label: 'Create outreach', primaryButton: 'Create draft' },
+    });
+
+    const props = sharedProps();
+    render(<ProspectsPanel {...props} />);
+    await screen.findByText('Square One Golf Performance Center');
+    fireEvent.click(screen.getByText('Square One Golf Performance Center'));
+
+    expect(await screen.findByRole('button', { name: /Enter contact manually/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Enter contact manually/i }));
+
+    const emailField = await screen.findByLabelText(/^Email/i);
+    fireEvent.change(emailField, { target: { value: 'Manager@Square.Example' } });
+    fireEvent.change(screen.getByLabelText(/Contact name/i), { target: { value: 'Pat' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Save contact$/i }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith(
+        expect.stringMatching(/prospects\/sq1\/manual-contact/),
+        expect.objectContaining({
+          email: 'manager@square.example',
+          contactName: 'Pat',
+          confirmDuplicate: false,
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Saved manager@square.example/i)).toBeInTheDocument();
+    });
+    expect(props.onNotice).toHaveBeenCalled();
+  });
+
+  it('validates email before posting', async () => {
+    render(<ProspectsPanel {...sharedProps()} />);
+    await screen.findByText('Square One Golf Performance Center');
+    fireEvent.click(screen.getByText('Square One Golf Performance Center'));
+    fireEvent.click(await screen.findByRole('button', { name: /Enter contact manually/i }));
+    fireEvent.change(await screen.findByLabelText(/^Email/i), { target: { value: 'not-an-email' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Save contact$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/valid email/i)).toBeInTheDocument();
+    });
+    expect(postMock).not.toHaveBeenCalled();
+  });
+
+  it('inline edit pencil opens email-only save and posts manual-contact', async () => {
+    postMock.mockResolvedValueOnce({
+      ok: true,
+      saved: true,
+      email: 'new@square.example',
+      prospect: { ...squareOne, email: 'new@square.example', emailSource: 'manual_admin' },
+      nextAction: { key: 'CREATE_OUTREACH', label: 'Create outreach', primaryButton: 'Create draft' },
+    });
+
+    render(<ProspectsPanel {...sharedProps()} />);
+    await screen.findByText('Square One Golf Performance Center');
+    fireEvent.click(screen.getByText('Square One Golf Performance Center'));
+    fireEvent.click(await screen.findByLabelText('Edit email'));
+    fireEvent.change(await screen.findByLabelText(/^Email/i), { target: { value: 'new@square.example' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith(
+        expect.stringMatching(/manual-contact/),
+        expect.objectContaining({ email: 'new@square.example' }),
+      );
+    });
+  });
+
+  it('shows duplicate warning and allows Save anyway', async () => {
+    postMock
+      .mockResolvedValueOnce({
+        ok: false,
+        needsConfirm: true,
+        message: 'Email already on prospect Body Awareness Studio.',
+        duplicate: { type: 'prospect', organizationName: 'Body Awareness Studio' },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        saved: true,
+        email: 'dup@gym.example',
+        prospect: { ...squareOne, email: 'dup@gym.example' },
+        nextAction: { key: 'CREATE_OUTREACH', label: 'Create outreach', primaryButton: 'Create draft' },
+      });
+
+    render(<ProspectsPanel {...sharedProps()} />);
+    await screen.findByText('Square One Golf Performance Center');
+    fireEvent.click(screen.getByText('Square One Golf Performance Center'));
+    fireEvent.click(await screen.findByRole('button', { name: /Enter contact manually/i }));
+    fireEvent.change(await screen.findByLabelText(/^Email/i), { target: { value: 'dup@gym.example' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Save contact$/i }));
+
+    expect(await screen.findByText(/already on prospect Body Awareness Studio/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Save anyway/i }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenLastCalledWith(
+        expect.stringMatching(/manual-contact/),
+        expect.objectContaining({ confirmDuplicate: true, email: 'dup@gym.example' }),
+      );
+    });
+  });
+});

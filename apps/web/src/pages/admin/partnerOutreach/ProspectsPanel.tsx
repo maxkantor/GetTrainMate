@@ -7,6 +7,7 @@ import {
   Divider,
   Drawer,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Select,
@@ -18,8 +19,10 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import type {
   NavigateFilters,
   NextActionInfo,
@@ -38,6 +41,7 @@ import {
   asArray,
   canShowPartnershipActions,
   formatAcquisitionStatus,
+  formatContactSource,
   formatContactability,
   formatCustomerStatus,
   formatDate,
@@ -58,6 +62,31 @@ import {
 import { adminApiService } from '@/services/adminApiService';
 import { summarizeBulkResearch, summarizeResearchResult } from './researchContact';
 import type { ResearchResult } from './researchContact';
+
+type ContactFormMode = 'closed' | 'manual' | 'email';
+
+type ManualContactForm = {
+  email: string;
+  contactName: string;
+  contactRole: string;
+  phone: string;
+  sourceUrl: string;
+  notes: string;
+};
+
+const emptyContactForm = (p?: PartnerProspect | null): ManualContactForm => ({
+  email: p?.email || '',
+  contactName: p?.contactName || '',
+  contactRole: p?.contactRole || '',
+  phone: p?.phone || '',
+  sourceUrl: p?.contactSourceUrl || p?.sourceUrl || '',
+  notes: '',
+});
+
+function isValidEmailSyntax(email: string): boolean {
+  const e = email.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
 
 interface Props extends PanelSharedProps {
   initialFilters?: ProspectFilters;
@@ -129,6 +158,14 @@ export const ProspectsPanel: React.FC<Props> = ({
     severity: 'success' | 'error' | 'warning' | 'info';
     text: string;
   } | null>(null);
+  const [contactMode, setContactMode] = useState<ContactFormMode>('closed');
+  const [contactForm, setContactForm] = useState<ManualContactForm>(emptyContactForm());
+  const [contactBusy, setContactBusy] = useState(false);
+  const [duplicateWarn, setDuplicateWarn] = useState<{
+    message: string;
+    organizationName?: string;
+    type?: string;
+  } | null>(null);
   const [filters, setFilters] = useState<ProspectFilters>({
     contactAvailable: 'any',
     ...initialFilters,
@@ -193,7 +230,119 @@ export const ProspectsPanel: React.FC<Props> = ({
     setSelected(p);
     setDetailNext(p.nextAction ?? null);
     setDetailTimeline(parseTimeline(p.timelineJson));
+    setContactMode('closed');
+    setDuplicateWarn(null);
+    setContactForm(emptyContactForm(p));
     void loadDetail(p.prospectId);
+  };
+
+  const applyManualContactResult = async (raw: {
+    ok?: boolean;
+    needsConfirm?: boolean;
+    message?: string;
+    reason?: string;
+    duplicate?: { organizationName?: string; type?: string };
+    suppressed?: boolean;
+    suppressionReason?: string;
+    sendable?: boolean;
+    prospect?: PartnerProspect;
+    nextAction?: NextActionInfo | string;
+    queueItems?: PartnerQueueItem[];
+    email?: string;
+  }) => {
+    if (raw?.needsConfirm) {
+      setDuplicateWarn({
+        message: raw.message || 'This email already belongs to another record.',
+        organizationName: raw.duplicate?.organizationName,
+        type: raw.duplicate?.type,
+      });
+      return false;
+    }
+    if (raw?.ok === false) {
+      onError(raw.message || raw.reason || 'Could not save contact');
+      return false;
+    }
+
+    setDuplicateWarn(null);
+    setContactMode('closed');
+    if (raw.prospect) {
+      setSelected(raw.prospect);
+      setProspects((prev) =>
+        prev.map((x) => (x.prospectId === raw.prospect!.prospectId ? { ...x, ...raw.prospect! } : x)),
+      );
+    }
+    if (raw.nextAction) setDetailNext(raw.nextAction);
+    if (Array.isArray(raw.queueItems)) {
+      setQueue((prev) => {
+        const pid = raw.prospect?.prospectId || selected?.prospectId;
+        if (!pid) return prev;
+        const others = prev.filter((q) => q.prospectId !== pid);
+        return [...others, ...raw.queueItems!];
+      });
+    }
+
+    const bits = [
+      raw.email ? `Saved ${raw.email}` : 'Contact saved',
+      raw.suppressed
+        ? `Suppressed (${raw.suppressionReason || 'listed'}) — stored but not sendable`
+        : null,
+    ].filter(Boolean);
+    const text = bits.join(' · ');
+    setResearchBanner({
+      severity: raw.suppressed ? 'warning' : 'success',
+      text,
+    });
+    if (raw.suppressed) onError(text);
+    else onNotice(text);
+    await load();
+    return true;
+  };
+
+  const saveManualContact = async (confirmDuplicate = false) => {
+    if (!selected) return;
+    const email = contactForm.email.trim().toLowerCase();
+    if (!isValidEmailSyntax(email)) {
+      onError('Enter a valid email address.');
+      setResearchBanner({ severity: 'error', text: 'Enter a valid email address.' });
+      return;
+    }
+    setContactBusy(true);
+    onError(null);
+    onNotice(null);
+    try {
+      const raw = (await adminApiService.post(
+        `${API}/prospects/${encodeURIComponent(selected.prospectId)}/manual-contact`,
+        {
+          email,
+          contactName: contactForm.contactName.trim() || undefined,
+          contactRole: contactForm.contactRole.trim() || undefined,
+          phone: contactForm.phone.trim() || undefined,
+          sourceUrl: contactForm.sourceUrl.trim() || undefined,
+          notes: contactForm.notes.trim() || undefined,
+          confirmDuplicate,
+        },
+      )) as {
+        ok?: boolean;
+        needsConfirm?: boolean;
+        message?: string;
+        reason?: string;
+        duplicate?: { organizationName?: string; type?: string };
+        suppressed?: boolean;
+        suppressionReason?: string;
+        sendable?: boolean;
+        prospect?: PartnerProspect;
+        nextAction?: NextActionInfo | string;
+        queueItems?: PartnerQueueItem[];
+        email?: string;
+      };
+      await applyManualContactResult(raw);
+    } catch (e: unknown) {
+      const text = e instanceof Error ? e.message : 'Failed to save contact';
+      setResearchBanner({ severity: 'error', text });
+      onError(text);
+    } finally {
+      setContactBusy(false);
+    }
   };
 
   const markets = useMemo(() => {
@@ -664,6 +813,8 @@ export const ProspectsPanel: React.FC<Props> = ({
           setSelected(null);
           setDetailNext(null);
           setDetailTimeline([]);
+          setContactMode('closed');
+          setDuplicateWarn(null);
         }}
         PaperProps={{ sx: { width: { xs: '100%', sm: 480 } } }}
       >
@@ -680,24 +831,247 @@ export const ProspectsPanel: React.FC<Props> = ({
               fullWidth
               variant="contained"
               size="large"
-              disabled={busy}
+              disabled={busy || contactBusy}
               onClick={() => void runPrimaryAction(selected, drawerQueue, detailNext)}
               sx={{ mb: 2, fontWeight: 800 }}
             >
               {selectedNext.primaryButton}
             </Button>
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Who
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+              Contact
             </Typography>
-            <Typography variant="body2">Email: {selected.email || '—'}</Typography>
+
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ flex: 1 }} noWrap>
+                Email: {selected.email || '—'}
+              </Typography>
+              <Tooltip title={selected.email ? 'Edit email' : 'Enter email'}>
+                <IconButton
+                  size="small"
+                  aria-label="Edit email"
+                  disabled={contactBusy}
+                  onClick={() => {
+                    setContactMode('email');
+                    setDuplicateWarn(null);
+                    setContactForm(emptyContactForm(selected));
+                  }}
+                >
+                  <EditOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
             <Typography variant="body2">
-              Contact: {selected.contactName || '—'} {selected.contactRole ? `(${selected.contactRole})` : ''}
+              Contact: {selected.contactName || '—'}{' '}
+              {selected.contactRole ? `(${selected.contactRole})` : ''}
             </Typography>
+            {selected.phone && (
+              <Typography variant="body2">Phone: {selected.phone}</Typography>
+            )}
             <Typography variant="body2">Website: {selected.website || '—'}</Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              Source: {selected.discoverySource || selected.sourceUrl || '—'}
+            <Typography variant="body2">
+              Source: {formatContactSource(selected)}
+              {selected.contactSourceUrl ? ` · ${selected.contactSourceUrl}` : ''}
             </Typography>
+            <Typography variant="body2" sx={{ mb: 1.5 }}>
+              Status: {formatContactability(selected)}
+              {selected.contactabilityScore != null
+                ? ` · score ${selected.contactabilityScore}/100`
+                : ''}
+            </Typography>
+
+            {contactMode === 'closed' && (
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled={busy || contactBusy}
+                  onClick={() => void researchOne(selected)}
+                >
+                  Find contact
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  disabled={contactBusy}
+                  onClick={() => {
+                    setContactMode('manual');
+                    setDuplicateWarn(null);
+                    setContactForm(emptyContactForm(selected));
+                  }}
+                >
+                  Enter contact manually
+                </Button>
+              </Stack>
+            )}
+
+            {contactMode === 'email' && (
+              <Box
+                sx={{
+                  mb: 2,
+                  p: 1.5,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1.5,
+                }}
+              >
+                <TextField
+                  fullWidth
+                  size="small"
+                  required
+                  label="Email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))}
+                  sx={{ mb: 1.25 }}
+                  autoFocus
+                />
+                {duplicateWarn && (
+                  <Alert severity="warning" sx={{ mb: 1.25 }}>
+                    {duplicateWarn.message}
+                    {duplicateWarn.organizationName
+                      ? ` (${duplicateWarn.type || 'record'}: ${duplicateWarn.organizationName})`
+                      : ''}
+                  </Alert>
+                )}
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setContactMode('closed');
+                      setDuplicateWarn(null);
+                    }}
+                    disabled={contactBusy}
+                  >
+                    Cancel
+                  </Button>
+                  {duplicateWarn ? (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="warning"
+                      disabled={contactBusy}
+                      onClick={() => void saveManualContact(true)}
+                    >
+                      Save anyway
+                    </Button>
+                  ) : (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      disabled={contactBusy}
+                      onClick={() => void saveManualContact(false)}
+                    >
+                      Save
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+            )}
+
+            {contactMode === 'manual' && (
+              <Box
+                sx={{
+                  mb: 2,
+                  p: 1.5,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1.5,
+                }}
+              >
+                <TextField
+                  fullWidth
+                  size="small"
+                  required
+                  label="Email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))}
+                  sx={{ mb: 1 }}
+                  autoFocus
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Contact name"
+                  value={contactForm.contactName}
+                  onChange={(e) => setContactForm((f) => ({ ...f, contactName: e.target.value }))}
+                  sx={{ mb: 1 }}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Job title / role"
+                  value={contactForm.contactRole}
+                  onChange={(e) => setContactForm((f) => ({ ...f, contactRole: e.target.value }))}
+                  sx={{ mb: 1 }}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Phone"
+                  value={contactForm.phone}
+                  onChange={(e) => setContactForm((f) => ({ ...f, phone: e.target.value }))}
+                  sx={{ mb: 1 }}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Source URL"
+                  value={contactForm.sourceUrl}
+                  onChange={(e) => setContactForm((f) => ({ ...f, sourceUrl: e.target.value }))}
+                  sx={{ mb: 1 }}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Notes"
+                  value={contactForm.notes}
+                  onChange={(e) => setContactForm((f) => ({ ...f, notes: e.target.value }))}
+                  sx={{ mb: 1.25 }}
+                  multiline
+                  minRows={2}
+                />
+                {duplicateWarn && (
+                  <Alert severity="warning" sx={{ mb: 1.25 }}>
+                    {duplicateWarn.message}
+                    {duplicateWarn.organizationName
+                      ? ` (${duplicateWarn.type || 'record'}: ${duplicateWarn.organizationName})`
+                      : ''}
+                  </Alert>
+                )}
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setContactMode('closed');
+                      setDuplicateWarn(null);
+                    }}
+                    disabled={contactBusy}
+                  >
+                    Cancel
+                  </Button>
+                  {duplicateWarn ? (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="warning"
+                      disabled={contactBusy}
+                      onClick={() => void saveManualContact(true)}
+                    >
+                      Save anyway
+                    </Button>
+                  ) : (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      disabled={contactBusy}
+                      onClick={() => void saveManualContact(false)}
+                    >
+                      Save contact
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+            )}
 
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
               Why selected
@@ -724,15 +1098,6 @@ export const ProspectsPanel: React.FC<Props> = ({
                 label={`Partnership: ${formatPartnershipStatus(selected.partnershipStatus)}`}
               />
             </Stack>
-
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
-              Contact
-            </Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              {formatContactability(selected)}
-              {selected.contactabilityScore != null ? ` · score ${selected.contactabilityScore}/100` : ''}
-              {selected.contactSourceUrl ? ` · ${selected.contactSourceUrl}` : ''}
-            </Typography>
 
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
               Score

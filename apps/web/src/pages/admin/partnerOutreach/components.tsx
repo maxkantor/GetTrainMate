@@ -120,10 +120,19 @@ function titleCaseToken(raw: string): string {
 /** Human contactability label — never surface raw snake_case as primary. */
 export function formatContactability(p: PartnerProspect | string | undefined | null): string {
   if (p != null && typeof p !== 'string') {
-    if (hasEmail(p) || (p.emailVerificationStatus || '').toLowerCase() === 'verified_public') {
-      const state = (p.contactabilityState || p.contactState || '').toUpperCase();
-      if (state === 'RESEARCHING') return 'Researching';
-      return 'Verified email';
+    if (hasEmail(p)) {
+      const source = (p.emailSource || p.contactSourceType || '').toLowerCase();
+      const ver = (p.emailVerificationStatus || '').toLowerCase();
+      if (
+        source === 'manual_admin' ||
+        (p.contactSourceType || '').toUpperCase() === 'MANUAL_ADMIN' ||
+        ver === 'manual_unverified' ||
+        source === 'owner_supplied'
+      ) {
+        return 'Manual contact';
+      }
+      if (ver === 'verified_public' || source === 'public_listing') return 'Verified email';
+      return 'Email provided — unverified';
     }
     return formatContactability(p.contactabilityState || p.contactState || p.status || p.emailVerificationStatus);
   }
@@ -131,6 +140,9 @@ export function formatContactability(p: PartnerProspect | string | undefined | n
   if (!raw) return 'Contact needed';
   const s = raw.toLowerCase().replace(/\s+/g, '_');
   if (s === 'verified_public' || s === 'contact_found' || s === 'email' || s === 'available') return 'Verified email';
+  if (s === 'manual_unverified' || s === 'manual_admin' || s === 'manual_contact' || s === 'owner_supplied') {
+    return 'Manual contact';
+  }
   if (s === 'researching') return 'Researching';
   if (s === 'no_verified_public_email' || s === 'no_public_contact' || s === 'contacts_unavailable') return 'No public email';
   if (s === 'retry_later') return 'Retry later';
@@ -140,6 +152,19 @@ export function formatContactability(p: PartnerProspect | string | undefined | n
   if (s.includes('research')) return 'Researching';
   if (s.includes('no_') && s.includes('email')) return 'No public email';
   return titleCaseToken(raw);
+}
+
+export function formatContactSource(p: PartnerProspect): string {
+  const type = (p.contactSourceType || '').toUpperCase();
+  const source = (p.emailSource || '').toLowerCase();
+  if (type === 'MANUAL_ADMIN' || source === 'manual_admin') return 'Manual admin entry';
+  if (source === 'owner_supplied') return 'Owner supplied';
+  if (source === 'prior_engagement') return 'Prior engagement';
+  if (source === 'public_listing' || type === 'WEBSITE_MAILTO' || type === 'WEBSITE_PAGE') {
+    return 'Public listing';
+  }
+  if (p.discoverySource) return p.discoverySource;
+  return '—';
 }
 
 export function formatLifecycle(value?: string | null): string {
