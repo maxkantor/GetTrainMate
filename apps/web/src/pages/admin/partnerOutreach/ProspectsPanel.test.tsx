@@ -42,6 +42,19 @@ describe('ProspectsPanel — contact discovery', () => {
     vi.clearAllMocks();
     getMock.mockImplementation(async (url: string) => {
       if (String(url).includes('/queue')) return [];
+      if (String(url).includes('pipeline-counters')) {
+        return {
+          prospects: 1,
+          emailsFound: 0,
+          contactForms: 0,
+          needContact: 1,
+          readyToReview: 0,
+          approved: 0,
+          sentToday: 0,
+          customers: 0,
+        };
+      }
+      if (String(url).includes('contact-discovery/active')) return { active: false };
       return [squareOne];
     });
   });
@@ -81,19 +94,19 @@ describe('ProspectsPanel — contact discovery', () => {
     expect(button).not.toBeDisabled();
   });
 
-  it('Find missing contacts confirms, posts discover-contacts and shows the progress panel', async () => {
+  it('Find missing contacts confirms, starts a durable job and shows the progress panel', async () => {
     postMock.mockResolvedValueOnce({
-      ok: true,
+      jobId: 'job-1',
+      status: 'complete',
+      progressPct: 100,
+      total: 1,
       processed: 1,
       emailsFound: 1,
       formsFound: 0,
       reviewRequired: 0,
       noContact: 0,
+      errors: 0,
       remaining: 0,
-      eligible: 1,
-      results: [
-        { prospectId: 'sq1', status: 'EMAIL_FOUND', found: true, foundEmail: 'hello@square.example' },
-      ],
     });
 
     const props = sharedProps();
@@ -108,26 +121,32 @@ describe('ProspectsPanel — contact discovery', () => {
 
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith(
-        expect.stringMatching(/prospects\/discover-contacts/),
+        expect.stringMatching(/prospects\/contact-discovery\/jobs/),
         expect.objectContaining({
           prospectIds: ['sq1'],
           filterMissingOnly: true,
           max: 1,
           force: true,
-          dryRun: false,
         }),
       );
     });
 
     expect(await screen.findByText('CONTACT DISCOVERY')).toBeInTheDocument();
-    expect(screen.getByText(/Processed 1 \/ 1/)).toBeInTheDocument();
-    expect(screen.getByText(/Emails found 1/)).toBeInTheDocument();
-    expect(screen.getByText(/Remaining 0/)).toBeInTheDocument();
-    expect(props.onNotice).toHaveBeenCalled();
+    expect(screen.getByText(/1 of 1 processed/i)).toBeInTheDocument();
+    expect(screen.getByText(/Emails found 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/Remaining 0/i)).toBeInTheDocument();
   });
 
   it('Find contacts for selected posts only the selected ids', async () => {
-    postMock.mockResolvedValueOnce({ ok: true, processed: 1, noContact: 1, eligible: 1, results: [] });
+    postMock.mockResolvedValueOnce({
+      jobId: 'job-2',
+      status: 'complete',
+      progressPct: 100,
+      total: 1,
+      processed: 1,
+      noContact: 1,
+      remaining: 0,
+    });
 
     render(<ProspectsPanel {...sharedProps()} />);
     await screen.findByText('Square One Golf Performance Center');
@@ -139,7 +158,7 @@ describe('ProspectsPanel — contact discovery', () => {
 
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith(
-        expect.stringMatching(/prospects\/discover-contacts/),
+        expect.stringMatching(/prospects\/contact-discovery\/jobs/),
         expect.objectContaining({ prospectIds: ['sq1'] }),
       );
     });
@@ -153,6 +172,12 @@ describe('ProspectsPanel — contact discovery', () => {
     expect(screen.getAllByText('Market').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Contact').length).toBeGreaterThan(0);
   });
+
+  it('shows CONTACT PIPELINE counters and Discover more prospects', async () => {
+    render(<ProspectsPanel {...sharedProps()} />);
+    expect(await screen.findByText('CONTACT PIPELINE')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Discover more prospects/i })).toBeInTheDocument();
+  });
 });
 
 describe('ProspectsPanel — manual contact entry', () => {
@@ -160,6 +185,10 @@ describe('ProspectsPanel — manual contact entry', () => {
     vi.clearAllMocks();
     getMock.mockImplementation(async (url: string) => {
       if (String(url).includes('/queue')) return [];
+      if (String(url).includes('pipeline-counters')) {
+        return { prospects: 1, emailsFound: 0, needContact: 1, readyToReview: 0, approved: 0, sentToday: 0, customers: 0 };
+      }
+      if (String(url).includes('contact-discovery/active')) return { active: false };
       if (String(url).includes('/detail')) {
         return { prospect: squareOne, nextAction: squareOne.nextAction, queueItems: [], timeline: [] };
       }
@@ -266,6 +295,10 @@ describe('ProspectsPanel — manual contact entry', () => {
     };
     getMock.mockImplementation(async (url: string) => {
       if (String(url).includes('/queue')) return [];
+      if (String(url).includes('pipeline-counters')) {
+        return { prospects: 1, emailsFound: 1, needContact: 0, readyToReview: 0, approved: 0, sentToday: 0, customers: 0 };
+      }
+      if (String(url).includes('contact-discovery/active')) return { active: false };
       if (String(url).includes('/detail')) return { prospect: withEmail, queueItems: [], timeline: [] };
       return [withEmail];
     });
@@ -305,6 +338,10 @@ describe('ProspectsPanel — manual contact entry', () => {
     };
     getMock.mockImplementation(async (url: string) => {
       if (String(url).includes('/queue')) return [];
+      if (String(url).includes('pipeline-counters')) {
+        return { prospects: 1, emailsFound: 0, needContact: 1, readyToReview: 0, approved: 0, sentToday: 0, customers: 0 };
+      }
+      if (String(url).includes('contact-discovery/active')) return { active: false };
       if (String(url).includes('/detail')) return { prospect: pending, queueItems: [], timeline: [] };
       return [pending];
     });

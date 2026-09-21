@@ -56,11 +56,54 @@ public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
                 var t = settingsObj.GetType();
                 int ReadInt(string name, int fallback)
                 {
-                    var v = t.GetProperty(name)?.GetValue(settingsObj);
+                    var v = t.GetProperty(name)?.GetValue(settingsObj)
+                        ?? t.GetProperty(ToPascal(name))?.GetValue(settingsObj);
+                    // anonymous settings use camelCase via reflection on generated properties
+                    if (v == null)
+                    {
+                        foreach (var p in t.GetProperties())
+                        {
+                            if (string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
+                            {
+                                v = p.GetValue(settingsObj);
+                                break;
+                            }
+                        }
+                    }
                     return v is int i && i > 0 ? i : fallback;
                 }
+                bool ReadBool(string name)
+                {
+                    foreach (var p in t.GetProperties())
+                    {
+                        if (!string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+                        return p.GetValue(settingsObj) is true;
+                    }
+                    return false;
+                }
+                static string ToPascal(string name) =>
+                    string.IsNullOrEmpty(name) ? name : char.ToUpperInvariant(name[0]) + name[1..];
+
+                var maxProspects = ReadInt("ProspectsPerRun", 8);
+                if (ReadBool("KeepPipelineFull"))
+                {
+                    var counters = await outreach.GetPipelineCountersAsync();
+                    var ct = counters.GetType();
+                    int eligible = 0, target = 200;
+                    foreach (var p in ct.GetProperties())
+                    {
+                        if (string.Equals(p.Name, "eligibleUnsent", StringComparison.OrdinalIgnoreCase)
+                            && p.GetValue(counters) is int e) eligible = e;
+                        if (string.Equals(p.Name, "targetProspectInventory", StringComparison.OrdinalIgnoreCase)
+                            && p.GetValue(counters) is int tg && tg > 0) target = tg;
+                    }
+                    var deficit = Math.Max(0, target - eligible);
+                    if (deficit > 0)
+                        maxProspects = Math.Max(maxProspects, Math.Min(deficit, 40));
+                }
+
                 return await discovery.RunLimitedAsync(
-                    maxProspects: ReadInt("ProspectsPerRun", 8),
+                    maxProspects: maxProspects,
                     maxResearchAttempts: ReadInt("ResearchAttemptsPerRun", 15),
                     maxDrafts: ReadInt("DraftsPerRun", 5),
                     prepareDrafts: true);

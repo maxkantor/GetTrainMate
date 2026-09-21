@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -14,6 +14,7 @@ import {
   FormControl,
   IconButton,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Select,
   Stack,
@@ -63,23 +64,45 @@ import {
   prospectScore,
   queueForProspect,
   resolveNextAction,
+  startDiscoveryJob,
+  pollDiscoveryJob,
+  discoverySummary,
 } from './components';
 import { adminApiService } from '@/services/adminApiService';
 import {
-  discoveryProgressFrom,
-  summarizeDiscoveryBatch,
+  contactJobProgressFrom,
+  DEFAULT_RESEARCH_STAGES,
+  isContactJobRunning,
+  isContactJobTerminal,
+  summarizeContactJob,
   summarizeResearchResult,
 } from './researchContact';
 import type {
-  DiscoveryBatchResponse,
-  DiscoveryProgress,
+  ContactDiscoveryJob,
+  PipelineCounters,
   ResearchResult,
+  ResearchStage,
 } from './researchContact';
 
 type ContactFormMode = 'closed' | 'form';
 
 /** Discovery is capped per request so a batch stays inside the API time budget. */
-const DISCOVERY_BATCH_MAX = 100;
+const DISCOVERY_BATCH_MAX = 200;
+
+function stageGlyph(state: ResearchStage['state']): string {
+  if (state === 'done') return '✓';
+  if (state === 'active') return '→';
+  return '○';
+}
+
+function animateStages(base: ResearchStage[], tick: number): ResearchStage[] {
+  if (base.some((s) => s.state === 'done')) return base;
+  const idx = tick % base.length;
+  return base.map((s, i) => ({
+    ...s,
+    state: i < idx ? 'done' : i === idx ? 'active' : 'pending',
+  }));
+}
 
 type ManualContactForm = {
   email: string;
@@ -178,7 +201,11 @@ export const ProspectsPanel: React.FC<Props> = ({
   const [contactMode, setContactMode] = useState<ContactFormMode>('closed');
   const [contactForm, setContactForm] = useState<ManualContactForm>(emptyContactForm());
   const [contactBusy, setContactBusy] = useState(false);
-  const [discoverProgress, setDiscoverProgress] = useState<DiscoveryProgress | null>(null);
+  const [discoverJob, setDiscoverJob] = useState<ContactDiscoveryJob | null>(null);
+  const [pipeline, setPipeline] = useState<PipelineCounters | null>(null);
+  const [discoverMoreBusy, setDiscoverMoreBusy] = useState(false);
+  const [stageTick, setStageTick] = useState(0);
+  const pollCancelRef = useRef<{ cancelled: boolean }>({ cancelled: false });
   const [confirmDiscovery, setConfirmDiscovery] = useState<{ ids: string[] } | null>(null);
   const [duplicateWarn, setDuplicateWarn] = useState<{
     message: string;
@@ -201,12 +228,14 @@ export const ProspectsPanel: React.FC<Props> = ({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, q] = await Promise.all([
+      const [p, q, counters] = await Promise.all([
         adminApiService.get(`${API}/prospects`),
         adminApiService.get(`${API}/queue`),
+        adminApiService.get(`${API}/prospects/pipeline-counters`).catch(() => null),
       ]);
       setProspects(asArray<PartnerProspect>(p));
       setQueue(asArray<PartnerQueueItem>(q));
+      if (counters) setPipeline(counters as PipelineCounters);
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : 'Failed to load prospects');
     } finally {
@@ -217,6 +246,85 @@ export const ProspectsPanel: React.FC<Props> = ({
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  const publishResearch = (summary: { ok: boolean; text: string; kind: string }) => {
+    const severity =
+      summary.ok
+        ? 'success'
+        : summary.kind === 'website_dead'
+          ? 'error'
+          : summary.kind === 'contact_form'
+            ? 'info'
+            : summary.kind === 'not_found' || summary.kind === 'review_required'
+              ? 'warning'
+              : 'error';
+    setResearchBanner({ severity, text: summary.text });
+    onError(null);
+    onNotice(null);
+  };
+
+  const runContactJobPoll = useCallback(
+    async (jobId: string) => {
+      const signal = pollCancelRef.current;
+      while (!signal.cancelled) {
+        try {
+          const job = (await adminApiService.get(
+            `${API}/prospects/contact-discovery/jobs/${encodeURIComponent(jobId)}`,
+          )) as ContactDiscoveryJob;
+          setDiscoverJob(job);
+          if ((job.processed ?? 0) > 0) await load();
+          if (isContactJobTerminal(job.status)) {
+            publishResearch(summarizeContactJob(job));
+            await load();
+            return;
+          }
+          if ((job.status || '').toLowerCase() === 'paused') return;
+        } catch (e: unknown) {
+          const text = e instanceof Error ? e.message : 'Contact discovery poll failed';
+          setResearchBanner({ severity: 'error', text });
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 400));
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [load],
+  );
+
+  const pollRef = useRef(runContactJobPoll);
+  pollRef.current = runContactJobPoll;
+
+  /** Reconnect to an in-flight durable contact job after refresh / tab return. */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const active = (await adminApiService.get(
+          `${API}/prospects/contact-discovery/active`,
+        )) as ContactDiscoveryJob & { active?: boolean };
+        if (cancelled || !active?.jobId) return;
+        if (active.active === false && !isContactJobRunning(active.status) && active.status !== 'paused')
+          return;
+        setDiscoverJob(active);
+        if (isContactJobRunning(active.status)) {
+          pollCancelRef.current = { cancelled: false };
+          void pollRef.current(active.jobId);
+        }
+      } catch {
+        // Active endpoint may not be deployed yet.
+      }
+    })();
+    return () => {
+      cancelled = true;
+      pollCancelRef.current.cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!discoverJob || !isContactJobRunning(discoverJob.status)) return;
+    const id = window.setInterval(() => setStageTick((t) => t + 1), 1200);
+    return () => window.clearInterval(id);
+  }, [discoverJob?.jobId, discoverJob?.status]);
 
   const loadDetail = async (prospectId: string) => {
     try {
@@ -476,23 +584,6 @@ export const ProspectsPanel: React.FC<Props> = ({
     setSelectedIds(new Set(filtered.map((p) => p.prospectId)));
   };
 
-  const publishResearch = (summary: { ok: boolean; text: string; kind: string }) => {
-    const severity =
-      summary.ok
-        ? 'success'
-        : summary.kind === 'website_dead'
-          ? 'error'
-          : summary.kind === 'contact_form'
-            ? 'info'
-            : summary.kind === 'not_found' || summary.kind === 'review_required'
-              ? 'warning'
-              : 'error';
-    // Local banner only — avoid duplicate page-level Alert with the same text.
-    setResearchBanner({ severity, text: summary.text });
-    onError(null);
-    onNotice(null);
-  };
-
   const researchOne = async (p: PartnerProspect) => {
     setBusy(true);
     onError(null);
@@ -525,26 +616,94 @@ export const ProspectsPanel: React.FC<Props> = ({
     onError(null);
     onNotice(null);
     setResearchBanner(null);
-    setDiscoverProgress(null);
+    pollCancelRef.current = { cancelled: false };
     try {
-      const raw = (await adminApiService.post(`${API}/prospects/discover-contacts`, {
+      const job = (await adminApiService.post(`${API}/prospects/contact-discovery/jobs`, {
         prospectIds: batch,
         filterMissingOnly: true,
         max: batch.length,
         force: true,
-        dryRun: false,
-      })) as DiscoveryBatchResponse;
-      setDiscoverProgress(discoveryProgressFrom(raw, batch.length));
+      })) as ContactDiscoveryJob;
+      setDiscoverJob(job);
       setSelectedIds(new Set());
-      await load();
-      if (selected) await refreshSelected(selected.prospectId);
-      publishResearch(summarizeDiscoveryBatch(raw, batch.length));
+      if (isContactJobTerminal(job.status)) {
+        publishResearch(summarizeContactJob(job));
+        await load();
+        return;
+      }
+      setBusy(false);
+      await runContactJobPoll(job.jobId);
     } catch (e: unknown) {
       const text = e instanceof Error ? e.message : 'Contact discovery failed';
       setResearchBanner({ severity: 'error', text });
       onError(text);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const pauseDiscovery = async () => {
+    if (!discoverJob?.jobId) return;
+    pollCancelRef.current.cancelled = true;
+    try {
+      const job = (await adminApiService.post(
+        `${API}/prospects/contact-discovery/jobs/${encodeURIComponent(discoverJob.jobId)}/pause`,
+        {},
+      )) as ContactDiscoveryJob;
+      setDiscoverJob(job);
+    } catch (e: unknown) {
+      onError(e instanceof Error ? e.message : 'Could not pause discovery');
+    }
+  };
+
+  const resumeDiscovery = async () => {
+    if (!discoverJob?.jobId) return;
+    pollCancelRef.current = { cancelled: false };
+    try {
+      const job = (await adminApiService.post(
+        `${API}/prospects/contact-discovery/jobs/${encodeURIComponent(discoverJob.jobId)}/resume`,
+        {},
+      )) as ContactDiscoveryJob;
+      setDiscoverJob(job);
+      if (isContactJobRunning(job.status)) void runContactJobPoll(job.jobId);
+    } catch (e: unknown) {
+      onError(e instanceof Error ? e.message : 'Could not resume discovery');
+    }
+  };
+
+  const retryFailedDiscovery = async () => {
+    if (!discoverJob?.jobId) return;
+    pollCancelRef.current = { cancelled: false };
+    try {
+      const job = (await adminApiService.post(
+        `${API}/prospects/contact-discovery/jobs/${encodeURIComponent(discoverJob.jobId)}/retry-failed`,
+        {},
+      )) as ContactDiscoveryJob;
+      setDiscoverJob(job);
+      if (isContactJobRunning(job.status)) void runContactJobPoll(job.jobId);
+    } catch (e: unknown) {
+      onError(e instanceof Error ? e.message : 'Could not retry failed prospects');
+    }
+  };
+
+  const discoverMoreProspects = async () => {
+    setDiscoverMoreBusy(true);
+    onError(null);
+    onNotice(null);
+    try {
+      const job = await startDiscoveryJob({ prepareDrafts: true });
+      onNotice('Discovering more prospects…');
+      await pollDiscoveryJob(job.jobId, () => undefined);
+      const final = (await adminApiService.get(
+        `${API}/discovery/jobs/${encodeURIComponent(job.jobId)}`,
+      )) as { jobId: string; status: string; prospectsFound?: number; contactsFound?: number; draftsCreated?: number; error?: string };
+      onNotice(discoverySummary(final));
+      await load();
+      requestRefresh();
+    } catch (e: unknown) {
+      onError(e instanceof Error ? e.message : 'Discover more prospects failed');
+    } finally {
+      setDiscoverMoreBusy(false);
     }
   };
 
@@ -634,6 +793,17 @@ export const ProspectsPanel: React.FC<Props> = ({
     ? resolveNextAction(selected, drawerQueue, detailNext)
     : null;
   const showPartnership = selected ? canShowPartnershipActions(selected) : false;
+  const jobProgress = discoverJob ? contactJobProgressFrom(discoverJob) : null;
+  const jobRunning = Boolean(discoverJob && isContactJobRunning(discoverJob.status));
+  const jobPaused = (discoverJob?.status || '').toLowerCase() === 'paused';
+  const stagesForUi = jobRunning
+    ? animateStages(
+        jobProgress?.stages?.length ? jobProgress.stages : DEFAULT_RESEARCH_STAGES,
+        stageTick,
+      )
+    : jobProgress?.stages?.length
+      ? jobProgress.stages
+      : DEFAULT_RESEARCH_STAGES;
 
   return (
     <Box>
@@ -646,6 +816,56 @@ export const ProspectsPanel: React.FC<Props> = ({
           {researchBanner.text}
         </Alert>
       )}
+
+      <Box
+        sx={{
+          mb: 2,
+          p: 1.5,
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1.5,
+        }}
+      >
+        <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: 0.8 }}>
+          CONTACT PIPELINE
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.5, mb: 1.25 }}>
+          {pipeline?.prospects ?? prospects.length} Prospects · {pipeline?.emailsFound ?? '—'} Emails ·{' '}
+          {pipeline?.readyToReview ?? '—'} Ready · {pipeline?.approved ?? '—'} Approved ·{' '}
+          {pipeline?.sentToday ?? '—'} Sent · {pipeline?.customers ?? '—'} Customers
+        </Typography>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={discoverMoreBusy || busy || jobRunning}
+            onClick={() => void discoverMoreProspects()}
+          >
+            {discoverMoreBusy ? 'Discovering…' : 'Discover more prospects'}
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            disabled={missingContacts.length === 0 || busy || jobRunning}
+            onClick={() =>
+              setConfirmDiscovery({ ids: missingContacts.map((p) => p.prospectId) })
+            }
+          >
+            Find missing contacts ({missingContacts.length})
+          </Button>
+          {selectedIds.size > 0 && (
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={busy || jobRunning}
+              onClick={() => setConfirmDiscovery({ ids: [...selectedIds] })}
+            >
+              Find contacts for selected ({selectedIds.size})
+            </Button>
+          )}
+        </Stack>
+      </Box>
+
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }} useFlexGap flexWrap="wrap">
         <TextField
           size="small"
@@ -759,29 +979,9 @@ export const ProspectsPanel: React.FC<Props> = ({
         <Button size="small" onClick={toggleAll} disabled={filtered.length === 0}>
           {selectedIds.size === filtered.length && filtered.length > 0 ? 'Clear selection' : 'Select all'}
         </Button>
-        <Button
-          size="small"
-          variant="contained"
-          disabled={missingContacts.length === 0 || busy}
-          onClick={() =>
-            setConfirmDiscovery({ ids: missingContacts.map((p) => p.prospectId) })
-          }
-        >
-          Find missing contacts ({missingContacts.length})
-        </Button>
-        {selectedIds.size > 0 && (
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={busy}
-            onClick={() => setConfirmDiscovery({ ids: [...selectedIds] })}
-          >
-            Find contacts for selected ({selectedIds.size})
-          </Button>
-        )}
       </Stack>
 
-      {discoverProgress && (
+      {jobProgress && (
         <Box
           sx={{
             mb: 2,
@@ -789,25 +989,87 @@ export const ProspectsPanel: React.FC<Props> = ({
             border: '1px solid',
             borderColor: 'divider',
             borderRadius: 1.5,
+            bgcolor: 'action.hover',
           }}
         >
-          <Stack direction="row" alignItems="center" sx={{ mb: 0.5 }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 0.6, flex: 1 }}>
+          <Stack direction="row" alignItems="center" sx={{ mb: 0.75 }} spacing={1}>
+            <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: 0.6, flex: 1 }}>
               CONTACT DISCOVERY
             </Typography>
-            <Button size="small" onClick={() => setDiscoverProgress(null)} disabled={busy}>
-              Dismiss
-            </Button>
+            <Typography variant="body2" sx={{ fontWeight: 800 }}>
+              {jobProgress.progressPct}%
+            </Typography>
+            {!jobRunning && !jobPaused && (
+              <Button size="small" onClick={() => setDiscoverJob(null)}>
+                Dismiss
+              </Button>
+            )}
           </Stack>
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            Processed {discoverProgress.processed} / {discoverProgress.total}
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
+            {jobRunning
+              ? 'Finding contact information…'
+              : jobPaused
+                ? 'Paused'
+                : isContactJobTerminal(discoverJob?.status)
+                  ? 'Finished'
+                  : 'Status'}
           </Typography>
-          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
-            <Typography variant="body2">Emails found {discoverProgress.emailsFound}</Typography>
-            <Typography variant="body2">Forms found {discoverProgress.formsFound}</Typography>
-            <Typography variant="body2">Review {discoverProgress.reviewRequired}</Typography>
-            <Typography variant="body2">No contact {discoverProgress.noContact}</Typography>
-            <Typography variant="body2">Remaining {discoverProgress.remaining}</Typography>
+          <LinearProgress
+            variant="determinate"
+            value={Math.min(100, Math.max(0, jobProgress.progressPct))}
+            sx={{ height: 10, borderRadius: 1, mb: 1 }}
+          />
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            {jobProgress.processed} of {jobProgress.total} processed
+          </Typography>
+          {(jobRunning || jobPaused) && jobProgress.currentProspectName && (
+            <Box sx={{ mt: 1.25 }}>
+              <Typography variant="caption" color="text.secondary">
+                Currently researching
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                {jobProgress.currentProspectName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: 'block' }}>
+                Checking
+              </Typography>
+              <Stack spacing={0.25} sx={{ mt: 0.25 }}>
+                {stagesForUi.map((s) => (
+                  <Typography
+                    key={s.key}
+                    variant="body2"
+                    sx={{ opacity: s.state === 'pending' ? 0.55 : 1, fontWeight: s.state === 'active' ? 700 : 400 }}
+                  >
+                    {stageGlyph(s.state)} {s.label}
+                  </Typography>
+                ))}
+              </Stack>
+            </Box>
+          )}
+          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+            <Typography variant="body2">✓ Emails found {jobProgress.emailsFound}</Typography>
+            <Typography variant="body2">✓ Contact forms {jobProgress.formsFound}</Typography>
+            <Typography variant="body2">⚠ Needs review {jobProgress.reviewRequired}</Typography>
+            <Typography variant="body2">✕ No contact {jobProgress.noContact}</Typography>
+            <Typography variant="body2">Failed {jobProgress.errors}</Typography>
+            <Typography variant="body2">Remaining {jobProgress.remaining}</Typography>
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
+            {jobRunning && (
+              <Button size="small" variant="outlined" onClick={() => void pauseDiscovery()}>
+                Pause discovery
+              </Button>
+            )}
+            {jobPaused && (
+              <Button size="small" variant="contained" onClick={() => void resumeDiscovery()}>
+                Resume discovery
+              </Button>
+            )}
+            {isContactJobTerminal(discoverJob?.status) && (jobProgress.errors > 0) && (
+              <Button size="small" variant="outlined" onClick={() => void retryFailedDiscovery()}>
+                Retry failed
+              </Button>
+            )}
           </Stack>
         </Box>
       )}

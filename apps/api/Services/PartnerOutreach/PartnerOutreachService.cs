@@ -59,6 +59,16 @@ public interface IPartnerOutreachService
     Task<object> DiscoverContactAsync(string prospectId, string actor, bool force = true, bool dryRun = false);
     /// <summary>Sequential (timeout-safe) discovery over explicit ids or prospects missing a contact.</summary>
     Task<object> DiscoverContactsBatchAsync(DiscoverContactsBatchRequest req, string actor);
+    /// <summary>Ordered prospect ids eligible for contact discovery (durable job queue).</summary>
+    Task<List<string>> ListContactDiscoveryCandidateIdsAsync(
+        IEnumerable<string>? prospectIds,
+        bool filterMissingOnly,
+        bool force,
+        int? max);
+    /// <summary>Single-prospect discovery step used by the durable contact job.</summary>
+    Task<ContactDiscoveryResult> DiscoverContactForJobAsync(string prospectId, string actor, bool force = true);
+    /// <summary>Operational counters for the Prospects acquisition control center.</summary>
+    Task<object> GetPipelineCountersAsync();
     /// <summary>Promotes a medium-confidence pending candidate to the prospect email.</summary>
     Task<object> AcceptPendingContactAsync(string prospectId, string actor);
     /// <summary>Discards a pending candidate without touching the existing email.</summary>
@@ -1569,6 +1579,9 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             s.ResearchAttemptsPerRun,
             s.ResearchContactsPerRun,
             s.DraftsPerRun,
+            s.KeepPipelineFull,
+            s.TargetProspectInventory,
+            s.ActiveContactDiscoveryJobId,
             s.ComplaintPause,
             s.SentCount,
             s.BounceCount,
@@ -1601,6 +1614,9 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (patch.ResearchAttemptsPerRun > 0) s.ResearchAttemptsPerRun = patch.ResearchAttemptsPerRun;
         if (patch.ResearchContactsPerRun > 0) s.ResearchContactsPerRun = patch.ResearchContactsPerRun;
         if (patch.DraftsPerRun > 0) s.DraftsPerRun = patch.DraftsPerRun;
+        s.KeepPipelineFull = patch.KeepPipelineFull;
+        if (patch.TargetProspectInventory > 0)
+            s.TargetProspectInventory = Math.Clamp(patch.TargetProspectInventory, 10, 5000);
         await _db.SaveAsync(s);
         return await GetOutreachSettingsAsync();
     }
@@ -2438,25 +2454,133 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                 prospectId = r.ProspectId,
                 organizationName = r.OrganizationName,
                 website = r.Website,
+                found = r.Found,
+                skipped = r.Skipped,
+                dryRun = r.DryRun,
+                fromCache = r.FromCache,
                 foundEmail = r.FoundEmail,
                 contactFormUrl = r.ContactFormUrl,
                 confidence = r.Confidence,
                 sourceUrl = r.SourceUrl,
+                sourceType = r.SourceType,
                 status = r.Status,
+                websiteStatus = r.WebsiteStatus,
+                reasonCode = r.ReasonCode,
                 pagesChecked = r.PagesChecked,
                 pagesCheckedCount = r.PagesCheckedCount,
                 sourcesCheckedSummary = r.SourcesCheckedSummary,
-                detail = r.Detail ?? r.Message,
+                detail = r.Detail,
                 reason = r.Reason,
-                reasonCode = r.ReasonCode,
                 message = r.Message,
-                summary = r.Summary,
-                pendingReviewEmail = r.PendingReviewEmail,
-                skipped = r.Skipped,
-                fromCache = r.FromCache,
                 error = r.Error,
+                summary = r.Summary,
+                researchAttempts = r.ResearchAttempts,
+                contactabilityState = r.ContactabilityState,
+                nextResearchAt = r.NextResearchAt,
+                pendingReviewEmail = r.PendingReviewEmail,
+                draft = r.Draft,
                 wouldSave = r.WouldSave,
-            }).ToList(),
+            }),
+        };
+    }
+
+    public async Task<List<string>> ListContactDiscoveryCandidateIdsAsync(
+        IEnumerable<string>? prospectIds,
+        bool filterMissingOnly,
+        bool force,
+        int? max)
+    {
+        var clampMax = ContactDiscoveryRules.ClampBatchMax(max ?? 200);
+        var now = DateTime.UtcNow;
+        var explicitIds = (prospectIds ?? Array.Empty<string>())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var all = await ListProspectsAsync(null);
+        List<PartnerProspect> eligible;
+        if (explicitIds.Count > 0)
+        {
+            var byId = all
+                .GroupBy(x => x.ProspectId, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+            eligible = explicitIds.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
+        }
+        else
+        {
+            eligible = all
+                .Where(p => ContactDiscoveryRules.IsBatchCandidate(p, filterMissingOnly, force, now))
+                .OrderBy(p => p.ResearchAttempts)
+                .ThenBy(p => p.LastContactResearchAt ?? DateTime.MinValue)
+                .ToList();
+        }
+
+        return eligible.Take(clampMax).Select(p => p.ProspectId).ToList();
+    }
+
+    public Task<ContactDiscoveryResult> DiscoverContactForJobAsync(string prospectId, string actor, bool force = true) =>
+        DiscoverContactCoreAsync(prospectId, actor, force, dryRun: false, probeBudget: ContactDiscoveryRules.BatchProbeBudget);
+
+    public async Task<object> GetPipelineCountersAsync()
+    {
+        var prospects = await ListProspectsAsync(null);
+        var queue = await ListQueueAsync(null);
+        var today = DateTime.UtcNow.Date;
+
+        var emailsFound = prospects.Count(p =>
+            ContactDiscoveryRules.HasUsableEmail(p)
+            || string.Equals(p.ContactDiscoveryStatus, ContactDiscoveryRules.DiscoveryEmailFound, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.ContactDiscoveryStatus, ContactDiscoveryRules.DiscoveryManualContact, StringComparison.OrdinalIgnoreCase));
+        var contactForms = prospects.Count(p =>
+            !string.IsNullOrWhiteSpace(p.ContactFormUrl)
+            || string.Equals(p.ContactDiscoveryStatus, ContactDiscoveryRules.DiscoveryContactFormFound, StringComparison.OrdinalIgnoreCase));
+        var needContact = prospects.Count(p =>
+            !ContactDiscoveryRules.HasUsableEmail(p)
+            && (string.IsNullOrWhiteSpace(p.ContactDiscoveryStatus)
+                || p.ContactDiscoveryStatus is ContactDiscoveryRules.DiscoveryContactNeeded
+                    or ContactDiscoveryRules.DiscoveryResearching
+                    or ContactDiscoveryRules.DiscoveryNoPublicContact
+                || string.Equals(p.ContactabilityState, PartnerCrmLifecycle.ContactNeeded, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p.ContactState, PartnerCrmLifecycle.ContactNeeded, StringComparison.OrdinalIgnoreCase)));
+        var readyToReview = queue.Count(q =>
+            string.Equals(q.Status, "draft", StringComparison.OrdinalIgnoreCase));
+        var approved = queue.Count(q =>
+            string.Equals(q.Status, "approved", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(q.Status, "queued", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(q.Status, "scheduled", StringComparison.OrdinalIgnoreCase));
+        var sentToday = queue.Count(q =>
+            q.SentAt is DateTime sent && sent.ToUniversalTime().Date == today);
+        var customers = prospects.Count(p =>
+            p.PaidCustomers > 0
+            || p.DirectRevenueCents > 0
+            || p.FirstPurchaseAt != null
+            || string.Equals(p.CustomerStatus, PartnerCrmLifecycle.CustPaying, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.CustomerStatus, "PAYING_CUSTOMER", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.AcquisitionStatus, PartnerCrmLifecycle.AcqConverted, StringComparison.OrdinalIgnoreCase));
+
+        var settings = await LoadSettingsAsync();
+        var eligibleUnsent = prospects.Count(p =>
+            ContactDiscoveryRules.HasUsableEmail(p)
+            && !string.Equals(p.AcquisitionStatus, PartnerCrmLifecycle.AcqSent, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(p.EmailState, "SENT", StringComparison.OrdinalIgnoreCase)
+            && p.LastContactedAt == null);
+
+        return new
+        {
+            prospects = prospects.Count,
+            emailsFound,
+            contactForms,
+            needContact,
+            readyToReview,
+            approved,
+            sentToday,
+            customers,
+            eligibleUnsent,
+            keepPipelineFull = settings.KeepPipelineFull,
+            targetProspectInventory = settings.TargetProspectInventory > 0
+                ? settings.TargetProspectInventory
+                : 200,
         };
     }
 
@@ -3171,6 +3295,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (row.ResearchAttemptsPerRun <= 0) row.ResearchAttemptsPerRun = 15;
         if (row.ResearchContactsPerRun <= 0) row.ResearchContactsPerRun = 10;
         if (row.DraftsPerRun <= 0) row.DraftsPerRun = 5;
+        if (row.TargetProspectInventory <= 0) row.TargetProspectInventory = 200;
         row.TestRecipients ??= new List<string>();
         return row;
     }

@@ -285,6 +285,12 @@ public class PartnerOutreachSettingsRow
     /// <summary>Max contact-research attempts per growth/internal run.</summary>
     public int ResearchContactsPerRun { get; set; } = 10;
     public int DraftsPerRun { get; set; } = 5;
+    /// <summary>When true, scheduled discovery tops up eligible unsent prospects toward TargetProspectInventory.</summary>
+    public bool KeepPipelineFull { get; set; }
+    /// <summary>Target eligible prospect inventory when KeepPipelineFull is on.</summary>
+    public int TargetProspectInventory { get; set; } = 200;
+    /// <summary>Active durable contact-discovery job id (if any).</summary>
+    public string? ActiveContactDiscoveryJobId { get; set; }
 }
 
 [DynamoDBTable("gettrainmate-partner-inbound-dedupe")]
@@ -300,7 +306,9 @@ public class PartnerDiscoveryJob
 {
     [DynamoDBHashKey]
     public string JobId { get; set; } = Guid.NewGuid().ToString();
-    /// <summary>starting|discovering|researching|scoring|preparing_drafts|complete|partial|failed</summary>
+    /// <summary>market | contact_discovery — defaults to market for legacy rows.</summary>
+    public string? JobKind { get; set; }
+    /// <summary>starting|discovering|researching|scoring|preparing_drafts|running|paused|complete|partial|failed</summary>
     public string Status { get; set; } = "starting";
     public string Stage { get; set; } = "starting";
     public int ProgressPct { get; set; }
@@ -315,4 +323,17 @@ public class PartnerDiscoveryJob
     public int ContactsFound { get; set; }
     public string? Actor { get; set; }
     public string? CheckpointJson { get; set; }
+
+    // Contact-discovery progress (also safe no-ops on market jobs)
+    public int Total { get; set; }
+    public int Processed { get; set; }
+    public int EmailsFound { get; set; }
+    public int FormsFound { get; set; }
+    public int ReviewRequired { get; set; }
+    public int NoContact { get; set; }
+    public int Errors { get; set; }
+    public string? CurrentProspectId { get; set; }
+    public string? CurrentProspectName { get; set; }
+    /// <summary>JSON checklist of research stages for the current prospect.</summary>
+    public string? ResearchStagesJson { get; set; }
 }

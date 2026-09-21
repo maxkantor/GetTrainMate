@@ -294,6 +294,8 @@ export interface OutreachSettings {
   researchAttemptsPerRun?: number;
   researchContactsPerRun?: number;
   draftsPerRun?: number;
+  keepPipelineFull?: boolean;
+  targetProspectInventory?: number;
   complaintPause?: boolean;
   sentCount?: number;
   bounceCount?: number;

@@ -15,15 +15,18 @@ public class AdminPartnerOutreachController : ControllerBase
     private readonly IPartnerOutreachService _svc;
     private readonly AutomatedMarketDiscoveryService _discovery;
     private readonly IPartnerDiscoveryJobService _jobs;
+    private readonly IContactDiscoveryJobService _contactJobs;
 
     public AdminPartnerOutreachController(
         IPartnerOutreachService svc,
         AutomatedMarketDiscoveryService discovery,
-        IPartnerDiscoveryJobService jobs)
+        IPartnerDiscoveryJobService jobs,
+        IContactDiscoveryJobService contactJobs)
     {
         _svc = svc;
         _discovery = discovery;
         _jobs = jobs;
+        _contactJobs = contactJobs;
     }
 
     string Actor() =>
@@ -128,6 +131,112 @@ public class AdminPartnerOutreachController : ControllerBase
             return Ok(await _svc.DiscoverContactsBatchAsync(req ?? new DiscoverContactsBatchRequest(), Actor()));
         }
         catch (Exception ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+    }
+
+    /// <summary>Start a durable contact-discovery job (one prospect per advance poll).</summary>
+    [HttpPost("prospects/contact-discovery/jobs")]
+    public async Task<IActionResult> StartContactDiscoveryJob([FromBody] DiscoverContactsBatchRequest? req)
+    {
+        try
+        {
+            var job = await _contactJobs.StartAsync(new ContactDiscoveryJobRequest
+            {
+                ProspectIds = req?.ProspectIds,
+                FilterMissingOnly = req?.FilterMissingOnly ?? true,
+                Force = req?.Force ?? true,
+                Max = req?.Max,
+            }, Actor());
+            return Ok(ToContactJobDto(job));
+        }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+    }
+
+    /// <summary>Poll advances one prospect, then returns current job progress.</summary>
+    [HttpGet("prospects/contact-discovery/jobs/{jobId}")]
+    public async Task<IActionResult> GetOrAdvanceContactDiscoveryJob(string jobId, [FromQuery] bool advance = true)
+    {
+        try
+        {
+            var job = advance
+                ? await _contactJobs.AdvanceAsync(jobId)
+                : await _contactJobs.GetAsync(jobId);
+            if (job == null) return NotFound();
+            return Ok(ToContactJobDto(job));
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+    }
+
+    [HttpGet("prospects/contact-discovery/active")]
+    public async Task<IActionResult> ActiveContactDiscoveryJob()
+    {
+        var job = await _contactJobs.GetActiveAsync();
+        return job == null ? Ok(new { active = false }) : Ok(ToContactJobDto(job, active: true));
+    }
+
+    [HttpPost("prospects/contact-discovery/jobs/{jobId}/pause")]
+    public async Task<IActionResult> PauseContactDiscoveryJob(string jobId)
+    {
+        try { return Ok(ToContactJobDto(await _contactJobs.PauseAsync(jobId))); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+    }
+
+    [HttpPost("prospects/contact-discovery/jobs/{jobId}/resume")]
+    public async Task<IActionResult> ResumeContactDiscoveryJob(string jobId)
+    {
+        try { return Ok(ToContactJobDto(await _contactJobs.ResumeAsync(jobId))); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+    }
+
+    [HttpPost("prospects/contact-discovery/jobs/{jobId}/retry-failed")]
+    public async Task<IActionResult> RetryFailedContactDiscoveryJob(string jobId)
+    {
+        try { return Ok(ToContactJobDto(await _contactJobs.RetryFailedAsync(jobId, Actor()))); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+    }
+
+    [HttpGet("prospects/pipeline-counters")]
+    public async Task<IActionResult> PipelineCounters() =>
+        Ok(await _svc.GetPipelineCountersAsync());
+
+    static object ToContactJobDto(PartnerDiscoveryJob job, bool active = false)
+    {
+        object? stages = null;
+        if (!string.IsNullOrWhiteSpace(job.ResearchStagesJson))
+        {
+            try { stages = System.Text.Json.JsonSerializer.Deserialize<object>(job.ResearchStagesJson); }
+            catch { stages = null; }
+        }
+
+        var remaining = Math.Max(0, job.Total - job.Processed);
+        return new
+        {
+            active,
+            jobId = job.JobId,
+            jobKind = job.JobKind,
+            status = job.Status,
+            stage = job.Stage,
+            progressPct = job.ProgressPct,
+            total = job.Total,
+            processed = job.Processed,
+            emailsFound = job.EmailsFound,
+            formsFound = job.FormsFound,
+            reviewRequired = job.ReviewRequired,
+            noContact = job.NoContact,
+            errors = job.Errors,
+            remaining,
+            currentProspectId = job.CurrentProspectId,
+            currentProspectName = job.CurrentProspectName,
+            researchStages = stages,
+            error = job.Error,
+            startedAt = job.CreatedAt,
+            updatedAt = job.UpdatedAt,
+            completedAt = job.CompletedAt,
+            reportJson = job.ReportJson,
+        };
     }
 
     [HttpPost("prospects/{id}/pending-contact/accept")]

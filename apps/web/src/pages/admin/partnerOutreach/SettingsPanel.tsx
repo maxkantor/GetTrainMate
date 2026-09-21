@@ -32,6 +32,8 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
   const [prospectsPerRun, setProspectsPerRun] = useState(8);
   const [researchContactsPerRun, setResearchContactsPerRun] = useState(10);
   const [draftsPerRun, setDraftsPerRun] = useState(5);
+  const [keepPipelineFull, setKeepPipelineFull] = useState(false);
+  const [targetProspectInventory, setTargetProspectInventory] = useState(200);
   const [confirmPause, setConfirmPause] = useState(false);
 
   const applyLocal = (s: OutreachSettings) => {
@@ -42,6 +44,8 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
     setProspectsPerRun(s.prospectsPerRun ?? 8);
     setResearchContactsPerRun(s.researchContactsPerRun ?? 10);
     setDraftsPerRun(s.draftsPerRun ?? 5);
+    setKeepPipelineFull(Boolean(s.keepPipelineFull));
+    setTargetProspectInventory(s.targetProspectInventory ?? 200);
   };
 
   const load = useCallback(async () => {
@@ -75,6 +79,8 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
         prospectsPerRun,
         researchContactsPerRun,
         draftsPerRun,
+        keepPipelineFull,
+        targetProspectInventory,
       };
       const updated = (await adminApiService.put(`${API}/settings`, body)) as OutreachSettings;
       applyLocal(updated);
@@ -160,6 +166,29 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
           label="Drafts / run"
           value={draftsPerRun}
           onChange={(e) => setDraftsPerRun(Number(e.target.value) || 0)}
+        />
+      </Box>
+
+      <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 3 }}>
+        <Typography sx={{ fontWeight: 700, mb: 1 }}>Keep pipeline full</Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={keepPipelineFull}
+              onChange={(_, v) => setKeepPipelineFull(v)}
+            />
+          }
+          label={keepPipelineFull ? 'ON' : 'OFF'}
+        />
+        <TextField
+          fullWidth
+          size="small"
+          type="number"
+          label="Target prospect inventory"
+          value={targetProspectInventory}
+          onChange={(e) => setTargetProspectInventory(Number(e.target.value) || 200)}
+          sx={{ mt: 1 }}
+          helperText="When ON, scheduled discovery tops up eligible unsent prospects toward this target (no duplicates)."
         />
       </Box>
 

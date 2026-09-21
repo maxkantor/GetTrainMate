@@ -205,6 +205,127 @@ export function summarizeDiscoveryBatch(
   };
 }
 
+export type ResearchStageState = 'done' | 'active' | 'pending';
+
+export type ResearchStage = {
+  key: string;
+  label: string;
+  state: ResearchStageState;
+};
+
+export type ContactDiscoveryJob = {
+  jobId: string;
+  status?: string;
+  stage?: string;
+  progressPct?: number;
+  total?: number;
+  processed?: number;
+  emailsFound?: number;
+  formsFound?: number;
+  reviewRequired?: number;
+  noContact?: number;
+  errors?: number;
+  remaining?: number;
+  currentProspectId?: string;
+  currentProspectName?: string;
+  researchStages?: ResearchStage[];
+  error?: string;
+  startedAt?: string;
+  updatedAt?: string;
+  completedAt?: string;
+  active?: boolean;
+};
+
+export type PipelineCounters = {
+  prospects?: number;
+  emailsFound?: number;
+  contactForms?: number;
+  needContact?: number;
+  readyToReview?: number;
+  approved?: number;
+  sentToday?: number;
+  customers?: number;
+  eligibleUnsent?: number;
+  keepPipelineFull?: boolean;
+  targetProspectInventory?: number;
+};
+
+const CONTACT_JOB_TERMINAL = new Set(['complete', 'partial', 'failed']);
+
+export function isContactJobTerminal(status?: string): boolean {
+  return CONTACT_JOB_TERMINAL.has((status || '').toLowerCase());
+}
+
+export function isContactJobRunning(status?: string): boolean {
+  const s = (status || '').toLowerCase();
+  return s === 'running' || s === 'starting' || s === 'queued' || s === 'researching';
+}
+
+export function contactJobProgressFrom(job: ContactDiscoveryJob | null | undefined): DiscoveryProgress & {
+  progressPct: number;
+  errors: number;
+  currentProspectName: string;
+  stages: ResearchStage[];
+  status: string;
+  jobId: string;
+} {
+  const total = Number(job?.total ?? 0);
+  const processed = Number(job?.processed ?? 0);
+  const remaining = Number(job?.remaining ?? Math.max(0, total - processed));
+  const progressPct =
+    job?.progressPct != null
+      ? Number(job.progressPct)
+      : total > 0
+        ? Math.round((processed / total) * 100)
+        : 0;
+  return {
+    jobId: String(job?.jobId || ''),
+    status: String(job?.status || ''),
+    processed,
+    total,
+    emailsFound: Number(job?.emailsFound ?? 0),
+    formsFound: Number(job?.formsFound ?? 0),
+    reviewRequired: Number(job?.reviewRequired ?? 0),
+    noContact: Number(job?.noContact ?? 0),
+    remaining,
+    progressPct,
+    errors: Number(job?.errors ?? 0),
+    currentProspectName: String(job?.currentProspectName || ''),
+    stages: Array.isArray(job?.researchStages) ? job!.researchStages! : [],
+  };
+}
+
+export function summarizeContactJob(job: ContactDiscoveryJob | null | undefined): ResearchSummary {
+  const p = contactJobProgressFrom(job);
+  const bits = [
+    `${p.emailsFound} email${p.emailsFound === 1 ? '' : 's'}`,
+    `${p.formsFound} form${p.formsFound === 1 ? '' : 's'}`,
+    `${p.reviewRequired} review`,
+    `${p.errors} failed`,
+  ];
+  const status = (job?.status || '').toLowerCase();
+  if (status === 'failed') {
+    return { ok: false, kind: 'failed', text: job?.error || 'Contact discovery failed' };
+  }
+  const done = isContactJobTerminal(status);
+  return {
+    ok: p.emailsFound > 0,
+    kind: p.emailsFound > 0 ? 'found' : 'not_found',
+    text: done
+      ? `Discovery finished ${p.processed}/${p.total}: ${bits.join(' · ')}`
+      : `Discovery ${p.processed}/${p.total}: ${bits.join(' · ')} · ${p.remaining} remaining`,
+  };
+}
+
+/** Default checklist while a prospect is being researched (client-side animation). */
+export const DEFAULT_RESEARCH_STAGES: ResearchStage[] = [
+  { key: 'website', label: 'Official website', state: 'active' },
+  { key: 'contact', label: 'Contact page', state: 'pending' },
+  { key: 'about', label: 'About / staff pages', state: 'pending' },
+  { key: 'listings', label: 'Public business listings', state: 'pending' },
+  { key: 'social', label: 'Social profile links', state: 'pending' },
+];
+
 export function summarizeBulkResearch(
   results: ResearchResult[],
   nameById: Map<string, string>,
@@ -231,3 +352,4 @@ export function summarizeBulkResearch(
     text: detail ? `${headline}. ${detail}` : headline,
   };
 }
+
