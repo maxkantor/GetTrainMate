@@ -340,7 +340,7 @@ export const AcquisitionPanel: React.FC<Props> = ({
                 : step.value
             }
             note={step.conv != null ? `${formatPct(step.conv)} from prior` : undefined}
-            attention={step.key === 'approved' && approvedReady > 0 && mode === 'off'}
+            attention={step.key === 'approved' && approvedReady > 0 && pauseAll}
             onClick={() => funnelNav(step.key)}
           />
         ))}

@@ -52,7 +52,8 @@ export function mapCampaignStatus(status?: string): string {
   return s || 'draft';
 }
 
-export function prospectScore(p: PartnerProspect): number {
+export function prospectScore(p?: PartnerProspect | null): number {
+  if (!p) return 0;
   return p.acquisitionScore ?? p.fitScore ?? 0;
 }
 

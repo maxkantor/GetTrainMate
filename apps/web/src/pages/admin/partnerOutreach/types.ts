@@ -228,6 +228,7 @@ export interface PartnerQueueItem {
   scheduledAt?: string;
   createdAt?: string;
   sentAt?: string;
+  sesMessageId?: string;
   approvedAt?: string;
   lastError?: string;
 }
@@ -275,6 +276,7 @@ export interface OutreachSettings {
   id?: string;
   outreachMode: OutreachMode | string;
   pauseAllOutreach: boolean;
+  testRecipientsOnly?: boolean;
   testRecipients?: string[];
   prospectsPerRun?: number;
   researchAttemptsPerRun?: number;
@@ -286,6 +288,8 @@ export interface OutreachSettings {
   complaintCount?: number;
   replyCount?: number;
   sendEnabled?: boolean;
+  dailyLimit?: number;
+  sentToday?: number;
 }
 
 export interface DiscoveryJob {

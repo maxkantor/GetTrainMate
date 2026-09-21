@@ -106,26 +106,37 @@ export const ApprovalsPanel: React.FC<Props> = ({
   }, [prospects]);
 
   const paused = Boolean(settings?.pauseAllOutreach);
+  /** Drafts + approved-but-not-yet-sent (old Approve without send). */
   const needsApproval = useMemo(
     () =>
-      queue.filter(
-        (q) =>
-          q.status === 'draft' &&
-          (q.followUpNumber == null || q.followUpNumber === 0),
-      ),
+      queue.filter((q) => {
+        if (q.followUpNumber != null && q.followUpNumber > 0) return false;
+        if (q.sentAt) return false;
+        return q.status === 'draft' || q.status === 'approved';
+      }),
     [queue],
   );
   const recentlySent = useMemo(
     () =>
       queue
-        .filter((q) => q.status === 'sent' || q.status === 'delivered' || q.status === 'replied')
-        .slice(0, 40),
+        .filter(
+          (q) =>
+            Boolean(q.sentAt) ||
+            q.status === 'sent' ||
+            q.status === 'delivered' ||
+            q.status === 'replied',
+        )
+        .sort((a, b) => String(b.sentAt || '').localeCompare(String(a.sentAt || '')))
+        .slice(0, 50),
     [queue],
   );
   const deferred = useMemo(
     () =>
-      queue.filter((q) =>
-        ['approved_for_next_send', 'approved'].includes(q.status || ''),
+      queue.filter(
+        (q) =>
+          !q.sentAt &&
+          (q.status === 'approved_for_next_send' ||
+            (q.status === 'scheduled' && (q.followUpNumber ?? 0) > 0)),
       ),
     [queue],
   );
@@ -254,8 +265,8 @@ export const ApprovalsPanel: React.FC<Props> = ({
 
       <Alert severity="info" sx={{ mb: 2 }}>
         Daily capacity: {capacity.sentToday} sent today · limit {capacity.dailyLimit} ·{' '}
-        {capacity.remaining} remaining. Approve &amp; Send authorizes SES immediately when capacity
-        allows; overflow becomes Approved for next send.
+        {capacity.remaining} remaining. Open <b>Recently sent</b> to see SES-accepted emails (those
+        will not be resent). Checkboxes work on <b>Needs approval</b>.
       </Alert>
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }} alignItems="center">
@@ -311,13 +322,28 @@ export const ApprovalsPanel: React.FC<Props> = ({
         </Button>
       </Stack>
 
+      {tab === 'sent' && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          These were accepted by SES. Duplicate protection blocks resending the same recipient for
+          initial outreach.
+        </Alert>
+      )}
+
       {items.length === 0 ? (
         <EmptyState
-          title={tab === 'needs' ? 'Nothing needs approval' : 'Nothing here'}
+          title={
+            tab === 'needs'
+              ? 'Nothing waiting to send'
+              : tab === 'sent'
+                ? 'Nothing sent yet'
+                : 'Nothing here'
+          }
           detail={
             tab === 'needs'
-              ? 'Drafts appear here after discovery prepares messages.'
-              : 'No records in this view.'
+              ? 'Drafts and approved-but-unsent messages appear here. Click APPROVE & SEND.'
+              : tab === 'sent'
+                ? 'After a successful SES send, recipient, time, and message id show here.'
+                : 'No deferred or blocked records.'
           }
         />
       ) : (
@@ -325,10 +351,12 @@ export const ApprovalsPanel: React.FC<Props> = ({
           {items.map((q) => {
             const prospect = q.prospectId ? prospectMap.get(q.prospectId) : undefined;
             const market = prospect ? marketLabel(prospect) : '';
+            const score = prospectScore(prospect);
             const why =
               prospect?.whySelected ||
               prospect?.scoreExplanation ||
-              (prospectScore(prospect) > 0 ? `Score ${prospectScore(prospect)}` : 'Score pending');
+              (score > 0 ? `Score ${score}` : 'Score pending');
+            const alreadySent = Boolean(q.sentAt) || q.status === 'sent' || q.status === 'delivered';
             return (
               <Box
                 key={q.queueId}
@@ -344,27 +372,47 @@ export const ApprovalsPanel: React.FC<Props> = ({
                     <Checkbox
                       checked={selectedIds.has(q.queueId)}
                       onChange={() => toggle(q.queueId)}
+                      inputProps={{ 'aria-label': `Select ${q.organizationName}` }}
                     />
                   )}
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                       <Typography sx={{ fontWeight: 800 }}>{q.organizationName}</Typography>
-                      <StatusChip label={q.status} />
+                      <StatusChip
+                        label={alreadySent ? 'SENT' : q.status}
+                        color={alreadySent ? 'success' : undefined}
+                      />
                       {prospect && <StatusChip label={formatProspectType(prospect)} />}
                       {market && market !== '—' && <StatusChip label={market} />}
                       {prospect && (
                         <StatusChip
-                          label={`Score ${prospectScore(prospect)}`}
-                          color={prospectScore(prospect) < 40 ? 'warning' : 'info'}
+                          label={`Score ${score}`}
+                          color={score < 40 ? 'warning' : 'info'}
                         />
                       )}
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
                       {q.recipient}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                      Why: {why}
-                    </Typography>
+                    {alreadySent && (
+                      <Typography
+                        variant="body2"
+                        sx={{ mt: 0.5, fontWeight: 700, color: 'success.main' }}
+                      >
+                        Sent {q.sentAt ? new Date(q.sentAt).toLocaleString() : '—'}
+                        {q.sesMessageId ? ` · SES ${q.sesMessageId}` : ''}
+                      </Typography>
+                    )}
+                    {!alreadySent && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                        sx={{ mt: 0.5 }}
+                      >
+                        Why: {why}
+                      </Typography>
+                    )}
                     <Typography sx={{ fontWeight: 700, mt: 1 }}>{q.subject}</Typography>
                     <Typography
                       variant="body2"
