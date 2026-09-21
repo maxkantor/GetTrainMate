@@ -11,6 +11,8 @@ public class PartnerProspect
     public string OrganizationType { get; set; } = "";
     /// <summary>organization | individual</summary>
     public string ProspectType { get; set; } = "organization";
+    /// <summary>INDIVIDUAL | ORGANIZATION — derived from ProspectType when empty.</summary>
+    public string? EntityType { get; set; }
     public string? Website { get; set; }
     public string Email { get; set; } = "";
     public string EmailSource { get; set; } = "public_listing"; // public_listing | owner_supplied | prior_engagement
@@ -76,6 +78,20 @@ public class PartnerProspect
     public int ActivatedUsers { get; set; }
     public int PaidCustomers { get; set; }
     public long AttributedRevenueCents { get; set; }
+    /// <summary>DISCOVERED|CONTACT_NEEDED|CONTACTABLE|QUALIFIED|DRAFT|AWAITING_APPROVAL|APPROVED|QUEUED|SENT|DELIVERED|OPENED|CLICKED|REPLIED|INTERESTED|CONVERTED|NOT_QUALIFIED|REJECTED|OPTED_OUT|BOUNCED</summary>
+    public string? AcquisitionStatus { get; set; }
+    /// <summary>NOT_CUSTOMER|REGISTERED|ACTIVATED|PAYING_CUSTOMER</summary>
+    public string? CustomerStatus { get; set; }
+    /// <summary>NONE|INVITE_CREATED|SHARING|ACTIVE_SOURCE</summary>
+    public string? DistributionStatus { get; set; }
+    /// <summary>NONE|INTERESTED|PARTNER — partnership only; not customer conversion.</summary>
+    public string? PartnershipStatus { get; set; }
+    public string? WhySelected { get; set; }
+    /// <summary>Org's own purchases (direct customer path).</summary>
+    public long DirectRevenueCents { get; set; }
+    public DateTime? SignupAt { get; set; }
+    public DateTime? ActivatedAt { get; set; }
+    public DateTime? FirstPurchaseAt { get; set; }
     /// <summary>Optional JSON array of timeline events.</summary>
     public string? TimelineJson { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

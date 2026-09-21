@@ -1,6 +1,16 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, Navigate, useParams } from 'react-router-dom';
-import { Box, Button, Container, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Container,
+  IconButton,
+  Snackbar,
+  TextField,
+  Typography,
+} from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { PageShell } from '@/components/layout/PageShell';
 import { trackEvent } from '@/utils/analytics';
 import { mergeAndPersistAcquisition } from '@/utils/acquisitionAttribution';
@@ -26,8 +36,9 @@ function marketLabel(country: string, market: string): string {
 }
 
 /**
- * Market partner invite landing. Atlanta TRAIN (EXP-002) remains the first campaign;
- * other markets use the same template without implying an existing partnership.
+ * Acquisition invite landing for organizations and communities.
+ * Does not imply an existing partnership — recipient can use GetTrainMate,
+ * share with members, or learn more.
  */
 export const AtlantaPartnerLandingPage: React.FC = () => {
   const { country: countryParam, market: marketParam, partnerCode, inviteCode } = useParams<{
@@ -63,11 +74,8 @@ export const AtlantaPartnerLandingPage: React.FC = () => {
     };
   }, [codeRaw, isAtlanta]);
   const city = marketLabel(country, market);
-  const displayName = known && partner.displayName ? partner.displayName : `${city} training community invite`;
-  const blurb =
-    known && partner.blurb
-      ? partner.blurb
-      : `This is an invitation to find local training partners in ${city}. It does not mean the organization has an existing partnership with GetTrainMate.`;
+  const displayName =
+    known && partner.displayName ? partner.displayName : `${city} fitness community`;
   const signupTo = marketSignupPath({
     country,
     market,
@@ -76,6 +84,11 @@ export const AtlantaPartnerLandingPage: React.FC = () => {
     experimentId: isAtlanta ? 'EXP-002' : undefined,
   });
   const path = `/partners/${country}/${market}/${partner.code}`;
+  const shareUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${path}`
+      : `https://gettrainmate.com${path}`;
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     mergeAndPersistAcquisition({
@@ -100,6 +113,24 @@ export const AtlantaPartnerLandingPage: React.FC = () => {
     });
   }, [partner.code, known, city, country, market, path]);
 
+  const copyShare = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      trackEvent('partner_share_copy', {
+        source_page: path,
+        partner_code: partner.code,
+      });
+      mergeAndPersistAcquisition({
+        src: 'partner',
+        partner: partner.code,
+        utm_content: 'share_members',
+      });
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <PageShell variant="content" showBackLink>
       <Container maxWidth="md" disableGutters sx={{ maxWidth: '100%', px: { xs: 2, sm: 0 } }}>
@@ -113,19 +144,46 @@ export const AtlantaPartnerLandingPage: React.FC = () => {
         <Typography
           variant="h3"
           component="p"
-          sx={{ mt: 1.5, fontSize: { xs: '1.15rem', md: '1.35rem' }, fontWeight: 600 }}
+          sx={{ mt: 1.5, fontSize: { xs: '1.25rem', md: '1.5rem' }, fontWeight: 700 }}
         >
-          {displayName}
+          Train together. See where it goes.
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mt: 2, maxWidth: 560, lineHeight: 1.7 }}>
-          {blurb}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2, maxWidth: 560, lineHeight: 1.7 }}>
-          Invite code <strong>{partner.code}</strong> · {city} · TRAIN (VIBE and DATE stay available after
-          signup). Create a free account, set your city, then start Discover — no match guarantees.
+          A social fitness platform built around real activities — for you and your community in{' '}
+          {city}.
+          {known && partner.displayName ? ` Invite for ${displayName}.` : null}
         </Typography>
 
-        <Box sx={{ mt: 3, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+        <Box sx={{ mt: 3, display: 'grid', gap: 1.5, maxWidth: 560 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            TRAIN
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: -1 }}>
+            Find workout and sports partners.
+          </Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            VIBE
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: -1 }}>
+            Meet people through shared activities.
+          </Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            DATE
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: -1 }}>
+            If there&apos;s chemistry, see where it goes.
+          </Typography>
+        </Box>
+
+        <Typography variant="h6" sx={{ mt: 4, fontWeight: 800 }}>
+          For you or your community
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2, maxWidth: 560 }}>
+          Create your own account, share an invite with members, or learn more. This page does not
+          mean {displayName} is already affiliated with GetTrainMate.
+        </Typography>
+
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
           <Button
             component={RouterLink}
             to={signupTo}
@@ -140,16 +198,51 @@ export const AtlantaPartnerLandingPage: React.FC = () => {
                 segment: 'TRAIN',
                 acquisition_source: 'partner',
                 partner_code: partner.code,
+                cta: 'create_account',
               })
             }
           >
-            Join with this invite
+            Create an account
           </Button>
-          <Button component={RouterLink} to={partnerHubPath(country, market)} variant="outlined" size="large">
-            {city} partner invites
+          <Button variant="outlined" size="large" onClick={() => void copyShare()}>
+            Share with members
+          </Button>
+          <Button component={RouterLink} to="/how-it-works" variant="text" size="large">
+            Learn more
           </Button>
         </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, maxWidth: 560, mb: 2 }}>
+          <TextField
+            size="small"
+            fullWidth
+            value={shareUrl}
+            InputProps={{ readOnly: true }}
+            label="Member invite link"
+          />
+          <IconButton aria-label="Copy invite link" onClick={() => void copyShare()}>
+            <ContentCopyIcon />
+          </IconButton>
+        </Box>
+
+        <Typography variant="caption" color="text.secondary" display="block">
+          Invite code <strong>{partner.code}</strong> · {city}
+        </Typography>
+        <Button
+          component={RouterLink}
+          to={partnerHubPath(country, market)}
+          variant="text"
+          size="small"
+          sx={{ mt: 1, px: 0 }}
+        >
+          More {city} invites
+        </Button>
       </Container>
+      <Snackbar open={copied} autoHideDuration={2500} onClose={() => setCopied(false)}>
+        <Alert severity="success" onClose={() => setCopied(false)}>
+          Invite link copied — share with members.
+        </Alert>
+      </Snackbar>
     </PageShell>
   );
 };

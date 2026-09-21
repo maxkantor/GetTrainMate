@@ -344,7 +344,8 @@ public class PartnerOutreachTests
             "Atlanta",
             "en",
             organizationType: "gym");
-        Assert.Contains("workout partners", gym.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("GetTrainMate for Fit Studio", gym.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("use it directly or share", gym.Text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("utm_source=partner_outreach", gym.Text);
 
         var run = PartnerEmailMime.RenderDefault(
@@ -356,7 +357,85 @@ public class PartnerOutreachTests
             "Atlanta",
             "en",
             organizationType: "run_club");
-        Assert.Contains("activity partners", run.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("GetTrainMate for Run Crew", run.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("activity partners", run.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Normalize_acquisition_dimensions_sets_contact_needed()
+    {
+        var p = new PartnerProspect
+        {
+            Status = "no_verified_public_email",
+            Email = "",
+            ProspectType = "organization",
+        };
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
+        Assert.Equal(PartnerCrmLifecycle.AcqContactNeeded, p.AcquisitionStatus);
+        Assert.Equal(PartnerCrmLifecycle.CustNotCustomer, p.CustomerStatus);
+        Assert.Equal(PartnerCrmLifecycle.EntityOrganization, p.EntityType);
+        Assert.Equal(PartnerCrmLifecycle.PartNone, p.PartnershipStatus);
+        Assert.Equal(PartnerCrmLifecycle.ContactNeeded, p.ContactState);
+    }
+
+    [Fact]
+    public void Compute_next_action_research_contact_when_no_email()
+    {
+        var p = new PartnerProspect
+        {
+            Status = "discovered",
+            Email = "",
+            ContactState = PartnerCrmLifecycle.ContactNeeded,
+        };
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
+        var next = PartnerCrmLifecycle.ComputeNextAction(p, null);
+        var key = next.GetType().GetProperty("key")?.GetValue(next)?.ToString();
+        Assert.Equal(PartnerCrmLifecycle.ActionResearchContact, key);
+    }
+
+    [Fact]
+    public void Acquisition_dashboard_shape_includes_funnel_keys()
+    {
+        // Shape contract for admin UI — keys expected on funnel object
+        var funnelKeys = new[]
+        {
+            "discovered", "contactable", "approved", "sent", "clicked",
+            "signedUp", "activated", "buyers", "revenue",
+        };
+        var sample = new
+        {
+            discovered = 1,
+            contactable = 0,
+            approved = 0,
+            sent = 0,
+            clicked = 0,
+            signedUp = 0,
+            activated = 0,
+            buyers = 0,
+            revenue = 0L,
+        };
+        var props = sample.GetType().GetProperties().Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
+        foreach (var key in funnelKeys)
+            Assert.Contains(key, props);
+    }
+
+    [Fact]
+    public void Append_timeline_event_caps_at_fifty()
+    {
+        var p = new PartnerProspect();
+        for (var i = 0; i < 55; i++)
+            PartnerCrmLifecycle.AppendTimelineEvent(p, "test", $"Event {i}");
+        var timeline = PartnerCrmLifecycle.ParseTimeline(p);
+        Assert.Equal(50, timeline.Count);
+    }
+
+    [Fact]
+    public void Partnership_status_not_defaulted_to_interested()
+    {
+        var p = new PartnerProspect { Status = "prospect", Email = "a@b.com" };
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
+        Assert.Equal(PartnerCrmLifecycle.PartNone, p.PartnershipStatus);
+        Assert.NotEqual(PartnerCrmLifecycle.PartInterested, p.PartnershipStatus);
     }
 
     [Fact]

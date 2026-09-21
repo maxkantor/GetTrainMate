@@ -27,6 +27,8 @@ public interface IPartnerOutreachService
     Task<object> DedupeAsync(bool dryRun = false);
 
     Task<object> AcquisitionDashboardAsync();
+    Task<object> ListAcquisitionCustomersAsync();
+    Task<object> GetProspectDetailAsync(string prospectId);
     Task<object> BulkApproveAsync(IEnumerable<string> queueIds, string actor, bool confirm);
     Task<object> RejectQueueAsync(string queueId, string actor, string? reason);
     Task<PartnerQueueItem> UpdateQueueDraftAsync(string queueId, string subject, string bodyText, string? bodyHtml, string actor);
@@ -44,8 +46,10 @@ public interface IPartnerOutreachService
     /// Increment attribution counters on a prospect matched by PartnerCode.
     /// eventType: signup | activated | paid
     /// Active user = Discover started (discover_started) after partner referral signup.
+    /// isDirectCustomer: when true, paid revenue goes to DirectRevenueCents (org as customer);
+    /// otherwise AttributedRevenueCents (referral path). Default false.
     /// </summary>
-    Task<object> RecordPartnerAttributionAsync(string partnerOrRefCode, string eventType, long? revenueCents = null);
+    Task<object> RecordPartnerAttributionAsync(string partnerOrRefCode, string eventType, long? revenueCents = null, bool isDirectCustomer = false);
 }
 
 public sealed class PartnerOutreachService : IPartnerOutreachService
@@ -142,7 +146,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (duplicate != null)
         {
             _log.LogDebug("Prospect dedupe: returning existing {Id} for {Org}", duplicate.ProspectId, prospect.OrganizationName);
-            PartnerCrmLifecycle.ApplyLegacyNormalization(duplicate);
+            PartnerCrmLifecycle.NormalizeAcquisitionDimensions(duplicate);
             return duplicate;
         }
 
@@ -181,7 +185,9 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         {
             prospect.ContactabilityScore = Math.Max(prospect.ContactQualityScore, 90);
         }
-        PartnerCrmLifecycle.ApplyLegacyNormalization(prospect);
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(prospect);
+        PartnerCrmLifecycle.AppendTimelineEvent(prospect, "discovered", "Prospect discovered", prospect.CreatedAt,
+            new { prospect.OrganizationName, prospect.EntityType });
         await _db.SaveAsync(prospect);
         return prospect;
     }
@@ -212,6 +218,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (!string.IsNullOrWhiteSpace(patch.InstagramUrl)) existing.InstagramUrl = patch.InstagramUrl;
         if (!string.IsNullOrWhiteSpace(patch.LinkedInUrl)) existing.LinkedInUrl = patch.LinkedInUrl;
         PartnerCrmLifecycle.ApplyLegacyNormalization(existing);
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(existing);
         await _db.SaveAsync(existing);
         return existing;
     }
@@ -266,6 +273,12 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                 p.Status = existingQueue.Status == "approved" ? "approved" : "draft";
                 p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
                 p.EmailState = existingQueue.Status == "approved" ? "APPROVED" : "AWAITING_APPROVAL";
+                p.AcquisitionStatus = existingQueue.Status == "approved"
+                    ? PartnerCrmLifecycle.AcqApproved
+                    : PartnerCrmLifecycle.AcqAwaitingApproval;
+                if (!string.IsNullOrWhiteSpace(p.PartnerCode))
+                    p.DistributionStatus ??= PartnerCrmLifecycle.DistInviteCreated;
+                PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
                 await _db.SaveAsync(p);
             }
             return existingQueue;
@@ -296,6 +309,14 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
         p.ContactState = PartnerCrmLifecycle.ContactFound;
         p.EmailState = "AWAITING_APPROVAL";
+        p.AcquisitionStatus = PartnerCrmLifecycle.AcqAwaitingApproval;
+        if (!string.IsNullOrWhiteSpace(p.PartnerCode) || !string.IsNullOrWhiteSpace(p.LandingUrl))
+            p.DistributionStatus = string.IsNullOrWhiteSpace(p.DistributionStatus) || p.DistributionStatus == PartnerCrmLifecycle.DistNone
+                ? PartnerCrmLifecycle.DistInviteCreated
+                : p.DistributionStatus;
+        PartnerCrmLifecycle.AppendTimelineEvent(p, "draft_created", "Outreach draft created", DateTime.UtcNow,
+            new { item.QueueId, item.Subject });
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
         await _db.SaveAsync(p);
         return item;
     }
@@ -335,6 +356,10 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             p.Status = "approved";
             p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
             p.EmailState = "APPROVED";
+            p.AcquisitionStatus = PartnerCrmLifecycle.AcqApproved;
+            PartnerCrmLifecycle.AppendTimelineEvent(p, "approved", "Outreach approved", DateTime.UtcNow,
+                new { approval.ApprovalId, queueId });
+            PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
             await _db.SaveAsync(p);
         }
         await TryAuditAsync(approver, "partner_outreach.approve", "partner_queue", queueId, null, new { approval.ApprovalId });
@@ -676,7 +701,13 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             p.Status = "sent";
             p.CrmLifecycle = item.FollowUpNumber > 0 ? PartnerCrmLifecycle.FollowUp : PartnerCrmLifecycle.Contacted;
             p.EmailState = "SENT";
+            p.AcquisitionStatus = PartnerCrmLifecycle.AcqSent;
+            if (p.DistributionStatus is null or "" or PartnerCrmLifecycle.DistNone or PartnerCrmLifecycle.DistInviteCreated)
+                p.DistributionStatus = PartnerCrmLifecycle.DistSharing;
             p.LastContactedAt = DateTime.UtcNow;
+            PartnerCrmLifecycle.AppendTimelineEvent(p, "sent", "Outreach sent", DateTime.UtcNow,
+                new { item.QueueId, item.FollowUpNumber });
+            PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
             await _db.SaveAsync(p);
         }
 
@@ -823,6 +854,10 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             {
                 p.Status = "replied";
                 p.CrmLifecycle = PartnerCrmLifecycle.Replied;
+                p.AcquisitionStatus = PartnerCrmLifecycle.AcqReplied;
+                PartnerCrmLifecycle.AppendTimelineEvent(p, "replied", "Inbound reply received", DateTime.UtcNow,
+                    new { match.QueueId, subject = parsed.Subject });
+                PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
                 await _db.SaveAsync(p);
             }
         }
@@ -881,20 +916,37 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         {
             case "delivery":
                 item.Status = "delivered";
-                if (p != null) { p.Status = "delivered"; p.EmailState = "DELIVERED"; p.CrmLifecycle ??= PartnerCrmLifecycle.Contacted; }
+                if (p != null)
+                {
+                    p.Status = "delivered";
+                    p.EmailState = "DELIVERED";
+                    p.CrmLifecycle ??= PartnerCrmLifecycle.Contacted;
+                    p.AcquisitionStatus = PartnerCrmLifecycle.AcqDelivered;
+                }
                 break;
             case "bounce":
                 item.Status = "bounced";
                 settings.BounceCount++;
                 await _db.SaveAsync(new PartnerSuppression { Email = item.Recipient.ToLowerInvariant(), Reason = "hard_bounce" });
-                if (p != null) { p.Status = "bounced"; p.EmailState = "BOUNCED"; }
+                if (p != null)
+                {
+                    p.Status = "bounced";
+                    p.EmailState = "BOUNCED";
+                    p.AcquisitionStatus = PartnerCrmLifecycle.AcqBounced;
+                }
                 break;
             case "complaint":
                 item.Status = "complained";
                 settings.ComplaintCount++;
                 settings.ComplaintPause = true;
                 await _db.SaveAsync(new PartnerSuppression { Email = item.Recipient.ToLowerInvariant(), Reason = "complaint" });
-                if (p != null) { p.Status = "complained"; p.EmailState = "COMPLAINED"; p.CrmLifecycle = PartnerCrmLifecycle.Closed; }
+                if (p != null)
+                {
+                    p.Status = "complained";
+                    p.EmailState = "COMPLAINED";
+                    p.CrmLifecycle = PartnerCrmLifecycle.Closed;
+                    p.AcquisitionStatus = PartnerCrmLifecycle.AcqRejected;
+                }
                 break;
             case "reject":
             case "rendering failure":
@@ -981,14 +1033,57 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         var queue = await ListQueueAsync(null);
         var settings = await LoadSettingsAsync();
 
-        var customersAcquired = prospects.Sum(p => p.PaidCustomers);
-        var activeUsersAcquired = prospects.Sum(p => p.ActivatedUsers);
-        var revenueAttributedCents = prospects.Sum(p => p.AttributedRevenueCents);
-        var referralSignups = prospects.Sum(p => p.ReferralSignups);
+        static bool IsRegisteredPlus(PartnerProspect p) =>
+            PartnerCrmLifecycle.IsCustomerStatus(p.CustomerStatus)
+            || p.ReferralSignups > 0 || p.SignupAt != null;
+
+        var referralSignupSum = prospects.Sum(p => p.ReferralSignups);
+        var registeredStatusOnly = prospects.Count(p =>
+            PartnerCrmLifecycle.IsCustomerStatus(p.CustomerStatus) && p.ReferralSignups <= 0);
+        var newSignups = referralSignupSum + registeredStatusOnly;
+        var activatedUsers = prospects.Sum(p => p.ActivatedUsers);
+        var payingCustomers = Math.Max(
+            prospects.Sum(p => p.PaidCustomers),
+            prospects.Count(p => p.CustomerStatus == PartnerCrmLifecycle.CustPaying || p.FirstPurchaseAt != null));
+        var creditPurchases = Math.Max(prospects.Sum(p => p.PaidCustomers), payingCustomers);
+        var revenueCents = prospects.Sum(p => p.DirectRevenueCents + p.AttributedRevenueCents);
 
         static double Rate(int num, int den) => den <= 0 ? 0d : (double)num / den;
 
         var discovered = prospects.Count;
+        var contactable = prospects.Count(p =>
+            p.AcquisitionStatus is PartnerCrmLifecycle.AcqContactable or PartnerCrmLifecycle.AcqQualified
+                or PartnerCrmLifecycle.AcqDraft or PartnerCrmLifecycle.AcqAwaitingApproval
+                or PartnerCrmLifecycle.AcqApproved or PartnerCrmLifecycle.AcqQueued
+                or PartnerCrmLifecycle.AcqSent or PartnerCrmLifecycle.AcqDelivered
+                or PartnerCrmLifecycle.AcqOpened or PartnerCrmLifecycle.AcqClicked
+                or PartnerCrmLifecycle.AcqReplied or PartnerCrmLifecycle.AcqInterested
+                or PartnerCrmLifecycle.AcqConverted
+            || (!string.IsNullOrWhiteSpace(p.Email) && p.Email.Contains('@')));
+        var approved = queue.Count(q => q.Status == "approved");
+        var approvedProspects = prospects.Count(p =>
+            p.AcquisitionStatus == PartnerCrmLifecycle.AcqApproved
+            || p.Status == "approved"
+            || string.Equals(p.EmailState, "APPROVED", StringComparison.OrdinalIgnoreCase));
+        var sent = queue.Count(q => q.Status is "sent" or "delivered");
+        var sentProspects = prospects.Count(p =>
+            p.AcquisitionStatus is PartnerCrmLifecycle.AcqSent or PartnerCrmLifecycle.AcqDelivered
+                or PartnerCrmLifecycle.AcqOpened or PartnerCrmLifecycle.AcqClicked
+                or PartnerCrmLifecycle.AcqReplied or PartnerCrmLifecycle.AcqInterested
+                or PartnerCrmLifecycle.AcqConverted
+            || p.Status is "sent" or "delivered" or "replied");
+        var clicked = prospects.Count(p =>
+            p.AcquisitionStatus is PartnerCrmLifecycle.AcqClicked or PartnerCrmLifecycle.AcqConverted
+            || p.ReferralSignups > 0 || IsRegisteredPlus(p));
+        var signedUp = prospects.Count(IsRegisteredPlus);
+        var activated = prospects.Count(p =>
+            p.CustomerStatus is PartnerCrmLifecycle.CustActivated or PartnerCrmLifecycle.CustPaying
+            || p.ActivatedUsers > 0 || p.ActivatedAt != null);
+        var buyers = prospects.Count(p =>
+            p.CustomerStatus == PartnerCrmLifecycle.CustPaying
+            || p.PaidCustomers > 0 || p.FirstPurchaseAt != null || p.DirectRevenueCents > 0);
+
+        // Legacy funnel fields retained for older admin UI
         var qualified = prospects.Count(p =>
             p.CrmLifecycle is PartnerCrmLifecycle.Qualified or PartnerCrmLifecycle.Contacted
                 or PartnerCrmLifecycle.FollowUp or PartnerCrmLifecycle.Replied
@@ -1000,16 +1095,23 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             || p.Status is "sent" or "delivered" or "replied");
         var replied = prospects.Count(p =>
             p.CrmLifecycle is PartnerCrmLifecycle.Replied or PartnerCrmLifecycle.Interested or PartnerCrmLifecycle.Partner
-            || p.Status == "replied");
-        var interested = prospects.Count(p => p.CrmLifecycle == PartnerCrmLifecycle.Interested);
-        var partners = prospects.Count(p => p.CrmLifecycle == PartnerCrmLifecycle.Partner);
+            || p.Status == "replied"
+            || p.AcquisitionStatus == PartnerCrmLifecycle.AcqReplied);
+        var interested = prospects.Count(p =>
+            p.CrmLifecycle == PartnerCrmLifecycle.Interested
+            || p.PartnershipStatus == PartnerCrmLifecycle.PartInterested
+            || p.AcquisitionStatus == PartnerCrmLifecycle.AcqInterested);
+        var partners = prospects.Count(p =>
+            p.CrmLifecycle == PartnerCrmLifecycle.Partner
+            || p.PartnershipStatus == PartnerCrmLifecycle.PartPartner);
         var drafts = queue.Count(q => q.Status == "draft" && q.FollowUpNumber == 0);
         var awaitingApproval = queue.Count(q => q.Status == "draft");
-        var approved = queue.Count(q => q.Status == "approved");
         var scheduled = queue.Count(q => q.Status == "scheduled");
-        var sent = queue.Count(q => q.Status is "sent" or "delivered");
         var contactNeeded = prospects.Count(p =>
-            p.ContactState == PartnerCrmLifecycle.ContactNeeded || p.Status == "no_verified_public_email");
+            p.AcquisitionStatus == PartnerCrmLifecycle.AcqContactNeeded
+            || p.ContactState == PartnerCrmLifecycle.ContactNeeded
+            || p.Status == "no_verified_public_email"
+            || string.IsNullOrWhiteSpace(p.Email) || !p.Email.Contains('@'));
 
         var todayEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PartnerOutreachRules.EasternTimeZone()).Date;
         var dueFollowUps = queue.Count(q =>
@@ -1020,21 +1122,34 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         {
             northStars = new
             {
-                customersAcquired,
-                activeUsersAcquired,
-                revenueAttributedCents,
-                referralSignups,
+                newSignups,
+                activatedUsers,
+                payingCustomers,
+                creditPurchases,
+                revenueCents,
+                // backward-compatible aliases
+                customersAcquired = payingCustomers,
+                activeUsersAcquired = activatedUsers,
+                revenueAttributedCents = revenueCents,
+                referralSignups = referralSignupSum,
             },
             funnel = new
             {
                 discovered,
+                contactable,
+                approved = Math.Max(approved, approvedProspects),
+                sent = Math.Max(sent, sentProspects),
+                clicked,
+                signedUp,
+                activated,
+                buyers,
+                revenue = revenueCents,
+                // legacy keys
                 qualified,
                 contactNeeded,
                 drafts,
                 awaitingApproval,
-                approved,
                 scheduled,
-                sent,
                 contacted,
                 replied,
                 interested,
@@ -1042,21 +1157,28 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             },
             conversionRates = new
             {
+                discoveredToContactable = Rate(contactable, discovered),
+                contactableToApproved = Rate(Math.Max(approved, approvedProspects), contactable),
+                approvedToSent = Rate(Math.Max(sent, sentProspects), Math.Max(approved, approvedProspects) + Math.Max(sent, sentProspects)),
+                sentToClicked = Rate(clicked, Math.Max(sent, sentProspects)),
+                clickedToSignedUp = Rate(signedUp, Math.Max(clicked, 1)),
+                signedUpToActivated = Rate(activated, signedUp),
+                activatedToBuyers = Rate(buyers, activated),
+                // legacy
                 discoveredToQualified = Rate(qualified, discovered),
                 qualifiedToContacted = Rate(contacted, qualified),
                 contactedToReplied = Rate(replied, contacted),
                 repliedToInterested = Rate(interested, replied),
                 interestedToPartner = Rate(partners, interested),
                 draftToApproved = Rate(approved, drafts + approved),
-                approvedToSent = Rate(sent, approved + sent),
             },
             todaysActions = new object[]
             {
+                new { key = "need_contact_research", label = "Research contacts", count = contactNeeded, filter = "acquisitionStatus=CONTACT_NEEDED" },
                 new { key = "awaiting_approval", label = "Approve drafts", count = awaitingApproval, filter = "status=draft" },
                 new { key = "approved_ready", label = "Approved ready to send", count = approved, filter = "status=approved" },
-                new { key = "contact_needed", label = "Find contacts", count = contactNeeded, filter = "contactState=CONTACT_NEEDED" },
-                new { key = "due_follow_ups", label = "Due follow-ups", count = dueFollowUps, filter = "status=scheduled" },
-                new { key = "replies", label = "Replies to handle", count = replied, filter = "crmLifecycle=REPLIED" },
+                new { key = "replies", label = "Replies to handle", count = replied, filter = "acquisitionStatus=REPLIED" },
+                new { key = "follow_ups", label = "Due follow-ups", count = dueFollowUps, filter = "status=scheduled" },
             },
             settings = new
             {
@@ -1065,6 +1187,70 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                 settings.ComplaintPause,
                 sendEnabled = SendEnabled,
             },
+        };
+    }
+
+    public async Task<object> ListAcquisitionCustomersAsync()
+    {
+        var prospects = await ListProspectsAsync(null);
+        var customers = prospects
+            .Where(p =>
+                PartnerCrmLifecycle.IsCustomerStatus(p.CustomerStatus)
+                || p.ReferralSignups > 0
+                || p.PaidCustomers > 0
+                || p.DirectRevenueCents > 0)
+            .OrderByDescending(p => p.FirstPurchaseAt ?? p.ActivatedAt ?? p.SignupAt ?? p.CreatedAt)
+            .Select(p => new
+            {
+                p.ProspectId,
+                p.OrganizationName,
+                entityType = p.EntityType ?? PartnerCrmLifecycle.EntityOrganization,
+                prospectType = p.ProspectType,
+                source = p.DiscoverySource ?? p.EmailSource,
+                campaignId = p.CampaignId,
+                partnerCode = p.PartnerCode,
+                customerStatus = p.CustomerStatus,
+                acquisitionStatus = p.AcquisitionStatus,
+                distributionStatus = p.DistributionStatus,
+                partnershipStatus = p.PartnershipStatus,
+                signupAt = p.SignupAt,
+                activatedAt = p.ActivatedAt,
+                firstPurchaseAt = p.FirstPurchaseAt,
+                referralSignups = p.ReferralSignups,
+                activatedUsers = p.ActivatedUsers,
+                paidCustomers = p.PaidCustomers,
+                directRevenueCents = p.DirectRevenueCents,
+                attributedRevenueCents = p.AttributedRevenueCents,
+                revenueCents = p.DirectRevenueCents + p.AttributedRevenueCents,
+                country = p.Country,
+                metro = p.Metro,
+                city = p.City,
+            })
+            .ToList();
+        return new { count = customers.Count, customers };
+    }
+
+    public async Task<object> GetProspectDetailAsync(string prospectId)
+    {
+        var p = await _db.LoadAsync<PartnerProspect>(prospectId) ?? throw new KeyNotFoundException("Prospect not found");
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
+        var queue = (await ListQueueAsync(null))
+            .Where(q => string.Equals(q.ProspectId, prospectId, StringComparison.Ordinal))
+            .OrderByDescending(q => q.CreatedAt)
+            .ToList();
+        var draftOrApproved = queue
+            .Where(q => q.FollowUpNumber == 0 && q.Status is "draft" or "approved" or "queued" or "sent" or "delivered" or "replied")
+            .OrderByDescending(q => PartnerOutreachDedupe.QueueRank(q.Status))
+            .ThenByDescending(q => q.CreatedAt)
+            .FirstOrDefault();
+        var nextAction = PartnerCrmLifecycle.ComputeNextAction(p, draftOrApproved);
+        var timeline = PartnerCrmLifecycle.ParseTimeline(p);
+        return new
+        {
+            prospect = p,
+            nextAction,
+            timeline,
+            queueItems = queue,
         };
     }
 
@@ -1124,11 +1310,16 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     public async Task<object> ConvertToPartnerAsync(string prospectId, string actor)
     {
         var p = await _db.LoadAsync<PartnerProspect>(prospectId) ?? throw new KeyNotFoundException("Prospect not found");
+        // Partnership only — does not convert customer status.
         p.CrmLifecycle = PartnerCrmLifecycle.Partner;
         p.Status = "partner";
+        p.PartnershipStatus = PartnerCrmLifecycle.PartPartner;
+        PartnerCrmLifecycle.AppendTimelineEvent(p, "partner", "Marked as partner (partnership only)", DateTime.UtcNow);
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
         await _db.SaveAsync(p);
-        await TryAuditAsync(actor, "partner_outreach.convert_partner", "partner_prospect", prospectId, null, new { p.CrmLifecycle });
-        return new { p.ProspectId, p.CrmLifecycle, p.Status };
+        await TryAuditAsync(actor, "partner_outreach.convert_partner", "partner_prospect", prospectId, null,
+            new { p.CrmLifecycle, p.PartnershipStatus });
+        return new { p.ProspectId, p.CrmLifecycle, p.Status, p.PartnershipStatus, note = "partnership_only" };
     }
 
     public async Task<object> MarkInterestedAsync(string prospectId, string actor)
@@ -1136,9 +1327,14 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         var p = await _db.LoadAsync<PartnerProspect>(prospectId) ?? throw new KeyNotFoundException("Prospect not found");
         p.CrmLifecycle = PartnerCrmLifecycle.Interested;
         p.Status = "interested";
+        p.PartnershipStatus = PartnerCrmLifecycle.PartInterested;
+        p.AcquisitionStatus = PartnerCrmLifecycle.AcqInterested;
+        PartnerCrmLifecycle.AppendTimelineEvent(p, "interested", "Marked interested (partnership)", DateTime.UtcNow);
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
         await _db.SaveAsync(p);
-        await TryAuditAsync(actor, "partner_outreach.mark_interested", "partner_prospect", prospectId, null, new { p.CrmLifecycle });
-        return new { p.ProspectId, p.CrmLifecycle, p.Status };
+        await TryAuditAsync(actor, "partner_outreach.mark_interested", "partner_prospect", prospectId, null,
+            new { p.CrmLifecycle, p.PartnershipStatus, p.AcquisitionStatus });
+        return new { p.ProspectId, p.CrmLifecycle, p.Status, p.PartnershipStatus, p.AcquisitionStatus };
     }
 
     public async Task<List<PartnerCampaign>> ListCampaignsAsync()
@@ -1359,6 +1555,10 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             p.FitScore = scored.AcquisitionScore;
             p.ProspectKind ??= PartnerCrmLifecycle.NormalizeProspectKind(p.OrganizationType);
             p.LastEvaluatedAt = DateTime.UtcNow;
+            p.AcquisitionStatus = PartnerCrmLifecycle.AcqContactable;
+            PartnerCrmLifecycle.AppendTimelineEvent(p, "contact_found", "Public contact verified", DateTime.UtcNow,
+                new { p.Email, p.ContactSourceUrl });
+            PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
             await _db.SaveAsync(p);
 
             object? draft = null;
@@ -1471,7 +1671,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         return await ResearchContactsBulkAsync(candidates, actor, max);
     }
 
-    public async Task<object> RecordPartnerAttributionAsync(string partnerOrRefCode, string eventType, long? revenueCents = null)
+    public async Task<object> RecordPartnerAttributionAsync(string partnerOrRefCode, string eventType, long? revenueCents = null, bool isDirectCustomer = false)
     {
         var code = (partnerOrRefCode ?? "").Trim();
         if (string.IsNullOrWhiteSpace(code))
@@ -1491,16 +1691,41 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         {
             case "signup":
                 p.ReferralSignups++;
+                p.CustomerStatus = PartnerCrmLifecycle.CustRegistered;
+                p.SignupAt ??= DateTime.UtcNow;
+                p.AcquisitionStatus = PartnerCrmLifecycle.AcqConverted;
+                p.DistributionStatus = PartnerCrmLifecycle.DistActiveSource;
+                PartnerCrmLifecycle.AppendTimelineEvent(p, "signup", "Customer registered", DateTime.UtcNow,
+                    new { isDirectCustomer });
                 break;
             case "activated":
                 p.ActivatedUsers++;
+                p.CustomerStatus = PartnerCrmLifecycle.CustActivated;
+                p.ActivatedAt ??= DateTime.UtcNow;
+                p.AcquisitionStatus = PartnerCrmLifecycle.AcqConverted;
+                p.DistributionStatus = PartnerCrmLifecycle.DistActiveSource;
+                PartnerCrmLifecycle.AppendTimelineEvent(p, "activated", "Customer activated", DateTime.UtcNow,
+                    new { isDirectCustomer });
                 break;
             case "paid":
                 p.PaidCustomers++;
-                if (revenueCents is > 0) p.AttributedRevenueCents += revenueCents.Value;
+                p.CustomerStatus = PartnerCrmLifecycle.CustPaying;
+                p.FirstPurchaseAt ??= DateTime.UtcNow;
+                p.AcquisitionStatus = PartnerCrmLifecycle.AcqConverted;
+                p.DistributionStatus = PartnerCrmLifecycle.DistActiveSource;
+                if (revenueCents is > 0)
+                {
+                    if (isDirectCustomer)
+                        p.DirectRevenueCents += revenueCents.Value;
+                    else
+                        p.AttributedRevenueCents += revenueCents.Value;
+                }
+                PartnerCrmLifecycle.AppendTimelineEvent(p, "paid", "Paying customer", DateTime.UtcNow,
+                    new { isDirectCustomer, revenueCents });
                 break;
         }
         p.LastEvaluatedAt = DateTime.UtcNow;
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
         await _db.SaveAsync(p);
         return new
         {
@@ -1508,10 +1733,16 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             prospectId = p.ProspectId,
             partnerCode = p.PartnerCode,
             evt,
+            isDirectCustomer,
             p.ReferralSignups,
             p.ActivatedUsers,
             p.PaidCustomers,
             p.AttributedRevenueCents,
+            p.DirectRevenueCents,
+            p.CustomerStatus,
+            p.SignupAt,
+            p.ActivatedAt,
+            p.FirstPurchaseAt,
         };
     }
 

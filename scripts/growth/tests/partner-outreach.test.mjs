@@ -484,7 +484,7 @@ describe('growth report experiments and technical details', () => {
     assert.match(text, /facebook\.com\/gettrainmate/);
     assert.match(html, /<h2[^>]*>Decision<\/h2>/);
     assert.match(html, /New customers acquired by the current run|Customers this run/);
-    assert.match(html, /GetTrainMate — Growth report/);
+    assert.match(html, /GetTrainMate — Customer Acquisition Report/);
     assert.match(html, /America\/New_York/);
     assert.doesNotMatch(text, /APPROVED IG-2026-08-17/);
     assert.doesNotMatch(html, /Looking for a consistent training partner in Atlanta/);

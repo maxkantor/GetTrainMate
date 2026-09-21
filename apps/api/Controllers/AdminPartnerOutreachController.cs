@@ -57,12 +57,20 @@ public class AdminPartnerOutreachController : ControllerBase
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    /// <summary>Marks partnership only — does not convert customer status. Frontend should hide until contextual.</summary>
     [HttpPost("prospects/{id}/convert-partner")]
     public async Task<IActionResult> ConvertPartner(string id)
     {
         try { return Ok(await _svc.ConvertToPartnerAsync(id, Actor())); }
         catch (KeyNotFoundException) { return NotFound(); }
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpGet("prospects/{id}/detail")]
+    public async Task<IActionResult> ProspectDetail(string id)
+    {
+        try { return Ok(await _svc.GetProspectDetailAsync(id)); }
+        catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpPost("prospects/{id}/research-contact")]
@@ -184,6 +192,10 @@ public class AdminPartnerOutreachController : ControllerBase
     [HttpGet("acquisition/dashboard")]
     public async Task<IActionResult> AcquisitionDashboard() =>
         Ok(await _svc.AcquisitionDashboardAsync());
+
+    [HttpGet("acquisition/customers")]
+    public async Task<IActionResult> AcquisitionCustomers() =>
+        Ok(await _svc.ListAcquisitionCustomersAsync());
 
     [HttpGet("settings")]
     public async Task<IActionResult> GetSettings() => Ok(await _svc.GetOutreachSettingsAsync());

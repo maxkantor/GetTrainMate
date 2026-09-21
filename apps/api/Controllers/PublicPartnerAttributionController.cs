@@ -23,6 +23,8 @@ public class PublicPartnerAttributionController : ControllerBase
         /// <summary>signup | activated | paid</summary>
         public string Event { get; set; } = "signup";
         public long? RevenueCents { get; set; }
+        /// <summary>When true, paid revenue is DirectRevenueCents (org as customer); default false = referral attribution.</summary>
+        public bool IsDirectCustomer { get; set; }
     }
 
     [HttpPost]
@@ -33,7 +35,8 @@ public class PublicPartnerAttributionController : ControllerBase
             return BadRequest(new { error = "invalid_code" });
         try
         {
-            return Ok(await _svc.RecordPartnerAttributionAsync(code, body.Event ?? "signup", body.RevenueCents));
+            return Ok(await _svc.RecordPartnerAttributionAsync(
+                code, body.Event ?? "signup", body.RevenueCents, body.IsDirectCustomer));
         }
         catch (Exception ex)
         {

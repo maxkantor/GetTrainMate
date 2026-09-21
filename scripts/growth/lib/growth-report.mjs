@@ -598,13 +598,22 @@ export function composeGrowthEmailBody({
   });
 
   const t = [];
-  t.push('GETTRAINMATE - DAILY GROWTH REPORT');
-  t.push('==================================');
+  t.push('GETTRAINMATE — CUSTOMER ACQUISITION REPORT');
+  t.push('=========================================');
   t.push('Product: multilingual international TRAIN + VIBE + DATE. Atlanta TRAIN is one experiment, not the product.');
+  t.push('North star: new accounts → activated users → paying customers → credit revenue.');
   t.push(`Local time (America/New_York): ${et.dateStr} ${et.timeStr}`);
   t.push(`Report generated: ${et.monthDayYear}`);
   t.push(`GA4 data through: ${formatMonthDayYearFromYmd(ga4Through)}`);
   t.push(`Site: ${SITE.origin}`);
+  t.push('');
+  t.push('CUSTOMERS (attributed where available)');
+  t.push('--------------------------------------');
+  t.push(`Signups (partner/referral attributed): ${exp002.partnerSignups}`);
+  t.push(`Activated (Discover after referral): ${exp002.completedProfiles}`);
+  t.push(`Paying customers attributed: ${exp002.customersAcquired}`);
+  t.push(`Revenue attributed (cents): ${exp002.revenueAttributedCents}`);
+  t.push(`Owner action: ${exp002.ownerAction}`);
   t.push('');
 
   const published = Boolean(social.fbYes || social.igYes);
@@ -988,7 +997,7 @@ export function composeGrowthEmailBody({
     <tr><td align="center" style="padding:24px 12px;">
       <table role="presentation" width="840" cellpadding="0" cellspacing="0" style="width:840px;max-width:840px;background:#ffffff;border:1px solid #cbd5e1;border-radius:12px;">
         <tr><td style="padding:22px 28px;background:#0f172a;color:#fff;border-radius:12px 12px 0 0;">
-          <div style="font-size:22px;font-weight:700;line-height:1.3;">GetTrainMate — Growth report</div>
+          <div style="font-size:22px;font-weight:700;line-height:1.3;">GetTrainMate — Customer Acquisition Report</div>
           <div style="font-size:14px;opacity:0.9;margin-top:6px;">${escapeHtml(et.dateStr)} ${escapeHtml(et.timeStr)}</div>
           <div style="font-size:14px;opacity:0.9;margin-top:4px;">Report generated: ${escapeHtml(et.monthDayYear)} · GA4 data through: ${escapeHtml(formatMonthDayYearFromYmd(ga4Through))}</div>
           <div style="margin-top:14px;line-height:1.8;">${links}</div>
