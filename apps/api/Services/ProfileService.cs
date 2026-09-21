@@ -84,7 +84,10 @@ public class ProfileService : IProfileService
             }
 
             _logger.LogDebug("Profile found for user {UserId}, deserializing", userId);
-            return DocumentToProfile(document);
+            var profile = DocumentToProfile(document);
+            // Live recompute so photo-less profiles are not treated as complete after the photo gate shipped.
+            profile.IsComplete = IsProfileComplete(profile);
+            return profile;
         }
         catch (Amazon.DynamoDBv2.AmazonDynamoDBException dbEx)
         {
@@ -776,6 +779,7 @@ public class ProfileService : IProfileService
         // 3. At least one training type (SportTags)
         // 4. Skill level
         // 5. At least one availability slot
+        // 6. At least one real profile photo
         
         if (string.IsNullOrWhiteSpace(profile.Name))
             return false;
@@ -798,8 +802,30 @@ public class ProfileService : IProfileService
             if (!slot.Days.Any() || string.IsNullOrWhiteSpace(slot.TimeStart) || string.IsNullOrWhiteSpace(slot.TimeEnd))
                 return false;
         }
+
+        if (!HasRealProfilePhoto(profile))
+            return false;
         
         return true;
+    }
+
+    /// <summary>True when the profile has an uploaded S3 key or a non-placeholder photo URL.</summary>
+    internal static bool HasRealProfilePhoto(UserProfile profile)
+    {
+        if (profile.PhotoKeys != null && profile.PhotoKeys.Any(static k => !string.IsNullOrWhiteSpace(k)))
+            return true;
+        if (!string.IsNullOrWhiteSpace(profile.PhotoKey))
+            return true;
+        if (profile.PhotoUrls == null || profile.PhotoUrls.Count == 0)
+            return false;
+        foreach (var u in profile.PhotoUrls)
+        {
+            if (string.IsNullOrWhiteSpace(u)) continue;
+            if (u.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) continue;
+            if (u.Contains("randomuser.me", StringComparison.OrdinalIgnoreCase)) continue;
+            return true;
+        }
+        return false;
     }
 
     private static string ShortUserIdForLog(string? userId)

@@ -313,8 +313,25 @@ function isProfileCompleteCheck(p) {
     p.bio?.trim() && p.bio.length >= 20 && p.bio.length <= 500 &&
     Array.isArray(p.sports) && p.sports.length > 0 &&
     (p.level === undefined || p.level === null ? false : String(p.level).trim()) &&
-    Array.isArray(p.schedule) && p.schedule.length > 0
+    Array.isArray(p.schedule) && p.schedule.length > 0 &&
+    // At least one real profile photo (S3 key or resolved avatar URL)
+    String(p.avatarUrl || '').trim()
   );
+}
+
+/** Raw Dynamo profile row has an uploaded photo (key or non-placeholder URL). */
+function docHasRealPhoto(doc) {
+  if (!doc) return false;
+  if (primaryS3Key(doc.photoKey, doc.photoKeys)) return true;
+  const list = normalizePhotoUrlList(doc.photoUrls);
+  for (const u of list) {
+    const t = String(u || '').trim();
+    if (!t) continue;
+    if (t.startsWith('data:')) continue;
+    if (/randomuser\.me/i.test(t)) continue;
+    if (/^https?:\/\//i.test(t)) return true;
+  }
+  return false;
 }
 
 async function upsertUserInteraction(userId, targetUserId, state) {
@@ -431,6 +448,8 @@ async function discoverCandidates(identity, args) {
       const tm = normalizedModesFromDoc(doc);
       if (!modesOverlap(meModes, tm)) continue;
     }
+    // Exclude photo-less profiles from Discover (placeholder-only is not enough).
+    if (!docHasRealPhoto(doc)) continue;
     pending.push({ doc, seenBefore });
   }
 
@@ -438,6 +457,7 @@ async function discoverCandidates(identity, args) {
   const mapped = await mapPool(pending, DISCOVER_PROFILE_MAP_CONCURRENCY, async ({ doc, seenBefore }) => {
     const p = await profileFromDoc(doc);
     if (!p) return null;
+    if (!p.avatarUrl) return null;
     const displayName = (p.displayName && String(p.displayName).trim()) || 'User';
     const compatibilityScore = 50;
     return {

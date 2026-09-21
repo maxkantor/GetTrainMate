@@ -343,10 +343,13 @@ export const DiscoverPage: React.FC = () => {
         const hydrated = await hydrateDiscoverFeedFromRest(sorted, token);
         if (stale()) return;
         const location = locationRaw ?? FALLBACK_LOCATION;
-        setFeed(hydrated);
+        const withPhotos = hydrated.filter(
+          (c) => getMultiplePhotoUrls(c.photoUrls, c.userId, 4, c.name).length > 0
+        );
+        setFeed(withPhotos);
         trackEvent('matches_loaded', {
           source_page: '/app/discover',
-          result_count: hydrated.length,
+          result_count: withPhotos.length,
           user_status: 'authenticated',
         });
         setUserLocationLabel(location.label);
@@ -371,10 +374,18 @@ export const DiscoverPage: React.FC = () => {
         }));
         if (stale()) return;
         const location = locationRaw ?? FALLBACK_LOCATION;
-        setFeed(dedupeDiscoverFeedByUserId(sortDiscoverFeed(excludeDiscoverSelf(feedWithPhotos, user?.sub))));
+        const discoverable = dedupeDiscoverFeedByUserId(
+          sortDiscoverFeed(
+            excludeDiscoverSelf(
+              feedWithPhotos.filter((c) => (c.photoUrls?.length ?? 0) > 0),
+              user?.sub
+            )
+          )
+        );
+        setFeed(discoverable);
         trackEvent('matches_loaded', {
           source_page: '/app/discover',
-          result_count: feedWithPhotos.length,
+          result_count: discoverable.length,
           user_status: 'authenticated',
         });
         setUserLocationLabel(location.label);

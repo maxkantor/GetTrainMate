@@ -28,7 +28,7 @@ import { trackMatchSearchClicked } from '@/utils/analytics';
 import { trackEvent } from '@/utils/analytics';
 
 /**
- * First-time dashboard: one-tap training type, level, and time — then profile is complete enough for Discover.
+ * First-time dashboard: training preferences, then photo required before Discover.
  */
 export const DashboardQuickSetup: React.FC = () => {
   const navigate = useNavigate();
@@ -83,21 +83,15 @@ export const DashboardQuickSetup: React.FC = () => {
         mode: 'TRAIN',
       });
       await refreshMe();
-      trackEvent('onboarding_completed', {
+      trackEvent('onboarding_preferences_saved', {
         source_page: '/app',
         selected_training_type: trainingTag,
         selected_level: level,
         selected_time_preference: timeId,
       });
-      trackEvent('profile_completed', {
-        source_page: '/app',
-        mode: 'TRAIN',
-      });
       clearSignupDisplayName();
-      const refreshed = await profileService.getMyProfile(token);
-      const hasPhoto =
-        (refreshed.photoKeys && refreshed.photoKeys.length > 0) || Boolean(refreshed.photoKey?.trim());
-      navigate(hasPhoto ? '/app/discover' : '/app/profile?focus=photos', { replace: true });
+      // Profile is not complete until a photo is uploaded — always collect photos next.
+      navigate('/app/profile?focus=photos&setup=1', { replace: true });
     } catch (e: unknown) {
       setError(handleApiError(e as Error).message || 'Could not save preferences');
     } finally {
@@ -125,7 +119,7 @@ export const DashboardQuickSetup: React.FC = () => {
           Let&apos;s set up your training preferences.
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, maxWidth: 520 }}>
-          We&apos;ll use this to find better matches.
+          Next you&apos;ll add a profile photo — required before you can appear in Discover.
         </Typography>
 
         {error ? (
@@ -250,10 +244,10 @@ export const DashboardQuickSetup: React.FC = () => {
           onClick={() => void handleSubmit()}
           sx={{ py: 1.5, fontWeight: 800, borderRadius: 2 }}
         >
-          {saving ? <CircularProgress size={26} color="inherit" /> : 'Find My Matches'}
+          {saving ? <CircularProgress size={26} color="inherit" /> : 'Continue — add photo'}
         </Button>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1.5 }}>
-          Takes less than 30 seconds
+          A profile photo is required to appear in Discover
         </Typography>
       </CardContent>
     </Card>
