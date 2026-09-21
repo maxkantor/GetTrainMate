@@ -115,8 +115,8 @@ public class PartnerCampaign
     public List<string> Categories { get; set; } = new();
     public int AllocationPercent { get; set; }
     public int DailyDiscoveryLimit { get; set; } = 10;
-    public int DailyOutreachLimit { get; set; } = 3;
-    public int MinAcquisitionScore { get; set; } = 50;
+    public int DailyOutreachLimit { get; set; } = 10;
+    public int MinAcquisitionScore { get; set; } = 40;
     public List<int> FollowUpDays { get; set; } = new() { 4, 9 };
     public int MaxFollowUps { get; set; } = 2;
     public string? ReferralDestination { get; set; }
@@ -238,9 +238,11 @@ public class PartnerOutreachSettingsRow
     public int BounceCount { get; set; }
     public int ComplaintCount { get; set; }
     public int ReplyCount { get; set; }
-    /// <summary>off | test | live</summary>
+    /// <summary>off | test | live — deprecated for send gates; kept for UI backward compat.</summary>
     public string OutreachMode { get; set; } = "off";
     public bool PauseAllOutreach { get; set; }
+    /// <summary>When true, sends only to addresses in TestRecipients.</summary>
+    public bool TestRecipientsOnly { get; set; }
     public List<string> TestRecipients { get; set; } = new();
     public int ProspectsPerRun { get; set; } = 8;
     public int ResearchAttemptsPerRun { get; set; } = 15;

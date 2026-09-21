@@ -179,8 +179,7 @@ export const AtlantaPartnerLandingPage: React.FC = () => {
           For you or your community
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2, maxWidth: 560 }}>
-          Create your own account, share an invite with members, or learn more. This page does not
-          mean {displayName} is already affiliated with GetTrainMate.
+          Create your own account or share an invite with members. No partnership required.
         </Typography>
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
@@ -202,7 +201,7 @@ export const AtlantaPartnerLandingPage: React.FC = () => {
               })
             }
           >
-            Create an account
+            Create free account
           </Button>
           <Button variant="outlined" size="large" onClick={() => void copyShare()}>
             Share with members
@@ -226,7 +225,7 @@ export const AtlantaPartnerLandingPage: React.FC = () => {
         </Box>
 
         <Typography variant="caption" color="text.secondary" display="block">
-          Invite code <strong>{partner.code}</strong> · {city}
+          {city} community invite
         </Typography>
         <Button
           component={RouterLink}

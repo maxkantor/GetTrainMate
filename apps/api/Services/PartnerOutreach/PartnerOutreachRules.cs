@@ -5,11 +5,12 @@ namespace GetTrainMate.Api.Services.PartnerOutreach;
 
 public static class PartnerOutreachRules
 {
-    public const int DefaultDailyLimit = 3;
+    public const int DefaultDailyLimit = 10;
     public const int MinContactGapDays = 14;
+    public const int DefaultMinAcquisitionScore = 40;
     public const string PartnerFromEmail = "partners@gettrainmate.com";
-    public const string PartnerFromName = "Max from GetTrainMate";
-    public const string TemplateVersion = "partner-v3-2026-08-14";
+    public const string PartnerFromName = "GetTrainMate";
+    public const string TemplateVersion = "partner-v4-2026-09-20";
 
     public static readonly string[] MojibakeMarkers = { "Â", "â€™", "â€œ", "â€", "â†’" };
 
@@ -57,23 +58,22 @@ public static class PartnerOutreachRules
         }
     }
 
+    /// <summary>
+    /// Authorization-to-send gate. Admin Approve &amp; Send is the send authorization;
+    /// Lambda PARTNER_OUTREACH_SEND_ENABLED and OutreachMode are not send gates.
+    /// </summary>
     public static string? EvaluateSendGate(PartnerSendContext ctx)
     {
         if (ctx.ScheduledCursorAutomation) return "scheduled_automation_blocked";
-        if (!ctx.SendEnabled) return "send_disabled";
         if (ctx.PauseAllOutreach) return "pause_all_outreach";
-        var mode = (ctx.OutreachMode ?? "off").Trim().ToLowerInvariant();
-        if (mode is "off" or "")
-            return "outreach_mode_off";
-        if (mode == "test")
+
+        if (ctx.TestRecipientsOnly)
         {
             var recipient = (ctx.Recipient ?? "").Trim().ToLowerInvariant();
             var allowed = ctx.TestRecipients ?? new List<string>();
             if (!allowed.Any(r => string.Equals(r?.Trim(), recipient, StringComparison.OrdinalIgnoreCase)))
                 return "test_recipient_not_allowed";
         }
-        else if (mode != "live")
-            return "outreach_mode_invalid";
 
         if (string.IsNullOrWhiteSpace(ctx.PostalAddress)) return "postal_address_missing";
         if (!string.Equals(ctx.FromEmail, PartnerFromEmail, StringComparison.OrdinalIgnoreCase))
@@ -112,6 +112,7 @@ public static class PartnerOutreachRules
 
 public sealed class PartnerSendContext
 {
+    /// <summary>Legacy Lambda flag — unused by EvaluateSendGate (kept for callers/metrics).</summary>
     public bool SendEnabled { get; set; }
     public bool ScheduledCursorAutomation { get; set; }
     public string PostalAddress { get; set; } = "";
@@ -132,9 +133,11 @@ public sealed class PartnerSendContext
     public int DailyLimit { get; set; } = PartnerOutreachRules.DefaultDailyLimit;
     public bool UnsafeBounceHealth { get; set; }
 
-    /// <summary>off | test | live</summary>
+    /// <summary>Deprecated for send gates; kept for UI/backward compat.</summary>
     public string OutreachMode { get; set; } = "off";
     public bool PauseAllOutreach { get; set; }
+    /// <summary>When true, recipient must be in TestRecipients.</summary>
+    public bool TestRecipientsOnly { get; set; }
     public List<string> TestRecipients { get; set; } = new();
     public string Recipient { get; set; } = "";
     public bool IsAutomatedFollowUp { get; set; }

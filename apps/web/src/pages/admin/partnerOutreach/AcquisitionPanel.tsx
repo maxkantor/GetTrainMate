@@ -135,13 +135,15 @@ export const AcquisitionPanel: React.FC<Props> = ({
     }
   };
 
-  const mode = (dashboard?.settings?.outreachMode || 'off').toLowerCase();
   const ns = northStarValues(dashboard?.northStars);
   const funnel = dashboard?.funnel;
   const rates = dashboard?.conversionRates;
   const awaiting = funnel?.awaitingApproval ?? funnel?.drafts ?? 0;
   const approvedReady = funnel?.approved ?? 0;
-  const blockedApproved = mode === 'off' && approvedReady > 0;
+  const pauseAll = Boolean(dashboard?.settings?.pauseAllOutreach);
+  const testOnly = Boolean(
+    (dashboard?.settings as { testRecipientsOnly?: boolean } | undefined)?.testRecipientsOnly,
+  );
 
   const funnelSteps = useMemo(() => {
     const keysPresent = CUSTOMER_FUNNEL.filter((s) => {
@@ -247,62 +249,45 @@ export const AcquisitionPanel: React.FC<Props> = ({
 
   return (
     <Box>
-      {blockedApproved && (
+      {pauseAll && (
         <Alert
           severity="error"
-          sx={{
-            mb: 2,
-            border: '2px solid',
-            borderColor: 'error.main',
-            '& .MuiAlert-message': { width: '100%' },
-          }}
+          sx={{ mb: 2 }}
           action={
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, alignItems: 'stretch' }}>
-              <Button
-                color="inherit"
-                size="small"
-                variant="outlined"
-                onClick={() => onNavigate({ tab: 'approvals', approvalsStatus: 'approved' })}
-              >
-                Review approved
-              </Button>
-              <Button color="inherit" size="small" variant="contained" onClick={() => onNavigate({ tab: 'settings' })}>
-                Enable outreach
-              </Button>
-            </Box>
+            <Button color="inherit" size="small" onClick={() => onNavigate({ tab: 'settings' })}>
+              Settings
+            </Button>
           }
         >
-          <Typography sx={{ fontWeight: 800, letterSpacing: 0.4, lineHeight: 1.35 }}>
-            {approvedReady} APPROVED — READY TO SEND
-          </Typography>
-          <Typography sx={{ fontWeight: 800, letterSpacing: 0.4, mt: 0.5 }}>
-            BLOCKED: OUTREACH MODE OFF
-          </Typography>
+          Emergency pause is on — no outreach emails will send until you resume in Settings.
         </Alert>
       )}
-      {mode === 'off' && !blockedApproved && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Outreach mode is <b>OFF</b>. Discovery and drafts can still run; sending is blocked.
-        </Alert>
-      )}
-      {mode === 'test' && (
+      {testOnly && !pauseAll && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Outreach mode is <b>TEST</b>. Approved sends go to configured test recipients only.
+          Test recipients only is on — APPROVE &amp; SEND delivers only to configured test addresses.
         </Alert>
       )}
-      {mode === 'live' && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Outreach mode is <b>LIVE</b>. Approved recipients can be dispatched subject to safety gates.
-        </Alert>
-      )}
-      {dashboard.settings?.pauseAllOutreach && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Pause All Outreach is enabled. No partner emails will send until it is cleared in Settings.
+      {approvedReady > 0 && !pauseAll && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => onNavigate({ tab: 'approvals', approvalsStatus: 'approved' })}
+            >
+              View queue
+            </Button>
+          }
+        >
+          {approvedReady} approved for next send — the daily job will send when capacity and gates allow.
+          No Lambda or LIVE toggle required.
         </Alert>
       )}
       {awaiting > 0 && (
         <Alert
-          severity="warning"
+          severity="info"
           sx={{ mb: 2 }}
           action={
             <Button color="inherit" size="small" onClick={() => onNavigate({ tab: 'approvals', approvalsStatus: 'draft' })}>

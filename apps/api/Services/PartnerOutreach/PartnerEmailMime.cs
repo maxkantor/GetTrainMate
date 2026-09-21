@@ -153,100 +153,21 @@ public static class PartnerEmailMime
     static (string Subject, string Text) RenderEnglishByKind(
         string org, string url, string partnerCode, string unsub, string postal, string market, string kind)
     {
-        return kind switch
-        {
-            "GYM" or "STUDIO" => (
-                $"GetTrainMate for {org}",
-                $"Hi {org} team,\n\n"
-                + $"I\u2019m Max, founder of GetTrainMate. GetTrainMate helps people in {market} find reliable local partners for gym sessions, classes, and training — and fitness communities can use it directly or share it with members.\n\n"
-                + "Here is a dedicated page for your fitness community:\n\n"
-                + $"{url}\n\n"
-                + $"Invite code: {partnerCode}\n\n"
-                + "There is no cost. This is not an existing partnership — you can try GetTrainMate yourselves or share the invite with members looking for workout partners.\n\n"
-                + "Happy to answer any questions.\n\n"
-                + "Thanks,\nMax\nFounder, GetTrainMate\nhttps://gettrainmate.com/\n\n"
-                + "GetTrainMate does not sell member lists, and participation does not guarantee a match.\n"
-                + $"Unsubscribe: {unsub}\n"
-                + postal),
-            "RUN_CLUB" or "SPORTS_CLUB" or "REC_LEAGUE" => (
-                $"GetTrainMate for {org}",
-                $"Hi {org} team,\n\n"
-                + $"I\u2019m Max, founder of GetTrainMate — a platform that helps people find local partners for running, sports, pickleball, and other activities in {market}. Clubs can use it directly or share it with members.\n\n"
-                + "I created a page for your fitness community:\n\n"
-                + $"{url}\n\n"
-                + $"Invite code: {partnerCode}\n\n"
-                + "There is no cost for your organization. This is not an existing partnership. If useful, use it with your team or share it with members looking for activity partners.\n\n"
-                + "I\u2019m happy to answer any questions.\n\n"
-                + "Thanks,\nMax\nFounder, GetTrainMate\nhttps://gettrainmate.com/\n\n"
-                + "GetTrainMate does not sell member lists, and participation does not guarantee a match.\n"
-                + $"Unsubscribe: {unsub}\n"
-                + postal),
-            "TRAINER" or "COACH" => (
-                $"GetTrainMate for {org}",
-                $"Hi {org},\n\n"
-                + $"I\u2019m Max, founder of GetTrainMate. Coaches and trainers in {market} use it directly with clients or share it so clients can find accountable local training partners between sessions.\n\n"
-                + "Here is a dedicated page you can use or share:\n\n"
-                + $"{url}\n\n"
-                + $"Invite code: {partnerCode}\n\n"
-                + "It is free. This is an invitation only — not an existing partnership. Use it yourself or share it with clients looking for partners.\n\n"
-                + "Happy to answer questions.\n\n"
-                + "Thanks,\nMax\nFounder, GetTrainMate\nhttps://gettrainmate.com/\n\n"
-                + "GetTrainMate does not sell member lists, and participation does not guarantee a match.\n"
-                + $"Unsubscribe: {unsub}\n"
-                + postal),
-            "CREATOR" => (
-                $"GetTrainMate for your {org} community",
-                $"Hi {org},\n\n"
-                + $"I\u2019m Max, founder of GetTrainMate. Creators use invitation pages so their audience in {market} can find local workout, running, and sports partners — you can share the link or use the product yourself.\n\n"
-                + "I set one up for you:\n\n"
-                + $"{url}\n\n"
-                + $"Invite code: {partnerCode}\n\n"
-                + "Free for you. This invitation does not mean we already partner. Use it directly or share it with your audience if it fits.\n\n"
-                + "Happy to answer questions.\n\n"
-                + "Thanks,\nMax\nFounder, GetTrainMate\nhttps://gettrainmate.com/\n\n"
-                + "GetTrainMate does not sell member lists, and participation does not guarantee a match.\n"
-                + $"Unsubscribe: {unsub}\n"
-                + postal),
-            "EVENT_ORGANIZER" => (
-                $"GetTrainMate for {org}",
-                $"Hi {org} team,\n\n"
-                + $"I\u2019m Max, founder of GetTrainMate. Event organizers in {market} use invitation pages so participants can find local training and activity partners — use it directly or share with attendees.\n\n"
-                + "Here is a page for your community:\n\n"
-                + $"{url}\n\n"
-                + $"Invite code: {partnerCode}\n\n"
-                + "No cost for your organization. This is an invitation, not an existing partnership. Use it yourselves or share it with participants.\n\n"
-                + "Happy to answer questions.\n\n"
-                + "Thanks,\nMax\nFounder, GetTrainMate\nhttps://gettrainmate.com/\n\n"
-                + "GetTrainMate does not sell member lists, and participation does not guarantee a match.\n"
-                + $"Unsubscribe: {unsub}\n"
-                + postal),
-            "COMMUNITY" => (
-                $"GetTrainMate for your fitness community",
-                $"Hi {org} team,\n\n"
-                + $"I\u2019m Max, founder of GetTrainMate, a platform that helps people in {market} find local partners for workouts, running, sports, and other activities. Communities can use it directly or share it with members.\n\n"
-                + "I created a dedicated page for your fitness community:\n\n"
-                + $"{url}\n\n"
-                + $"Invite code: {partnerCode}\n\n"
-                + "There is no cost. This invitation does not mean we already have a partnership. Use GetTrainMate yourselves or share it with members looking for local partners.\n\n"
-                + "I\u2019m happy to answer any questions.\n\n"
-                + "Thanks,\nMax\nFounder, GetTrainMate\nhttps://gettrainmate.com/\n\n"
-                + "GetTrainMate does not sell member lists, and participation does not guarantee a match.\n"
-                + $"Unsubscribe: {unsub}\n"
-                + postal),
-            _ => (
-                $"GetTrainMate for your fitness community",
-                $"Hi {org} team,\n\n"
-                + $"I\u2019m Max, the founder of GetTrainMate, a platform that helps people find local partners for workouts, running, pickleball, and other activities in {market}. Organizations can use it directly or share it with members.\n\n"
-                + "I created a dedicated page for your fitness community:\n\n"
-                + $"{url}\n\n"
-                + $"Invite code: {partnerCode}\n\n"
-                + "There is no cost. This invitation does not mean we already have a partnership. Try GetTrainMate yourselves or share the invite with members looking for local training partners.\n\n"
-                + "I\u2019m happy to answer any questions.\n\n"
-                + "Thanks,\nMax\nFounder, GetTrainMate\nhttps://gettrainmate.com/\n\n"
-                + "GetTrainMate does not sell member lists, and participation does not guarantee a match.\n"
-                + $"Unsubscribe: {unsub}\n"
-                + postal),
-        };
+        // Brand-led template — kind kept for API compatibility; copy is unified.
+        _ = partnerCode;
+        _ = kind;
+        var subject = $"Help {org} members find local workout partners";
+        var text = $"Hi {org} team,\n\n"
+            + "GetTrainMate helps people connect through workouts, sports and real-world activities — from gym training and running to pickleball, tennis and more.\n\n"
+            + $"We're introducing GetTrainMate to fitness communities in {market}, and thought it could be useful for {org}.\n\n"
+            + "You can try GetTrainMate yourself or share this dedicated invitation with your members:\n\n"
+            + $"{url}\n\n"
+            + "There is no cost to share the invitation and no integration required.\n\n"
+            + "Thanks,\nGetTrainMate\nhttps://gettrainmate.com/\n\n"
+            + "GetTrainMate does not sell member lists, and participation does not guarantee a match.\n"
+            + $"Unsubscribe: {unsub}\n"
+            + postal;
+        return (subject, text);
     }
 
     /// <summary>Append standard partner UTM params when missing.</summary>
@@ -269,14 +190,11 @@ public static class PartnerEmailMime
     public static string DefaultHtml(string org, string url, string code, string unsub, string postal, string title, string? marketLabel = null, string lang = "en", string? kind = null)
     {
         string E(string s) => WebUtility.HtmlEncode(s);
-        var market = string.IsNullOrWhiteSpace(marketLabel) ? "Local training partners" : $"{marketLabel} training partners";
+        _ = code;
+        _ = kind;
+        var market = string.IsNullOrWhiteSpace(marketLabel) ? "your area" : marketLabel.Trim();
         var htmlLang = lang is "es" or "ru" ? lang : "en";
-        var intro = kind switch
-        {
-            "GYM" or "STUDIO" => $"I\u2019m Max, the founder of GetTrainMate. We help people find reliable local partners for gym sessions and training in {E(string.IsNullOrWhiteSpace(marketLabel) ? "your area" : marketLabel)}.",
-            "TRAINER" or "COACH" => $"I\u2019m Max, the founder of GetTrainMate. Coaches use it to help clients find accountable local training partners in {E(string.IsNullOrWhiteSpace(marketLabel) ? "your area" : marketLabel)}.",
-            _ => $"I\u2019m Max, the founder of GetTrainMate, a platform that helps people find local partners for workouts, running, pickleball, and other activities in {E(string.IsNullOrWhiteSpace(marketLabel) ? "your area" : marketLabel)}.",
-        };
+
         return "<!DOCTYPE html><html lang=\"" + htmlLang + "\"><head><meta charset=\"UTF-8\">"
             + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             + $"<title>{E(title)}</title></head>"
@@ -288,14 +206,13 @@ public static class PartnerEmailMime
             + $"<div style=\"font-size:13px;opacity:0.85;margin-top:4px;\">{E(market)}</div></td></tr>"
             + "<tr><td style=\"padding:28px 24px;font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:16px;line-height:1.6;\">"
             + $"<p>Hi {E(org)} team,</p>"
-            + $"<p>{intro}</p>"
-            + "<p>I created a dedicated page for your fitness community.</p>"
-            + $"<p style=\"text-align:center;\"><a href=\"{E(url)}\" style=\"display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700;\">Open invitation page</a></p>"
-            + $"<p>Invite code: <strong>{E(code)}</strong></p>"
+            + "<p>GetTrainMate helps people connect through workouts, sports and real-world activities — from gym training and running to pickleball, tennis and more.</p>"
+            + $"<p>We're introducing GetTrainMate to fitness communities in {E(market)}, and thought it could be useful for {E(org)}.</p>"
+            + "<p>You can try GetTrainMate yourself or share this dedicated invitation with your members:</p>"
+            + $"<p style=\"text-align:center;\"><a href=\"{E(url)}\" style=\"display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700;\">Explore GetTrainMate</a></p>"
             + $"<p style=\"font-size:13px;color:#6b7280;word-break:break-all;\">{E(url)}</p>"
-            + "<p>There is no cost. This is not an existing partnership — you can use GetTrainMate directly or share it with members looking for local training partners.</p>"
-            + "<p>I\u2019m happy to answer any questions.</p>"
-            + "<p>Thanks,<br><strong>Max</strong><br>Founder, GetTrainMate<br>"
+            + "<p>There is no cost to share the invitation and no integration required.</p>"
+            + "<p>Thanks,<br><strong>GetTrainMate</strong><br>"
             + "<a href=\"https://gettrainmate.com/\" style=\"color:#0f172a;\">https://gettrainmate.com/</a></p>"
             + "<p style=\"font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:16px;\">GetTrainMate does not sell member lists, and participation does not guarantee a match.<br>"
             + $"<a href=\"{E(unsub)}\">Unsubscribe</a><br>{E(postal)}</p>"

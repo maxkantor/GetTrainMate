@@ -20,14 +20,14 @@ public class PartnerOutreachTests
     {
         var ctx = new PartnerSendContext
         {
-            SendEnabled = true,
-            OutreachMode = "live",
+            SendEnabled = false,
+            OutreachMode = "off",
             PostalAddress = "1 Main St",
             Approved = true,
             ApprovalFingerprint = "x",
             CurrentFingerprint = "x",
-            SentToday = 3,
-            DailyLimit = 3
+            SentToday = 10,
+            DailyLimit = 10
         };
         Assert.Equal("daily_send_limit", PartnerOutreachRules.EvaluateSendGate(ctx));
         ctx.SentToday = 0;
@@ -52,8 +52,8 @@ public class PartnerOutreachTests
     {
         var ctx = new PartnerSendContext
         {
-            SendEnabled = true,
-            OutreachMode = "live",
+            SendEnabled = false,
+            OutreachMode = "off",
             PostalAddress = "1 Main St",
             Approved = true,
             ApprovalFingerprint = "x",
@@ -62,28 +62,62 @@ public class PartnerOutreachTests
         };
         Assert.Equal("scheduled_automation_blocked", PartnerOutreachRules.EvaluateSendGate(ctx));
         ctx.ScheduledCursorAutomation = false;
-        ctx.SendEnabled = false;
-        Assert.Equal("send_disabled", PartnerOutreachRules.EvaluateSendGate(ctx));
+        Assert.Null(PartnerOutreachRules.EvaluateSendGate(ctx));
     }
 
     [Fact]
-    public void Outreach_mode_off_and_test_recipients()
+    public void Send_enabled_and_outreach_mode_do_not_block_when_approved()
     {
         var ctx = new PartnerSendContext
         {
-            SendEnabled = true,
+            SendEnabled = false,
             OutreachMode = "off",
+            PauseAllOutreach = false,
             PostalAddress = "1 Main St",
             Approved = true,
             ApprovalFingerprint = "x",
             CurrentFingerprint = "x",
             Recipient = "a@example.test",
         };
-        Assert.Equal("outreach_mode_off", PartnerOutreachRules.EvaluateSendGate(ctx));
-        ctx.OutreachMode = "test";
-        ctx.TestRecipients = new List<string> { "other@example.test" };
+        Assert.Null(PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
+    public void Pause_all_blocks_send()
+    {
+        var ctx = new PartnerSendContext
+        {
+            SendEnabled = true,
+            OutreachMode = "live",
+            PauseAllOutreach = true,
+            PostalAddress = "1 Main St",
+            Approved = true,
+            ApprovalFingerprint = "x",
+            CurrentFingerprint = "x",
+        };
+        Assert.Equal("pause_all_outreach", PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
+    public void Test_recipients_only_gate()
+    {
+        var ctx = new PartnerSendContext
+        {
+            SendEnabled = false,
+            OutreachMode = "off",
+            TestRecipientsOnly = true,
+            PostalAddress = "1 Main St",
+            Approved = true,
+            ApprovalFingerprint = "x",
+            CurrentFingerprint = "x",
+            Recipient = "a@example.test",
+            TestRecipients = new List<string> { "other@example.test" },
+        };
         Assert.Equal("test_recipient_not_allowed", PartnerOutreachRules.EvaluateSendGate(ctx));
         ctx.TestRecipients = new List<string> { "a@example.test" };
+        Assert.Null(PartnerOutreachRules.EvaluateSendGate(ctx));
+        ctx.TestRecipientsOnly = false;
+        ctx.TestRecipients = new List<string> { "other@example.test" };
         Assert.Null(PartnerOutreachRules.EvaluateSendGate(ctx));
     }
 
@@ -92,8 +126,8 @@ public class PartnerOutreachTests
     {
         var ctx = new PartnerSendContext
         {
-            SendEnabled = true,
-            OutreachMode = "live",
+            SendEnabled = false,
+            OutreachMode = "off",
             PostalAddress = "1 Main St",
             Approved = false,
             ApprovalFingerprint = "parent",
@@ -344,9 +378,16 @@ public class PartnerOutreachTests
             "Atlanta",
             "en",
             organizationType: "gym");
-        Assert.Contains("GetTrainMate for Fit Studio", gym.Subject, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("use it directly or share", gym.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Help Fit Studio members find local workout partners", gym.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("GetTrainMate helps people connect", gym.Text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("utm_source=partner_outreach", gym.Text);
+        Assert.Contains("Explore GetTrainMate", gym.Html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("I'm Max", gym.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("I\u2019m Max", gym.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Partner code", gym.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Invite code", gym.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("partnership", gym.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("founder", gym.Text, StringComparison.OrdinalIgnoreCase);
 
         var run = PartnerEmailMime.RenderDefault(
             "Run Crew",
@@ -357,8 +398,27 @@ public class PartnerOutreachTests
             "Atlanta",
             "en",
             organizationType: "run_club");
-        Assert.Contains("GetTrainMate for Run Crew", run.Subject, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("activity partners", run.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Help Run Crew members find local workout partners", run.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(PartnerOutreachRules.PartnerFromName, "GetTrainMate");
+        Assert.Equal(PartnerOutreachRules.TemplateVersion, "partner-v4-2026-09-20");
+        Assert.Equal(10, PartnerOutreachRules.DefaultDailyLimit);
+    }
+
+    [Fact]
+    public void Brand_led_english_copy_excludes_max_and_partner_code()
+    {
+        var copy = PartnerEmailMime.RenderDefault(
+            "Example Club",
+            "https://gettrainmate.com/partners/us/atlanta/atl-example",
+            "atl-example",
+            "https://gettrainmate.com/email/unsubscribe?t=abc",
+            "Atlanta, GA");
+        Assert.DoesNotContain("I'm Max", copy.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("I\u2019m Max", copy.Text);
+        Assert.DoesNotContain("Partner code", copy.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("partnership", copy.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Thanks,\nGetTrainMate", copy.Text);
+        Assert.Equal("GetTrainMate", PartnerOutreachRules.PartnerFromName);
     }
 
     [Fact]
@@ -468,7 +528,8 @@ public class PartnerOutreachTests
             "atl-example",
             "https://gettrainmate.com/email/unsubscribe?t=abc",
             "Atlanta, GA");
-        Assert.Contains("I\u2019m Max", copy.Text);
+        Assert.Contains("GetTrainMate helps people connect", copy.Text);
+        Assert.DoesNotContain("I\u2019m Max", copy.Text);
         Assert.DoesNotContain("TRAIN-mode", copy.Text);
         var raw = PartnerEmailMime.BuildRaw(
             PartnerOutreachRules.PartnerFromName,
@@ -487,12 +548,13 @@ public class PartnerOutreachTests
         Assert.Contains("Reply-To: partners@gettrainmate.com", s);
         Assert.Contains("List-Unsubscribe:", s);
         Assert.Contains("List-Unsubscribe-Post:", s);
-        Assert.Contains("=E2=80=99", s);
+        Assert.Contains("From: GetTrainMate <partners@gettrainmate.com>", s);
         Assert.DoesNotContain("â€™", s);
         Assert.DoesNotContain("gmail.com", s);
         Assert.DoesNotContain("noreply@", s);
         var decoded = PartnerEmailMime.DecodeQuotedPrintable(s);
-        Assert.Contains("I\u2019m Max", decoded);
+        Assert.Contains("GetTrainMate helps people connect", decoded);
+        Assert.DoesNotContain("I\u2019m Max", decoded);
         SesTagRules.AssertNoPii(SesTagRules.CampaignTags("po_abc"));
         Assert.Throws<InvalidOperationException>(() =>
             SesTagRules.AssertNoPii(new Dictionary<string, string> { ["email"] = "a@b.com" }));

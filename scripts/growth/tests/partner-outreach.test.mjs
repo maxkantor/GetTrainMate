@@ -403,7 +403,7 @@ describe('growth report experiments and technical details', () => {
           partnerAttributedSignups: 0,
           customersAcquired: 0,
           revenueAttributedCents: 0,
-          ownerAction: '9 high-value outreach messages waiting for approval. Open Admin → Partner Outreach → Approvals.',
+          ownerAction: '9 messages need approval. Open Admin → Customer Acquisition → Approvals → APPROVE & SEND.',
           approvalsAdminUrl: 'https://gettrainmate.com/admin/partner-outreach',
           settings: { outreachMode: 'off', pauseAllOutreach: false, sendEnabled: false },
           northStars: { customersAcquired: 0, activeUsersAcquired: 0, revenueAttributedCents: 0, referralSignups: 0 },
@@ -447,8 +447,8 @@ describe('growth report experiments and technical details', () => {
     });
 
     assert.match(text, /EXP-001 — Atlanta training-partners landing page/);
-    assert.match(text, /EXP-002 — Partner Outreach \/ invite-code acquisition/);
-    assert.match(text, /Partner Outreach \(live CRM\)/);
+    assert.match(text, /EXP-002 — Customer Acquisition \/ invite-code/);
+    assert.match(text, /Customer Acquisition \(live CRM\)/);
     assert.match(text, /OWNER ACTION:/);
     assert.match(text, /Original evaluation date: Sunday, August 16, 2026 \(2026-08-16\)/);
     assert.match(text, /Actual evaluation date: Monday, August 17, 2026 \(2026-08-17\)/);
@@ -464,12 +464,12 @@ describe('growth report experiments and technical details', () => {
     assert.match(text, /HTTP status: 503 Configuration unavailable/);
     assert.match(text, /Customer data exposed: No/);
     assert.match(text, /drafts=9|awaiting_approval=9/);
-    assert.match(text, /9 high-value outreach messages waiting for approval/);
+    assert.match(text, /9 messages need approval/);
     assert.match(text, /Unattributed payments: 1/);
     assert.match(html, /EXP-001 — Atlanta training-partners landing page/);
-    assert.match(html, /Partner Outreach CRM/);
-    assert.match(html, /EXP-002 acquisition channel/);
-    assert.match(html, /Open Approvals in Admin CRM/);
+    assert.match(html, /Customer Acquisition CRM/);
+    assert.match(html, /EXP-002/);
+    assert.match(html, /Open Approvals → APPROVE/);
     assert.doesNotMatch(text, /Truth rule: Only GetTrainMate-attributed Stripe payments count as revenue[\s\S]*Truth rule:/);
     assert.doesNotMatch(html, /Never include credentials[\s\S]*Never include credentials/);
     assert.match(text, /\$0\.00/);

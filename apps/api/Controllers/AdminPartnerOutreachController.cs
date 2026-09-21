@@ -132,7 +132,7 @@ public class AdminPartnerOutreachController : ControllerBase
     [HttpPost("queue/{id}/approve-and-send")]
     public async Task<IActionResult> ApproveAndSend(string id, [FromBody] ConfirmRequest req)
     {
-        try { return Ok(await _svc.ApproveAndSendAsync(id, Actor(), req.Confirm)); }
+        try { return Ok(await _svc.ApproveAndSendAsync(id, Actor(), req.Confirm, req.ConfirmOverride)); }
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
@@ -140,6 +140,35 @@ public class AdminPartnerOutreachController : ControllerBase
     public async Task<IActionResult> BulkApprove([FromBody] BulkApproveRequest req)
     {
         try { return Ok(await _svc.BulkApproveAsync(req.QueueIds ?? Array.Empty<string>(), Actor(), req.Confirm)); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("queue/bulk-approve-and-send")]
+    public async Task<IActionResult> BulkApproveAndSend([FromBody] BulkApproveRequest req)
+    {
+        try
+        {
+            return Ok(await _svc.BulkApproveAndSendAsync(
+                req.QueueIds ?? Array.Empty<string>(),
+                Actor(),
+                req.Confirm,
+                req.ConfirmOverride));
+        }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("prospects/rescore-low")]
+    public async Task<IActionResult> RescoreLow([FromBody] RescoreLowRequest? req)
+    {
+        try { return Ok(await _svc.RescoreLowScoreProspectsAsync(req?.Max > 0 ? req.Max : 50)); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("prospects/{id}/rescore")]
+    public async Task<IActionResult> RescoreProspect(string id)
+    {
+        try { return Ok(await _svc.RescoreProspectAsync(id)); }
+        catch (KeyNotFoundException) { return NotFound(); }
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
@@ -352,12 +381,19 @@ public class DraftRequest
 public class ConfirmRequest
 {
     public bool Confirm { get; set; }
+    public bool ConfirmOverride { get; set; }
 }
 
 public class BulkApproveRequest
 {
     public IEnumerable<string>? QueueIds { get; set; }
     public bool Confirm { get; set; }
+    public bool ConfirmOverride { get; set; }
+}
+
+public class RescoreLowRequest
+{
+    public int Max { get; set; } = 50;
 }
 
 public class RejectQueueRequest

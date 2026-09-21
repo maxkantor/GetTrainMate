@@ -115,14 +115,17 @@ export async function fetchPartnerOutreachSnapshot() {
       revenueAttributedCents: ns.revenueAttributedCents ?? 0,
       ownerAction:
         (() => {
-          const mode = (settings?.outreachMode ?? metrics?.outreachMode ?? 'off').toLowerCase();
           const approved = funnel.approved ?? metrics?.approvedRecipients ?? 0;
           const awaiting = funnel.awaitingApproval ?? metrics?.approvalReadyRecipients ?? 0;
-          if (approved > 0 && (mode === 'off' || !settings?.sendEnabled)) {
-            return `${approved} approved messages are waiting. Live outreach is OFF. Open Approvals, then Settings → Enable LIVE when ready.`;
+          const paused = Boolean(settings?.pauseAllOutreach ?? metrics?.pauseAllOutreach);
+          if (paused) {
+            return 'Emergency pause is on. Resume in Admin → Customer Acquisition → Settings only for emergencies.';
           }
           if (awaiting > 0) {
-            return `${awaiting} high-value outreach message${awaiting === 1 ? '' : 's'} waiting for approval. Open Admin → Partner Outreach → Approvals.`;
+            return `${awaiting} message${awaiting === 1 ? '' : 's'} need approval. Open Admin → Customer Acquisition → Approvals → APPROVE & SEND.`;
+          }
+          if (approved > 0) {
+            return `${approved} approved for next send — daily job will dispatch when capacity allows. No Lambda/LIVE toggle needed.`;
           }
           return 'No drafts awaiting approval.';
         })(),
