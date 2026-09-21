@@ -49,7 +49,7 @@ public interface IPartnerOutreachService
     /// </summary>
     Task<object> RegenerateObsoleteUnsentDraftsAsync(string actor, bool forceAllUnsentInitial = false);
     Task<object> ResearchContactAsync(string prospectId, string actor, bool force = false);
-    Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20);
+    Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20, bool force = false);
     Task<object> ResearchContactNeededBatchAsync(int max, string actor);
     /// <summary>
     /// Increment attribution counters on a prospect matched by PartnerCode.
@@ -1907,7 +1907,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         };
     }
 
-    public async Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20)
+    public async Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20, bool force = false)
     {
         var ids = (prospectIds ?? Array.Empty<string>())
             .Where(id => !string.IsNullOrWhiteSpace(id))
@@ -1920,7 +1920,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         {
             try
             {
-                results.Add(await ResearchContactAsync(id, actor, force: false));
+                results.Add(await ResearchContactAsync(id, actor, force));
             }
             catch (Exception ex)
             {

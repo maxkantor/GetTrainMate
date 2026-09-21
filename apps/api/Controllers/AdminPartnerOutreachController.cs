@@ -89,7 +89,8 @@ public class AdminPartnerOutreachController : ControllerBase
             return Ok(await _svc.ResearchContactsBulkAsync(
                 req.ProspectIds ?? Array.Empty<string>(),
                 Actor(),
-                req.Max > 0 ? req.Max : 20));
+                req.Max > 0 ? req.Max : 20,
+                req.Force));
         }
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }

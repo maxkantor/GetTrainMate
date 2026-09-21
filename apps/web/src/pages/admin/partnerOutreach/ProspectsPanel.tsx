@@ -289,12 +289,62 @@ export const ProspectsPanel: React.FC<Props> = ({
     setSelectedIds(new Set(filtered.map((p) => p.prospectId)));
   };
 
+  type ResearchResult = {
+    ok?: boolean;
+    found?: boolean;
+    skipped?: boolean;
+    reason?: string;
+    error?: string;
+    message?: string;
+    email?: string;
+    prospectId?: string;
+    nextResearchAt?: string;
+    researchAttempts?: number;
+    contactabilityState?: string;
+  };
+
+  const summarizeResearch = (result: ResearchResult, name: string): { ok: boolean; text: string } => {
+    if (result?.found && result.email) {
+      return { ok: true, text: `Found ${result.email} for ${name}` };
+    }
+    if (result?.skipped) {
+      const why =
+        result.reason === 'retry_later'
+          ? 'still in cooldown'
+          : result.reason === 'max_research_attempts'
+            ? 'max attempts reached'
+            : result.reason || 'skipped';
+      return { ok: false, text: `${name}: ${why}` };
+    }
+    if (result?.ok === false) {
+      return {
+        ok: false,
+        text: `${name}: ${result.error || result.message || result.reason || 'research failed'}`,
+      };
+    }
+    if (result?.found === false) {
+      const when = result.nextResearchAt
+        ? ` · next ${new Date(result.nextResearchAt).toLocaleDateString()}`
+        : '';
+      return { ok: false, text: `No public email for ${name}${when}` };
+    }
+    return { ok: false, text: `${name}: no contact found` };
+  };
+
   const researchOne = async (p: PartnerProspect) => {
     setBusy(true);
     onError(null);
+    onNotice(null);
+    const name = p.organizationName || p.prospectId;
     try {
-      await adminApiService.post(`${API}/prospects/${encodeURIComponent(p.prospectId)}/research-contact`, {});
-      onNotice(`Researched contact for ${p.organizationName || p.prospectId}`);
+      // Explicit admin click always forces through cooldown / attempt gates.
+      const raw = (await adminApiService.post(
+        `${API}/prospects/${encodeURIComponent(p.prospectId)}/research-contact`,
+        { force: true },
+      )) as ResearchResult;
+      const summary = summarizeResearch(raw, name);
+      if (summary.ok) onNotice(summary.text);
+      else onError(summary.text);
       requestRefresh();
       await load();
       if (selected?.prospectId === p.prospectId) await refreshSelected(p.prospectId);
@@ -307,13 +357,35 @@ export const ProspectsPanel: React.FC<Props> = ({
 
   const researchBulk = async () => {
     if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    const idList = [...selectedIds];
     setBusy(true);
     onError(null);
+    onNotice(null);
     try {
-      await adminApiService.post(`${API}/prospects/research-contacts`, {
-        prospectIds: [...selectedIds],
-      });
-      onNotice(`Research contacts started for ${selectedIds.size} prospect(s)`);
+      const raw = (await adminApiService.post(`${API}/prospects/research-contacts`, {
+        prospectIds: idList,
+        force: true,
+      })) as { researched?: number; results?: ResearchResult[] };
+      const results = Array.isArray(raw?.results) ? raw.results : [];
+      const nameById = new Map(prospects.map((p) => [p.prospectId, p.organizationName || p.prospectId]));
+      let found = 0;
+      let missed = 0;
+      const notes: string[] = [];
+      for (const r of results) {
+        const name = nameById.get(String(r.prospectId || '')) || String(r.prospectId || 'prospect');
+        const summary = summarizeResearch(r, name);
+        if (summary.ok) found += 1;
+        else missed += 1;
+        if (notes.length < 3) notes.push(summary.text);
+      }
+      const headline =
+        found > 0
+          ? `Found ${found} contact${found === 1 ? '' : 's'}${missed ? ` · ${missed} no email` : ''} (of ${count})`
+          : `No contacts found (${missed || count} researched)`;
+      const detail = notes.join(' · ');
+      if (found > 0) onNotice(detail ? `${headline}. ${detail}` : headline);
+      else onError(detail ? `${headline}. ${detail}` : headline);
       setSelectedIds(new Set());
       requestRefresh();
       await load();
