@@ -108,7 +108,8 @@ public static class PartnerOutreachRules
                 return "test_recipient_not_allowed";
         }
 
-        if (string.IsNullOrWhiteSpace(ctx.PostalAddress)) return "postal_address_missing";
+        // Postal address is recommended for CAN-SPAM but not a hard send gate —
+        // many solo operators start without one; footer includes it when configured.
         if (!string.Equals(ctx.FromEmail, PartnerFromEmail, StringComparison.OrdinalIgnoreCase))
             return "from_identity_invalid";
         if (ctx.ReplyToEmail.Contains("gmail.com", StringComparison.OrdinalIgnoreCase)

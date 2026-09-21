@@ -99,6 +99,21 @@ public class PartnerOutreachTests
     }
 
     [Fact]
+    public void Empty_postal_does_not_block_admin_authorized_send()
+    {
+        var ctx = new PartnerSendContext
+        {
+            PauseAllOutreach = false,
+            PostalAddress = "",
+            Approved = true,
+            ApprovalFingerprint = "x",
+            CurrentFingerprint = "x",
+            Recipient = "a@example.test",
+        };
+        Assert.Null(PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
     public void Test_recipients_only_gate()
     {
         var ctx = new PartnerSendContext
