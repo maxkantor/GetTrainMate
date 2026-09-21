@@ -79,11 +79,27 @@ export const ApprovalsPanel: React.FC<Props> = ({
       } | null;
       const limit = Number((s as OutreachSettings)?.dailyLimit ?? d?.settings?.dailyLimit ?? 10) || 10;
       const sentToday = Number(d?.settings?.sentToday ?? 0) || 0;
-      // Prefer counting sent today from queue if dashboard lacks it
-      const today = new Date().toISOString().slice(0, 10);
+      // Count in America/New_York (matches server daily limit), not UTC.
+      const todayEt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
       const sentFromQueue = asArray<PartnerQueueItem>(q).filter((item) => {
-        const at = item.sentAt;
-        return at && String(at).startsWith(today) && (item.status === 'sent' || item.status === 'delivered');
+        if (!item.sentAt && !item.sesMessageId) return false;
+        if (!['sent', 'delivered', 'replied', 'queued'].includes(String(item.status || ''))) {
+          if (!item.sesMessageId) return false;
+        }
+        const at = item.sentAt ? new Date(item.sentAt) : null;
+        if (!at || Number.isNaN(at.getTime())) return Boolean(item.sesMessageId);
+        const et = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/New_York',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(at);
+        return et === todayEt;
       }).length;
       const sent = Math.max(sentToday, sentFromQueue);
       setCapacity({ dailyLimit: limit, sentToday: sent, remaining: Math.max(0, limit - sent) });
@@ -106,12 +122,13 @@ export const ApprovalsPanel: React.FC<Props> = ({
   }, [prospects]);
 
   const paused = Boolean(settings?.pauseAllOutreach);
-  /** Drafts + approved-but-not-yet-sent (old Approve without send). */
+  /** Drafts + approved-but-not-yet-sent. Never include SES-accepted / sent rows. */
   const needsApproval = useMemo(
     () =>
       queue.filter((q) => {
         if (q.followUpNumber != null && q.followUpNumber > 0) return false;
-        if (q.sentAt) return false;
+        if (q.sentAt || q.sesMessageId) return false;
+        if (['sent', 'delivered', 'replied', 'queued'].includes(String(q.status || ''))) return false;
         return q.status === 'draft' || q.status === 'approved';
       }),
     [queue],
@@ -122,6 +139,7 @@ export const ApprovalsPanel: React.FC<Props> = ({
         .filter(
           (q) =>
             Boolean(q.sentAt) ||
+            Boolean(q.sesMessageId) ||
             q.status === 'sent' ||
             q.status === 'delivered' ||
             q.status === 'replied',
@@ -197,6 +215,7 @@ export const ApprovalsPanel: React.FC<Props> = ({
       }),
     )) as {
       sent?: boolean;
+      alreadySent?: boolean;
       deferred?: boolean;
       error?: string;
       sendError?: string;
@@ -215,6 +234,8 @@ export const ApprovalsPanel: React.FC<Props> = ({
     }
     if (result?.deferred) {
       onNotice('Approved for next send — daily capacity full. Scheduler will send when eligible.');
+    } else if (result?.alreadySent) {
+      onNotice('Already sent — skipped (will not resend).');
     } else if (result?.sent === false && (result.error || result.sendError)) {
       onError(result.error || result.sendError || 'Send blocked');
     }
@@ -223,19 +244,55 @@ export const ApprovalsPanel: React.FC<Props> = ({
   const approveAndSendSelected = async () => {
     const ids = [...selectedIds];
     setConfirmBulk(false);
-    const result = (await run(`Processed ${ids.length} message(s)`, () =>
-      adminApiService.post(`${API}/queue/bulk-approve-and-send`, {
-        queueIds: ids,
-        confirm: true,
-      }),
-    )) as { sent?: number; deferred?: number; blocked?: unknown[] } | null;
-    if (result) {
-      onNotice(
-        `Sent ${result.sent ?? 0}` +
-          (result.deferred ? `, deferred ${result.deferred} for next run` : '') +
-          (result.blocked?.length ? `, blocked ${result.blocked.length}` : ''),
-      );
+    setBusy(true);
+    onError(null);
+    let sent = 0;
+    let alreadySent = 0;
+    let deferred = 0;
+    let blocked = 0;
+    const errors: string[] = [];
+    // One-at-a-time avoids API Gateway timeout that left partial bulk sends re-sendable.
+    for (const id of ids) {
+      try {
+        const result = (await adminApiService.post(
+          `${API}/queue/${encodeURIComponent(id)}/approve-and-send`,
+          { confirm: true },
+        )) as {
+          sent?: boolean;
+          alreadySent?: boolean;
+          deferred?: boolean;
+          error?: string;
+          sendError?: string;
+        };
+        if (result?.alreadySent) alreadySent += 1;
+        else if (result?.deferred) deferred += 1;
+        else if (result?.sent === false && (result.error || result.sendError)) {
+          blocked += 1;
+          errors.push(`${id}: ${result.error || result.sendError}`);
+        } else {
+          sent += 1;
+        }
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      } catch (e: unknown) {
+        blocked += 1;
+        errors.push(`${id}: ${e instanceof Error ? e.message : 'send failed'}`);
+      }
     }
+    const parts = [
+      `Sent ${sent}`,
+      alreadySent ? `already sent ${alreadySent}` : '',
+      deferred ? `deferred ${deferred}` : '',
+      blocked ? `blocked ${blocked}` : '',
+    ].filter(Boolean);
+    onNotice(parts.join(' · '));
+    if (errors.length) onError(errors.slice(0, 3).join('; '));
+    requestRefresh();
+    await load();
+    setBusy(false);
   };
 
   const saveEdit = async () => {

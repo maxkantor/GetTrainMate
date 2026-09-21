@@ -451,6 +451,19 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (!confirm) throw new InvalidOperationException("Explicit confirmation is required.");
 
         var itemPre = await _db.LoadAsync<PartnerQueueItem>(queueId) ?? throw new KeyNotFoundException("Queue item not found");
+        if (IsAlreadySentQueueItem(itemPre))
+        {
+            return new
+            {
+                approved = true,
+                sent = true,
+                alreadySent = true,
+                status = itemPre.Status,
+                sesMessageId = itemPre.SesMessageId,
+                sentAt = itemPre.SentAt,
+            };
+        }
+
         var prospect = await _db.LoadAsync<PartnerProspect>(itemPre.ProspectId);
         if (prospect != null)
         {
@@ -461,6 +474,19 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         await ApproveAsync(queueId, actor, confirm: true);
 
         var item = await _db.LoadAsync<PartnerQueueItem>(queueId) ?? throw new KeyNotFoundException("Queue item not found");
+        if (IsAlreadySentQueueItem(item))
+        {
+            return new
+            {
+                approved = true,
+                sent = true,
+                alreadySent = true,
+                status = item.Status,
+                sesMessageId = item.SesMessageId,
+                sentAt = item.SentAt,
+            };
+        }
+
         var settings = await LoadSettingsAsync();
         if (settings.PauseAllOutreach)
         {
@@ -544,15 +570,31 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         ordered = ordered.OrderBy(x => x.CreatedAt).ToList();
 
         var sent = 0;
+        var alreadySent = 0;
         var deferred = 0;
         var blocked = new List<object>();
         var selected = ordered.Count;
+        // Stay under API Gateway ~29s so partial batches return a real JSON result.
+        var deadline = DateTime.UtcNow.AddSeconds(18);
+        var incomplete = false;
 
         foreach (var item in ordered)
         {
+            if (DateTime.UtcNow >= deadline)
+            {
+                incomplete = true;
+                break;
+            }
+
             try
             {
-                if (item.Status is "sent" or "delivered" or "replied" or "rejected" or "opted_out")
+                if (IsAlreadySentQueueItem(item))
+                {
+                    alreadySent++;
+                    continue;
+                }
+
+                if (item.Status is "rejected" or "opted_out")
                 {
                     blocked.Add(new { id = item.QueueId, error = $"invalid_status:{item.Status}" });
                     continue;
@@ -576,6 +618,12 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
 
                 var fresh = await _db.LoadAsync<PartnerQueueItem>(item.QueueId)
                     ?? throw new KeyNotFoundException("Queue item not found");
+
+                if (IsAlreadySentQueueItem(fresh))
+                {
+                    alreadySent++;
+                    continue;
+                }
 
                 if (settings.PauseAllOutreach)
                 {
@@ -634,7 +682,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                     continue;
                 }
 
-                await SendQueueItemAsync(fresh);
+                await SendQueueItemAsync(fresh, allQueue);
                 settings.SentCount++;
                 await _db.SaveAsync(settings);
                 sent++;
@@ -650,8 +698,10 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         {
             selected,
             sent,
+            alreadySent,
             deferred,
             blocked,
+            incomplete,
             remainingCapacityAfter = remaining,
             dailyLimit,
             sentTodayBefore,
@@ -835,8 +885,23 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         };
     }
 
-    async Task SendQueueItemAsync(PartnerQueueItem item)
+    static bool IsAlreadySentQueueItem(PartnerQueueItem item) =>
+        item.SentAt != null
+        || !string.IsNullOrWhiteSpace(item.SesMessageId)
+        || item.Status is "sent" or "delivered" or "replied";
+
+    async Task SendQueueItemAsync(PartnerQueueItem item, List<PartnerQueueItem>? queueSnapshot = null)
     {
+        // Idempotent: never SES-send the same queue row twice (bulk timeout / retry safety).
+        if (item.Status is "sent" or "delivered" or "replied" || item.SentAt != null)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(item.SesMessageId))
+        {
+            await FinalizeSentQueueItemAsync(item, queueSnapshot);
+            return;
+        }
+
         if (PartnerOutreachRules.ContainsObsoleteOutreachCopy(item.Subject, item.BodyText, item.BodyHtml))
             throw new InvalidOperationException("obsolete_outreach_copy_blocked");
 
@@ -861,10 +926,27 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         await _db.SaveAsync(item);
 
         var sesId = await _email.SendRawEmailAsync(FromEmail, item.Recipient, raw, Env("PARTNER_SES_CONFIGURATION_SET"));
+        // Persist SES acceptance immediately so a Lambda/API timeout cannot leave a
+        // successfully-accepted email stuck as draft/approved and re-sendable.
         item.SesMessageId = sesId;
         item.Status = "sent";
         item.SentAt = DateTime.UtcNow;
         await _db.SaveAsync(item);
+
+        await FinalizeSentQueueItemAsync(item, queueSnapshot, skipStatusPersist: true);
+    }
+
+    async Task FinalizeSentQueueItemAsync(
+        PartnerQueueItem item,
+        List<PartnerQueueItem>? queueSnapshot = null,
+        bool skipStatusPersist = false)
+    {
+        if (!skipStatusPersist)
+        {
+            item.Status = "sent";
+            item.SentAt ??= DateTime.UtcNow;
+            await _db.SaveAsync(item);
+        }
 
         var thread = new PartnerThread
         {
@@ -886,9 +968,9 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             BodyText = item.BodyText,
             BodyHtmlSafe = PartnerEmailMime.SanitizeHtml(item.BodyHtml),
             DeliveryStatus = "sent",
-            RfcMessageId = rfcId,
-            SesMessageId = sesId,
-            InternalMessageId = internalId,
+            RfcMessageId = item.RfcMessageId,
+            SesMessageId = item.SesMessageId,
+            InternalMessageId = item.InternalMessageId,
             CreatedAt = DateTime.UtcNow
         });
         var p = await _db.LoadAsync<PartnerProspect>(item.ProspectId);
@@ -907,12 +989,11 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             await _db.SaveAsync(p);
         }
 
-        // Schedule follow-ups only after a successful INITIAL approved send.
         if (item.FollowUpNumber == 0 && !string.IsNullOrWhiteSpace(item.ApprovalId))
-            await ScheduleFollowUpsAsync(item);
+            await ScheduleFollowUpsAsync(item, queueSnapshot);
     }
 
-    async Task ScheduleFollowUpsAsync(PartnerQueueItem parent)
+    async Task ScheduleFollowUpsAsync(PartnerQueueItem parent, List<PartnerQueueItem>? queueSnapshot = null)
     {
         var campaign = await _db.LoadAsync<PartnerCampaign>(parent.CampaignId);
         var days = campaign?.FollowUpDays?.Where(d => d > 0).Distinct().OrderBy(d => d).ToList()
@@ -921,7 +1002,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         days = days.Take(max).ToList();
         if (days.Count == 0) return;
 
-        var existing = await ListQueueAsync(null);
+        var existing = queueSnapshot ?? await ListQueueAsync(null);
         var n = 0;
         foreach (var day in days)
         {
@@ -960,6 +1041,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                 ApprovedAt = parent.ApprovedAt,
             };
             await _db.SaveAsync(followUp);
+            existing.Add(followUp);
         }
     }
 

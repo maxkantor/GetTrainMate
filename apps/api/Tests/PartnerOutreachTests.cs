@@ -48,6 +48,23 @@ public class PartnerOutreachTests
     }
 
     [Fact]
+    public void Duplicate_recipient_blocks_resend()
+    {
+        var ctx = new PartnerSendContext
+        {
+            PostalAddress = "1 Main St",
+            Approved = true,
+            ApprovalFingerprint = "x",
+            CurrentFingerprint = "x",
+            AlreadySentThisRecipient = true,
+        };
+        Assert.Equal("duplicate_recipient", PartnerOutreachRules.EvaluateSendGate(ctx));
+        ctx.AlreadySentThisRecipient = false;
+        ctx.AlreadyQueuedOrSentSameRecipient = true;
+        Assert.Equal("duplicate_recipient", PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
     public void Cursor_automation_cannot_send()
     {
         var ctx = new PartnerSendContext

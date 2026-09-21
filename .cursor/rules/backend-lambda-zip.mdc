@@ -1,16 +1,18 @@
 ---
-description: After changing the .NET API (apps/api), refresh the Lambda zip and push to origin.
+description: After changing the .NET API (apps/api / *.cs), build Lambda zip, commit, and always push to origin.
 globs: apps/api/**/*
 alwaysApply: false
 ---
 
 # Backend API → Lambda zip → commit and push
 
-When you change anything under `apps/api/**`:
+When you change anything under `apps/api/**` (especially `*.cs`):
 
 1. From the repo root run **`npm run api:publish`** (runs `dotnet publish` → `apps/api/publish` → **`deploy/gettrainmate-api-lambda.zip`**). If publish output is already current, **`npm run zip:publish`** is enough to refresh only the zip. (`publish/` and `deploy/*.zip` are **gitignored**; the zip is for local/CD use, not the remote.)
 2. **`git add`** tracked API source only: e.g. `apps/api/**/*.cs`, `apps/api/**/*.csproj`, `apps/api/**/*.json` under `apps/api/` — not ignored build output. Do not stage unrelated paths or root `*.zip` unless the user asked.
 3. **`git commit`** with a clear message (e.g. `fix(api): …` or `chore(api): …`).
-4. **`git push`** to the tracked upstream.
+4. **Always `git push`** to the tracked upstream after the commit. Do not leave API commits local-only.
 
 Do not skip the zip after backend edits when a deployable artifact is expected. If there is nothing to commit, skip commit/push. If push fails, report and stop.
+
+Owner preference: whenever `.cs` files changed in a session, finish with **api:publish + commit + push** (and commit/push related web UI that ships with the same fix).
