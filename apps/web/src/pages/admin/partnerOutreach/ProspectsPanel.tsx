@@ -79,7 +79,8 @@ const emptyContactForm = (p?: PartnerProspect | null): ManualContactForm => ({
   contactName: p?.contactName || '',
   contactRole: p?.contactRole || '',
   phone: p?.phone || '',
-  sourceUrl: p?.contactSourceUrl || p?.sourceUrl || '',
+  // Do not prefill with the org website — that is often a dead listing URL, not an email source.
+  sourceUrl: p?.contactSourceUrl || '',
   notes: '',
 });
 
@@ -446,10 +447,17 @@ export const ProspectsPanel: React.FC<Props> = ({
 
   const publishResearch = (summary: { ok: boolean; text: string; kind: string }) => {
     const severity =
-      summary.ok ? 'success' : summary.kind === 'not_found' ? 'warning' : 'error';
+      summary.ok
+        ? 'success'
+        : summary.kind === 'website_dead'
+          ? 'error'
+          : summary.kind === 'not_found'
+            ? 'warning'
+            : 'error';
+    // Local banner only — avoid duplicate page-level Alert with the same text.
     setResearchBanner({ severity, text: summary.text });
-    if (summary.ok) onNotice(summary.text);
-    else onError(summary.text);
+    onError(null);
+    onNotice(null);
   };
 
   const researchOne = async (p: PartnerProspect) => {
@@ -868,7 +876,26 @@ export const ProspectsPanel: React.FC<Props> = ({
             {selected.phone && (
               <Typography variant="body2">Phone: {selected.phone}</Typography>
             )}
-            <Typography variant="body2">Website: {selected.website || '—'}</Typography>
+            <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+              Website:{' '}
+              {selected.website ? (
+                <Box
+                  component="a"
+                  href={selected.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ color: 'primary.main' }}
+                >
+                  {selected.website}
+                </Box>
+              ) : (
+                '—'
+              )}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+              Find contact scrapes this URL. If it is a parking / “not connected” page, use Enter
+              contact manually.
+            </Typography>
             <Typography variant="body2">
               Source: {formatContactSource(selected)}
               {selected.contactSourceUrl ? ` · ${selected.contactSourceUrl}` : ''}

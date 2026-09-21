@@ -12,12 +12,15 @@ export type ResearchResult = {
   nextResearchAt?: string;
   researchAttempts?: number;
   contactabilityState?: string;
+  websiteStatus?: string;
+  websiteDetail?: string;
+  website?: string;
 };
 
 export type ResearchSummary = {
   ok: boolean;
   text: string;
-  kind: 'found' | 'not_found' | 'skipped' | 'failed';
+  kind: 'found' | 'not_found' | 'skipped' | 'failed' | 'website_dead';
 };
 
 export function summarizeResearchResult(
@@ -43,11 +46,39 @@ export function summarizeResearchResult(
       text: `${name}: ${result.error || result.message || result.reason || 'research failed'}`,
     };
   }
+
+  const reason = (result?.reason || '').toLowerCase();
+  if (reason === 'website_dead' || result?.websiteStatus === 'ParkingOrDisconnected') {
+    return {
+      ok: false,
+      kind: 'website_dead',
+      text:
+        result?.websiteDetail ||
+        result?.message ||
+        `${name}: website is dead / not connected — use Enter contact manually`,
+    };
+  }
+  if (reason === 'website_unreachable' || result?.websiteStatus === 'Unreachable') {
+    return {
+      ok: false,
+      kind: 'website_dead',
+      text:
+        result?.websiteDetail ||
+        result?.message ||
+        `${name}: website unreachable — use Enter contact manually`,
+    };
+  }
+
   if (result?.found === false) {
     const when = result.nextResearchAt
       ? ` · next ${new Date(result.nextResearchAt).toLocaleDateString()}`
       : '';
-    return { ok: false, kind: 'not_found', text: `No public email for ${name}${when}` };
+    const detail = result.message || result.websiteDetail;
+    return {
+      ok: false,
+      kind: 'not_found',
+      text: detail ? `${detail}${when}` : `No public email for ${name}${when}`,
+    };
   }
   return { ok: false, kind: 'failed', text: `${name}: no contact found` };
 }

@@ -299,6 +299,20 @@ public class PartnerOutreachTests
     }
 
     [Fact]
+    public void Public_contact_verifier_detects_wix_disconnected_domain()
+    {
+        var html = """
+            <html><body>
+            <h1>This domain isn't connected to a site</h1>
+            <p>If this domain is yours, head to the Domains page in your Wix dashboard.
+            Dreaming of your own domain? Claim one now on Wix.</p>
+            </body></html>
+            """;
+        Assert.True(PublicBusinessContactVerifier.IsParkingOrDisconnectedHtml(html));
+        Assert.Null(PublicBusinessContactVerifier.TryVerifyFromHtml(html, "sq1performance.com", "https://www.sq1performance.com/"));
+    }
+
+    [Fact]
     public void Public_contact_verifier_accepts_domain_matched_mailto()
     {
         var html = "<a href=\"mailto:info@exampleclub.org\">Contact</a>";

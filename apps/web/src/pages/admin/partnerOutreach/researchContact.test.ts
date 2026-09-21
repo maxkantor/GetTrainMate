@@ -30,6 +30,23 @@ describe('summarizeResearchResult', () => {
     expect(s.text).toMatch(/No public email for Square One/);
   });
 
+  it('reports dead Wix / parking website clearly', () => {
+    const s = summarizeResearchResult(
+      {
+        ok: true,
+        found: false,
+        reason: 'website_dead',
+        websiteStatus: 'ParkingOrDisconnected',
+        websiteDetail:
+          'Website is a Wix placeholder — domain is not connected to a live site.',
+      },
+      'Square One',
+    );
+    expect(s.ok).toBe(false);
+    expect(s.kind).toBe('website_dead');
+    expect(s.text).toMatch(/Wix|not connected/i);
+  });
+
   it('reports cooldown skip (the blink bug case)', () => {
     const s = summarizeResearchResult(
       { ok: false, skipped: true, reason: 'retry_later' },

@@ -1797,13 +1797,20 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         await _db.SaveAsync(p);
 
         VerifiedPublicContact? verified = null;
+        WebsiteProbeResult? probe = null;
         try
         {
-            verified = await _contactVerifier.TryVerifyAsync(siteUri);
+            probe = await _contactVerifier.ProbeAsync(siteUri);
+            verified = probe.Contact;
         }
         catch (Exception ex)
         {
             _log.LogDebug(ex, "Research contact failed for {Id}", prospectId);
+            probe = new WebsiteProbeResult
+            {
+                Status = WebsiteProbeStatus.Unreachable,
+                Detail = ex.Message,
+            };
         }
 
         if (verified != null && !string.IsNullOrWhiteSpace(verified.Email))
@@ -1885,7 +1892,16 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             };
         }
 
-        // Not found — never invent email
+        // Not found — never invent email. Distinguish dead site vs no public email.
+        var websiteStatus = probe?.Status.ToString() ?? nameof(WebsiteProbeStatus.LiveNoEmail);
+        var websiteDetail = probe?.Detail;
+        var reason = probe?.Status switch
+        {
+            WebsiteProbeStatus.ParkingOrDisconnected => "website_dead",
+            WebsiteProbeStatus.Unreachable => "website_unreachable",
+            _ => "no_public_email",
+        };
+
         p.ContactabilityState = p.ResearchAttempts >= 3
             ? PartnerCrmLifecycle.NoPublicContact
             : PartnerCrmLifecycle.RetryLater;
@@ -1897,14 +1913,30 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         p.ContactabilityScore = 0;
         p.ContactQualityScore = 0;
         p.LastEvaluatedAt = DateTime.UtcNow;
+        PartnerCrmLifecycle.AppendTimelineEvent(
+            p,
+            reason,
+            websiteDetail ?? "No public email found",
+            DateTime.UtcNow,
+            new { websiteStatus, website = p.Website, p.ResearchAttempts });
         await _db.SaveAsync(p);
         await TryAuditAsync(actor, "partner_outreach.research_contact", "partner_prospect", prospectId, null,
-            new { found = false, p.ResearchAttempts, p.ContactabilityState, p.NextResearchAt });
+            new { found = false, reason, websiteStatus, websiteDetail, p.ResearchAttempts, p.ContactabilityState, p.NextResearchAt });
         return new
         {
             ok = true,
             found = false,
+            reason,
+            websiteStatus,
+            websiteDetail,
+            message = websiteDetail
+                ?? (reason == "website_dead"
+                    ? "Website is not a live site — enter contact manually."
+                    : reason == "website_unreachable"
+                        ? "Website could not be reached — enter contact manually."
+                        : "No public email found on the website."),
             prospectId,
+            website = p.Website,
             p.ResearchAttempts,
             p.ContactabilityState,
             nextResearchAt = p.NextResearchAt,

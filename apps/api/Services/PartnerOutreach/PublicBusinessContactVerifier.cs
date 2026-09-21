@@ -3,6 +3,26 @@ using System.Text.RegularExpressions;
 
 namespace GetTrainMate.Api.Services.PartnerOutreach;
 
+public enum WebsiteProbeStatus
+{
+    /// <summary>Fetched at least one page; email extracted.</summary>
+    EmailFound,
+    /// <summary>Site responded with real content but no public business email.</summary>
+    LiveNoEmail,
+    /// <summary>Domain parking / Wix “not connected” / similar placeholder.</summary>
+    ParkingOrDisconnected,
+    /// <summary>All fetches failed (DNS, timeout, non-success).</summary>
+    Unreachable,
+}
+
+public sealed class WebsiteProbeResult
+{
+    public WebsiteProbeStatus Status { get; init; }
+    public VerifiedPublicContact? Contact { get; init; }
+    public string? Detail { get; init; }
+    public string? SampleUrl { get; init; }
+}
+
 /// <summary>
 /// Fetches organization-controlled pages and extracts exact public business emails.
 /// Never infers addresses (no info@domain guessing without HTML evidence).
@@ -19,10 +39,12 @@ public sealed class PublicBusinessContactVerifier
 
     static readonly string[] ContactPaths =
     {
+        // Homepage first — catch Wix/parked domains before scraping contact paths.
+        "/",
         "/contact", "/contact-us", "/contactus", "/about/contact", "/about-us/contact",
         "/get-in-touch", "/connect", "/staff", "/coaches", "/our-team", "/pages/contact",
         "/en/contact", "/?page_id=contact",
-        "/about", "/about-us", "/team", "/locations", "/",
+        "/about", "/about-us", "/team", "/locations",
     };
 
     static readonly HashSet<string> RejectLocalParts = new(StringComparer.OrdinalIgnoreCase)
@@ -45,14 +67,34 @@ public sealed class PublicBusinessContactVerifier
         CancellationToken ct = default,
         int? maxContactPaths = null)
     {
+        var probe = await ProbeAsync(officialWebsite, ct, maxContactPaths);
+        return probe.Contact;
+    }
+
+    public async Task<WebsiteProbeResult> ProbeAsync(
+        Uri officialWebsite,
+        CancellationToken ct = default,
+        int? maxContactPaths = null)
+    {
         if (!officialWebsite.Scheme.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            return null;
+        {
+            return new WebsiteProbeResult
+            {
+                Status = WebsiteProbeStatus.Unreachable,
+                Detail = "Website URL is not http(s).",
+            };
+        }
+
         var host = officialWebsite.Host.ToLowerInvariant();
         if (host.StartsWith("www.")) host = host[4..];
 
         var paths = maxContactPaths is > 0
             ? ContactPaths.Take(maxContactPaths.Value)
             : ContactPaths;
+
+        var anySuccess = false;
+        string? parkingDetail = null;
+        string? sampleUrl = null;
 
         foreach (var path in paths)
         {
@@ -66,8 +108,35 @@ public sealed class PublicBusinessContactVerifier
                 var html = await res.Content.ReadAsStringAsync(ct);
                 if (string.IsNullOrWhiteSpace(html)) continue;
 
+                anySuccess = true;
+                sampleUrl ??= pageUrl;
+
+                if (IsParkingOrDisconnectedHtml(html))
+                {
+                    parkingDetail ??= DetectParkingDetail(html);
+                    // Parking homepage: no point scraping more paths on a disconnected domain.
+                    if (path is "/" or "")
+                    {
+                        return new WebsiteProbeResult
+                        {
+                            Status = WebsiteProbeStatus.ParkingOrDisconnected,
+                            Detail = parkingDetail ?? "Domain parking / not connected to a site.",
+                            SampleUrl = pageUrl,
+                        };
+                    }
+                    continue;
+                }
+
                 var found = TryVerifyFromHtml(html, host, pageUrl);
-                if (found != null) return found;
+                if (found != null)
+                {
+                    return new WebsiteProbeResult
+                    {
+                        Status = WebsiteProbeStatus.EmailFound,
+                        Contact = found,
+                        SampleUrl = pageUrl,
+                    };
+                }
             }
             catch (Exception ex)
             {
@@ -75,13 +144,70 @@ public sealed class PublicBusinessContactVerifier
             }
         }
 
-        return null;
+        // Also probe homepage explicitly if not already covered as last path — ContactPaths includes "/".
+        if (!anySuccess)
+        {
+            return new WebsiteProbeResult
+            {
+                Status = WebsiteProbeStatus.Unreachable,
+                Detail = "Could not reach the website (DNS, timeout, or all pages failed).",
+                SampleUrl = officialWebsite.ToString(),
+            };
+        }
+
+        if (parkingDetail != null)
+        {
+            return new WebsiteProbeResult
+            {
+                Status = WebsiteProbeStatus.ParkingOrDisconnected,
+                Detail = parkingDetail,
+                SampleUrl = sampleUrl,
+            };
+        }
+
+        return new WebsiteProbeResult
+        {
+            Status = WebsiteProbeStatus.LiveNoEmail,
+            Detail = "Website is reachable but no public business email was found on contact/about pages.",
+            SampleUrl = sampleUrl,
+        };
+    }
+
+    /// <summary>True for Wix/GoDaddy/etc. placeholder pages with no real business content.</summary>
+    public static bool IsParkingOrDisconnectedHtml(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return false;
+        var lower = html.ToLowerInvariant();
+        if (lower.Contains("this domain isn't connected to a site", StringComparison.Ordinal)
+            || lower.Contains("this domain is not connected to a site", StringComparison.Ordinal)
+            || lower.Contains("head to the domains page in your wix dashboard", StringComparison.Ordinal)
+            || lower.Contains("claim one now on wix", StringComparison.Ordinal))
+            return true;
+        if (lower.Contains("domain is parked", StringComparison.Ordinal)
+            || lower.Contains("parked domain", StringComparison.Ordinal)
+            || lower.Contains("this domain is for sale", StringComparison.Ordinal))
+            return true;
+        if (lower.Contains("wixstatic.com", StringComparison.Ordinal)
+            && lower.Contains("isn't connected", StringComparison.Ordinal))
+            return true;
+        return false;
+    }
+
+    static string DetectParkingDetail(string html)
+    {
+        var lower = html.ToLowerInvariant();
+        if (lower.Contains("wix", StringComparison.Ordinal))
+            return "Website is a Wix placeholder — domain is not connected to a live site.";
+        if (lower.Contains("parked", StringComparison.Ordinal) || lower.Contains("for sale", StringComparison.Ordinal))
+            return "Website is a parked / for-sale domain page.";
+        return "Website appears disconnected or parked (no live business site).";
     }
 
     /// <summary>Extract a verified public contact from already-fetched HTML (for tests and offline reuse).</summary>
     public static VerifiedPublicContact? TryVerifyFromHtml(string html, string host, string pageUrl)
     {
         if (string.IsNullOrWhiteSpace(html)) return null;
+        if (IsParkingOrDisconnectedHtml(html)) return null;
         var officialHost = (host ?? "").Trim().ToLowerInvariant();
         if (officialHost.StartsWith("www.")) officialHost = officialHost[4..];
 
@@ -111,7 +237,6 @@ public sealed class PublicBusinessContactVerifier
         officialHost = (officialHost ?? "").Trim().ToLowerInvariant();
         if (officialHost.StartsWith("www.")) officialHost = officialHost[4..];
 
-        // mailto: links first (strongest signal) — accept even when email domain ≠ website domain
         foreach (Match m in MailtoRx.Matches(html))
         {
             var email = m.Groups[1].Value.Trim().ToLowerInvariant();
@@ -121,7 +246,6 @@ public sealed class PublicBusinessContactVerifier
             yield return (email, "website_mailto", name);
         }
 
-        // Bare text emails: prefer same-domain; also accept on contact/about paths
         foreach (Match m in EmailRx.Matches(html))
         {
             var email = m.Value.Trim().ToLowerInvariant();
@@ -166,7 +290,6 @@ public sealed class PublicBusinessContactVerifier
         return emailBase == hostBase;
     }
 
-    /// <summary>Simple heuristic: anchor text of a mailto link, else nearby capitalized name.</summary>
     static string? GuessContactNameNearMailto(string html, int mailtoIndex)
     {
         var afterLen = Math.Min(160, html.Length - mailtoIndex);
