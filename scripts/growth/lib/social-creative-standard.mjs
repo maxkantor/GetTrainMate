@@ -169,7 +169,7 @@ export const SPORT_LIBRARY = [
   {
     id: 'gym',
     category: 'gym_fitness',
-    scene: 'young athletic man and woman gym partners planning the next set together, clipboard visible, natural conversation — not isolated lifter posing',
+    scene: 'young athletic man and woman gym partners planning the next set together, natural conversation between racks — not isolated lifter posing',
     headlines: [
       'START WITH A WORKOUT.\nSEE WHERE IT GOES.',
       'SAME WORKOUT.\nNEW CONNECTION.',
@@ -292,7 +292,7 @@ function pickWeighted(items, seed, weightFn) {
   return items[items.length - 1];
 }
 
-export function recentSportsFromEntries(entries = [], limit = 5) {
+export function recentSportsFromEntries(entries = [], limit = 7) {
   return (entries || [])
     .filter((e) => e && (e.status === 'published' || e.facebookPostId))
     .slice()
@@ -325,7 +325,7 @@ export function selectCreativePlan({
 } = {}) {
   const m = String(mode || 'VIBE').toUpperCase();
   const seed = hashSeed(`${isoDate}:${contentId}:${m}:standard:${CREATIVE_STANDARD_VERSION}:${offset}`);
-  const recentSports = new Set(recentSportsFromEntries(recentEntries, 5));
+  const recentSports = new Set(recentSportsFromEntries(recentEntries, 7));
   const recentHeadlines = new Set(recentHeadlinesFromEntries(recentEntries, 8));
 
   let pool = SPORT_LIBRARY.filter((s) => !recentSports.has(s.id));

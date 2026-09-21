@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 export const STABLE_IMAGE_CORE_MODEL_ID =
-  process.env.SOCIAL_IMAGE_BEDROCK_MODEL_ID || 'stability.stable-image-core-v1:1';
+  process.env.SOCIAL_IMAGE_BEDROCK_MODEL_ID || 'stability.sd3-5-large-v1:0';
 export const BEDROCK_IMAGE_REGION = process.env.SOCIAL_IMAGE_BEDROCK_REGION || 'us-west-2';
 
 export const DEFAULT_NEGATIVE_PROMPT = [
@@ -28,9 +28,18 @@ export const DEFAULT_NEGATIVE_PROMPT = [
   'distorted faces',
   'plastic skin',
   'wax faces',
+  'airbrushed skin',
+  'porcelain skin',
+  'oversmooth skin',
+  'doll-like faces',
   'cartoon',
   'illustration',
   'anime',
+  'digital painting',
+  'concept art',
+  'AI art',
+  'Midjourney look',
+  'Stable Diffusion aesthetic',
   'fake text',
   'gibberish text on clothing',
   'warped logos on shirts',
@@ -51,17 +60,48 @@ export const DEFAULT_NEGATIVE_PROMPT = [
   'identical smiles',
   'everybody looking at camera',
   'posing for camera',
+  'fashion magazine pose',
   'excessive HDR',
   'fake cinematic glow',
+  'neon rim light',
+  'overprocessed color grade',
   'hyper-muscular AI bodies',
+  'bodybuilder physique',
+  'vascular arms',
+  'steroid look',
+  'three people',
+  'group of three',
+  'three adults crouching',
+  'trio posing',
+  'crowd behind heroes',
+  'smartphone in hand',
+  'looking at phone',
+  'phone screen',
+  'scrolling phone',
+  'shirtless men',
+  'bare chest bodybuilder',
+  'two men only',
+  'all-male cast',
+  'two women only',
+  'all-female cast',
   'sterile gym',
+  'plain concrete wall backdrop',
+  'studio backdrop',
+  'grey seamless background',
+  'crouching lineup pose',
+  'squad squat pose',
   'obvious AI advertising composition',
   'CGI people',
   '3D render look',
+  'octane render',
+  'unreal engine',
   'exaggerated kissing',
   'sexual posing',
   'staged romantic embrace',
   'dramatic staring into eyes',
+  'rock climbing',
+  'indoor climbing wall',
+  'bouldering',
   // Sep 17 regression: brand word TRAIN → literal trains/railroads
   'railroad tracks',
   'railway tracks',
@@ -107,8 +147,14 @@ export function sanitizePhotographyScene(raw = '') {
 
 const BRAND_CORE =
   'Fitness social app creative: people meet through a shared workout or sport, then connect naturally. ' +
-  'Attractive athletic adults who look like real humans in a real photograph — natural skin texture, realistic sweat, individual non-matching clothing, candid expressions. ' +
-  'Subtle chemistry via eye contact, laughing, and conversation. ';
+  'Always show a mixed pair: one young attractive woman and one young attractive man (mid-20s to early 30s) with normal athletic builds (not bodybuilders) who look like real humans in a real handheld camera photograph — ' +
+  'natural skin texture with pores and slight imperfections, realistic sweat, individual non-matching clothing, candid unposed expressions. ' +
+  'No phones in hands. No all-male groups. Subtle chemistry via eye contact, laughing, and conversation. ';
+
+const CAMERA_LOCK =
+  'Shot on a real DSLR or mirrorless camera with a 35mm or 50mm lens, natural depth of field, authentic documentary photography. ' +
+  'Looks like a candid moment from a real sports photographer — not AI-generated, not CGI, not a 3D render, not stock-ad polish. ' +
+  'Natural skin, visible pores, slight motion softness, believable daylight. ';
 
 export function buildPhotographyPrompt(concept) {
   const mode = String(concept?.mode || 'TRAIN').toUpperCase();
@@ -117,32 +163,35 @@ export function buildPhotographyPrompt(concept) {
     concept?.photoPrompt ||
       concept?.visualConcept ||
       (mode === 'VIBE'
-        ? 'attractive athletic adults hanging out after a shared workout, candid laughs'
+        ? 'a young attractive woman and a young attractive man hanging out after a shared workout, candid laughs'
         : mode === 'DATE'
-          ? 'attractive athletic man and woman after a workout with subtle chemistry, walking and talking'
-          : 'attractive athletic man and woman working out together with natural partnership and realistic sweat')
+          ? 'a young attractive woman and a young attractive man after a workout with subtle chemistry, walking and talking'
+          : 'a young attractive woman and a young attractive man working out together with natural partnership and realistic sweat')
   );
 
   const sportLock = sport
     ? `The sport must clearly be ${sport} with unmistakable equipment and setting for ${sport}. `
     : '';
 
+  const pairLock =
+    'Hero subjects are exactly two people: one woman and one man. Never two men. Never three people. ';
+
   // Keep forbidden subjects out of the positive prompt (models latch onto them).
   // Railroad/locomotive bans live only in DEFAULT_NEGATIVE_PROMPT.
   const realismLock =
-    'Photorealistic camera photograph, not AI art, not CGI, not a 3D render. ' +
+    CAMERA_LOCK +
     'People look at each other, not at the camera. ' +
     'Setting must be a real sports venue only: court, gym, trail, park path, track, or field. ';
 
   if (mode === 'VIBE') {
     return (
-      'Premium photorealistic editorial lifestyle photography. ' +
+      'Authentic documentary lifestyle photograph that could pass as a real iPhone or DSLR photo. ' +
       BRAND_CORE +
+      pairLock +
       sportLock +
       `Scene: ${activity}. ` +
-      'Show 2–4 clearly identifiable attractive athletic adults as large hero subjects. ' +
       'Prefer sport-to-social transitions: cooling down after a run, walking from a court, reaching a trail destination, or leaving a class. ' +
-      'Genuine laughter, eye contact, and candid friendship. ' +
+      'Genuine laughter, eye contact, and candid friendship — they look at each other, not the camera. ' +
       realismLock +
       'Natural daylight or realistic evening social lighting. Leave clean negative space at the bottom for a short headline. No text, no logo, no watermark.'
     );
@@ -150,11 +199,11 @@ export function buildPhotographyPrompt(concept) {
 
   if (mode === 'DATE') {
     return (
-      'Premium photorealistic editorial lifestyle photography. ' +
+      'Authentic documentary lifestyle photograph that could pass as a real iPhone or DSLR photo. ' +
       BRAND_CORE +
+      pairLock +
       sportLock +
       `Scene: ${activity}. ` +
-      'Show one attractive adult man and one attractive adult woman as large hero subjects. ' +
       'Chemistry is subtle and believable — they came to work out or play, and there might be something there. ' +
       'Prefer an after-workout walk, cooldown, coffee stop, or conversation with sports clothing or equipment still visible. ' +
       realismLock +
@@ -163,13 +212,13 @@ export function buildPhotographyPrompt(concept) {
   }
 
   return (
-    'Premium photorealistic editorial sports photography. ' +
+    'Authentic documentary sports photograph that could pass as a real iPhone or DSLR photo. ' +
     BRAND_CORE +
+    pairLock +
     sportLock +
     `Scene: ${activity}. ` +
-    'Show exactly two attractive athletic adults working out or playing together as large hero subjects. ' +
     'Partnership is the story: spotting, pacing, high-fives, talk between sets, playful competition. ' +
-    'Realistic sweat, natural skin, individual non-matching athletic wear. ' +
+    'Realistic sweat, natural skin texture, individual non-matching athletic wear. ' +
     realismLock +
     'Leave clean negative space at the bottom for a short headline. No text, no logo, no watermark.'
   );

@@ -9,8 +9,8 @@ import {
   languageForWeekday
 } from '../lib/owned-social-catalog.mjs';
 
-test('production social imagery defaults to curated stock photography', () => {
-  assert.equal(SOCIAL_IMAGE_PROVIDER, (process.env.SOCIAL_IMAGE_PROVIDER || 'stock').toLowerCase());
+test('production social imagery defaults to Bedrock daily generation', () => {
+  assert.equal(SOCIAL_IMAGE_PROVIDER, (process.env.SOCIAL_IMAGE_PROVIDER || 'bedrock').toLowerCase());
 });
 
 test('Sunday 2026-09-13 resolves to English VIBE', () => {

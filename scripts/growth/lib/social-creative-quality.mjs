@@ -101,8 +101,9 @@ export function assessCreativeProductFit(input = {}) {
 }
 
 /**
- * Pick an evergreen prior publish to reuse when live generation fails the gate.
- * Prefers same mode, real/approved photography — never Bedrock AI fallbacks.
+ * Legacy helper retained for tests only.
+ * Production no longer recycles prior publishes — Bedrock must generate a new image daily.
+ * Prefer same mode, real photography — never Bedrock AI fallbacks if this is ever called.
  */
 export function selectEvergreenCreative(entries = [], { mode, recentSports = [] } = {}) {
   const m = String(mode || '').toUpperCase();
