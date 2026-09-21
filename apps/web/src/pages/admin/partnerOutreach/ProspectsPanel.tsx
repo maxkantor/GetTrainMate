@@ -4,6 +4,11 @@ import {
   Box,
   Button,
   Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   Drawer,
   FormControl,
@@ -60,10 +65,21 @@ import {
   resolveNextAction,
 } from './components';
 import { adminApiService } from '@/services/adminApiService';
-import { summarizeBulkResearch, summarizeResearchResult } from './researchContact';
-import type { ResearchResult } from './researchContact';
+import {
+  discoveryProgressFrom,
+  summarizeDiscoveryBatch,
+  summarizeResearchResult,
+} from './researchContact';
+import type {
+  DiscoveryBatchResponse,
+  DiscoveryProgress,
+  ResearchResult,
+} from './researchContact';
 
-type ContactFormMode = 'closed' | 'manual' | 'email';
+type ContactFormMode = 'closed' | 'form';
+
+/** Discovery is capped per request so a batch stays inside the API time budget. */
+const DISCOVERY_BATCH_MAX = 100;
 
 type ManualContactForm = {
   email: string;
@@ -162,6 +178,8 @@ export const ProspectsPanel: React.FC<Props> = ({
   const [contactMode, setContactMode] = useState<ContactFormMode>('closed');
   const [contactForm, setContactForm] = useState<ManualContactForm>(emptyContactForm());
   const [contactBusy, setContactBusy] = useState(false);
+  const [discoverProgress, setDiscoverProgress] = useState<DiscoveryProgress | null>(null);
+  const [confirmDiscovery, setConfirmDiscovery] = useState<{ ids: string[] } | null>(null);
   const [duplicateWarn, setDuplicateWarn] = useState<{
     message: string;
     organizationName?: string;
@@ -235,6 +253,13 @@ export const ProspectsPanel: React.FC<Props> = ({
     setDuplicateWarn(null);
     setContactForm(emptyContactForm(p));
     void loadDetail(p.prospectId);
+  };
+
+  /** Manual add/edit is always available, whatever the acquisition status is. */
+  const openContactForm = (p: PartnerProspect) => {
+    setContactMode('form');
+    setDuplicateWarn(null);
+    setContactForm(emptyContactForm(p));
   };
 
   const applyManualContactResult = async (raw: {
@@ -407,6 +432,12 @@ export const ProspectsPanel: React.FC<Props> = ({
 
   const applySearch = () => setFilters((f) => ({ ...f, search: searchInput.trim() }));
 
+  /** Filtered rows that can still be researched: a website to probe and no email yet. */
+  const missingContacts = useMemo(
+    () => filtered.filter((p) => Boolean(p.website) && !hasEmail(p)),
+    [filtered],
+  );
+
   const refreshSelected = async (prospectId: string) => {
     const refreshed = asArray<PartnerProspect>(await adminApiService.get(`${API}/prospects`));
     setProspects(refreshed);
@@ -451,9 +482,11 @@ export const ProspectsPanel: React.FC<Props> = ({
         ? 'success'
         : summary.kind === 'website_dead'
           ? 'error'
-          : summary.kind === 'not_found'
-            ? 'warning'
-            : 'error';
+          : summary.kind === 'contact_form'
+            ? 'info'
+            : summary.kind === 'not_found' || summary.kind === 'review_required'
+              ? 'warning'
+              : 'error';
     // Local banner only — avoid duplicate page-level Alert with the same text.
     setResearchBanner({ severity, text: summary.text });
     onError(null);
@@ -469,7 +502,7 @@ export const ProspectsPanel: React.FC<Props> = ({
     try {
       // Explicit admin click always forces through cooldown / attempt gates.
       const raw = (await adminApiService.post(
-        `${API}/prospects/${encodeURIComponent(p.prospectId)}/research-contact`,
+        `${API}/prospects/${encodeURIComponent(p.prospectId)}/discover-contact`,
         { force: true },
       )) as ResearchResult;
       // Reload first — load must NOT clear banners (that was the blink bug).
@@ -485,32 +518,65 @@ export const ProspectsPanel: React.FC<Props> = ({
     }
   };
 
-  const researchBulk = async () => {
-    if (selectedIds.size === 0) return;
-    const count = selectedIds.size;
-    const idList = [...selectedIds];
+  const discoverContacts = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const batch = ids.slice(0, DISCOVERY_BATCH_MAX);
     setBusy(true);
     onError(null);
     onNotice(null);
     setResearchBanner(null);
+    setDiscoverProgress(null);
     try {
-      const raw = (await adminApiService.post(`${API}/prospects/research-contacts`, {
-        prospectIds: idList,
+      const raw = (await adminApiService.post(`${API}/prospects/discover-contacts`, {
+        prospectIds: batch,
+        filterMissingOnly: true,
+        max: batch.length,
         force: true,
-      })) as { researched?: number; results?: ResearchResult[] };
-      const results = Array.isArray(raw?.results) ? raw.results : [];
-      const nameById = new Map(
-        prospects.map((p) => [p.prospectId, p.organizationName || p.prospectId]),
-      );
+        dryRun: false,
+      })) as DiscoveryBatchResponse;
+      setDiscoverProgress(discoveryProgressFrom(raw, batch.length));
       setSelectedIds(new Set());
       await load();
-      publishResearch(summarizeBulkResearch(results, nameById, count));
+      if (selected) await refreshSelected(selected.prospectId);
+      publishResearch(summarizeDiscoveryBatch(raw, batch.length));
     } catch (e: unknown) {
-      const text = e instanceof Error ? e.message : 'Bulk contact research failed';
+      const text = e instanceof Error ? e.message : 'Contact discovery failed';
       setResearchBanner({ severity: 'error', text });
       onError(text);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const decidePendingContact = async (p: PartnerProspect, decision: 'accept' | 'reject') => {
+    setContactBusy(true);
+    onError(null);
+    onNotice(null);
+    try {
+      const raw = (await adminApiService.post(
+        `${API}/prospects/${encodeURIComponent(p.prospectId)}/pending-contact/${decision}`,
+        {},
+      )) as { ok?: boolean; email?: string; rejectedEmail?: string; message?: string; error?: string };
+      if (raw?.ok === false) {
+        const text = raw.message || raw.error || 'Could not update the pending contact';
+        setResearchBanner({ severity: 'error', text });
+        onError(text);
+        return;
+      }
+      const text =
+        decision === 'accept'
+          ? `Accepted ${raw?.email || 'contact'} for ${p.organizationName || p.prospectId}`
+          : `Rejected ${raw?.rejectedEmail || 'candidate'} for ${p.organizationName || p.prospectId}`;
+      setResearchBanner({ severity: decision === 'accept' ? 'success' : 'info', text });
+      onNotice(text);
+      await load();
+      await refreshSelected(p.prospectId);
+    } catch (e: unknown) {
+      const text = e instanceof Error ? e.message : 'Could not update the pending contact';
+      setResearchBanner({ severity: 'error', text });
+      onError(text);
+    } finally {
+      setContactBusy(false);
     }
   };
 
@@ -696,12 +762,55 @@ export const ProspectsPanel: React.FC<Props> = ({
         <Button
           size="small"
           variant="contained"
-          disabled={selectedIds.size === 0 || busy}
-          onClick={() => void researchBulk()}
+          disabled={missingContacts.length === 0 || busy}
+          onClick={() =>
+            setConfirmDiscovery({ ids: missingContacts.map((p) => p.prospectId) })
+          }
         >
-          Research contacts ({selectedIds.size})
+          Find missing contacts ({missingContacts.length})
         </Button>
+        {selectedIds.size > 0 && (
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={busy}
+            onClick={() => setConfirmDiscovery({ ids: [...selectedIds] })}
+          >
+            Find contacts for selected ({selectedIds.size})
+          </Button>
+        )}
       </Stack>
+
+      {discoverProgress && (
+        <Box
+          sx={{
+            mb: 2,
+            p: 1.5,
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1.5,
+          }}
+        >
+          <Stack direction="row" alignItems="center" sx={{ mb: 0.5 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 0.6, flex: 1 }}>
+              CONTACT DISCOVERY
+            </Typography>
+            <Button size="small" onClick={() => setDiscoverProgress(null)} disabled={busy}>
+              Dismiss
+            </Button>
+          </Stack>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            Processed {discoverProgress.processed} / {discoverProgress.total}
+          </Typography>
+          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+            <Typography variant="body2">Emails found {discoverProgress.emailsFound}</Typography>
+            <Typography variant="body2">Forms found {discoverProgress.formsFound}</Typography>
+            <Typography variant="body2">Review {discoverProgress.reviewRequired}</Typography>
+            <Typography variant="body2">No contact {discoverProgress.noContact}</Typography>
+            <Typography variant="body2">Remaining {discoverProgress.remaining}</Typography>
+          </Stack>
+        </Box>
+      )}
 
       {filtered.length === 0 ? (
         <EmptyState title="No prospects match" detail="Adjust filters or run discovery from Overview." />
@@ -854,20 +963,29 @@ export const ProspectsPanel: React.FC<Props> = ({
               <Typography variant="body2" sx={{ flex: 1 }} noWrap>
                 Email: {selected.email || '—'}
               </Typography>
-              <Tooltip title={selected.email ? 'Edit email' : 'Enter email'}>
-                <IconButton
+              {hasEmail(selected) ? (
+                <Tooltip title="Edit email">
+                  <span>
+                    <IconButton
+                      size="small"
+                      aria-label="Edit email"
+                      disabled={contactBusy}
+                      onClick={() => openContactForm(selected)}
+                    >
+                      <EditOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              ) : (
+                <Button
                   size="small"
-                  aria-label="Edit email"
+                  variant="outlined"
                   disabled={contactBusy}
-                  onClick={() => {
-                    setContactMode('email');
-                    setDuplicateWarn(null);
-                    setContactForm(emptyContactForm(selected));
-                  }}
+                  onClick={() => openContactForm(selected)}
                 >
-                  <EditOutlinedIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+                  + Add
+                </Button>
+              )}
             </Stack>
             <Typography variant="body2">
               Contact: {selected.contactName || '—'}{' '}
@@ -900,102 +1018,103 @@ export const ProspectsPanel: React.FC<Props> = ({
               Source: {formatContactSource(selected)}
               {selected.contactSourceUrl ? ` · ${selected.contactSourceUrl}` : ''}
             </Typography>
-            <Typography variant="body2" sx={{ mb: 1.5 }}>
+            <Typography variant="body2">
               Status: {formatContactability(selected)}
               {selected.contactabilityScore != null
                 ? ` · score ${selected.contactabilityScore}/100`
                 : ''}
+              {selected.contactConfidence
+                ? ` · ${selected.contactConfidence.toLowerCase()} confidence`
+                : ''}
             </Typography>
-
-            {contactMode === 'closed' && (
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={busy || contactBusy}
-                  onClick={() => void researchOne(selected)}
+            {selected.lastContactResearchSummary && (
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
+                Last researched {formatDate(selected.lastContactResearchAt)} —{' '}
+                {selected.lastContactResearchSummary}
+              </Typography>
+            )}
+            {selected.contactFormUrl && (
+              <Typography variant="body2" sx={{ mt: 0.25, wordBreak: 'break-all' }}>
+                <Box
+                  component="a"
+                  href={selected.contactFormUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{ color: 'primary.main' }}
                 >
-                  Find contact
-                </Button>
-                <Button
-                  size="small"
-                  variant="contained"
-                  disabled={contactBusy}
-                  onClick={() => {
-                    setContactMode('manual');
-                    setDuplicateWarn(null);
-                    setContactForm(emptyContactForm(selected));
-                  }}
-                >
-                  Enter contact manually
-                </Button>
-              </Stack>
+                  Contact form
+                </Box>
+              </Typography>
             )}
 
-            {contactMode === 'email' && (
-              <Box
-                sx={{
-                  mb: 2,
-                  p: 1.5,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1.5,
-                }}
-              >
-                <TextField
-                  fullWidth
-                  size="small"
-                  required
-                  label="Email"
-                  value={contactForm.email}
-                  onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))}
-                  sx={{ mb: 1.25 }}
-                  autoFocus
-                />
-                {duplicateWarn && (
-                  <Alert severity="warning" sx={{ mb: 1.25 }}>
-                    {duplicateWarn.message}
-                    {duplicateWarn.organizationName
-                      ? ` (${duplicateWarn.type || 'record'}: ${duplicateWarn.organizationName})`
-                      : ''}
-                  </Alert>
-                )}
-                <Stack direction="row" spacing={1} justifyContent="flex-end">
+            {selected.pendingReviewEmail && (
+              <Alert severity="warning" sx={{ mt: 1.5, mb: 0.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  Review required: {selected.pendingReviewEmail}
+                </Typography>
+                <Typography variant="caption" display="block">
+                  {selected.pendingReviewConfidence
+                    ? `${selected.pendingReviewConfidence.toLowerCase()} confidence`
+                    : 'unverified confidence'}
+                  {selected.pendingReviewSourceUrl ? ' · ' : ''}
+                  {selected.pendingReviewSourceUrl && (
+                    <Box
+                      component="a"
+                      href={selected.pendingReviewSourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{ color: 'primary.main', wordBreak: 'break-all' }}
+                    >
+                      source
+                    </Box>
+                  )}
+                </Typography>
+                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                   <Button
                     size="small"
-                    onClick={() => {
-                      setContactMode('closed');
-                      setDuplicateWarn(null);
-                    }}
-                    disabled={contactBusy}
+                    variant="contained"
+                    disabled={contactBusy || busy}
+                    onClick={() => void decidePendingContact(selected, 'accept')}
                   >
-                    Cancel
+                    Accept
                   </Button>
-                  {duplicateWarn ? (
-                    <Button
-                      size="small"
-                      variant="contained"
-                      color="warning"
-                      disabled={contactBusy}
-                      onClick={() => void saveManualContact(true)}
-                    >
-                      Save anyway
-                    </Button>
-                  ) : (
-                    <Button
-                      size="small"
-                      variant="contained"
-                      disabled={contactBusy}
-                      onClick={() => void saveManualContact(false)}
-                    >
-                      Save
-                    </Button>
-                  )}
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="warning"
+                    disabled={contactBusy || busy}
+                    onClick={() => void decidePendingContact(selected, 'reject')}
+                  >
+                    Reject
+                  </Button>
                 </Stack>
-              </Box>
+              </Alert>
             )}
 
-            {contactMode === 'manual' && (
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5, mb: 2 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={busy || contactBusy}
+                onClick={() => void researchOne(selected)}
+              >
+                {selected.lastContactResearchAt ||
+                selected.lastResearchAt ||
+                (selected.researchAttempts ?? 0) > 0
+                  ? 'Research again'
+                  : 'Find contact'}
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                disabled={contactBusy}
+                onClick={() => openContactForm(selected)}
+              >
+                {hasEmail(selected) ? 'Edit contact' : 'Enter contact manually'}
+              </Button>
+            </Stack>
+
+            {contactMode === 'form' && (
               <Box
                 sx={{
                   mb: 2,
@@ -1225,6 +1344,32 @@ export const ProspectsPanel: React.FC<Props> = ({
           </Box>
         )}
       </Drawer>
+
+      <Dialog open={!!confirmDiscovery} onClose={() => setConfirmDiscovery(null)}>
+        <DialogTitle>Find public contact information</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Find public contact information for{' '}
+            {Math.min(confirmDiscovery?.ids.length ?? 0, DISCOVERY_BATCH_MAX)} prospects?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDiscovery(null)} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={busy}
+            onClick={() => {
+              const ids = confirmDiscovery?.ids ?? [];
+              setConfirmDiscovery(null);
+              void discoverContacts(ids);
+            }}
+          >
+            Start discovery
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

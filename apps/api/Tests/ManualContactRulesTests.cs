@@ -74,6 +74,39 @@ public class ManualContactRulesTests
         Assert.Null(p.NextResearchAt);
         Assert.Contains("Manual contact", p.Notes ?? "", StringComparison.OrdinalIgnoreCase);
         Assert.Contains("manual_contact_added", p.TimelineJson ?? "", StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ContactDiscoveryRules.DiscoveryManualContact, p.ContactDiscoveryStatus);
+        Assert.Equal(ContactDiscoveryRules.ConfidenceHigh, p.ContactConfidence);
+    }
+
+    [Fact]
+    public void ApplyManualContact_clears_a_candidate_awaiting_review()
+    {
+        var p = new PartnerProspect
+        {
+            ProspectId = "p1",
+            OrganizationName = "Gym",
+            ContactDiscoveryStatus = ContactDiscoveryRules.DiscoveryReviewRequired,
+            PendingReviewEmail = "info@franchise-corp.example",
+            PendingReviewSourceUrl = "https://gym.example/contact",
+            PendingReviewConfidence = ContactDiscoveryRules.ConfidenceMedium,
+        };
+
+        ManualContactRules.ApplyManualContact(
+            p,
+            "manager@gym.example",
+            null,
+            null,
+            null,
+            null,
+            null,
+            "admin@gettrainmate.com",
+            DateTime.UtcNow);
+
+        Assert.Equal("manager@gym.example", p.Email);
+        Assert.Equal(ContactDiscoveryRules.DiscoveryManualContact, p.ContactDiscoveryStatus);
+        Assert.Null(p.PendingReviewEmail);
+        Assert.Null(p.PendingReviewSourceUrl);
+        Assert.Null(p.PendingReviewConfidence);
     }
 
     [Fact]

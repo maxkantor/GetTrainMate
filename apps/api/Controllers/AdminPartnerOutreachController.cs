@@ -107,6 +107,45 @@ public class AdminPartnerOutreachController : ControllerBase
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }
 
+    /// <summary>Upgraded discovery for one prospect (confidence-aware, contact forms, dry run).</summary>
+    [HttpPost("prospects/{id}/discover-contact")]
+    public async Task<IActionResult> DiscoverContact(string id, [FromBody] DiscoverContactRequest? req)
+    {
+        try
+        {
+            return Ok(await _svc.DiscoverContactAsync(id, Actor(), req?.Force ?? true, req?.DryRun ?? false));
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+    }
+
+    /// <summary>Batch discovery over explicit ids or prospects that still have no contact.</summary>
+    [HttpPost("prospects/discover-contacts")]
+    public async Task<IActionResult> DiscoverContactsBatch([FromBody] DiscoverContactsBatchRequest? req)
+    {
+        try
+        {
+            return Ok(await _svc.DiscoverContactsBatchAsync(req ?? new DiscoverContactsBatchRequest(), Actor()));
+        }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+    }
+
+    [HttpPost("prospects/{id}/pending-contact/accept")]
+    public async Task<IActionResult> AcceptPendingContact(string id)
+    {
+        try { return Ok(await _svc.AcceptPendingContactAsync(id, Actor())); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+    }
+
+    [HttpPost("prospects/{id}/pending-contact/reject")]
+    public async Task<IActionResult> RejectPendingContact(string id)
+    {
+        try { return Ok(await _svc.RejectPendingContactAsync(id, Actor())); }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message, ok = false }); }
+    }
+
     [HttpPost("research/contact-needed")]
     public async Task<IActionResult> ResearchContactNeeded([FromBody] ResearchContactNeededRequest? req)
     {

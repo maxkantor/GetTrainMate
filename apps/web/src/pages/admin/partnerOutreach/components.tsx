@@ -134,23 +134,41 @@ export function formatContactability(p: PartnerProspect | string | undefined | n
       if (ver === 'verified_public' || source === 'public_listing') return 'Verified email';
       return 'Email provided — unverified';
     }
-    return formatContactability(p.contactabilityState || p.contactState || p.status || p.emailVerificationStatus);
+    return formatContactability(
+      p.contactDiscoveryStatus ||
+        p.contactabilityState ||
+        p.contactState ||
+        p.status ||
+        p.emailVerificationStatus,
+    );
   }
   const raw = (typeof p === 'string' ? p : '').trim();
   if (!raw) return 'Contact needed';
   const s = raw.toLowerCase().replace(/\s+/g, '_');
-  if (s === 'verified_public' || s === 'contact_found' || s === 'email' || s === 'available') return 'Verified email';
+  if (
+    s === 'verified_public' ||
+    s === 'contact_found' ||
+    s === 'email_found' ||
+    s === 'email' ||
+    s === 'available'
+  ) {
+    return 'Verified email';
+  }
   if (s === 'manual_unverified' || s === 'manual_admin' || s === 'manual_contact' || s === 'owner_supplied') {
     return 'Manual contact';
   }
-  if (s === 'researching') return 'Researching';
-  if (s === 'no_verified_public_email' || s === 'no_public_contact' || s === 'contacts_unavailable') return 'No public email';
+  if (s === 'contact_form_found' || s === 'contact_form') return 'Contact form found';
+  if (s === 'review_required' || s === 'manual_review') return 'Review required';
+  if (s === 'researching') return 'Researching domain';
+  // "No public email" is only honest once discovery is exhausted.
+  if (s === 'no_public_contact' || s === 'no_verified_public_email' || s === 'contacts_unavailable') {
+    return 'No public contact found';
+  }
   if (s === 'retry_later') return 'Retry later';
-  if (s === 'manual_review') return 'Manual review';
   if (s === 'contact_needed' || s === 'needed' || s === 'unknown' || s === 'invalid') return 'Contact needed';
   if (s.includes('verified')) return 'Verified email';
-  if (s.includes('research')) return 'Researching';
-  if (s.includes('no_') && s.includes('email')) return 'No public email';
+  if (s.includes('research')) return 'Researching domain';
+  if (s.includes('no_') && s.includes('email')) return 'No public contact found';
   return titleCaseToken(raw);
 }
 
@@ -163,6 +181,8 @@ export function formatContactSource(p: PartnerProspect): string {
   if (source === 'public_listing' || type === 'WEBSITE_MAILTO' || type === 'WEBSITE_PAGE') {
     return 'Public listing';
   }
+  if (type === 'CONTACT_FORM' || source === 'contact_form') return 'Website contact form';
+  if (!hasEmail(p) && p.contactFormUrl) return 'Website contact form';
   if (p.discoverySource) return p.discoverySource;
   return '—';
 }

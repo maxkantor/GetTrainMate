@@ -52,6 +52,18 @@ public interface IPartnerOutreachService
     Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20, bool force = false);
     Task<object> ResearchContactNeededBatchAsync(int max, string actor);
     /// <summary>
+    /// Probes the prospect website for a public contact. High-confidence emails are saved,
+    /// medium-confidence candidates are parked for admin review, contact forms are recorded.
+    /// dryRun probes without persisting anything.
+    /// </summary>
+    Task<object> DiscoverContactAsync(string prospectId, string actor, bool force = true, bool dryRun = false);
+    /// <summary>Sequential (timeout-safe) discovery over explicit ids or prospects missing a contact.</summary>
+    Task<object> DiscoverContactsBatchAsync(DiscoverContactsBatchRequest req, string actor);
+    /// <summary>Promotes a medium-confidence pending candidate to the prospect email.</summary>
+    Task<object> AcceptPendingContactAsync(string prospectId, string actor);
+    /// <summary>Discards a pending candidate without touching the existing email.</summary>
+    Task<object> RejectPendingContactAsync(string prospectId, string actor);
+    /// <summary>
     /// Admin-entered contact. Does not send email. Does not auto-create drafts.
     /// </summary>
     Task<object> SetManualContactAsync(string prospectId, ManualContactRequest req, string actor);
@@ -1754,193 +1766,511 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
 
     public async Task<object> ResearchContactAsync(string prospectId, string actor, bool force = false)
     {
+        var result = await DiscoverContactCoreAsync(prospectId, actor, force, dryRun: false);
+        return LegacyResearchShape(result);
+    }
+
+    /// <summary>Shape the admin Prospects UI parses (apps/web/.../partnerOutreach/researchContact.ts).</summary>
+    static object LegacyResearchShape(ContactDiscoveryResult r) => new
+    {
+        ok = r.Ok,
+        found = r.Found,
+        skipped = r.Skipped,
+        reason = r.Reason,
+        error = r.Error,
+        message = r.Message,
+        email = r.FoundEmail,
+        prospectId = r.ProspectId,
+        website = r.Website,
+        researchAttempts = r.ResearchAttempts,
+        contactabilityState = r.ContactabilityState,
+        nextResearchAt = r.NextResearchAt,
+        websiteStatus = r.WebsiteStatus,
+        websiteDetail = r.Detail,
+        reasonCode = r.ReasonCode,
+        sourcesCheckedSummary = r.SourcesCheckedSummary,
+        contactSourceUrl = r.SourceUrl,
+        contactSourceType = r.SourceType,
+        contactName = r.ContactName,
+        confidence = r.Confidence,
+        contactFormUrl = r.ContactFormUrl,
+        status = r.Status,
+        pendingReviewEmail = r.PendingReviewEmail,
+        pagesChecked = r.PagesChecked,
+        summary = r.Summary,
+        draft = r.Draft,
+    };
+
+    public async Task<object> DiscoverContactAsync(string prospectId, string actor, bool force = true, bool dryRun = false) =>
+        await DiscoverContactCoreAsync(prospectId, actor, force, dryRun);
+
+    async Task<ContactDiscoveryResult> DiscoverContactCoreAsync(
+        string prospectId,
+        string actor,
+        bool force,
+        bool dryRun,
+        PartnerDomainContactCache? cachedContact = null,
+        TimeSpan? probeBudget = null)
+    {
         var p = await _db.LoadAsync<PartnerProspect>(prospectId) ?? throw new KeyNotFoundException("Prospect not found");
+        var now = DateTime.UtcNow;
+        var result = new ContactDiscoveryResult
+        {
+            ProspectId = p.ProspectId,
+            OrganizationName = p.OrganizationName,
+            Website = p.Website,
+            DryRun = dryRun,
+            ResearchAttempts = p.ResearchAttempts,
+            ContactabilityState = p.ContactabilityState,
+            Status = p.ContactDiscoveryStatus ?? ContactDiscoveryRules.DiscoveryContactNeeded,
+            NextResearchAt = p.NextResearchAt,
+        };
+
         if (string.IsNullOrWhiteSpace(p.Website) || !Uri.TryCreate(p.Website, UriKind.Absolute, out var siteUri))
-            return new { ok = false, error = "no_website", prospectId, message = "Prospect has no website to research." };
+        {
+            result.Ok = false;
+            result.Reason = "no_website";
+            result.Error = "no_website";
+            result.Message = "Prospect has no website to research.";
+            return result;
+        }
 
         if (p.ResearchAttempts >= 5 && !force)
         {
-            p.ContactabilityState = p.ResearchAttempts >= 8
-                ? PartnerCrmLifecycle.ManualReview
-                : PartnerCrmLifecycle.NoPublicContact;
-            p.ContactState = PartnerCrmLifecycle.ContactNeeded;
-            p.NextResearchAt = null;
-            await _db.SaveAsync(p);
-            return new
+            if (!ContactDiscoveryRules.HasUsableEmail(p))
             {
-                ok = false,
-                skipped = true,
-                reason = "max_research_attempts",
-                prospectId,
-                p.ResearchAttempts,
-                p.ContactabilityState,
-            };
+                p.ContactabilityState = p.ResearchAttempts >= 8
+                    ? PartnerCrmLifecycle.ManualReview
+                    : PartnerCrmLifecycle.NoPublicContact;
+                p.ContactState = PartnerCrmLifecycle.ContactNeeded;
+                p.ContactDiscoveryStatus = ContactDiscoveryRules.DiscoveryNoPublicContact;
+            }
+            p.NextResearchAt = null;
+            if (!dryRun) await _db.SaveAsync(p);
+            result.Ok = false;
+            result.Skipped = true;
+            result.Reason = "max_research_attempts";
+            result.Status = p.ContactDiscoveryStatus ?? ContactDiscoveryRules.DiscoveryNoPublicContact;
+            result.ContactabilityState = p.ContactabilityState;
+            result.NextResearchAt = null;
+            return result;
         }
 
-        if (!force && p.NextResearchAt is DateTime next && next > DateTime.UtcNow)
+        if (!force && p.NextResearchAt is DateTime next && next > now)
         {
-            return new
+            result.Ok = false;
+            result.Skipped = true;
+            result.Reason = "retry_later";
+            result.NextResearchAt = next;
+            return result;
+        }
+
+        if (ContactDiscoveryRules.CanReuseCachedContact(p, cachedContact, now))
+        {
+            result.FromCache = true;
+            var cachedSignals = new ContactProbeSignals
             {
-                ok = false,
-                skipped = true,
-                reason = "retry_later",
-                prospectId,
-                nextResearchAt = next,
-                p.ContactabilityState,
+                WebsiteStatus = nameof(WebsiteProbeStatus.EmailFound),
+                Email = cachedContact!.Email,
+                SourceUrl = cachedContact.SourceUrl,
+                SourceType = cachedContact.SourceType ?? "website_page",
+                Confidence = ContactDiscoveryRules.ConfidenceHigh,
+                ReasonCode = ContactDiscoveryReason.EmailFound,
+                Detail = $"Reused cached contact for {cachedContact.Domain}.",
+                VerifiedOnUtc = cachedContact.CheckedAt ?? now,
             };
+            return await ApplyDiscoveredEmailAsync(p, actor, cachedSignals, result, dryRun, now);
         }
 
         p.ContactabilityState = PartnerCrmLifecycle.ContactResearching;
         p.ContactState = PartnerCrmLifecycle.ContactResearching;
+        p.ContactDiscoveryStatus = ContactDiscoveryRules.DiscoveryResearching;
         p.ResearchAttempts++;
-        p.LastResearchAt = DateTime.UtcNow;
-        await _db.SaveAsync(p);
+        p.LastResearchAt = now;
+        p.LastContactResearchAt = now;
+        if (!dryRun) await _db.SaveAsync(p);
+        result.ResearchAttempts = p.ResearchAttempts;
 
-        VerifiedPublicContact? verified = null;
-        WebsiteProbeResult? probe = null;
+        var probe = await ProbeWebsiteAsync(siteUri, prospectId, probeBudget ?? ContactDiscoveryRules.SingleProbeBudget);
+        var signals = ContactDiscoveryRules.FromProbe(probe);
+        result.WebsiteStatus = signals.WebsiteStatus;
+        result.ReasonCode = signals.ReasonCode;
+        result.Detail = signals.Detail;
+        result.PagesChecked = signals.PagesChecked.ToList();
+        result.PagesCheckedCount = signals.PagesCheckedCount;
+        result.SourcesCheckedSummary = signals.SourcesCheckedSummary;
+
+        if (signals.HasEmail && signals.Confidence == ContactDiscoveryRules.ConfidenceHigh)
+            return await ApplyDiscoveredEmailAsync(p, actor, signals, result, dryRun, now);
+        if (signals.HasEmail)
+            return await ApplyPendingReviewAsync(p, actor, signals, result, dryRun, now);
+        return await ApplyNoEmailOutcomeAsync(p, actor, signals, result, dryRun, now);
+    }
+
+    /// <summary>Probes under a time budget; a timeout or failure is reported as an unreachable site.</summary>
+    async Task<WebsiteProbeResult> ProbeWebsiteAsync(Uri siteUri, string prospectId, TimeSpan budget)
+    {
+        using var cts = new CancellationTokenSource(budget);
         try
         {
-            probe = await _contactVerifier.ProbeAsync(siteUri);
-            verified = probe.Contact;
+            return await _contactVerifier.ProbeAsync(siteUri, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return new WebsiteProbeResult
+            {
+                Status = WebsiteProbeStatus.Unreachable,
+                ReasonCode = ContactDiscoveryReason.Unreachable,
+                Detail = $"Website probe stopped after {budget.TotalSeconds:0}s.",
+                SampleUrl = siteUri.ToString(),
+            };
         }
         catch (Exception ex)
         {
-            _log.LogDebug(ex, "Research contact failed for {Id}", prospectId);
-            probe = new WebsiteProbeResult
+            _log.LogDebug(ex, "Website probe failed for {Id}", prospectId);
+            return new WebsiteProbeResult
             {
                 Status = WebsiteProbeStatus.Unreachable,
+                ReasonCode = ContactDiscoveryReason.Unreachable,
                 Detail = ex.Message,
+                SampleUrl = siteUri.ToString(),
             };
         }
+    }
 
-        if (verified != null && !string.IsNullOrWhiteSpace(verified.Email))
+    async Task<ContactDiscoveryResult> ApplyDiscoveredEmailAsync(
+        PartnerProspect p,
+        string actor,
+        ContactProbeSignals signals,
+        ContactDiscoveryResult result,
+        bool dryRun,
+        DateTime now)
+    {
+        var prospectId = p.ProspectId;
+        p.Email = signals.Email!.Trim().ToLowerInvariant();
+        p.SourceUrl = signals.SourceUrl ?? p.SourceUrl;
+        p.ContactSourceUrl = signals.SourceUrl ?? p.ContactSourceUrl;
+        p.ContactSourceType = signals.SourceType ?? "website_mailto";
+        if (!string.IsNullOrWhiteSpace(signals.ContactName))
+            p.ContactName = signals.ContactName;
+        p.SourceVerifiedOn = signals.VerifiedOnUtc.ToString("yyyy-MM-dd");
+        p.EmailVerifiedOn = signals.VerifiedOnUtc.ToString("yyyy-MM-dd");
+        p.OfficialDomain = p.Email.Contains('@') ? p.Email.Split('@')[1] : p.OfficialDomain;
+        p.EmailVerificationStatus = "verified_public";
+        p.EmailSource = "public_listing";
+        p.ContactState = PartnerCrmLifecycle.ContactFound;
+        p.ContactabilityState = PartnerCrmLifecycle.ContactFound;
+        p.ContactDiscoveryStatus = ContactDiscoveryRules.DiscoveryEmailFound;
+        p.ContactConfidence = ContactDiscoveryRules.ConfidenceHigh;
+        if (!string.IsNullOrWhiteSpace(signals.ContactFormUrl))
+            p.ContactFormUrl = signals.ContactFormUrl;
+        p.LastContactResearchAt = now;
+        p.LastContactResearchSummary = ContactDiscoveryRules.BuildResearchSummary(signals, now);
+        p.PendingReviewEmail = null;
+        p.PendingReviewSourceUrl = null;
+        p.PendingReviewConfidence = null;
+        p.NextResearchAt = null;
+        if (string.Equals(p.Status, "no_verified_public_email", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.Status, "discovered", StringComparison.OrdinalIgnoreCase))
+            p.Status = "prospect";
+        p.CrmLifecycle ??= PartnerCrmLifecycle.Qualified;
+        if (p.CrmLifecycle == PartnerCrmLifecycle.New)
+            p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
+
+        var scored = AutomatedMarketDiscoveryService.ScoreProspect(new DiscoveredOrganization
         {
-            p.Email = verified.Email.Trim().ToLowerInvariant();
-            p.SourceUrl = verified.SourceUrl;
-            p.ContactSourceUrl = verified.SourceUrl;
-            p.ContactSourceType = verified.SourceType ?? "website_mailto";
-            if (!string.IsNullOrWhiteSpace(verified.ContactName))
-                p.ContactName = verified.ContactName;
-            p.SourceVerifiedOn = verified.VerifiedOnUtc.ToString("yyyy-MM-dd");
-            p.EmailVerifiedOn = verified.VerifiedOnUtc.ToString("yyyy-MM-dd");
-            p.OfficialDomain = p.Email.Contains('@') ? p.Email.Split('@')[1] : p.OfficialDomain;
-            p.EmailVerificationStatus = "verified_public";
-            p.EmailSource = "public_listing";
-            p.ContactState = PartnerCrmLifecycle.ContactFound;
-            p.ContactabilityState = PartnerCrmLifecycle.ContactFound;
-            p.NextResearchAt = null;
-            if (string.Equals(p.Status, "no_verified_public_email", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(p.Status, "discovered", StringComparison.OrdinalIgnoreCase))
-                p.Status = "prospect";
-            p.CrmLifecycle ??= PartnerCrmLifecycle.Qualified;
-            if (p.CrmLifecycle == PartnerCrmLifecycle.New)
-                p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
+            OrganizationName = p.OrganizationName,
+            OrganizationType = p.OrganizationType,
+            DiscoverySource = p.DiscoverySource ?? "",
+            Market = p.Metro ?? p.City ?? "",
+        }, hasEmail: true);
+        p.AcquisitionScore = scored.AcquisitionScore;
+        p.AudienceFitScore = scored.AudienceFitScore;
+        p.MarketRelevanceScore = scored.MarketRelevanceScore;
+        p.CommunityFitScore = scored.CommunityFitScore;
+        p.ContactQualityScore = scored.ContactQualityScore;
+        p.ContactabilityScore = scored.ContactQualityScore;
+        p.HistoricalCategoryScore = scored.HistoricalCategoryScore;
+        p.ScoreExplanation = scored.ScoreExplanation;
+        p.FitScore = scored.AcquisitionScore;
+        p.ProspectKind ??= PartnerCrmLifecycle.NormalizeProspectKind(p.OrganizationType);
+        p.LastEvaluatedAt = now;
+        p.AcquisitionStatus = PartnerCrmLifecycle.AcqContactable;
+        PartnerCrmLifecycle.AppendTimelineEvent(p, "contact_found", "Public contact verified", now,
+            new { p.Email, p.ContactSourceUrl, confidence = ContactDiscoveryRules.ConfidenceHigh, fromCache = result.FromCache });
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
 
-            var scored = AutomatedMarketDiscoveryService.ScoreProspect(new DiscoveredOrganization
-            {
-                OrganizationName = p.OrganizationName,
-                OrganizationType = p.OrganizationType,
-                DiscoverySource = p.DiscoverySource ?? "",
-                Market = p.Metro ?? p.City ?? "",
-            }, hasEmail: true);
-            p.AcquisitionScore = scored.AcquisitionScore;
-            p.AudienceFitScore = scored.AudienceFitScore;
-            p.MarketRelevanceScore = scored.MarketRelevanceScore;
-            p.CommunityFitScore = scored.CommunityFitScore;
-            p.ContactQualityScore = scored.ContactQualityScore;
-            p.ContactabilityScore = scored.ContactQualityScore;
-            p.HistoricalCategoryScore = scored.HistoricalCategoryScore;
-            p.ScoreExplanation = scored.ScoreExplanation;
-            p.FitScore = scored.AcquisitionScore;
-            p.ProspectKind ??= PartnerCrmLifecycle.NormalizeProspectKind(p.OrganizationType);
-            p.LastEvaluatedAt = DateTime.UtcNow;
-            p.AcquisitionStatus = PartnerCrmLifecycle.AcqContactable;
-            PartnerCrmLifecycle.AppendTimelineEvent(p, "contact_found", "Public contact verified", DateTime.UtcNow,
-                new { p.Email, p.ContactSourceUrl });
-            PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
-            await _db.SaveAsync(p);
+        result.Ok = true;
+        result.Found = true;
+        result.FoundEmail = p.Email;
+        result.SourceUrl = p.ContactSourceUrl;
+        result.SourceType = p.ContactSourceType;
+        result.ContactName = p.ContactName;
+        result.Confidence = ContactDiscoveryRules.ConfidenceHigh;
+        result.ContactFormUrl = p.ContactFormUrl;
+        result.Status = ContactDiscoveryRules.DiscoveryEmailFound;
+        result.Reason = ContactDiscoveryRules.ReasonContactFound;
+        result.Message = ContactDiscoveryRules.MessageFor(signals);
+        result.Summary = p.LastContactResearchSummary;
+        result.Detail = signals.Detail;
+        result.ResearchAttempts = p.ResearchAttempts;
+        result.ContactabilityState = p.ContactabilityState;
+        result.NextResearchAt = null;
+        result.PendingReviewEmail = null;
 
-            object? draft = null;
-            if (MarketCampaignCatalog.IsApprovedOutreachLanguage(p.CampaignLanguage))
+        if (dryRun)
+        {
+            result.WouldSave = new
             {
-                try
-                {
-                    draft = await CreateDraftAndQueuePreviewAsync(p.ProspectId, p.CampaignId ?? "");
-                }
-                catch (Exception ex)
-                {
-                    _log.LogDebug(ex, "Draft after research skipped for {Id}", prospectId);
-                }
-            }
-
-            await TryAuditAsync(actor, "partner_outreach.research_contact", "partner_prospect", prospectId, null,
-                new { found = true, p.Email, p.ContactSourceUrl, p.ResearchAttempts });
-            return new
-            {
-                ok = true,
-                found = true,
-                prospectId,
                 email = p.Email,
+                emailSource = p.EmailSource,
                 contactSourceUrl = p.ContactSourceUrl,
                 contactSourceType = p.ContactSourceType,
-                contactName = p.ContactName,
-                p.ResearchAttempts,
-                p.ContactabilityState,
-                p.ContactabilityScore,
-                p.AcquisitionScore,
-                draft,
+                contactDiscoveryStatus = p.ContactDiscoveryStatus,
+                contactConfidence = p.ContactConfidence,
+                contactabilityState = p.ContactabilityState,
+                acquisitionStatus = p.AcquisitionStatus,
+                acquisitionScore = p.AcquisitionScore,
+                lastContactResearchSummary = p.LastContactResearchSummary,
             };
+            return result;
         }
 
-        // Not found — never invent email. Distinguish dead site vs no public email.
-        var websiteStatus = probe?.Status.ToString() ?? nameof(WebsiteProbeStatus.LiveNoEmail);
-        var websiteDetail = probe?.Detail;
-        var reason = probe?.Status switch
-        {
-            WebsiteProbeStatus.ParkingOrDisconnected => "website_dead",
-            WebsiteProbeStatus.Unreachable => "website_unreachable",
-            _ => "no_public_email",
-        };
+        await _db.SaveAsync(p);
 
-        p.ContactabilityState = p.ResearchAttempts >= 3
-            ? PartnerCrmLifecycle.NoPublicContact
-            : PartnerCrmLifecycle.RetryLater;
-        p.ContactState = PartnerCrmLifecycle.ContactNeeded;
-        p.NextResearchAt = DateTime.UtcNow.AddDays(Math.Max(1, p.ResearchAttempts * 2));
-        p.EmailVerificationStatus = "no_verified_public_email";
-        if (string.IsNullOrWhiteSpace(p.Email))
+        if (MarketCampaignCatalog.IsApprovedOutreachLanguage(p.CampaignLanguage))
+        {
+            try
+            {
+                result.Draft = await CreateDraftAndQueuePreviewAsync(p.ProspectId, p.CampaignId ?? "");
+            }
+            catch (Exception ex)
+            {
+                _log.LogDebug(ex, "Draft after research skipped for {Id}", prospectId);
+            }
+        }
+
+        await TryAuditAsync(actor, "partner_outreach.contact_email_found", "partner_prospect", prospectId, null,
+            new
+            {
+                type = "CONTACT_EMAIL_FOUND",
+                found = true,
+                p.Email,
+                p.ContactSourceUrl,
+                confidence = ContactDiscoveryRules.ConfidenceHigh,
+                fromCache = result.FromCache,
+                p.ResearchAttempts,
+            });
+        return result;
+    }
+
+    /// <summary>
+    /// Medium-confidence candidate (typically an off-domain address): parked for admin accept/reject.
+    /// Any existing email is left untouched.
+    /// </summary>
+    async Task<ContactDiscoveryResult> ApplyPendingReviewAsync(
+        PartnerProspect p,
+        string actor,
+        ContactProbeSignals signals,
+        ContactDiscoveryResult result,
+        bool dryRun,
+        DateTime now)
+    {
+        var prospectId = p.ProspectId;
+        p.PendingReviewEmail = signals.Email!.Trim().ToLowerInvariant();
+        p.PendingReviewSourceUrl = signals.SourceUrl;
+        p.PendingReviewConfidence = signals.Confidence;
+        p.ContactDiscoveryStatus = ContactDiscoveryRules.DiscoveryReviewRequired;
+        p.ContactConfidence = signals.Confidence;
+        if (!string.IsNullOrWhiteSpace(signals.ContactFormUrl))
+            p.ContactFormUrl = signals.ContactFormUrl;
+        p.LastContactResearchAt = now;
+        p.LastContactResearchSummary = ContactDiscoveryRules.BuildResearchSummary(signals, now);
+        p.LastEvaluatedAt = now;
+        p.NextResearchAt = null;
+        if (ContactDiscoveryRules.HasUsableEmail(p))
+        {
+            p.ContactState = PartnerCrmLifecycle.ContactFound;
+            p.ContactabilityState = PartnerCrmLifecycle.ContactFound;
+        }
+        else
+        {
+            p.ContactState = PartnerCrmLifecycle.ContactNeeded;
+            p.ContactabilityState = PartnerCrmLifecycle.ManualReview;
+        }
+        PartnerCrmLifecycle.AppendTimelineEvent(
+            p,
+            "contact_review_required",
+            $"Contact candidate needs review: {p.PendingReviewEmail}",
+            now,
+            new
+            {
+                pendingReviewEmail = p.PendingReviewEmail,
+                sourceUrl = p.PendingReviewSourceUrl,
+                confidence = p.PendingReviewConfidence,
+                website = p.Website,
+            });
+
+        result.Ok = true;
+        result.Found = false;
+        result.Status = ContactDiscoveryRules.DiscoveryReviewRequired;
+        result.Reason = ContactDiscoveryRules.ReasonReviewRequired;
+        result.Message = ContactDiscoveryRules.MessageFor(signals);
+        result.Summary = p.LastContactResearchSummary;
+        result.PendingReviewEmail = p.PendingReviewEmail;
+        result.SourceUrl = p.PendingReviewSourceUrl;
+        result.SourceType = signals.SourceType;
+        result.ContactName = signals.ContactName;
+        result.Confidence = signals.Confidence;
+        result.ContactFormUrl = p.ContactFormUrl;
+        result.ContactabilityState = p.ContactabilityState;
+        result.NextResearchAt = null;
+
+        if (dryRun)
+        {
+            result.WouldSave = new
+            {
+                pendingReviewEmail = p.PendingReviewEmail,
+                pendingReviewSourceUrl = p.PendingReviewSourceUrl,
+                pendingReviewConfidence = p.PendingReviewConfidence,
+                contactDiscoveryStatus = p.ContactDiscoveryStatus,
+                contactabilityState = p.ContactabilityState,
+                lastContactResearchSummary = p.LastContactResearchSummary,
+            };
+            return result;
+        }
+
+        await _db.SaveAsync(p);
+        await TryAuditAsync(actor, "partner_outreach.contact_review_required", "partner_prospect", prospectId, null,
+            new
+            {
+                type = "CONTACT_REVIEW_REQUIRED",
+                pendingReviewEmail = p.PendingReviewEmail,
+                p.PendingReviewSourceUrl,
+                p.PendingReviewConfidence,
+                p.ResearchAttempts,
+            });
+        return result;
+    }
+
+    /// <summary>No usable email: records a contact form when present, otherwise progresses toward NO_PUBLIC_CONTACT.</summary>
+    async Task<ContactDiscoveryResult> ApplyNoEmailOutcomeAsync(
+        PartnerProspect p,
+        string actor,
+        ContactProbeSignals signals,
+        ContactDiscoveryResult result,
+        bool dryRun,
+        DateTime now)
+    {
+        var prospectId = p.ProspectId;
+        var keepsExistingEmail = ContactDiscoveryRules.HasUsableEmail(p);
+        var status = keepsExistingEmail
+            ? ContactDiscoveryRules.StatusForExistingEmail(p)
+            : ContactDiscoveryRules.DiscoveryStatusFor(signals, p.ResearchAttempts);
+        var reason = ContactDiscoveryRules.ReasonFor(signals);
+        var summary = ContactDiscoveryRules.BuildResearchSummary(signals, now);
+
+        p.ContactDiscoveryStatus = status;
+        p.LastContactResearchAt = now;
+        p.LastContactResearchSummary = summary;
+        p.LastEvaluatedAt = now;
+        p.NextResearchAt = keepsExistingEmail
+            ? null
+            : ContactDiscoveryRules.NextResearchAtFor(status, p.ResearchAttempts, now);
+        if (signals.HasContactForm)
+            p.ContactFormUrl = signals.ContactFormUrl;
+
+        if (keepsExistingEmail)
+        {
+            // The stored contact stands; this run only records what was checked.
+            p.ContactState = PartnerCrmLifecycle.ContactFound;
+            p.ContactabilityState = PartnerCrmLifecycle.ContactFound;
+        }
+        else if (signals.HasContactForm)
+        {
+            // A live contact form is still a usable channel — do not mark the org as having no contact.
+            p.ContactState = PartnerCrmLifecycle.ContactNeeded;
+            p.ContactConfidence = ContactDiscoveryRules.ConfidenceMedium;
+            p.ContactabilityState = PartnerCrmLifecycle.ManualReview;
+            p.ContactabilityScore = Math.Max(p.ContactabilityScore, 30);
+        }
+        else
+        {
+            p.ContactState = PartnerCrmLifecycle.ContactNeeded;
+            p.ContactConfidence = ContactDiscoveryRules.ConfidenceLow;
+            p.ContactabilityState = status == ContactDiscoveryRules.DiscoveryNoPublicContact
+                ? PartnerCrmLifecycle.NoPublicContact
+                : PartnerCrmLifecycle.RetryLater;
+            p.EmailVerificationStatus = "no_verified_public_email";
             p.Status = "no_verified_public_email";
-        p.ContactabilityScore = 0;
-        p.ContactQualityScore = 0;
-        p.LastEvaluatedAt = DateTime.UtcNow;
+            p.ContactabilityScore = 0;
+            p.ContactQualityScore = 0;
+        }
+
         PartnerCrmLifecycle.AppendTimelineEvent(
             p,
             reason,
-            websiteDetail ?? "No public email found",
-            DateTime.UtcNow,
-            new { websiteStatus, website = p.Website, p.ResearchAttempts });
-        await _db.SaveAsync(p);
-        await TryAuditAsync(actor, "partner_outreach.research_contact", "partner_prospect", prospectId, null,
-            new { found = false, reason, websiteStatus, websiteDetail, p.ResearchAttempts, p.ContactabilityState, p.NextResearchAt });
-        return new
+            signals.Detail ?? ContactDiscoveryRules.MessageFor(signals),
+            now,
+            new
+            {
+                websiteStatus = signals.WebsiteStatus,
+                website = p.Website,
+                contactFormUrl = p.ContactFormUrl,
+                pagesChecked = signals.PagesCheckedCount,
+                p.ResearchAttempts,
+            });
+
+        result.Ok = true;
+        result.Found = false;
+        result.Status = status;
+        result.Reason = reason;
+        result.Message = ContactDiscoveryRules.MessageFor(signals);
+        result.Summary = summary;
+        result.ContactFormUrl = p.ContactFormUrl;
+        result.ContactabilityState = p.ContactabilityState;
+        result.NextResearchAt = p.NextResearchAt;
+
+        if (dryRun)
         {
-            ok = true,
-            found = false,
-            reason,
-            websiteStatus,
-            websiteDetail,
-            message = websiteDetail
-                ?? (reason == "website_dead"
-                    ? "Website is not a live site — enter contact manually."
-                    : reason == "website_unreachable"
-                        ? "Website could not be reached — enter contact manually."
-                        : "No public email found on the website."),
+            result.WouldSave = new
+            {
+                contactDiscoveryStatus = p.ContactDiscoveryStatus,
+                contactFormUrl = p.ContactFormUrl,
+                contactabilityState = p.ContactabilityState,
+                emailVerificationStatus = p.EmailVerificationStatus,
+                nextResearchAt = p.NextResearchAt,
+                lastContactResearchSummary = p.LastContactResearchSummary,
+            };
+            return result;
+        }
+
+        await _db.SaveAsync(p);
+        var auditType = signals.HasContactForm
+            ? "CONTACT_FORM_FOUND"
+            : status == ContactDiscoveryRules.DiscoveryNoPublicContact
+                ? "CONTACT_NO_PUBLIC_CONTACT"
+                : "CONTACT_NOT_FOUND";
+        await TryAuditAsync(
+            actor,
+            "partner_outreach." + auditType.ToLowerInvariant(),
+            "partner_prospect",
             prospectId,
-            website = p.Website,
-            p.ResearchAttempts,
-            p.ContactabilityState,
-            nextResearchAt = p.NextResearchAt,
-        };
+            null,
+            new
+            {
+                type = auditType,
+                found = false,
+                reason,
+                websiteStatus = signals.WebsiteStatus,
+                websiteDetail = signals.Detail,
+                contactFormUrl = p.ContactFormUrl,
+                summary,
+                p.ResearchAttempts,
+                p.ContactabilityState,
+                p.NextResearchAt,
+            });
+        return result;
     }
 
     public async Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20, bool force = false)
@@ -1993,6 +2323,340 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             .ToList();
 
         return await ResearchContactsBulkAsync(candidates, actor, max);
+    }
+
+    public async Task<object> DiscoverContactsBatchAsync(DiscoverContactsBatchRequest req, string actor)
+    {
+        req ??= new DiscoverContactsBatchRequest();
+        var max = ContactDiscoveryRules.ClampBatchMax(req.Max);
+        var now = DateTime.UtcNow;
+        var explicitIds = (req.ProspectIds ?? Array.Empty<string>())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var all = await ListProspectsAsync(null);
+        List<PartnerProspect> eligible;
+        if (explicitIds.Count > 0)
+        {
+            var byId = all
+                .GroupBy(x => x.ProspectId, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+            eligible = explicitIds.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
+        }
+        else
+        {
+            eligible = all
+                .Where(p => ContactDiscoveryRules.IsBatchCandidate(p, req.FilterMissingOnly, req.Force, now))
+                .OrderBy(p => p.ResearchAttempts)
+                .ThenBy(p => p.LastContactResearchAt ?? DateTime.MinValue)
+                .ToList();
+        }
+
+        var batch = eligible.Take(max).ToList();
+
+        await TryAuditAsync(actor, "partner_outreach.contact_discovery_started", "partner_prospect", null, null,
+            new
+            {
+                type = "CONTACT_DISCOVERY_STARTED",
+                eligible = eligible.Count,
+                processing = batch.Count,
+                max,
+                req.DryRun,
+                req.Force,
+                req.FilterMissingOnly,
+            });
+
+        var results = new List<ContactDiscoveryResult>();
+        int emailsFound = 0, formsFound = 0, reviewRequired = 0, noContact = 0, errors = 0, cacheHits = 0;
+        var deadline = now.Add(ContactDiscoveryRules.BatchRunBudget);
+        var timedOut = false;
+
+        // Sequential on purpose: keeps each run inside the API Gateway timeout and polite to sites.
+        foreach (var prospect in batch)
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                timedOut = true;
+                break;
+            }
+
+            try
+            {
+                var cached = await LoadDomainContactCacheAsync(prospect.Website);
+                var r = await DiscoverContactCoreAsync(
+                    prospect.ProspectId,
+                    actor,
+                    req.Force,
+                    req.DryRun,
+                    cached,
+                    ContactDiscoveryRules.BatchProbeBudget);
+                results.Add(r);
+
+                if (r.FromCache) cacheHits++;
+                if (r.Found && r.Status == ContactDiscoveryRules.DiscoveryEmailFound) emailsFound++;
+                else if (r.Status == ContactDiscoveryRules.DiscoveryReviewRequired) reviewRequired++;
+                else if (r.Status == ContactDiscoveryRules.DiscoveryContactFormFound) formsFound++;
+                else if (r.Status == ContactDiscoveryRules.DiscoveryNoPublicContact) noContact++;
+
+                if (!req.DryRun && !r.FromCache) await SaveDomainContactCacheAsync(prospect.Website, r);
+            }
+            catch (Exception ex)
+            {
+                errors++;
+                _log.LogDebug(ex, "Contact discovery failed for {Id}", prospect.ProspectId);
+                results.Add(new ContactDiscoveryResult
+                {
+                    Ok = false,
+                    ProspectId = prospect.ProspectId,
+                    OrganizationName = prospect.OrganizationName,
+                    Website = prospect.Website,
+                    DryRun = req.DryRun,
+                    Error = ex.Message,
+                    Message = ex.Message,
+                });
+            }
+        }
+
+        return new
+        {
+            ok = true,
+            dryRun = req.DryRun,
+            processed = results.Count,
+            emailsFound,
+            formsFound,
+            reviewRequired,
+            noContact,
+            errors,
+            cacheHits,
+            remaining = Math.Max(0, eligible.Count - results.Count),
+            eligible = eligible.Count,
+            stoppedEarly = timedOut,
+            results = results.Select(r => new
+            {
+                prospectId = r.ProspectId,
+                organizationName = r.OrganizationName,
+                website = r.Website,
+                foundEmail = r.FoundEmail,
+                contactFormUrl = r.ContactFormUrl,
+                confidence = r.Confidence,
+                sourceUrl = r.SourceUrl,
+                status = r.Status,
+                pagesChecked = r.PagesChecked,
+                pagesCheckedCount = r.PagesCheckedCount,
+                sourcesCheckedSummary = r.SourcesCheckedSummary,
+                detail = r.Detail ?? r.Message,
+                reason = r.Reason,
+                reasonCode = r.ReasonCode,
+                message = r.Message,
+                summary = r.Summary,
+                pendingReviewEmail = r.PendingReviewEmail,
+                skipped = r.Skipped,
+                fromCache = r.FromCache,
+                error = r.Error,
+                wouldSave = r.WouldSave,
+            }).ToList(),
+        };
+    }
+
+    public async Task<object> AcceptPendingContactAsync(string prospectId, string actor)
+    {
+        var p = await _db.LoadAsync<PartnerProspect>(prospectId) ?? throw new KeyNotFoundException("Prospect not found");
+        var email = ManualContactRules.NormalizeEmail(p.PendingReviewEmail);
+        if (email is null || !ManualContactRules.IsValidEmailSyntax(email))
+        {
+            return new
+            {
+                ok = false,
+                error = "no_pending_contact",
+                prospectId,
+                message = "No pending contact candidate to accept.",
+            };
+        }
+
+        var now = DateTime.UtcNow;
+        var previousEmail = p.Email;
+        var acceptedConfidence = ContactDiscoveryRules.NormalizeConfidence(p.PendingReviewConfidence);
+        if (acceptedConfidence.Length == 0) acceptedConfidence = ContactDiscoveryRules.ConfidenceMedium;
+
+        p.Email = email;
+        p.EmailSource = "public_listing";
+        p.ContactSourceUrl = p.PendingReviewSourceUrl ?? p.ContactSourceUrl;
+        if (string.IsNullOrWhiteSpace(p.SourceUrl)) p.SourceUrl = p.ContactSourceUrl;
+        p.ContactSourceType ??= "website_page";
+        p.OfficialDomain = email.Contains('@') ? email.Split('@')[1] : p.OfficialDomain;
+        p.EmailVerificationStatus = "verified_public";
+        p.EmailVerifiedOn = now.ToString("yyyy-MM-dd");
+        p.SourceVerifiedOn ??= p.EmailVerifiedOn;
+        p.ContactState = PartnerCrmLifecycle.ContactFound;
+        p.ContactabilityState = PartnerCrmLifecycle.ContactFound;
+        p.ContactDiscoveryStatus = ContactDiscoveryRules.DiscoveryEmailFound;
+        p.ContactConfidence = acceptedConfidence;
+        p.PendingReviewEmail = null;
+        p.PendingReviewSourceUrl = null;
+        p.PendingReviewConfidence = null;
+        p.NextResearchAt = null;
+        if (string.Equals(p.Status, "no_verified_public_email", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.Status, "discovered", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(p.Status))
+            p.Status = "prospect";
+        if (string.IsNullOrWhiteSpace(p.CrmLifecycle) || p.CrmLifecycle == PartnerCrmLifecycle.New)
+            p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
+
+        try
+        {
+            var scored = AutomatedMarketDiscoveryService.ScoreProspect(new DiscoveredOrganization
+            {
+                OrganizationName = p.OrganizationName,
+                OrganizationType = p.OrganizationType,
+                DiscoverySource = p.DiscoverySource ?? "",
+                Market = p.Metro ?? p.City ?? "",
+            }, hasEmail: true);
+            p.AcquisitionScore = Math.Max(p.AcquisitionScore, scored.AcquisitionScore);
+            p.AudienceFitScore = Math.Max(p.AudienceFitScore, scored.AudienceFitScore);
+            p.MarketRelevanceScore = Math.Max(p.MarketRelevanceScore, scored.MarketRelevanceScore);
+            p.CommunityFitScore = Math.Max(p.CommunityFitScore, scored.CommunityFitScore);
+            p.ContactQualityScore = Math.Max(p.ContactQualityScore, scored.ContactQualityScore);
+            p.ContactabilityScore = Math.Max(p.ContactabilityScore, scored.ContactQualityScore);
+            p.HistoricalCategoryScore = Math.Max(p.HistoricalCategoryScore, scored.HistoricalCategoryScore);
+            p.ScoreExplanation = scored.ScoreExplanation;
+            p.FitScore = Math.Max(p.FitScore, scored.AcquisitionScore);
+            p.LastEvaluatedAt = now;
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug(ex, "Rescore after accepting pending contact skipped for {Id}", prospectId);
+        }
+
+        var priorAcq = (p.AcquisitionStatus ?? "").ToUpperInvariant();
+        if (priorAcq is "" or PartnerCrmLifecycle.AcqContactNeeded or PartnerCrmLifecycle.AcqDiscovered)
+            p.AcquisitionStatus = null;
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
+        if (string.IsNullOrWhiteSpace(p.AcquisitionStatus)
+            || p.AcquisitionStatus == PartnerCrmLifecycle.AcqContactNeeded
+            || p.AcquisitionStatus == PartnerCrmLifecycle.AcqDiscovered)
+            p.AcquisitionStatus = PartnerCrmLifecycle.AcqContactable;
+
+        PartnerCrmLifecycle.AppendTimelineEvent(p, "contact_review_accepted", "Reviewed contact accepted by admin", now,
+            new { email, previousEmail = string.IsNullOrWhiteSpace(previousEmail) ? null : previousEmail, confidence = acceptedConfidence, sourceUrl = p.ContactSourceUrl, actor });
+        await _db.SaveAsync(p);
+        await TryAuditAsync(actor, "partner_outreach.contact_review_accepted", "partner_prospect", prospectId,
+            new { email = previousEmail },
+            new { type = "CONTACT_REVIEW_ACCEPTED", email, confidence = acceptedConfidence, p.ContactSourceUrl });
+
+        return new
+        {
+            ok = true,
+            accepted = true,
+            prospectId,
+            email,
+            previousEmail,
+            confidence = p.ContactConfidence,
+            contactDiscoveryStatus = p.ContactDiscoveryStatus,
+            contactSourceUrl = p.ContactSourceUrl,
+            contactabilityState = p.ContactabilityState,
+            acquisitionStatus = p.AcquisitionStatus,
+            acquisitionScore = p.AcquisitionScore,
+        };
+    }
+
+    public async Task<object> RejectPendingContactAsync(string prospectId, string actor)
+    {
+        var p = await _db.LoadAsync<PartnerProspect>(prospectId) ?? throw new KeyNotFoundException("Prospect not found");
+        var rejectedEmail = p.PendingReviewEmail;
+        if (string.IsNullOrWhiteSpace(rejectedEmail))
+        {
+            return new
+            {
+                ok = false,
+                error = "no_pending_contact",
+                prospectId,
+                message = "No pending contact candidate to reject.",
+            };
+        }
+
+        var now = DateTime.UtcNow;
+        var sourceUrl = p.PendingReviewSourceUrl;
+        p.PendingReviewEmail = null;
+        p.PendingReviewSourceUrl = null;
+        p.PendingReviewConfidence = null;
+
+        var hasEmail = ContactDiscoveryRules.HasUsableEmail(p);
+        p.ContactDiscoveryStatus = hasEmail
+            ? ContactDiscoveryRules.StatusForExistingEmail(p)
+            : p.ResearchAttempts >= ContactDiscoveryRules.ExhaustedAttempts
+                ? ContactDiscoveryRules.DiscoveryNoPublicContact
+                : ContactDiscoveryRules.DiscoveryContactNeeded;
+        if (!hasEmail)
+        {
+            p.ContactState = PartnerCrmLifecycle.ContactNeeded;
+            p.ContactabilityState = p.ContactDiscoveryStatus == ContactDiscoveryRules.DiscoveryNoPublicContact
+                ? PartnerCrmLifecycle.NoPublicContact
+                : PartnerCrmLifecycle.ContactNeeded;
+            p.ContactConfidence = ContactDiscoveryRules.ConfidenceLow;
+        }
+        p.LastEvaluatedAt = now;
+
+        PartnerCrmLifecycle.AppendTimelineEvent(p, "contact_review_rejected", "Reviewed contact rejected by admin", now,
+            new { rejectedEmail, sourceUrl, actor });
+        await _db.SaveAsync(p);
+        await TryAuditAsync(actor, "partner_outreach.contact_review_rejected", "partner_prospect", prospectId,
+            new { pendingReviewEmail = rejectedEmail },
+            new { type = "CONTACT_REVIEW_REJECTED", rejectedEmail, sourceUrl });
+
+        return new
+        {
+            ok = true,
+            rejected = true,
+            prospectId,
+            rejectedEmail,
+            contactDiscoveryStatus = p.ContactDiscoveryStatus,
+            contactabilityState = p.ContactabilityState,
+        };
+    }
+
+    /// <summary>Optional per-host contact cache. A missing table must never fail discovery.</summary>
+    async Task<PartnerDomainContactCache?> LoadDomainContactCacheAsync(string? website)
+    {
+        var host = ContactDiscoveryRules.NormalizeHost(website);
+        if (host is null) return null;
+        try
+        {
+            return await _db.LoadAsync<PartnerDomainContactCache>(host);
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug(ex, "Domain contact cache load skipped for {Host}", host);
+            return null;
+        }
+    }
+
+    async Task SaveDomainContactCacheAsync(string? website, ContactDiscoveryResult result)
+    {
+        var host = ContactDiscoveryRules.NormalizeHost(website);
+        if (host is null) return;
+        if (string.IsNullOrWhiteSpace(result.FoundEmail) && string.IsNullOrWhiteSpace(result.ContactFormUrl)) return;
+        try
+        {
+            await _db.SaveAsync(new PartnerDomainContactCache
+            {
+                Domain = host,
+                Email = result.FoundEmail,
+                ContactFormUrl = result.ContactFormUrl,
+                Confidence = result.Confidence,
+                SourceUrl = result.SourceUrl,
+                SourceType = result.SourceType,
+                CheckedAt = DateTime.UtcNow,
+                PagesCheckedJson = result.PagesChecked.Count > 0
+                    ? System.Text.Json.JsonSerializer.Serialize(result.PagesChecked)
+                    : null,
+            });
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug(ex, "Domain contact cache save skipped for {Host}", host);
+        }
     }
 
     public async Task<object> SetManualContactAsync(string prospectId, ManualContactRequest req, string actor)
@@ -2146,6 +2810,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             new { email = previousEmail },
             new
             {
+                type = isReplace ? "CONTACT_MANUALLY_EDITED" : "CONTACT_MANUALLY_ADDED",
                 email,
                 p.ContactName,
                 p.ContactRole,

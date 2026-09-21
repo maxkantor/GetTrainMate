@@ -96,6 +96,40 @@ public class PartnerProspect
     public string? TimelineJson { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastContactedAt { get; set; }
+
+    /// <summary>Public contact form found on the site when no public email exists.</summary>
+    public string? ContactFormUrl { get; set; }
+    /// <summary>HIGH|MEDIUM|LOW — confidence of the discovered contact.</summary>
+    public string? ContactConfidence { get; set; }
+    /// <summary>CONTACT_NEEDED|RESEARCHING|EMAIL_FOUND|CONTACT_FORM_FOUND|REVIEW_REQUIRED|NO_PUBLIC_CONTACT|MANUAL_CONTACT</summary>
+    public string? ContactDiscoveryStatus { get; set; }
+    public DateTime? LastContactResearchAt { get; set; }
+    /// <summary>Human-readable record of sources/pages checked on the last discovery run.</summary>
+    public string? LastContactResearchSummary { get; set; }
+    /// <summary>Medium-confidence candidate awaiting admin accept/reject. Never used for sending.</summary>
+    public string? PendingReviewEmail { get; set; }
+    public string? PendingReviewSourceUrl { get; set; }
+    public string? PendingReviewConfidence { get; set; }
+}
+
+/// <summary>
+/// Optional per-domain contact cache so repeated discovery runs skip re-crawling the same host.
+/// Table may not exist; all reads/writes are best-effort.
+/// </summary>
+[DynamoDBTable("gettrainmate-partner-domain-contacts")]
+public class PartnerDomainContactCache
+{
+    /// <summary>Normalized host without www, e.g. "atlantastrength.com".</summary>
+    [DynamoDBHashKey]
+    public string Domain { get; set; } = "";
+    public string? Email { get; set; }
+    public string? ContactFormUrl { get; set; }
+    /// <summary>HIGH|MEDIUM|LOW</summary>
+    public string? Confidence { get; set; }
+    public string? SourceUrl { get; set; }
+    public string? SourceType { get; set; }
+    public DateTime? CheckedAt { get; set; }
+    public string? PagesCheckedJson { get; set; }
 }
 
 [DynamoDBTable("gettrainmate-partner-campaigns")]

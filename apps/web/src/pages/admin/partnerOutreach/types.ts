@@ -149,6 +149,18 @@ export interface PartnerProspect {
   researchAttempts?: number;
   lastResearchAt?: string;
   nextResearchAt?: string;
+  /** Public contact form found when the site exposes no email. */
+  contactFormUrl?: string;
+  /** HIGH | MEDIUM | LOW */
+  contactConfidence?: string;
+  /** CONTACT_NEEDED | RESEARCHING | EMAIL_FOUND | CONTACT_FORM_FOUND | REVIEW_REQUIRED | NO_PUBLIC_CONTACT | MANUAL_CONTACT */
+  contactDiscoveryStatus?: string;
+  lastContactResearchAt?: string;
+  lastContactResearchSummary?: string;
+  /** Medium-confidence candidate awaiting admin accept/reject — never used for sending. */
+  pendingReviewEmail?: string;
+  pendingReviewSourceUrl?: string;
+  pendingReviewConfidence?: string;
   notes?: string;
   whySelected?: string;
   fitScore?: number;

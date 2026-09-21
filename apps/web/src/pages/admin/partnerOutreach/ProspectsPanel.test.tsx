@@ -37,7 +37,7 @@ function sharedProps() {
   };
 }
 
-describe('ProspectsPanel — Research contact', () => {
+describe('ProspectsPanel — contact discovery', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getMock.mockImplementation(async (url: string) => {
@@ -46,7 +46,7 @@ describe('ProspectsPanel — Research contact', () => {
     });
   });
 
-  it('row Research contact posts force:true and keeps a visible result banner after reload', async () => {
+  it('row Research contact posts discover-contact with force:true and keeps a visible banner', async () => {
     postMock.mockResolvedValueOnce({
       ok: true,
       found: false,
@@ -62,7 +62,7 @@ describe('ProspectsPanel — Research contact', () => {
 
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith(
-        expect.stringMatching(/prospects\/sq1\/research-contact/),
+        expect.stringMatching(/prospects\/sq1\/discover-contact/),
         { force: true },
       );
     });
@@ -70,37 +70,79 @@ describe('ProspectsPanel — Research contact', () => {
     await waitFor(() => {
       expect(screen.getByText(/No public email for Square One/i)).toBeInTheDocument();
     });
-    expect(props.onError).toHaveBeenCalledWith(expect.stringMatching(/No public email/i));
     expect(props.onNotice).toHaveBeenLastCalledWith(null);
   });
 
-  it('bulk Research contacts uses force:true and reports outcomes', async () => {
+  it('renders Find missing contacts for prospects with a website and no email', async () => {
+    render(<ProspectsPanel {...sharedProps()} />);
+    await screen.findByText('Square One Golf Performance Center');
+    const button = screen.getByRole('button', { name: /Find missing contacts \(1\)/i });
+    expect(button).toBeInTheDocument();
+    expect(button).not.toBeDisabled();
+  });
+
+  it('Find missing contacts confirms, posts discover-contacts and shows the progress panel', async () => {
     postMock.mockResolvedValueOnce({
-      researched: 1,
-      results: [{ prospectId: 'sq1', found: true, email: 'hello@square.example', ok: true }],
+      ok: true,
+      processed: 1,
+      emailsFound: 1,
+      formsFound: 0,
+      reviewRequired: 0,
+      noContact: 0,
+      remaining: 0,
+      eligible: 1,
+      results: [
+        { prospectId: 'sq1', status: 'EMAIL_FOUND', found: true, foundEmail: 'hello@square.example' },
+      ],
     });
 
     const props = sharedProps();
     render(<ProspectsPanel {...props} />);
+    await screen.findByText('Square One Golf Performance Center');
 
+    fireEvent.click(screen.getByRole('button', { name: /Find missing contacts \(1\)/i }));
+    expect(
+      await screen.findByText(/Find public contact information for 1 prospects\?/i),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Start discovery/i }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith(
+        expect.stringMatching(/prospects\/discover-contacts/),
+        expect.objectContaining({
+          prospectIds: ['sq1'],
+          filterMissingOnly: true,
+          max: 1,
+          force: true,
+          dryRun: false,
+        }),
+      );
+    });
+
+    expect(await screen.findByText('CONTACT DISCOVERY')).toBeInTheDocument();
+    expect(screen.getByText(/Processed 1 \/ 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Emails found 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Remaining 0/)).toBeInTheDocument();
+    expect(props.onNotice).toHaveBeenCalled();
+  });
+
+  it('Find contacts for selected posts only the selected ids', async () => {
+    postMock.mockResolvedValueOnce({ ok: true, processed: 1, noContact: 1, eligible: 1, results: [] });
+
+    render(<ProspectsPanel {...sharedProps()} />);
     await screen.findByText('Square One Golf Performance Center');
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[checkboxes.length - 1]);
 
-    const bulk = await screen.findByRole('button', { name: /Research contacts \(1\)/i });
-    fireEvent.click(bulk);
+    fireEvent.click(await screen.findByRole('button', { name: /Find contacts for selected \(1\)/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Start discovery/i }));
 
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith(
-        expect.stringMatching(/prospects\/research-contacts/),
-        expect.objectContaining({ prospectIds: ['sq1'], force: true }),
+        expect.stringMatching(/prospects\/discover-contacts/),
+        expect.objectContaining({ prospectIds: ['sq1'] }),
       );
     });
-
-    await waitFor(() => {
-      expect(screen.getByText(/Found hello@square.example/i)).toBeInTheDocument();
-    });
-    expect(props.onNotice).toHaveBeenCalled();
   });
 
   it('renders Select all and filter controls', async () => {
@@ -188,26 +230,98 @@ describe('ProspectsPanel — manual contact entry', () => {
     expect(postMock).not.toHaveBeenCalled();
   });
 
-  it('inline edit pencil opens email-only save and posts manual-contact', async () => {
+  it('opens the contact form from + Add and saves the manual contact', async () => {
     postMock.mockResolvedValueOnce({
       ok: true,
       saved: true,
-      email: 'new@square.example',
-      prospect: { ...squareOne, email: 'new@square.example', emailSource: 'manual_admin' },
-      nextAction: { key: 'CREATE_OUTREACH', label: 'Create outreach', primaryButton: 'Create draft' },
+      email: 'owner@square.example',
+      prospect: { ...squareOne, email: 'owner@square.example', emailSource: 'manual_admin' },
     });
 
     render(<ProspectsPanel {...sharedProps()} />);
     await screen.findByText('Square One Golf Performance Center');
     fireEvent.click(screen.getByText('Square One Golf Performance Center'));
-    fireEvent.click(await screen.findByLabelText('Edit email'));
+
+    fireEvent.click(await screen.findByRole('button', { name: /^\+ Add$/ }));
+    fireEvent.change(await screen.findByLabelText(/^Email/i), {
+      target: { value: 'owner@square.example' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Save contact$/i }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith(
+        expect.stringMatching(/prospects\/sq1\/manual-contact/),
+        expect.objectContaining({ email: 'owner@square.example', confirmDuplicate: false }),
+      );
+    });
+    expect(await screen.findByText(/Saved owner@square.example/i)).toBeInTheDocument();
+  });
+
+  it('inline edit pencil opens the contact form for a prospect that already has an email', async () => {
+    const withEmail = {
+      ...squareOne,
+      email: 'old@square.example',
+      emailSource: 'manual_admin',
+      contactabilityState: 'CONTACT_FOUND',
+    };
+    getMock.mockImplementation(async (url: string) => {
+      if (String(url).includes('/queue')) return [];
+      if (String(url).includes('/detail')) return { prospect: withEmail, queueItems: [], timeline: [] };
+      return [withEmail];
+    });
+    postMock.mockResolvedValueOnce({
+      ok: true,
+      saved: true,
+      email: 'new@square.example',
+      prospect: { ...withEmail, email: 'new@square.example' },
+    });
+
+    render(<ProspectsPanel {...sharedProps()} />);
+    await screen.findByText('Square One Golf Performance Center');
+    fireEvent.click(screen.getByText('Square One Golf Performance Center'));
+    expect(await screen.findByText('old@square.example')).toBeInTheDocument();
+    const editBtns = await screen.findAllByLabelText('Edit email');
+    fireEvent.click(editBtns[editBtns.length - 1]);
     fireEvent.change(await screen.findByLabelText(/^Email/i), { target: { value: 'new@square.example' } });
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Save contact$/i }));
 
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith(
         expect.stringMatching(/manual-contact/),
         expect.objectContaining({ email: 'new@square.example' }),
+      );
+    });
+  });
+
+  it('shows the pending review candidate with Accept / Reject', async () => {
+    const pending = {
+      ...squareOne,
+      contactDiscoveryStatus: 'REVIEW_REQUIRED',
+      pendingReviewEmail: 'maybe@square.example',
+      pendingReviewConfidence: 'MEDIUM',
+      pendingReviewSourceUrl: 'https://squareone.example/contact',
+      lastContactResearchSummary: '2026-09-20 LiveNoEmail: checked 6 page(s).',
+      lastContactResearchAt: '2026-09-20T10:00:00Z',
+    };
+    getMock.mockImplementation(async (url: string) => {
+      if (String(url).includes('/queue')) return [];
+      if (String(url).includes('/detail')) return { prospect: pending, queueItems: [], timeline: [] };
+      return [pending];
+    });
+    postMock.mockResolvedValueOnce({ ok: true, accepted: true, email: 'maybe@square.example' });
+
+    render(<ProspectsPanel {...sharedProps()} />);
+    await screen.findByText('Square One Golf Performance Center');
+    fireEvent.click(screen.getByText('Square One Golf Performance Center'));
+
+    expect(await screen.findByText(/Review required: maybe@square.example/i)).toBeInTheDocument();
+    expect(screen.getByText(/Last researched/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Accept$/i }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith(
+        expect.stringMatching(/prospects\/sq1\/pending-contact\/accept/),
+        {},
       );
     });
   });
@@ -235,7 +349,10 @@ describe('ProspectsPanel — manual contact entry', () => {
     fireEvent.change(await screen.findByLabelText(/^Email/i), { target: { value: 'dup@gym.example' } });
     fireEvent.click(screen.getByRole('button', { name: /^Save contact$/i }));
 
-    expect(await screen.findByText(/already on prospect Body Awareness Studio/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalled();
+    });
+    expect(await screen.findByRole('button', { name: /Save anyway/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Save anyway/i }));
 
     await waitFor(() => {

@@ -97,6 +97,12 @@ public static class ManualContactRules
 
         p.ContactState = PartnerCrmLifecycle.ContactFound;
         p.ContactabilityState = PartnerCrmLifecycle.ContactFound;
+        p.ContactDiscoveryStatus = ContactDiscoveryRules.DiscoveryManualContact;
+        p.ContactConfidence = ContactDiscoveryRules.ConfidenceHigh;
+        // An admin decision supersedes any candidate that was waiting for review.
+        p.PendingReviewEmail = null;
+        p.PendingReviewSourceUrl = null;
+        p.PendingReviewConfidence = null;
         p.NextResearchAt = null;
         p.ContactabilityScore = Math.Max(p.ContactabilityScore, 70);
         p.ContactQualityScore = Math.Max(p.ContactQualityScore, 70);
