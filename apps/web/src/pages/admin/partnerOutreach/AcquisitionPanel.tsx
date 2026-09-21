@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import type {
   AcquisitionDashboard,
+  FunnelCounts,
   NavigateFilters,
   PanelSharedProps,
 } from './types';
@@ -23,6 +24,7 @@ import {
   discoverySummary,
   formatCents,
   formatPct,
+  northStarValues,
   pollDiscoveryJob,
   startDiscoveryJob,
 } from './components';
@@ -32,6 +34,44 @@ interface Props extends PanelSharedProps {
   onNavigate: (nav: NavigateFilters) => void;
 }
 
+const CUSTOMER_FUNNEL: { key: string; label: string }[] = [
+  { key: 'discovered', label: 'Discovered' },
+  { key: 'contactable', label: 'Contactable' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'sent', label: 'Sent' },
+  { key: 'clicked', label: 'Clicked' },
+  { key: 'signedUp', label: 'Signed up' },
+  { key: 'activated', label: 'Activated' },
+  { key: 'buyers', label: 'Buyers' },
+  { key: 'revenue', label: 'Revenue' },
+];
+
+function funnelValue(funnel: FunnelCounts | undefined, key: string): number {
+  if (!funnel) return 0;
+  const direct = funnel[key];
+  if (typeof direct === 'number') return direct;
+  // Graceful legacy fallbacks
+  if (key === 'contactable') {
+    if (funnel.qualified != null) return funnel.qualified;
+    if (funnel.contactNeeded != null) {
+      return Math.max(0, (funnel.discovered ?? 0) - (funnel.contactNeeded ?? 0));
+    }
+    return 0;
+  }
+  if (key === 'signedUp') return funnel.signedUp ?? 0;
+  if (key === 'activated') return funnel.activated ?? 0;
+  if (key === 'buyers') return funnel.buyers ?? funnel.partners ?? 0;
+  if (key === 'clicked') return funnel.clicked ?? 0;
+  if (key === 'revenue') return funnel.revenue ?? 0;
+  return 0;
+}
+
+function stepRate(curr: number, prev: number): number | null {
+  if (prev <= 0) return null;
+  return curr / prev;
+}
+
+/** Overview panel (file retained as AcquisitionPanel). */
 export const AcquisitionPanel: React.FC<Props> = ({
   onError,
   onNotice,
@@ -96,14 +136,49 @@ export const AcquisitionPanel: React.FC<Props> = ({
   };
 
   const mode = (dashboard?.settings?.outreachMode || 'off').toLowerCase();
-  const ns = dashboard?.northStars;
+  const ns = northStarValues(dashboard?.northStars);
   const funnel = dashboard?.funnel;
   const rates = dashboard?.conversionRates;
-  const awaiting = funnel?.awaitingApproval ?? 0;
+  const awaiting = funnel?.awaitingApproval ?? funnel?.drafts ?? 0;
   const approvedReady = funnel?.approved ?? 0;
   const blockedApproved = mode === 'off' && approvedReady > 0;
 
-  const funnelNav = (key: keyof NonNullable<typeof funnel>) => {
+  const funnelSteps = useMemo(() => {
+    const keysPresent = CUSTOMER_FUNNEL.filter((s) => {
+      if (!funnel) return true;
+      if (funnel[s.key] != null) return true;
+      // Always show core path even when API still returns legacy shape
+      return ['discovered', 'contactable', 'approved', 'sent', 'signedUp', 'activated', 'buyers', 'revenue'].includes(s.key)
+        || funnelValue(funnel, s.key) > 0;
+    });
+    return keysPresent.map((s, i) => {
+      const value = s.key === 'revenue'
+        ? (funnel?.revenue ?? 0)
+        : funnelValue(funnel, s.key);
+      const prevKey = i > 0 ? keysPresent[i - 1].key : null;
+      const prevVal = prevKey && prevKey !== 'revenue' ? funnelValue(funnel, prevKey) : 0;
+      const rateFromApi =
+        prevKey === 'discovered' && s.key === 'contactable'
+          ? rates?.discoveredToContactable ?? rates?.discoveredToQualified
+          : prevKey === 'contactable' && s.key === 'approved'
+            ? rates?.contactableToApproved
+            : prevKey === 'approved' && s.key === 'sent'
+              ? rates?.approvedToSentRate ?? rates?.approvedToSent
+              : prevKey === 'sent' && s.key === 'clicked'
+                ? rates?.sentToClicked
+                : prevKey === 'clicked' && s.key === 'signedUp'
+                  ? rates?.clickedToSignedUp
+                  : prevKey === 'signedUp' && s.key === 'activated'
+                    ? rates?.signedUpToActivated
+                    : prevKey === 'activated' && s.key === 'buyers'
+                      ? rates?.activatedToBuyers
+                      : undefined;
+      const conv = s.key === 'revenue' ? null : (rateFromApi ?? stepRate(value, prevVal));
+      return { ...s, value, conv };
+    });
+  }, [funnel, rates]);
+
+  const funnelNav = (key: string) => {
     if (key === 'awaitingApproval' || key === 'drafts' || key === 'approved' || key === 'scheduled') {
       onNavigate({
         tab: 'approvals',
@@ -111,11 +186,17 @@ export const AcquisitionPanel: React.FC<Props> = ({
       });
       return;
     }
-    if (key === 'contactNeeded') {
+    if (key === 'contactNeeded' || key === 'contactable') {
       onNavigate({
         tab: 'prospects',
-        prospectFilters: { contactAvailable: 'needed', contactState: 'CONTACT_NEEDED' },
+        prospectFilters: key === 'contactable'
+          ? { contactAvailable: 'available' }
+          : { contactAvailable: 'needed', contactState: 'CONTACT_NEEDED' },
       });
+      return;
+    }
+    if (key === 'signedUp' || key === 'activated' || key === 'buyers' || key === 'revenue') {
+      onNavigate({ tab: 'customers' });
       return;
     }
     if (key === 'replied' || key === 'interested' || key === 'partners' || key === 'contacted' || key === 'qualified') {
@@ -138,7 +219,7 @@ export const AcquisitionPanel: React.FC<Props> = ({
       onNavigate({ tab: 'approvals', approvalsStatus: status });
       return;
     }
-    if (filter.includes('contactState=')) {
+    if (filter.includes('contactState=') || filter.includes('need_contact')) {
       onNavigate({
         tab: 'prospects',
         prospectFilters: { contactAvailable: 'needed', contactState: 'CONTACT_NEEDED' },
@@ -152,6 +233,10 @@ export const AcquisitionPanel: React.FC<Props> = ({
         return;
       }
       onNavigate({ tab: 'prospects', prospectFilters: { lifecycle: life } });
+      return;
+    }
+    if (filter.includes('customers') || filter.includes('customer')) {
+      onNavigate({ tab: 'customers' });
       return;
     }
     onNavigate({ tab: 'prospects' });
@@ -239,24 +324,11 @@ export const AcquisitionPanel: React.FC<Props> = ({
       </Box>
 
       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2.5 }}>
-        <MetricCard
-          label="Customers acquired"
-          value={ns?.customersAcquired ?? 0}
-          note="Attributed paid customers"
-          loading={loading}
-        />
-        <MetricCard
-          label="Active users acquired"
-          value={ns?.activeUsersAcquired ?? 0}
-          note="Activated referral users"
-          loading={loading}
-        />
-        <MetricCard
-          label="Revenue attributed"
-          value={formatCents(ns?.revenueAttributedCents)}
-          note="Verified partner attribution"
-          loading={loading}
-        />
+        <MetricCard label="New signups" value={ns.newSignups} note="Attributed accounts" loading={loading} />
+        <MetricCard label="Activated users" value={ns.activatedUsers} note="Took a core action" loading={loading} />
+        <MetricCard label="Paying customers" value={ns.payingCustomers} note="Credit / paid" loading={loading} />
+        <MetricCard label="Credit purchases" value={ns.creditPurchases} note="Purchase events" loading={loading} />
+        <MetricCard label="Revenue" value={formatCents(ns.revenueCents)} note="Direct + attributed" loading={loading} />
       </Box>
 
       {discovering && (
@@ -270,45 +342,36 @@ export const AcquisitionPanel: React.FC<Props> = ({
       )}
 
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, letterSpacing: 0.6 }}>
-        FUNNEL
+        CUSTOMER FUNNEL
       </Typography>
-      <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap', mb: 2.5 }}>
-        {(
-          [
-            ['discovered', 'Discovered'],
-            ['qualified', 'Qualified'],
-            ['contactNeeded', 'Contact needed'],
-            ['drafts', 'Drafts'],
-            ['awaitingApproval', 'Awaiting approval'],
-            ['approved', 'Approved'],
-            ['sent', 'Sent'],
-            ['contacted', 'Contacted'],
-            ['replied', 'Replied'],
-            ['interested', 'Interested'],
-            ['partners', 'Partners'],
-          ] as const
-        ).map(([key, label]) => (
+      <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap', mb: 1.5 }}>
+        {funnelSteps.map((step) => (
           <MetricCard
-            key={key}
-            label={label}
-            value={funnel?.[key] ?? 0}
-            attention={key === 'awaitingApproval' && (funnel?.[key] ?? 0) > 0}
-            onClick={() => funnelNav(key)}
+            key={step.key}
+            label={step.label}
+            value={
+              step.key === 'revenue'
+                ? formatCents(typeof step.value === 'number' && step.value > 1000 ? step.value : (dashboard.northStars?.revenueCents ?? dashboard.northStars?.revenueAttributedCents ?? step.value))
+                : step.value
+            }
+            note={step.conv != null ? `${formatPct(step.conv)} from prior` : undefined}
+            attention={step.key === 'approved' && approvedReady > 0 && mode === 'off'}
+            onClick={() => funnelNav(step.key)}
           />
         ))}
       </Box>
-
-      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, letterSpacing: 0.6 }}>
-        CONVERSION RATES
-      </Typography>
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
-        <Chip size="small" label={`Discovered → Qualified ${formatPct(rates?.discoveredToQualified)}`} />
-        <Chip size="small" label={`Qualified → Contacted ${formatPct(rates?.qualifiedToContacted)}`} />
-        <Chip size="small" label={`Contacted → Replied ${formatPct(rates?.contactedToReplied)}`} />
-        <Chip size="small" label={`Replied → Interested ${formatPct(rates?.repliedToInterested)}`} />
-        <Chip size="small" label={`Interested → Partner ${formatPct(rates?.interestedToPartner)}`} />
-        <Chip size="small" label={`Draft → Approved ${formatPct(rates?.draftToApproved)}`} />
-        <Chip size="small" label={`Approved → Sent ${formatPct(rates?.approvedToSent)}`} />
+        {funnelSteps.slice(1).map((step, i) => {
+          if (step.conv == null || step.key === 'revenue') return null;
+          const prev = funnelSteps[i];
+          return (
+            <Chip
+              key={`rate-${step.key}`}
+              size="small"
+              label={`${prev.label} → ${step.label} ${formatPct(step.conv)}`}
+            />
+          );
+        })}
       </Box>
 
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
@@ -319,8 +382,8 @@ export const AcquisitionPanel: React.FC<Props> = ({
       ) : (
         <List dense sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
           {dashboard.todaysActions.map((a) => (
-            <ListItemButton key={a.key} onClick={() => actionNav(a.filter)} disabled={!a.count}>
-              <ListItemText primary={a.label} secondary={a.filter} />
+            <ListItemButton key={a.key} onClick={() => actionNav(a.filter || a.key)} disabled={!a.count}>
+              <ListItemText primary={a.label} secondary={a.filter || a.key} />
               <Chip size="small" label={a.count} color={a.count > 0 ? 'warning' : 'default'} />
             </ListItemButton>
           ))}

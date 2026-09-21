@@ -19,7 +19,15 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { PanelSharedProps, PartnerProspect, PartnerQueueItem, ProspectFilters } from './types';
+import type {
+  NavigateFilters,
+  NextActionInfo,
+  PanelSharedProps,
+  PartnerProspect,
+  PartnerQueueItem,
+  ProspectDetailResponse,
+  ProspectFilters,
+} from './types';
 import {
   API,
   EmptyState,
@@ -27,9 +35,14 @@ import {
   ScoreBar,
   StatusChip,
   asArray,
+  canShowPartnershipActions,
+  formatAcquisitionStatus,
   formatContactability,
+  formatCustomerStatus,
+  formatDate,
+  formatDistributionStatus,
   formatLifecycle,
-  formatNextAction,
+  formatPartnershipStatus,
   formatProspectType,
   formatResultsCompact,
   hasEmail,
@@ -39,12 +52,13 @@ import {
   previewText,
   prospectScore,
   queueForProspect,
-  formatDate,
+  resolveNextAction,
 } from './components';
 import { adminApiService } from '@/services/adminApiService';
 
 interface Props extends PanelSharedProps {
   initialFilters?: ProspectFilters;
+  onNavigate?: (nav: NavigateFilters) => void;
 }
 
 const stickyProspectSx = {
@@ -96,11 +110,16 @@ export const ProspectsPanel: React.FC<Props> = ({
   refreshKey,
   requestRefresh,
   initialFilters,
+  onNavigate,
 }) => {
   const [prospects, setProspects] = useState<PartnerProspect[]>([]);
   const [queue, setQueue] = useState<PartnerQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<PartnerProspect | null>(null);
+  const [detailNext, setDetailNext] = useState<NextActionInfo | string | null>(null);
+  const [detailTimeline, setDetailTimeline] = useState<
+    Array<{ at?: string; type?: string; note?: string; label?: string }>
+  >([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [filters, setFilters] = useState<ProspectFilters>({
@@ -136,6 +155,40 @@ export const ProspectsPanel: React.FC<Props> = ({
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  const loadDetail = async (prospectId: string) => {
+    try {
+      const detail = (await adminApiService.get(
+        `${API}/prospects/${encodeURIComponent(prospectId)}/detail`,
+      )) as ProspectDetailResponse;
+      if (detail?.prospect) setSelected(detail.prospect);
+      setDetailNext(detail?.nextAction ?? detail?.prospect?.nextAction ?? null);
+      if (Array.isArray(detail?.timeline) && detail.timeline.length) {
+        setDetailTimeline(detail.timeline);
+      } else {
+        setDetailTimeline(parseTimeline(detail?.prospect?.timelineJson));
+      }
+      if (detail?.queue || detail?.queueItems) {
+        const items = asArray<PartnerQueueItem>(detail.queue || detail.queueItems);
+        setQueue((prev) => {
+          const others = prev.filter((q) => q.prospectId !== prospectId);
+          return [...others, ...items];
+        });
+      }
+    } catch {
+      // Detail endpoint may not be deployed yet — fall back to list row
+      setDetailNext(null);
+      const row = prospects.find((x) => x.prospectId === prospectId);
+      setDetailTimeline(parseTimeline(row?.timelineJson));
+    }
+  };
+
+  const openProspect = (p: PartnerProspect) => {
+    setSelected(p);
+    setDetailNext(p.nextAction ?? null);
+    setDetailTimeline(parseTimeline(p.timelineJson));
+    void loadDetail(p.prospectId);
+  };
 
   const markets = useMemo(() => {
     const set = new Set<string>();
@@ -203,6 +256,7 @@ export const ProspectsPanel: React.FC<Props> = ({
     setProspects(refreshed);
     const next = refreshed.find((x) => x.prospectId === prospectId) || null;
     setSelected(next);
+    if (next) void loadDetail(prospectId);
   };
 
   const act = async (label: string, fn: () => Promise<unknown>) => {
@@ -270,12 +324,60 @@ export const ProspectsPanel: React.FC<Props> = ({
     }
   };
 
+  const runPrimaryAction = async (
+    p: PartnerProspect,
+    qItems: PartnerQueueItem[],
+    apiNext?: NextActionInfo | string | null,
+  ) => {
+    const next = resolveNextAction(p, qItems, apiNext);
+    const key = next.key;
+    if (key === 'RESEARCH_CONTACT') {
+      await researchOne(p);
+      return;
+    }
+    if (key === 'CREATE_OUTREACH' || key === 'QUALIFY') {
+      setBusy(true);
+      try {
+        await act('Draft prepared', () =>
+          adminApiService.post(`${API}/drafts`, {
+            prospectId: p.prospectId,
+            campaignId: p.campaignId,
+          }),
+        );
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    if (key === 'REVIEW_APPROVE' || key === 'SEND_OR_QUEUE' || key === 'SEND') {
+      onNavigate?.({ tab: 'approvals', approvalsStatus: key === 'SEND_OR_QUEUE' || key === 'SEND' ? 'approved' : 'draft' });
+      return;
+    }
+    if (key === 'READ_REPLY' || key === 'VIEW_REPLY') {
+      onNavigate?.({ tab: 'inbox' });
+      return;
+    }
+    if (key === 'VIEW_CUSTOMER') {
+      onNavigate?.({ tab: 'customers' });
+      return;
+    }
+    openProspect(p);
+  };
+
   if (loading && prospects.length === 0) return <PanelSkeleton rows={8} />;
 
   const drawerQueue = selected ? queueForProspect(queue, selected.prospectId) : [];
-  const timeline = selected ? parseTimeline(selected.timelineJson) : [];
+  const timeline =
+    detailTimeline.length > 0
+      ? detailTimeline
+      : selected
+        ? parseTimeline(selected.timelineJson)
+        : [];
   const strategic = selected?.strategicScore ?? selected?.historicalCategoryScore;
-  const contactabilityLabel = selected ? formatContactability(selected) : '';
+  const selectedNext = selected
+    ? resolveNextAction(selected, drawerQueue, detailNext)
+    : null;
+  const showPartnership = selected ? canShowPartnershipActions(selected) : false;
 
   return (
     <Box>
@@ -403,7 +505,7 @@ export const ProspectsPanel: React.FC<Props> = ({
       </Stack>
 
       {filtered.length === 0 ? (
-        <EmptyState title="No prospects match" detail="Adjust filters or run discovery from Acquisition." />
+        <EmptyState title="No prospects match" detail="Adjust filters or run discovery from Overview." />
       ) : (
         <TableContainer
           sx={{
@@ -430,7 +532,7 @@ export const ProspectsPanel: React.FC<Props> = ({
                 <TableCell sx={{ fontWeight: 700, width: 130 }}>Market</TableCell>
                 <TableCell sx={{ fontWeight: 700, width: 64 }}>Score</TableCell>
                 <TableCell sx={{ fontWeight: 700, width: 130 }}>Contact</TableCell>
-                <TableCell sx={{ fontWeight: 700, width: 100 }}>Lifecycle</TableCell>
+                <TableCell sx={{ fontWeight: 700, width: 110 }}>Acquisition</TableCell>
                 <TableCell sx={{ fontWeight: 700, width: 140 }}>Next Action</TableCell>
                 <TableCell sx={{ fontWeight: 700, width: 120 }}>Results</TableCell>
                 <TableCell sx={stickyActionsHeadSx}>Actions</TableCell>
@@ -439,16 +541,14 @@ export const ProspectsPanel: React.FC<Props> = ({
             <TableBody>
               {filtered.map((p) => {
                 const qItems = queueForProspect(queue, p.prospectId);
-                const next = formatNextAction(p, qItems);
-                const canDraft = hasEmail(p) && !qItems.some((q) => q.status === 'draft');
-                const canResearch = needsContactResearch(p);
+                const next = resolveNextAction(p, qItems);
                 return (
                   <TableRow
                     key={p.prospectId}
                     hover
                     selected={selectedIds.has(p.prospectId)}
                     sx={{ cursor: 'pointer' }}
-                    onClick={() => setSelected(p)}
+                    onClick={() => openProspect(p)}
                   >
                     <TableCell
                       padding="checkbox"
@@ -486,39 +586,26 @@ export const ProspectsPanel: React.FC<Props> = ({
                       )}
                     </TableCell>
                     <TableCell>
-                      <StatusChip label={formatLifecycle(p.crmLifecycle || p.status)} color="info" />
+                      <StatusChip
+                        label={formatAcquisitionStatus(p.acquisitionStatus) !== '—'
+                          ? formatAcquisitionStatus(p.acquisitionStatus)
+                          : formatLifecycle(p.crmLifecycle || p.status)}
+                        color="info"
+                      />
                     </TableCell>
-                    <TableCell sx={{ fontSize: 12 }}>{next}</TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>{next.label}</TableCell>
                     <TableCell sx={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, whiteSpace: 'nowrap' }}>
                       {formatResultsCompact(p)}
                     </TableCell>
                     <TableCell sx={stickyActionsSx} onClick={(e) => e.stopPropagation()}>
-                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                        {canResearch && (
-                          <Button size="small" disabled={busy} onClick={() => void researchOne(p)}>
-                            Research contact
-                          </Button>
-                        )}
-                        {canDraft && (
-                          <Button
-                            size="small"
-                            disabled={busy}
-                            onClick={() =>
-                              void act('Draft prepared', () =>
-                                adminApiService.post(`${API}/drafts`, {
-                                  prospectId: p.prospectId,
-                                  campaignId: p.campaignId,
-                                }),
-                              )
-                            }
-                          >
-                            Prepare draft
-                          </Button>
-                        )}
-                        <Button size="small" onClick={() => setSelected(p)}>
-                          Open
-                        </Button>
-                      </Stack>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        disabled={busy}
+                        onClick={() => void runPrimaryAction(p, qItems)}
+                      >
+                        {next.primaryButton}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
@@ -528,8 +615,17 @@ export const ProspectsPanel: React.FC<Props> = ({
         </TableContainer>
       )}
 
-      <Drawer anchor="right" open={!!selected} onClose={() => setSelected(null)} PaperProps={{ sx: { width: { xs: '100%', sm: 460 } } }}>
-        {selected && (
+      <Drawer
+        anchor="right"
+        open={!!selected}
+        onClose={() => {
+          setSelected(null);
+          setDetailNext(null);
+          setDetailTimeline([]);
+        }}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 480 } } }}
+      >
+        {selected && selectedNext && (
           <Box sx={{ p: 2.5 }}>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
               {selected.organizationName}
@@ -538,8 +634,19 @@ export const ProspectsPanel: React.FC<Props> = ({
               {marketLabel(selected)} · {formatProspectType(selected)}
             </Typography>
 
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={busy}
+              onClick={() => void runPrimaryAction(selected, drawerQueue, detailNext)}
+              sx={{ mb: 2, fontWeight: 800 }}
+            >
+              {selectedNext.primaryButton}
+            </Button>
+
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Identity
+              Who
             </Typography>
             <Typography variant="body2">Email: {selected.email || '—'}</Typography>
             <Typography variant="body2">
@@ -550,8 +657,43 @@ export const ProspectsPanel: React.FC<Props> = ({
               Source: {selected.discoverySource || selected.sourceUrl || '—'}
             </Typography>
 
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Why selected
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              {selected.whySelected || selected.scoreExplanation || selected.notes || '—'}
+            </Typography>
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+              Status
+            </Typography>
+            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+              <StatusChip
+                label={`Acquisition: ${formatAcquisitionStatus(selected.acquisitionStatus) !== '—' ? formatAcquisitionStatus(selected.acquisitionStatus) : formatLifecycle(selected.crmLifecycle || selected.status)}`}
+                color="info"
+              />
+              <StatusChip
+                label={`Customer: ${formatCustomerStatus(selected.customerStatus)}`}
+              />
+              <StatusChip
+                label={`Distribution: ${formatDistributionStatus(selected.distributionStatus)}`}
+              />
+              <StatusChip
+                label={`Partnership: ${formatPartnershipStatus(selected.partnershipStatus)}`}
+              />
+            </Stack>
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
+              Contact
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              {formatContactability(selected)}
+              {selected.contactabilityScore != null ? ` · score ${selected.contactabilityScore}/100` : ''}
+              {selected.contactSourceUrl ? ` · ${selected.contactSourceUrl}` : ''}
+            </Typography>
+
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-              Acquisition score
+              Score
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>
               Total {selected.acquisitionScore ?? prospectScore(selected)}/100
@@ -563,119 +705,83 @@ export const ProspectsPanel: React.FC<Props> = ({
             {selected.activityScore != null && (
               <ScoreBar label="Activity" value={selected.activityScore} max={20} />
             )}
-            {selected.scoreExplanation && (
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, mb: 1.5 }}>
-                {selected.scoreExplanation}
+
+            <Divider sx={{ my: 1.5 }} />
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+              Timeline
+            </Typography>
+            {timeline.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                No events yet
               </Typography>
+            ) : (
+              timeline.map((ev, i) => (
+                <Typography key={i} variant="caption" display="block" color="text.secondary">
+                  {ev.at ? formatDate(ev.at) : '—'} — {ev.label || ev.type || ev.note || 'event'}
+                </Typography>
+              ))
             )}
 
             <Divider sx={{ my: 1.5 }} />
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.75 }}>
-              Contactability
-            </Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              {contactabilityLabel}
-              {selected.contactabilityScore != null ? ` · score ${selected.contactabilityScore}/100` : ''}
-            </Typography>
-            <Button
-              size="small"
-              variant="outlined"
-              disabled={busy || !selected.website}
-              onClick={() => void researchOne(selected)}
-              sx={{ mb: 1.5 }}
-            >
-              Research contact
-            </Button>
-
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
               Next action
             </Typography>
             <Typography variant="body2" sx={{ mb: 2 }}>
-              {formatNextAction(selected, drawerQueue)}
+              {selectedNext.label}
             </Typography>
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Lifecycle
-            </Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              {formatLifecycle(selected.crmLifecycle || selected.status)}
-            </Typography>
-
-            <Divider sx={{ my: 1.5 }} />
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-              Outreach queue
-            </Typography>
-            {drawerQueue.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                No queue items
-              </Typography>
-            ) : (
-              drawerQueue.map((q) => (
-                <Box key={q.queueId} sx={{ mb: 1.25, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                  <StatusChip label={formatLifecycle(q.status)} />
-                  <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
-                    {q.subject}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {previewText(q.bodyText, 100)}
-                  </Typography>
-                </Box>
-              ))
-            )}
-
-            {timeline.length > 0 && (
+            {drawerQueue.length > 0 && (
               <>
-                <Divider sx={{ my: 1.5 }} />
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  Timeline
+                  Outreach queue
                 </Typography>
-                {timeline.map((ev, i) => (
-                  <Typography key={i} variant="caption" display="block" color="text.secondary">
-                    {ev.at ? formatDate(ev.at) : '—'} — {ev.label || ev.type || ev.note || 'event'}
-                  </Typography>
+                {drawerQueue.map((q) => (
+                  <Box key={q.queueId} sx={{ mb: 1.25, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                    <StatusChip label={formatLifecycle(q.status)} />
+                    <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>
+                      {q.subject}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {previewText(q.bodyText, 100)}
+                    </Typography>
+                  </Box>
                 ))}
               </>
             )}
 
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 3 }}>
-              {hasEmail(selected) && !drawerQueue.some((q) => q.status === 'draft') && (
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={() =>
-                    void act('Draft prepared', () =>
-                      adminApiService.post(`${API}/drafts`, {
-                        prospectId: selected.prospectId,
-                        campaignId: selected.campaignId,
-                      }),
-                    )
-                  }
-                >
-                  Prepare draft
-                </Button>
+              {showPartnership && (
+                <>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() =>
+                      void act('Marked interested', () =>
+                        adminApiService.post(
+                          `${API}/prospects/${encodeURIComponent(selected.prospectId)}/interested`,
+                          {},
+                        ),
+                      )
+                    }
+                  >
+                    Mark interested
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() =>
+                      void act('Converted to partner', () =>
+                        adminApiService.post(
+                          `${API}/prospects/${encodeURIComponent(selected.prospectId)}/convert-partner`,
+                          {},
+                        ),
+                      )
+                    }
+                  >
+                    Convert partner
+                  </Button>
+                </>
               )}
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() =>
-                  void act('Marked interested', () =>
-                    adminApiService.post(`${API}/prospects/${encodeURIComponent(selected.prospectId)}/interested`, {}),
-                  )
-                }
-              >
-                Mark interested
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() =>
-                  void act('Converted to partner', () =>
-                    adminApiService.post(`${API}/prospects/${encodeURIComponent(selected.prospectId)}/convert-partner`, {}),
-                  )
-                }
-              >
-                Convert partner
-              </Button>
               {selected.website && (
                 <Button size="small" href={selected.website} target="_blank" rel="noopener noreferrer">
                   Open website

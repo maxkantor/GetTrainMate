@@ -1,44 +1,71 @@
 export type OutreachMode = 'off' | 'test' | 'live';
 
 export type PrimaryTab =
-  | 'acquisition'
+  | 'overview'
   | 'prospects'
   | 'approvals'
   | 'campaigns'
   | 'inbox'
+  | 'customers'
   | 'analytics'
   | 'settings';
 
+/** @deprecated Use 'overview' — kept for NavigateFilters / URL compat */
+export type LegacyPrimaryTab = 'acquisition';
+
 export interface NorthStars {
-  customersAcquired: number;
-  activeUsersAcquired: number;
-  revenueAttributedCents: number;
-  referralSignups: number;
+  /** Preferred: new signups */
+  newSignups?: number;
+  activatedUsers?: number;
+  payingCustomers?: number;
+  creditPurchases?: number;
+  revenueCents?: number;
+  /** Legacy aliases */
+  customersAcquired?: number;
+  activeUsersAcquired?: number;
+  revenueAttributedCents?: number;
+  referralSignups?: number;
 }
 
 export interface FunnelCounts {
-  discovered: number;
-  qualified: number;
-  contactNeeded: number;
-  drafts: number;
-  awaitingApproval: number;
-  approved: number;
-  scheduled: number;
-  sent: number;
-  contacted: number;
-  replied: number;
-  interested: number;
-  partners: number;
+  discovered?: number;
+  contactable?: number;
+  approved?: number;
+  sent?: number;
+  clicked?: number;
+  signedUp?: number;
+  activated?: number;
+  buyers?: number;
+  revenue?: number;
+  /** Legacy / optional */
+  qualified?: number;
+  contactNeeded?: number;
+  drafts?: number;
+  awaitingApproval?: number;
+  scheduled?: number;
+  contacted?: number;
+  replied?: number;
+  interested?: number;
+  partners?: number;
+  [key: string]: number | undefined;
 }
 
 export interface ConversionRates {
-  discoveredToQualified: number;
-  qualifiedToContacted: number;
-  contactedToReplied: number;
-  repliedToInterested: number;
-  interestedToPartner: number;
-  draftToApproved: number;
-  approvedToSent: number;
+  discoveredToQualified?: number;
+  qualifiedToContacted?: number;
+  contactedToReplied?: number;
+  repliedToInterested?: number;
+  interestedToPartner?: number;
+  draftToApproved?: number;
+  approvedToSent?: number;
+  discoveredToContactable?: number;
+  contactableToApproved?: number;
+  approvedToSentRate?: number;
+  sentToClicked?: number;
+  clickedToSignedUp?: number;
+  signedUpToActivated?: number;
+  activatedToBuyers?: number;
+  [key: string]: number | undefined;
 }
 
 export interface TodaysAction {
@@ -55,12 +82,34 @@ export interface DashboardSettingsSnapshot {
   sendEnabled: boolean;
 }
 
+export interface AcquisitionSourceRow {
+  key?: string;
+  label?: string;
+  source?: string;
+  emails?: number;
+  sent?: number;
+  signups?: number;
+  activated?: number;
+  revenue?: number;
+  revenueCents?: number;
+  prospects?: number;
+}
+
 export interface AcquisitionDashboard {
   northStars: NorthStars;
   funnel: FunnelCounts;
-  conversionRates: ConversionRates;
+  conversionRates?: ConversionRates;
   todaysActions: TodaysAction[];
   settings: DashboardSettingsSnapshot;
+  sources?: AcquisitionSourceRow[];
+  topSources?: AcquisitionSourceRow[];
+  acquisitionSources?: AcquisitionSourceRow[];
+}
+
+export interface NextActionInfo {
+  key?: string;
+  label?: string;
+  primaryButton?: string;
 }
 
 export interface PartnerProspect {
@@ -70,6 +119,7 @@ export interface PartnerProspect {
   prospectType?: string;
   /** Normalized kind: GYM | STUDIO | SPORTS_CLUB | RUN_CLUB | … */
   prospectKind?: string;
+  entityType?: string;
   website?: string;
   email?: string;
   emailSource?: string;
@@ -100,6 +150,7 @@ export interface PartnerProspect {
   lastResearchAt?: string;
   nextResearchAt?: string;
   notes?: string;
+  whySelected?: string;
   fitScore?: number;
   acquisitionScore?: number;
   audienceFitScore?: number;
@@ -113,16 +164,52 @@ export interface PartnerProspect {
   scoreExplanation?: string;
   discoverySource?: string;
   emailVerificationStatus?: string;
+  acquisitionStatus?: string;
+  customerStatus?: string;
+  distributionStatus?: string;
+  partnershipStatus?: string;
   referralSignups?: number;
   activatedUsers?: number;
   paidCustomers?: number;
   attributedRevenueCents?: number;
+  directRevenueCents?: number;
+  signupAt?: string;
+  activatedAt?: string;
+  firstPurchaseAt?: string;
   timelineJson?: string;
+  nextAction?: NextActionInfo | string;
   createdAt?: string;
   lastContactedAt?: string;
+  lastActiveAt?: string;
   facebookUrl?: string;
   instagramUrl?: string;
   linkedInUrl?: string;
+}
+
+export interface AcquisitionCustomer {
+  prospectId?: string;
+  customerId?: string;
+  name?: string;
+  organizationName?: string;
+  entityType?: string;
+  prospectType?: string;
+  source?: string;
+  discoverySource?: string;
+  campaignId?: string;
+  campaignName?: string;
+  signupAt?: string;
+  activatedAt?: string;
+  customerStatus?: string;
+  referralSignups?: number;
+  activatedUsers?: number;
+  paidCustomers?: number;
+  creditPurchases?: number;
+  buyers?: number;
+  attributedRevenueCents?: number;
+  directRevenueCents?: number;
+  revenueCents?: number;
+  lastActiveAt?: string;
+  lastContactedAt?: string;
 }
 
 export interface PartnerQueueItem {
@@ -256,7 +343,15 @@ export interface PanelSharedProps {
 }
 
 export interface NavigateFilters {
-  tab: PrimaryTab;
+  tab: PrimaryTab | LegacyPrimaryTab;
   prospectFilters?: ProspectFilters;
   approvalsStatus?: string;
+}
+
+export interface ProspectDetailResponse {
+  prospect?: PartnerProspect;
+  nextAction?: NextActionInfo | string;
+  timeline?: Array<{ at?: string; type?: string; note?: string; label?: string; eventKey?: string }>;
+  queue?: PartnerQueueItem[];
+  queueItems?: PartnerQueueItem[];
 }

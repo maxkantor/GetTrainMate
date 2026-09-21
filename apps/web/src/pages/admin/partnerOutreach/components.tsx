@@ -161,6 +161,187 @@ export function formatLifecycle(value?: string | null): string {
   return map[s] || titleCaseToken(value);
 }
 
+function statusLabelMap(map: Record<string, string>, value?: string | null): string {
+  if (!value?.trim()) return '—';
+  const s = value.trim().toUpperCase().replace(/\s+/g, '_');
+  return map[s] || titleCaseToken(value);
+}
+
+export function formatAcquisitionStatus(value?: string | null): string {
+  return statusLabelMap(
+    {
+      DISCOVERED: 'Discovered',
+      CONTACT_NEEDED: 'Contact needed',
+      CONTACTABLE: 'Contactable',
+      QUALIFIED: 'Qualified',
+      DRAFT: 'Draft',
+      AWAITING_APPROVAL: 'Awaiting approval',
+      APPROVED: 'Approved',
+      QUEUED: 'Queued',
+      SENT: 'Sent',
+      DELIVERED: 'Delivered',
+      OPENED: 'Opened',
+      CLICKED: 'Clicked',
+      REPLIED: 'Replied',
+      INTERESTED: 'Interested',
+      CONVERTED: 'Converted',
+      NOT_QUALIFIED: 'Not qualified',
+      REJECTED: 'Rejected',
+      OPTED_OUT: 'Opted out',
+      BOUNCED: 'Bounced',
+    },
+    value,
+  );
+}
+
+export function formatCustomerStatus(value?: string | null): string {
+  return statusLabelMap(
+    {
+      NOT_CUSTOMER: 'Not a customer',
+      REGISTERED: 'Registered',
+      ACTIVATED: 'Activated',
+      PAYING_CUSTOMER: 'Paying customer',
+    },
+    value,
+  );
+}
+
+export function formatDistributionStatus(value?: string | null): string {
+  return statusLabelMap(
+    {
+      NONE: 'None',
+      INVITE_CREATED: 'Invite created',
+      SHARING: 'Sharing',
+      ACTIVE_SOURCE: 'Active source',
+    },
+    value,
+  );
+}
+
+export function formatPartnershipStatus(value?: string | null): string {
+  return statusLabelMap(
+    {
+      NONE: 'None',
+      INTERESTED: 'Interested',
+      PARTNER: 'Partner',
+    },
+    value,
+  );
+}
+
+export function formatEntityType(value?: string | null): string {
+  if (!value?.trim()) return '—';
+  const s = value.trim().toUpperCase();
+  if (s === 'INDIVIDUAL' || s === 'PERSON') return 'Individual';
+  if (s === 'ORGANIZATION' || s === 'ORG') return 'Organization';
+  return titleCaseToken(value);
+}
+
+export function resolveNextAction(
+  p: PartnerProspect,
+  queueItems: PartnerQueueItem[] = [],
+  apiNext?: { key?: string; label?: string; primaryButton?: string } | string | null,
+): { key: string; label: string; primaryButton: string } {
+  if (apiNext && typeof apiNext === 'object' && (apiNext.key || apiNext.label || apiNext.primaryButton)) {
+    const key = (apiNext.key || 'REVIEW').toUpperCase();
+    const label = apiNext.label || formatNextActionKey(key);
+    return {
+      key,
+      label,
+      primaryButton: apiNext.primaryButton || label,
+    };
+  }
+  if (typeof apiNext === 'string' && apiNext.trim()) {
+    const key = apiNext.trim().toUpperCase().replace(/\s+/g, '_');
+    const label = formatNextActionKey(key);
+    return { key, label, primaryButton: label };
+  }
+  if (p.nextAction && typeof p.nextAction === 'object') {
+    return resolveNextAction(p, queueItems, p.nextAction);
+  }
+  if (typeof p.nextAction === 'string' && p.nextAction.trim()) {
+    return resolveNextAction(p, queueItems, p.nextAction);
+  }
+
+  const acq = (p.acquisitionStatus || '').toUpperCase();
+  const cust = (p.customerStatus || '').toUpperCase();
+  const life = (p.crmLifecycle || '').toUpperCase();
+  const emailState = (p.emailState || '').toUpperCase();
+  const draft = queueItems.find((q) => q.status === 'draft');
+  const approved = queueItems.find((q) => q.status === 'approved');
+  const scheduled = queueItems.find((q) => q.status === 'scheduled');
+
+  if (cust === 'REGISTERED' || cust === 'ACTIVATED' || cust === 'PAYING_CUSTOMER') {
+    return { key: 'VIEW_CUSTOMER', label: 'View customer', primaryButton: 'View customer' };
+  }
+  if (life === 'REPLIED' || acq === 'REPLIED') {
+    return { key: 'READ_REPLY', label: 'Read reply', primaryButton: 'Open inbox' };
+  }
+  if (life === 'INTERESTED' || acq === 'INTERESTED') {
+    return { key: 'VIEW_ACTIVITY', label: 'Review interest', primaryButton: 'Open' };
+  }
+  if (draft || acq === 'DRAFT' || acq === 'AWAITING_APPROVAL' || emailState === 'AWAITING_APPROVAL') {
+    return { key: 'REVIEW_APPROVE', label: 'Review & approve', primaryButton: 'Open approvals' };
+  }
+  if (approved || acq === 'APPROVED' || emailState === 'APPROVED') {
+    return { key: 'SEND_OR_QUEUE', label: 'Send / queue', primaryButton: 'Open approvals' };
+  }
+  if (scheduled) {
+    return { key: 'VIEW_ACTIVITY', label: 'Follow-up due', primaryButton: 'Open approvals' };
+  }
+  if (acq === 'SENT' || acq === 'DELIVERED' || acq === 'OPENED' || acq === 'CLICKED' || emailState === 'SENT' || emailState === 'DELIVERED') {
+    return { key: 'VIEW_ACTIVITY', label: 'Awaiting reply', primaryButton: 'Open' };
+  }
+  if (needsContactResearch(p) || acq === 'CONTACT_NEEDED' || acq === 'DISCOVERED') {
+    return { key: 'RESEARCH_CONTACT', label: 'Research contact', primaryButton: 'Research contact' };
+  }
+  if (hasEmail(p) || acq === 'CONTACTABLE' || acq === 'QUALIFIED') {
+    return { key: 'CREATE_OUTREACH', label: 'Create outreach', primaryButton: 'Prepare draft' };
+  }
+  return { key: 'REVIEW', label: 'Review', primaryButton: 'Open' };
+}
+
+export function formatNextActionKey(key?: string | null): string {
+  if (!key?.trim()) return 'Review';
+  const map: Record<string, string> = {
+    RESEARCH_CONTACT: 'Research contact',
+    CREATE_OUTREACH: 'Create outreach',
+    REVIEW_APPROVE: 'Review & approve',
+    SEND_OR_QUEUE: 'Send / queue',
+    SEND: 'Send',
+    VIEW_REPLY: 'View reply',
+    READ_REPLY: 'Read reply',
+    VIEW_CUSTOMER: 'View customer',
+    VIEW_ACTIVITY: 'View activity',
+    QUALIFY: 'Qualify',
+  };
+  const k = key.trim().toUpperCase().replace(/\s+/g, '_');
+  return map[k] || titleCaseToken(key);
+}
+
+/** Show Convert Partner / Mark Interested only after engagement. */
+export function canShowPartnershipActions(p: PartnerProspect): boolean {
+  const acq = (p.acquisitionStatus || '').toUpperCase();
+  const part = (p.partnershipStatus || '').toUpperCase();
+  const life = (p.crmLifecycle || '').toUpperCase();
+  const emailState = (p.emailState || '').toUpperCase();
+  if (part === 'INTERESTED' || part === 'PARTNER') return true;
+  if (life === 'REPLIED' || life === 'INTERESTED' || life === 'PARTNER') return true;
+  if (['REPLIED', 'INTERESTED', 'SENT', 'DELIVERED'].includes(acq)) return true;
+  // Legacy when AcquisitionStatus not yet populated
+  if (!acq && ['SENT', 'DELIVERED'].includes(emailState)) return true;
+  return false;
+}
+
+export function northStarValues(ns?: import('./types').NorthStars | null) {
+  const newSignups = ns?.newSignups ?? ns?.referralSignups ?? 0;
+  const activatedUsers = ns?.activatedUsers ?? ns?.activeUsersAcquired ?? 0;
+  const payingCustomers = ns?.payingCustomers ?? ns?.customersAcquired ?? 0;
+  const creditPurchases = ns?.creditPurchases ?? ns?.payingCustomers ?? ns?.customersAcquired ?? 0;
+  const revenueCents = ns?.revenueCents ?? ns?.revenueAttributedCents ?? 0;
+  return { newSignups, activatedUsers, payingCustomers, creditPurchases, revenueCents };
+}
+
 export function needsContactResearch(p: PartnerProspect): boolean {
   if (hasEmail(p)) return false;
   const state = (p.contactabilityState || p.contactState || '').toUpperCase();
@@ -189,25 +370,7 @@ export function formatNextAction(
   p: PartnerProspect,
   queueItems: PartnerQueueItem[],
 ): string {
-  const draft = queueItems.find((q) => q.status === 'draft');
-  if (draft) return 'Review draft';
-  const approved = queueItems.find((q) => q.status === 'approved');
-  if (approved) return 'Awaiting send';
-  const scheduled = queueItems.find((q) => q.status === 'scheduled');
-  if (scheduled) return 'Follow-up due';
-  const life = (p.crmLifecycle || '').toUpperCase();
-  if (life === 'REPLIED') return 'Reply in inbox';
-  if (life === 'INTERESTED') return 'Convert partner';
-  if (life === 'PARTNER') return 'Track referrals';
-  if (needsContactResearch(p)) return 'Research public contact';
-  if (hasEmail(p) && !queueItems.some((q) => ['draft', 'approved', 'scheduled', 'sent', 'queued'].includes(q.status))) {
-    return 'Prepare draft';
-  }
-  const emailState = (p.emailState || '').toUpperCase();
-  if (emailState === 'SENT' || emailState === 'DELIVERED') return 'Awaiting reply';
-  if (emailState === 'AWAITING_APPROVAL') return 'Review draft';
-  if (emailState === 'APPROVED' || emailState === 'SCHEDULED') return 'Awaiting send';
-  return 'Review';
+  return resolveNextAction(p, queueItems).label;
 }
 
 export function ScoreBar({

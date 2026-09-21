@@ -191,8 +191,8 @@ export const ApprovalsPanel: React.FC<Props> = ({
           {selectedIds.size === items.length && items.length > 0 ? 'Clear selection' : 'Select all'}
         </Button>
         <Button
-          size="small"
           variant="contained"
+          color="success"
           disabled={selectedIds.size === 0 || busy}
           onClick={() =>
             void run(`Approved ${selectedIds.size} recipient(s)`, () =>
@@ -202,8 +202,9 @@ export const ApprovalsPanel: React.FC<Props> = ({
               }),
             )
           }
+          sx={{ fontWeight: 900, minHeight: 44, px: 2.5, letterSpacing: 0.4 }}
         >
-          Approve selected ({selectedIds.size})
+          BULK APPROVE ({selectedIds.size})
         </Button>
       </Stack>
 
@@ -255,25 +256,43 @@ export const ApprovalsPanel: React.FC<Props> = ({
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                         {previewText(q.bodyText, 220)}
                       </Typography>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
-                        <Button size="small" onClick={() => setViewItem(q)}>
+                      {q.partnerUrl && (
+                        <Box sx={{ mt: 1 }}>
+                          <Typography component="span" variant="caption" color="text.secondary" sx={{ mr: 0.75, fontWeight: 700, letterSpacing: 0.4 }}>
+                            CTA DESTINATION
+                          </Typography>
+                          <Typography
+                            component="a"
+                            href={q.partnerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            variant="body2"
+                            sx={{ color: 'primary.main', wordBreak: 'break-all' }}
+                          >
+                            {q.partnerUrl}
+                          </Typography>
+                        </Box>
+                      )}
+                      <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap sx={{ mt: 2 }} alignItems="center">
+                        <Button onClick={() => setViewItem(q)} sx={{ fontWeight: 700, minHeight: 44, px: 2 }}>
                           View
                         </Button>
                         {q.status === 'draft' && (
                           <>
                             <Button
-                              size="small"
+                              variant="outlined"
                               onClick={() => {
                                 setEditItem(q);
                                 setEditSubject(q.subject);
                                 setEditBody(q.bodyText);
                               }}
+                              sx={{ fontWeight: 800, minHeight: 48, px: 2.5, fontSize: '0.95rem' }}
                             >
-                              Edit
+                              EDIT
                             </Button>
                             <Button
-                              size="small"
                               variant="contained"
+                              color="success"
                               disabled={busy}
                               onClick={() => {
                                 if (canEmphasizeSend) setConfirmSend(q);
@@ -285,13 +304,13 @@ export const ApprovalsPanel: React.FC<Props> = ({
                                   );
                                 }
                               }}
+                              sx={{ fontWeight: 900, minHeight: 52, px: 3, fontSize: '1rem', letterSpacing: 0.6 }}
                             >
-                              {canEmphasizeSend ? 'Approve & Send' : 'Approve'}
+                              {canEmphasizeSend ? 'APPROVE & SEND' : 'APPROVE'}
                             </Button>
                             {canEmphasizeSend && (
                               <Button
-                                size="small"
-                                variant="outlined"
+                                variant="contained"
                                 disabled={busy}
                                 onClick={() =>
                                   void run('Approved', () =>
@@ -300,8 +319,9 @@ export const ApprovalsPanel: React.FC<Props> = ({
                                     }),
                                   )
                                 }
+                                sx={{ fontWeight: 800, minHeight: 48, px: 2.5 }}
                               >
-                                Approve only
+                                APPROVE
                               </Button>
                             )}
                             {!canEmphasizeSend && mode === 'off' && (
@@ -309,8 +329,13 @@ export const ApprovalsPanel: React.FC<Props> = ({
                                 Outreach is OFF — approve queues for later send
                               </Typography>
                             )}
-                            <Button size="small" color="error" onClick={() => { setRejectItem(q); setRejectReason(''); }}>
-                              Reject
+                            <Button
+                              color="error"
+                              variant="outlined"
+                              onClick={() => { setRejectItem(q); setRejectReason(''); }}
+                              sx={{ fontWeight: 800, minHeight: 48, px: 2.5, fontSize: '0.95rem' }}
+                            >
+                              REJECT
                             </Button>
                           </>
                         )}
