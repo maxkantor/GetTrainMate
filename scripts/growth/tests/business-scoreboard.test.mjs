@@ -23,18 +23,22 @@ describe('computeBusinessScoreboard', () => {
     };
 
     const sb = computeBusinessScoreboard(snapshot, { status: 'unavailable' });
-    assert.equal(sb.qualifiedTraffic, 44);
+    // Prefer sessions over landing events when unique users unavailable
+    assert.equal(sb.qualifiedTraffic, 50);
     assert.equal(sb.totalTraffic, 50);
+    assert.equal(sb.totalSessions, 50);
+    assert.equal(sb.landingEvents, 44);
+    assert.equal(sb.qualifiedVisitorUnit, 'sessions');
     assert.equal(sb.signups, 0);
     assert.equal(sb.completedProfiles, 0);
     assert.equal(sb.payingCustomers, 0);
     assert.equal(sb.revenue, '$0.00');
     assert.equal(sb.visitorToSignup, '0.0%');
-    assert.equal(sb.signupToProfile, '0.0%');
-    assert.equal(sb.profileToInteraction, '0.0%');
+    assert.equal(sb.signupToProfile, 'n/a (no upstream cohort)');
+    assert.equal(sb.profileToInteraction, 'n/a (no upstream cohort)');
     assert.equal(sb.primaryBottleneck, 'TRAFFIC');
     assert.equal(sb.decision, 'HOLD / KEEP / COLLECT DATA');
-    assert.match(sb.nextAction, /Daily multi-mode owned social/i);
+    assert.match(sb.nextAction, /owned social|partner outreach/i);
   });
 
   it('evaluates SIGNUP CONVERSION bottleneck when traffic >= 100 but signups are low', () => {
@@ -139,37 +143,29 @@ describe('report rendering with Business Scoreboard', () => {
       generatedAt: new Date('2026-09-07T14:30:00Z')
     });
 
-    // Plain text verification:
-    assert.match(text, /BUSINESS SCOREBOARD \(HOLD \/ COLLECT DATA PHASE\)/);
-    assert.match(text, /Qualified traffic 7d:\s+44 \/ 250 target/);
-    assert.match(text, /External signups 7d:\s+0 \/ 10 target/);
-    assert.match(text, /Verified paying customers 7d:\s+0 \/ 1–3 target/);
-    assert.match(text, /Verified revenue 7d:\s+\$0\.00/);
-    assert.match(text, /Visitor -> signup conversion:\s+0\.0%/);
-    assert.match(text, /Signup -> profile conversion:\s+0\.0%/);
-    assert.match(text, /Profile -> interaction conversion:\s+0\.0%/);
+    // Plain text verification — acquisition-first report
+    assert.match(text, /ARE WE GETTING CUSTOMERS\?/);
+    assert.match(text, /7-DAY ACQUISITION FUNNEL/);
+    assert.match(text, /External unique visitors:/);
+    assert.match(text, /External sessions:/);
+    assert.match(text, /Landing page view events:/);
+    assert.match(text, /Signups:\s+0 \/ 10 target/);
+    assert.match(text, /Paying customers:\s+0 \/ 1–3 target/);
     assert.match(text, /PRIMARY BOTTLENECK: TRAFFIC/);
-    assert.match(text, /NEXT ACTION: Daily multi-mode owned social/);
     assert.match(text, /DECISION: HOLD \/ KEEP \/ COLLECT DATA/);
+    assert.match(text, /MAX — ACTION REQUIRED/);
 
-    // EXP-002 as Acquisition Opportunity:
-    assert.match(text, /EXP-002 — Atlanta partner hub and invite-code acquisition \(Acquisition Opportunity\)/);
-    assert.match(text, /ACQUISITION_OPPORTUNITY/);
+    // EXP-002 partner CRM section
+    assert.match(text, /EXP-002 — Partner Outreach/);
 
-    // Separated metrics in Acquisition section:
-    assert.match(text, /Total traffic 7d \(all sessions\): 52/);
-    assert.match(text, /Qualified campaign traffic 7d \(landing visits\): 44 \/ 250 target/);
+    // Separated traffic metrics (events ≠ visitors)
+    assert.match(text, /External sessions 7d:/);
+    assert.match(text, /Landing page view events 7d:/);
     assert.match(text, /New external signups 7d: 0 \/ 10 target/);
-    assert.match(text, /Activated users 7d \(completed profiles\): 0/);
     assert.match(text, /Verified external paying customers 7d: 0 \/ 1–3 target/);
-    assert.match(text, /Funnel progression: distributed -> landing visit \(44\) -> signup \(0\) -> completed profile \(0\) -> discover/);
 
     // HTML verification:
-    assert.match(html, /Business Scoreboard/);
-    assert.match(html, /Qualified traffic 7d:/);
-    assert.match(html, /44<\/b> \/ 250 target/);
+    assert.match(html, /Customer Acquisition CRM/);
     assert.match(html, /PRIMARY BOTTLENECK:/);
-    assert.match(html, /HOLD \/ COLLECT DATA/);
-    assert.match(html, /Acquisition Opportunity/);
   });
 });

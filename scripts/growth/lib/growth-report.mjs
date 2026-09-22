@@ -310,44 +310,62 @@ export function resolveAcquisitionLead({ snapshot, notes, acquisition } = {}) {
 export function computeBusinessScoreboard(snapshot, md) {
   const board7 = snapshot?.scoreboard?.['7d'] || {};
 
-  // Qualified traffic: GA4 landing_page_view events (canonical definition for landing visits)
-  // or fallback to sessions if landings not available
-  const rawTraffic = board7.landings?.available
-    ? Number(board7.landings.value ?? 0)
-    : board7.sessions?.available
-      ? Number(board7.sessions.value ?? 0)
-      : 0;
+  // Sessions = GA4 sessions metric (browsing sessions)
+  const sessionsAvailable = Boolean(board7.sessions?.available);
+  const totalSessions = sessionsAvailable ? Number(board7.sessions.value ?? 0) : null;
 
-  // Total traffic (all sessions):
-  const totalTraffic = board7.sessions?.available
-    ? Number(board7.sessions.value ?? 0)
-    : rawTraffic;
+  // Unique users = GA4 totalUsers when available
+  const usersAvailable = Boolean(board7.active_users?.available);
+  const uniqueUsers = usersAvailable ? Number(board7.active_users.value ?? 0) : null;
 
-  // External signups: GA4 completed_signups (or fallback to signup_starts)
+  // Landing events = GA4 landing_page_view event count (NOT the same as visitors/sessions)
+  const landingsAvailable = Boolean(board7.landings?.available);
+  const landingEvents = landingsAvailable ? Number(board7.landings.value ?? 0) : null;
+
+  // Campaign-attributed visitors from experimentAttribution when present
+  const attr7 = snapshot?.experimentAttribution?.['7d'];
+  const campaignVisitors =
+    attr7?.landing_users?.available != null && attr7.landing_users.available !== false
+      ? Number(attr7.landing_users.value ?? 0)
+      : attr7?.landings?.available
+        ? Number(attr7.landings.value ?? 0)
+        : null;
+
+  // Qualified external visitors for funnel: prefer unique users, else sessions, else landing events (labeled)
+  let qualifiedVisitors = null;
+  let qualifiedVisitorUnit = 'unavailable';
+  if (uniqueUsers != null) {
+    qualifiedVisitors = uniqueUsers;
+    qualifiedVisitorUnit = 'unique_users';
+  } else if (totalSessions != null) {
+    qualifiedVisitors = totalSessions;
+    qualifiedVisitorUnit = 'sessions';
+  } else if (landingEvents != null) {
+    qualifiedVisitors = landingEvents;
+    qualifiedVisitorUnit = 'landing_page_view_events';
+  }
+
   const signups = board7.completed_signups?.available
     ? Number(board7.completed_signups.value ?? 0)
     : board7.signup_starts?.available
       ? Number(board7.signup_starts.value ?? 0)
       : 0;
 
-  // Completed profiles:
   const completedProfiles = board7.completed_profiles?.available
     ? Number(board7.completed_profiles.value ?? 0)
     : 0;
 
-  // Interactions (discover users, connection requests, mutual matches, first messages):
   const discoverUsers = board7.discover_users?.available ? Number(board7.discover_users.value ?? 0) : 0;
   const requests = board7.connections_sent?.available ? Number(board7.connections_sent.value ?? 0) : 0;
   const matches = board7.matches_created?.available ? Number(board7.matches_created.value ?? 0) : 0;
   const firstMessages = board7.first_messages?.available ? Number(board7.first_messages.value ?? 0) : 0;
-  const interactions = discoverUsers || requests || matches || firstMessages || 0;
+  // Meaningful interactions = Discover starters (unique-user style metric when available)
+  const interactions = discoverUsers;
 
-  // Verified paying customers:
   const payingCustomers = board7.unique_paying_customers?.available
     ? Number(board7.unique_paying_customers.value ?? 0)
     : 0;
 
-  // Verified revenue:
   const rawRev = board7.revenue?.value;
   const revenueStr =
     rawRev != null && !isNaN(Number(rawRev))
@@ -356,44 +374,54 @@ export function computeBusinessScoreboard(snapshot, md) {
         ? rawRev
         : '$0.00';
 
-  // Conversions:
-  const visitorToSignupPct = rawTraffic > 0 ? ((signups / rawTraffic) * 100).toFixed(1) + '%' : '0.0%';
-  const signupToProfilePct = signups > 0 ? ((completedProfiles / signups) * 100).toFixed(1) + '%' : '0.0%';
-  const profileToInteractionPct = completedProfiles > 0 ? ((interactions / completedProfiles) * 100).toFixed(1) + '%' : '0.0%';
+  // Sequential conversion % only when denominator is the same cohort type AND downstream <= upstream
+  function sequentialPct(numer, denom) {
+    if (denom == null || denom <= 0) return { label: 'n/a (no upstream cohort)', raw: null };
+    if (numer > denom) {
+      return {
+        label: `not sequential (${numer} vs ${denom} — different metrics)`,
+        raw: null,
+      };
+    }
+    return { label: ((numer / denom) * 100).toFixed(1) + '%', raw: numer / denom };
+  }
 
-  // Decision & Bottleneck logic according to User Policy:
-  // "Use approximately 100–200 qualified landing visits as the minimum initial checkpoint for evaluating visitor → signup performance.
-  //  Before that threshold: Decision = HOLD / KEEP / COLLECT DATA"
+  const visitorToSignup = sequentialPct(signups, qualifiedVisitors);
+  const signupToProfile = sequentialPct(completedProfiles, signups);
+  const profileToInteraction = sequentialPct(interactions, completedProfiles);
+
   let primaryBottleneck = 'TRAFFIC';
   let decision = 'HOLD / KEEP / COLLECT DATA';
-  let nextAction = 'Daily multi-mode owned social (TRAIN / VIBE / DATE) to build traffic sample; review EXP-002 partner drafts.';
+  let nextAction =
+    'Daily multi-mode owned social (TRAIN / VIBE / DATE) + partner outreach to grow qualified visitors.';
 
-  if (rawTraffic < 100) {
+  const trafficForGate = qualifiedVisitors ?? 0;
+  if (trafficForGate < 100) {
     primaryBottleneck = 'TRAFFIC';
     decision = 'HOLD / KEEP / COLLECT DATA';
-    nextAction = 'Daily multi-mode owned social (TRAIN / VIBE / DATE) to build traffic sample; review EXP-002 partner drafts.';
+    nextAction =
+      'Grow qualified distribution (owned social + partner outreach). Do not redesign product UI.';
   } else {
-    // Traffic >= 100: Evaluate first statistically meaningful bottleneck
-    const visitorToSignupRatio = signups / rawTraffic;
-    const signupToProfileRatio = signups > 0 ? completedProfiles / signups : 0;
-    const profileToInteractionRatio = completedProfiles > 0 ? interactions / completedProfiles : 0;
+    const visitorToSignupRatio = visitorToSignup.raw ?? 0;
+    const signupToProfileRatio = signupToProfile.raw ?? 0;
+    const profileToInteractionRatio = profileToInteraction.raw ?? 0;
 
-    if (visitorToSignupRatio < 0.05) {
+    if (visitorToSignup.raw != null && visitorToSignupRatio < 0.05) {
       primaryBottleneck = 'SIGNUP CONVERSION';
       decision = 'EVALUATE_SIGNUP_FLOW';
       nextAction = 'Analyze landing-to-signup dropoff by campaign and mode before modifying copy.';
-    } else if (signupToProfileRatio < 0.50) {
+    } else if (signupToProfile.raw != null && signupToProfileRatio < 0.5) {
       primaryBottleneck = 'ACTIVATION';
       decision = 'EVALUATE_ONBOARDING';
       nextAction = 'Analyze profile completion dropoff in onboarding.';
-    } else if (profileToInteractionRatio < 0.40) {
+    } else if (profileToInteraction.raw != null && profileToInteractionRatio < 0.4) {
       primaryBottleneck = 'ACTIVATION';
       decision = 'EVALUATE_DISCOVERY';
-      nextAction = 'Analyze Discover and connection request engagement among active profiles.';
+      nextAction = 'Analyze Discover engagement among completed profiles.';
     } else if (payingCustomers === 0) {
       primaryBottleneck = 'PAYMENT';
       decision = 'EVALUATE_PAYMENT_CONVERSION';
-      nextAction = 'Review pricing/checkout view funnel among active interacting users.';
+      nextAction = 'Review pricing/checkout among interacting users.';
     } else {
       primaryBottleneck = 'TRAFFIC';
       decision = 'SCALE_DISTRIBUTION';
@@ -402,8 +430,16 @@ export function computeBusinessScoreboard(snapshot, md) {
   }
 
   return {
-    qualifiedTraffic: rawTraffic,
-    totalTraffic,
+    // Honest traffic breakdown (do not conflate events with visitors)
+    totalSessions: totalSessions ?? 'Unavailable',
+    uniqueUsers: uniqueUsers ?? 'Unavailable',
+    landingEvents: landingEvents ?? 'Unavailable',
+    campaignAttributedVisitors: campaignVisitors ?? 'Unavailable',
+    qualifiedVisitors: qualifiedVisitors ?? 'Unavailable',
+    qualifiedVisitorUnit,
+    // Back-compat aliases used by older report sections
+    qualifiedTraffic: qualifiedVisitors ?? 0,
+    totalTraffic: totalSessions ?? qualifiedVisitors ?? 0,
     signups,
     completedProfiles,
     discoverUsers,
@@ -413,12 +449,12 @@ export function computeBusinessScoreboard(snapshot, md) {
     interactions,
     payingCustomers,
     revenue: revenueStr,
-    visitorToSignup: visitorToSignupPct,
-    signupToProfile: signupToProfilePct,
-    profileToInteraction: profileToInteractionPct,
+    visitorToSignup: visitorToSignup.label,
+    signupToProfile: signupToProfile.label,
+    profileToInteraction: profileToInteraction.label,
     primaryBottleneck,
     decision,
-    nextAction
+    nextAction,
   };
 }
 
@@ -509,37 +545,78 @@ function stripeStatusLines(snapshot) {
 
 function exp002Stats(snapshot) {
   const s = snapshot?.partnerOutreach || {};
-  const na = (v) => (v == null || v === '' ? 'Unavailable' : String(v));
-  const funnel = s.funnel || {};
-  const ns = s.northStars || {};
+  const status = String(s.status || 'unavailable').toLowerCase();
+  if (status !== 'ok') {
+    return {
+      status,
+      reason: s.reason || 'Partner Outreach CRM could not be queried',
+      unavailable: true,
+      prospects: 'Unavailable',
+      contacts: 'Unavailable',
+      needContact: 'Unavailable',
+      draftsPrepared: 'Unavailable',
+      awaitingApproval: 'Unavailable',
+      recipientsApproved: 'Unavailable',
+      emailsSent: 'Unavailable',
+      delivered: 'Unavailable',
+      partnerResponses: 'Unavailable',
+      interested: 'Unavailable',
+      partners: 'Unavailable',
+      partnerPagesCreated: 'Unavailable',
+      inviteCodesCreated: 'Unavailable',
+      partnerVisits: 'Unavailable',
+      partnerSignups: 'Unavailable',
+      completedProfiles: 'Unavailable',
+      discoverUsers: 'Unavailable',
+      connectionRequests: 'Unavailable',
+      customersAcquired: 'Unavailable',
+      revenueAttributedCents: 'Unavailable',
+      outreachMode: 'Unavailable',
+      pauseAllOutreach: false,
+      ownerAction: `Partner CRM ${status.toUpperCase()}: ${s.reason || 'fix credentials / API access'}`,
+      approvalsAdminUrl: s.approvalsAdminUrl || 'https://gettrainmate.com/admin/partner-outreach',
+      discoveryNew: 'Unavailable',
+      highScore: 'See Admin CRM',
+      contactsFound: 'Unavailable',
+      draftsCreated: 'Unavailable',
+    };
+  }
+
+  const num = (v) => (v == null || v === '' ? 'Unavailable' : String(v));
+  const zeroOk = (v) => (v == null || v === '' ? 'Unavailable' : String(Number(v)));
+
   return {
-    status: s.status || 'unavailable',
-    partnerPagesCreated: na(s.partnerPagesCreated ?? funnel.discovered),
-    inviteCodesCreated: na(s.inviteCodesCreated),
-    draftsPrepared: na(s.draftsPrepared ?? funnel.drafts),
-    recipientsApproved: na(s.recipientsApproved ?? funnel.approved),
-    emailsSent: na(s.emailsSent ?? funnel.sent),
-    delivered: na(s.delivered),
-    partnerResponses: na(s.partnerResponses ?? funnel.replied),
-    partnerVisits: na(s.partnerAttributedVisits),
-    partnerSignups: na(s.partnerAttributedSignups ?? ns.referralSignups),
-    completedProfiles: na(s.completedProfiles ?? ns.activeUsersAcquired),
-    discoverUsers: na(s.discoverUsers),
-    connectionRequests: na(s.connectionRequests),
-    customersAcquired: na(ns.customersAcquired ?? s.customersAcquired ?? 0),
-    revenueAttributedCents: na(ns.revenueAttributedCents ?? s.revenueAttributedCents ?? 0),
-    awaitingApproval: na(funnel.awaitingApproval),
-    contactNeeded: na(funnel.contactNeeded),
-    interested: na(funnel.interested),
-    partners: na(funnel.partners),
-    outreachMode: na(s.settings?.outreachMode),
+    status: 'ok',
+    unavailable: false,
+    reason: null,
+    prospects: zeroOk(s.prospects ?? s.funnel?.discovered),
+    contacts: zeroOk(s.contacts ?? s.discovery?.verifiedPublicContacts),
+    needContact: zeroOk(s.needContact ?? s.funnel?.contactNeeded),
+    draftsPrepared: zeroOk(s.draftsPrepared ?? s.funnel?.drafts),
+    awaitingApproval: zeroOk(s.awaitingApproval ?? s.funnel?.awaitingApproval),
+    recipientsApproved: zeroOk(s.recipientsApproved ?? s.funnel?.approved),
+    emailsSent: zeroOk(s.emailsSent ?? s.funnel?.sent),
+    delivered: zeroOk(s.delivered),
+    partnerResponses: zeroOk(s.partnerResponses ?? s.funnel?.replied),
+    interested: zeroOk(s.interested ?? s.funnel?.interested),
+    partners: zeroOk(s.partners ?? s.funnel?.partners),
+    partnerPagesCreated: zeroOk(s.partnerPagesCreated),
+    inviteCodesCreated: zeroOk(s.inviteCodesCreated),
+    partnerVisits: num(s.partnerAttributedVisits),
+    partnerSignups: num(s.partnerAttributedSignups ?? s.northStars?.referralSignups),
+    completedProfiles: num(s.completedProfiles ?? s.northStars?.activeUsersAcquired),
+    discoverUsers: num(s.discoverUsers),
+    connectionRequests: num(s.connectionRequests),
+    customersAcquired: zeroOk(s.customersAcquired ?? s.northStars?.customersAcquired ?? 0),
+    revenueAttributedCents: zeroOk(s.revenueAttributedCents ?? s.northStars?.revenueAttributedCents ?? 0),
+    outreachMode: num(s.settings?.outreachMode),
     pauseAllOutreach: Boolean(s.settings?.pauseAllOutreach),
-    ownerAction: na(s.ownerAction),
+    ownerAction: num(s.ownerAction),
     approvalsAdminUrl: s.approvalsAdminUrl || 'https://gettrainmate.com/admin/partner-outreach',
-    discoveryNew: na(funnel.discovered),
+    discoveryNew: zeroOk(s.funnel?.discovered),
     highScore: 'See Admin CRM',
-    contactsFound: na(s.discovery?.verifiedPublicContacts),
-    draftsCreated: na(funnel.drafts ?? s.discovery?.draftsGenerated)
+    contactsFound: zeroOk(s.contacts ?? s.discovery?.verifiedPublicContacts),
+    draftsCreated: zeroOk(s.draftsPrepared ?? s.discovery?.draftsGenerated),
   };
 }
 
@@ -599,24 +676,7 @@ export function composeGrowthEmailBody({
   });
 
   const t = [];
-  t.push('GETTRAINMATE — CUSTOMER ACQUISITION REPORT');
-  t.push('=========================================');
-  t.push('Product: multilingual international TRAIN + VIBE + DATE. Atlanta TRAIN is one experiment, not the product.');
-  t.push('North star: new accounts → activated users → paying customers → credit revenue.');
-  t.push(`Local time (America/New_York): ${et.dateStr} ${et.timeStr}`);
-  t.push(`Report generated: ${et.monthDayYear}`);
-  t.push(`GA4 data through: ${formatMonthDayYearFromYmd(ga4Through)}`);
-  t.push(`Site: ${SITE.origin}`);
-  t.push('');
-  t.push('CUSTOMERS (attributed where available)');
-  t.push('--------------------------------------');
-  t.push(`Signups (partner/referral attributed): ${exp002.partnerSignups}`);
-  t.push(`Activated (Discover after referral): ${exp002.completedProfiles}`);
-  t.push(`Paying customers attributed: ${exp002.customersAcquired}`);
-  t.push(`Revenue attributed (cents): ${exp002.revenueAttributedCents}`);
-  t.push(`Owner action: ${exp002.ownerAction}`);
-  t.push('');
-
+  const sb = computeBusinessScoreboard(snapshot, md);
   const published = Boolean(social.fbYes || social.igYes);
   const creative = social.os?.socialImage || social.os?.creative || {};
   const runStatus = published
@@ -624,57 +684,114 @@ export function composeGrowthEmailBody({
     : social.attempted
       ? 'PARTIAL FAILURE'
       : 'FAILURE';
-  t.push('RUN STATUS');
-  t.push('----------');
-  t.push(`Status: ${runStatus}`);
-  t.push(`Facebook: ${social.fbYes ? 'POSTED' : social.attempted ? 'FAILED / SKIPPED' : 'NOT ATTEMPTED'}`);
-  t.push(`Mode: ${ascii(creative.mode || social.os?.contentId || 'n/a')}`);
-  t.push(`Creative headline: ${ascii(creative.imageHeadline || 'n/a')}`);
-  t.push(`Creative provider: ${ascii(creative.provider || 'n/a')}`);
-  t.push(`Creative fallback: ${creative.fallback === true ? 'YES' : 'NO'}`);
-  t.push(`Facebook post ID: ${social.fb.postId || 'n/a'}`);
-  t.push(`Instagram post ID: ${social.ig.postId || 'n/a'}`);
+  const metaActionNeeded = ownerActionRequiredForMeta(social.metaAuth, { published: distYes });
+  const partnerCrmOk = !exp002.unavailable && exp002.status === 'ok';
+
+  t.push('GETTRAINMATE — CUSTOMER ACQUISITION REPORT');
+  t.push('=========================================');
+  t.push('ARE WE GETTING CUSTOMERS?');
+  t.push(`Local time (America/New_York): ${et.dateStr} ${et.timeStr}`);
+  t.push(`GA4 data through: ${formatMonthDayYearFromYmd(ga4Through)}`);
+  t.push(`Site: ${SITE.origin}`);
   t.push('');
-
-  const sb = computeBusinessScoreboard(snapshot, md);
-
-  t.push('BUSINESS SCOREBOARD (HOLD / COLLECT DATA PHASE)');
-  t.push('-----------------------------------------------');
-  t.push(`Qualified traffic 7d:             ${sb.qualifiedTraffic} / 250 target`);
-  t.push(`External signups 7d:              ${sb.signups} / 10 target`);
-  t.push(`Verified paying customers 7d:     ${sb.payingCustomers} / 1–3 target`);
-  t.push(`Verified revenue 7d:              ${sb.revenue}`);
-  t.push(`Visitor -> signup conversion:     ${sb.visitorToSignup}`);
-  t.push(`Signup -> profile conversion:     ${sb.signupToProfile}`);
-  t.push(`Profile -> interaction conversion: ${sb.profileToInteraction}`);
+  t.push('7-DAY ACQUISITION FUNNEL');
+  t.push('------------------------');
+  t.push(`External unique visitors:     ${sb.uniqueUsers}  (unit: unique users)`);
+  t.push(`External sessions:            ${sb.totalSessions}  (unit: sessions)`);
+  t.push(`Landing page view events:     ${sb.landingEvents}  (events — not visitors)`);
+  t.push(`Campaign-attributed visitors: ${sb.campaignAttributedVisitors}`);
+  t.push(`  ↓`);
+  t.push(`Signups:                      ${sb.signups} / 10 target`);
+  t.push(`  ↓`);
+  t.push(`Activated profiles:           ${sb.completedProfiles}`);
+  t.push(`  ↓`);
+  t.push(`Meaningful interactions:      ${sb.interactions}  (Discover starters)`);
+  t.push(`  Connections/matches:        ${sb.matches} matches · ${sb.requests} requests`);
+  t.push(`  ↓`);
+  t.push(`Paying customers:             ${sb.payingCustomers} / 1–3 target`);
+  t.push(`Revenue:                      ${sb.revenue}`);
+  t.push('');
+  t.push(`Funnel cohort used for conversion: ${sb.qualifiedVisitorUnit}`);
+  t.push(`Visitor → signup:             ${sb.visitorToSignup}`);
+  t.push(`Signup → profile:             ${sb.signupToProfile}`);
+  t.push(`Profile → interaction:        ${sb.profileToInteraction}`);
   t.push('');
   t.push(`PRIMARY BOTTLENECK: ${sb.primaryBottleneck}`);
   t.push(`DECISION: ${sb.decision}`);
   t.push(`NEXT ACTION: ${sb.nextAction}`);
   t.push('');
-  t.push('CUSTOMER / MARKETPLACE SCOREBOARD');
-  t.push('--------------------------------');
+  t.push('WHAT AUTOMATION DID TODAY');
+  t.push('-------------------------');
+  t.push(`Facebook: ${social.fbYes ? 'PUBLISHED' : social.attempted ? 'FAILED/SKIPPED' : 'NOT ATTEMPTED'}${social.fb.postId ? ` (${social.fb.postId})` : ''}`);
+  t.push(`Instagram: ${social.igYes ? 'PUBLISHED' : social.ig.blocker ? 'FAILED' : 'NOT ATTEMPTED'}${social.ig.postId ? ` (${social.ig.postId})` : ''}`);
+  if (partnerCrmOk) {
+    t.push(`Prospects in CRM: ${exp002.prospects}`);
+    t.push(`Emails found: ${exp002.contacts}`);
+    t.push(`Need contact: ${exp002.needContact}`);
+    t.push(`Drafts: ${exp002.draftsPrepared}`);
+    t.push(`Awaiting approval: ${exp002.awaitingApproval}`);
+    t.push(`Sent: ${exp002.emailsSent}`);
+    t.push(`Replies: ${exp002.partnerResponses}`);
+  } else {
+    t.push(`Partner CRM: ${String(exp002.status || 'unavailable').toUpperCase()} — ${exp002.reason || 'could not query'}`);
+  }
+  t.push('');
+  t.push('MAX — ACTION REQUIRED');
+  t.push('---------------------');
+  const actions = [];
+  if (partnerCrmOk) {
+    const awaitingN = Number(exp002.awaitingApproval);
+    const needN = Number(exp002.needContact);
+    if (!Number.isNaN(awaitingN) && awaitingN > 0) {
+      actions.push(`${awaitingN} drafts ready for approval → ${exp002.approvalsAdminUrl}`);
+    }
+    if (!Number.isNaN(needN) && needN > 0) {
+      actions.push(`${needN} prospects need email / contact discovery`);
+    }
+    if (exp002.pauseAllOutreach) {
+      actions.push('Emergency pause is ON — resume only if intentional');
+    }
+  } else {
+    actions.push(`Fix Partner CRM access: ${exp002.reason || 'credentials / API'}`);
+  }
+  if (metaActionNeeded) {
+    actions.push('Meta credentials need repair (Facebook/Instagram did not publish)');
+  }
+  if (!actions.length) {
+    t.push('No action required today.');
+  } else {
+    for (const a of actions) t.push(`• ${a}`);
+  }
+  t.push('');
+
+  t.push('RUN STATUS');
+  t.push('----------');
+  t.push(`Status: ${runStatus}`);
+  t.push(`Mode: ${ascii(creative.mode || social.os?.contentId || 'n/a')}`);
+  t.push(`Creative headline: ${ascii(creative.imageHeadline || 'n/a')}`);
+  t.push('');
+
+  t.push('PRODUCT SCOREBOARD (TRAIN / VIBE / DATE — not Atlanta-only)');
+  t.push('-----------------------------------------------------------');
   t.push(`New users 7d (GA4): ${formatCell(board7.new_users ?? board7.active_users)}`);
   t.push(`Sessions 7d (GA4): ${formatCell(board7.sessions)}`);
-  t.push(`Landing sessions 7d (GA4 events): ${formatCellLabeled(board7.landings)}`);
-  t.push(`Signup starts 7d (GA4 events): ${formatCellLabeled(board7.signup_starts)}`);
-  t.push(`Completed signups 7d (GA4 users): ${formatCellLabeled(board7.completed_signups)}`);
-  t.push(`Completed profiles 7d (GA4 users): ${formatCellLabeled(board7.completed_profiles)}`);
-  t.push(`Completed profiles — CRM (all modes, cumulative): TRAIN ${naMode(modes.TRAIN)} / VIBE ${naMode(modes.VIBE)} / DATE ${naMode(modes.DATE)}`);
-  t.push(`Discover users 7d / 30d (GA4): ${formatCellLabeled(board7.discover_users)} / ${formatCellLabeled(board30.discover_users)}`);
-  t.push(`Requests 7d / 30d (GA4 events): ${formatCellLabeled(board7.connections_sent)} / ${formatCellLabeled(board30.connections_sent)}`);
-  t.push(`Matches 7d / 30d (GA4 events): ${formatCellLabeled(board7.matches_created)} / ${formatCellLabeled(board30.matches_created)}`);
-  t.push(`First messages 7d / 30d (GA4): ${formatCellLabeled(board7.first_messages)} / ${formatCellLabeled(board30.first_messages)}`);
-  t.push(`Returning users 7d / 30d (GA4 users): ${formatCellLabeled(board7.returning_users)} / ${formatCellLabeled(board30.returning_users)}`);
-  t.push(`New paying customers 7d: ${formatCell(board7.unique_paying_customers)}`);
-  t.push(`Verified revenue 7d: ${formatCell(board7.revenue)}`);
+  t.push(`Landing page view events 7d: ${formatCellLabeled(board7.landings)}`);
+  t.push(`Signup starts 7d: ${formatCellLabeled(board7.signup_starts)}`);
+  t.push(`Completed signups 7d: ${formatCellLabeled(board7.completed_signups)}`);
+  t.push(`Completed profiles 7d: ${formatCellLabeled(board7.completed_profiles)}`);
+  t.push(`CRM profiles (all modes): TRAIN ${naMode(modes.TRAIN)} / VIBE ${naMode(modes.VIBE)} / DATE ${naMode(modes.DATE)}`);
+  t.push(`Discover users 7d / 30d: ${formatCellLabeled(board7.discover_users)} / ${formatCellLabeled(board30.discover_users)}`);
+  t.push(`Requests 7d / 30d: ${formatCellLabeled(board7.connections_sent)} / ${formatCellLabeled(board30.connections_sent)}`);
+  t.push(`Matches 7d / 30d: ${formatCellLabeled(board7.matches_created)} / ${formatCellLabeled(board30.matches_created)}`);
+  t.push(`First messages 7d / 30d: ${formatCellLabeled(board7.first_messages)} / ${formatCellLabeled(board30.first_messages)}`);
+  t.push(`Paying customers 7d: ${formatCell(board7.unique_paying_customers)}`);
+  t.push(`Revenue 7d: ${formatCell(board7.revenue)}`);
   t.push('');
   t.push('BY MODE (CRM completed profiles — users may select multiple modes)');
   t.push('--------------------------------------------------------------');
   t.push(`TRAIN completed profiles: ${naMode(modes.TRAIN)}`);
   t.push(`VIBE completed profiles: ${naMode(modes.VIBE)}`);
   t.push(`DATE completed profiles: ${naMode(modes.DATE)}`);
-  t.push('GA4 mode splits are not instrumented yet; CRM is marketplace truth for profile counts.');
   t.push('');
   t.push('TOP MARKET × MODE POCKETS');
   t.push('-------------------------');
@@ -748,8 +865,11 @@ export function composeGrowthEmailBody({
   t.push('');
   t.push('4) ACQUISITION');
   t.push('-------------');
-  t.push(`Total traffic 7d (all sessions): ${sb.totalTraffic}`);
-  t.push(`Qualified campaign traffic 7d (landing visits): ${sb.qualifiedTraffic} / 250 target`);
+  t.push(`External sessions 7d: ${sb.totalSessions}`);
+  t.push(`External unique users 7d: ${sb.uniqueUsers}`);
+  t.push(`Landing page view events 7d: ${sb.landingEvents} (events — not visitors)`);
+  t.push(`Campaign-attributed visitors 7d: ${sb.campaignAttributedVisitors}`);
+  t.push(`Funnel cohort (${sb.qualifiedVisitorUnit}): ${sb.qualifiedVisitors}`);
   t.push(`New external signups 7d: ${sb.signups} / 10 target`);
   t.push(`Activated users 7d (completed profiles): ${sb.completedProfiles}`);
   t.push(`Verified external paying customers 7d: ${sb.payingCustomers} / 1–3 target`);
@@ -766,7 +886,9 @@ export function composeGrowthEmailBody({
   t.push(`Checkout starts: ${ascii(lead.checkoutStarts)}`);
   t.push(`Newly attributed external customers: ${ascii(lead.newlyAttributedExternalCustomers)}`);
   t.push(`Verified revenue (this run): ${ascii(lead.verifiedRevenue)}`);
-  t.push(`Funnel progression: distributed -> landing visit (${sb.qualifiedTraffic}) -> signup (${sb.signups}) -> completed profile (${sb.completedProfiles}) -> discover (${sb.discoverUsers}) -> request (${sb.requests}) -> match (${sb.matches}) -> first message (${sb.firstMessages}) -> payment (${sb.payingCustomers})`);
+  t.push(
+    `Funnel progression: distributed → visitors (${sb.qualifiedVisitors}) → signup (${sb.signups}) → profile (${sb.completedProfiles}) → discover (${sb.discoverUsers}) → request (${sb.requests}) → match (${sb.matches}) → message (${sb.firstMessages}) → payment (${sb.payingCustomers})`
+  );
   t.push('Draft prepared / failed API call does not count as distribution.');
   t.push('');
   t.push('5) OWNED SOCIAL + META AUTHENTICATION');
@@ -859,23 +981,36 @@ export function composeGrowthEmailBody({
     );
   }
   t.push('');
-  t.push(`EXP-002 — Customer Acquisition / invite-code (Acquisition Opportunity)`);
+  t.push(`EXP-002 — Partner Outreach / Customer Acquisition CRM`);
   t.push(`  Evaluation: ${EXP002.evaluationWeekday} (${EXP002.evaluationDate})`);
   if (exp002row) {
     t.push(`  Status: ${exp002row.status} | Stage: ${exp002row.funnelStage || 'n/a'}`);
     if (exp002row.commit) t.push(`  Commit: ${SITE.repo}/commit/${exp002row.commit}`);
   }
-  t.push(`  CRM source: ${exp002.status}`);
-  t.push(`  Pause all: ${exp002.pauseAllOutreach ? 'YES' : 'no'}`);
-  t.push('  --- Customer Acquisition (live CRM) ---');
-  t.push(`  DISCOVERY: prospects=${exp002.discoveryNew} contacts_found=${exp002.contactsFound} contact_needed=${exp002.contactNeeded} drafts=${exp002.draftsCreated}`);
-  t.push(`  OUTREACH: awaiting_approval=${exp002.awaitingApproval} approved_for_next_send=${exp002.recipientsApproved} sent=${exp002.emailsSent} delivered=${exp002.delivered}`);
-  t.push(`  ENGAGEMENT: replies=${exp002.partnerResponses} interested=${exp002.interested} partners=${exp002.partners}`);
-  t.push(`  CUSTOMERS: attributed_signups=${exp002.partnerSignups} customers_acquired=${exp002.customersAcquired} revenue_cents=${exp002.revenueAttributedCents}`);
-  t.push(`  OWNER ACTION: ${exp002.ownerAction}`);
-  t.push(`  Approvals: ${exp002.approvalsAdminUrl}`);
-  t.push(`  Partner-attributed visits: ${exp002.partnerVisits}`);
-  t.push(`  Completed profiles (attributed): ${exp002.completedProfiles}`);
+  t.push(`  CRM source: ${exp002.status}${exp002.unavailable ? ` — ${exp002.reason}` : ''}`);
+  if (exp002.unavailable) {
+    t.push('  Prospects / Contacts / Drafts / Sent: Unavailable (CRM could not be queried — not zero)');
+    t.push(`  OWNER ACTION: ${exp002.ownerAction}`);
+  } else {
+    t.push(`  Pause all: ${exp002.pauseAllOutreach ? 'YES' : 'no'}`);
+    t.push('  --- Partner funnel (live CRM; 0 means queried empty) ---');
+    t.push(
+      `  DISCOVERY: prospects=${exp002.prospects} emails_found=${exp002.contacts} need_contact=${exp002.needContact} drafts=${exp002.draftsPrepared}`
+    );
+    t.push(
+      `  OUTREACH: awaiting_approval=${exp002.awaitingApproval} approved=${exp002.recipientsApproved} sent=${exp002.emailsSent} delivered=${exp002.delivered}`
+    );
+    t.push(
+      `  ENGAGEMENT: replies=${exp002.partnerResponses} interested=${exp002.interested} partners=${exp002.partners}`
+    );
+    t.push(
+      `  CUSTOMERS: attributed_signups=${exp002.partnerSignups} customers=${exp002.customersAcquired} revenue_cents=${exp002.revenueAttributedCents}`
+    );
+    t.push(`  OWNER ACTION: ${exp002.ownerAction}`);
+    t.push(`  Approvals: ${exp002.approvalsAdminUrl}`);
+    t.push(`  Partner-attributed visits: ${exp002.partnerVisits}`);
+    t.push(`  Completed profiles (attributed): ${exp002.completedProfiles}`);
+  }
   t.push('');
   t.push(`EXP-003 — Atlanta TRAIN user-initiated referral invite`);
   t.push(`  Evaluation: ${EXP003.evaluationWeekday} (${EXP003.evaluationDate})`);
@@ -894,10 +1029,18 @@ export function composeGrowthEmailBody({
   if (md?.status !== 'ok') {
     t.push('  - Configure the metro read token (GROWTH_METRO_READ_TOKEN) so country/metro/mode ranking is available.');
   }
-  t.push('  - If Facebook/Instagram Published=NO: store Meta Page token + Page id + IG business id in SSM /gettrainmate/growth/* and retry node scripts/growth/publish-owned-social.mjs.');
-  t.push('  - Initial outreach sends only via Approvals → APPROVE & SEND (or approved-for-next-send). Never invent inboxes.');
-  t.push('  - Concentrate the next owned-social rotation on the highest-ranked metro/mode pocket above — not Atlanta-only by default.');
-  t.push('  - Configure Stripe Product/Price allowlists if still incomplete.');
+  if (metaActionNeeded) {
+    t.push(
+      '  - Facebook/Instagram did not publish: store Meta Page token + Page id + IG business id in SSM /gettrainmate/growth/* and retry publish-owned-social.mjs.'
+    );
+  }
+  if (partnerCrmOk) {
+    t.push('  - Initial outreach sends only via Approvals → APPROVE & SEND. Never invent inboxes.');
+  }
+  t.push('  - Concentrate owned-social rotation on the highest-ranked metro/mode pocket — not Atlanta-only by default.');
+  if (!stripe.configured) {
+    t.push('  - Configure Stripe Product/Price allowlists if still incomplete.');
+  }
   t.push('');
   t.push('10) PRODUCTION HEALTH');
   t.push('--------------------');
@@ -1150,11 +1293,15 @@ export function composeGrowthEmailBody({
         <tr><td style="padding:14px 16px;">
           <div style="font-size:17px;font-weight:700;">Customer Acquisition CRM <span style="font-size:13px;color:#0369a1;font-weight:600;">(EXP-002)</span></div>
           <div style="margin-top:10px;font-size:15px;line-height:1.5;color:#334155;">
-            <div><b>CRM source:</b> ${escapeHtml(exp002.status)} · emergency pause ${exp002.pauseAllOutreach ? 'ON' : 'off'}</div>
-            <div><b>Discovery:</b> prospects ${escapeHtml(exp002.discoveryNew)}, contacts ${escapeHtml(exp002.contactsFound)}, needed ${escapeHtml(exp002.contactNeeded)}, drafts ${escapeHtml(exp002.draftsCreated)}</div>
-            <div><b>Outreach:</b> awaiting approval ${escapeHtml(exp002.awaitingApproval)}, approved for next send ${escapeHtml(exp002.recipientsApproved)}, sent ${escapeHtml(exp002.emailsSent)}</div>
+            <div><b>CRM source:</b> ${escapeHtml(exp002.status)}${exp002.unavailable ? ` — ${escapeHtml(exp002.reason || '')}` : ''} · emergency pause ${exp002.pauseAllOutreach ? 'ON' : 'off'}</div>
+            ${
+              exp002.unavailable
+                ? `<div><b>Prospects / Contacts / Drafts / Sent:</b> Unavailable (CRM could not be queried — not zero)</div>`
+                : `<div><b>Discovery:</b> prospects ${escapeHtml(exp002.prospects)}, emails ${escapeHtml(exp002.contacts)}, need contact ${escapeHtml(exp002.needContact)}, drafts ${escapeHtml(exp002.draftsPrepared)}</div>
+            <div><b>Outreach:</b> awaiting approval ${escapeHtml(exp002.awaitingApproval)}, approved ${escapeHtml(exp002.recipientsApproved)}, sent ${escapeHtml(exp002.emailsSent)}</div>
             <div><b>Engagement:</b> replies ${escapeHtml(exp002.partnerResponses)}, interested ${escapeHtml(exp002.interested)}, partners ${escapeHtml(exp002.partners)}</div>
-            <div><b>Customers:</b> signups ${escapeHtml(exp002.partnerSignups)}, paid ${escapeHtml(exp002.customersAcquired)}, revenue_cents ${escapeHtml(exp002.revenueAttributedCents)}</div>
+            <div><b>Customers:</b> signups ${escapeHtml(exp002.partnerSignups)}, paid ${escapeHtml(exp002.customersAcquired)}, revenue_cents ${escapeHtml(exp002.revenueAttributedCents)}</div>`
+            }
             <div style="margin-top:8px;"><b>Owner action:</b> ${escapeHtml(exp002.ownerAction)}</div>
             <div><a href="${escapeHtml(exp002.approvalsAdminUrl)}" style="color:#0369a1;">Open Approvals → APPROVE &amp; SEND</a></div>
           </div>
@@ -1170,10 +1317,22 @@ export function composeGrowthEmailBody({
       </div>
       <ol style="margin:0 0 18px;padding-left:22px;font-size:15px;line-height:1.55;">
         <li style="margin:0 0 8px;">Customer Acquisition: ${escapeHtml(exp002.ownerAction)} <span style="color:#64748b;">(needs Max)</span></li>
-        <li style="margin:0 0 8px;">If Metro CRM is unavailable, configure GROWTH_METRO_READ_TOKEN. <span style="color:#64748b;">(needs Max)</span></li>
-        <li style="margin:0 0 8px;">If Facebook/Instagram Published=NO: store Meta credentials in /gettrainmate/growth/* and retry publish-owned-social.mjs. <span style="color:#64748b;">(automatic)</span></li>
-        <li style="margin:0 0 8px;">Initial outreach sends only via Approvals → APPROVE &amp; SEND (or approved-for-next-send queue). Never invent inboxes. <span style="color:#64748b;">(needs Max)</span></li>
-        <li style="margin:0 0 8px;">Concentrate the next owned-social rotation on the highest-ranked metro/mode pocket. <span style="color:#64748b;">(automatic)</span></li>
+        ${
+          md?.status !== 'ok'
+            ? '<li style="margin:0 0 8px;">Configure GROWTH_METRO_READ_TOKEN for metro ranking. <span style="color:#64748b;">(needs Max)</span></li>'
+            : ''
+        }
+        ${
+          metaActionNeeded
+            ? '<li style="margin:0 0 8px;">Facebook/Instagram did not publish — repair Meta SSM credentials and retry publish-owned-social.mjs.</li>'
+            : ''
+        }
+        ${
+          partnerCrmOk
+            ? '<li style="margin:0 0 8px;">Initial outreach sends only via Approvals → APPROVE &amp; SEND. Never invent inboxes. <span style="color:#64748b;">(needs Max)</span></li>'
+            : ''
+        }
+        <li style="margin:0 0 8px;">Concentrate owned-social rotation on the highest-ranked metro/mode pocket. <span style="color:#64748b;">(automatic)</span></li>
       </ol>
       <h2 style="${H2}">Production Health</h2>
       <p style="margin:0 0 8px;font-size:15px;"><b>Overall:</b> ${healthOk ? 'OK' : health?.checks?.length ? 'Failed' : 'Unknown (checks not run)'}</p>

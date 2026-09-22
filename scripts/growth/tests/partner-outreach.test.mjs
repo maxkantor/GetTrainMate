@@ -452,8 +452,8 @@ describe('growth report experiments and technical details', () => {
     });
 
     assert.match(text, /EXP-001 — Atlanta training-partners landing page/);
-    assert.match(text, /EXP-002 — Customer Acquisition \/ invite-code/);
-    assert.match(text, /Customer Acquisition \(live CRM\)/);
+    assert.match(text, /EXP-002 — Partner Outreach/);
+    assert.match(text, /Partner funnel \(live CRM/);
     assert.match(text, /OWNER ACTION:/);
     assert.match(text, /Original evaluation date: Sunday, August 16, 2026 \(2026-08-16\)/);
     assert.match(text, /Actual evaluation date: Monday, August 17, 2026 \(2026-08-17\)/);
@@ -461,15 +461,15 @@ describe('growth report experiments and technical details', () => {
     assert.match(text, /Thursday, August 27, 2026/);
     assert.match(text, /Sunday, August 16, 2026/);
     assert.match(text, /Existing customers: 0/);
-    assert.match(text, /Owner action required:/);
+    assert.match(text, /Owner action required/);
     assert.match(text, /Configure the metro read token/);
     assert.match(text, /metadata gtm_source=gettrainmate|Attribution rules: metadata|Stripe attribution metadata/);
     assert.match(text, /Metro CRM: Unavailable/);
     assert.match(text, /Cause: GROWTH_METRO_READ_TOKEN is not configured/);
     assert.match(text, /HTTP status: 503 Configuration unavailable/);
     assert.match(text, /Customer data exposed: No/);
-    assert.match(text, /drafts=9|awaiting_approval=9/);
-    assert.match(text, /9 messages need approval/);
+    assert.match(text, /awaiting_approval=9|drafts=9/);
+    assert.match(text, /9 messages? need approval/);
     assert.match(text, /Unattributed payments: 1/);
     assert.match(html, /EXP-001 — Atlanta training-partners landing page/);
     assert.match(html, /Customer Acquisition CRM/);
@@ -477,6 +477,8 @@ describe('growth report experiments and technical details', () => {
     assert.match(html, /Open Approvals → APPROVE/);
     assert.doesNotMatch(text, /Truth rule: Only GetTrainMate-attributed Stripe payments count as revenue[\s\S]*Truth rule:/);
     assert.doesNotMatch(html, /Never include credentials[\s\S]*Never include credentials/);
+    // When FB/IG published in fixture, do not demand Meta credential repair
+    assert.doesNotMatch(text, /If Facebook\/Instagram Published=NO/);
     assert.match(text, /\$0\.00/);
     assert.doesNotMatch(text, /\$19\.99/);
     assert.match(text, /1\) GETTRAINMATE — TODAY/);

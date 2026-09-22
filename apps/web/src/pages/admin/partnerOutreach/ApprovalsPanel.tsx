@@ -438,6 +438,10 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
             </Button>
             {tab === 'needs' && (
               <>
+                <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                  Selected {selectedCount} · Eligible {items.length} · Blocked{' '}
+                  {deferred.length + blockedRows.length}
+                </Typography>
                 <Button size="small" onClick={toggleAll} disabled={items.length === 0 || busy}>
                   {selectedIds.size === items.length && items.length > 0 ? 'Clear' : 'Select all'}
                 </Button>

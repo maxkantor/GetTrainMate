@@ -24,8 +24,9 @@ const MAP = [
   ['GOOGLE_ANALYTICS_CREDENTIALS_JSON', ['/gettrainmate/growth/google-analytics-credentials-json'], true],
   ['STRIPE_RESTRICTED_READ_KEY', ['/gettrainmate/growth/stripe-restricted-read-key'], true],
   ['GROWTH_METRO_READ_TOKEN', ['/gettrainmate/growth/metro-read-token'], true],
-  ['GROWTH_CRM_ADMIN_EMAIL', ['/gettrainmate/growth/crm-admin-email'], false],
-  ['GROWTH_CRM_ADMIN_PASSWORD', ['/gettrainmate/growth/crm-admin-password'], true],
+  ['GROWTH_CRM_ADMIN_EMAIL', ['/gettrainmate/growth/crm-admin-email', '/gettrainmate/ses-admin-email'], false],
+  // Prefer dedicated growth CRM password; fall back to Admin portal password (same login).
+  ['GROWTH_CRM_ADMIN_PASSWORD', ['/gettrainmate/growth/crm-admin-password', '/gettrainmate/admin/password'], true],
   ['AWS_ACCESS_KEY_ID', ['/gettrainmate/growth/aws-access-key-id'], false],
   ['AWS_SECRET_ACCESS_KEY', ['/gettrainmate/growth/aws-secret-access-key'], true],
   ['META_PAGE_ACCESS_TOKEN', ['/gettrainmate/growth/meta-page-access-token'], true],

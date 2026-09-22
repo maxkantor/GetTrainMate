@@ -10,8 +10,8 @@ Never commit credential files or paste secrets into git, chat logs, or experimen
 | `GOOGLE_ANALYTICS_CREDENTIALS_JSON` | `/gettrainmate/growth/google-analytics-credentials-json` | SecureString |
 | `STRIPE_RESTRICTED_READ_KEY` | `/gettrainmate/growth/stripe-restricted-read-key` | SecureString |
 | `GROWTH_METRO_READ_TOKEN` | `/gettrainmate/growth/metro-read-token` | SecureString (optional; preferred metro path) |
-| `GROWTH_CRM_ADMIN_EMAIL` | `/gettrainmate/growth/crm-admin-email` | String (optional fallback) |
-| `GROWTH_CRM_ADMIN_PASSWORD` | `/gettrainmate/growth/crm-admin-password` | SecureString (optional fallback) |
+| `GROWTH_CRM_ADMIN_EMAIL` | `/gettrainmate/growth/crm-admin-email` (fallback: `/gettrainmate/ses-admin-email`) | String |
+| `GROWTH_CRM_ADMIN_PASSWORD` | `/gettrainmate/growth/crm-admin-password` (fallback: `/gettrainmate/admin/password`) | SecureString |
 | `META_PAGE_ACCESS_TOKEN` | `/gettrainmate/growth/meta-page-access-token` | SecureString (Page token; Facebook + Instagram publish) |
 | `FACEBOOK_PAGE_ID` | `/gettrainmate/growth/facebook-page-id` | String |
 | `INSTAGRAM_GRAPH_ACCESS_TOKEN` | `/gettrainmate/growth/instagram-graph-access-token` | SecureString (optional if Page token already covers IG) |

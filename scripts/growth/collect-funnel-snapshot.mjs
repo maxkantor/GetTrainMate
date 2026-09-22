@@ -473,18 +473,22 @@ if (!recon.ok) {
 try {
   report.partnerOutreach = await fetchPartnerOutreachSnapshot();
   report.sources.partnerOutreach =
-    report.partnerOutreach?.status === 'ok' ? 'ok' : 'unavailable';
+    report.partnerOutreach?.status === 'ok'
+      ? 'ok'
+      : report.partnerOutreach?.status === 'error'
+        ? 'error'
+        : 'unavailable';
   if (report.partnerOutreach?.status !== 'ok') {
     report.notes.push(
-      `Partner Outreach CRM: ${report.partnerOutreach?.reason || 'unavailable'}`
+      `Partner Outreach CRM: ${report.partnerOutreach?.status?.toUpperCase() || 'UNAVAILABLE'} — ${report.partnerOutreach?.reason || 'unavailable'}`
     );
   }
 } catch (e) {
   report.partnerOutreach = {
-    status: 'unavailable',
+    status: 'error',
     reason: e instanceof Error ? e.message : String(e),
   };
-  report.sources.partnerOutreach = 'unavailable';
+  report.sources.partnerOutreach = 'error';
   report.notes.push(`Partner Outreach CRM fetch failed: ${report.partnerOutreach.reason}`);
 }
 
