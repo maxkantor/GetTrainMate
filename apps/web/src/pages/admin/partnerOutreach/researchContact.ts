@@ -244,11 +244,37 @@ export type PipelineCounters = {
   readyToReview?: number;
   approved?: number;
   sentToday?: number;
+  sent7d?: number;
+  sentLifetime?: number;
+  partners7d?: number;
+  partnersLifetime?: number;
+  attributedSignups7d?: number;
+  attributedSignupsLifetime?: number;
   customers?: number;
   eligibleUnsent?: number;
   keepPipelineFull?: boolean;
   targetProspectInventory?: number;
 };
+
+/** Prospect-level discovery outcome. Never invents an inbox. */
+export type DiscoveryClass =
+  | 'PUBLIC EMAIL FOUND'
+  | 'NO PUBLIC EMAIL'
+  | 'NEEDS REVIEW'
+  | 'INVALID'
+  | 'ERROR'
+  | null;
+
+export function classifyDiscoveryStatus(status?: string | null, hasUsableEmail = false): DiscoveryClass {
+  if (hasUsableEmail) return 'PUBLIC EMAIL FOUND';
+  const s = String(status || '').toUpperCase();
+  if (s === 'EMAIL_FOUND' || s === 'MANUAL_CONTACT' || s === 'CONTACT_FOUND') return 'PUBLIC EMAIL FOUND';
+  if (s === 'REVIEW_REQUIRED' || s === 'MANUAL_REVIEW') return 'NEEDS REVIEW';
+  if (s === 'INVALID') return 'INVALID';
+  if (s === 'ERROR' || s === 'FAILED') return 'ERROR';
+  if (s === 'NO_PUBLIC_CONTACT' || s === 'CONTACT_FORM_FOUND') return 'NO PUBLIC EMAIL';
+  return null;
+}
 
 const CONTACT_JOB_TERMINAL = new Set(['complete', 'partial', 'failed']);
 
@@ -262,7 +288,8 @@ export function isContactJobRunning(status?: string): boolean {
 }
 
 export function contactJobProgressFrom(job: ContactDiscoveryJob | null | undefined): DiscoveryProgress & {
-  progressPct: number;
+  progressPct: number | null;
+  measurable: boolean;
   errors: number;
   currentProspectName: string;
   stages: ResearchStage[];
@@ -272,12 +299,8 @@ export function contactJobProgressFrom(job: ContactDiscoveryJob | null | undefin
   const total = Number(job?.total ?? 0);
   const processed = Number(job?.processed ?? 0);
   const remaining = Number(job?.remaining ?? Math.max(0, total - processed));
-  const progressPct =
-    job?.progressPct != null
-      ? Number(job.progressPct)
-      : total > 0
-        ? Math.round((processed / total) * 100)
-        : 0;
+  const measurable = total > 0 && processed > 0;
+  const progressPct = measurable ? Math.round((processed / total) * 100) : null;
   return {
     jobId: String(job?.jobId || ''),
     status: String(job?.status || ''),
@@ -289,6 +312,7 @@ export function contactJobProgressFrom(job: ContactDiscoveryJob | null | undefin
     noContact: Number(job?.noContact ?? 0),
     remaining,
     progressPct,
+    measurable,
     errors: Number(job?.errors ?? 0),
     currentProspectName: String(job?.currentProspectName || ''),
     stages: Array.isArray(job?.researchStages) ? job!.researchStages! : [],

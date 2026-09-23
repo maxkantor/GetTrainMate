@@ -74,6 +74,7 @@ import {
   DEFAULT_RESEARCH_STAGES,
   isContactJobRunning,
   isContactJobTerminal,
+  classifyDiscoveryStatus,
   summarizeContactJob,
   summarizeResearchResult,
 } from './researchContact';
@@ -796,6 +797,7 @@ export const ProspectsPanel: React.FC<Props> = ({
   const jobProgress = discoverJob ? contactJobProgressFrom(discoverJob) : null;
   const jobRunning = Boolean(discoverJob && isContactJobRunning(discoverJob.status));
   const jobPaused = (discoverJob?.status || '').toLowerCase() === 'paused';
+  const jobFailed = (discoverJob?.status || '').toLowerCase() === 'failed';
   const stagesForUi = jobRunning
     ? animateStages(
         jobProgress?.stages?.length ? jobProgress.stages : DEFAULT_RESEARCH_STAGES,
@@ -807,6 +809,16 @@ export const ProspectsPanel: React.FC<Props> = ({
 
   return (
     <Box>
+      {(loading || discoverMoreBusy) && (
+        <Box sx={{ mb: 1.5 }}>
+          <Typography variant="caption" color="text.secondary">
+            {discoverMoreBusy
+              ? 'Discovering more prospects...'
+              : 'Refreshing acquisition metrics...'}
+          </Typography>
+          <LinearProgress sx={{ mt: 0.5, height: 6, borderRadius: 1 }} />
+        </Box>
+      )}
       {researchBanner && (
         <Alert
           severity={researchBanner.severity}
@@ -830,9 +842,12 @@ export const ProspectsPanel: React.FC<Props> = ({
           CONTACT PIPELINE
         </Typography>
         <Typography variant="body2" sx={{ mt: 0.5, mb: 1.25 }}>
-          {pipeline?.prospects ?? prospects.length} Prospects · {pipeline?.emailsFound ?? '—'} Emails ·{' '}
-          {pipeline?.readyToReview ?? '—'} Ready · {pipeline?.approved ?? '—'} Approved ·{' '}
-          {pipeline?.sentToday ?? '—'} Sent · {pipeline?.customers ?? '—'} Customers
+          {pipeline?.prospects ?? prospects.length} Prospects · {pipeline?.emailsFound ?? '—'} usable
+          contacts · {pipeline?.needContact ?? '—'} need contact · {pipeline?.readyToReview ?? '—'}{' '}
+          awaiting approval · {pipeline?.approved ?? '—'} ready to send · Sent {pipeline?.sentToday ?? '—'}{' '}
+          today / {pipeline?.sent7d ?? '—'} 7d / {pipeline?.sentLifetime ?? pipeline?.sentToday ?? '—'}{' '}
+          lifetime · Partners {pipeline?.partners7d ?? '—'} 7d / {pipeline?.partnersLifetime ?? '—'}{' '}
+          lifetime
         </Typography>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           <Button
@@ -851,7 +866,7 @@ export const ProspectsPanel: React.FC<Props> = ({
               setConfirmDiscovery({ ids: missingContacts.map((p) => p.prospectId) })
             }
           >
-            Find missing contacts ({missingContacts.length})
+            Discover contacts ({missingContacts.length})
           </Button>
           {selectedIds.size > 0 && (
             <Button
@@ -994,11 +1009,18 @@ export const ProspectsPanel: React.FC<Props> = ({
         >
           <Stack direction="row" alignItems="center" sx={{ mb: 0.75 }} spacing={1}>
             <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: 0.6, flex: 1 }}>
-              CONTACT DISCOVERY
+              {jobRunning ? 'Discovering contacts' : jobPaused ? 'PAUSED' : isContactJobTerminal(discoverJob?.status) ? 'COMPLETE' : 'CONTACT DISCOVERY'}
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 800 }}>
-              {jobProgress.progressPct}%
-            </Typography>
+            {jobProgress.measurable && jobProgress.progressPct != null && (
+              <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                {jobProgress.progressPct}%
+              </Typography>
+            )}
+            {jobFailed && (
+              <Typography variant="body2" color="error" sx={{ fontWeight: 800 }}>
+                ERROR
+              </Typography>
+            )}
             {!jobRunning && !jobPaused && (
               <Button size="small" onClick={() => setDiscoverJob(null)}>
                 Dismiss
@@ -1006,22 +1028,32 @@ export const ProspectsPanel: React.FC<Props> = ({
             )}
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
-            {jobRunning
-              ? 'Finding contact information…'
-              : jobPaused
-                ? 'Paused'
-                : isContactJobTerminal(discoverJob?.status)
-                  ? 'Finished'
-                  : 'Status'}
+            {jobFailed
+              ? discoverJob?.error || 'Contact discovery failed'
+              : jobRunning && !jobProgress.measurable
+                ? 'Discovering public contact information…'
+                : jobRunning
+                  ? 'Discovering contacts'
+                  : jobPaused
+                    ? 'Paused — resume to continue'
+                    : isContactJobTerminal(discoverJob?.status)
+                      ? 'Discovery complete'
+                      : 'Status'}
           </Typography>
           <LinearProgress
-            variant="determinate"
-            value={Math.min(100, Math.max(0, jobProgress.progressPct))}
+            variant={jobProgress.measurable ? 'determinate' : 'indeterminate'}
+            value={jobProgress.measurable ? Math.min(100, Math.max(0, jobProgress.progressPct ?? 0)) : undefined}
             sx={{ height: 10, borderRadius: 1, mb: 1 }}
           />
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            {jobProgress.processed} of {jobProgress.total} processed
-          </Typography>
+          {jobProgress.measurable ? (
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              Processed: {jobProgress.processed} / {jobProgress.total}
+            </Typography>
+          ) : (
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              {jobRunning ? 'Progress will appear after the first prospect is processed.' : `${jobProgress.processed} of ${jobProgress.total} processed`}
+            </Typography>
+          )}
           {(jobRunning || jobPaused) && jobProgress.currentProspectName && (
             <Box sx={{ mt: 1.25 }}>
               <Typography variant="caption" color="text.secondary">
@@ -1047,12 +1079,11 @@ export const ProspectsPanel: React.FC<Props> = ({
             </Box>
           )}
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-            <Typography variant="body2">✓ Emails found {jobProgress.emailsFound}</Typography>
-            <Typography variant="body2">✓ Contact forms {jobProgress.formsFound}</Typography>
-            <Typography variant="body2">⚠ Needs review {jobProgress.reviewRequired}</Typography>
-            <Typography variant="body2">✕ No contact {jobProgress.noContact}</Typography>
-            <Typography variant="body2">Failed {jobProgress.errors}</Typography>
-            <Typography variant="body2">Remaining {jobProgress.remaining}</Typography>
+            <Typography variant="body2">Public emails found: {jobProgress.emailsFound}</Typography>
+            <Typography variant="body2">No public email: {jobProgress.noContact}</Typography>
+            <Typography variant="body2">Needs review: {jobProgress.reviewRequired}</Typography>
+            <Typography variant="body2">Errors: {jobProgress.errors}</Typography>
+            <Typography variant="body2">Contact forms: {jobProgress.formsFound}</Typography>
           </Stack>
           <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
             {jobRunning && (
@@ -1147,7 +1178,8 @@ export const ProspectsPanel: React.FC<Props> = ({
                     <TableCell sx={{ fontWeight: 700 }}>{prospectScore(p)}</TableCell>
                     <TableCell sx={{ fontSize: 12 }}>
                       <Typography variant="body2" sx={{ fontSize: 12, lineHeight: 1.3 }}>
-                        {formatContactability(p)}
+                        {classifyDiscoveryStatus(p.contactDiscoveryStatus, hasEmail(p)) ||
+                          formatContactability(p)}
                       </Typography>
                       {hasEmail(p) && (
                         <Typography variant="caption" color="text.secondary" noWrap display="block">
@@ -1608,11 +1640,12 @@ export const ProspectsPanel: React.FC<Props> = ({
       </Drawer>
 
       <Dialog open={!!confirmDiscovery} onClose={() => setConfirmDiscovery(null)}>
-        <DialogTitle>Find public contact information</DialogTitle>
+        <DialogTitle>Discover contacts</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Find public contact information for{' '}
-            {Math.min(confirmDiscovery?.ids.length ?? 0, DISCOVERY_BATCH_MAX)} prospects?
+            Discover public contact information for{' '}
+            {Math.min(confirmDiscovery?.ids.length ?? 0, DISCOVERY_BATCH_MAX)} prospects? Emails
+            are never invented.
           </DialogContentText>
         </DialogContent>
         <DialogActions>

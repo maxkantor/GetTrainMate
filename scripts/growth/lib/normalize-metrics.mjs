@@ -5,7 +5,8 @@
 import { CANONICAL_METRICS } from './metric-definitions.mjs';
 import {
   loadStripeAllowlist,
-  classifyStripeObject
+  classifyStripeObject,
+  summarizeUnattributedPayments
 } from './stripe-attribution.mjs';
 
 /**
@@ -291,6 +292,7 @@ export function normalizeStripe({ sessions, charges } = {}, allowlist = loadStri
     attributed_live_payments: livePayments,
     unattributed_live_payments: unattributedSessions.length,
     unattributed_sessions: unattributedSessions,
+    unattributed_classification: summarizeUnattributedPayments(unattributedSessions, unattributedSessions.length),
     unique_paying_customers: uniqueExternalPayingCustomers,
     unique_paying_customers_available: uniqueCustomersAvailable,
     unique_paying_customers_method: uniqueExternalMethod,
@@ -358,9 +360,12 @@ export function buildScoreboardRow(ga4Norm, stripeNorm) {
     unattributed_live_payments: {
       value: stripeNorm?.unattributed_live_payments ?? null,
       unit: 'payments',
-      label: 'unattributed',
+      label: stripeNorm?.unattributed_classification?.label
+        ? `unattributed — ${stripeNorm.unattributed_classification.label}`
+        : 'unattributed',
       available: stripeNorm != null,
-      method: 'stripe_unattributed'
+      method: 'stripe_unattributed',
+      classification: stripeNorm?.unattributed_classification?.label || null
     },
     unique_paying_customers: {
       value: stripeNorm?.unique_paying_customers_available

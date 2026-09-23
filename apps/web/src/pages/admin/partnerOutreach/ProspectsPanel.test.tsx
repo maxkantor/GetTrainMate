@@ -86,15 +86,15 @@ describe('ProspectsPanel — contact discovery', () => {
     expect(props.onNotice).toHaveBeenLastCalledWith(null);
   });
 
-  it('renders Find missing contacts for prospects with a website and no email', async () => {
+  it('renders Discover contacts for prospects with a website and no email', async () => {
     render(<ProspectsPanel {...sharedProps()} />);
     await screen.findByText('Square One Golf Performance Center');
-    const button = screen.getByRole('button', { name: /Find missing contacts \(1\)/i });
+    const button = screen.getByRole('button', { name: /Discover contacts \(1\)/i });
     expect(button).toBeInTheDocument();
     expect(button).not.toBeDisabled();
   });
 
-  it('Find missing contacts confirms, starts a durable job and shows the progress panel', async () => {
+  it('Discover contacts confirms, starts a durable job and shows the progress panel', async () => {
     postMock.mockResolvedValueOnce({
       jobId: 'job-1',
       status: 'complete',
@@ -113,9 +113,9 @@ describe('ProspectsPanel — contact discovery', () => {
     render(<ProspectsPanel {...props} />);
     await screen.findByText('Square One Golf Performance Center');
 
-    fireEvent.click(screen.getByRole('button', { name: /Find missing contacts \(1\)/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Discover contacts \(1\)/i }));
     expect(
-      await screen.findByText(/Find public contact information for 1 prospects\?/i),
+      await screen.findByText(/Discover public contact information for 1 prospects/i),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Start discovery/i }));
 
@@ -131,10 +131,9 @@ describe('ProspectsPanel — contact discovery', () => {
       );
     });
 
-    expect(await screen.findByText('CONTACT DISCOVERY')).toBeInTheDocument();
-    expect(screen.getByText(/1 of 1 processed/i)).toBeInTheDocument();
-    expect(screen.getByText(/Emails found 1/i)).toBeInTheDocument();
-    expect(screen.getByText(/Remaining 0/i)).toBeInTheDocument();
+    expect(await screen.findByText('COMPLETE')).toBeInTheDocument();
+    expect(screen.getByText(/Processed: 1 \/ 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/Public emails found: 1/i)).toBeInTheDocument();
   });
 
   it('Find contacts for selected posts only the selected ids', async () => {

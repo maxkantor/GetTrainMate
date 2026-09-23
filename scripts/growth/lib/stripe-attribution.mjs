@@ -146,3 +146,41 @@ export function classifyStripeObject(obj, allowlist = loadStripeAllowlist()) {
 export function isGetTrainMateAttributed(obj, allowlist) {
   return classifyStripeObject(obj, allowlist).attributed;
 }
+
+/** Business class for excluded / unattributed payments. Never invents GetTrainMate ownership. */
+export function classifyUnattributedBusinessClass(reason) {
+  switch (String(reason || '')) {
+    case 'test_mode':
+    case 'excluded_owner_or_smoke':
+      return 'OWNER/TEST';
+    case 'other_application':
+      return 'OTHER PRODUCT';
+    case 'legacy_unattributed':
+      return 'LEGACY';
+    case 'gtm_missing_metadata':
+      return 'GETTRAINMATE BUT MISSING METADATA';
+    default:
+      return 'UNKNOWN';
+  }
+}
+
+/**
+ * Summarize unattributed Checkout Sessions already classified by classifyStripeObject.
+ * If reasons are missing, the class is UNKNOWN — do not guess product ownership.
+ */
+export function summarizeUnattributedPayments(sessions = [], fallbackCount = 0) {
+  const list = Array.isArray(sessions) ? sessions : [];
+  const count = list.length > 0 ? list.length : Number(fallbackCount) || 0;
+  if (count <= 0) {
+    return { count: 0, label: null, classes: [] };
+  }
+  const classes = list.length
+    ? list.map((s) => classifyUnattributedBusinessClass(s?.reason))
+    : ['UNKNOWN'];
+  const unique = [...new Set(classes)];
+  return {
+    count,
+    label: unique.length === 1 ? unique[0] : unique.join(', '),
+    classes,
+  };
+}

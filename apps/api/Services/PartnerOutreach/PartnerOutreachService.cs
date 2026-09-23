@@ -2551,6 +2551,23 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             || string.Equals(q.Status, "scheduled", StringComparison.OrdinalIgnoreCase));
         var sentToday = queue.Count(q =>
             q.SentAt is DateTime sent && sent.ToUniversalTime().Date == today);
+        var sent7d = queue.Count(q =>
+            q.SentAt is DateTime sent && sent.ToUniversalTime() >= DateTime.UtcNow.AddDays(-7));
+        var sentLifetime = queue.Count(q =>
+            q.SentAt != null
+            || string.Equals(q.Status, "sent", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(q.Status, "delivered", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(q.Status, "replied", StringComparison.OrdinalIgnoreCase));
+        var isPartner = (PartnerProspect p) =>
+            string.Equals(p.CrmLifecycle, PartnerCrmLifecycle.Partner, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.PartnershipStatus, PartnerCrmLifecycle.PartPartner, StringComparison.OrdinalIgnoreCase);
+        var partnersLifetime = prospects.Count(isPartner);
+        // No PartneredAt is stored; CreatedAt in the last 7 days is the conservative 7d window.
+        var partners7d = prospects.Count(p => isPartner(p) && p.CreatedAt.ToUniversalTime() >= DateTime.UtcNow.AddDays(-7));
+        var attributedSignupsLifetime = prospects.Sum(p => p.ReferralSignups);
+        var attributedSignups7d = prospects
+            .Where(p => p.SignupAt is DateTime signup && signup.ToUniversalTime() >= DateTime.UtcNow.AddDays(-7))
+            .Sum(p => Math.Max(p.ReferralSignups, 1));
         var customers = prospects.Count(p =>
             p.PaidCustomers > 0
             || p.DirectRevenueCents > 0
@@ -2575,6 +2592,12 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             readyToReview,
             approved,
             sentToday,
+            sent7d,
+            sentLifetime,
+            partners7d,
+            partnersLifetime,
+            attributedSignups7d,
+            attributedSignupsLifetime,
             customers,
             eligibleUnsent,
             keepPipelineFull = settings.KeepPipelineFull,

@@ -2,6 +2,7 @@
  * Partner Outreach CRM helpers for weekday growth.
  * Uses Admin CRM credentials — never invents metrics or emails.
  */
+import { APPROVALS_ADMIN_URL, CONTACTS_ADMIN_URL, buildOwnerActions, ownerActionSummary } from './owner-actions.mjs';
 const DEFAULT_API =
   process.env.GROWTH_CRM_API_BASE_URL ||
   process.env.GTM_API_BASE_URL ||
@@ -101,6 +102,26 @@ export async function fetchPartnerOutreachSnapshot() {
     const replies = Number(metrics?.replies ?? funnel.replied ?? 0);
     const interested = Number(funnel.interested ?? 0);
     const partners = Number(funnel.partners ?? 0);
+    const sentToday = pipeline?.sentToday != null ? Number(pipeline.sentToday) : null;
+    const sent7d = pipeline?.sent7d != null ? Number(pipeline.sent7d) : null;
+    const sentLifetime = pipeline?.sentLifetime != null ? Number(pipeline.sentLifetime) : sent;
+    const partners7d = pipeline?.partners7d != null ? Number(pipeline.partners7d) : null;
+    const partnersLifetime =
+      pipeline?.partnersLifetime != null ? Number(pipeline.partnersLifetime) : partners;
+    const attributedSignupsLifetime =
+      ns.referralSignups != null
+        ? Number(ns.referralSignups)
+        : pipeline?.attributedSignupsLifetime != null
+          ? Number(pipeline.attributedSignupsLifetime)
+          : null;
+    const attributedSignups7d =
+      pipeline?.attributedSignups7d != null ? Number(pipeline.attributedSignups7d) : null;
+    const ownerActions = buildOwnerActions({
+      needContact,
+      awaitingApproval: awaiting,
+      approvedEligible: approved,
+      pauseAllOutreach: Boolean(settings?.pauseAllOutreach ?? metrics?.pauseAllOutreach),
+    });
 
     return {
       status: 'ok',
@@ -129,37 +150,35 @@ export async function fetchPartnerOutreachSnapshot() {
       awaitingApproval: awaiting,
       recipientsApproved: approved,
       emailsSent: sent,
+      emailsSentToday: sentToday,
+      emailsSent7d: sent7d,
+      emailsSentLifetime: sentLifetime,
       delivered: Number(metrics?.delivered ?? 0),
       partnerResponses: replies,
       interested,
       partners,
+      partners7d,
+      partnersLifetime,
       partnerPagesCreated: Number(summary?.inviteCodesGenerated ?? 0),
       inviteCodesCreated: Number(summary?.inviteCodesGenerated ?? 0),
       partnerAttributedVisits: null, // GA4 partner attribution not wired — report as Unavailable separately
-      partnerAttributedSignups: ns.referralSignups != null ? Number(ns.referralSignups) : null,
+      partnerAttributedSignups: attributedSignupsLifetime,
+      partnerAttributedSignups7d: attributedSignups7d,
+      partnerAttributedSignupsLifetime: attributedSignupsLifetime,
       completedProfiles: ns.activeUsersAcquired != null ? Number(ns.activeUsersAcquired) : null,
       discoverUsers: null,
       connectionRequests: null,
       customersAcquired: Number(ns.customersAcquired ?? 0),
       revenueAttributedCents: Number(ns.revenueAttributedCents ?? 0),
-      ownerAction:
-        (() => {
-          const paused = Boolean(settings?.pauseAllOutreach ?? metrics?.pauseAllOutreach);
-          if (paused) {
-            return 'Emergency pause is on. Resume in Admin → Customer Acquisition → Settings only for emergencies.';
-          }
-          if (awaiting > 0) {
-            return `${awaiting} message${awaiting === 1 ? '' : 's'} need approval. Open Admin → Customer Acquisition → Approvals → APPROVE & SEND.`;
-          }
-          if (approved > 0) {
-            return `${approved} approved for next send — daily job will dispatch when capacity allows.`;
-          }
-          if (needContact > 0) {
-            return `${needContact} prospects still need contact discovery.`;
-          }
-          return 'No action required today.';
-        })(),
-      approvalsAdminUrl: 'https://gettrainmate.com/admin/partner-outreach?tab=approvals',
+      ownerActions,
+      ownerAction: ownerActionSummary({
+        needContact,
+        awaitingApproval: awaiting,
+        approvedEligible: approved,
+        pauseAllOutreach: Boolean(settings?.pauseAllOutreach ?? metrics?.pauseAllOutreach),
+      }),
+      contactsAdminUrl: CONTACTS_ADMIN_URL,
+      approvalsAdminUrl: APPROVALS_ADMIN_URL,
     };
   } catch (e) {
     return {

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  classifyDiscoveryStatus,
+  contactJobProgressFrom,
   summarizeBulkResearch,
   summarizeResearchResult,
 } from './researchContact';
@@ -103,5 +105,47 @@ describe('summarizeBulkResearch', () => {
     expect(s.ok).toBe(false);
     expect(s.text).toMatch(/No contacts found/);
     expect(s.text).toMatch(/cooldown/);
+  });
+});
+
+describe('classifyDiscoveryStatus', () => {
+  it('never invents an email class from a domain-only prospect', () => {
+    expect(classifyDiscoveryStatus('CONTACT_NEEDED', false)).toBe(null);
+    expect(classifyDiscoveryStatus('EMAIL_FOUND', true)).toBe('PUBLIC EMAIL FOUND');
+    expect(classifyDiscoveryStatus('NO_PUBLIC_CONTACT', false)).toBe('NO PUBLIC EMAIL');
+    expect(classifyDiscoveryStatus('REVIEW_REQUIRED', false)).toBe('NEEDS REVIEW');
+    expect(classifyDiscoveryStatus('INVALID', false)).toBe('INVALID');
+    expect(classifyDiscoveryStatus('ERROR', false)).toBe('ERROR');
+  });
+});
+
+describe('contactJobProgressFrom', () => {
+  it('does not report a percentage until at least one prospect is processed', () => {
+    const p = contactJobProgressFrom({
+      jobId: 'j1',
+      status: 'running',
+      total: 10,
+      processed: 0,
+      progressPct: 40,
+    });
+    expect(p.measurable).toBe(false);
+    expect(p.progressPct).toBe(null);
+  });
+
+  it('computes a real percentage from processed / total', () => {
+    const p = contactJobProgressFrom({
+      jobId: 'j1',
+      status: 'running',
+      total: 10,
+      processed: 4,
+      emailsFound: 2,
+      noContact: 1,
+      errors: 1,
+    });
+    expect(p.measurable).toBe(true);
+    expect(p.progressPct).toBe(40);
+    expect(p.emailsFound).toBe(2);
+    expect(p.noContact).toBe(1);
+    expect(p.errors).toBe(1);
   });
 });

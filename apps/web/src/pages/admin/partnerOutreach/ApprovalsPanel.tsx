@@ -461,11 +461,13 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
         {progress && (
           <Box sx={{ mt: 1.5 }}>
             <Typography variant="caption" color="text.secondary">
-              Sending {progress.done}/{progress.total}…
+              {progress.total > 0
+                ? `Sending approved outreach… ${progress.done}/${progress.total}`
+                : 'Sending approved outreach...'}
             </Typography>
             <LinearProgress
-              variant="determinate"
-              value={progress.total ? (100 * progress.done) / progress.total : 0}
+              variant={progress.total > 0 && progress.done > 0 ? 'determinate' : 'indeterminate'}
+              value={progress.total > 0 ? (100 * progress.done) / progress.total : undefined}
               sx={{ mt: 0.5, height: 8, borderRadius: 1 }}
             />
           </Box>

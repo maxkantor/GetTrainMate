@@ -83,7 +83,8 @@ export const AcquisitionPanel: React.FC<Props> = ({
   const [loading, setLoading] = useState(true);
   const [discovering, setDiscovering] = useState(false);
   const [discoverStage, setDiscoverStage] = useState<string | null>(null);
-  const [discoverPct, setDiscoverPct] = useState(0);
+  const [discoverProcessed, setDiscoverProcessed] = useState(0);
+  const [discoverTotal, setDiscoverTotal] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,20 +105,23 @@ export const AcquisitionPanel: React.FC<Props> = ({
 
   const runDiscovery = async () => {
     setDiscovering(true);
-    setDiscoverPct(0);
-    setDiscoverStage('Starting discovery job…');
+    setDiscoverProcessed(0);
+    setDiscoverTotal(0);
+    setDiscoverStage('Discovering more prospects...');
     onError(null);
     onNotice(null);
     const cancel = { cancelled: false };
     try {
       const started = await startDiscoveryJob({ prepareDrafts: true });
-      setDiscoverStage(started.stage || started.status || 'running');
-      setDiscoverPct(started.progressPct ?? 5);
+      setDiscoverStage(started.stage || started.status || 'Discovering more prospects...');
+      setDiscoverProcessed(Number(started.processed ?? 0));
+      setDiscoverTotal(Number(started.total ?? 0));
       const final = await pollDiscoveryJob(
         started.jobId,
         (job) => {
-          setDiscoverStage(job.stage || job.status);
-          setDiscoverPct(job.progressPct ?? 0);
+          setDiscoverStage(job.stage || job.status || 'Discovering more prospects...');
+          setDiscoverProcessed(Number(job.processed ?? 0));
+          setDiscoverTotal(Number(job.total ?? 0));
         },
         cancel,
       );
@@ -130,7 +134,8 @@ export const AcquisitionPanel: React.FC<Props> = ({
       cancel.cancelled = true;
       setDiscovering(false);
       setDiscoverStage(null);
-      setTimeout(() => setDiscoverPct(0), 600);
+      setDiscoverProcessed(0);
+      setDiscoverTotal(0);
     }
   };
 
@@ -323,10 +328,24 @@ export const AcquisitionPanel: React.FC<Props> = ({
       {discovering && (
         <Box sx={{ mb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="body2">{discoverStage}</Typography>
-            <Typography variant="caption">{discoverPct}%</Typography>
+            <Typography variant="body2">
+              {discoverStage || 'Discovering more prospects...'}
+            </Typography>
+            {discoverTotal > 0 && discoverProcessed > 0 && (
+              <Typography variant="caption">
+                {Math.round((discoverProcessed / discoverTotal) * 100)}%
+              </Typography>
+            )}
           </Box>
-          <LinearProgress variant="determinate" value={discoverPct} sx={{ height: 8, borderRadius: 1, mt: 0.5 }} />
+          <LinearProgress
+            variant={discoverTotal > 0 && discoverProcessed > 0 ? 'determinate' : 'indeterminate'}
+            value={
+              discoverTotal > 0 && discoverProcessed > 0
+                ? Math.round((discoverProcessed / discoverTotal) * 100)
+                : undefined
+            }
+            sx={{ height: 8, borderRadius: 1, mt: 0.5 }}
+          />
         </Box>
       )}
 

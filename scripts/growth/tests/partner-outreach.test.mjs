@@ -470,11 +470,11 @@ describe('growth report experiments and technical details', () => {
     assert.match(text, /Customer data exposed: No/);
     assert.match(text, /awaiting_approval=9|drafts=9/);
     assert.match(text, /9 messages? need approval/);
-    assert.match(text, /Unattributed payments: 1/);
+    assert.match(text, /Unattributed payment: 1 — UNKNOWN/);
     assert.match(html, /EXP-001 — Atlanta training-partners landing page/);
     assert.match(html, /Customer Acquisition CRM/);
     assert.match(html, /EXP-002/);
-    assert.match(html, /Open Approvals → APPROVE/);
+    assert.match(html, /OPEN APPROVALS/);
     assert.doesNotMatch(text, /Truth rule: Only GetTrainMate-attributed Stripe payments count as revenue[\s\S]*Truth rule:/);
     assert.doesNotMatch(html, /Never include credentials[\s\S]*Never include credentials/);
     // When FB/IG published in fixture, do not demand Meta credential repair

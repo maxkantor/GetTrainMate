@@ -128,6 +128,7 @@ describe('normalizeStripe', () => {
     });
     assert.equal(s.attributed_live_payments, 0);
     assert.equal(s.unattributed_live_payments, 1);
+    assert.equal(s.unattributed_classification.label, 'UNKNOWN');
     assert.equal(s.revenue_live_usd, 0);
     assert.equal(s.unique_paying_customers, 0);
   });
@@ -333,7 +334,7 @@ describe('buildScoreboardRow + compose email', () => {
     assert.match(text, /Attributed paid conversions: Unknown/);
     assert.match(text, /Attributed revenue: \$9\.99/);
     assert.doesNotMatch(text, /\$19\.99/); // unattributed must not appear as revenue
-    assert.match(text, /Unattributed payments/i);
+    assert.match(text, /Unattributed payment: 1 — UNKNOWN/i);
   });
 });
 

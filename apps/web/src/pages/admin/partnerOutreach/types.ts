@@ -311,6 +311,8 @@ export interface DiscoveryJob {
   status: string;
   stage?: string;
   progressPct?: number;
+  processed?: number;
+  total?: number;
   error?: string;
   prospectsFound?: number;
   draftsCreated?: number;

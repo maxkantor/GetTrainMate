@@ -33,7 +33,8 @@ export const CampaignsPanel: React.FC<PanelSharedProps> = ({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [discoverId, setDiscoverId] = useState<string | null>(null);
   const [discoverStage, setDiscoverStage] = useState<string | null>(null);
-  const [discoverPct, setDiscoverPct] = useState(0);
+  const [discoverProcessed, setDiscoverProcessed] = useState(0);
+  const [discoverTotal, setDiscoverTotal] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,8 +69,9 @@ export const CampaignsPanel: React.FC<PanelSharedProps> = ({
 
   const runDiscovery = async (campaignId: string) => {
     setDiscoverId(campaignId);
-    setDiscoverPct(0);
-    setDiscoverStage('Starting…');
+    setDiscoverProcessed(0);
+    setDiscoverTotal(0);
+    setDiscoverStage('Discovering contacts...');
     onError(null);
     onNotice(null);
     const cancel = { cancelled: false };
@@ -78,8 +80,10 @@ export const CampaignsPanel: React.FC<PanelSharedProps> = ({
       const final = await pollDiscoveryJob(
         started.jobId,
         (job) => {
-          setDiscoverStage(job.stage || job.status);
-          setDiscoverPct(job.progressPct ?? 0);
+          const extra = job as { processed?: number; total?: number };
+          setDiscoverStage(job.stage || job.status || 'Discovering contacts...');
+          setDiscoverProcessed(Number(extra.processed ?? 0));
+          setDiscoverTotal(Number(extra.total ?? 0));
         },
         cancel,
       );
@@ -92,7 +96,8 @@ export const CampaignsPanel: React.FC<PanelSharedProps> = ({
       cancel.cancelled = true;
       setDiscoverId(null);
       setDiscoverStage(null);
-      setTimeout(() => setDiscoverPct(0), 500);
+      setDiscoverProcessed(0);
+      setDiscoverTotal(0);
     }
   };
 
@@ -113,10 +118,22 @@ export const CampaignsPanel: React.FC<PanelSharedProps> = ({
       {discoverId && (
         <Box sx={{ mb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="body2">{discoverStage}</Typography>
-            <Typography variant="caption">{discoverPct}%</Typography>
+            <Typography variant="body2">{discoverStage || 'Discovering contacts...'}</Typography>
+            {discoverTotal > 0 && discoverProcessed > 0 && (
+              <Typography variant="caption">
+                {Math.round((discoverProcessed / discoverTotal) * 100)}%
+              </Typography>
+            )}
           </Box>
-          <LinearProgress variant="determinate" value={discoverPct} sx={{ height: 8, borderRadius: 1, mt: 0.5 }} />
+          <LinearProgress
+            variant={discoverTotal > 0 && discoverProcessed > 0 ? 'determinate' : 'indeterminate'}
+            value={
+              discoverTotal > 0 && discoverProcessed > 0
+                ? Math.round((discoverProcessed / discoverTotal) * 100)
+                : undefined
+            }
+            sx={{ height: 8, borderRadius: 1, mt: 0.5 }}
+          />
         </Box>
       )}
 

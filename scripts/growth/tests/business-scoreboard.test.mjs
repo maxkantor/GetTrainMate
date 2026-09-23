@@ -36,7 +36,7 @@ describe('computeBusinessScoreboard', () => {
     assert.equal(sb.visitorToSignup, '0.0%');
     assert.equal(sb.signupToProfile, 'n/a (no upstream cohort)');
     assert.equal(sb.profileToInteraction, 'n/a (no upstream cohort)');
-    assert.equal(sb.primaryBottleneck, 'TRAFFIC');
+    assert.equal(sb.primaryBottleneck, 'TRAFFIC / INSUFFICIENT SAMPLE');
     assert.equal(sb.decision, 'HOLD / KEEP / COLLECT DATA');
     assert.match(sb.nextAction, /owned social|partner outreach/i);
   });
@@ -85,7 +85,7 @@ describe('computeBusinessScoreboard', () => {
     assert.equal(sb.primaryBottleneck, 'ACTIVATION');
   });
 
-  it('evaluates PAYMENT bottleneck when profiles and interactions exist but 0 paying customers', () => {
+  it('evaluates MONETIZATION bottleneck when profiles and interactions exist but 0 paying customers', () => {
     const snapshot = {
       scoreboard: {
         '7d': {
@@ -100,7 +100,7 @@ describe('computeBusinessScoreboard', () => {
     };
 
     const sb = computeBusinessScoreboard(snapshot, { status: 'unavailable' });
-    assert.equal(sb.primaryBottleneck, 'PAYMENT');
+    assert.equal(sb.primaryBottleneck, 'MONETIZATION');
   });
 });
 
@@ -167,5 +167,82 @@ describe('report rendering with Business Scoreboard', () => {
     // HTML verification:
     assert.match(html, /Customer Acquisition CRM/);
     assert.match(html, /PRIMARY BOTTLENECK:/);
+    assert.match(html, /Max — Action Required/);
+    assert.doesNotMatch(html, /Open Approvals → APPROVE/);
+    assert.doesNotMatch(text, /Initial outreach sends only via Approvals/);
+  });
+
+  it('does not tell Max to open Approvals when awaitingApproval is 0', () => {
+    const { text, html } = composeGrowthEmailBody({
+      snapshot: {
+        sources: { ga4: 'ok', stripe: 'ok' },
+        scoreboard: {
+          '7d': {
+            sessions: { value: 103, available: true, unit: 'sessions' },
+            active_users: { value: 92, available: true, unit: 'users' },
+            completed_signups: { value: 0, available: true, unit: 'users' },
+            completed_profiles: { value: 0, available: true, unit: 'users' },
+            discover_users: { value: 0, available: true, unit: 'users' },
+            unique_paying_customers: { value: 0, available: true },
+            revenue: { value: 0, available: true },
+            unattributed_live_payments: { value: 1, available: true, unit: 'payments' },
+          },
+          '30d': {
+            unique_paying_customers: { value: 0, available: true },
+            revenue: { value: 0, available: true },
+            unattributed_live_payments: { value: 1, available: true, unit: 'payments' },
+          },
+        },
+        reconciliation: { ok: true, warnings: [] },
+        partnerOutreach: {
+          status: 'ok',
+          prospects: 23,
+          contacts: 13,
+          needContact: 10,
+          draftsPrepared: 0,
+          awaitingApproval: 0,
+          recipientsApproved: 0,
+          emailsSent: 14,
+          emailsSentToday: 0,
+          emailsSent7d: 0,
+          emailsSentLifetime: 14,
+          partnerResponses: 0,
+          interested: 0,
+          partners: 1,
+          partners7d: 0,
+          partnersLifetime: 1,
+          partnerAttributedSignups: 1,
+          partnerAttributedSignups7d: 0,
+          partnerAttributedSignupsLifetime: 1,
+          customersAcquired: 0,
+          ownerAction: 'Discover contacts for 10 prospects.',
+          ownerActions: [
+            {
+              id: 'discover',
+              text: 'Discover contacts for 10 prospects.',
+              href: 'https://gettrainmate.com/admin/partner-outreach?tab=prospects',
+              cta: 'DISCOVER CONTACTS',
+            },
+          ],
+          contactsAdminUrl: 'https://gettrainmate.com/admin/partner-outreach?tab=prospects',
+          settings: { pauseAllOutreach: false },
+        },
+      },
+      health: { ok: true, checks: [{ name: 'api', ok: true }] },
+      experiments: [],
+      generatedAt: new Date('2026-09-23T14:30:00Z'),
+    });
+
+    assert.match(text, /Discover contacts for 10 prospects/);
+    assert.match(text, /Need Contact Discovery\s+10/);
+    assert.match(text, /Awaiting Approval\s+0/);
+    assert.match(text, /PRIMARY BOTTLENECK: TRAFFIC \/ INSUFFICIENT SAMPLE/);
+    assert.match(text, /Unattributed payment: 1 — UNKNOWN/);
+    assert.doesNotMatch(text, /Approvals → APPROVE/);
+    assert.doesNotMatch(text, /OPEN APPROVALS/);
+    assert.doesNotMatch(html, /OPEN APPROVALS/);
+    assert.match(html, /DISCOVER CONTACTS/);
+    assert.match(text, /Facebook publishing: .* \(technical success\)/);
+    assert.match(text, /Attributed visits: .*acquisition/);
   });
 });
