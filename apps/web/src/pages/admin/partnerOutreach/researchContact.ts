@@ -254,6 +254,16 @@ export type PipelineCounters = {
   eligibleUnsent?: number;
   keepPipelineFull?: boolean;
   targetProspectInventory?: number;
+  automaticSending?: boolean;
+  dryRun?: boolean;
+  dailyLimit?: number;
+  remaining?: number;
+  sendQualifiedAutomatically?: boolean;
+  autoDiscoverProspects?: boolean;
+  autoDiscoverContacts?: boolean;
+  qualified?: number;
+  readyToSend?: number;
+  sesRemaining?: number | null;
 };
 
 /** Prospect-level discovery outcome. Never invents an inbox. */

@@ -190,6 +190,11 @@ export interface PartnerProspect {
   firstPurchaseAt?: string;
   timelineJson?: string;
   nextAction?: NextActionInfo | string;
+  whyNotSent?: string;
+  relevantModes?: string[];
+  prospectCategory?: string;
+  qualificationScore?: number;
+  qualificationReasons?: string;
   createdAt?: string;
   lastContactedAt?: string;
   lastActiveAt?: string;
@@ -304,6 +309,19 @@ export interface OutreachSettings {
   sendEnabled?: boolean;
   dailyLimit?: number;
   sentToday?: number;
+  remaining?: number;
+  automaticSending?: boolean;
+  dryRun?: boolean;
+  autoDiscoverProspects?: boolean;
+  autoDiscoverContacts?: boolean;
+  autoPrepareMessages?: boolean;
+  followUpsEnabled?: boolean;
+  sendQualifiedAutomatically?: boolean;
+  sesMax24HourSend?: number | null;
+  sesSentLast24Hours?: number | null;
+  sesRemaining?: number | null;
+  effectiveRemaining?: number;
+  deliveredTracking?: string;
 }
 
 export interface DiscoveryJob {
@@ -370,6 +388,7 @@ export interface NavigateFilters {
 
 export interface ProspectDetailResponse {
   prospect?: PartnerProspect;
+  whyNotSent?: string;
   nextAction?: NextActionInfo | string;
   timeline?: Array<{ at?: string; type?: string; note?: string; label?: string; eventKey?: string }>;
   queue?: PartnerQueueItem[];

@@ -332,7 +332,12 @@ export const ProspectsPanel: React.FC<Props> = ({
       const detail = (await adminApiService.get(
         `${API}/prospects/${encodeURIComponent(prospectId)}/detail`,
       )) as ProspectDetailResponse;
-      if (detail?.prospect) setSelected(detail.prospect);
+      if (detail?.prospect) {
+        setSelected({
+          ...detail.prospect,
+          whyNotSent: detail.whyNotSent ?? detail.prospect.whyNotSent,
+        });
+      }
       setDetailNext(detail?.nextAction ?? detail?.prospect?.nextAction ?? null);
       if (Array.isArray(detail?.timeline) && detail.timeline.length) {
         setDetailTimeline(detail.timeline);
@@ -842,12 +847,13 @@ export const ProspectsPanel: React.FC<Props> = ({
           CONTACT PIPELINE
         </Typography>
         <Typography variant="body2" sx={{ mt: 0.5, mb: 1.25 }}>
-          {pipeline?.prospects ?? prospects.length} Prospects · {pipeline?.emailsFound ?? '—'} usable
-          contacts · {pipeline?.needContact ?? '—'} need contact · {pipeline?.readyToReview ?? '—'}{' '}
-          awaiting approval · {pipeline?.approved ?? '—'} ready to send · Sent {pipeline?.sentToday ?? '—'}{' '}
-          today / {pipeline?.sent7d ?? '—'} 7d / {pipeline?.sentLifetime ?? pipeline?.sentToday ?? '—'}{' '}
-          lifetime · Partners {pipeline?.partners7d ?? '—'} 7d / {pipeline?.partnersLifetime ?? '—'}{' '}
-          lifetime
+          AUTOMATIC SENDING: {pipeline?.automaticSending ? 'ON' : 'OFF'} · DRY RUN:{' '}
+          {pipeline?.dryRun ? 'ON' : 'OFF'} · DAILY LIMIT: {pipeline?.dailyLimit ?? 100} · SENT TODAY:{' '}
+          {pipeline?.sentToday ?? '—'} · REMAINING: {pipeline?.remaining ?? '—'} · {pipeline?.prospects ?? prospects.length}{' '}
+          prospects · {pipeline?.emailsFound ?? '—'} usable contacts · {pipeline?.needContact ?? '—'} need
+          contact (automation) · {pipeline?.qualified ?? '—'} qualified · {pipeline?.readyToSend ?? pipeline?.approved ?? '—'}{' '}
+          ready to send · Sent {pipeline?.sentToday ?? '—'} today / {pipeline?.sent7d ?? '—'} 7d · Partners{' '}
+          {pipeline?.partnersLifetime ?? '—'}
         </Typography>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           <Button
@@ -1134,6 +1140,7 @@ export const ProspectsPanel: React.FC<Props> = ({
                 <TableCell sx={{ fontWeight: 700, width: 64 }}>Score</TableCell>
                 <TableCell sx={{ fontWeight: 700, width: 130 }}>Contact</TableCell>
                 <TableCell sx={{ fontWeight: 700, width: 110 }}>Acquisition</TableCell>
+                <TableCell sx={{ fontWeight: 700, width: 160 }}>Why not sent?</TableCell>
                 <TableCell sx={{ fontWeight: 700, width: 140 }}>Next Action</TableCell>
                 <TableCell sx={{ fontWeight: 700, width: 120 }}>Results</TableCell>
                 <TableCell sx={stickyActionsHeadSx}>Actions</TableCell>
@@ -1195,6 +1202,9 @@ export const ProspectsPanel: React.FC<Props> = ({
                         color="info"
                       />
                     </TableCell>
+                    <TableCell sx={{ fontSize: 11, fontFamily: 'ui-monospace, monospace' }}>
+                      {p.whyNotSent || '—'}
+                    </TableCell>
                     <TableCell sx={{ fontSize: 12 }}>{next.label}</TableCell>
                     <TableCell sx={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, whiteSpace: 'nowrap' }}>
                       {formatResultsCompact(p)}
@@ -1234,8 +1244,25 @@ export const ProspectsPanel: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
               {selected.organizationName}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               {marketLabel(selected)} · {formatProspectType(selected)}
+              {selected.relevantModes?.length
+                ? ` · ${selected.relevantModes.join(' + ')}`
+                : selected.mode
+                  ? ` · ${selected.mode}`
+                  : ''}
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'block',
+                mb: 2,
+                fontFamily: 'ui-monospace, monospace',
+                fontWeight: 700,
+                color: selected.whyNotSent === 'READY_TO_SEND' ? 'success.main' : 'text.secondary',
+              }}
+            >
+              WHY NOT SENT? {selected.whyNotSent || '—'}
             </Typography>
 
             <Button

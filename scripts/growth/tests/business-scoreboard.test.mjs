@@ -215,17 +215,25 @@ describe('report rendering with Business Scoreboard', () => {
           partnerAttributedSignups7d: 0,
           partnerAttributedSignupsLifetime: 1,
           customersAcquired: 0,
-          ownerAction: 'Discover contacts for 10 prospects.',
+          ownerAction: 'Partner acquisition automation is operating normally. No owner action required.',
           ownerActions: [
             {
-              id: 'discover',
-              text: 'Discover contacts for 10 prospects.',
-              href: 'https://gettrainmate.com/admin/partner-outreach?tab=prospects',
-              cta: 'DISCOVER CONTACTS',
+              id: 'none',
+              text: 'Partner acquisition automation is operating normally. No owner action required.',
             },
           ],
           contactsAdminUrl: 'https://gettrainmate.com/admin/partner-outreach?tab=prospects',
-          settings: { pauseAllOutreach: false },
+          settings: {
+            pauseAllOutreach: false,
+            automaticSending: true,
+            dryRun: false,
+            dailyLimit: 100,
+            remaining: 100,
+            sesRemaining: 48000,
+            deliveredTracking: 'NOT TRACKED',
+            autoDiscoverContacts: true,
+            sendQualifiedAutomatically: true,
+          },
         },
       },
       health: { ok: true, checks: [{ name: 'api', ok: true }] },
@@ -233,15 +241,18 @@ describe('report rendering with Business Scoreboard', () => {
       generatedAt: new Date('2026-09-23T14:30:00Z'),
     });
 
-    assert.match(text, /Discover contacts for 10 prospects/);
-    assert.match(text, /Need Contact Discovery\s+10/);
-    assert.match(text, /Awaiting Approval\s+0/);
+    assert.match(text, /Partner acquisition automation is operating normally/);
+    assert.match(text, /Need contact discovery \(automation\):\s+10/);
+    assert.match(text, /Automatic:\s+ON/);
+    assert.match(text, /Dry Run:\s+OFF/);
+    assert.match(text, /Daily Limit:\s+100/);
     assert.match(text, /PRIMARY BOTTLENECK: TRAFFIC \/ INSUFFICIENT SAMPLE/);
     assert.match(text, /Unattributed payment: 1 — UNKNOWN/);
+    assert.doesNotMatch(text, /Discover contacts for 10 prospects/);
     assert.doesNotMatch(text, /Approvals → APPROVE/);
     assert.doesNotMatch(text, /OPEN APPROVALS/);
     assert.doesNotMatch(html, /OPEN APPROVALS/);
-    assert.match(html, /DISCOVER CONTACTS/);
+    assert.doesNotMatch(html, /DISCOVER CONTACTS/);
     assert.match(text, /Facebook publishing: .* \(technical success\)/);
     assert.match(text, /Attributed visits: .*acquisition/);
   });

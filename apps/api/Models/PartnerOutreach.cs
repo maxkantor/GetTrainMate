@@ -32,6 +32,15 @@ public class PartnerProspect
     public string? OfficialDomain { get; set; }
     public string? EmailVerifiedOn { get; set; }
     public string Mode { get; set; } = "TRAIN";
+    /// <summary>TRAIN / VIBE / DATE combinations this prospect can introduce users to.</summary>
+    public List<string> RelevantModes { get; set; } = new();
+    /// <summary>Stored prospect category (gym, run_club, pickleball, …).</summary>
+    public string? ProspectCategory { get; set; }
+    public string? EmailSourceUrl { get; set; }
+    public DateTime? FirstContactedAt { get; set; }
+    public string? LastSesMessageId { get; set; }
+    public int FollowUpStep { get; set; }
+    public DateTime? NextFollowUpAt { get; set; }
     public string? CampaignId { get; set; }
     public string Activity { get; set; } = "training";
     public string? SourceUrl { get; set; }
@@ -104,6 +113,16 @@ public class PartnerProspect
     /// <summary>CONTACT_NEEDED|RESEARCHING|EMAIL_FOUND|CONTACT_FORM_FOUND|REVIEW_REQUIRED|NO_PUBLIC_CONTACT|MANUAL_CONTACT</summary>
     public string? ContactDiscoveryStatus { get; set; }
     public DateTime? LastContactResearchAt { get; set; }
+    public int QualificationScore { get; set; }
+    public string? QualificationReasons { get; set; }
+    public DateTime? QualifiedAt { get; set; }
+    public string? EmailNormalized { get; set; }
+    public string? EmailDiscoveryMethod { get; set; }
+    public string? EmailValidationStatus { get; set; }
+    public DateTime? EmailDiscoveredAt { get; set; }
+    /// <summary>Authoritative pre-SES reason. Not persisted.</summary>
+    [DynamoDBIgnore]
+    public string? WhyNotSent { get; set; }
     /// <summary>Human-readable record of sources/pages checked on the last discovery run.</summary>
     public string? LastContactResearchSummary { get; set; }
     /// <summary>Medium-confidence candidate awaiting admin accept/reject. Never used for sending.</summary>
@@ -149,7 +168,13 @@ public class PartnerCampaign
     public List<string> Categories { get; set; } = new();
     public int AllocationPercent { get; set; }
     public int DailyDiscoveryLimit { get; set; } = 10;
-    public int DailyOutreachLimit { get; set; } = 10;
+    public int DailyOutreachLimit { get; set; } = 100;
+    public string SendingMode { get; set; } = "automatic";
+    public bool SendQualifiedAutomatically { get; set; } = true;
+    public bool AutoDiscoverProspects { get; set; } = true;
+    public bool AutoDiscoverContacts { get; set; } = true;
+    public bool AutoPrepareMessages { get; set; } = true;
+    public bool FollowUpsEnabled { get; set; } = true;
     public int MinAcquisitionScore { get; set; } = 40;
     public List<int> FollowUpDays { get; set; } = new() { 4, 9 };
     public int MaxFollowUps { get; set; } = 2;
@@ -291,6 +316,41 @@ public class PartnerOutreachSettingsRow
     public int TargetProspectInventory { get; set; } = 200;
     /// <summary>Active durable contact-discovery job id (if any).</summary>
     public string? ActiveContactDiscoveryJobId { get; set; }
+    /// <summary>Idempotent production bootstrap applied once.</summary>
+    public bool ProductionBootstrapped { get; set; }
+    /// <summary>When true, qualified public contacts send without routine human approval.</summary>
+    public bool AutomaticSending { get; set; }
+    public bool DryRun { get; set; }
+    /// <summary>Campaign daily maximum 1–500. Default 100.</summary>
+    public int DailyLimit { get; set; }
+    public bool AutoDiscoverProspects { get; set; }
+    public bool AutoDiscoverContacts { get; set; }
+    public bool AutoPrepareMessages { get; set; }
+    public bool FollowUpsEnabled { get; set; }
+    public bool SendQualifiedAutomatically { get; set; }
+}
+
+/// <summary>Partial settings update. Null means leave the stored value unchanged.</summary>
+public class PartnerOutreachSettingsPatch
+{
+    public string? OutreachMode { get; set; }
+    public bool? PauseAllOutreach { get; set; }
+    public bool? TestRecipientsOnly { get; set; }
+    public List<string>? TestRecipients { get; set; }
+    public int? ProspectsPerRun { get; set; }
+    public int? ResearchAttemptsPerRun { get; set; }
+    public int? ResearchContactsPerRun { get; set; }
+    public int? DraftsPerRun { get; set; }
+    public bool? KeepPipelineFull { get; set; }
+    public int? TargetProspectInventory { get; set; }
+    public bool? AutomaticSending { get; set; }
+    public bool? DryRun { get; set; }
+    public int? DailyLimit { get; set; }
+    public bool? AutoDiscoverProspects { get; set; }
+    public bool? AutoDiscoverContacts { get; set; }
+    public bool? AutoPrepareMessages { get; set; }
+    public bool? FollowUpsEnabled { get; set; }
+    public bool? SendQualifiedAutomatically { get; set; }
 }
 
 [DynamoDBTable("gettrainmate-partner-inbound-dedupe")]

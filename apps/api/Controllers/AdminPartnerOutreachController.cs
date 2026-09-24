@@ -35,8 +35,12 @@ public class AdminPartnerOutreachController : ControllerBase
         ?? "admin";
 
     [HttpGet("prospects")]
-    public async Task<IActionResult> Prospects([FromQuery] string? status) =>
-        Ok(await _svc.ListProspectsAsync(status));
+    public async Task<IActionResult> Prospects([FromQuery] string? status)
+    {
+        var list = await _svc.ListProspectsAsync(status);
+        await _svc.AttachWhyNotSentAsync(list);
+        return Ok(list);
+    }
 
     [HttpPost("prospects")]
     public async Task<IActionResult> CreateProspect([FromBody] PartnerProspect body)
@@ -401,7 +405,7 @@ public class AdminPartnerOutreachController : ControllerBase
     public async Task<IActionResult> GetSettings() => Ok(await _svc.GetOutreachSettingsAsync());
 
     [HttpPut("settings")]
-    public async Task<IActionResult> PutSettings([FromBody] PartnerOutreachSettingsRow body)
+    public async Task<IActionResult> PutSettings([FromBody] PartnerOutreachSettingsPatch body)
     {
         try { return Ok(await _svc.UpdateOutreachSettingsAsync(body)); }
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
@@ -538,9 +542,30 @@ public class AdminPartnerOutreachController : ControllerBase
     public async Task<IActionResult> Dispatch() =>
         Ok(await _svc.DispatchDueAsync(scheduledCursorAutomation: false));
 
+    [HttpPost("automatic-run")]
+    public async Task<IActionResult> AutomaticRun([FromBody] AutomaticRunRequest? req)
+    {
+        try
+        {
+            return Ok(await _svc.RunAutomaticAcquisitionAsync(
+                User?.Identity?.Name ?? "admin",
+                req?.DryRun));
+        }
+        catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    [HttpPost("bootstrap")]
+    public async Task<IActionResult> Bootstrap() =>
+        Ok(await _svc.BootstrapProductionCampaignAsync());
+
     [HttpPost("dedupe")]
     public async Task<IActionResult> Dedupe([FromBody] DedupeRequest? req) =>
         Ok(await _svc.DedupeAsync(req?.DryRun ?? false));
+}
+
+public class AutomaticRunRequest
+{
+    public bool? DryRun { get; set; }
 }
 
 public class DraftRequest

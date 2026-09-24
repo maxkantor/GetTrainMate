@@ -6,7 +6,7 @@ import { formatCell, formatCellLabeled } from './normalize-metrics.mjs';
 import { loadStripeAllowlist, summarizeUnattributedPayments } from './stripe-attribution.mjs';
 import { ownerActionRequiredForMeta } from './meta-token.mjs';
 import { modeTotalsFromMetro, pocketsFromMetroCrm } from './market-density.mjs';
-import { buildOwnerActions } from './owner-actions.mjs';
+import { AUTOMATION_HEALTHY, buildOwnerActions, ownerActionRequiresMax } from './owner-actions.mjs';
 
 function ascii(s) {
   return String(s ?? '')
@@ -606,11 +606,18 @@ function exp002Stats(snapshot) {
       revenueAttributedCents: 'Unavailable',
       outreachMode: 'Unavailable',
       pauseAllOutreach: false,
-      ownerAction: `Partner CRM ${status.toUpperCase()}: ${s.reason || 'fix credentials / API access'}`,
+      automaticSending: false,
+      dryRun: false,
+      dailyLimit: 'Unavailable',
+      remaining: 'Unavailable',
+      sesRemaining: 'Unavailable',
+      deliveredTracking: 'NOT TRACKED',
+      ownerAction: `MAX — ACTION REQUIRED: Partner CRM ${status.toUpperCase()}: ${s.reason || 'fix credentials / API access'}`,
       ownerActions: [
         {
           id: 'crm',
-          text: `Partner CRM ${status.toUpperCase()}: ${s.reason || 'fix credentials / API access'}`,
+          severity: 'required',
+          text: `MAX — ACTION REQUIRED: Partner CRM ${status.toUpperCase()}: ${s.reason || 'fix credentials / API access'}`,
         },
       ],
       contactsAdminUrl: s.contactsAdminUrl || 'https://gettrainmate.com/admin/partner-outreach?tab=prospects',
@@ -661,6 +668,12 @@ function exp002Stats(snapshot) {
     revenueAttributedCents: zeroOk(s.revenueAttributedCents ?? s.northStars?.revenueAttributedCents ?? 0),
     outreachMode: num(s.settings?.outreachMode),
     pauseAllOutreach: Boolean(s.settings?.pauseAllOutreach),
+    automaticSending: Boolean(s.settings?.automaticSending),
+    dryRun: Boolean(s.settings?.dryRun),
+    dailyLimit: zeroOk(s.settings?.dailyLimit ?? 100),
+    remaining: s.settings?.remaining != null ? zeroOk(s.settings.remaining) : 'Unavailable',
+    sesRemaining: s.settings?.sesRemaining != null ? zeroOk(s.settings.sesRemaining) : 'Unavailable',
+    deliveredTracking: s.settings?.deliveredTracking || 'NOT TRACKED',
     ownerAction: num(s.ownerAction),
     ownerActions: Array.isArray(s.ownerActions)
       ? s.ownerActions
@@ -669,6 +682,11 @@ function exp002Stats(snapshot) {
           awaitingApproval: s.awaitingApproval ?? s.funnel?.awaitingApproval,
           approvedEligible: s.recipientsApproved ?? s.funnel?.approved,
           pauseAllOutreach: Boolean(s.settings?.pauseAllOutreach),
+          automaticSending: Boolean(s.settings?.automaticSending),
+          autoDiscoverContacts: s.settings?.autoDiscoverContacts !== false,
+          sendQualifiedAutomatically: s.settings?.sendQualifiedAutomatically !== false,
+          dryRun: Boolean(s.settings?.dryRun),
+          complaintPause: Boolean(s.settings?.complaintPause),
         }),
     contactsAdminUrl: s.contactsAdminUrl || 'https://gettrainmate.com/admin/partner-outreach?tab=prospects',
     approvalsAdminUrl: s.approvalsAdminUrl || 'https://gettrainmate.com/admin/partner-outreach?tab=approvals',
@@ -767,23 +785,33 @@ export function composeGrowthEmailBody({
   t.push(`NEXT ACTION: ${sb.nextAction}`);
   t.push(sb.bottleneckNote);
   t.push('');
-  t.push('PARTNER ACQUISITION');
-  t.push('-------------------');
+  t.push('GETTRAINMATE PARTNER OUTREACH');
+  t.push('-----------------------------');
   if (partnerCrmOk) {
-    t.push(`Prospects                  ${exp002.prospects}`);
-    t.push(`Usable Contacts            ${exp002.contacts}`);
-    t.push(`Need Contact Discovery     ${exp002.needContact}`);
-    t.push(`Awaiting Approval           ${exp002.awaitingApproval}`);
-    t.push(`Ready to Send               ${exp002.recipientsApproved}`);
-    t.push(
-      `Sent today / 7d / lifetime  ${exp002.emailsSentToday} / ${exp002.emailsSent7d} / ${exp002.emailsSentLifetime}`,
-    );
-    t.push(`Replies                     ${exp002.partnerResponses}`);
-    t.push(`Partners 7d / lifetime      ${exp002.partners7d} / ${exp002.partnersLifetime}`);
-    t.push(
-      `Attributed signups 7d / lifetime  ${exp002.partnerSignups7d} / ${exp002.partnerSignupsLifetime}`,
-    );
-    t.push(`Attributed customers        ${exp002.customersAcquired}`);
+    t.push(`Automatic: ${exp002.automaticSending ? 'ON' : 'OFF'}`);
+    t.push(`Dry Run: ${exp002.dryRun ? 'ON' : 'OFF'}`);
+    t.push(`Daily Limit: ${exp002.dailyLimit}`);
+    t.push(`Sent Today: ${exp002.emailsSentToday}`);
+    t.push(`Remaining: ${exp002.remaining}`);
+    t.push(`SES Remaining: ${exp002.sesRemaining}`);
+    t.push(`Delivered: ${exp002.deliveredTracking === 'NOT TRACKED' ? 'NOT TRACKED' : exp002.delivered}`);
+    t.push('');
+    t.push('DISCOVERY');
+    t.push(`Prospects: ${exp002.prospects}`);
+    t.push(`Usable contacts: ${exp002.contacts}`);
+    t.push(`Need contact discovery (automation): ${exp002.needContact}`);
+    t.push(`Drafts prepared: ${exp002.draftsPrepared}`);
+    t.push(`Ready to send: ${exp002.recipientsApproved}`);
+    t.push('');
+    t.push('SENDING');
+    t.push(`Sent today / 7d / lifetime: ${exp002.emailsSentToday} / ${exp002.emailsSent7d} / ${exp002.emailsSentLifetime}`);
+    t.push('');
+    t.push('ENGAGEMENT');
+    t.push(`Replies: ${exp002.partnerResponses}`);
+    t.push(`Partners 7d / lifetime: ${exp002.partners7d} / ${exp002.partnersLifetime}`);
+    t.push(`Attributed signups 7d / lifetime: ${exp002.partnerSignups7d} / ${exp002.partnerSignupsLifetime}`);
+    t.push(`Customers: ${exp002.customersAcquired}`);
+    t.push(`Revenue: ${exp002.revenueAttributedCents}`);
   } else {
     t.push(`Partner CRM: ${String(exp002.status || 'unavailable').toUpperCase()} — ${exp002.reason || 'could not query'}`);
   }
@@ -798,25 +826,27 @@ export function composeGrowthEmailBody({
   );
   t.push(`Attributed visits: ${ascii(lead.attributedVisits)} (acquisition — publishing is not customer acquisition)`);
   t.push('');
-  t.push('MAX — ACTION REQUIRED');
-  t.push('---------------------');
-  const actions = [];
+  const requiredActions = [];
   if (partnerCrmOk) {
     for (const a of exp002.ownerActions || []) {
       if (a.id === 'none') continue;
       const line = a.href ? `${a.text} → ${a.href}` : a.text;
-      actions.push(line);
+      requiredActions.push(line);
     }
   } else {
-    actions.push(`Fix Partner CRM access: ${exp002.reason || 'credentials / API'}`);
+    requiredActions.push(`MAX — ACTION REQUIRED: Fix Partner CRM access: ${exp002.reason || 'credentials / API'}`);
   }
   if (metaActionNeeded) {
-    actions.push('Meta credentials need repair (Facebook/Instagram did not publish)');
+    requiredActions.push('MAX — ACTION REQUIRED: Meta authentication failure — Facebook/Instagram did not publish.');
   }
-  if (!actions.length) {
-    t.push('No outreach action required.');
+  if (ownerActionRequiresMax(exp002.ownerActions) || metaActionNeeded || !partnerCrmOk) {
+    t.push('MAX — ACTION REQUIRED');
+    t.push('---------------------');
+    for (const a of requiredActions) t.push(`• ${a}`);
   } else {
-    for (const a of actions) t.push(`• ${a}`);
+    t.push('NEXT ACTION');
+    t.push('-----------');
+    t.push(exp002.automaticSending ? AUTOMATION_HEALTHY : 'No outreach action required.');
   }
   t.push('');
   t.push('7-DAY ACQUISITION FUNNEL (detail)');
@@ -1079,12 +1109,11 @@ export function composeGrowthEmailBody({
     t.push(
       `  CUSTOMERS: attributed_signups=${exp002.partnerSignups} customers=${exp002.customersAcquired} revenue_cents=${exp002.revenueAttributedCents}`
     );
+    t.push(`  Automatic / Dry Run: ${exp002.automaticSending ? 'ON' : 'OFF'} / ${exp002.dryRun ? 'ON' : 'OFF'}`);
+    t.push(`  Daily limit / remaining / SES remaining: ${exp002.dailyLimit} / ${exp002.remaining} / ${exp002.sesRemaining}`);
     t.push(`  OWNER ACTION: ${exp002.ownerAction}`);
-    if (Number(exp002.awaitingApproval) > 0) {
-      t.push(`  Approvals: ${exp002.approvalsAdminUrl}`);
-    }
-    if (Number(exp002.needContact) > 0) {
-      t.push(`  Discover contacts: ${exp002.contactsAdminUrl}`);
+    if (ownerActionRequiresMax(exp002.ownerActions)) {
+      t.push(`  Settings: ${exp002.approvalsAdminUrl.replace('tab=approvals', 'tab=settings')}`);
     }
     t.push(`  Partner-attributed visits: ${exp002.partnerVisits}`);
     t.push(`  Completed profiles (attributed): ${exp002.completedProfiles}`);
@@ -1109,14 +1138,8 @@ export function composeGrowthEmailBody({
   }
   if (metaActionNeeded) {
     t.push(
-      '  - Facebook/Instagram did not publish: store Meta Page token + Page id + IG business id in SSM /gettrainmate/growth/* and retry publish-owned-social.mjs.'
+      '  - MAX — ACTION REQUIRED: Facebook/Instagram did not publish: store Meta Page token + Page id + IG business id in SSM /gettrainmate/growth/* and retry publish-owned-social.mjs.'
     );
-  }
-  if (partnerCrmOk && Number(exp002.awaitingApproval) > 0) {
-    t.push('  - Initial outreach sends only via Approvals → APPROVE & SEND. Never invent inboxes.');
-  }
-  if (partnerCrmOk && Number(exp002.needContact) > 0) {
-    t.push(`  - Discover contacts: ${exp002.contactsAdminUrl}`);
   }
   t.push('  - Concentrate owned-social rotation on the highest-ranked metro/mode pocket — not Atlanta-only by default.');
   if (!stripe.configured) {
@@ -1273,15 +1296,21 @@ export function composeGrowthEmailBody({
           </div>
         </td></tr>
       </table>
-      <h2 style="${H2}">Partner Acquisition</h2>
+      <h2 style="${H2}">GetTrainMate Partner Outreach</h2>
       ${
         partnerCrmOk
           ? kvTable(
               [
+                { label: 'Automatic', value: exp002.automaticSending ? 'ON' : 'OFF' },
+                { label: 'Dry Run', value: exp002.dryRun ? 'ON' : 'OFF' },
+                { label: 'Daily Limit', value: String(exp002.dailyLimit) },
+                { label: 'Sent Today', value: String(exp002.emailsSentToday) },
+                { label: 'Remaining', value: String(exp002.remaining) },
+                { label: 'SES Remaining', value: String(exp002.sesRemaining) },
+                { label: 'Delivered', value: exp002.deliveredTracking === 'NOT TRACKED' ? 'NOT TRACKED' : String(exp002.delivered) },
                 { label: 'Prospects', value: String(exp002.prospects) },
                 { label: 'Usable Contacts', value: String(exp002.contacts) },
-                { label: 'Need Contact Discovery', value: String(exp002.needContact) },
-                { label: 'Awaiting Approval', value: String(exp002.awaitingApproval) },
+                { label: 'Need contact discovery (automation)', value: String(exp002.needContact) },
                 { label: 'Ready to Send', value: String(exp002.recipientsApproved) },
                 {
                   label: 'Sent today / 7d / lifetime',
@@ -1302,10 +1331,10 @@ export function composeGrowthEmailBody({
             )
           : `<p style="margin:0 0 18px;font-size:15px;color:#9a3412;">Partner CRM ${escapeHtml(String(exp002.status || 'unavailable').toUpperCase())} — ${escapeHtml(exp002.reason || 'could not query')}</p>`
       }
-      <h2 style="${H2}">Max — Action Required</h2>
+      <h2 style="${H2}">${ownerActionRequiresMax(exp002.ownerActions) || metaActionNeeded || !partnerCrmOk ? 'Max — Action Required' : 'Next action'}</h2>
       <div style="margin:0 0 18px;padding:12px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:15px;line-height:1.55;">
         ${
-          (exp002.ownerActions || []).filter((a) => a.id !== 'none').length || metaActionNeeded
+          ownerActionRequiresMax(exp002.ownerActions) || metaActionNeeded || !partnerCrmOk
             ? `<ul style="margin:0;padding-left:18px;">${[
                 ...(partnerCrmOk
                   ? (exp002.ownerActions || [])
@@ -1318,15 +1347,15 @@ export function composeGrowthEmailBody({
                         return `<li style="margin:0 0 6px;">${escapeHtml(a.text)}${link}</li>`;
                       })
                   : [
-                      `<li style="margin:0 0 6px;">Fix Partner CRM access: ${escapeHtml(exp002.reason || 'credentials / API')}</li>`,
+                      `<li style="margin:0 0 6px;">MAX — ACTION REQUIRED: Fix Partner CRM access: ${escapeHtml(exp002.reason || 'credentials / API')}</li>`,
                     ]),
                 metaActionNeeded
-                  ? '<li style="margin:0 0 6px;">Meta credentials need repair (Facebook/Instagram did not publish)</li>'
+                  ? '<li style="margin:0 0 6px;">MAX — ACTION REQUIRED: Meta authentication failure — Facebook/Instagram did not publish.</li>'
                   : '',
               ]
                 .filter(Boolean)
                 .join('')}</ul>`
-            : 'No outreach action required.'
+            : escapeHtml(exp002.automaticSending ? AUTOMATION_HEALTHY : 'No outreach action required.')
         }
       </div>
       <h2 style="${H2}">Social distribution</h2>
@@ -1451,14 +1480,8 @@ export function composeGrowthEmailBody({
             <div><b>Engagement:</b> replies ${escapeHtml(exp002.partnerResponses)}, interested ${escapeHtml(exp002.interested)}, partners ${escapeHtml(exp002.partners)}</div>
             <div><b>Customers:</b> signups ${escapeHtml(exp002.partnerSignups)}, paid ${escapeHtml(exp002.customersAcquired)}, revenue_cents ${escapeHtml(exp002.revenueAttributedCents)}</div>`
             }
-            <div style="margin-top:8px;"><b>Owner action:</b> ${escapeHtml(exp002.ownerAction)}</div>
-            ${
-              Number(exp002.awaitingApproval) > 0
-                ? `<div><a href="${escapeHtml(exp002.approvalsAdminUrl)}" style="color:#0369a1;">OPEN APPROVALS</a></div>`
-                : Number(exp002.needContact) > 0
-                  ? `<div><a href="${escapeHtml(exp002.contactsAdminUrl)}" style="color:#0369a1;">DISCOVER CONTACTS</a></div>`
-                  : ''
-            }
+            <div style="margin-top:8px;"><b>Automatic / Dry Run:</b> ${exp002.automaticSending ? 'ON' : 'OFF'} / ${exp002.dryRun ? 'ON' : 'OFF'}</div>
+            <div><b>Owner action:</b> ${escapeHtml(exp002.ownerAction)}</div>
           </div>
         </td></tr>
       </table>
@@ -1471,7 +1494,7 @@ export function composeGrowthEmailBody({
         <b>Primary Acquisition Action:</b> ${escapeHtml(sb.nextAction)}
       </div>
       <ol style="margin:0 0 18px;padding-left:22px;font-size:15px;line-height:1.55;">
-        <li style="margin:0 0 8px;">Customer Acquisition: ${escapeHtml(exp002.ownerAction)} <span style="color:#64748b;">(needs Max)</span></li>
+        <li style="margin:0 0 8px;">Customer Acquisition: ${escapeHtml(exp002.ownerAction)}${ownerActionRequiresMax(exp002.ownerActions) || !partnerCrmOk ? ' <span style="color:#64748b;">(needs Max)</span>' : ''}</li>
         ${
           md?.status !== 'ok'
             ? '<li style="margin:0 0 8px;">Configure GROWTH_METRO_READ_TOKEN for metro ranking. <span style="color:#64748b;">(needs Max)</span></li>'
@@ -1479,17 +1502,7 @@ export function composeGrowthEmailBody({
         }
         ${
           metaActionNeeded
-            ? '<li style="margin:0 0 8px;">Facebook/Instagram did not publish — repair Meta SSM credentials and retry publish-owned-social.mjs.</li>'
-            : ''
-        }
-        ${
-          partnerCrmOk && Number(exp002.awaitingApproval) > 0
-            ? '<li style="margin:0 0 8px;">Initial outreach sends only via Approvals → APPROVE &amp; SEND. Never invent inboxes. <span style="color:#64748b;">(needs Max)</span></li>'
-            : ''
-        }
-        ${
-          partnerCrmOk && Number(exp002.needContact) > 0
-            ? `<li style="margin:0 0 8px;">Discover contacts for ${escapeHtml(String(exp002.needContact))} prospects. <a href="${escapeHtml(exp002.contactsAdminUrl)}" style="color:#0369a1;">DISCOVER CONTACTS</a></li>`
+            ? '<li style="margin:0 0 8px;">MAX — ACTION REQUIRED: Facebook/Instagram did not publish — repair Meta SSM credentials and retry publish-owned-social.mjs.</li>'
             : ''
         }
         <li style="margin:0 0 8px;">Concentrate owned-social rotation on the highest-ranked metro/mode pocket. <span style="color:#64748b;">(automatic)</span></li>

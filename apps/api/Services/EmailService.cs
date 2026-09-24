@@ -153,4 +153,23 @@ public class EmailService : IEmailService
         _logger.LogInformation("Raw email accepted by SES. MessageId={MessageId}", response.MessageId);
         return response.MessageId;
     }
+
+    public async Task<SesSendQuota?> GetSendQuotaAsync()
+    {
+        try
+        {
+            var q = await _ses.GetSendQuotaAsync();
+            return new SesSendQuota
+            {
+                Max24HourSend = q.Max24HourSend,
+                SentLast24Hours = q.SentLast24Hours,
+                MaxSendRate = q.MaxSendRate,
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SES GetSendQuota unavailable");
+            return null;
+        }
+    }
 }

@@ -107,6 +107,20 @@ public class PartnerOutreachInternalController : ControllerBase
         return Ok(await _svc.DispatchDueAsync(scheduledCursorAutomation: false));
     }
 
+    [HttpPost("automatic-run")]
+    public async Task<IActionResult> AutomaticRun([FromBody] AutomaticRunRequest? req)
+    {
+        if (!Authorized()) return Unauthorized();
+        return Ok(await _svc.RunAutomaticAcquisitionAsync("scheduler", req?.DryRun));
+    }
+
+    [HttpPost("bootstrap")]
+    public async Task<IActionResult> Bootstrap()
+    {
+        if (!Authorized()) return Unauthorized();
+        return Ok(await _svc.BootstrapProductionCampaignAsync());
+    }
+
     [HttpPost("research/contact-needed")]
     public async Task<IActionResult> ResearchContactNeeded([FromBody] InternalResearchContactRequest? req)
     {

@@ -33,7 +33,8 @@ public interface IPartnerOutreachService
     Task<object> RejectQueueAsync(string queueId, string actor, string? reason);
     Task<PartnerQueueItem> UpdateQueueDraftAsync(string queueId, string subject, string bodyText, string? bodyHtml, string actor);
     Task<object> GetOutreachSettingsAsync();
-    Task<object> UpdateOutreachSettingsAsync(PartnerOutreachSettingsRow patch);
+    Task<object> UpdateOutreachSettingsAsync(PartnerOutreachSettingsPatch patch);
+    Task AttachWhyNotSentAsync(IEnumerable<PartnerProspect> prospects);
     Task<List<PartnerThread>> ListThreadsAsync();
     Task<object> ConvertToPartnerAsync(string prospectId, string actor);
     Task<object> MarkInterestedAsync(string prospectId, string actor);
@@ -69,6 +70,9 @@ public interface IPartnerOutreachService
     Task<ContactDiscoveryResult> DiscoverContactForJobAsync(string prospectId, string actor, bool force = true);
     /// <summary>Operational counters for the Prospects acquisition control center.</summary>
     Task<object> GetPipelineCountersAsync();
+    Task<object> RunAutomaticAcquisitionAsync(string actor, bool? dryRunOverride = null);
+    Task<object> BootstrapProductionCampaignAsync();
+    Task<string> WhyNotSentAsync(string prospectId);
     /// <summary>Promotes a medium-confidence pending candidate to the prospect email.</summary>
     Task<object> AcceptPendingContactAsync(string prospectId, string actor);
     /// <summary>Discards a pending candidate without touching the existing email.</summary>
@@ -87,7 +91,7 @@ public interface IPartnerOutreachService
     Task<object> RecordPartnerAttributionAsync(string partnerOrRefCode, string eventType, long? revenueCents = null, bool isDirectCustomer = false);
 }
 
-public sealed class PartnerOutreachService : IPartnerOutreachService
+public sealed partial class PartnerOutreachService : IPartnerOutreachService
 {
     private readonly IDynamoDBContext _db;
     private readonly IEmailService _email;
@@ -95,6 +99,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     private readonly ILogger<PartnerOutreachService> _log;
     private readonly IAuditLogService? _audit;
     private readonly PublicBusinessContactVerifier _contactVerifier;
+    private readonly IServiceProvider _services;
 
     public PartnerOutreachService(
         IDynamoDBContext db,
@@ -102,6 +107,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         IConfiguration cfg,
         ILogger<PartnerOutreachService> log,
         PublicBusinessContactVerifier contactVerifier,
+        IServiceProvider services,
         IAuditLogService? audit = null)
     {
         _db = db;
@@ -109,6 +115,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         _cfg = cfg;
         _log = log;
         _contactVerifier = contactVerifier;
+        _services = services;
         _audit = audit;
     }
 
@@ -118,7 +125,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     string Postal => Env("GETTRAINMATE_BUSINESS_POSTAL_ADDRESS");
     string Frontend => First(Env("FRONTEND_URL"), _cfg["Frontend:BaseUrl"], "https://gettrainmate.com").TrimEnd('/');
     string UnsubSecret => First(Env("PARTNER_UNSUBSCRIBE_SIGNING_SECRET"), Env("GETTRAINMATE_UNSUBSCRIBE_SECRET"));
-    int DailyLimit => int.TryParse(Env("PARTNER_DAILY_SEND_LIMIT"), out var n) && n > 0 ? n : PartnerOutreachRules.DefaultDailyLimit;
+    int EnvDailyLimit => int.TryParse(Env("PARTNER_DAILY_SEND_LIMIT"), out var n) && n > 0 ? n : 0;
 
     static string Env(string name) => Environment.GetEnvironmentVariable(name)?.Trim() ?? "";
     static string First(params string?[] xs)
@@ -586,7 +593,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         var sentTodayBefore = allQueue.Count(x =>
             x.SentAt != null
             && PartnerOutreachRules.ToEasternDate(x.SentAt.Value) == todayEt);
-        var dailyLimit = DailyLimit;
+        var dailyLimit = settings.DailyLimit > 0 ? settings.DailyLimit : PartnerOutreachRules.DefaultDailyLimit;
         var remaining = Math.Max(0, dailyLimit - sentTodayBefore);
 
         var ordered = new List<PartnerQueueItem>();
@@ -760,14 +767,18 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
 
         var tz = PartnerOutreachRules.EasternTimeZone();
         var now = DateTime.UtcNow;
-        if (!PartnerOutreachRules.IsDispatchWindow(now, tz))
+        var ignoreWindow = settings.AutomaticSending && settings.SendQualifiedAutomatically;
+        if (!ignoreWindow && !PartnerOutreachRules.IsDispatchWindow(now, tz))
             return new { sent = 0, error = "outside_dispatch_window" };
 
         var allQueue = await ListQueueAsync(null);
+        var autoDrafts = settings.AutomaticSending && settings.SendQualifiedAutomatically && !settings.DryRun;
         var due = allQueue
             .Where(x =>
                 x.Status is "approved" or "approved_for_next_send"
-                || (x.Status == "scheduled"
+                || (autoDrafts && x.Status == "draft" && x.FollowUpNumber == 0)
+                || (settings.FollowUpsEnabled
+                    && x.Status == "scheduled"
                     && x.FollowUpNumber > 0
                     && x.AllowAutomatedFollowUp
                     && (x.ScheduledAt == null || x.ScheduledAt <= now)))
@@ -779,7 +790,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         var errors = new List<string>();
         var usedEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var usedOrgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var limit = DailyLimit;
+        var limit = settings.DailyLimit > 0 ? settings.DailyLimit : PartnerOutreachRules.DefaultDailyLimit;
 
         foreach (var item in due)
         {
@@ -870,7 +881,10 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                 && parent.Status is "sent" or "delivered" or "replied" or "approved" or "approved_for_next_send";
         }
 
-        var dailyCap = campaign?.DailyOutreachLimit > 0 ? campaign.DailyOutreachLimit : DailyLimit;
+        var settingsCap = settings.DailyLimit > 0 ? settings.DailyLimit : PartnerOutreachRules.DefaultDailyLimit;
+        var dailyCap = settingsCap;
+        if (campaign?.DailyOutreachLimit > 0)
+            dailyCap = Math.Min(settingsCap, campaign.DailyOutreachLimit);
 
         return new PartnerSendContext
         {
@@ -910,6 +924,8 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             FollowUpNumber = item.FollowUpNumber,
             ParentWasApproved = parentApproved,
             CampaignActive = campaignActive,
+            AutomaticQualifiedSend = settings.AutomaticSending && settings.SendQualifiedAutomatically,
+            DryRun = settings.DryRun,
         };
     }
 
@@ -921,14 +937,19 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     async Task SendQueueItemAsync(PartnerQueueItem item, List<PartnerQueueItem>? queueSnapshot = null)
     {
         // Idempotent: never SES-send the same queue row twice (bulk timeout / retry safety).
-        if (item.Status is "sent" or "delivered" or "replied" || item.SentAt != null)
-            return;
-
-        if (!string.IsNullOrWhiteSpace(item.SesMessageId))
+        var fresh = await _db.LoadAsync<PartnerQueueItem>(item.QueueId) ?? item;
+        if (fresh.Status is "sent" or "delivered" or "replied" || fresh.SentAt != null
+            || !string.IsNullOrWhiteSpace(fresh.SesMessageId))
         {
-            await FinalizeSentQueueItemAsync(item, queueSnapshot);
+            item.Status = fresh.Status;
+            item.SentAt = fresh.SentAt;
+            item.SesMessageId = fresh.SesMessageId;
+            if (!string.IsNullOrWhiteSpace(fresh.SesMessageId))
+                await FinalizeSentQueueItemAsync(item, queueSnapshot);
             return;
         }
+        item.InternalMessageId = fresh.InternalMessageId;
+        item.RfcMessageId = fresh.RfcMessageId;
 
         if (PartnerOutreachRules.ContainsObsoleteOutreachCopy(item.Subject, item.BodyText, item.BodyHtml))
             throw new InvalidOperationException("obsolete_outreach_copy_blocked");
@@ -948,9 +969,10 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             listUnsubscribeUrl: unsub,
             configurationSet: Env("PARTNER_SES_CONFIGURATION_SET"),
             internalMessageId: internalId);
-        item.Status = "queued";
+        item.Status = "sending";
         item.InternalMessageId = internalId;
         item.RfcMessageId = rfcId;
+        item.IdempotencyKey ??= $"send:{item.ProspectId}:{item.FollowUpNumber}:{item.Recipient.Trim().ToLowerInvariant()}";
         await _db.SaveAsync(item);
 
         var sesId = await _email.SendRawEmailAsync(FromEmail, item.Recipient, raw, Env("PARTNER_SES_CONFIGURATION_SET"));
@@ -1011,6 +1033,9 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             if (p.DistributionStatus is null or "" or PartnerCrmLifecycle.DistNone or PartnerCrmLifecycle.DistInviteCreated)
                 p.DistributionStatus = PartnerCrmLifecycle.DistSharing;
             p.LastContactedAt = DateTime.UtcNow;
+            p.FirstContactedAt ??= DateTime.UtcNow;
+            p.LastSesMessageId = item.SesMessageId;
+            p.FollowUpStep = item.FollowUpNumber;
             PartnerCrmLifecycle.AppendTimelineEvent(p, "sent", "Outreach sent", DateTime.UtcNow,
                 new { item.QueueId, item.FollowUpNumber });
             PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
@@ -1070,6 +1095,39 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             };
             await _db.SaveAsync(followUp);
             existing.Add(followUp);
+        }
+
+        var prospect = await _db.LoadAsync<PartnerProspect>(parent.ProspectId);
+        if (prospect != null)
+        {
+            prospect.NextFollowUpAt = existing
+                .Where(x => x.ParentQueueId == parent.QueueId && x.Status == "scheduled")
+                .Select(x => x.ScheduledAt)
+                .Where(d => d != null)
+                .OrderBy(d => d)
+                .FirstOrDefault();
+            await _db.SaveAsync(prospect);
+        }
+    }
+
+    async Task CancelPendingFollowUpsAsync(string prospectId, string reason)
+    {
+        var queue = await ListQueueAsync(null);
+        foreach (var q in queue.Where(x =>
+            string.Equals(x.ProspectId, prospectId, StringComparison.Ordinal)
+            && x.FollowUpNumber > 0
+            && x.Status is "scheduled" or "draft" or "approved" or "approved_for_next_send"))
+        {
+            q.Status = "cancelled";
+            q.AllowAutomatedFollowUp = false;
+            q.LastError = reason;
+            await _db.SaveAsync(q);
+        }
+        var p = await _db.LoadAsync<PartnerProspect>(prospectId);
+        if (p != null)
+        {
+            p.NextFollowUpAt = null;
+            await _db.SaveAsync(p);
         }
     }
 
@@ -1166,6 +1224,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                     new { match.QueueId, subject = parsed.Subject });
                 PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
                 await _db.SaveAsync(p);
+                await CancelPendingFollowUpsAsync(match.ProspectId, "reply");
             }
         }
         else
@@ -1556,9 +1615,11 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             .FirstOrDefault();
         var nextAction = PartnerCrmLifecycle.ComputeNextAction(p, draftOrApproved);
         var timeline = PartnerCrmLifecycle.ParseTimeline(p);
+        var whyNotSent = await WhyNotSentAsync(prospectId);
         return new
         {
             prospect = p,
+            whyNotSent,
             nextAction,
             timeline,
             queueItems = queue,
@@ -1568,6 +1629,13 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
     public async Task<object> GetOutreachSettingsAsync()
     {
         var s = await LoadSettingsAsync();
+        var queue = await ListQueueAsync(null);
+        var todayEt = PartnerOutreachRules.EasternNowDate();
+        var sentToday = queue.Count(x => x.SentAt != null && PartnerOutreachRules.ToEasternDate(x.SentAt.Value) == todayEt);
+        SesSendQuota? quota = null;
+        try { quota = await _email.GetSendQuotaAsync(); } catch { /* report unavailable */ }
+        var remaining = Math.Max(0, s.DailyLimit - sentToday);
+        var sesRemaining = quota != null ? (int)Math.Floor(quota.Remaining24Hours) : (int?)null;
         return new
         {
             s.Id,
@@ -1587,12 +1655,28 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             s.BounceCount,
             s.ComplaintCount,
             s.ReplyCount,
-            adminApprovalSends = true,
-            sendEnabled = !s.PauseAllOutreach,
+            s.ProductionBootstrapped,
+            automaticSending = s.AutomaticSending,
+            dryRun = s.DryRun,
+            dailyLimit = s.DailyLimit,
+            autoDiscoverProspects = s.AutoDiscoverProspects,
+            autoDiscoverContacts = s.AutoDiscoverContacts,
+            autoPrepareMessages = s.AutoPrepareMessages,
+            followUpsEnabled = s.FollowUpsEnabled,
+            sendQualifiedAutomatically = s.SendQualifiedAutomatically,
+            sentToday,
+            remaining,
+            sesMax24HourSend = quota?.Max24HourSend,
+            sesSentLast24Hours = quota?.SentLast24Hours,
+            sesRemaining,
+            effectiveRemaining = sesRemaining == null ? remaining : Math.Min(remaining, sesRemaining.Value),
+            deliveredTracking = PartnerAudience.DeliveredTrackingStatus(Env("PARTNER_SES_CONFIGURATION_SET")),
+            adminApprovalSends = !s.AutomaticSending,
+            sendEnabled = !s.PauseAllOutreach && s.AutomaticSending,
         };
     }
 
-    public async Task<object> UpdateOutreachSettingsAsync(PartnerOutreachSettingsRow patch)
+    public async Task<object> UpdateOutreachSettingsAsync(PartnerOutreachSettingsPatch patch)
     {
         var s = await LoadSettingsAsync();
         if (!string.IsNullOrWhiteSpace(patch.OutreachMode))
@@ -1602,23 +1686,84 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
                 throw new InvalidOperationException("OutreachMode must be off, test, or live.");
             s.OutreachMode = mode;
         }
-        s.PauseAllOutreach = patch.PauseAllOutreach;
-        s.TestRecipientsOnly = patch.TestRecipientsOnly;
+        if (patch.PauseAllOutreach.HasValue) s.PauseAllOutreach = patch.PauseAllOutreach.Value;
+        if (patch.TestRecipientsOnly.HasValue) s.TestRecipientsOnly = patch.TestRecipientsOnly.Value;
         if (patch.TestRecipients != null)
             s.TestRecipients = patch.TestRecipients
                 .Where(e => !string.IsNullOrWhiteSpace(e) && e.Contains('@'))
                 .Select(e => e.Trim().ToLowerInvariant())
                 .Distinct()
                 .ToList();
-        if (patch.ProspectsPerRun > 0) s.ProspectsPerRun = patch.ProspectsPerRun;
-        if (patch.ResearchAttemptsPerRun > 0) s.ResearchAttemptsPerRun = patch.ResearchAttemptsPerRun;
-        if (patch.ResearchContactsPerRun > 0) s.ResearchContactsPerRun = patch.ResearchContactsPerRun;
-        if (patch.DraftsPerRun > 0) s.DraftsPerRun = patch.DraftsPerRun;
-        s.KeepPipelineFull = patch.KeepPipelineFull;
-        if (patch.TargetProspectInventory > 0)
-            s.TargetProspectInventory = Math.Clamp(patch.TargetProspectInventory, 10, 5000);
+        if (patch.ProspectsPerRun is > 0) s.ProspectsPerRun = patch.ProspectsPerRun.Value;
+        if (patch.ResearchAttemptsPerRun is > 0) s.ResearchAttemptsPerRun = patch.ResearchAttemptsPerRun.Value;
+        if (patch.ResearchContactsPerRun is > 0) s.ResearchContactsPerRun = patch.ResearchContactsPerRun.Value;
+        if (patch.DraftsPerRun is > 0) s.DraftsPerRun = patch.DraftsPerRun.Value;
+        if (patch.KeepPipelineFull.HasValue) s.KeepPipelineFull = patch.KeepPipelineFull.Value;
+        if (patch.TargetProspectInventory is > 0)
+            s.TargetProspectInventory = Math.Clamp(patch.TargetProspectInventory.Value, 10, 5000);
+        if (patch.AutomaticSending.HasValue) s.AutomaticSending = patch.AutomaticSending.Value;
+        if (patch.DryRun.HasValue) s.DryRun = patch.DryRun.Value;
+        if (patch.DailyLimit is > 0)
+            s.DailyLimit = PartnerOutreachRules.ClampDailyLimit(patch.DailyLimit.Value);
+        if (patch.AutoDiscoverProspects.HasValue) s.AutoDiscoverProspects = patch.AutoDiscoverProspects.Value;
+        if (patch.AutoDiscoverContacts.HasValue) s.AutoDiscoverContacts = patch.AutoDiscoverContacts.Value;
+        if (patch.AutoPrepareMessages.HasValue) s.AutoPrepareMessages = patch.AutoPrepareMessages.Value;
+        if (patch.FollowUpsEnabled.HasValue) s.FollowUpsEnabled = patch.FollowUpsEnabled.Value;
+        if (patch.SendQualifiedAutomatically.HasValue)
+            s.SendQualifiedAutomatically = patch.SendQualifiedAutomatically.Value;
         await _db.SaveAsync(s);
         return await GetOutreachSettingsAsync();
+    }
+
+    public async Task AttachWhyNotSentAsync(IEnumerable<PartnerProspect> prospects)
+    {
+        var list = prospects as IList<PartnerProspect> ?? prospects.ToList();
+        if (list.Count == 0) return;
+        var settings = await LoadSettingsAsync();
+        var queue = await ListQueueAsync(null);
+        var emails = list
+            .Select(p => (p.Email ?? "").Trim().ToLowerInvariant())
+            .Where(e => e.Contains('@'))
+            .Distinct()
+            .ToList();
+        var suppressions = new Dictionary<string, PartnerSuppression>(StringComparer.OrdinalIgnoreCase);
+        foreach (var email in emails)
+        {
+            var row = await _db.LoadAsync<PartnerSuppression>(email);
+            if (row != null) suppressions[email] = row;
+        }
+
+        foreach (var p in list)
+        {
+            var email = (p.Email ?? "").Trim().ToLowerInvariant();
+            suppressions.TryGetValue(email, out var suppress);
+            var reason = suppress?.Reason ?? "";
+            var alreadySent = queue.Any(q =>
+                string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                && (q.SentAt != null || q.Status is "sent" or "delivered" or "replied"));
+            var hasDraft = queue.Any(q =>
+                string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                && q.FollowUpNumber == 0
+                && q.Status is "draft" or "approved" or "approved_for_next_send");
+            p.WhyNotSent = WhyNotSent.ForProspect(
+                new PartnerProspectState
+                {
+                    HasUsableEmail = ContactDiscoveryRules.HasUsableEmail(p),
+                    ContactDiscoveryStatus = p.ContactDiscoveryStatus,
+                    EmailVerificationStatus = p.EmailVerificationStatus,
+                },
+                hasDraft,
+                alreadySent,
+                reason is "opt_out" or "unsubscribe" or "list_unsubscribe",
+                reason is "hard_bounce" or "bounce",
+                reason == "complaint",
+                reason is "manual" or "owner",
+                settings.AutomaticSending && settings.SendQualifiedAutomatically,
+                settings.DryRun,
+                settings.PauseAllOutreach || settings.ComplaintPause,
+                p.QualificationScore > 0 ? p.QualificationScore : p.AcquisitionScore,
+                PartnerOutreachRules.DefaultMinAcquisitionScore);
+        }
     }
 
     public async Task<List<PartnerThread>> ListThreadsAsync()
@@ -1637,6 +1782,7 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         PartnerCrmLifecycle.AppendTimelineEvent(p, "partner", "Marked as partner (partnership only)", DateTime.UtcNow);
         PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
         await _db.SaveAsync(p);
+        await CancelPendingFollowUpsAsync(prospectId, "partner_conversion");
         await TryAuditAsync(actor, "partner_outreach.convert_partner", "partner_prospect", prospectId, null,
             new { p.CrmLifecycle, p.PartnershipStatus });
         return new { p.ProspectId, p.CrmLifecycle, p.Status, p.PartnershipStatus, note = "partnership_only" };
@@ -2604,6 +2750,23 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
             targetProspectInventory = settings.TargetProspectInventory > 0
                 ? settings.TargetProspectInventory
                 : 200,
+            automaticSending = settings.AutomaticSending,
+            dryRun = settings.DryRun,
+            dailyLimit = settings.DailyLimit,
+            remaining = Math.Max(0, settings.DailyLimit - sentToday),
+            sendQualifiedAutomatically = settings.SendQualifiedAutomatically,
+            autoDiscoverProspects = settings.AutoDiscoverProspects,
+            autoDiscoverContacts = settings.AutoDiscoverContacts,
+            qualified = prospects.Count(p =>
+                ContactDiscoveryRules.HasUsableEmail(p)
+                && (p.QualificationScore >= PartnerOutreachRules.DefaultMinAcquisitionScore
+                    || p.AcquisitionScore >= PartnerOutreachRules.DefaultMinAcquisitionScore)),
+            readyToSend = queue.Count(q =>
+                q.FollowUpNumber == 0
+                && q.Status is "draft" or "approved" or "approved_for_next_send"
+                && (settings.AutomaticSending && settings.SendQualifiedAutomatically
+                    ? q.Status is "draft" or "approved" or "approved_for_next_send"
+                    : q.Status is "approved" or "approved_for_next_send")),
         };
     }
 
@@ -3320,6 +3483,31 @@ public sealed class PartnerOutreachService : IPartnerOutreachService
         if (row.DraftsPerRun <= 0) row.DraftsPerRun = 5;
         if (row.TargetProspectInventory <= 0) row.TargetProspectInventory = 200;
         row.TestRecipients ??= new List<string>();
+        if (!row.ProductionBootstrapped)
+        {
+            row.AutomaticSending = true;
+            row.DryRun = false;
+            row.DailyLimit = PartnerOutreachRules.DefaultDailyLimit;
+            row.AutoDiscoverProspects = true;
+            row.AutoDiscoverContacts = true;
+            row.AutoPrepareMessages = true;
+            row.FollowUpsEnabled = true;
+            row.SendQualifiedAutomatically = true;
+            row.KeepPipelineFull = true;
+            row.ProductionBootstrapped = true;
+            await _db.SaveAsync(row);
+            await EnsurePartner001Async();
+        }
+        else if (row.DailyLimit <= 0)
+        {
+            row.DailyLimit = EnvDailyLimit > 0
+                ? PartnerOutreachRules.ClampDailyLimit(EnvDailyLimit)
+                : PartnerOutreachRules.DefaultDailyLimit;
+        }
+        else
+        {
+            row.DailyLimit = PartnerOutreachRules.ClampDailyLimit(row.DailyLimit);
+        }
         return row;
     }
 

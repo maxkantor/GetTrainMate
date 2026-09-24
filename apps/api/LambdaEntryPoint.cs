@@ -109,7 +109,7 @@ public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
                     prepareDrafts: true);
             }
             var svc = scope.ServiceProvider.GetRequiredService<IPartnerOutreachService>();
-            return await svc.DispatchDueAsync(scheduledCursorAutomation: false);
+            return await svc.RunAutomaticAcquisitionAsync("eventbridge");
         }
         finally
         {

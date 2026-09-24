@@ -20,6 +20,17 @@ public interface IEmailService
         string to,
         byte[] rawMime,
         string? configurationSet = null);
+
+    /// <summary>SES account send quota. Returns null when the API is unavailable.</summary>
+    Task<SesSendQuota?> GetSendQuotaAsync();
+}
+
+public sealed class SesSendQuota
+{
+    public double Max24HourSend { get; set; }
+    public double SentLast24Hours { get; set; }
+    public double MaxSendRate { get; set; }
+    public double Remaining24Hours => Math.Max(0, Max24HourSend - SentLast24Hours);
 }
 
 public class EmailAttachment

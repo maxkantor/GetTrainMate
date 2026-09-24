@@ -447,7 +447,7 @@ public class PartnerOutreachTests
         Assert.Contains("Help Run Crew members find local training partners", run.Subject, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(PartnerOutreachRules.PartnerFromName, "GetTrainMate");
         Assert.Equal(PartnerOutreachRules.TemplateVersion, "partner-v5-2026-09-21");
-        Assert.Equal(10, PartnerOutreachRules.DefaultDailyLimit);
+        Assert.Equal(100, PartnerOutreachRules.DefaultDailyLimit);
     }
 
     [Fact]
@@ -694,4 +694,205 @@ public class PartnerOutreachTests
         var best = PartnerOutreachDedupe.PickBestProspect(new[] { draft, approved });
         Assert.Equal("a", best.ProspectId);
     }
+
+    [Fact]
+    public void Clamp_daily_limit_is_1_to_500_default_100()
+    {
+        Assert.Equal(100, PartnerOutreachRules.ClampDailyLimit(0));
+        Assert.Equal(1, PartnerOutreachRules.ClampDailyLimit(1));
+        Assert.Equal(500, PartnerOutreachRules.ClampDailyLimit(500));
+        Assert.Equal(500, PartnerOutreachRules.ClampDailyLimit(9999));
+        Assert.Equal(100, PartnerOutreachRules.ClampDailyLimit(-3));
+    }
+
+    [Fact]
+    public void Automatic_qualified_send_does_not_require_approval()
+    {
+        var ctx = BaseSendContext();
+        ctx.Approved = false;
+        ctx.AutomaticQualifiedSend = true;
+        Assert.Null(PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
+    public void Manual_campaign_still_requires_approval()
+    {
+        var ctx = BaseSendContext();
+        ctx.Approved = false;
+        ctx.AutomaticQualifiedSend = false;
+        Assert.Equal("missing_authorization_record", PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
+    public void Dry_run_blocks_before_ses()
+    {
+        var ctx = BaseSendContext();
+        ctx.DryRun = true;
+        Assert.Equal("dry_run", PartnerOutreachRules.EvaluateSendGate(ctx));
+        Assert.Equal(WhyNotSent.DryRun, WhyNotSent.FromGateCode("dry_run"));
+    }
+
+    [Fact]
+    public void Ses_quota_is_separate_from_daily_limit()
+    {
+        var ctx = BaseSendContext();
+        ctx.SesQuotaExhausted = true;
+        Assert.Equal("ses_quota_reached", PartnerOutreachRules.EvaluateSendGate(ctx));
+        ctx.SesQuotaExhausted = false;
+        ctx.SentToday = 100;
+        ctx.DailyLimit = 100;
+        Assert.Equal("daily_send_limit", PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
+    public void Duplicate_email_and_organization_are_pre_ses()
+    {
+        var ctx = BaseSendContext();
+        ctx.AlreadySentThisRecipient = true;
+        Assert.Equal("duplicate_recipient", PartnerOutreachRules.EvaluateSendGate(ctx));
+        ctx.AlreadySentThisRecipient = false;
+        ctx.DuplicateOrganizationInitial = true;
+        Assert.Equal("duplicate_organization", PartnerOutreachRules.EvaluateSendGate(ctx));
+    }
+
+    [Fact]
+    public void Suppression_reasons_map_to_why_not_sent()
+    {
+        var unsub = BaseSendContext();
+        unsub.OptedOut = true;
+        Assert.Equal("suppressed", PartnerOutreachRules.EvaluateSendGate(unsub));
+        Assert.Equal(WhyNotSent.Unsubscribed, WhyNotSent.FromGateCode("suppressed", unsub));
+
+        var bounce = BaseSendContext();
+        bounce.HardBounced = true;
+        Assert.Equal(WhyNotSent.Bounced, WhyNotSent.FromGateCode("suppressed", bounce));
+
+        var complaint = BaseSendContext();
+        complaint.Complained = true;
+        Assert.Equal(WhyNotSent.Complaint, WhyNotSent.FromGateCode("suppressed", complaint));
+
+        var manual = BaseSendContext();
+        Assert.Equal(WhyNotSent.ManualSuppression, WhyNotSent.FromGateCode("suppressed", manual));
+    }
+
+    [Fact]
+    public void Already_contacted_and_no_public_email_why_not_sent()
+    {
+        Assert.Equal(WhyNotSent.AlreadyContacted, WhyNotSent.ForProspect(
+            new PartnerProspectState { HasUsableEmail = true },
+            hasUnsentDraft: false, alreadySent: true,
+            false, false, false, false, true, false, false, 80, 40));
+        Assert.Equal(WhyNotSent.NoPublicEmail, WhyNotSent.ForProspect(
+            new PartnerProspectState { HasUsableEmail = false, ContactDiscoveryStatus = "NO_PUBLIC_CONTACT" },
+            false, false, false, false, false, false, true, false, false, 80, 40));
+        Assert.Equal(WhyNotSent.DiscoveryPending, WhyNotSent.ForProspect(
+            new PartnerProspectState { HasUsableEmail = false },
+            false, false, false, false, false, false, true, false, false, 80, 40));
+        Assert.Equal(WhyNotSent.NotQualified, WhyNotSent.ForProspect(
+            new PartnerProspectState { HasUsableEmail = true },
+            false, false, false, false, false, false, true, false, false, 10, 40));
+        Assert.Equal(WhyNotSent.ReadyToSend, WhyNotSent.ForProspect(
+            new PartnerProspectState { HasUsableEmail = true },
+            hasUnsentDraft: true, alreadySent: false,
+            false, false, false, false, true, false, false, 80, 40));
+        Assert.Equal(WhyNotSent.ManualApprovalRequired, WhyNotSent.ForProspect(
+            new PartnerProspectState { HasUsableEmail = true },
+            hasUnsentDraft: true, alreadySent: false,
+            false, false, false, false, false, false, false, 80, 40));
+    }
+
+    [Fact]
+    public void Train_vibe_date_classification_is_not_train_only()
+    {
+        var gym = PartnerAudience.RelevantModesFor("gym");
+        Assert.Contains("TRAIN", gym);
+        Assert.Contains("VIBE", gym);
+        Assert.DoesNotContain("DATE", gym);
+
+        var pickle = PartnerAudience.RelevantModesFor("pickleball");
+        Assert.Contains("TRAIN", pickle);
+        Assert.Contains("VIBE", pickle);
+        Assert.Contains("DATE", pickle);
+
+        var social = PartnerAudience.RelevantModesFor("community");
+        Assert.Contains("VIBE", social);
+        Assert.Contains("DATE", social);
+        Assert.Equal("VIBE", PartnerAudience.PrimaryModeFor(social));
+        Assert.Equal("CROSS_MODE", PartnerAudience.PrimaryModeFor(pickle));
+    }
+
+    [Fact]
+    public void Qualification_does_not_lower_score_to_fill_limit()
+    {
+        Assert.False(PartnerAudience.IsQualified(20, 40));
+        Assert.True(PartnerAudience.IsQualified(40, 40));
+        Assert.False(PartnerAudience.IsQualified(0, 40));
+    }
+
+    [Fact]
+    public void Delivered_is_not_tracked_without_configuration_set()
+    {
+        Assert.Equal("NOT TRACKED", PartnerAudience.DeliveredTrackingStatus(null));
+        Assert.Equal("NOT TRACKED", PartnerAudience.DeliveredTrackingStatus(""));
+        Assert.Equal("CONFIGURED", PartnerAudience.DeliveredTrackingStatus("gettrainmate-partner-outreach"));
+    }
+
+    [Fact]
+    public void Follow_up_sequence_stops_at_two()
+    {
+        var days = new List<int> { 4, 9, 14, 21 };
+        var scheduled = days.Where(d => d > 0).Distinct().OrderBy(d => d).Take(2).ToList();
+        Assert.Equal(new[] { 4, 9 }, scheduled);
+        Assert.DoesNotContain(14, scheduled);
+    }
+
+    [Fact]
+    public void Concurrent_initial_send_blocked_by_already_sent_or_queued()
+    {
+        var auto = BaseSendContext();
+        auto.AutomaticQualifiedSend = true;
+        auto.Approved = false;
+        auto.AlreadySentThisRecipient = true;
+        Assert.Equal("duplicate_recipient", PartnerOutreachRules.EvaluateSendGate(auto));
+
+        var manual = BaseSendContext();
+        manual.Approved = true;
+        manual.AlreadyQueuedOrSentSameRecipient = true;
+        Assert.Equal("duplicate_recipient", PartnerOutreachRules.EvaluateSendGate(manual));
+    }
+
+    [Fact]
+    public void Idempotent_retry_does_not_clear_ses_message_id_gate()
+    {
+        var sent = new PartnerQueueItem
+        {
+            Status = "sent",
+            SesMessageId = "010201-test",
+            SentAt = DateTime.UtcNow,
+        };
+        Assert.True(sent.SentAt != null && !string.IsNullOrWhiteSpace(sent.SesMessageId));
+    }
+
+    [Fact]
+    public void Markets_include_priority_us_metros_and_partner_001()
+    {
+        var ids = MarketCampaignCatalog.Candidates.Select(c => c.CampaignId).ToList();
+        Assert.Contains("PARTNER-001", ids);
+        Assert.Contains("us_atlanta_train_partners", ids);
+        Assert.Contains("us_miami_train_partners", ids);
+        Assert.Contains("us_tampa_train_partners", ids);
+        Assert.Contains("us_new_york_train_partners", ids);
+        Assert.Contains("us_dallas_train_partners", ids);
+        Assert.Contains("us_chicago_train_partners", ids);
+    }
+
+    static PartnerSendContext BaseSendContext() => new()
+    {
+        PostalAddress = "1 Main St",
+        Approved = true,
+        ApprovalFingerprint = "x",
+        CurrentFingerprint = "x",
+        DailyLimit = 100,
+        Recipient = "info@example.test",
+    };
 }

@@ -5,7 +5,9 @@ namespace GetTrainMate.Api.Services.PartnerOutreach;
 
 public static class PartnerOutreachRules
 {
-    public const int DefaultDailyLimit = 10;
+    public const int DefaultDailyLimit = 100;
+    public const int MinDailyLimit = 1;
+    public const int MaxDailyLimit = 500;
     public const int MinContactGapDays = 14;
     public const int DefaultMinAcquisitionScore = 40;
     public const string PartnerFromEmail = "partners@gettrainmate.com";
@@ -120,7 +122,9 @@ public static class PartnerOutreachRules
     public static string? EvaluateSendGate(PartnerSendContext ctx)
     {
         if (ctx.ScheduledCursorAutomation) return "scheduled_automation_blocked";
+        if (ctx.DryRun) return "dry_run";
         if (ctx.PauseAllOutreach) return "pause_all_outreach";
+        if (ctx.SesQuotaExhausted) return "ses_quota_reached";
 
         if (ctx.TestRecipientsOnly)
         {
@@ -148,8 +152,8 @@ public static class PartnerOutreachRules
         }
         else
         {
-            if (!ctx.Approved) return "missing_authorization_record";
-            if (ctx.ApprovalFingerprint != ctx.CurrentFingerprint) return "approval_invalidated";
+            if (!ctx.Approved && !ctx.AutomaticQualifiedSend) return "missing_authorization_record";
+            if (ctx.Approved && ctx.ApprovalFingerprint != ctx.CurrentFingerprint) return "approval_invalidated";
         }
 
         if (ctx.OptedOut || ctx.Complained || ctx.HardBounced) return "suppressed";
@@ -164,6 +168,12 @@ public static class PartnerOutreachRules
 
     public static bool ApprovalInvalidated(string storedFingerprint, string currentFingerprint)
         => !string.Equals(storedFingerprint, currentFingerprint, StringComparison.Ordinal);
+
+    public static int ClampDailyLimit(int value)
+    {
+        if (value <= 0) return DefaultDailyLimit;
+        return Math.Clamp(value, MinDailyLimit, MaxDailyLimit);
+    }
 }
 
 public sealed class PartnerSendContext
@@ -200,6 +210,10 @@ public sealed class PartnerSendContext
     public int FollowUpNumber { get; set; }
     public bool ParentWasApproved { get; set; }
     public bool CampaignActive { get; set; } = true;
+    /// <summary>When true, qualified initial outreach may send without a human approval row.</summary>
+    public bool AutomaticQualifiedSend { get; set; }
+    public bool DryRun { get; set; }
+    public bool SesQuotaExhausted { get; set; }
 }
 
 public sealed class AcquisitionScoreResult

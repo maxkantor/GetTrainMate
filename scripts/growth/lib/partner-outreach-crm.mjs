@@ -116,12 +116,20 @@ export async function fetchPartnerOutreachSnapshot() {
           : null;
     const attributedSignups7d =
       pipeline?.attributedSignups7d != null ? Number(pipeline.attributedSignups7d) : null;
-    const ownerActions = buildOwnerActions({
+    const ownerActionState = {
       needContact,
       awaitingApproval: awaiting,
       approvedEligible: approved,
       pauseAllOutreach: Boolean(settings?.pauseAllOutreach ?? metrics?.pauseAllOutreach),
-    });
+      automaticSending: Boolean(settings?.automaticSending),
+      autoDiscoverContacts: settings?.autoDiscoverContacts !== false,
+      autoDiscoverProspects: settings?.autoDiscoverProspects !== false,
+      sendQualifiedAutomatically: settings?.sendQualifiedAutomatically !== false,
+      dryRun: Boolean(settings?.dryRun),
+      safetyPaused: Boolean(settings?.complaintPause),
+      complaintPause: Boolean(settings?.complaintPause),
+    };
+    const ownerActions = buildOwnerActions(ownerActionState);
 
     return {
       status: 'ok',
@@ -140,6 +148,18 @@ export async function fetchPartnerOutreachSnapshot() {
         targetProspectInventory: Number(
           settings?.targetProspectInventory ?? pipeline?.targetProspectInventory ?? 200,
         ),
+        automaticSending: Boolean(settings?.automaticSending),
+        dryRun: Boolean(settings?.dryRun),
+        dailyLimit: Number(settings?.dailyLimit ?? 100),
+        sentToday: settings?.sentToday != null ? Number(settings.sentToday) : sentToday,
+        remaining: settings?.remaining != null ? Number(settings.remaining) : null,
+        sesRemaining: settings?.sesRemaining != null ? Number(settings.sesRemaining) : null,
+        sesMax24HourSend: settings?.sesMax24HourSend ?? null,
+        sesSentLast24Hours: settings?.sesSentLast24Hours ?? null,
+        deliveredTracking: settings?.deliveredTracking || 'NOT TRACKED',
+        autoDiscoverProspects: settings?.autoDiscoverProspects !== false,
+        autoDiscoverContacts: settings?.autoDiscoverContacts !== false,
+        sendQualifiedAutomatically: settings?.sendQualifiedAutomatically !== false,
       },
       discovery: summary,
       // Explicit funnel counts — 0 means queried and empty, never "Unavailable"
@@ -171,12 +191,7 @@ export async function fetchPartnerOutreachSnapshot() {
       customersAcquired: Number(ns.customersAcquired ?? 0),
       revenueAttributedCents: Number(ns.revenueAttributedCents ?? 0),
       ownerActions,
-      ownerAction: ownerActionSummary({
-        needContact,
-        awaitingApproval: awaiting,
-        approvedEligible: approved,
-        pauseAllOutreach: Boolean(settings?.pauseAllOutreach ?? metrics?.pauseAllOutreach),
-      }),
+      ownerAction: ownerActionSummary(ownerActionState),
       contactsAdminUrl: CONTACTS_ADMIN_URL,
       approvalsAdminUrl: APPROVALS_ADMIN_URL,
     };
@@ -264,6 +279,29 @@ export async function researchContactNeededBatch({ dryRun = false, max } = {}) {
     const body = max != null ? { max } : {};
     const result = await adminPost(token, '/api/admin/partner-outreach/research/contact-needed', body);
     return { ok: true, status: 'ok', result };
+  } catch (e) {
+    return {
+      ok: false,
+      status: 'failed',
+      reason: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+/**
+ * Full automatic partner acquisition: discover → contact → qualify → send → follow up.
+ */
+export async function runAutomaticPartnerAcquisition({ dryRun = false } = {}) {
+  const token = await adminCrmToken();
+  if (!token) {
+    return { ok: false, status: 'skipped', reason: 'Admin CRM credentials not configured' };
+  }
+  try {
+    await adminPost(token, '/api/admin/partner-outreach/bootstrap', {});
+    const result = await adminPost(token, '/api/admin/partner-outreach/automatic-run', {
+      dryRun,
+    });
+    return { ok: Boolean(result?.ok !== false), status: 'ok', result };
   } catch (e) {
     return {
       ok: false,

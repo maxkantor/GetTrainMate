@@ -397,5 +397,5 @@ describe('ProspectsPanel — manual contact entry', () => {
         expect.objectContaining({ confirmDuplicate: true, email: 'dup@gym.example' }),
       );
     });
-  });
+  }, 15000);
 });

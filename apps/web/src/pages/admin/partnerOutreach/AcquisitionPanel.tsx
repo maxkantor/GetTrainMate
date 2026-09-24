@@ -290,8 +290,8 @@ export const AcquisitionPanel: React.FC<Props> = ({
             </Button>
           }
         >
-          {approvedReady} approved for next send — the daily job will send when capacity and gates allow.
-          No Lambda or LIVE toggle required.
+          {approvedReady} ready to send — automatic sending will deliver them through SES when
+          capacity and gates allow. Manual Approve &amp; Send remains available.
         </Alert>
       )}
       {awaiting > 0 && (

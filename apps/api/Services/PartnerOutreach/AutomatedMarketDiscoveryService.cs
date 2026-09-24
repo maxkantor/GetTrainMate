@@ -189,19 +189,23 @@ public sealed class AutomatedMarketDiscoveryService
                 var hasEmail = verified != null;
                 var scored = ScoreProspect(org, hasEmail);
 
+                var modes = PartnerAudience.RelevantModesFor(org.OrganizationType, org.OrganizationName);
                 var prospect = new PartnerProspect
                 {
                     OrganizationName = org.OrganizationName,
                     OrganizationType = org.OrganizationType,
+                    ProspectCategory = org.OrganizationType,
                     ProspectType = "organization",
                     Website = org.Website,
                     Country = seed.Country,
+                    Region = seed.Country == "us" ? seed.Market : seed.Country,
                     City = seed.DisplayName,
                     Metro = seed.DisplayName,
                     Timezone = seed.Timezone,
                     PrimaryLanguage = org.PrimaryLanguage,
                     CampaignLanguage = lang,
-                    Mode = "TRAIN",
+                    Mode = PartnerAudience.PrimaryModeFor(modes),
+                    RelevantModes = modes.ToList(),
                     CampaignId = seed.CampaignId,
                     Activity = ActivityForType(org.OrganizationType),
                     PartnerCode = partnerCode,
@@ -227,6 +231,12 @@ public sealed class AutomatedMarketDiscoveryService
                 if (verified != null)
                 {
                     prospect.Email = verified.Email;
+                    prospect.EmailNormalized = verified.Email.Trim().ToLowerInvariant();
+                    prospect.EmailSource = "public_listing";
+                    prospect.EmailSourceUrl = verified.SourceUrl;
+                    prospect.EmailDiscoveryMethod = verified.SourceType ?? "website_page";
+                    prospect.EmailValidationStatus = "verified_public";
+                    prospect.EmailDiscoveredAt = DateTime.UtcNow;
                     prospect.SourceUrl = verified.SourceUrl;
                     prospect.ContactSourceUrl = verified.SourceUrl;
                     prospect.ContactSourceType = verified.SourceType ?? "website_page";
@@ -236,11 +246,16 @@ public sealed class AutomatedMarketDiscoveryService
                     prospect.EmailVerifiedOn = verified.VerifiedOnUtc.ToString("yyyy-MM-dd");
                     prospect.OfficialDomain = verified.Email.Split('@')[1];
                     prospect.EmailVerificationStatus = "verified_public";
+                    prospect.ContactDiscoveryStatus = ContactDiscoveryRules.DiscoveryEmailFound;
                     prospect.Status = "prospect";
                     prospect.CrmLifecycle = PartnerCrmLifecycle.Qualified;
                     prospect.ContactState = PartnerCrmLifecycle.ContactFound;
                     prospect.ContactabilityState = PartnerCrmLifecycle.ContactFound;
                     prospect.ContactabilityScore = scored.ContactQualityScore;
+                    prospect.QualificationScore = scored.AcquisitionScore;
+                    prospect.QualificationReasons = scored.ScoreExplanation;
+                    if (PartnerAudience.IsQualified(scored.AcquisitionScore, PartnerOutreachRules.DefaultMinAcquisitionScore))
+                        prospect.QualifiedAt = DateTime.UtcNow;
                     marketReport.VerifiedPublicContacts++;
                     report.VerifiedPublicContacts++;
                 }
@@ -249,11 +264,15 @@ public sealed class AutomatedMarketDiscoveryService
                     prospect.Email = "";
                     prospect.SourceUrl = org.Website;
                     prospect.EmailVerificationStatus = "no_verified_public_email";
+                    prospect.EmailValidationStatus = "NO_PUBLIC_EMAIL_FOUND";
+                    prospect.EmailDiscoveryMethod = "website_probe";
+                    prospect.ContactDiscoveryStatus = ContactDiscoveryRules.DiscoveryNoPublicContact;
                     prospect.Status = "no_verified_public_email";
                     prospect.CrmLifecycle = PartnerCrmLifecycle.New;
                     prospect.ContactState = PartnerCrmLifecycle.ContactNeeded;
                     prospect.ContactabilityState = PartnerCrmLifecycle.ContactNeeded;
                     prospect.ContactabilityScore = 0;
+                    prospect.NextResearchAt = DateTime.UtcNow.AddDays(7);
                     marketReport.ContactsUnavailable++;
                     report.ContactsUnavailable++;
                 }

@@ -14,9 +14,13 @@ public static class MarketCampaignCatalog
 
     public static IReadOnlyList<MarketCampaignSeed> Candidates { get; } = new[]
     {
+        Seed("PARTNER-001", "us", "multi", "GetTrainMate Partner Acquisition", "America/New_York", new[] { "en", "es", "ru" }, "active", "CROSS_MODE"),
         Seed("us_atlanta_train_partners", "us", "atlanta", "Atlanta Fitness & Sports Communities", "America/New_York", new[] { "en" }, "active", "CROSS_MODE"),
         Seed("us_miami_train_partners", "us", "miami", "Miami Active Lifestyle", "America/New_York", new[] { "en", "es" }, "candidate", "VIBE"),
+        Seed("us_tampa_train_partners", "us", "tampa", "Tampa Bay Fitness & Sports", "America/New_York", new[] { "en" }, "candidate", "CROSS_MODE"),
         Seed("us_new_york_train_partners", "us", "new-york", "NYC Social Sports", "America/New_York", new[] { "en", "es", "ru" }, "candidate", "CROSS_MODE"),
+        Seed("us_dallas_train_partners", "us", "dallas", "Dallas Fitness Communities", "America/Chicago", new[] { "en" }, "candidate", "TRAIN"),
+        Seed("us_chicago_train_partners", "us", "chicago", "Chicago Active Lifestyle", "America/Chicago", new[] { "en" }, "candidate", "CROSS_MODE"),
         Seed("gb_london_train_partners", "gb", "london", "London Training Communities", "Europe/London", new[] { "en" }, "candidate", "TRAIN"),
         Seed("ca_toronto_train_partners", "ca", "toronto", "Toronto Active Lifestyle", "America/Toronto", new[] { "en" }, "candidate", "CROSS_MODE"),
     };

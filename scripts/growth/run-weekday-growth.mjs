@@ -16,9 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { easternIsoDate } from './lib/owned-social-catalog.mjs';
 import { ensureGrowthDeps } from './lib/ensure-growth-deps.mjs';
 import {
-  dispatchApprovedPartnerOutreach,
-  researchContactNeededBatch,
-  runLimitedPartnerDiscovery
+  runAutomaticPartnerAcquisition
 } from './lib/partner-outreach-crm.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -215,44 +213,19 @@ async function main() {
       }
     }
 
-    // Limited partner discovery + dispatch of previously approved recipients only
-    // (initial cold email never auto-approves). Discovery failures do not abort social/report.
-    let partnerDiscovery = null;
-    let partnerDispatch = null;
+    // Automatic partner acquisition (discover → contact → qualify → SES send → follow-up).
+    // Does not change Facebook/Instagram publishing. Failures do not abort social/report.
     try {
-      partnerDiscovery = await runLimitedPartnerDiscovery({
-        dryRun: args.dryRun,
-        prepareDrafts: true,
-        seedsOnly: false
-      });
-      report.partnerDiscovery = partnerDiscovery;
-      if (partnerDiscovery?.ok) {
-        notesObj.partnerDiscovery = `prospects=${partnerDiscovery.prospectsFound ?? 0} drafts=${partnerDiscovery.draftsCreated ?? 0} status=${partnerDiscovery.status}`;
-      } else if (partnerDiscovery?.status !== 'skipped' && partnerDiscovery?.status !== 'dry_run') {
-        report.errors.push(`partner_discovery:${partnerDiscovery?.reason || partnerDiscovery?.status || 'failed'}`);
+      const partnerRun = await runAutomaticPartnerAcquisition({ dryRun: args.dryRun });
+      report.partnerAcquisition = partnerRun;
+      if (partnerRun?.ok && partnerRun.result) {
+        const r = partnerRun.result;
+        notesObj.partnerAcquisition = `auto=${r.automatic ? 'ON' : 'OFF'} dryRun=${r.dryRun ? 'ON' : 'OFF'} sesAccepted=${r.sending?.sesAccepted ?? 0} remaining=${r.remaining ?? 0}`;
+      } else if (partnerRun?.status !== 'skipped') {
+        report.errors.push(`partner_acquisition:${partnerRun?.reason || partnerRun?.status || 'failed'}`);
       }
     } catch (e) {
-      report.errors.push(`partner_discovery:${e instanceof Error ? e.message : String(e)}`);
-    }
-    try {
-      const contactResearch = await researchContactNeededBatch({ dryRun: args.dryRun });
-      report.partnerContactResearch = contactResearch;
-      if (contactResearch?.ok && contactResearch.result) {
-        notesObj.partnerContactResearch = JSON.stringify(contactResearch.result).slice(0, 240);
-      } else if (contactResearch?.status !== 'skipped' && contactResearch?.status !== 'dry_run') {
-        report.errors.push(`partner_contact_research:${contactResearch?.reason || contactResearch?.status || 'failed'}`);
-      }
-    } catch (e) {
-      report.errors.push(`partner_contact_research:${e instanceof Error ? e.message : String(e)}`);
-    }
-    try {
-      partnerDispatch = await dispatchApprovedPartnerOutreach({ dryRun: args.dryRun });
-      report.partnerDispatch = partnerDispatch;
-      if (partnerDispatch?.ok && partnerDispatch.result) {
-        notesObj.partnerDispatch = `sent=${partnerDispatch.result.sent ?? 0}`;
-      }
-    } catch (e) {
-      report.errors.push(`partner_dispatch:${e instanceof Error ? e.message : String(e)}`);
+      report.errors.push(`partner_acquisition:${e instanceof Error ? e.message : String(e)}`);
     }
 
     // Refresh notes after partner steps (emailArgs was built earlier)

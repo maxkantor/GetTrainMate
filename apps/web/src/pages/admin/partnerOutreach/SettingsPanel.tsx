@@ -34,6 +34,14 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
   const [draftsPerRun, setDraftsPerRun] = useState(5);
   const [keepPipelineFull, setKeepPipelineFull] = useState(false);
   const [targetProspectInventory, setTargetProspectInventory] = useState(200);
+  const [automaticSending, setAutomaticSending] = useState(true);
+  const [dryRun, setDryRun] = useState(false);
+  const [dailyLimit, setDailyLimit] = useState(100);
+  const [autoDiscoverProspects, setAutoDiscoverProspects] = useState(true);
+  const [autoDiscoverContacts, setAutoDiscoverContacts] = useState(true);
+  const [autoPrepareMessages, setAutoPrepareMessages] = useState(true);
+  const [followUpsEnabled, setFollowUpsEnabled] = useState(true);
+  const [sendQualifiedAutomatically, setSendQualifiedAutomatically] = useState(true);
   const [confirmPause, setConfirmPause] = useState(false);
 
   const applyLocal = (s: OutreachSettings) => {
@@ -46,6 +54,14 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
     setDraftsPerRun(s.draftsPerRun ?? 5);
     setKeepPipelineFull(Boolean(s.keepPipelineFull));
     setTargetProspectInventory(s.targetProspectInventory ?? 200);
+    setAutomaticSending(s.automaticSending !== false);
+    setDryRun(Boolean(s.dryRun));
+    setDailyLimit(s.dailyLimit ?? 100);
+    setAutoDiscoverProspects(s.autoDiscoverProspects !== false);
+    setAutoDiscoverContacts(s.autoDiscoverContacts !== false);
+    setAutoPrepareMessages(s.autoPrepareMessages !== false);
+    setFollowUpsEnabled(s.followUpsEnabled !== false);
+    setSendQualifiedAutomatically(s.sendQualifiedAutomatically !== false);
   };
 
   const load = useCallback(async () => {
@@ -81,6 +97,14 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
         draftsPerRun,
         keepPipelineFull,
         targetProspectInventory,
+        automaticSending,
+        dryRun,
+        dailyLimit,
+        autoDiscoverProspects,
+        autoDiscoverContacts,
+        autoPrepareMessages,
+        followUpsEnabled,
+        sendQualifiedAutomatically,
       };
       const updated = (await adminApiService.put(`${API}/settings`, body)) as OutreachSettings;
       applyLocal(updated);
@@ -101,11 +125,84 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
       <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
         Outreach controls
       </Typography>
-      <Alert severity="info" sx={{ mb: 2 }}>
-        Normal workflow: Approvals → APPROVE &amp; SEND. You do not need Lambda flags, AWS Console,
-        or a LIVE mode toggle. Admin approval authorizes SES send (subject to daily limit, pause,
-        and suppression).
+      <Alert severity={settings?.automaticSending ? 'success' : 'warning'} sx={{ mb: 2 }}>
+        AUTOMATIC SENDING: {settings?.automaticSending ? 'ON' : 'OFF'} · DRY RUN:{' '}
+        {settings?.dryRun ? 'ON' : 'OFF'} · DAILY LIMIT: {settings?.dailyLimit ?? 100} · SENT TODAY:{' '}
+        {settings?.sentToday ?? 0} · REMAINING: {settings?.remaining ?? '—'} · SES REMAINING:{' '}
+        {settings?.sesRemaining ?? '—'} · Delivered: {settings?.deliveredTracking || 'NOT TRACKED'}
       </Alert>
+
+      <Box sx={{ p: 2, border: '2px solid', borderColor: 'primary.main', borderRadius: 2, mb: 3 }}>
+        <Typography sx={{ fontWeight: 800, mb: 1 }}>Automatic partner acquisition</Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={automaticSending}
+              onChange={(_, v) => setAutomaticSending(v)}
+            />
+          }
+          label={`AUTOMATIC SENDING: ${automaticSending ? 'ON' : 'OFF'}`}
+        />
+        <FormControlLabel
+          control={<Switch checked={dryRun} onChange={(_, v) => setDryRun(v)} />}
+          label={`DRY RUN: ${dryRun ? 'ON' : 'OFF'}`}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={sendQualifiedAutomatically}
+              onChange={(_, v) => setSendQualifiedAutomatically(v)}
+            />
+          }
+          label={`Send qualified automatically: ${sendQualifiedAutomatically ? 'ON' : 'OFF'}`}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={autoDiscoverProspects}
+              onChange={(_, v) => setAutoDiscoverProspects(v)}
+            />
+          }
+          label={`Auto-discover prospects: ${autoDiscoverProspects ? 'ON' : 'OFF'}`}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={autoDiscoverContacts}
+              onChange={(_, v) => setAutoDiscoverContacts(v)}
+            />
+          }
+          label={`Auto-discover contacts: ${autoDiscoverContacts ? 'ON' : 'OFF'}`}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={autoPrepareMessages}
+              onChange={(_, v) => setAutoPrepareMessages(v)}
+            />
+          }
+          label={`Auto-prepare messages: ${autoPrepareMessages ? 'ON' : 'OFF'}`}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={followUpsEnabled}
+              onChange={(_, v) => setFollowUpsEnabled(v)}
+            />
+          }
+          label={`Follow-ups: ${followUpsEnabled ? 'ON' : 'OFF'}`}
+        />
+        <TextField
+          fullWidth
+          size="small"
+          type="number"
+          label="Daily limit (1–500)"
+          value={dailyLimit}
+          onChange={(e) => setDailyLimit(Math.min(500, Math.max(1, Number(e.target.value) || 1)))}
+          sx={{ mt: 1 }}
+          helperText="Maximum, not a quota. Only genuinely qualified new contacts are sent."
+        />
+      </Box>
 
       <Box sx={{ p: 2, border: '1px solid', borderColor: 'error.main', borderRadius: 2, mb: 3 }}>
         <Typography sx={{ fontWeight: 800, mb: 1 }}>Emergency pause</Typography>
