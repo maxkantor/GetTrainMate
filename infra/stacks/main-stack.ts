@@ -124,7 +124,7 @@ export class GetTrainMateStack extends cdk.Stack {
       runtime: new lambda.Runtime('dotnet10', lambda.RuntimeFamily.DOTNET_CORE),
       handler: 'GetTrainMate.Api::GetTrainMate.Api.LambdaEntryPoint::HandleAwsEventAsync',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../apps/api/publish')),
-      timeout: cdk.Duration.seconds(60),
+      timeout: cdk.Duration.seconds(90),
       memorySize: 512,
       environment: {
         ASPNETCORE_ENVIRONMENT: 'Production',
@@ -273,6 +273,7 @@ export class GetTrainMateStack extends cdk.Stack {
       actions: [
         'ses:SendEmail',
         'ses:SendRawEmail',
+        'ses:GetSendQuota',
       ],
       resources: ['*'], // SES doesn't support resource-level permissions for SendEmail
     }));

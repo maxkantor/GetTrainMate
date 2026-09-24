@@ -104,11 +104,24 @@ public sealed partial class PartnerOutreachService
         object? discovery = null;
         object? contacts = null;
 
-        if (settings.AutoDiscoverContacts && DateTime.UtcNow < deadline)
+        var prospects = await ListProspectsAsync(null);
+        TallyQualification(prospects, ref publicContacts, ref validContacts, ref qualified);
+
+        if (settings.AutoPrepareMessages && DateTime.UtcNow < deadline)
+            draftsPrepared += await PrepareMissingDraftsAsync(prospects, campaign, settings, deadline, Skip);
+
+        queue = await ListQueueAsync(null);
+        remaining = await SendReadyAsync(
+            queue, settings, dryRun, actor, deadline, quota, remaining, sesRemaining,
+            skipped, (n) => sesAttempted += n, (n) => sesAccepted += n, (n) => sesRejected += n);
+
+        // Replenish only after existing ready sends/dry-run skips, and only if time remains.
+        if (settings.AutoDiscoverContacts && DateTime.UtcNow < deadline && remaining > 0)
         {
             try
             {
-                contacts = await ResearchContactNeededBatchAsync(settings.ResearchContactsPerRun, actor);
+                var researchMax = budget <= 20 ? 2 : settings.ResearchContactsPerRun;
+                contacts = await ResearchContactNeededBatchAsync(researchMax, actor);
             }
             catch (Exception ex)
             {
@@ -116,13 +129,13 @@ public sealed partial class PartnerOutreachService
             }
         }
 
-        if (settings.AutoDiscoverProspects && DateTime.UtcNow < deadline)
+        if (settings.AutoDiscoverProspects && DateTime.UtcNow < deadline && remaining > 0)
         {
             try
             {
                 var discoverySvc = _services.GetRequiredService<AutomatedMarketDiscoveryService>();
-                var maxProspects = Math.Min(Math.Max(settings.ProspectsPerRun, 8), 20);
-                if (settings.KeepPipelineFull)
+                var maxProspects = budget <= 20 ? 3 : Math.Min(Math.Max(settings.ProspectsPerRun, 8), 20);
+                if (settings.KeepPipelineFull && budget > 20)
                 {
                     var pipelineNow = await GetPipelineCountersAsync();
                     var eligible = pipelineNow.GetType().GetProperty("eligibleUnsent")?.GetValue(pipelineNow) is int e
@@ -135,8 +148,8 @@ public sealed partial class PartnerOutreachService
                 }
                 var report = await discoverySvc.RunLimitedAsync(
                     maxProspects: maxProspects,
-                    maxResearchAttempts: settings.ResearchAttemptsPerRun,
-                    maxDrafts: settings.DraftsPerRun,
+                    maxResearchAttempts: budget <= 20 ? 2 : settings.ResearchAttemptsPerRun,
+                    maxDrafts: budget <= 20 ? 2 : settings.DraftsPerRun,
                     prepareDrafts: settings.AutoPrepareMessages);
                 discovery = report;
                 newProspects = report.OrganizationsDiscovered;
@@ -147,122 +160,20 @@ public sealed partial class PartnerOutreachService
             }
         }
 
-        var prospects = await ListProspectsAsync(null);
+        prospects = await ListProspectsAsync(null);
         prospectsEvaluated = prospects.Count;
-        queue = await ListQueueAsync(null);
-
-        foreach (var p in prospects)
-        {
-            if (ContactDiscoveryRules.HasUsableEmail(p))
-            {
-                publicContacts++;
-                validContacts++;
-                var score = p.QualificationScore > 0 ? p.QualificationScore : p.AcquisitionScore;
-                if (score >= PartnerOutreachRules.DefaultMinAcquisitionScore)
-                {
-                    qualified++;
-                    if (p.QualifiedAt == null)
-                    {
-                        p.QualificationScore = score;
-                        p.QualificationReasons = p.ScoreExplanation ?? p.WhySelected;
-                        p.QualifiedAt = DateTime.UtcNow;
-                        p.EmailNormalized = (p.Email ?? "").Trim().ToLowerInvariant();
-                        await _db.SaveAsync(p);
-                    }
-                }
-            }
-        }
+        publicContacts = 0;
+        validContacts = 0;
+        qualified = 0;
+        TallyQualification(prospects, ref publicContacts, ref validContacts, ref qualified);
 
         if (settings.AutoPrepareMessages && DateTime.UtcNow < deadline)
-        {
-            var unsent = prospects.Where(p =>
-                ContactDiscoveryRules.HasUsableEmail(p)
-                && (p.QualificationScore >= PartnerOutreachRules.DefaultMinAcquisitionScore
-                    || p.AcquisitionScore >= PartnerOutreachRules.DefaultMinAcquisitionScore)
-                && p.LastContactedAt == null
-                && !queue.Any(q =>
-                    string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
-                    && q.FollowUpNumber == 0)).Take(settings.DraftsPerRun).ToList();
-            foreach (var p in unsent)
-            {
-                if (DateTime.UtcNow >= deadline) break;
-                try
-                {
-                    await CreateDraftAndQueuePreviewAsync(p.ProspectId, p.CampaignId ?? campaign.CampaignId);
-                    draftsPrepared++;
-                }
-                catch (Exception ex)
-                {
-                    Skip(ex.Message);
-                    _log.LogDebug(ex, "Draft prepare skipped {Id}", p.ProspectId);
-                }
-            }
-            queue = await ListQueueAsync(null);
-        }
+            draftsPrepared += await PrepareMissingDraftsAsync(prospects, campaign, settings, deadline, Skip);
 
-        var sendable = queue
-            .Where(q => q.FollowUpNumber == 0 && q.Status is "draft" or "approved" or "approved_for_next_send")
-            .OrderBy(q => q.CreatedAt)
-            .ToList();
-
-        if (!settings.AutomaticSending || !settings.SendQualifiedAutomatically)
-        {
-            foreach (var _ in sendable) Skip(WhyNotSent.ManualApprovalRequired);
-        }
-        else if (settings.PauseAllOutreach || settings.ComplaintPause)
-        {
-            foreach (var _ in sendable) Skip(WhyNotSent.SafetyPaused);
-        }
-        else
-        {
-            foreach (var item in sendable)
-            {
-                if (DateTime.UtcNow >= deadline) break;
-                if (remaining <= 0)
-                {
-                    Skip(sesRemaining <= 0 ? WhyNotSent.SesQuotaReached : WhyNotSent.DailyLimitReached);
-                    continue;
-                }
-
-                var gate = await BuildGateAsync(item, settings, scheduled: false);
-                gate.AutomaticQualifiedSend = true;
-                gate.DryRun = dryRun;
-                gate.SesQuotaExhausted = quota != null && quota.Remaining24Hours < 1;
-                var code = PartnerOutreachRules.EvaluateSendGate(gate);
-                if (code != null)
-                {
-                    Skip(WhyNotSent.FromGateCode(code, gate));
-                    continue;
-                }
-
-                if (dryRun)
-                {
-                    Skip(WhyNotSent.DryRun);
-                    continue;
-                }
-
-                try
-                {
-                    if (string.IsNullOrWhiteSpace(item.ApprovalId))
-                        await StampAutomaticApprovalAsync(item, actor);
-                    sesAttempted++;
-                    await SendQueueItemAsync(item);
-                    sesAccepted++;
-                    remaining--;
-                    settings.SentCount++;
-                    await _db.SaveAsync(settings);
-                }
-                catch (Exception ex)
-                {
-                    sesRejected++;
-                    Skip("SES_ERROR");
-                    item.Status = "failed";
-                    item.LastError = "send_failed";
-                    await _db.SaveAsync(item);
-                    _log.LogError(ex, "Automatic send failed {Id}", item.QueueId);
-                }
-            }
-        }
+        queue = await ListQueueAsync(null);
+        remaining = await SendReadyAsync(
+            queue, settings, dryRun, actor, deadline, quota, remaining, sesRemaining,
+            skipped, (n) => sesAttempted += n, (n) => sesAccepted += n, (n) => sesRejected += n);
 
         object? followUps = null;
         if (settings.FollowUpsEnabled && !dryRun && DateTime.UtcNow < deadline)
@@ -305,6 +216,145 @@ public sealed partial class PartnerOutreachService
             elapsedMs = (int)(DateTime.UtcNow - started).TotalMilliseconds,
             budgetSeconds = budget,
         };
+    }
+
+    static void TallyQualification(
+        List<PartnerProspect> prospects, ref int publicContacts, ref int validContacts, ref int qualified)
+    {
+        foreach (var p in prospects)
+        {
+            if (!ContactDiscoveryRules.HasUsableEmail(p)) continue;
+            publicContacts++;
+            validContacts++;
+            var score = p.QualificationScore > 0 ? p.QualificationScore : p.AcquisitionScore;
+            if (score >= PartnerOutreachRules.DefaultMinAcquisitionScore)
+                qualified++;
+        }
+    }
+
+    async Task<int> PrepareMissingDraftsAsync(
+        List<PartnerProspect> prospects,
+        PartnerCampaign campaign,
+        PartnerOutreachSettingsRow settings,
+        DateTime deadline,
+        Action<string> skip)
+    {
+        var queue = await ListQueueAsync(null);
+        var unsent = prospects.Where(p =>
+            ContactDiscoveryRules.HasUsableEmail(p)
+            && (p.QualificationScore >= PartnerOutreachRules.DefaultMinAcquisitionScore
+                || p.AcquisitionScore >= PartnerOutreachRules.DefaultMinAcquisitionScore)
+            && p.LastContactedAt == null
+            && !queue.Any(q =>
+                string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                && q.FollowUpNumber == 0)).Take(settings.DraftsPerRun).ToList();
+        var prepared = 0;
+        foreach (var p in unsent)
+        {
+            if (DateTime.UtcNow >= deadline) break;
+            try
+            {
+                if (p.QualifiedAt == null)
+                {
+                    p.QualificationScore = p.QualificationScore > 0 ? p.QualificationScore : p.AcquisitionScore;
+                    p.QualificationReasons = p.ScoreExplanation ?? p.WhySelected;
+                    p.QualifiedAt = DateTime.UtcNow;
+                    p.EmailNormalized = (p.Email ?? "").Trim().ToLowerInvariant();
+                    await _db.SaveAsync(p);
+                }
+                await CreateDraftAndQueuePreviewAsync(p.ProspectId, p.CampaignId ?? campaign.CampaignId);
+                prepared++;
+            }
+            catch (Exception ex)
+            {
+                skip(ex.Message);
+                _log.LogDebug(ex, "Draft prepare skipped {Id}", p.ProspectId);
+            }
+        }
+        return prepared;
+    }
+
+    async Task<int> SendReadyAsync(
+        List<PartnerQueueItem> queue,
+        PartnerOutreachSettingsRow settings,
+        bool dryRun,
+        string actor,
+        DateTime deadline,
+        SesSendQuota? quota,
+        int remaining,
+        int sesRemaining,
+        Dictionary<string, int> skipped,
+        Action<int> onAttempted,
+        Action<int> onAccepted,
+        Action<int> onRejected)
+    {
+        void Skip(string reason) =>
+            skipped[reason] = skipped.TryGetValue(reason, out var n) ? n + 1 : 1;
+
+        var sendable = queue
+            .Where(q => q.FollowUpNumber == 0 && q.Status is "draft" or "approved" or "approved_for_next_send")
+            .OrderBy(q => q.CreatedAt)
+            .ToList();
+
+        if (!settings.AutomaticSending || !settings.SendQualifiedAutomatically)
+        {
+            foreach (var _ in sendable) Skip(WhyNotSent.ManualApprovalRequired);
+            return remaining;
+        }
+        if (settings.PauseAllOutreach || settings.ComplaintPause)
+        {
+            foreach (var _ in sendable) Skip(WhyNotSent.SafetyPaused);
+            return remaining;
+        }
+
+        foreach (var item in sendable)
+        {
+            if (DateTime.UtcNow >= deadline) break;
+            if (remaining <= 0)
+            {
+                Skip(sesRemaining <= 0 ? WhyNotSent.SesQuotaReached : WhyNotSent.DailyLimitReached);
+                continue;
+            }
+
+            var gate = await BuildGateAsync(item, settings, scheduled: false);
+            gate.AutomaticQualifiedSend = true;
+            gate.DryRun = dryRun;
+            gate.SesQuotaExhausted = quota != null && quota.Remaining24Hours < 1;
+            var code = PartnerOutreachRules.EvaluateSendGate(gate);
+            if (code != null)
+            {
+                Skip(WhyNotSent.FromGateCode(code, gate));
+                continue;
+            }
+
+            if (dryRun)
+            {
+                Skip(WhyNotSent.DryRun);
+                continue;
+            }
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(item.ApprovalId))
+                    await StampAutomaticApprovalAsync(item, actor);
+                onAttempted(1);
+                await SendQueueItemAsync(item);
+                onAccepted(1);
+                remaining--;
+                settings.SentCount++;
+                await _db.SaveAsync(settings);
+            }
+            catch (Exception ex)
+            {
+                onRejected(1);
+                Skip("SES_ERROR");
+                item.Status = "failed";
+                item.LastError = "send_failed";
+                await _db.SaveAsync(item);
+                _log.LogError(ex, "Automatic send failed {Id}", item.QueueId);
+            }
+        }
+        return remaining;
     }
 
     async Task<PartnerCampaign> EnsurePartner001Async()

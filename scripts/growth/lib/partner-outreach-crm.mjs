@@ -335,6 +335,8 @@ async function invokeAutomaticAcquisitionLambda({ dryRun = false } = {}) {
       'raw-in-base64-out',
       '--payload',
       payload,
+      '--cli-read-timeout',
+      '120',
       outfile,
     ],
     { encoding: 'utf8' },
