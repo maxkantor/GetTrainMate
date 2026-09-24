@@ -380,6 +380,28 @@ public class Startup
             }
         }
 
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PARTNER_UNSUBSCRIBE_SIGNING_SECRET"))
+            && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GETTRAINMATE_UNSUBSCRIBE_SECRET")))
+        {
+            try
+            {
+                using var ssmUnsub = new AmazonSimpleSystemsManagementClient();
+                var unsubResp = ssmUnsub.GetParameterAsync(new GetParameterRequest
+                {
+                    Name = "/gettrainmate/partner/unsubscribe-signing-secret",
+                    WithDecryption = true
+                }).GetAwaiter().GetResult();
+                var unsubSecret = unsubResp.Parameter?.Value?.Trim() ?? "";
+                if (!string.IsNullOrEmpty(unsubSecret))
+                    Environment.SetEnvironmentVariable("PARTNER_UNSUBSCRIBE_SIGNING_SECRET", unsubSecret);
+            }
+            catch (ParameterNotFoundException) { /* optional until bootstrapped */ }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Could not load partner unsubscribe signing secret from SSM");
+            }
+        }
+
         if (!string.IsNullOrEmpty(sesFromEmail) && !string.IsNullOrEmpty(sesAdminEmail))
         {
             Log.Information(
