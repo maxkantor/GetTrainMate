@@ -111,7 +111,7 @@ public class PartnerOutreachInternalController : ControllerBase
     public async Task<IActionResult> AutomaticRun([FromBody] AutomaticRunRequest? req)
     {
         if (!Authorized()) return Unauthorized();
-        return Ok(await _svc.RunAutomaticAcquisitionAsync("scheduler", req?.DryRun));
+        return Ok(await _svc.RunAutomaticAcquisitionAsync("scheduler", req?.DryRun, budgetSeconds: 18));
     }
 
     [HttpPost("bootstrap")]

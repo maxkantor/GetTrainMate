@@ -549,7 +549,8 @@ public class AdminPartnerOutreachController : ControllerBase
         {
             return Ok(await _svc.RunAutomaticAcquisitionAsync(
                 User?.Identity?.Name ?? "admin",
-                req?.DryRun));
+                req?.DryRun,
+                budgetSeconds: 18));
         }
         catch (Exception ex) { return BadRequest(new { error = ex.Message }); }
     }

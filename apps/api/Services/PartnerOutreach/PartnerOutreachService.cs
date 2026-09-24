@@ -70,7 +70,7 @@ public interface IPartnerOutreachService
     Task<ContactDiscoveryResult> DiscoverContactForJobAsync(string prospectId, string actor, bool force = true);
     /// <summary>Operational counters for the Prospects acquisition control center.</summary>
     Task<object> GetPipelineCountersAsync();
-    Task<object> RunAutomaticAcquisitionAsync(string actor, bool? dryRunOverride = null);
+    Task<object> RunAutomaticAcquisitionAsync(string actor, bool? dryRunOverride = null, int? budgetSeconds = null);
     Task<object> BootstrapProductionCampaignAsync();
     Task<string> WhyNotSentAsync(string prospectId);
     /// <summary>Promotes a medium-confidence pending candidate to the prospect email.</summary>

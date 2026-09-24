@@ -66,10 +66,11 @@ public sealed partial class PartnerOutreachService
             PartnerOutreachRules.DefaultMinAcquisitionScore);
     }
 
-    public async Task<object> RunAutomaticAcquisitionAsync(string actor, bool? dryRunOverride = null)
+    public async Task<object> RunAutomaticAcquisitionAsync(string actor, bool? dryRunOverride = null, int? budgetSeconds = null)
     {
         var started = DateTime.UtcNow;
-        var deadline = started.AddSeconds(45);
+        var budget = budgetSeconds is > 0 ? Math.Clamp(budgetSeconds.Value, 8, 50) : 45;
+        var deadline = started.AddSeconds(budget);
         var settings = await LoadSettingsAsync();
         var campaign = await EnsurePartner001Async();
         var dryRun = dryRunOverride ?? settings.DryRun;
@@ -302,6 +303,7 @@ public sealed partial class PartnerOutreachService
             followUps,
             pipeline = counters,
             elapsedMs = (int)(DateTime.UtcNow - started).TotalMilliseconds,
+            budgetSeconds = budget,
         };
     }
 

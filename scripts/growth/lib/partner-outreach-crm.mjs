@@ -303,12 +303,59 @@ export async function runAutomaticPartnerAcquisition({ dryRun = false } = {}) {
     });
     return { ok: Boolean(result?.ok !== false), status: 'ok', result };
   } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    // API Gateway times out ~29s; EventBridge/Lambda invoke has the 60s function budget.
+    if (/503|504|Service Unavailable|timeout/i.test(reason)) {
+      const viaLambda = await invokeAutomaticAcquisitionLambda({ dryRun });
+      if (viaLambda) return viaLambda;
+    }
+    return { ok: false, status: 'failed', reason };
+  }
+}
+
+async function invokeAutomaticAcquisitionLambda({ dryRun = false } = {}) {
+  const { spawnSync } = await import('node:child_process');
+  const { writeFileSync, readFileSync, unlinkSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const payload = JSON.stringify({
+    'detail-type': 'partner-outreach-dispatch',
+    source: 'gettrainmate.partner',
+    dryRun,
+  });
+  const outfile = join(tmpdir(), `gtm-auto-acq-${Date.now()}.json`);
+  const out = spawnSync(
+    'aws',
+    [
+      'lambda',
+      'invoke',
+      '--function-name',
+      'GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u',
+      '--cli-binary-format',
+      'raw-in-base64-out',
+      '--payload',
+      payload,
+      outfile,
+    ],
+    { encoding: 'utf8' },
+  );
+  let result = { invoked: 'lambda', dryRun };
+  try {
+    const raw = readFileSync(outfile, 'utf8');
+    try { result = { ...JSON.parse(raw), invoked: 'lambda' }; } catch { result.raw = raw.slice(0, 400); }
+    unlinkSync(outfile);
+  } catch {
+    /* ignore */
+  }
+  if (out.status !== 0) {
     return {
       ok: false,
       status: 'failed',
-      reason: e instanceof Error ? e.message : String(e),
+      reason: `lambda_invoke_failed: ${(out.stderr || out.stdout || '').slice(0, 240)}`,
+      result,
     };
   }
+  return { ok: true, status: 'ok', result };
 }
 
 /**
