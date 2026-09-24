@@ -225,7 +225,7 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
       </Typography>
       <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap', mb: 3 }}>
         <MetricCard label="Sent" value={metrics?.sent ?? 0} />
-        <MetricCard label="Delivered" value={metrics?.delivered ?? 0} />
+        <MetricCard label="Delivered" value="NOT TRACKED" note="SES delivery telemetry is not configured" />
         <MetricCard label="Bounced" value={metrics?.bounced ?? 0} />
         <MetricCard label="Replies" value={metrics?.replies ?? 0} />
         <MetricCard label="Complaints" value={metrics?.complaints ?? 0} />
