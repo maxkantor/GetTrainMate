@@ -115,8 +115,11 @@ public sealed partial class PartnerOutreachService
             queue, settings, dryRun, actor, deadline, quota, remaining, sesRemaining,
             skipped, (n) => sesAttempted += n, (n) => sesAccepted += n, (n) => sesRejected += n);
 
+        // HTTP/API Gateway (~29s) cannot finish Overpass + site scrapes. Replenish on the 45s Lambda path.
+        var allowReplenish = budget > 20 && remaining > 0 && DateTime.UtcNow < deadline;
+
         // Replenish only after existing ready sends/dry-run skips, and only if time remains.
-        if (settings.AutoDiscoverContacts && DateTime.UtcNow < deadline && remaining > 0)
+        if (settings.AutoDiscoverContacts && allowReplenish)
         {
             try
             {
@@ -129,7 +132,7 @@ public sealed partial class PartnerOutreachService
             }
         }
 
-        if (settings.AutoDiscoverProspects && DateTime.UtcNow < deadline && remaining > 0)
+        if (settings.AutoDiscoverProspects && allowReplenish)
         {
             try
             {
