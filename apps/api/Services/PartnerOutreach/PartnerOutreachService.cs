@@ -797,11 +797,15 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         var errors = new List<string>();
         var usedEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var usedOrgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var limit = settings.DailyLimit > 0 ? settings.DailyLimit : PartnerOutreachRules.DefaultDailyLimit;
+        var limit = PartnerOutreachRules.ClampDailyLimit(
+            settings.DailyLimit > 0 ? settings.DailyLimit : PartnerOutreachRules.DefaultDailyLimit);
+        var todayEt = PartnerOutreachRules.EasternNowDate();
+        var sentToday = allQueue.Count(x =>
+            x.SentAt != null && PartnerOutreachRules.ToEasternDate(x.SentAt.Value) == todayEt);
 
         foreach (var item in due)
         {
-            if (sent >= limit)
+            if (sentToday + sent >= limit)
                 break;
             var emailKey = item.Recipient.Trim().ToLowerInvariant();
             var isFollowUp = item.FollowUpNumber > 0 && item.AllowAutomatedFollowUp;
@@ -891,9 +895,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 && parent.Status is "sent" or "delivered" or "replied" or "approved" or "approved_for_next_send";
         }
 
+        // Settings DailyLimit is the authoritative global cap. PARTNER-001 must not raise it.
         var dailyCap = settings.DailyLimit > 0 ? settings.DailyLimit : PartnerOutreachRules.DefaultDailyLimit;
-        if (outreach?.DailyOutreachLimit >= PartnerOutreachRules.DefaultDailyLimit)
-            dailyCap = Math.Max(dailyCap, outreach.DailyOutreachLimit);
         dailyCap = PartnerOutreachRules.ClampDailyLimit(dailyCap);
 
         return new PartnerSendContext

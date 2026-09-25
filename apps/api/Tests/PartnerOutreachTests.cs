@@ -742,6 +742,9 @@ public class PartnerOutreachTests
         ctx.SentToday = 100;
         ctx.DailyLimit = 100;
         Assert.Equal("daily_send_limit", PartnerOutreachRules.EvaluateSendGate(ctx));
+        ctx.SentToday = 10;
+        ctx.DailyLimit = 10;
+        Assert.Equal("daily_send_limit", PartnerOutreachRules.EvaluateSendGate(ctx));
     }
 
     [Fact]
