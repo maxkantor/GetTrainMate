@@ -50,8 +50,8 @@ public interface IPartnerOutreachService
     /// </summary>
     Task<object> RegenerateObsoleteUnsentDraftsAsync(string actor, bool forceAllUnsentInitial = false);
     Task<object> ResearchContactAsync(string prospectId, string actor, bool force = false);
-    Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20, bool force = false);
-    Task<object> ResearchContactNeededBatchAsync(int max, string actor);
+    Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20, bool force = false, DateTime? deadline = null);
+    Task<object> ResearchContactNeededBatchAsync(int max, string actor, DateTime? deadline = null);
     /// <summary>
     /// Probes the prospect website for a public contact. High-confidence emails are saved,
     /// medium-confidence candidates are parked for admin review, contact forms are recorded.
@@ -2471,7 +2471,7 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         return result;
     }
 
-    public async Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20, bool force = false)
+    public async Task<object> ResearchContactsBulkAsync(IEnumerable<string> prospectIds, string actor, int max = 20, bool force = false, DateTime? deadline = null)
     {
         var ids = (prospectIds ?? Array.Empty<string>())
             .Where(id => !string.IsNullOrWhiteSpace(id))
@@ -2482,6 +2482,11 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         var results = new List<object>();
         foreach (var id in ids)
         {
+            if (deadline is DateTime stop && DateTime.UtcNow >= stop)
+            {
+                results.Add(new { ok = true, prospectId = id, skipped = true, reason = "deadline" });
+                break;
+            }
             try
             {
                 results.Add(await ResearchContactAsync(id, actor, force));
@@ -2494,7 +2499,7 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         return new { researched = results.Count, results };
     }
 
-    public async Task<object> ResearchContactNeededBatchAsync(int max, string actor)
+    public async Task<object> ResearchContactNeededBatchAsync(int max, string actor, DateTime? deadline = null)
     {
         max = Math.Clamp(max <= 0 ? 10 : max, 1, 50);
         var prospects = await ListProspectsAsync(null);
@@ -2520,7 +2525,7 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             .Select(p => p.ProspectId)
             .ToList();
 
-        var result = await ResearchContactsBulkAsync(candidates, actor, max);
+        var result = await ResearchContactsBulkAsync(candidates, actor, max, force: false, deadline);
         if (candidates.Count > 0)
         {
             try

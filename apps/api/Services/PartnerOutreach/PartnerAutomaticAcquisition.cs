@@ -70,7 +70,7 @@ public sealed partial class PartnerOutreachService
     public async Task<object> RunAutomaticAcquisitionAsync(string actor, bool? dryRunOverride = null, int? budgetSeconds = null)
     {
         var started = DateTime.UtcNow;
-        var budget = budgetSeconds is > 0 ? Math.Clamp(budgetSeconds.Value, 8, 50) : 45;
+        var budget = budgetSeconds is > 0 ? Math.Clamp(budgetSeconds.Value, 8, 80) : 70;
         var deadline = started.AddSeconds(budget);
         var settings = await LoadSettingsAsync();
         var campaign = await EnsurePartner001Async();
@@ -116,16 +116,18 @@ public sealed partial class PartnerOutreachService
             queue, settings, dryRun, actor, deadline, quota, remaining, sesRemaining,
             skipped, (n) => sesAttempted += n, (n) => sesAccepted += n, (n) => sesRejected += n);
 
-        // HTTP/API Gateway (~29s) cannot finish Overpass + site scrapes. Replenish on the 45s Lambda path.
-        var allowReplenish = budget > 20 && remaining > 0 && DateTime.UtcNow < deadline;
+        // HTTP/API Gateway (~29s) cannot finish Overpass + site scrapes. Replenish on the Lambda path
+        // only while wall-clock remains. Leave 8s so send/stats persist before Lambda timeout.
+        var replenishDeadline = deadline.AddSeconds(-8);
+        var allowReplenish = budget > 20 && DateTime.UtcNow < replenishDeadline;
 
-        // Replenish only after existing ready sends/dry-run skips, and only if time remains.
         if (settings.AutoDiscoverContacts && allowReplenish)
         {
             try
             {
-                var researchMax = budget <= 20 ? 2 : settings.ResearchContactsPerRun;
-                contacts = await ResearchContactNeededBatchAsync(researchMax, actor);
+                var remain = replenishDeadline - DateTime.UtcNow;
+                var researchMax = remain.TotalSeconds < 15 ? 1 : Math.Min(settings.ResearchContactsPerRun, 4);
+                contacts = await ResearchContactNeededBatchAsync(researchMax, actor, replenishDeadline);
             }
             catch (Exception ex)
             {
@@ -133,30 +135,29 @@ public sealed partial class PartnerOutreachService
             }
         }
 
-        if (settings.AutoDiscoverProspects && allowReplenish)
+        if (settings.AutoDiscoverProspects && DateTime.UtcNow < replenishDeadline)
         {
             try
             {
-                var discoverySvc = _services.GetRequiredService<AutomatedMarketDiscoveryService>();
-                var maxProspects = budget <= 20 ? 3 : Math.Min(Math.Max(settings.ProspectsPerRun, 8), 20);
-                if (settings.KeepPipelineFull && budget > 20)
+                var remain = replenishDeadline - DateTime.UtcNow;
+                if (remain.TotalSeconds >= 12)
                 {
-                    var pipelineNow = await GetPipelineCountersAsync();
-                    var eligible = pipelineNow.GetType().GetProperty("eligibleUnsent")?.GetValue(pipelineNow) is int e
-                        ? e
-                        : 0;
-                    var target = settings.TargetProspectInventory > 0 ? settings.TargetProspectInventory : 200;
-                    var deficit = Math.Max(0, target - eligible);
-                    if (deficit > 0)
-                        maxProspects = Math.Max(maxProspects, Math.Min(deficit, 40));
+                    using var cts = new CancellationTokenSource(remain);
+                    var discoverySvc = _services.GetRequiredService<AutomatedMarketDiscoveryService>();
+                    var maxProspects = remain.TotalSeconds < 20 ? 2 : Math.Min(Math.Max(settings.ProspectsPerRun, 4), 8);
+                    var report = await discoverySvc.RunLimitedAsync(
+                        maxProspects: maxProspects,
+                        maxResearchAttempts: remain.TotalSeconds < 20 ? 1 : Math.Min(settings.ResearchAttemptsPerRun, 6),
+                        maxDrafts: remain.TotalSeconds < 20 ? 1 : Math.Min(settings.DraftsPerRun, 4),
+                        prepareDrafts: settings.AutoPrepareMessages,
+                        ct: cts.Token);
+                    discovery = report;
+                    newProspects = report.OrganizationsDiscovered;
                 }
-                var report = await discoverySvc.RunLimitedAsync(
-                    maxProspects: maxProspects,
-                    maxResearchAttempts: budget <= 20 ? 2 : settings.ResearchAttemptsPerRun,
-                    maxDrafts: budget <= 20 ? 2 : settings.DraftsPerRun,
-                    prepareDrafts: settings.AutoPrepareMessages);
-                discovery = report;
-                newProspects = report.OrganizationsDiscovered;
+            }
+            catch (OperationCanceledException)
+            {
+                Skip("DISCOVERY_DEADLINE");
             }
             catch (Exception ex)
             {

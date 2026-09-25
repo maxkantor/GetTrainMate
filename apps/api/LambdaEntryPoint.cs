@@ -112,7 +112,7 @@ public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
             bool? dryRun = null;
             if (request.TryGetProperty("dryRun", out var dr))
                 dryRun = dr.ValueKind == JsonValueKind.True || string.Equals(dr.GetString(), "true", StringComparison.OrdinalIgnoreCase);
-            return await svc.RunAutomaticAcquisitionAsync("eventbridge", dryRun, budgetSeconds: 45);
+            return await svc.RunAutomaticAcquisitionAsync("eventbridge", dryRun, budgetSeconds: 70);
         }
         finally
         {
