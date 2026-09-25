@@ -14,6 +14,10 @@ public enum WebsiteProbeStatus
     ParkingOrDisconnected,
     /// <summary>All fetches failed (DNS, timeout, non-success).</summary>
     Unreachable,
+    /// <summary>Official site returned HTTP 429.</summary>
+    RateLimited,
+    /// <summary>Official site returned a transient 5xx / timeout.</summary>
+    TemporaryFailure,
     /// <summary>No email published, but a public contact form was found (never submitted).</summary>
     ContactFormFound,
 }
@@ -35,6 +39,8 @@ public static class ContactDiscoveryReason
     public const string Unreachable = "unreachable";
     public const string NoPublicContact = "no_public_contact";
     public const string ReviewRequired = "review_required";
+    public const string RateLimited = "rate_limited";
+    public const string TemporaryFailure = "temporary_failure";
 }
 
 public sealed class WebsiteProbeResult
@@ -135,6 +141,7 @@ public sealed class PublicBusinessContactVerifier
         "/locations", "/membership", "/partners", "/partnerships", "/sponsorship",
         "/media", "/press", "/get-in-touch", "/connect", "/our-team", "/pages/contact",
         "/contactus", "/en/contact",
+        "/community", "/inquiry", "/business", "/collaborate", "/join",
     };
 
     static readonly string[] DiscoveryKeywords =
@@ -218,6 +225,8 @@ public sealed class PublicBusinessContactVerifier
 
         var fetchedOk = 0;
         var followsUsed = 0;
+        var sawRateLimit = false;
+        var sawTemporary = false;
         string? sampleUrl = null;
         string? parkingDetail = null;
         string? parkingUrl = null;
@@ -235,7 +244,9 @@ public sealed class PublicBusinessContactVerifier
             var isHomepage = i == 0;
             pagesChecked.Add(pageUrl);
 
-            var html = await FetchAsync(pageUri, ct);
+            var (html, fetchKind) = await FetchAsync(pageUri, ct);
+            if (fetchKind == "rate_limited") sawRateLimit = true;
+            if (fetchKind == "temporary") sawTemporary = true;
             if (string.IsNullOrWhiteSpace(html)) continue;
 
             fetchedOk++;
@@ -299,7 +310,7 @@ public sealed class PublicBusinessContactVerifier
             {
                 if (!Uri.TryCreate(social, UriKind.Absolute, out var socialUri)) continue;
                 pagesChecked.Add(social);
-                var html = await FetchAsync(socialUri, ct);
+                var (html, _) = await FetchAsync(socialUri, ct);
                 if (string.IsNullOrWhiteSpace(html)) continue;
                 socialPagesChecked++;
                 foreach (var candidate in ExtractCandidateContacts(html, host, social))
@@ -354,6 +365,30 @@ public sealed class PublicBusinessContactVerifier
 
         if (fetchedOk == 0)
         {
+            if (sawRateLimit)
+            {
+                return new WebsiteProbeResult
+                {
+                    Status = WebsiteProbeStatus.RateLimited,
+                    Detail = "Official website returned HTTP 429 (rate limited). Backing off.",
+                    SampleUrl = officialWebsite.ToString(),
+                    ReasonCode = ContactDiscoveryReason.RateLimited,
+                    PagesChecked = pages,
+                    SourcesCheckedSummary = summary,
+                };
+            }
+            if (sawTemporary)
+            {
+                return new WebsiteProbeResult
+                {
+                    Status = WebsiteProbeStatus.TemporaryFailure,
+                    Detail = "Official website returned a temporary error (5xx or timeout). Retry later.",
+                    SampleUrl = officialWebsite.ToString(),
+                    ReasonCode = ContactDiscoveryReason.TemporaryFailure,
+                    PagesChecked = pages,
+                    SourcesCheckedSummary = summary,
+                };
+            }
             return new WebsiteProbeResult
             {
                 Status = WebsiteProbeStatus.Unreachable,
@@ -414,7 +449,7 @@ public sealed class PublicBusinessContactVerifier
         ContactConfidence Confidence,
         string PageUrl);
 
-    async Task<string?> FetchAsync(Uri url, CancellationToken ct)
+    async Task<(string? Html, string? Kind)> FetchAsync(Uri url, CancellationToken ct)
     {
         try
         {
@@ -422,27 +457,33 @@ public sealed class PublicBusinessContactVerifier
             req.Headers.TryAddWithoutValidation("User-Agent", "GetTrainMatePartnerDiscovery/1.0 (+https://gettrainmate.com/contact)");
             req.Headers.TryAddWithoutValidation("Accept", "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5");
             using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-            if (!res.IsSuccessStatusCode) return null;
+            if ((int)res.StatusCode == 429) return (null, "rate_limited");
+            if ((int)res.StatusCode >= 500) return (null, "temporary");
+            if (!res.IsSuccessStatusCode) return (null, null);
 
             var mediaType = res.Content.Headers.ContentType?.MediaType;
             if (!string.IsNullOrEmpty(mediaType)
                 && !mediaType.Contains("html", StringComparison.OrdinalIgnoreCase)
                 && !mediaType.Contains("text/plain", StringComparison.OrdinalIgnoreCase)
                 && !mediaType.Contains("xml", StringComparison.OrdinalIgnoreCase))
-                return null;
+                return (null, null);
 
             var html = await res.Content.ReadAsStringAsync(ct);
-            if (string.IsNullOrWhiteSpace(html)) return null;
-            return html.Length > MaxHtmlChars ? html[..MaxHtmlChars] : html;
+            if (string.IsNullOrWhiteSpace(html)) return (null, null);
+            return (html.Length > MaxHtmlChars ? html[..MaxHtmlChars] : html, null);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             throw;
         }
+        catch (TaskCanceledException)
+        {
+            return (null, "temporary");
+        }
         catch (Exception ex)
         {
             _log.LogDebug(ex, "Contact page fetch failed for {Url}", url);
-            return null;
+            return (null, "temporary");
         }
     }
 

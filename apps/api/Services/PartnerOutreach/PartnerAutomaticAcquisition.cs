@@ -52,6 +52,7 @@ public sealed partial class PartnerOutreachService
                 HasUsableEmail = ContactDiscoveryRules.HasUsableEmail(p),
                 ContactDiscoveryStatus = p.ContactDiscoveryStatus,
                 EmailVerificationStatus = p.EmailVerificationStatus,
+                NextResearchAt = p.NextResearchAt,
             },
             hasDraft,
             alreadySent,
@@ -183,6 +184,9 @@ public sealed partial class PartnerOutreachService
         {
             followUps = await DispatchDueAsync(scheduledCursorAutomation: false);
         }
+
+        settings.LastAutomaticRunAt = DateTime.UtcNow;
+        await _db.SaveAsync(settings);
 
         var counters = await GetPipelineCountersAsync();
         return new
@@ -384,6 +388,7 @@ public sealed partial class PartnerOutreachService
                 AutoDiscoverContacts = true,
                 AutoPrepareMessages = true,
                 FollowUpsEnabled = true,
+                CampaignRole = "outreach",
                 MinAcquisitionScore = PartnerOutreachRules.DefaultMinAcquisitionScore,
                 FollowUpDays = new List<int> { 4, 9 },
                 MaxFollowUps = 2,
@@ -408,6 +413,11 @@ public sealed partial class PartnerOutreachService
             row.AutoDiscoverContacts = true;
             row.AutoPrepareMessages = true;
             row.FollowUpsEnabled = true;
+            if (!string.Equals(row.CampaignRole, "outreach", StringComparison.OrdinalIgnoreCase))
+            {
+                row.CampaignRole = "outreach";
+                dirty = true;
+            }
             if (dirty) await _db.SaveAsync(row);
         }
         return row;

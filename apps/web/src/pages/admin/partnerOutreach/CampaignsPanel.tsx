@@ -162,6 +162,12 @@ export const CampaignsPanel: React.FC<PanelSharedProps> = ({
                   {c.country}/{c.market} · {c.campaignId}
                 </Typography>
               </Box>
+              <Chip
+                size="small"
+                color={c.campaignId === 'PARTNER-001' ? 'success' : 'default'}
+                label={c.campaignId === 'PARTNER-001' ? 'OUTREACH — global send' : 'DISCOVERY — market cohort'}
+                sx={{ fontWeight: 800 }}
+              />
               <StatusChip label={status.toUpperCase()} color={statusColor(status)} />
               <Chip
                 size="small"
@@ -170,11 +176,11 @@ export const CampaignsPanel: React.FC<PanelSharedProps> = ({
                 label={`PrimaryMode ${(c.primaryMode || 'TRAIN').toUpperCase()}`}
                 sx={{ fontWeight: 700 }}
               />
-              {c.dailyDiscoveryLimit != null && (
+              {c.dailyDiscoveryLimit != null && c.campaignId !== 'PARTNER-001' && (
                 <Chip size="small" variant="outlined" label={`Discover ≤${c.dailyDiscoveryLimit}/day`} />
               )}
-              {c.dailyOutreachLimit != null && (
-                <Chip size="small" variant="outlined" label={`Outreach ≤${c.dailyOutreachLimit}/day`} />
+              {c.campaignId === 'PARTNER-001' && (
+                <Chip size="small" variant="outlined" label={`Global send ≤${c.dailyOutreachLimit ?? 100}/day`} />
               )}
               <Box sx={{ flex: 1 }} />
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>

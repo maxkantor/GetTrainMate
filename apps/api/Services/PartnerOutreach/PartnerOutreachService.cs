@@ -272,11 +272,18 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             throw new InvalidOperationException("No verified public business email on an organization-controlled page. Status: no_verified_public_email. Never infer addresses.");
         if (!MarketCampaignCatalog.IsApprovedOutreachLanguage(p.CampaignLanguage))
             throw new InvalidOperationException("No approved human-reviewed template for this language. Prospect is prepared but email is not queued.");
-        if (string.IsNullOrWhiteSpace(campaignId) || campaignId == "atlanta-default")
-            campaignId = string.IsNullOrWhiteSpace(p.CampaignId)
+        if (string.IsNullOrWhiteSpace(p.DiscoveryCampaignId))
+        {
+            p.DiscoveryCampaignId = string.IsNullOrWhiteSpace(p.CampaignId)
                 ? MarketCampaignCatalog.CampaignId(p.Country, p.Metro, p.Mode)
                 : p.CampaignId;
-        var campaign = await _db.LoadAsync<PartnerCampaign>(campaignId);
+        }
+        if (string.IsNullOrWhiteSpace(campaignId) || campaignId == "atlanta-default")
+            campaignId = p.DiscoveryCampaignId ?? p.CampaignId ?? Partner001Id;
+        var discoveryCampaignId = p.DiscoveryCampaignId ?? campaignId;
+        var sendCampaignId = Partner001Id;
+        var campaign = await _db.LoadAsync<PartnerCampaign>(sendCampaignId)
+            ?? await _db.LoadAsync<PartnerCampaign>(campaignId);
         if (campaign == null)
         {
             campaign = new PartnerCampaign
@@ -302,8 +309,7 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             .Where(q => q.FollowUpNumber == 0
                 && q.Status is "draft" or "approved" or "queued"
                 && (string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
-                    || (string.Equals(q.Recipient, p.Email, StringComparison.OrdinalIgnoreCase)
-                        && string.Equals(q.CampaignId, campaignId, StringComparison.OrdinalIgnoreCase))))
+                    || string.Equals(q.Recipient, p.Email, StringComparison.OrdinalIgnoreCase)))
             .OrderByDescending(q => PartnerOutreachDedupe.QueueRank(q.Status))
             .ThenByDescending(q => q.CreatedAt)
             .FirstOrDefault();
@@ -314,10 +320,10 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             {
                 p.Status = existingQueue.Status == "approved" ? "approved" : "draft";
                 p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
-                p.EmailState = existingQueue.Status == "approved" ? "APPROVED" : "AWAITING_APPROVAL";
+                p.EmailState = existingQueue.Status == "approved" ? "APPROVED" : "AUTO_ELIGIBLE";
                 p.AcquisitionStatus = existingQueue.Status == "approved"
                     ? PartnerCrmLifecycle.AcqApproved
-                    : PartnerCrmLifecycle.AcqAwaitingApproval;
+                    : "AUTO_ELIGIBLE";
                 if (!string.IsNullOrWhiteSpace(p.PartnerCode))
                     p.DistributionStatus ??= PartnerCrmLifecycle.DistInviteCreated;
                 PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
@@ -328,13 +334,14 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
 
         var unsub = BuildUnsubUrl(p.ProspectId);
         var marketLabel = string.IsNullOrWhiteSpace(p.Metro) ? p.City : p.Metro;
-        var landingWithUtm = PartnerEmailMime.AppendPartnerUtm(p.LandingUrl!, campaignId, p.PartnerCode);
+        var landingWithUtm = PartnerEmailMime.AppendPartnerUtm(p.LandingUrl!, sendCampaignId, p.PartnerCode);
         var copy = PartnerEmailMime.RenderForProspect(p, landingWithUtm, unsub, Postal, marketLabel);
-        var fp = PartnerOutreachRules.Fingerprint(p.Email, copy.Subject, copy.Text, landingWithUtm, campaignId);
+        var fp = PartnerOutreachRules.Fingerprint(p.Email, copy.Subject, copy.Text, landingWithUtm, sendCampaignId);
         var item = new PartnerQueueItem
         {
             ProspectId = p.ProspectId,
-            CampaignId = campaignId,
+            CampaignId = sendCampaignId,
+            DiscoveryCampaignId = discoveryCampaignId,
             Recipient = p.Email,
             OrganizationName = p.OrganizationName,
             Subject = copy.Subject,
@@ -351,8 +358,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         p.Status = "draft";
         p.CrmLifecycle = PartnerCrmLifecycle.Qualified;
         p.ContactState = PartnerCrmLifecycle.ContactFound;
-        p.EmailState = "AWAITING_APPROVAL";
-        p.AcquisitionStatus = PartnerCrmLifecycle.AcqAwaitingApproval;
+        p.EmailState = "AUTO_ELIGIBLE";
+        p.AcquisitionStatus = "AUTO_ELIGIBLE";
         if (!string.IsNullOrWhiteSpace(p.PartnerCode) || !string.IsNullOrWhiteSpace(p.LandingUrl))
             p.DistributionStatus = string.IsNullOrWhiteSpace(p.DistributionStatus) || p.DistributionStatus == PartnerCrmLifecycle.DistNone
                 ? PartnerCrmLifecycle.DistInviteCreated
@@ -867,8 +874,11 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         var current = PartnerOutreachRules.Fingerprint(item.Recipient, item.Subject, item.BodyText, item.PartnerUrl, item.CampaignId);
         var bounceRate = settings.SentCount > 20 && settings.BounceCount / (double)settings.SentCount > 0.08;
 
-        var campaign = await _db.LoadAsync<PartnerCampaign>(item.CampaignId);
-        var campaignActive = campaign == null || string.Equals(campaign.Status, "active", StringComparison.OrdinalIgnoreCase);
+        // PARTNER-001 is the sole send identity. Market campaigns are discovery cohorts
+        // and must not disable or cap automatic outreach.
+        var outreach = await _db.LoadAsync<PartnerCampaign>(Partner001Id);
+        var campaignActive = outreach == null
+            || string.Equals(outreach.Status, "active", StringComparison.OrdinalIgnoreCase);
 
         var parentApproved = !string.IsNullOrWhiteSpace(item.ParentApprovalId)
             || !string.IsNullOrWhiteSpace(item.ApprovalId);
@@ -881,10 +891,10 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 && parent.Status is "sent" or "delivered" or "replied" or "approved" or "approved_for_next_send";
         }
 
-        var settingsCap = settings.DailyLimit > 0 ? settings.DailyLimit : PartnerOutreachRules.DefaultDailyLimit;
-        var dailyCap = settingsCap;
-        if (campaign?.DailyOutreachLimit > 0)
-            dailyCap = Math.Min(settingsCap, campaign.DailyOutreachLimit);
+        var dailyCap = settings.DailyLimit > 0 ? settings.DailyLimit : PartnerOutreachRules.DefaultDailyLimit;
+        if (outreach?.DailyOutreachLimit >= PartnerOutreachRules.DefaultDailyLimit)
+            dailyCap = Math.Max(dailyCap, outreach.DailyOutreachLimit);
+        dailyCap = PartnerOutreachRules.ClampDailyLimit(dailyCap);
 
         return new PartnerSendContext
         {
@@ -1473,7 +1483,13 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             p.CrmLifecycle == PartnerCrmLifecycle.Partner
             || p.PartnershipStatus == PartnerCrmLifecycle.PartPartner);
         var drafts = queue.Count(q => q.Status == "draft" && q.FollowUpNumber == 0);
-        var awaitingApproval = queue.Count(q => q.Status == "draft");
+        var autoEligible = queue.Count(q =>
+            q.FollowUpNumber == 0 && q.Status is "draft" or "approved" or "approved_for_next_send");
+        var humanReview = prospects.Count(p =>
+            string.Equals(p.ContactDiscoveryStatus, ContactDiscoveryRules.DiscoveryReviewRequired, StringComparison.OrdinalIgnoreCase));
+        var awaitingApproval = settings.AutomaticSending && settings.SendQualifiedAutomatically
+            ? 0
+            : drafts;
         var scheduled = queue.Count(q => q.Status == "scheduled");
         var contactNeeded = prospects.Count(p =>
             p.AcquisitionStatus == PartnerCrmLifecycle.AcqContactNeeded
@@ -1505,17 +1521,19 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             {
                 discovered,
                 contactable,
-                approved = Math.Max(approved, approvedProspects),
+                qualified,
+                autoEligible,
                 sent = Math.Max(sent, sentProspects),
                 clicked,
                 signedUp,
                 activated,
                 buyers,
                 revenue = revenueCents,
-                // legacy keys
-                qualified,
+                humanReview,
+                // legacy keys — approved is no longer a required automatic step
+                approved = autoEligible,
                 contactNeeded,
-                drafts,
+                drafts = autoEligible,
                 awaitingApproval,
                 scheduled,
                 contacted,
@@ -1526,8 +1544,11 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             conversionRates = new
             {
                 discoveredToContactable = Rate(contactable, discovered),
-                contactableToApproved = Rate(Math.Max(approved, approvedProspects), contactable),
-                approvedToSent = Rate(Math.Max(sent, sentProspects), Math.Max(approved, approvedProspects) + Math.Max(sent, sentProspects)),
+                contactableToQualified = Rate(qualified, contactable),
+                qualifiedToAutoEligible = Rate(autoEligible, qualified),
+                autoEligibleToSent = Rate(Math.Max(sent, sentProspects), autoEligible + Math.Max(sent, sentProspects)),
+                contactableToApproved = Rate(autoEligible, contactable),
+                approvedToSent = Rate(Math.Max(sent, sentProspects), autoEligible + Math.Max(sent, sentProspects)),
                 sentToClicked = Rate(clicked, Math.Max(sent, sentProspects)),
                 clickedToSignedUp = Rate(signedUp, Math.Max(clicked, 1)),
                 signedUpToActivated = Rate(activated, signedUp),
@@ -1542,9 +1563,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             },
             todaysActions = new object[]
             {
-                new { key = "need_contact_research", label = "Research contacts", count = contactNeeded, filter = "acquisitionStatus=CONTACT_NEEDED" },
-                new { key = "awaiting_approval", label = "Approve drafts", count = awaitingApproval, filter = "status=draft" },
-                new { key = "approved_ready", label = "Approved ready to send", count = approved, filter = "status=approved" },
+                new { key = "auto_eligible", label = "Auto eligible", count = autoEligible, filter = "status=draft" },
+                new { key = "human_review", label = "Human review", count = humanReview, filter = "contactDiscoveryStatus=REVIEW_REQUIRED" },
                 new { key = "replies", label = "Replies to handle", count = replied, filter = "acquisitionStatus=REPLIED" },
                 new { key = "follow_ups", label = "Due follow-ups", count = dueFollowUps, filter = "status=scheduled" },
             },
@@ -1751,6 +1771,7 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                     HasUsableEmail = ContactDiscoveryRules.HasUsableEmail(p),
                     ContactDiscoveryStatus = p.ContactDiscoveryStatus,
                     EmailVerificationStatus = p.EmailVerificationStatus,
+                    NextResearchAt = p.NextResearchAt,
                 },
                 hasDraft,
                 alreadySent,
@@ -1825,8 +1846,20 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 MaxFollowUps = 2,
             };
         }
+        foreach (var row in byId.Values)
+        {
+            var role = string.Equals(row.CampaignId, Partner001Id, StringComparison.OrdinalIgnoreCase)
+                ? "outreach"
+                : "discovery";
+            if (!string.Equals(row.CampaignRole, role, StringComparison.OrdinalIgnoreCase))
+            {
+                row.CampaignRole = role;
+                try { await _db.SaveAsync(row); } catch { /* best-effort role stamp */ }
+            }
+        }
         return byId.Values
-            .OrderBy(c => c.Status == "active" ? 0 : c.Status is "paused" ? 1 : 2)
+            .OrderBy(c => string.Equals(c.CampaignRole, "outreach", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(c => c.Status == "active" ? 0 : c.Status is "paused" ? 1 : 2)
             .ThenBy(c => c.DisplayName)
             .ToList();
     }
@@ -1848,7 +1881,10 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             row.FollowUpDays = new List<int> { 4, 9 };
         if (row.MaxFollowUps <= 0) row.MaxFollowUps = 2;
         if (row.DailyDiscoveryLimit <= 0) row.DailyDiscoveryLimit = 10;
-        if (row.DailyOutreachLimit <= 0) row.DailyOutreachLimit = 3;
+        row.CampaignRole = string.Equals(campaignId, Partner001Id, StringComparison.OrdinalIgnoreCase)
+            ? "outreach"
+            : "discovery";
+        if (row.DailyOutreachLimit <= 0) row.DailyOutreachLimit = 100;
         if (row.MinAcquisitionScore <= 0) row.MinAcquisitionScore = PartnerOutreachRules.DefaultMinAcquisitionScore;
         await _db.SaveAsync(row);
         return row;
@@ -2484,7 +2520,19 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             .Select(p => p.ProspectId)
             .ToList();
 
-        return await ResearchContactsBulkAsync(candidates, actor, max);
+        var result = await ResearchContactsBulkAsync(candidates, actor, max);
+        if (candidates.Count > 0)
+        {
+            try
+            {
+                var s = await LoadSettingsAsync();
+                s.LastContactResearchCursor = candidates[^1];
+                s.LastAutomaticRunAt = now;
+                await _db.SaveAsync(s);
+            }
+            catch { /* continuation stamp is best-effort */ }
+        }
+        return result;
     }
 
     public async Task<object> DiscoverContactsBatchAsync(DiscoverContactsBatchRequest req, string actor)
@@ -2672,7 +2720,6 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
     {
         var prospects = await ListProspectsAsync(null);
         var queue = await ListQueueAsync(null);
-        var today = DateTime.UtcNow.Date;
 
         var emailsFound = prospects.Count(p =>
             ContactDiscoveryRules.HasUsableEmail(p)
@@ -2696,7 +2743,7 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             || string.Equals(q.Status, "queued", StringComparison.OrdinalIgnoreCase)
             || string.Equals(q.Status, "scheduled", StringComparison.OrdinalIgnoreCase));
         var sentToday = queue.Count(q =>
-            q.SentAt is DateTime sent && sent.ToUniversalTime().Date == today);
+            q.SentAt is DateTime sent && PartnerOutreachRules.ToEasternDate(sent) == PartnerOutreachRules.EasternNowDate());
         var sent7d = queue.Count(q =>
             q.SentAt is DateTime sent && sent.ToUniversalTime() >= DateTime.UtcNow.AddDays(-7));
         var sentLifetime = queue.Count(q =>
@@ -2763,10 +2810,12 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                     || p.AcquisitionScore >= PartnerOutreachRules.DefaultMinAcquisitionScore)),
             readyToSend = queue.Count(q =>
                 q.FollowUpNumber == 0
-                && q.Status is "draft" or "approved" or "approved_for_next_send"
-                && (settings.AutomaticSending && settings.SendQualifiedAutomatically
-                    ? q.Status is "draft" or "approved" or "approved_for_next_send"
-                    : q.Status is "approved" or "approved_for_next_send")),
+                && q.Status is "draft" or "approved" or "approved_for_next_send"),
+            autoEligible = queue.Count(q =>
+                q.FollowUpNumber == 0
+                && q.Status is "draft" or "approved" or "approved_for_next_send"),
+            humanReview = prospects.Count(p =>
+                string.Equals(p.ContactDiscoveryStatus, ContactDiscoveryRules.DiscoveryReviewRequired, StringComparison.OrdinalIgnoreCase)),
         };
     }
 

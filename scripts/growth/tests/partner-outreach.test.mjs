@@ -408,17 +408,22 @@ describe('growth report experiments and technical details', () => {
           partnerAttributedSignups: 0,
           customersAcquired: 0,
           revenueAttributedCents: 0,
-          ownerAction: '9 messages need approval. Open Admin → Customer Acquisition → Approvals → APPROVE & SEND.',
+          ownerAction: 'Partner acquisition automation is operating normally. No owner action required.',
           approvalsAdminUrl: 'https://gettrainmate.com/admin/partner-outreach',
-          settings: { outreachMode: 'off', pauseAllOutreach: false, sendEnabled: false },
+          settings: { outreachMode: 'automatic', pauseAllOutreach: false, sendEnabled: true, automaticSending: true, sendQualifiedAutomatically: true, dryRun: false },
           northStars: { customersAcquired: 0, activeUsersAcquired: 0, revenueAttributedCents: 0, referralSignups: 0 },
+          autoEligible: 9,
+          humanReview: 0,
+          awaitingApproval: 0,
           funnel: {
             discovered: 10,
             qualified: 8,
             contactNeeded: 2,
             drafts: 9,
-            awaitingApproval: 9,
-            approved: 0,
+            autoEligible: 9,
+            humanReview: 0,
+            awaitingApproval: 0,
+            approved: 9,
             scheduled: 0,
             sent: 0,
             contacted: 0,
@@ -468,13 +473,13 @@ describe('growth report experiments and technical details', () => {
     assert.match(text, /Cause: GROWTH_METRO_READ_TOKEN is not configured/);
     assert.match(text, /HTTP status: 503 Configuration unavailable/);
     assert.match(text, /Customer data exposed: No/);
-    assert.match(text, /awaiting_approval=9|drafts=9/);
-    assert.match(text, /9 messages? need approval/);
+    assert.match(text, /auto_eligible=9|drafts=9/);
+    assert.match(text, /Partner acquisition automation is operating normally/);
     assert.match(text, /Unattributed payment: 1 — UNKNOWN/);
     assert.match(html, /EXP-001 — Atlanta training-partners landing page/);
     assert.match(html, /Customer Acquisition CRM/);
     assert.match(html, /EXP-002/);
-    assert.match(html, /OPEN APPROVALS/);
+    assert.doesNotMatch(html, /OPEN APPROVALS/);
     assert.doesNotMatch(text, /Truth rule: Only GetTrainMate-attributed Stripe payments count as revenue[\s\S]*Truth rule:/);
     assert.doesNotMatch(html, /Never include credentials[\s\S]*Never include credentials/);
     // When FB/IG published in fixture, do not demand Meta credential repair

@@ -4,8 +4,14 @@ namespace GetTrainMate.Api.Services.PartnerOutreach;
 public static class WhyNotSent
 {
     public const string DiscoveryPending = "DISCOVERY_PENDING";
-    public const string NoPublicEmail = "NO_PUBLIC_EMAIL_FOUND";
+    public const string DiscoveryBackoff = "DISCOVERY_BACKOFF";
+    public const string NoPublicEmail = "NO_PUBLIC_EMAIL";
+    public const string NoPublicEmailLegacy = "NO_PUBLIC_EMAIL_FOUND";
+    public const string PublicFormOnly = "PUBLIC_FORM_ONLY";
+    public const string NeedsHumanReview = "NEEDS_HUMAN_REVIEW";
     public const string InvalidEmail = "INVALID_EMAIL";
+    public const string AutomaticDisabled = "AUTOMATIC_DISABLED";
+    public const string SesRejected = "SES_REJECTED";
     public const string NotQualified = "NOT_QUALIFIED";
     public const string DuplicateEmail = "DUPLICATE_EMAIL";
     public const string DuplicateOrganization = "DUPLICATE_ORGANIZATION";
@@ -30,7 +36,9 @@ public static class WhyNotSent
             null => ReadyToSend,
             "dry_run" => DryRun,
             "pause_all_outreach" or "bounce_health_pause" or "complaint_pause" => SafetyPaused,
-            "missing_authorization_record" => ManualApprovalRequired,
+            "missing_authorization_record" => ctx?.AutomaticQualifiedSend == true
+                ? AutomaticDisabled
+                : ManualApprovalRequired,
             "daily_send_limit" => DailyLimitReached,
             "ses_quota_reached" => SesQuotaReached,
             "duplicate_recipient" => DuplicateEmail,
@@ -67,9 +75,14 @@ public static class WhyNotSent
         if (alreadySent) return AlreadyContacted;
         if (!p.HasUsableEmail)
         {
-            if (string.Equals(p.ContactDiscoveryStatus, "NO_PUBLIC_CONTACT", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(p.ContactDiscoveryStatus, "CONTACT_FORM_FOUND", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(p.ContactDiscoveryStatus, "CONTACT_FORM_FOUND", StringComparison.OrdinalIgnoreCase))
+                return PublicFormOnly;
+            if (string.Equals(p.ContactDiscoveryStatus, "REVIEW_REQUIRED", StringComparison.OrdinalIgnoreCase))
+                return NeedsHumanReview;
+            if (string.Equals(p.ContactDiscoveryStatus, "NO_PUBLIC_CONTACT", StringComparison.OrdinalIgnoreCase))
                 return NoPublicEmail;
+            if (p.NextResearchAt is DateTime next && next > DateTime.UtcNow)
+                return DiscoveryBackoff;
             if (string.Equals(p.EmailVerificationStatus, "invalid", StringComparison.OrdinalIgnoreCase))
                 return InvalidEmail;
             return DiscoveryPending;
@@ -87,4 +100,5 @@ public sealed class PartnerProspectState
     public bool HasUsableEmail { get; set; }
     public string? ContactDiscoveryStatus { get; set; }
     public string? EmailVerificationStatus { get; set; }
+    public DateTime? NextResearchAt { get; set; }
 }

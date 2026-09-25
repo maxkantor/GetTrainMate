@@ -30,6 +30,8 @@ export interface NorthStars {
 export interface FunnelCounts {
   discovered?: number;
   contactable?: number;
+  autoEligible?: number;
+  humanReview?: number;
   approved?: number;
   sent?: number;
   clicked?: number;

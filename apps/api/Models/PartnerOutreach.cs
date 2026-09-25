@@ -42,6 +42,8 @@ public class PartnerProspect
     public int FollowUpStep { get; set; }
     public DateTime? NextFollowUpAt { get; set; }
     public string? CampaignId { get; set; }
+    /// <summary>Market/audience cohort that discovered this org. Send identity is PARTNER-001.</summary>
+    public string? DiscoveryCampaignId { get; set; }
     public string Activity { get; set; } = "training";
     public string? SourceUrl { get; set; }
     public string? SourceVerifiedOn { get; set; }
@@ -169,6 +171,8 @@ public class PartnerCampaign
     public int AllocationPercent { get; set; }
     public int DailyDiscoveryLimit { get; set; } = 10;
     public int DailyOutreachLimit { get; set; } = 100;
+    /// <summary>outreach = PARTNER-001 send identity; discovery = market/audience cohort.</summary>
+    public string CampaignRole { get; set; } = "discovery";
     public string SendingMode { get; set; } = "automatic";
     public bool SendQualifiedAutomatically { get; set; } = true;
     public bool AutoDiscoverProspects { get; set; } = true;
@@ -216,6 +220,8 @@ public class PartnerQueueItem
     public bool AllowAutomatedFollowUp { get; set; }
     public string ProspectId { get; set; } = "";
     public string CampaignId { get; set; } = "";
+    /// <summary>Market cohort that discovered the prospect. CampaignId is the send identity.</summary>
+    public string? DiscoveryCampaignId { get; set; }
     public string Recipient { get; set; } = "";
     public string OrganizationName { get; set; } = "";
     public string Subject { get; set; } = "";
@@ -328,6 +334,10 @@ public class PartnerOutreachSettingsRow
     public bool AutoPrepareMessages { get; set; }
     public bool FollowUpsEnabled { get; set; }
     public bool SendQualifiedAutomatically { get; set; }
+    /// <summary>Last automatic acquisition run (UTC). Used for continuation / health.</summary>
+    public DateTime? LastAutomaticRunAt { get; set; }
+    /// <summary>Last prospect id processed for contact research in an automatic run.</summary>
+    public string? LastContactResearchCursor { get; set; }
 }
 
 /// <summary>Partial settings update. Null means leave the stored value unchanged.</summary>

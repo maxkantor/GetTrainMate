@@ -582,6 +582,8 @@ function exp002Stats(snapshot) {
       needContact: 'Unavailable',
       draftsPrepared: 'Unavailable',
       awaitingApproval: 'Unavailable',
+      autoEligible: 'Unavailable',
+      humanReview: 'Unavailable',
       recipientsApproved: 'Unavailable',
       emailsSent: 'Unavailable',
       emailsSentToday: 'Unavailable',
@@ -641,6 +643,8 @@ function exp002Stats(snapshot) {
     needContact: zeroOk(s.needContact ?? s.funnel?.contactNeeded),
     draftsPrepared: zeroOk(s.draftsPrepared ?? s.funnel?.drafts),
     awaitingApproval: zeroOk(s.awaitingApproval ?? s.funnel?.awaitingApproval),
+    autoEligible: zeroOk(s.autoEligible ?? s.funnel?.autoEligible ?? s.recipientsApproved ?? s.funnel?.approved),
+    humanReview: zeroOk(s.humanReview ?? s.funnel?.humanReview ?? 0),
     recipientsApproved: zeroOk(s.recipientsApproved ?? s.funnel?.approved),
     emailsSent: zeroOk(s.emailsSent ?? s.funnel?.sent),
     emailsSentToday: s.emailsSentToday != null ? zeroOk(s.emailsSentToday) : 'Unavailable',
@@ -799,9 +803,10 @@ export function composeGrowthEmailBody({
     t.push('DISCOVERY');
     t.push(`Prospects: ${exp002.prospects}`);
     t.push(`Usable contacts: ${exp002.contacts}`);
-    t.push(`Need contact discovery (automation): ${exp002.needContact}`);
+    t.push(`Need contact: ${exp002.needContact}`);
+    t.push(`Qualified / Auto eligible: ${exp002.recipientsApproved}`);
+    t.push(`Human review: ${exp002.humanReview ?? 0}`);
     t.push(`Drafts prepared: ${exp002.draftsPrepared}`);
-    t.push(`Ready to send: ${exp002.recipientsApproved}`);
     t.push('');
     t.push('SENDING');
     t.push(`Sent today / 7d / lifetime: ${exp002.emailsSentToday} / ${exp002.emailsSent7d} / ${exp002.emailsSentLifetime}`);
@@ -1101,7 +1106,7 @@ export function composeGrowthEmailBody({
       `  DISCOVERY: prospects=${exp002.prospects} emails_found=${exp002.contacts} need_contact=${exp002.needContact} drafts=${exp002.draftsPrepared}`
     );
     t.push(
-      `  OUTREACH: awaiting_approval=${exp002.awaitingApproval} approved=${exp002.recipientsApproved} sent=${exp002.emailsSent} delivered=${exp002.delivered}`
+      `  OUTREACH: auto_eligible=${exp002.autoEligible ?? exp002.recipientsApproved} human_review=${exp002.humanReview ?? 0} sent=${exp002.emailsSent} delivered=${exp002.delivered}`
     );
     t.push(
       `  ENGAGEMENT: replies=${exp002.partnerResponses} interested=${exp002.interested} partners=${exp002.partners}`
@@ -1310,8 +1315,9 @@ export function composeGrowthEmailBody({
                 { label: 'Delivered', value: exp002.deliveredTracking === 'NOT TRACKED' ? 'NOT TRACKED' : String(exp002.delivered) },
                 { label: 'Prospects', value: String(exp002.prospects) },
                 { label: 'Usable Contacts', value: String(exp002.contacts) },
-                { label: 'Need contact discovery (automation)', value: String(exp002.needContact) },
-                { label: 'Ready to Send', value: String(exp002.recipientsApproved) },
+                { label: 'Need contact', value: String(exp002.needContact) },
+                { label: 'Auto eligible', value: String(exp002.autoEligible ?? exp002.recipientsApproved) },
+                { label: 'Human review', value: String(exp002.humanReview ?? 0) },
                 {
                   label: 'Sent today / 7d / lifetime',
                   value: `${exp002.emailsSentToday} / ${exp002.emailsSent7d} / ${exp002.emailsSentLifetime}`,
@@ -1476,7 +1482,7 @@ export function composeGrowthEmailBody({
               exp002.unavailable
                 ? `<div><b>Prospects / Contacts / Drafts / Sent:</b> Unavailable (CRM could not be queried — not zero)</div>`
                 : `<div><b>Discovery:</b> prospects ${escapeHtml(exp002.prospects)}, emails ${escapeHtml(exp002.contacts)}, need contact ${escapeHtml(exp002.needContact)}, drafts ${escapeHtml(exp002.draftsPrepared)}</div>
-            <div><b>Outreach:</b> awaiting approval ${escapeHtml(exp002.awaitingApproval)}, approved ${escapeHtml(exp002.recipientsApproved)}, sent ${escapeHtml(exp002.emailsSent)}</div>
+            <div><b>Outreach:</b> auto eligible ${escapeHtml(exp002.autoEligible ?? exp002.recipientsApproved)}, human review ${escapeHtml(exp002.humanReview ?? 0)}, sent ${escapeHtml(exp002.emailsSent)}</div>
             <div><b>Engagement:</b> replies ${escapeHtml(exp002.partnerResponses)}, interested ${escapeHtml(exp002.interested)}, partners ${escapeHtml(exp002.partners)}</div>
             <div><b>Customers:</b> signups ${escapeHtml(exp002.partnerSignups)}, paid ${escapeHtml(exp002.customersAcquired)}, revenue_cents ${escapeHtml(exp002.revenueAttributedCents)}</div>`
             }

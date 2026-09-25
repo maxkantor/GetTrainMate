@@ -50,7 +50,7 @@ describe('ApprovalsPanel — tabs and send controls', () => {
   it('renders Ready / Sent / Held tabs and SEND control', async () => {
     render(<ApprovalsPanel {...props()} />);
     await screen.findByText('Body Awareness Studio');
-    expect(screen.getByRole('button', { name: /Ready \(1\)/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ready — Auto \(1\)/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Sent \(/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Held \(/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^SEND 1$/i })).toBeInTheDocument();

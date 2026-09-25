@@ -34,14 +34,15 @@ const dashboard = {
     activated: 1,
     buyers: 0,
     revenue: 0,
-    awaitingApproval: 3,
+    awaitingApproval: 0,
+    autoEligible: 3,
     drafts: 3,
   },
   conversionRates: {},
   settings: { pauseAllOutreach: false, testRecipientsOnly: false },
   todaysActions: [
-    { key: 'need_contact_research', label: 'Research contacts', count: 5, filter: 'acquisitionStatus=CONTACT_NEEDED' },
-    { key: 'awaiting_approval', label: 'Approve drafts', count: 3, filter: 'status=draft' },
+    { key: 'auto_eligible', label: 'Auto eligible', count: 3, filter: 'status=draft' },
+    { key: 'human_review', label: 'Human review', count: 0, filter: 'contactDiscoveryStatus=REVIEW_REQUIRED' },
   ],
 };
 
@@ -63,37 +64,25 @@ describe('AcquisitionPanel — Overview links', () => {
 
   it('loads Overview metrics and primary actions', async () => {
     render(<AcquisitionPanel {...props()} />);
-    expect(await screen.findByText('Research contacts')).toBeInTheDocument();
-    expect(screen.getByText('Approve drafts')).toBeInTheDocument();
+    expect((await screen.findAllByText('Auto eligible')).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Approve drafts')).not.toBeInTheDocument();
   });
 
-  it('Research contacts action navigates to Prospects with needed filter', async () => {
+  it('Auto eligible action navigates to the send queue', async () => {
     const onNavigate = vi.fn();
     render(<AcquisitionPanel {...props(onNavigate)} />);
-    fireEvent.click(await screen.findByText('Research contacts'));
-    expect(onNavigate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tab: 'prospects',
-        prospectFilters: expect.objectContaining({ contactAvailable: 'needed' }),
-      }),
-    );
-  });
-
-  it('Approve drafts action navigates to Approvals', async () => {
-    const onNavigate = vi.fn();
-    render(<AcquisitionPanel {...props(onNavigate)} />);
-    fireEvent.click(await screen.findByText('Approve drafts'));
+    fireEvent.click((await screen.findAllByText('Auto eligible'))[0]);
     expect(onNavigate).toHaveBeenCalledWith(
       expect.objectContaining({ tab: 'approvals' }),
     );
   });
 
-  it('View queue alert navigates to Approvals when approved ready', async () => {
+  it('View queue alert navigates to send queue for auto-eligible drafts', async () => {
     const onNavigate = vi.fn();
     render(<AcquisitionPanel {...props(onNavigate)} />);
     fireEvent.click(await screen.findByRole('button', { name: /View queue/i }));
     expect(onNavigate).toHaveBeenCalledWith(
-      expect.objectContaining({ tab: 'approvals', approvalsStatus: 'approved' }),
+      expect.objectContaining({ tab: 'approvals' }),
     );
   });
 });

@@ -107,9 +107,9 @@ public static class ContactDiscoveryRules
     /// <summary>Per-site probe budget for a single admin request.</summary>
     public static readonly TimeSpan SingleProbeBudget = TimeSpan.FromSeconds(22);
     /// <summary>Tighter per-site budget inside a batch so one slow host cannot stall the run.</summary>
-    public static readonly TimeSpan BatchProbeBudget = TimeSpan.FromSeconds(10);
+    public static readonly TimeSpan BatchProbeBudget = TimeSpan.FromSeconds(22);
     /// <summary>Batch stops after this much work and reports the rest as remaining.</summary>
-    public static readonly TimeSpan BatchRunBudget = TimeSpan.FromSeconds(20);
+    public static readonly TimeSpan BatchRunBudget = TimeSpan.FromSeconds(45);
     /// <summary>Attempts after which a site with no public contact is considered exhausted.</summary>
     public const int ExhaustedAttempts = 3;
 
@@ -188,6 +188,9 @@ public static class ContactDiscoveryRules
             return DiscoveryContactFormFound;
         if (signals.WebsiteStatus == nameof(WebsiteProbeStatus.ParkingOrDisconnected))
             return DiscoveryNoPublicContact;
+        if (signals.WebsiteStatus == nameof(WebsiteProbeStatus.RateLimited)
+            || signals.WebsiteStatus == nameof(WebsiteProbeStatus.TemporaryFailure))
+            return DiscoveryContactNeeded;
         return researchAttempts >= ExhaustedAttempts ? DiscoveryNoPublicContact : DiscoveryContactNeeded;
     }
 
@@ -201,6 +204,8 @@ public static class ContactDiscoveryRules
         {
             nameof(WebsiteProbeStatus.ParkingOrDisconnected) => ReasonWebsiteDead,
             nameof(WebsiteProbeStatus.Unreachable) => ReasonWebsiteUnreachable,
+            nameof(WebsiteProbeStatus.RateLimited) => "rate_limited",
+            nameof(WebsiteProbeStatus.TemporaryFailure) => "temporary_failure",
             _ => ReasonNoPublicEmail,
         };
     }

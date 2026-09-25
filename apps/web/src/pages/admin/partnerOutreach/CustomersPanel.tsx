@@ -125,7 +125,7 @@ export const CustomersPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
 
       {filtered.length === 0 ? (
         <EmptyState
-          title="No attributed customers yet — send approved outreach to start attribution."
+          title="No attributed customers yet — automatic outreach is running."
           detail={customers.length > 0 ? 'No rows match the current filters.' : undefined}
         />
       ) : (

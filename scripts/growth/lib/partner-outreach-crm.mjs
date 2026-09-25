@@ -88,7 +88,9 @@ export async function fetchPartnerOutreachSnapshot() {
     const ns = dashboard?.northStars || {};
     const funnel = dashboard?.funnel || {};
     const actions = Array.isArray(dashboard?.todaysActions) ? dashboard.todaysActions : [];
-    const awaiting = Number(funnel.awaitingApproval ?? metrics?.approvalReadyRecipients ?? 0);
+    const awaiting = Number(funnel.awaitingApproval ?? 0);
+    const autoEligible = Number(funnel.autoEligible ?? metrics?.approvalReadyRecipients ?? 0);
+    const humanReview = Number(funnel.humanReview ?? 0);
     const prospects = Number(
       pipeline?.prospects ?? summary?.organizationsDiscovered ?? funnel.discovered ?? 0,
     );
@@ -168,6 +170,8 @@ export async function fetchPartnerOutreachSnapshot() {
       needContact,
       draftsPrepared: drafts,
       awaitingApproval: awaiting,
+      autoEligible,
+      humanReview,
       recipientsApproved: approved,
       emailsSent: sent,
       emailsSentToday: sentToday,
@@ -298,18 +302,19 @@ export async function runAutomaticPartnerAcquisition({ dryRun = false } = {}) {
   }
   try {
     await adminPost(token, '/api/admin/partner-outreach/bootstrap', {});
+  } catch {
+    /* bootstrap is best-effort; Lambda path still sends */
+  }
+  const viaLambda = await invokeAutomaticAcquisitionLambda({ dryRun });
+  if (viaLambda?.ok) return viaLambda;
+  try {
     const result = await adminPost(token, '/api/admin/partner-outreach/automatic-run', {
       dryRun,
     });
     return { ok: Boolean(result?.ok !== false), status: 'ok', result };
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
-    // API Gateway times out ~29s; EventBridge/Lambda invoke has the 60s function budget.
-    if (/503|504|Service Unavailable|timeout/i.test(reason)) {
-      const viaLambda = await invokeAutomaticAcquisitionLambda({ dryRun });
-      if (viaLambda) return viaLambda;
-    }
-    return { ok: false, status: 'failed', reason };
+    return { ok: false, status: 'failed', reason, lambda: viaLambda };
   }
 }
 

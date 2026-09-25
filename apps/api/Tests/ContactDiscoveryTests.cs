@@ -337,6 +337,54 @@ public class ContactDiscoveryTests
     }
 
     [Fact]
+    public async Task ContactDiscovery_probe_finds_partnerships_page_email()
+    {
+        var verifier = Build(out _, new()
+        {
+            [Site + "/"] = "<html><body><h1>Club</h1></body></html>",
+            [Site + "/partnerships"] = "<html><body><a href=\"mailto:partners@exampleclub.org\">Partner with us</a></body></html>",
+        });
+
+        var probe = await verifier.ProbeAsync(new Uri(Site));
+
+        Assert.Equal(WebsiteProbeStatus.EmailFound, probe.Status);
+        Assert.Equal("partners@exampleclub.org", probe.Contact!.Email);
+        Assert.Equal(Site + "/partnerships", probe.Contact.SourceUrl);
+    }
+
+    [Fact]
+    public async Task ContactDiscovery_probe_reports_rate_limit()
+    {
+        var verifier = BuildStatus(out _, new()
+        {
+            [Site + "/"] = HttpStatusCode.TooManyRequests,
+            [Site + "/contact"] = HttpStatusCode.TooManyRequests,
+        });
+
+        var probe = await verifier.ProbeAsync(new Uri(Site));
+
+        Assert.Equal(WebsiteProbeStatus.RateLimited, probe.Status);
+        Assert.Equal(ContactDiscoveryReason.RateLimited, probe.ReasonCode);
+        Assert.Null(probe.Contact);
+    }
+
+    [Fact]
+    public async Task ContactDiscovery_probe_reports_temporary_5xx()
+    {
+        var verifier = BuildStatus(out _, new()
+        {
+            [Site + "/"] = HttpStatusCode.ServiceUnavailable,
+            [Site + "/contact"] = HttpStatusCode.BadGateway,
+        });
+
+        var probe = await verifier.ProbeAsync(new Uri(Site));
+
+        Assert.Equal(WebsiteProbeStatus.TemporaryFailure, probe.Status);
+        Assert.Equal(ContactDiscoveryReason.TemporaryFailure, probe.ReasonCode);
+        Assert.Null(probe.Contact);
+    }
+
+    [Fact]
     public async Task ContactDiscovery_probe_reports_unreachable_site()
     {
         var verifier = Build(out _, new());
@@ -356,18 +404,31 @@ public class ContactDiscoveryTests
         return new PublicBusinessContactVerifier(http, NullLogger<PublicBusinessContactVerifier>.Instance);
     }
 
+    static PublicBusinessContactVerifier BuildStatus(out StubHandler handler, Dictionary<string, HttpStatusCode> statuses)
+    {
+        handler = new StubHandler(new Dictionary<string, string>(), statuses);
+        var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(5) };
+        return new PublicBusinessContactVerifier(http, NullLogger<PublicBusinessContactVerifier>.Instance);
+    }
+
     sealed class StubHandler : HttpMessageHandler
     {
         readonly Dictionary<string, string> _pages;
+        readonly Dictionary<string, HttpStatusCode> _statuses;
         public List<string> Requested { get; } = new();
 
-        public StubHandler(Dictionary<string, string> pages) =>
+        public StubHandler(Dictionary<string, string> pages, Dictionary<string, HttpStatusCode>? statuses = null)
+        {
             _pages = new Dictionary<string, string>(pages, StringComparer.OrdinalIgnoreCase);
+            _statuses = statuses ?? new Dictionary<string, HttpStatusCode>(StringComparer.OrdinalIgnoreCase);
+        }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var url = request.RequestUri!.ToString();
             Requested.Add(url);
+            if (_statuses.TryGetValue(url, out var code))
+                return Task.FromResult(new HttpResponseMessage(code));
             if (_pages.TryGetValue(url, out var html))
             {
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)

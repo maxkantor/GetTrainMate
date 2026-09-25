@@ -124,7 +124,7 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
   const rates = dashboard.conversionRates;
   const attributionEmpty =
     ns.payingCustomers === 0 && ns.revenueCents === 0 && ns.newSignups === 0 && ns.activatedUsers === 0;
-  const emptyNote = 'No attributed customers yet — referral tracking starts after first approved sends.';
+  const emptyNote = 'No attributed customers yet — automatic outreach is running.';
 
   return (
     <Box>
@@ -191,7 +191,7 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
             ['discovered', 'Discovered'],
             ['contactable', 'Contactable'],
             ['qualified', 'Qualified'],
-            ['approved', 'Approved'],
+            ['autoEligible', 'Auto eligible'],
             ['sent', 'Sent'],
             ['clicked', 'Clicked'],
             ['signedUp', 'Signed up'],
@@ -202,7 +202,7 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
             ['partners', 'Partners'],
           ] as const
         )
-          .filter(([key]) => funnel?.[key] != null || ['discovered', 'approved', 'sent'].includes(key))
+          .filter(([key]) => funnel?.[key] != null || ['discovered', 'autoEligible', 'sent'].includes(key))
           .map(([key, label]) => (
             <MetricCard key={key} label={label} value={funnel?.[key] ?? 0} />
           ))}
@@ -213,7 +213,7 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
       </Typography>
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
         <Chip size="small" label={`Discovered → Contactable ${formatPct(rates?.discoveredToContactable ?? rates?.discoveredToQualified)}`} />
-        <Chip size="small" label={`Approved → Sent ${formatPct(rates?.approvedToSentRate ?? rates?.approvedToSent)}`} />
+        <Chip size="small" label={`Auto eligible → Sent ${formatPct(rates?.autoEligibleToSent ?? rates?.approvedToSentRate ?? rates?.approvedToSent)}`} />
         <Chip size="small" label={`Sent → Clicked ${formatPct(rates?.sentToClicked)}`} />
         <Chip size="small" label={`Signed up → Activated ${formatPct(rates?.signedUpToActivated)}`} />
         <Chip size="small" label={`Activated → Buyers ${formatPct(rates?.activatedToBuyers)}`} />
@@ -229,7 +229,7 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
         <MetricCard label="Bounced" value={metrics?.bounced ?? 0} />
         <MetricCard label="Replies" value={metrics?.replies ?? 0} />
         <MetricCard label="Complaints" value={metrics?.complaints ?? 0} />
-        <MetricCard label="Approved recipients" value={metrics?.approvedRecipients ?? 0} />
+        <MetricCard label="Auto eligible" value={funnel?.autoEligible ?? metrics?.approvedRecipients ?? 0} />
         <MetricCard label="Positive replies" value={unavailableIfZero(metrics?.positiveReplies)} />
         <MetricCard label="Landing sessions" value={unavailableIfZero(metrics?.partnerLandingSessions)} />
         <MetricCard label="Attributed signups (metric)" value={unavailableIfZero(metrics?.partnerAttributedSignups)} />

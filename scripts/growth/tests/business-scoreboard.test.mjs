@@ -242,7 +242,7 @@ describe('report rendering with Business Scoreboard', () => {
     });
 
     assert.match(text, /Partner acquisition automation is operating normally/);
-    assert.match(text, /Need contact discovery \(automation\):\s+10/);
+    assert.match(text, /Need contact:\s+10/);
     assert.match(text, /Automatic:\s+ON/);
     assert.match(text, /Dry Run:\s+OFF/);
     assert.match(text, /Daily Limit:\s+100/);

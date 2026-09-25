@@ -408,10 +408,10 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
           justifyContent="space-between"
         >
           <Box>
-            <Typography sx={{ fontWeight: 900, fontSize: 18 }}>Send queue</Typography>
+            <Typography sx={{ fontWeight: 900, fontSize: 18 }}>Send queue / Human review</Typography>
             <Typography variant="body2" color="text.secondary">
               {capacity.sentToday} sent today · {capacity.remaining} remaining (limit{' '}
-              {capacity.dailyLimit})
+              {capacity.dailyLimit}). Automatic sending does not wait for this button.
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -420,7 +420,7 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
               variant={tab === 'needs' ? 'contained' : 'outlined'}
               onClick={() => setTab('needs')}
             >
-              Ready ({needsApproval.length})
+              Ready — Auto ({needsApproval.length})
             </Button>
             <Button
               size="small"
@@ -479,7 +479,7 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
           title={tab === 'needs' ? 'Inbox clear' : tab === 'sent' ? 'Nothing sent yet' : 'Nothing held'}
           detail={
             tab === 'needs'
-              ? 'When drafts are ready, they show here. One click sends.'
+              ? 'Auto-eligible prospects appear here for monitoring. Scheduled acquisition sends them — SEND is a manual override.'
               : tab === 'sent'
                 ? 'Successful SES accepts land here and cannot be resent.'
                 : 'Deferred capacity and rejected rows show here.'

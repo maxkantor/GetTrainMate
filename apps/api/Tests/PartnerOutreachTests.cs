@@ -799,6 +799,47 @@ public class PartnerOutreachTests
             new PartnerProspectState { HasUsableEmail = true },
             hasUnsentDraft: true, alreadySent: false,
             false, false, false, false, false, false, false, 80, 40));
+        Assert.Equal(WhyNotSent.PublicFormOnly, WhyNotSent.ForProspect(
+            new PartnerProspectState { HasUsableEmail = false, ContactDiscoveryStatus = "CONTACT_FORM_FOUND" },
+            false, false, false, false, false, false, true, false, false, 80, 40));
+        Assert.Equal(WhyNotSent.NeedsHumanReview, WhyNotSent.ForProspect(
+            new PartnerProspectState { HasUsableEmail = false, ContactDiscoveryStatus = "REVIEW_REQUIRED" },
+            false, false, false, false, false, false, true, false, false, 80, 40));
+    }
+
+    [Fact]
+    public void Nine_automatic_ready_prospects_send_without_approval_or_browser()
+    {
+        var accepted = 0;
+        for (var i = 0; i < 9; i++)
+        {
+            var ctx = BaseSendContext();
+            ctx.Approved = false;
+            ctx.AutomaticQualifiedSend = true;
+            ctx.DryRun = false;
+            ctx.SentToday = accepted;
+            ctx.DailyLimit = 100;
+            ctx.CampaignActive = true;
+            Assert.Null(PartnerOutreachRules.EvaluateSendGate(ctx));
+            accepted++;
+        }
+        Assert.Equal(9, accepted);
+
+        var retry = BaseSendContext();
+        retry.AutomaticQualifiedSend = true;
+        retry.Approved = false;
+        retry.AlreadySentThisRecipient = true;
+        Assert.Equal("duplicate_recipient", PartnerOutreachRules.EvaluateSendGate(retry));
+    }
+
+    [Fact]
+    public void Same_organization_across_market_and_partner001_is_one_initial_send()
+    {
+        var london = BaseSendContext();
+        london.AutomaticQualifiedSend = true;
+        london.Approved = false;
+        london.DuplicateOrganizationInitial = true;
+        Assert.Equal("duplicate_organization", PartnerOutreachRules.EvaluateSendGate(london));
     }
 
     [Fact]
