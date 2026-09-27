@@ -1811,7 +1811,7 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         int remainingToday,
         DateTime nowUtc)
     {
-        var nextRun = NextWeekdayAcquisitionRunUtc(nowUtc);
+        var nextRun = NextDailyAcquisitionRunUtc(nowUtc);
         var parts = new List<string>();
         if (dueFollowUps > 0) parts.Add($"send {dueFollowUps} due follow-up{(dueFollowUps == 1 ? "" : "s")}");
         if (autoEligible > 0) parts.Add($"send {Math.Min(autoEligible, remainingToday)} initial outreach");
@@ -1824,35 +1824,36 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         {
             at = nextRun,
             atEt = PartnerOutreachRules.ToEasternDate(nextRun).ToString("yyyy-MM-dd")
-                + " ~10:05 AM ET (weekday schedule)",
+                + " ~10:05 AM ET (daily schedule)",
             summary = string.Join("; ", parts) + $" at {nextRun:yyyy-MM-dd HH:mm} UTC.",
             dueFollowUps,
             initialReady = autoEligible,
             researchDue,
             remainingCapacity = remainingToday,
             scheduler = "gettrainmate-partner-outreach-weekday",
-            scheduleExpression = "cron(5 14,15 ? * MON-FRI *)",
+            scheduleExpression = "cron(5 14,15 ? * * *)",
         };
     }
 
-    /// <summary>Next Mon–Fri 14:05 UTC fire of gettrainmate-partner-outreach-weekday.</summary>
-    public static DateTime NextWeekdayAcquisitionRunUtc(DateTime nowUtc)
+    /// <summary>Next daily 14:05/15:05 UTC fire of gettrainmate-partner-outreach-weekday (includes weekends).</summary>
+    public static DateTime NextDailyAcquisitionRunUtc(DateTime nowUtc)
     {
         var cursor = nowUtc;
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < 3; i++)
         {
             var day = cursor.Date;
-            if (day.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
-            {
-                var slot = day.AddHours(14).AddMinutes(5);
-                if (slot > nowUtc) return DateTime.SpecifyKind(slot, DateTimeKind.Utc);
-                var slot2 = day.AddHours(15).AddMinutes(5);
-                if (slot2 > nowUtc) return DateTime.SpecifyKind(slot2, DateTimeKind.Utc);
-            }
-            cursor = day.AddDays(1).AddHours(0);
+            var slot = day.AddHours(14).AddMinutes(5);
+            if (slot > nowUtc) return DateTime.SpecifyKind(slot, DateTimeKind.Utc);
+            var slot2 = day.AddHours(15).AddMinutes(5);
+            if (slot2 > nowUtc) return DateTime.SpecifyKind(slot2, DateTimeKind.Utc);
+            cursor = day.AddDays(1);
         }
         return DateTime.SpecifyKind(nowUtc.Date.AddDays(1).AddHours(14).AddMinutes(5), DateTimeKind.Utc);
     }
+
+    /// <summary>Obsolete name — use <see cref="NextDailyAcquisitionRunUtc"/>.</summary>
+    public static DateTime NextWeekdayAcquisitionRunUtc(DateTime nowUtc) =>
+        NextDailyAcquisitionRunUtc(nowUtc);
 
     public async Task<object> ListAcquisitionCustomersAsync()
     {

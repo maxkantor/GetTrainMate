@@ -278,16 +278,15 @@ export class GetTrainMateStack extends cdk.Stack {
       resources: ['*'], // SES doesn't support resource-level permissions for SendEmail
     }));
 
-    // Weekday ticks at 14:00 and 15:00 UTC cover 10:00 America/New_York in EDT and EST.
-    // DispatchDueAsync no-ops unless that Eastern hour is 10:00 on a weekday.
+    // Daily ticks at 14:05 and 15:05 UTC cover ~10:05 America/New_York in EDT and EST.
     if (enablePartnerOutreach) {
       const partnerDispatch = new events.Rule(this, 'PartnerOutreachWeekdayDispatch', {
         ruleName: 'gettrainmate-partner-outreach-weekday',
-        description: 'Partner CRM daily dispatch (DST-safe via application window)',
+        description: 'PARTNER-001 daily automatic acquisition (DST-safe via app window; includes weekends)',
         schedule: events.Schedule.cron({
           minute: '5',
           hour: '14,15',
-          weekDay: 'MON-FRI',
+          weekDay: '*',
         }),
       });
       partnerDispatch.addTarget(

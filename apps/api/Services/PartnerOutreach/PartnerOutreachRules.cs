@@ -112,7 +112,8 @@ public static class PartnerOutreachRules
     public static bool IsDispatchWindow(DateTime utc, TimeZoneInfo tz, int hour = 10)
     {
         var local = TimeZoneInfo.ConvertTimeFromUtc(AsUtc(utc), tz);
-        return IsWeekdayEastern(utc, tz) && local.Hour == hour;
+        // Daily schedule (including weekends) — only the Eastern hour gate remains.
+        return local.Hour == hour;
     }
 
     /// <summary>

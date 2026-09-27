@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace GetTrainMate.Api;
 
 /// <summary>
-/// HTTP API v2 (API Gateway) plus EventBridge weekday partner dispatch.
+/// HTTP API v2 (API Gateway) plus EventBridge daily partner dispatch.
 /// </summary>
 public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
 {

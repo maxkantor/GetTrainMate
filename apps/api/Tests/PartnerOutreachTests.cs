@@ -642,16 +642,41 @@ public class PartnerOutreachTests
     }
 
     [Fact]
-    public void Dst_safe_weekday_window_uses_eastern_timezone()
+    public void Dst_safe_daily_window_uses_eastern_timezone()
     {
         var tz = PartnerOutreachRules.EasternTimeZone();
-        // 2026-08-14 14:00 UTC = 10:00 AM EDT
+        // 2026-08-14 14:00 UTC = 10:00 AM EDT (Friday)
         var summer = new DateTime(2026, 8, 14, 14, 0, 0, DateTimeKind.Utc);
         Assert.True(PartnerOutreachRules.IsDispatchWindow(summer, tz, 10));
-        // 2026-01-14 15:00 UTC = 10:00 AM EST
+        // 2026-01-14 15:00 UTC = 10:00 AM EST (Wednesday)
         var winter = new DateTime(2026, 1, 14, 15, 0, 0, DateTimeKind.Utc);
         Assert.True(PartnerOutreachRules.IsDispatchWindow(winter, tz, 10));
-        Assert.False(PartnerOutreachRules.IsWeekdayEastern(new DateTime(2026, 8, 15, 14, 0, 0, DateTimeKind.Utc), tz));
+        // Saturday is included in the daily schedule
+        var saturday = new DateTime(2026, 8, 15, 14, 0, 0, DateTimeKind.Utc);
+        Assert.False(PartnerOutreachRules.IsWeekdayEastern(saturday, tz));
+        Assert.True(PartnerOutreachRules.IsDispatchWindow(saturday, tz, 10));
+    }
+
+    [Fact]
+    public void Next_daily_acquisition_run_includes_weekend()
+    {
+        // Sunday afternoon after both slots → Monday 14:05
+        var sundayAfternoon = new DateTime(2026, 9, 27, 17, 0, 0, DateTimeKind.Utc);
+        Assert.Equal(new DateTime(2026, 9, 28, 14, 5, 0, DateTimeKind.Utc),
+            PartnerOutreachService.NextDailyAcquisitionRunUtc(sundayAfternoon));
+
+        // Sunday morning before first slot → Sunday 14:05
+        var sundayMorning = new DateTime(2026, 9, 27, 12, 0, 0, DateTimeKind.Utc);
+        Assert.Equal(new DateTime(2026, 9, 27, 14, 5, 0, DateTimeKind.Utc),
+            PartnerOutreachService.NextDailyAcquisitionRunUtc(sundayMorning));
+
+        var mondayBefore = new DateTime(2026, 9, 28, 14, 0, 0, DateTimeKind.Utc);
+        Assert.Equal(new DateTime(2026, 9, 28, 14, 5, 0, DateTimeKind.Utc),
+            PartnerOutreachService.NextDailyAcquisitionRunUtc(mondayBefore));
+
+        var mondayAfterFirst = new DateTime(2026, 9, 28, 14, 10, 0, DateTimeKind.Utc);
+        Assert.Equal(new DateTime(2026, 9, 28, 15, 5, 0, DateTimeKind.Utc),
+            PartnerOutreachService.NextDailyAcquisitionRunUtc(mondayAfterFirst));
     }
 
     [Fact]
@@ -815,23 +840,6 @@ public class PartnerOutreachTests
         Assert.Equal(WhyNotSent.NeedsHumanReview, WhyNotSent.ForProspect(
             new PartnerProspectState { HasUsableEmail = false, ContactDiscoveryStatus = "REVIEW_REQUIRED" },
             false, false, false, false, false, false, true, false, false, 80, 40));
-    }
-
-    [Fact]
-    public void Next_weekday_acquisition_run_skips_weekend()
-    {
-        // Sunday 2026-09-27 17:00 UTC → Monday 14:05 UTC
-        var sunday = new DateTime(2026, 9, 27, 17, 0, 0, DateTimeKind.Utc);
-        var next = PartnerOutreachService.NextWeekdayAcquisitionRunUtc(sunday);
-        Assert.Equal(new DateTime(2026, 9, 28, 14, 5, 0, DateTimeKind.Utc), next);
-
-        var mondayBefore = new DateTime(2026, 9, 28, 14, 0, 0, DateTimeKind.Utc);
-        Assert.Equal(new DateTime(2026, 9, 28, 14, 5, 0, DateTimeKind.Utc),
-            PartnerOutreachService.NextWeekdayAcquisitionRunUtc(mondayBefore));
-
-        var mondayAfterFirst = new DateTime(2026, 9, 28, 14, 10, 0, DateTimeKind.Utc);
-        Assert.Equal(new DateTime(2026, 9, 28, 15, 5, 0, DateTimeKind.Utc),
-            PartnerOutreachService.NextWeekdayAcquisitionRunUtc(mondayAfterFirst));
     }
 
     [Fact]
