@@ -14,7 +14,17 @@ export function asArray<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data as T[];
   if (data && typeof data === 'object') {
     const o = data as Record<string, unknown>;
-    if (Array.isArray(o.items)) return o.items as T[];
+    for (const key of [
+      'items',
+      'customers',
+      'prospects',
+      'queue',
+      'threads',
+      'messages',
+      'campaigns',
+    ]) {
+      if (Array.isArray(o[key])) return o[key] as T[];
+    }
   }
   return [];
 }

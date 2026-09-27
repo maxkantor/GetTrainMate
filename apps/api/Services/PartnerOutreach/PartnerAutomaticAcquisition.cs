@@ -268,9 +268,21 @@ public sealed partial class PartnerOutreachService
                     p.QualificationReasons = p.ScoreExplanation ?? p.WhySelected;
                     p.QualifiedAt = DateTime.UtcNow;
                     p.EmailNormalized = (p.Email ?? "").Trim().ToLowerInvariant();
-                    await _db.SaveAsync(p);
                 }
-                await CreateDraftAndQueuePreviewAsync(p.ProspectId, p.CampaignId ?? campaign.CampaignId);
+                // Mint landing/partner identity before draft — CreateDraft requires both.
+                if (string.IsNullOrWhiteSpace(p.PartnerCode))
+                    p.PartnerCode = MarketCampaignCatalog.Slug(
+                        $"{p.Country}-{p.Metro}-{p.OrganizationName}".Trim('-'));
+                if (string.IsNullOrWhiteSpace(p.LandingUrl) && !string.IsNullOrWhiteSpace(p.PartnerCode))
+                    p.LandingUrl = "https://gettrainmate.com"
+                        + MarketCampaignCatalog.PartnerPath(p.Country, p.Metro, p.PartnerCode);
+                if (string.IsNullOrWhiteSpace(p.CampaignLanguage))
+                    p.CampaignLanguage = string.IsNullOrWhiteSpace(p.PrimaryLanguage) ? "en" : p.PrimaryLanguage;
+                if (string.IsNullOrWhiteSpace(p.PrimaryLanguage))
+                    p.PrimaryLanguage = p.CampaignLanguage;
+                await _db.SaveAsync(p);
+                // PARTNER-001 is the authoritative send campaign; market id is discovery only.
+                await CreateDraftAndQueuePreviewAsync(p.ProspectId, Partner001Id);
                 prepared++;
             }
             catch (Exception ex)

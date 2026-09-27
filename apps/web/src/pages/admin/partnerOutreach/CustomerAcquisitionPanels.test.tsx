@@ -91,6 +91,23 @@ describe('Customer Acquisition secondary panels', () => {
     expect(screen.getByLabelText('Search')).toBeInTheDocument();
   });
 
+  it('CustomersPanel unwraps { customers } API envelope', async () => {
+    getMock.mockResolvedValue({
+      count: 1,
+      customers: [
+        {
+          prospectId: 'p1',
+          organizationName: 'Atlanta Pickleball Club',
+          customerStatus: 'ACTIVATED',
+          referralSignups: 1,
+          activatedUsers: 1,
+        },
+      ],
+    });
+    render(<CustomersPanel {...shared()} />);
+    expect(await screen.findByText('Atlanta Pickleball Club')).toBeInTheDocument();
+  });
+
   it('AnalyticsPanel loads dashboard analytics', async () => {
     getMock.mockImplementation(async (url: string) => {
       const u = String(url);

@@ -434,13 +434,13 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
               variant={tab === 'blocked' ? 'contained' : 'outlined'}
               onClick={() => setTab('blocked')}
             >
-              Held ({deferred.length + blockedRows.length})
+              Scheduled / Held ({deferred.length + blockedRows.length})
             </Button>
             {tab === 'needs' && (
               <>
                 <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
-                  Selected {selectedCount} · Eligible {items.length} · Blocked{' '}
-                  {deferred.length + blockedRows.length}
+                  Selected {selectedCount} · Eligible {items.length} · Scheduled follow-ups{' '}
+                  {deferred.length} · Failed {blockedRows.length}
                 </Typography>
                 <Button size="small" onClick={toggleAll} disabled={items.length === 0 || busy}>
                   {selectedIds.size === items.length && items.length > 0 ? 'Clear' : 'Select all'}
@@ -476,13 +476,19 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
 
       {items.length === 0 ? (
         <EmptyState
-          title={tab === 'needs' ? 'Inbox clear' : tab === 'sent' ? 'Nothing sent yet' : 'Nothing held'}
+          title={
+            tab === 'needs'
+              ? 'No initial sends waiting'
+              : tab === 'sent'
+                ? 'Nothing sent yet'
+                : 'No scheduled follow-ups or failed rows'
+          }
           detail={
             tab === 'needs'
-              ? 'Auto-eligible prospects appear here for monitoring. Scheduled acquisition sends them — SEND is a manual override.'
+              ? 'Auto-eligible FO0 drafts appear here for monitoring. Scheduled acquisition sends them — SEND is a manual override.'
               : tab === 'sent'
                 ? 'Successful SES accepts land here and cannot be resent.'
-                : 'Deferred capacity and rejected rows show here.'
+                : 'Future follow-ups (not blocked) and failed/suppressed queue rows show here. Scheduled ≠ stuck in Approvals.'
           }
         />
       ) : (

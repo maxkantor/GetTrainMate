@@ -30,7 +30,8 @@ public sealed class DiscoveryJobCheckpoint
 
 public sealed class PartnerDiscoveryJobService : IPartnerDiscoveryJobService
 {
-    static readonly TimeSpan ChunkBudget = TimeSpan.FromSeconds(15);
+    // Overpass + site scrapes regularly exceed 15s; keep under API Gateway (~29s).
+    static readonly TimeSpan ChunkBudget = TimeSpan.FromSeconds(26);
     static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     readonly IDynamoDBContext _db;

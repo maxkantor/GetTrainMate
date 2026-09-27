@@ -1464,20 +1464,37 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             p.CustomerStatus == PartnerCrmLifecycle.CustPaying
             || p.PaidCustomers > 0 || p.FirstPurchaseAt != null || p.DirectRevenueCents > 0);
 
-        // Legacy funnel fields retained for older admin UI
+        // CURRENT inventory: email + score threshold, not yet initially contacted.
+        // Do NOT count CrmLifecycle Contacted/FollowUp as "qualified" — that mixed lifetime
+        // contacted prospects into the current funnel and produced Qualified>0 with Auto eligible=0.
+        static int ScoreOf(PartnerProspect p) =>
+            p.QualificationScore > 0 ? p.QualificationScore : p.AcquisitionScore;
+        static bool InitiallyContacted(PartnerProspect p, List<PartnerQueueItem> q) =>
+            p.LastContactedAt != null
+            || q.Any(x =>
+                string.Equals(x.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                && x.FollowUpNumber == 0
+                && (x.SentAt != null || x.Status is "sent" or "delivered" or "replied"));
+
+        var pipelineQualifiedLifetime = prospects.Count(p =>
+            ContactDiscoveryRules.HasUsableEmail(p)
+            && ScoreOf(p) >= PartnerOutreachRules.DefaultMinAcquisitionScore);
         var qualified = prospects.Count(p =>
-            p.CrmLifecycle is PartnerCrmLifecycle.Qualified or PartnerCrmLifecycle.Contacted
-                or PartnerCrmLifecycle.FollowUp or PartnerCrmLifecycle.Replied
-                or PartnerCrmLifecycle.Interested or PartnerCrmLifecycle.Partner
-            || p.Status is "prospect" or "draft" or "approved" or "sent" or "delivered" or "replied");
+            ContactDiscoveryRules.HasUsableEmail(p)
+            && ScoreOf(p) >= PartnerOutreachRules.DefaultMinAcquisitionScore
+            && !InitiallyContacted(p, queue));
+        var alreadyContactedQualified = Math.Max(0, pipelineQualifiedLifetime - qualified);
+
         var contacted = prospects.Count(p =>
             p.CrmLifecycle is PartnerCrmLifecycle.Contacted or PartnerCrmLifecycle.FollowUp
                 or PartnerCrmLifecycle.Replied or PartnerCrmLifecycle.Interested or PartnerCrmLifecycle.Partner
-            || p.Status is "sent" or "delivered" or "replied");
+            || p.Status is "sent" or "delivered" or "replied"
+            || InitiallyContacted(p, queue));
+        // Replied = genuine inbound only (do not count outbound queue/thread rows).
         var replied = prospects.Count(p =>
-            p.CrmLifecycle is PartnerCrmLifecycle.Replied or PartnerCrmLifecycle.Interested or PartnerCrmLifecycle.Partner
-            || p.Status == "replied"
-            || p.AcquisitionStatus == PartnerCrmLifecycle.AcqReplied);
+            p.CrmLifecycle is PartnerCrmLifecycle.Replied or PartnerCrmLifecycle.Interested
+            || p.AcquisitionStatus == PartnerCrmLifecycle.AcqReplied
+            || p.Status == "replied");
         var interested = prospects.Count(p =>
             p.CrmLifecycle == PartnerCrmLifecycle.Interested
             || p.PartnershipStatus == PartnerCrmLifecycle.PartInterested
@@ -1493,17 +1510,44 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         var awaitingApproval = settings.AutomaticSending && settings.SendQualifiedAutomatically
             ? 0
             : drafts;
-        var scheduled = queue.Count(q => q.Status == "scheduled");
+        var scheduledFollowUps = queue.Count(q => q.Status == "scheduled" && q.FollowUpNumber > 0);
+        var scheduled = scheduledFollowUps;
         var contactNeeded = prospects.Count(p =>
             p.AcquisitionStatus == PartnerCrmLifecycle.AcqContactNeeded
             || p.ContactState == PartnerCrmLifecycle.ContactNeeded
             || p.Status == "no_verified_public_email"
             || string.IsNullOrWhiteSpace(p.Email) || !p.Email.Contains('@'));
 
+        var nowUtc = DateTime.UtcNow;
         var todayEt = PartnerOutreachRules.EasternNowDate();
         var dueFollowUps = queue.Count(q =>
             q.Status == "scheduled" && q.FollowUpNumber > 0
-            && (q.ScheduledAt == null || PartnerOutreachRules.ToEasternDate(q.ScheduledAt.Value) <= todayEt));
+            && q.AllowAutomatedFollowUp
+            && (q.ScheduledAt == null || q.ScheduledAt <= nowUtc));
+        var futureFollowUps = Math.Max(0, scheduledFollowUps - dueFollowUps);
+        var sentLifetime = Math.Max(sent, sentProspects);
+        var sentToday = queue.Count(q =>
+            q.SentAt != null && PartnerOutreachRules.ToEasternDate(q.SentAt.Value) == todayEt);
+        var remainingToday = Math.Max(0, settings.DailyLimit - sentToday);
+
+        var discoveryBackoff = prospects.Count(p =>
+            !ContactDiscoveryRules.HasUsableEmail(p)
+            && p.NextResearchAt is DateTime nr && nr > nowUtc
+            && !string.Equals(p.ContactDiscoveryStatus, ContactDiscoveryRules.DiscoveryNoPublicContact, StringComparison.OrdinalIgnoreCase));
+        var noPublicContact = prospects.Count(p =>
+            string.Equals(p.ContactDiscoveryStatus, ContactDiscoveryRules.DiscoveryNoPublicContact, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.ContactState, PartnerCrmLifecycle.NoPublicContact, StringComparison.OrdinalIgnoreCase));
+        var researchDue = Math.Max(0, contactNeeded - discoveryBackoff - noPublicContact);
+
+        var blockedBreakdown = BuildBlockedBreakdown(
+            prospects, queue, settings, alreadyContactedQualified, discoveryBackoff, noPublicContact,
+            dueFollowUps, futureFollowUps);
+
+        var bottleneck = BuildCurrentBottleneck(
+            qualified, autoEligible, alreadyContactedQualified, contactNeeded, discoveryBackoff,
+            noPublicContact, researchDue, dueFollowUps, remainingToday, settings);
+        var nextAction = BuildNextAutomaticAction(
+            settings, autoEligible, dueFollowUps, researchDue, discoveryBackoff, remainingToday, nowUtc);
 
         return new
         {
@@ -1524,9 +1568,16 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             {
                 discovered,
                 contactable,
+                // CURRENT: unsent + email + score>=threshold
                 qualified,
+                // Lifetime pipeline-qualified (includes already contacted)
+                qualifiedLifetime = pipelineQualifiedLifetime,
+                alreadyContactedQualified,
                 autoEligible,
-                sent = Math.Max(sent, sentProspects),
+                initialReady = autoEligible,
+                followUpsReady = dueFollowUps,
+                sent = sentLifetime,
+                sentToday,
                 clicked,
                 signedUp,
                 activated,
@@ -1539,37 +1590,58 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 drafts = autoEligible,
                 awaitingApproval,
                 scheduled,
+                scheduledFollowUps,
                 contacted,
                 replied,
                 interested,
                 partners,
+                discoveryBackoff,
+                noPublicContact,
+                researchDue,
+            },
+            funnelScopes = new
+            {
+                discovered = "current_inventory",
+                contactable = "current_inventory",
+                qualified = "current_unsent_email_score",
+                autoEligible = "current_fo0_draft_or_approved",
+                sent = "lifetime_queue_or_prospect",
+                clicked = "lifetime_attributed",
+                signedUp = "lifetime_attributed",
+                activated = "lifetime_attributed",
+                buyers = "lifetime_attributed",
             },
             conversionRates = new
             {
                 discoveredToContactable = Rate(contactable, discovered),
                 contactableToQualified = Rate(qualified, contactable),
                 qualifiedToAutoEligible = Rate(autoEligible, qualified),
-                autoEligibleToSent = Rate(Math.Max(sent, sentProspects), autoEligible + Math.Max(sent, sentProspects)),
+                // Only rate current ready → do not mix lifetime sent into a 100% fake conversion
+                autoEligibleToSent = autoEligible > 0 ? Rate(0, autoEligible) : 0d,
                 contactableToApproved = Rate(autoEligible, contactable),
-                approvedToSent = Rate(Math.Max(sent, sentProspects), autoEligible + Math.Max(sent, sentProspects)),
-                sentToClicked = Rate(clicked, Math.Max(sent, sentProspects)),
+                approvedToSent = 0d,
+                sentToClicked = Rate(clicked, sentLifetime),
                 clickedToSignedUp = Rate(signedUp, Math.Max(clicked, 1)),
                 signedUpToActivated = Rate(activated, signedUp),
                 activatedToBuyers = Rate(buyers, activated),
                 // legacy
                 discoveredToQualified = Rate(qualified, discovered),
-                qualifiedToContacted = Rate(contacted, qualified),
+                qualifiedToContacted = Rate(contacted, Math.Max(pipelineQualifiedLifetime, 1)),
                 contactedToReplied = Rate(replied, contacted),
                 repliedToInterested = Rate(interested, replied),
                 interestedToPartner = Rate(partners, interested),
                 draftToApproved = Rate(approved, drafts + approved),
             },
+            blockedBreakdown,
+            currentBottleneck = bottleneck,
+            nextAutomaticAction = nextAction,
             todaysActions = new object[]
             {
-                new { key = "auto_eligible", label = "Auto eligible", count = autoEligible, filter = "status=draft" },
+                new { key = "auto_eligible", label = "Initial sends ready", count = autoEligible, filter = "status=draft" },
+                new { key = "follow_ups", label = "Due follow-ups", count = dueFollowUps, filter = "status=scheduled" },
+                new { key = "research", label = "Contact research due", count = researchDue, filter = "contactState=CONTACT_NEEDED" },
                 new { key = "human_review", label = "Human review", count = humanReview, filter = "contactDiscoveryStatus=REVIEW_REQUIRED" },
                 new { key = "replies", label = "Replies to handle", count = replied, filter = "acquisitionStatus=REPLIED" },
-                new { key = "follow_ups", label = "Due follow-ups", count = dueFollowUps, filter = "status=scheduled" },
             },
             settings = new
             {
@@ -1577,10 +1649,209 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 settings.PauseAllOutreach,
                 settings.ComplaintPause,
                 settings.TestRecipientsOnly,
+                settings.AutomaticSending,
+                settings.DryRun,
+                settings.DailyLimit,
+                settings.SendQualifiedAutomatically,
+                sentToday,
+                remainingToday,
+                lastAutomaticRunAt = settings.LastAutomaticRunAt,
                 adminApprovalSends = true,
                 sendEnabled = !settings.PauseAllOutreach,
             },
         };
+    }
+
+    static object BuildBlockedBreakdown(
+        List<PartnerProspect> prospects,
+        List<PartnerQueueItem> queue,
+        PartnerOutreachSettingsRow settings,
+        int alreadyContactedQualified,
+        int discoveryBackoff,
+        int noPublicContact,
+        int dueFollowUps,
+        int futureFollowUps)
+    {
+        var lowScore = prospects.Count(p =>
+            ContactDiscoveryRules.HasUsableEmail(p)
+            && (p.QualificationScore > 0 ? p.QualificationScore : p.AcquisitionScore)
+                < PartnerOutreachRules.DefaultMinAcquisitionScore
+            && p.LastContactedAt == null
+            && !queue.Any(q =>
+                string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                && q.FollowUpNumber == 0
+                && (q.SentAt != null || q.Status is "sent" or "delivered")));
+        var draftMissing = prospects.Count(p =>
+            ContactDiscoveryRules.HasUsableEmail(p)
+            && (p.QualificationScore > 0 ? p.QualificationScore : p.AcquisitionScore)
+                >= PartnerOutreachRules.DefaultMinAcquisitionScore
+            && p.LastContactedAt == null
+            && !queue.Any(q =>
+                string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                && q.FollowUpNumber == 0));
+        return new
+        {
+            NO_PUBLIC_CONTACT = noPublicContact,
+            DISCOVERY_BACKOFF = discoveryBackoff,
+            INVALID_EMAIL = 0,
+            NOT_QUALIFIED = lowScore,
+            DRAFT_MISSING = draftMissing,
+            ALREADY_CONTACTED = alreadyContactedQualified,
+            COOLDOWN = 0,
+            FOLLOW_UP_NOT_DUE = futureFollowUps,
+            FOLLOW_UP_DUE = dueFollowUps,
+            MAX_FOLLOWUPS = 0,
+            REPLIED = prospects.Count(p => p.AcquisitionStatus == PartnerCrmLifecycle.AcqReplied),
+            CONVERTED = prospects.Count(p =>
+                PartnerCrmLifecycle.IsCustomerStatus(p.CustomerStatus) || p.ReferralSignups > 0),
+            SUPPRESSED = 0,
+            UNSUBSCRIBED = 0,
+            BOUNCED = 0,
+            COMPLAINT = 0,
+            OTHER = 0,
+            automaticSending = settings.AutomaticSending,
+        };
+    }
+
+    static object BuildCurrentBottleneck(
+        int qualified,
+        int autoEligible,
+        int alreadyContactedQualified,
+        int contactNeeded,
+        int discoveryBackoff,
+        int noPublicContact,
+        int researchDue,
+        int dueFollowUps,
+        int remainingToday,
+        PartnerOutreachSettingsRow settings)
+    {
+        if (!settings.AutomaticSending || !settings.SendQualifiedAutomatically)
+        {
+            return new
+            {
+                code = "AUTOMATIC_DISABLED",
+                summary = "Automatic sending is off — drafts will not SES-send on the schedule.",
+                details = Array.Empty<object>(),
+            };
+        }
+        if (settings.DryRun)
+        {
+            return new
+            {
+                code = "DRY_RUN",
+                summary = "Dry run is on — automation will prepare but not deliver live SES mail.",
+                details = Array.Empty<object>(),
+            };
+        }
+        if (settings.PauseAllOutreach || settings.ComplaintPause)
+        {
+            return new
+            {
+                code = "SAFETY_PAUSED",
+                summary = "Outreach is paused (manual or complaint safety).",
+                details = Array.Empty<object>(),
+            };
+        }
+
+        var details = new List<object>();
+        if (alreadyContactedQualified > 0)
+            details.Add(new { reason = "ALREADY_CONTACTED", count = alreadyContactedQualified });
+        if (discoveryBackoff > 0)
+            details.Add(new { reason = "DISCOVERY_BACKOFF", count = discoveryBackoff });
+        if (noPublicContact > 0)
+            details.Add(new { reason = "NO_PUBLIC_CONTACT", count = noPublicContact });
+        if (researchDue > 0)
+            details.Add(new { reason = "CONTACT_DISCOVERY_REQUIRED", count = researchDue });
+        if (qualified > 0 && autoEligible == 0)
+            details.Add(new { reason = "DRAFT_MISSING", count = qualified });
+        if (dueFollowUps > 0)
+            details.Add(new { reason = "FOLLOW_UP_DUE", count = dueFollowUps });
+
+        string summary;
+        if (autoEligible == 0 && qualified == 0 && alreadyContactedQualified > 0)
+        {
+            summary =
+                $"{alreadyContactedQualified} score-qualified contacts already received initial outreach; " +
+                $"{autoEligible} initial sends ready" +
+                (dueFollowUps > 0 ? $"; {dueFollowUps} follow-ups due" : "") +
+                (researchDue > 0 ? $"; {researchDue} contacts to research" : "") +
+                $" ({remainingToday} send capacity left today).";
+        }
+        else if (autoEligible == 0 && qualified > 0)
+        {
+            summary =
+                $"{qualified} qualified prospects, but {autoEligible} eligible for initial send — drafts not ready.";
+        }
+        else if (autoEligible == 0 && dueFollowUps == 0 && contactNeeded > 0)
+        {
+            summary =
+                $"No initial sends ready. {contactNeeded} prospects need contacts " +
+                $"({discoveryBackoff} in backoff, {noPublicContact} no public email, {researchDue} researchable now).";
+        }
+        else
+        {
+            summary =
+                $"{autoEligible} initial ready, {dueFollowUps} follow-ups due, {researchDue} contacts to research.";
+        }
+
+        return new
+        {
+            code = autoEligible == 0 && dueFollowUps == 0 ? "NO_INITIAL_READY" : "RUNNING",
+            summary,
+            details,
+        };
+    }
+
+    static object BuildNextAutomaticAction(
+        PartnerOutreachSettingsRow settings,
+        int autoEligible,
+        int dueFollowUps,
+        int researchDue,
+        int discoveryBackoff,
+        int remainingToday,
+        DateTime nowUtc)
+    {
+        var nextRun = NextWeekdayAcquisitionRunUtc(nowUtc);
+        var parts = new List<string>();
+        if (dueFollowUps > 0) parts.Add($"send {dueFollowUps} due follow-up{(dueFollowUps == 1 ? "" : "s")}");
+        if (autoEligible > 0) parts.Add($"send {Math.Min(autoEligible, remainingToday)} initial outreach");
+        if (researchDue > 0) parts.Add($"research up to {Math.Min(researchDue, settings.ResearchContactsPerRun)} contacts");
+        else if (discoveryBackoff > 0) parts.Add($"wait on {discoveryBackoff} contact-discovery backoff(s)");
+        if (settings.AutoDiscoverProspects) parts.Add("replenish prospect inventory if capacity remains");
+        if (parts.Count == 0) parts.Add("re-evaluate inventory (no sends currently due)");
+
+        return new
+        {
+            at = nextRun,
+            atEt = PartnerOutreachRules.ToEasternDate(nextRun).ToString("yyyy-MM-dd")
+                + " ~10:05 AM ET (weekday schedule)",
+            summary = string.Join("; ", parts) + $" at {nextRun:yyyy-MM-dd HH:mm} UTC.",
+            dueFollowUps,
+            initialReady = autoEligible,
+            researchDue,
+            remainingCapacity = remainingToday,
+            scheduler = "gettrainmate-partner-outreach-weekday",
+            scheduleExpression = "cron(5 14,15 ? * MON-FRI *)",
+        };
+    }
+
+    /// <summary>Next Mon–Fri 14:05 UTC fire of gettrainmate-partner-outreach-weekday.</summary>
+    public static DateTime NextWeekdayAcquisitionRunUtc(DateTime nowUtc)
+    {
+        var cursor = nowUtc;
+        for (var i = 0; i < 8; i++)
+        {
+            var day = cursor.Date;
+            if (day.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
+            {
+                var slot = day.AddHours(14).AddMinutes(5);
+                if (slot > nowUtc) return DateTime.SpecifyKind(slot, DateTimeKind.Utc);
+                var slot2 = day.AddHours(15).AddMinutes(5);
+                if (slot2 > nowUtc) return DateTime.SpecifyKind(slot2, DateTimeKind.Utc);
+            }
+            cursor = day.AddDays(1).AddHours(0);
+        }
+        return DateTime.SpecifyKind(nowUtc.Date.AddDays(1).AddHours(14).AddMinutes(5), DateTimeKind.Utc);
     }
 
     public async Task<object> ListAcquisitionCustomersAsync()
@@ -3244,6 +3515,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 PartnerCrmLifecycle.AppendTimelineEvent(p, "signup", "Customer registered", DateTime.UtcNow,
                     new { isDirectCustomer });
                 break;
+            // Authoritative activation: product beacon eventType=activated (core product action),
+            // not mere login/page_view. Incremented only via this attribution path.
             case "activated":
                 p.ActivatedUsers++;
                 p.CustomerStatus = PartnerCrmLifecycle.CustActivated;

@@ -355,29 +355,106 @@ export const AcquisitionPanel: React.FC<Props> = ({
         </Box>
       )}
 
+      {(dashboard.currentBottleneck?.summary || dashboard.nextAutomaticAction?.summary) && (
+        <Box
+          sx={{
+            mb: 2.5,
+            p: 2,
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            display: 'grid',
+            gap: 1.5,
+          }}
+        >
+          {dashboard.currentBottleneck?.summary && (
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0.6 }}>
+                CURRENT BOTTLENECK
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {dashboard.currentBottleneck.summary}
+              </Typography>
+              {(dashboard.currentBottleneck.details?.length ?? 0) > 0 && (
+                <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 1 }}>
+                  {dashboard.currentBottleneck.details!.map((d) => (
+                    <Chip
+                      key={`${d.reason}-${d.count}`}
+                      size="small"
+                      label={`${d.reason}: ${d.count ?? 0}`}
+                    />
+                  ))}
+                </Box>
+              )}
+            </Box>
+          )}
+          {dashboard.nextAutomaticAction?.summary && (
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0.6 }}>
+                NEXT AUTOMATIC ACTION
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {dashboard.nextAutomaticAction.summary}
+              </Typography>
+              {dashboard.nextAutomaticAction.atEt && (
+                <Typography variant="caption" color="text.secondary">
+                  {dashboard.nextAutomaticAction.atEt}
+                  {dashboard.settings?.remainingToday != null
+                    ? ` · ${dashboard.settings.remainingToday} capacity left today`
+                    : ''}
+                </Typography>
+              )}
+            </Box>
+          )}
+        </Box>
+      )}
+
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, letterSpacing: 0.6 }}>
         CUSTOMER FUNNEL
       </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+        Qualified / Auto eligible = current inventory. Sent / Clicked / Signed up = lifetime attributed
+        events (not the same cohort).
+        {(funnel?.alreadyContactedQualified ?? 0) > 0
+          ? ` ${funnel?.alreadyContactedQualified} score-qualified prospects already contacted.`
+          : ''}
+      </Typography>
       <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap', mb: 1.5 }}>
-        {funnelSteps.map((step) => (
-          <MetricCard
-            key={step.key}
-            label={step.label}
-            value={
-              step.key === 'revenue'
-                ? formatCents(typeof step.value === 'number' && step.value > 1000 ? step.value : (dashboard.northStars?.revenueCents ?? dashboard.northStars?.revenueAttributedCents ?? step.value))
-                : step.value
-            }
-            note={step.conv != null ? `${formatPct(step.conv)} from prior` : undefined}
-            attention={step.key === 'autoEligible' && autoEligible > 0 && pauseAll}
-            onClick={() => funnelNav(step.key)}
-          />
-        ))}
+        {funnelSteps.map((step) => {
+          const scope = dashboard.funnelScopes?.[step.key];
+          const lifetimeNote =
+            step.key === 'sent' || step.key === 'clicked' || step.key === 'signedUp'
+              ? 'lifetime'
+              : step.key === 'qualified' || step.key === 'autoEligible'
+                ? 'current'
+                : undefined;
+          const noteParts = [
+            step.conv != null && step.key !== 'sent' ? `${formatPct(step.conv)} from prior` : null,
+            lifetimeNote,
+            scope && scope.includes('lifetime') ? null : null,
+          ].filter(Boolean);
+          return (
+            <MetricCard
+              key={step.key}
+              label={step.label}
+              value={
+                step.key === 'revenue'
+                  ? formatCents(typeof step.value === 'number' && step.value > 1000 ? step.value : (dashboard.northStars?.revenueCents ?? dashboard.northStars?.revenueAttributedCents ?? step.value))
+                  : step.value
+              }
+              note={noteParts.length ? noteParts.join(' · ') : undefined}
+              attention={step.key === 'autoEligible' && autoEligible > 0 && pauseAll}
+              onClick={() => funnelNav(step.key)}
+            />
+          );
+        })}
       </Box>
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
         {funnelSteps.slice(1).map((step, i) => {
-          if (step.conv == null || step.key === 'revenue') return null;
+          // Do not show Auto eligible → Sent % — those scopes are incompatible.
+          if (step.conv == null || step.key === 'revenue' || step.key === 'sent') return null;
           const prev = funnelSteps[i];
+          if (prev.key === 'autoEligible' && step.key === 'sent') return null;
           return (
             <Chip
               key={`rate-${step.key}`}

@@ -91,9 +91,9 @@ export const DashboardPage: React.FC = () => {
   const statCards = [
     { title: 'Revenue (MTD)', value: `$${(metrics?.revenue ?? 0).toLocaleString()}`, icon: <PaymentIcon sx={{ fontSize: 40 }} />, color: '#2e7d32' },
     { title: 'Orders (7d)', value: metrics?.orders7d ?? 0, icon: <TrendingUpIcon sx={{ fontSize: 40 }} />, color: '#1976d2' },
-    { title: 'New Users', value: metrics?.newUsers ?? 0, icon: <PeopleIcon sx={{ fontSize: 40 }} />, color: '#6366f1' },
-    { title: 'Active Users', value: metrics?.activeUsers ?? 0, icon: <PeopleIcon sx={{ fontSize: 40 }} />, color: '#ed6c02' },
-    { title: 'Total Matches', value: metrics?.totalMatches ?? 0, icon: <EventIcon sx={{ fontSize: 40 }} />, color: '#9c27b0' },
+    { title: 'New users (7d)', value: metrics?.newUsers ?? 0, icon: <PeopleIcon sx={{ fontSize: 40 }} />, color: '#6366f1' },
+    { title: 'Active users (7d)', value: metrics?.activeUsers ?? 0, icon: <PeopleIcon sx={{ fontSize: 40 }} />, color: '#ed6c02' },
+    { title: 'Total mutual matches', value: metrics?.totalMatches ?? 0, icon: <EventIcon sx={{ fontSize: 40 }} />, color: '#9c27b0' },
   ];
 
   return (

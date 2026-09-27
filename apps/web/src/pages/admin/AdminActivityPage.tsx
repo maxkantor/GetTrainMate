@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { adminApiService } from '@/services/adminApiService';
 import { pickPagedItems, pickPagedMeta } from '@/utils/adminApiNormalize';
@@ -10,10 +10,40 @@ interface ActivityRow {
   rowKey: string;
   eventType: string;
   path?: string;
+  cleanPath?: string;
   userId?: string;
   sessionId?: string;
   paramsJson?: string;
+  source?: string;
+  campaign?: string;
+  mode?: string;
+  language?: string;
   timestamp?: string;
+}
+
+function cleanPathDisplay(raw?: string): string {
+  if (!raw) return '—';
+  let s = raw.trim();
+  try {
+    if (/^https?:\/\//i.test(s)) {
+      s = new URL(s).pathname || '/';
+    }
+  } catch {
+    /* keep */
+  }
+  const q = s.indexOf('?');
+  if (q >= 0) s = s.slice(0, q);
+  const h = s.indexOf('#');
+  if (h >= 0) s = s.slice(0, h);
+  return s || '/';
+}
+
+function pickParam(parsed: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const k of keys) {
+    const v = parsed[k];
+    if (v != null && String(v).trim()) return String(v);
+  }
+  return undefined;
 }
 
 const EVENT_FILTER_OPTIONS = [
@@ -37,6 +67,7 @@ export const AdminActivityPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,13 +92,33 @@ export const AdminActivityPage: React.FC = () => {
           const sessionId = (r.sessionId ?? r.SessionId) != null ? String(r.sessionId ?? r.SessionId) : undefined;
           const paramsJson = (r.paramsJson ?? r.ParamsJson) != null ? String(r.paramsJson ?? r.ParamsJson) : undefined;
           const ts = r.timestamp ?? r.Timestamp;
+          let source: string | undefined;
+          let campaign: string | undefined;
+          let mode: string | undefined;
+          let language: string | undefined;
+          if (paramsJson) {
+            try {
+              const parsed = JSON.parse(paramsJson) as Record<string, unknown>;
+              source = pickParam(parsed, ['utm_source', 'source', 'ref']);
+              campaign = pickParam(parsed, ['utm_campaign', 'campaign', 'partner', 'partnerCode']);
+              mode = pickParam(parsed, ['mode', 'utm_content']);
+              language = pickParam(parsed, ['lang', 'language', 'hl']);
+            } catch {
+              /* ignore */
+            }
+          }
           return {
             rowKey: eventId,
             eventType,
             path,
+            cleanPath: cleanPathDisplay(path),
             userId,
             sessionId,
             paramsJson,
+            source,
+            campaign,
+            mode,
+            language,
             timestamp: ts != null ? String(ts) : undefined,
           };
         })
@@ -89,58 +140,107 @@ export const AdminActivityPage: React.FC = () => {
     setPage(1);
   }, [eventFilter]);
 
-  const columns: Column<ActivityRow>[] = [
-    {
-      key: 'eventType',
-      header: 'Event',
-      render: (r) => (
-        <span style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{r.eventType || '—'}</span>
-      ),
-    },
-    {
-      key: 'path',
-      header: 'Path',
-      render: (r) => (
-        <span style={{ fontSize: '0.85rem', wordBreak: 'break-all' }}>{r.path || '—'}</span>
-      ),
-    },
-    {
-      key: 'userId',
-      header: 'User',
-      render: (r) =>
-        r.userId ? (
-          <Link to={`/admin/users?highlight=${encodeURIComponent(r.userId)}`} style={{ fontSize: '0.85rem' }}>
-            {r.userId.slice(0, 12)}…
-          </Link>
-        ) : (
-          <span style={{ opacity: 0.6, fontSize: '0.85rem' }}>
-            {r.sessionId ? `anon ${r.sessionId.slice(0, 8)}…` : 'anonymous'}
+  const columns: Column<ActivityRow>[] = useMemo(
+    () => [
+      {
+        key: 'eventType',
+        header: 'Event',
+        render: (r) => (
+          <span style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{r.eventType || '—'}</span>
+        ),
+      },
+      {
+        key: 'cleanPath',
+        header: 'Path',
+        render: (r) => (
+          <span style={{ fontSize: '0.85rem' }} title={r.path || undefined}>
+            {r.cleanPath || '—'}
           </span>
         ),
-    },
-    {
-      key: 'paramsJson',
-      header: 'Details',
-      render: (r) => {
-        if (!r.paramsJson) return '—';
-        try {
-          const parsed = JSON.parse(r.paramsJson) as Record<string, unknown>;
-          const preview = Object.entries(parsed)
-            .slice(0, 3)
-            .map(([k, v]) => `${k}=${String(v)}`)
-            .join(', ');
-          return <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>{preview || '—'}</span>;
-        } catch {
-          return <span style={{ fontSize: '0.8rem' }}>{r.paramsJson.slice(0, 60)}</span>;
-        }
       },
-    },
-    {
-      key: 'timestamp',
-      header: 'When',
-      render: (r) => (r.timestamp ? new Date(r.timestamp).toLocaleString() : '—'),
-    },
-  ];
+      {
+        key: 'userId',
+        header: 'User / session',
+        render: (r) =>
+          r.userId ? (
+            <Link to={`/admin/users?highlight=${encodeURIComponent(r.userId)}`} style={{ fontSize: '0.85rem' }}>
+              {r.userId.slice(0, 12)}…
+            </Link>
+          ) : (
+            <span style={{ opacity: 0.6, fontSize: '0.85rem' }}>
+              {r.sessionId ? `anon ${r.sessionId.slice(0, 8)}…` : 'anonymous'}
+            </span>
+          ),
+      },
+      {
+        key: 'source',
+        header: 'Source',
+        render: (r) => <span style={{ fontSize: '0.8rem' }}>{r.source || '—'}</span>,
+      },
+      {
+        key: 'campaign',
+        header: 'Campaign',
+        render: (r) => <span style={{ fontSize: '0.8rem' }}>{r.campaign || '—'}</span>,
+      },
+      {
+        key: 'mode',
+        header: 'Mode',
+        render: (r) => <span style={{ fontSize: '0.8rem' }}>{r.mode || '—'}</span>,
+      },
+      {
+        key: 'language',
+        header: 'Lang',
+        render: (r) => <span style={{ fontSize: '0.8rem' }}>{r.language || '—'}</span>,
+      },
+      {
+        key: 'timestamp',
+        header: 'When',
+        render: (r) => (r.timestamp ? new Date(r.timestamp).toLocaleString() : '—'),
+      },
+      {
+        key: 'paramsJson',
+        header: 'Details',
+        render: (r) => {
+          if (!r.paramsJson && !r.path) return '—';
+          const open = Boolean(expanded[r.rowKey]);
+          return (
+            <div style={{ fontSize: '0.8rem' }}>
+              <button
+                type="button"
+                onClick={() => setExpanded((prev) => ({ ...prev, [r.rowKey]: !prev[r.rowKey] }))}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  color: 'inherit',
+                  borderRadius: 6,
+                  padding: '2px 8px',
+                  cursor: 'pointer',
+                }}
+              >
+                {open ? 'Hide details' : 'View details'}
+              </button>
+              {open && (
+                <pre
+                  style={{
+                    marginTop: 6,
+                    maxWidth: 360,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                    opacity: 0.85,
+                    fontSize: '0.75rem',
+                  }}
+                >
+                  {r.path ? `url: ${r.path}\n` : ''}
+                  {r.paramsJson || ''}
+                </pre>
+              )}
+            </div>
+          );
+        },
+      },
+    ],
+    [expanded],
+  );
 
   if (error === 'FORBIDDEN') return <AdminNoAccessPage />;
 
@@ -155,7 +255,8 @@ export const AdminActivityPage: React.FC = () => {
       <p className={styles.lead}>
         Live stream of page views and product events (mirrors GA4, stored server-side for admin monitoring).
         Anonymous visitors appear by session ID; logged-in users link to{' '}
-        <Link to="/admin/users">Users CRM</Link>.
+        <Link to="/admin/users">Users CRM</Link>. Attribution query params are stored but shown under View
+        details.
       </p>
 
       <div className={styles.toolbar}>
@@ -198,20 +299,14 @@ export const AdminActivityPage: React.FC = () => {
 
       {totalPages > 1 && (
         <div className={styles.actionRow}>
-          <button
-            type="button"
-            className={styles.inlineBtn}
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
+          <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>
             Previous
           </button>
-          <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>
-            Page {page} of {totalPages}
+          <span>
+            Page {page} / {totalPages}
           </span>
           <button
             type="button"
-            className={styles.inlineBtn}
             disabled={page >= totalPages || loading}
             onClick={() => setPage((p) => p + 1)}
           >

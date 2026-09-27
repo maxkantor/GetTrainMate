@@ -388,12 +388,38 @@ public class AdminMetricsController : ControllerBase
     private static string FormatAnalyticsDescription(ActivityEventRecord ev)
     {
         var parts = new List<string>();
-        if (!string.IsNullOrEmpty(ev.Path)) parts.Add(ev.Path);
+        if (!string.IsNullOrEmpty(ev.Path))
+            parts.Add(CleanActivityPath(ev.Path));
         if (!string.IsNullOrEmpty(ev.UserId))
             parts.Add($"user {ev.UserId[..Math.Min(8, ev.UserId.Length)]}…");
         else if (!string.IsNullOrEmpty(ev.SessionId))
             parts.Add($"session {ev.SessionId[..Math.Min(8, ev.SessionId.Length)]}…");
         return parts.Count > 0 ? string.Join(" · ", parts) : ev.EventType;
+    }
+
+    /// <summary>Display-only: strip query strings / hosts so Recent Activity stays readable.</summary>
+    internal static string CleanActivityPath(string raw)
+    {
+        var s = (raw ?? "").Trim();
+        if (string.IsNullOrEmpty(s)) return "—";
+        try
+        {
+            if (s.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                || s.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                var uri = new Uri(s);
+                s = uri.AbsolutePath;
+            }
+        }
+        catch
+        {
+            /* keep raw */
+        }
+        var q = s.IndexOf('?', StringComparison.Ordinal);
+        if (q >= 0) s = s[..q];
+        var h = s.IndexOf('#', StringComparison.Ordinal);
+        if (h >= 0) s = s[..h];
+        return string.IsNullOrWhiteSpace(s) ? "/" : s;
     }
 
     private static string MaskEmail(string email)

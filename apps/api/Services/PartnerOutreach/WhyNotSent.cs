@@ -13,6 +13,7 @@ public static class WhyNotSent
     public const string AutomaticDisabled = "AUTOMATIC_DISABLED";
     public const string SesRejected = "SES_REJECTED";
     public const string NotQualified = "NOT_QUALIFIED";
+    public const string DraftMissing = "DRAFT_MISSING";
     public const string DuplicateEmail = "DUPLICATE_EMAIL";
     public const string DuplicateOrganization = "DUPLICATE_ORGANIZATION";
     public const string AlreadyContacted = "ALREADY_CONTACTED";
@@ -87,11 +88,13 @@ public static class WhyNotSent
                 return InvalidEmail;
             return DiscoveryPending;
         }
-        if (score > 0 && score < minScore) return NotQualified;
+        // Score 0 with a usable email is not sendable (unscored / below threshold).
+        if (score < minScore) return NotQualified;
         if (dryRun) return DryRun;
         if (hasUnsentDraft && automaticSending) return ReadyToSend;
         if (hasUnsentDraft && !automaticSending) return ManualApprovalRequired;
-        return DiscoveryPending;
+        // Usable email + score, but no FO0 draft yet — automation should prepare one.
+        return DraftMissing;
     }
 }
 

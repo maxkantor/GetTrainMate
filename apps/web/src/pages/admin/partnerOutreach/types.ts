@@ -34,21 +34,30 @@ export interface FunnelCounts {
   humanReview?: number;
   approved?: number;
   sent?: number;
+  sentToday?: number;
   clicked?: number;
   signedUp?: number;
   activated?: number;
   buyers?: number;
   revenue?: number;
-  /** Legacy / optional */
+  /** Current unsent inventory with email + score threshold */
   qualified?: number;
+  qualifiedLifetime?: number;
+  alreadyContactedQualified?: number;
+  initialReady?: number;
+  followUpsReady?: number;
   contactNeeded?: number;
   drafts?: number;
   awaitingApproval?: number;
   scheduled?: number;
+  scheduledFollowUps?: number;
   contacted?: number;
   replied?: number;
   interested?: number;
   partners?: number;
+  discoveryBackoff?: number;
+  noPublicContact?: number;
+  researchDue?: number;
   [key: string]: number | undefined;
 }
 
@@ -97,12 +106,68 @@ export interface AcquisitionSourceRow {
   prospects?: number;
 }
 
+export interface BottleneckDetail {
+  reason?: string;
+  count?: number;
+}
+
+export interface CurrentBottleneck {
+  code?: string;
+  summary?: string;
+  details?: BottleneckDetail[];
+}
+
+export interface NextAutomaticAction {
+  at?: string;
+  atEt?: string;
+  summary?: string;
+  dueFollowUps?: number;
+  initialReady?: number;
+  researchDue?: number;
+  remainingCapacity?: number;
+  scheduler?: string;
+  scheduleExpression?: string;
+}
+
+export interface BlockedBreakdown {
+  NO_PUBLIC_CONTACT?: number;
+  DISCOVERY_BACKOFF?: number;
+  INVALID_EMAIL?: number;
+  NOT_QUALIFIED?: number;
+  DRAFT_MISSING?: number;
+  ALREADY_CONTACTED?: number;
+  COOLDOWN?: number;
+  FOLLOW_UP_NOT_DUE?: number;
+  FOLLOW_UP_DUE?: number;
+  MAX_FOLLOWUPS?: number;
+  REPLIED?: number;
+  CONVERTED?: number;
+  SUPPRESSED?: number;
+  UNSUBSCRIBED?: number;
+  BOUNCED?: number;
+  COMPLAINT?: number;
+  OTHER?: number;
+  [key: string]: number | boolean | undefined;
+}
+
 export interface AcquisitionDashboard {
   northStars: NorthStars;
   funnel: FunnelCounts;
   conversionRates?: ConversionRates;
   todaysActions: TodaysAction[];
-  settings: DashboardSettingsSnapshot;
+  settings: DashboardSettingsSnapshot & {
+    automaticSending?: boolean;
+    dryRun?: boolean;
+    dailyLimit?: number;
+    sentToday?: number;
+    remainingToday?: number;
+    lastAutomaticRunAt?: string;
+    sendQualifiedAutomatically?: boolean;
+  };
+  funnelScopes?: Record<string, string>;
+  blockedBreakdown?: BlockedBreakdown;
+  currentBottleneck?: CurrentBottleneck;
+  nextAutomaticAction?: NextAutomaticAction;
   sources?: AcquisitionSourceRow[];
   topSources?: AcquisitionSourceRow[];
   acquisitionSources?: AcquisitionSourceRow[];
