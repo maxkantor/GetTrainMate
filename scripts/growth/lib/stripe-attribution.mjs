@@ -53,11 +53,23 @@ function meta(obj) {
 }
 
 function hasForeignAppSource(m, appSourceKey, appSourceValue) {
-  const foreignKeys = ['app_source', 'product_source', 'yb_source', 'source_app', 'application'];
+  const foreignKeys = [
+    'app_source',
+    'product_source',
+    'yb_source',
+    'source_app',
+    'application',
+    // Sibling products on the shared Stripe account stamp these:
+    'app',
+    'product',
+  ];
   for (const k of foreignKeys) {
     if (k === appSourceKey) continue;
     const v = m[k];
-    if (typeof v === 'string' && v.trim() && !stringEquals(v, appSourceValue)) return true;
+    if (typeof v !== 'string' || !v.trim()) continue;
+    // GetTrainMate stamps app/product as "GetTrainMate" — treat other brands as foreign.
+    if (stringEquals(v, appSourceValue) || stringEquals(v, 'gettrainmate')) continue;
+    return true;
   }
   const src = m[appSourceKey];
   if (typeof src === 'string' && src.trim() && !stringEquals(src, appSourceValue)) return true;

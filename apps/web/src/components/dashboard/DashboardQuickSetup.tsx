@@ -89,6 +89,8 @@ export const DashboardQuickSetup: React.FC = () => {
         selected_level: level,
         selected_time_preference: timeId,
       });
+      // Profile fields saved; photo step remains. Emit profile_completed when photo setup finishes.
+      trackEvent('profile_started', { source_page: '/app', mode: 'TRAIN' });
       clearSignupDisplayName();
       // Profile is not complete until a photo is uploaded — always collect photos next.
       navigate('/app/profile?focus=photos&setup=1', { replace: true });

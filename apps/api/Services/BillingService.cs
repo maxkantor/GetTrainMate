@@ -204,6 +204,19 @@ public class BillingService : IBillingService
                 { "userId", userId },
                 { "planKey", planKey },
             },
+            PaymentIntentData = new SessionPaymentIntentDataOptions
+            {
+                Metadata = new Dictionary<string, string>
+                {
+                    { StripeSessionOwnership.AppSourceKey, StripeSessionOwnership.AppSourceValue },
+                    { "app", StripeCheckoutBranding.DisplayName },
+                    { "purchaseType", "subscription" },
+                    { "plan", planKey },
+                    { "internalProductId", planKey },
+                    { "userId", userId },
+                    { "planKey", planKey },
+                },
+            },
             SubscriptionData = new SessionSubscriptionDataOptions
             {
                 Metadata = new Dictionary<string, string>

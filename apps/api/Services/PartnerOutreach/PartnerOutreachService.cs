@@ -2040,6 +2040,21 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
                 && q.FollowUpNumber == 0
                 && q.Status is "draft" or "approved" or "approved_for_next_send");
+            var nowUtc = DateTime.UtcNow;
+            var followItems = queue.Where(q =>
+                string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                && q.FollowUpNumber > 0).ToList();
+            var followUpDue = followItems.Any(q =>
+                q.Status == "scheduled"
+                && q.AllowAutomatedFollowUp
+                && (q.ScheduledAt == null || q.ScheduledAt <= nowUtc));
+            var followUpFuture = followItems.Any(q =>
+                q.Status == "scheduled"
+                && q.ScheduledAt is DateTime sat
+                && sat > nowUtc);
+            var maxFo = followItems.Count > 0 ? followItems.Max(q => q.FollowUpNumber) : 0;
+            var maxReached = alreadySent && !followUpDue && !followUpFuture && maxFo >= 2
+                && followItems.All(q => q.Status is "sent" or "delivered");
             p.WhyNotSent = WhyNotSent.ForProspect(
                 new PartnerProspectState
                 {
@@ -2058,7 +2073,10 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 settings.DryRun,
                 settings.PauseAllOutreach || settings.ComplaintPause,
                 p.QualificationScore > 0 ? p.QualificationScore : p.AcquisitionScore,
-                PartnerOutreachRules.DefaultMinAcquisitionScore);
+                PartnerOutreachRules.DefaultMinAcquisitionScore,
+                followUpDue,
+                followUpFuture,
+                maxReached);
         }
     }
 
@@ -3087,6 +3105,15 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             qualified = prospects.Count(p =>
                 ContactDiscoveryRules.HasUsableEmail(p)
                 && (p.QualificationScore >= PartnerOutreachRules.DefaultMinAcquisitionScore
+                    || p.AcquisitionScore >= PartnerOutreachRules.DefaultMinAcquisitionScore)
+                && p.LastContactedAt == null
+                && !queue.Any(q =>
+                    string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                    && q.FollowUpNumber == 0
+                    && (q.SentAt != null || q.Status is "sent" or "delivered" or "replied"))),
+            qualifiedLifetime = prospects.Count(p =>
+                ContactDiscoveryRules.HasUsableEmail(p)
+                && (p.QualificationScore >= PartnerOutreachRules.DefaultMinAcquisitionScore
                     || p.AcquisitionScore >= PartnerOutreachRules.DefaultMinAcquisitionScore)),
             readyToSend = queue.Count(q =>
                 q.FollowUpNumber == 0
@@ -3096,6 +3123,12 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 && q.Status is "draft" or "approved" or "approved_for_next_send"),
             humanReview = prospects.Count(p =>
                 string.Equals(p.ContactDiscoveryStatus, ContactDiscoveryRules.DiscoveryReviewRequired, StringComparison.OrdinalIgnoreCase)),
+            followUpsDue = queue.Count(q =>
+                q.Status == "scheduled" && q.FollowUpNumber > 0 && q.AllowAutomatedFollowUp
+                && (q.ScheduledAt == null || q.ScheduledAt <= DateTime.UtcNow)),
+            followUpsWaiting = queue.Count(q =>
+                q.Status == "scheduled" && q.FollowUpNumber > 0
+                && q.ScheduledAt is DateTime sat && sat > DateTime.UtcNow),
         };
     }
 

@@ -108,6 +108,35 @@ describe('normalizeStripe', () => {
     assert.equal(s.unique_paying_customers_method, 'stripe_customer_dedupe_attributed');
   });
 
+  it('classifies sibling-product Stripe sessions as OTHER PRODUCT', () => {
+    const s = normalizeStripe({
+      sessions: {
+        data: [
+          {
+            id: 'cs_live_lnl',
+            livemode: true,
+            status: 'complete',
+            payment_status: 'paid',
+            amount_total: 1999,
+            metadata: { app: 'luckynumberslab', product: 'luckynumberslab', userId: 'device-1' },
+          },
+          {
+            id: 'cs_live_lnl2',
+            livemode: true,
+            status: 'complete',
+            payment_status: 'paid',
+            amount_total: 399,
+            metadata: { app: 'luckynumberslab', product: 'luckynumberslab', credits: '25' },
+          },
+        ],
+      },
+      charges: { data: [] },
+    });
+    assert.equal(s.attributed_live_payments, 0);
+    assert.equal(s.unattributed_live_payments, 2);
+    assert.equal(s.unattributed_classification.label, 'OTHER PRODUCT');
+  });
+
   it('does not count unknown-attribution sessions as this app', () => {
     const s = normalizeStripe({
       sessions: {

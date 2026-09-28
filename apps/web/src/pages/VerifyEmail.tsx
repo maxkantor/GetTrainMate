@@ -79,12 +79,6 @@ export const VerifyEmailPage: React.FC = () => {
 
     const p = readPendingSignup();
     const pass = p?.password;
-    if (!pass) {
-      setError(
-        'We need your password to sign you in after verification. Go back to Sign up, enter your details again, and we’ll send a fresh code — or sign in if you already verified.'
-      );
-      return;
-    }
 
     try {
       const result = await confirmSignUp(u, code.trim());
@@ -102,11 +96,34 @@ export const VerifyEmailPage: React.FC = () => {
         return;
       }
 
+      trackEvent('email_verified', { method: 'email', source_page: '/verify-email' });
+      trackEvent('signup_verified', { method: 'email', source_page: '/verify-email' });
+
       const loginEmail = email.trim() || p?.email || '';
       const fullName = p?.fullName?.trim();
       if (fullName) rememberSignupDisplayName(fullName);
       setNewUserDashboardGreeting();
       markPostVerifyWelcome();
+
+      // Password may be missing (cross-device / cleared session). Verification still succeeded —
+      // send them to login instead of blocking confirmSignUp.
+      if (!pass) {
+        clearPendingSignup();
+        trackEvent('signup_completed', {
+          method: 'email',
+          source_page: '/verify-email',
+          login_deferred: true,
+        });
+        void reportPartnerAttribution('signup');
+        navigate('/login', {
+          replace: true,
+          state: {
+            email: loginEmail,
+            notice: 'Email verified. Sign in with your password to continue.',
+          },
+        });
+        return;
+      }
 
       const loginRes = await login(loginEmail, pass);
       clearPendingSignup();
@@ -124,7 +141,6 @@ export const VerifyEmailPage: React.FC = () => {
         return;
       }
 
-      trackEvent('signup_verified', { method: 'email', source_page: '/verify-email' });
       trackEvent('signup_completed', { method: 'email', source_page: '/verify-email' });
       void reportPartnerAttribution('signup');
 

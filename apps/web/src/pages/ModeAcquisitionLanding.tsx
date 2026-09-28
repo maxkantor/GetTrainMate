@@ -237,7 +237,7 @@ export const ModeAcquisitionLanding: React.FC<{ copy: ModeLandingCopy }> = ({ co
             variant="contained"
             size="large"
             onClick={() =>
-              trackEvent('signup_started', {
+              trackEvent('sign_up_clicked', {
                 source_page: copy.path,
                 segment: copy.mode,
                 mode: copy.mode,

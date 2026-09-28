@@ -123,6 +123,9 @@ export const SignupPage: React.FC = () => {
       errors.password = t('validation.passwordRequired');
     } else if (password.length < 8) {
       errors.password = t('validation.passwordMinLength');
+    } else if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      errors.password =
+        'Password must include at least one uppercase letter, one lowercase letter, and one number.';
     }
 
     setValidationErrors(errors);

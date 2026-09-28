@@ -6,6 +6,8 @@ import { useI18n } from '@/hooks/useI18n';
 import { Container } from '@/components/layout/Container';
 import styles from './FinalCTA.module.css';
 
+import { trackEvent } from '@/utils/analytics';
+
 export const FinalCTA: React.FC = () => {
   const cardRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated } = useAuthContext();
@@ -46,7 +48,16 @@ export const FinalCTA: React.FC = () => {
           <h2 className={styles.title}>{t('landing.final_cta_card_title')}</h2>
           <p className={styles.sub}>{t('landing.final_cta_card_sub')}</p>
           {!isAuthenticated ? (
-            <Link to="/signup?src=homepage_final" className={styles.btn}>
+            <Link
+              to="/signup?src=homepage_final"
+              className={styles.btn}
+              onClick={() =>
+                trackEvent('sign_up_clicked', {
+                  source_page: '/',
+                  acquisition_source: 'homepage_final',
+                })
+              }
+            >
               {t('landing.landing_primary_cta')}
             </Link>
           ) : (

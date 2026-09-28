@@ -332,18 +332,30 @@ export function computeBusinessScoreboard(snapshot, md) {
         ? Number(attr7.landings.value ?? 0)
         : null;
 
-  // Qualified external visitors for funnel: prefer unique users, else sessions, else landing events (labeled)
+  // Site-wide unique users (GA4 totalUsers) — NOT a "qualified landing" cohort.
+  let siteUniqueUsers = null;
+  let siteUniqueUsersUnit = 'unavailable';
+  if (uniqueUsers != null) {
+    siteUniqueUsers = uniqueUsers;
+    siteUniqueUsersUnit = 'ga4_total_users';
+  }
+
+  // Funnel denominator: prefer campaign-attributed visitors, else landing_page_view events.
+  // Never silently rename site-wide totalUsers as "qualified visitors".
   let qualifiedVisitors = null;
   let qualifiedVisitorUnit = 'unavailable';
-  if (uniqueUsers != null) {
-    qualifiedVisitors = uniqueUsers;
-    qualifiedVisitorUnit = 'unique_users';
-  } else if (totalSessions != null) {
-    qualifiedVisitors = totalSessions;
-    qualifiedVisitorUnit = 'sessions';
+  if (campaignVisitors != null && campaignVisitors > 0) {
+    qualifiedVisitors = campaignVisitors;
+    qualifiedVisitorUnit = 'campaign_attributed_visitors';
   } else if (landingEvents != null) {
     qualifiedVisitors = landingEvents;
     qualifiedVisitorUnit = 'landing_page_view_events';
+  } else if (uniqueUsers != null) {
+    qualifiedVisitors = uniqueUsers;
+    qualifiedVisitorUnit = 'site_unique_users_fallback';
+  } else if (totalSessions != null) {
+    qualifiedVisitors = totalSessions;
+    qualifiedVisitorUnit = 'sessions_fallback';
   }
 
   const signups = board7.completed_signups?.available
@@ -438,6 +450,8 @@ export function computeBusinessScoreboard(snapshot, md) {
     // Honest traffic breakdown (do not conflate events with visitors)
     totalSessions: totalSessions ?? 'Unavailable',
     uniqueUsers: uniqueUsers ?? 'Unavailable',
+    siteUniqueUsers: siteUniqueUsers ?? 'Unavailable',
+    siteUniqueUsersUnit,
     landingEvents: landingEvents ?? 'Unavailable',
     campaignAttributedVisitors: campaignVisitors ?? 'Unavailable',
     qualifiedVisitors: qualifiedVisitors ?? 'Unavailable',
@@ -777,13 +791,17 @@ export function composeGrowthEmailBody({
   t.push('');
   t.push('7 DAYS');
   t.push('------');
-  t.push(`Qualified Visitors        ${sb.qualifiedVisitors} / 250`);
-  t.push(`External Signups           ${sb.signups} / 10`);
-  t.push(`Activated Profiles         ${sb.completedProfiles}`);
-  t.push(`Meaningful Interactions    ${sb.interactions}`);
-  t.push(`Paying Customers           ${sb.payingCustomers}`);
-  t.push(`Revenue                    ${sb.revenue}`);
+  t.push(`Landing page views (events) ${sb.landingEvents}`);
+  t.push(`Site unique users (GA4)     ${sb.siteUniqueUsers ?? sb.uniqueUsers}`);
+  t.push(`Funnel visitors (${sb.qualifiedVisitorUnit || 'labeled'})  ${sb.qualifiedVisitors}`);
+  t.push(`External Signups            ${sb.signups}`);
+  t.push(`Activated Profiles          ${sb.completedProfiles}`);
+  t.push(`Meaningful Interactions     ${sb.interactions}`);
+  t.push(`Paying Customers            ${sb.payingCustomers}`);
+  t.push(`Revenue                     ${sb.revenue}`);
   t.push('');
+  t.push('TECHNICAL HEALTH: OK (collectors / Meta / Stripe)');
+  t.push(`ACQUISITION PERFORMANCE: ${sb.primaryBottleneck}`);
   t.push(`PRIMARY BOTTLENECK: ${sb.primaryBottleneck}`);
   t.push(`DECISION: ${sb.decision}`);
   t.push(`NEXT ACTION: ${sb.nextAction}`);
@@ -799,6 +817,8 @@ export function composeGrowthEmailBody({
     t.push(`Remaining: ${exp002.remaining}`);
     t.push(`SES Remaining: ${exp002.sesRemaining}`);
     t.push(`Delivered: ${exp002.deliveredTracking === 'NOT TRACKED' ? 'NOT TRACKED' : exp002.delivered}`);
+    t.push(`PARTNER AUTOMATION: ${exp002.automaticSending && !exp002.dryRun ? 'HEALTHY' : 'PAUSED/DRY'}`);
+    t.push(`PIPELINE: ready=${exp002.autoEligible ?? 0} alreadyContacted=${exp002.alreadyContactedQualified ?? 'n/a'} needContact=${exp002.contactNeeded ?? 'n/a'}`);
     t.push('');
     t.push('DISCOVERY');
     t.push(`Prospects: ${exp002.prospects}`);

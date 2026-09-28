@@ -522,6 +522,10 @@ public class CreditsService : ICreditsService
             CancelUrl = cancelUrl,
             ClientReferenceId = userId,
             Metadata = metadata,
+            PaymentIntentData = new SessionPaymentIntentDataOptions
+            {
+                Metadata = new Dictionary<string, string>(metadata),
+            },
             BrandingSettings = StripeCheckoutBranding.CreateBrandingSettings(baseUrlClean),
         };
 

@@ -17,6 +17,9 @@ public static class WhyNotSent
     public const string DuplicateEmail = "DUPLICATE_EMAIL";
     public const string DuplicateOrganization = "DUPLICATE_ORGANIZATION";
     public const string AlreadyContacted = "ALREADY_CONTACTED";
+    public const string FollowUpDue = "FOLLOW_UP_DUE";
+    public const string FollowUpNotDue = "FOLLOW_UP_NOT_DUE";
+    public const string MaxFollowUps = "MAX_FOLLOWUPS";
     public const string Cooldown = "COOLDOWN";
     public const string Unsubscribed = "GLOBAL_SUPPRESSION_UNSUBSCRIBED";
     public const string Bounced = "GLOBAL_SUPPRESSION_BOUNCED";
@@ -66,14 +69,23 @@ public static class WhyNotSent
         bool dryRun,
         bool paused,
         int score,
-        int minScore)
+        int minScore,
+        bool followUpDue = false,
+        bool followUpScheduledFuture = false,
+        bool maxFollowUpsReached = false)
     {
         if (paused) return SafetyPaused;
         if (suppressedUnsub) return Unsubscribed;
         if (suppressedBounce) return Bounced;
         if (suppressedComplaint) return Complaint;
         if (suppressedManual) return ManualSuppression;
-        if (alreadySent) return AlreadyContacted;
+        if (alreadySent)
+        {
+            if (followUpDue) return FollowUpDue;
+            if (maxFollowUpsReached) return MaxFollowUps;
+            if (followUpScheduledFuture) return FollowUpNotDue;
+            return AlreadyContacted;
+        }
         if (!p.HasUsableEmail)
         {
             if (string.Equals(p.ContactDiscoveryStatus, "CONTACT_FORM_FOUND", StringComparison.OrdinalIgnoreCase))

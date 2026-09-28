@@ -47,7 +47,7 @@ import type { ProfileOptimizeResponse } from '@/types/ai';
 import { loadPremiumCatalog, PREMIUM_ACTION, creditPhrase } from '@/config/premiumCatalog';
 import { activateProfileBoost24h, unlockRevealLikes } from '@/services/premiumService';
 import { matchQueryKeys } from '@/lib/queryKeys';
-import { trackPremiumAction } from '@/utils/analytics';
+import { trackPremiumAction, trackEvent } from '@/utils/analytics';
 import { InviteTrainingPartnerButton } from '@/components/referral/InviteTrainingPartnerButton';
 
 const TRAINING_GOALS = [
@@ -1334,6 +1334,16 @@ export const ProfilePage: React.FC = () => {
                   await refreshMe();
                   showSectionHint('photo');
                   const fromSetup = searchParams.get('setup') === '1' || searchParams.get('focus') === 'photos';
+                  if (fromSetup && nextKeys.length > 0) {
+                    trackEvent('profile_completed', {
+                      source_page: '/app/profile',
+                      setup: true,
+                      photo_count: nextKeys.length,
+                    });
+                    trackEvent('onboarding_completed', {
+                      source_page: '/app/profile',
+                    });
+                  }
                   setSnack({
                     open: true,
                     message: fromSetup ? 'Photo saved — you can open Discover now' : 'Profile updated successfully',

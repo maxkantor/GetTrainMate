@@ -409,6 +409,36 @@ export const AcquisitionPanel: React.FC<Props> = ({
         </Box>
       )}
 
+      {(dashboard.blockedBreakdown || dashboard.currentBottleneck?.details) && (
+        <Box sx={{ mb: 2.5 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, letterSpacing: 0.6 }}>
+            WHY NOT SENDING?
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+            {Object.entries(dashboard.blockedBreakdown || {})
+              .filter(([k, v]) => typeof v === 'number' && Number(v) > 0 && k !== 'automaticSending')
+              .map(([reason, count]) => (
+                <Chip key={reason} size="small" label={`${reason}: ${count}`} />
+              ))}
+            {(dashboard.funnel?.followUpsReady ?? 0) > 0 && (
+              <Chip
+                size="small"
+                color="warning"
+                label={`FOLLOW_UP_DUE: ${dashboard.funnel?.followUpsReady}`}
+              />
+            )}
+            {(dashboard.funnel?.autoEligible ?? 0) === 0 &&
+              (dashboard.funnel?.alreadyContactedQualified ?? 0) > 0 && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`Usable contacts waiting on follow-up schedule / new inventory (capacity ${dashboard.settings?.remainingToday ?? '—'} unused is OK)`}
+                />
+              )}
+          </Box>
+        </Box>
+      )}
+
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, letterSpacing: 0.6 }}>
         CUSTOMER FUNNEL
       </Typography>

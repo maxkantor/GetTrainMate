@@ -101,6 +101,10 @@ public class PaymentService : IPaymentService
                 SuccessUrl = $"{frontendBase}/app/subscription?session_id={{CHECKOUT_SESSION_ID}}&success=true",
                 CancelUrl = $"{frontendBase}/pricing?canceled=1",
                 Metadata = metadata,
+                PaymentIntentData = new SessionPaymentIntentDataOptions
+                {
+                    Metadata = new Dictionary<string, string>(metadata),
+                },
                 BrandingSettings = StripeCheckoutBranding.CreateBrandingSettings(frontendBase),
             };
 
