@@ -5,6 +5,8 @@ namespace GetTrainMate.Api.Infrastructure;
 /// <summary>
 /// Per-Checkout-Session branding for GetTrainMate on the shared MK AI Stripe account.
 /// Session-scoped only — never mutates Stripe Account / Dashboard branding.
+/// Appearance matches LuckyNumbersLab: display_name + icon only (no background/button overrides),
+/// so Checkout keeps the shared account's light pale gray/green left panel + white payment form.
 /// </summary>
 public static class StripeCheckoutBranding
 {
@@ -12,12 +14,6 @@ public static class StripeCheckoutBranding
 
     /// <summary>Public HTTPS path for the small Checkout identity icon (not ProductData.Images).</summary>
     public const string IconPath = "/brand/gettrainmate-stripe-icon.jpg";
-
-    /// <summary>Dark surface aligned with GetTrainMate neon icon (per-session only).</summary>
-    public const string BackgroundColor = "#000000";
-
-    /// <summary>Electric violet/blue accent from the approved neon icon ring.</summary>
-    public const string ButtonColor = "#6D28D9";
 
     /// <summary>
     /// Absolute URL for <c>branding_settings.icon</c> (type=url). Falls back to production CDN host.
@@ -38,13 +34,15 @@ public static class StripeCheckoutBranding
     public static string CreditPackProductDescription(int credits) =>
         $"Add {credits} credits for chats, boosts, and AI across GetTrainMate TRAIN, VIBE, and DATE.";
 
+    /// <summary>
+    /// Same shape as LuckyNumbersLab <c>BuildStripeCheckoutBranding</c>: DisplayName + Icon only.
+    /// Do not set BackgroundColor/ButtonColor — that forced GetTrainMate's black left panel.
+    /// </summary>
     public static SessionBrandingSettingsOptions CreateBrandingSettings(string? frontendBaseUrl)
     {
         return new SessionBrandingSettingsOptions
         {
             DisplayName = DisplayName,
-            BackgroundColor = BackgroundColor,
-            ButtonColor = ButtonColor,
             Icon = new SessionBrandingSettingsIconOptions
             {
                 Type = "url",

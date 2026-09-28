@@ -14,12 +14,13 @@ public class StripeCheckoutBrandingTests
     }
 
     [Fact]
-    public void CreateBrandingSettings_IsSessionScoped_NotProductImages()
+    public void CreateBrandingSettings_MatchesLuckyNumbersLabShape_DisplayNameAndIconOnly()
     {
         var branding = StripeCheckoutBranding.CreateBrandingSettings("https://gettrainmate.com");
         Assert.Equal("GetTrainMate", branding.DisplayName);
-        Assert.Equal("#000000", branding.BackgroundColor);
-        Assert.Equal("#6D28D9", branding.ButtonColor);
+        // Same as LuckyNumbersLab: omit colors so shared-account light Checkout theme applies.
+        Assert.Null(branding.BackgroundColor);
+        Assert.Null(branding.ButtonColor);
         Assert.NotNull(branding.Icon);
         Assert.Equal("url", branding.Icon!.Type);
         Assert.Equal(
