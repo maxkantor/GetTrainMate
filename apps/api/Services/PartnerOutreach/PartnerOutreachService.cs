@@ -1530,6 +1530,10 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             q.SentAt != null && PartnerOutreachRules.ToEasternDate(q.SentAt.Value) == todayEt);
         var remainingToday = Math.Max(0, settings.DailyLimit - sentToday);
 
+        var inventoryTarget = settings.TargetProspectInventory > 0 ? settings.TargetProspectInventory : 200;
+        var lowWatermark = settings.DiscoveryLowWatermark > 0 ? settings.DiscoveryLowWatermark : 100;
+        var readyInventory = qualified;
+
         var discoveryBackoff = prospects.Count(p =>
             !ContactDiscoveryRules.HasUsableEmail(p)
             && p.NextResearchAt is DateTime nr && nr > nowUtc
@@ -1545,9 +1549,14 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
 
         var bottleneck = BuildCurrentBottleneck(
             qualified, autoEligible, alreadyContactedQualified, contactNeeded, discoveryBackoff,
-            noPublicContact, researchDue, dueFollowUps, remainingToday, settings);
+            noPublicContact, researchDue, dueFollowUps, remainingToday, settings, readyInventory, inventoryTarget, lowWatermark);
         var nextAction = BuildNextAutomaticAction(
-            settings, autoEligible, dueFollowUps, researchDue, discoveryBackoff, remainingToday, nowUtc);
+            settings, autoEligible, dueFollowUps, researchDue, discoveryBackoff, remainingToday, nowUtc,
+            readyInventory, inventoryTarget, lowWatermark);
+
+        var inventoryDeficit = Math.Max(0, inventoryTarget - readyInventory);
+        var discoveryExpansionActive = readyInventory < lowWatermark
+            || (settings.KeepPipelineFull && inventoryDeficit > 0);
 
         return new
         {
@@ -1598,6 +1607,28 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 discoveryBackoff,
                 noPublicContact,
                 researchDue,
+                readyInventory,
+                inventoryTarget,
+                inventoryDeficit,
+                discoveryLowWatermark = lowWatermark,
+            },
+            inventory = new
+            {
+                dailySendLimit = settings.DailyLimit,
+                sentToday,
+                remainingToday,
+                totalProspects = discovered,
+                contactable,
+                needContact = contactNeeded,
+                qualified,
+                readyNow = autoEligible,
+                followUpsDue = dueFollowUps,
+                readyInventory,
+                inventoryTarget,
+                inventoryDeficit,
+                discoveryLowWatermark = lowWatermark,
+                discoveryExpansionActive,
+                lastDiscoveryMarketCursor = settings.LastDiscoveryMarketCursor,
             },
             funnelScopes = new
             {
@@ -1653,6 +1684,9 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 settings.DryRun,
                 settings.DailyLimit,
                 settings.SendQualifiedAutomatically,
+                settings.KeepPipelineFull,
+                settings.TargetProspectInventory,
+                settings.DiscoveryLowWatermark,
                 sentToday,
                 remainingToday,
                 lastAutomaticRunAt = settings.LastAutomaticRunAt,
@@ -1723,7 +1757,10 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         int researchDue,
         int dueFollowUps,
         int remainingToday,
-        PartnerOutreachSettingsRow settings)
+        PartnerOutreachSettingsRow settings,
+        int readyInventory = 0,
+        int inventoryTarget = 200,
+        int lowWatermark = 100)
     {
         if (!settings.AutomaticSending || !settings.SendQualifiedAutomatically)
         {
@@ -1754,6 +1791,9 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         }
 
         var details = new List<object>();
+        var deficit = Math.Max(0, inventoryTarget - readyInventory);
+        if (readyInventory < lowWatermark || deficit > 0)
+            details.Add(new { reason = "LOW_INVENTORY", count = deficit });
         if (alreadyContactedQualified > 0)
             details.Add(new { reason = "ALREADY_CONTACTED", count = alreadyContactedQualified });
         if (discoveryBackoff > 0)
@@ -1768,7 +1808,14 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             details.Add(new { reason = "FOLLOW_UP_DUE", count = dueFollowUps });
 
         string summary;
-        if (autoEligible == 0 && qualified == 0 && alreadyContactedQualified > 0)
+        if (readyInventory < lowWatermark)
+        {
+            summary =
+                $"LOW INVENTORY — ready {readyInventory}/{inventoryTarget} (low-watermark {lowWatermark}). " +
+                "Automatic discovery expansion active. " +
+                $"{autoEligible} initial ready, {researchDue} contacts to research, {remainingToday} send capacity left today.";
+        }
+        else if (autoEligible == 0 && qualified == 0 && alreadyContactedQualified > 0)
         {
             summary =
                 $"{alreadyContactedQualified} score-qualified contacts already received initial outreach; " +
@@ -1796,7 +1843,9 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
 
         return new
         {
-            code = autoEligible == 0 && dueFollowUps == 0 ? "NO_INITIAL_READY" : "RUNNING",
+            code = readyInventory < lowWatermark
+                ? "LOW_INVENTORY"
+                : autoEligible == 0 && dueFollowUps == 0 ? "NO_INITIAL_READY" : "RUNNING",
             summary,
             details,
         };
@@ -1809,15 +1858,21 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         int researchDue,
         int discoveryBackoff,
         int remainingToday,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        int readyInventory = 0,
+        int inventoryTarget = 200,
+        int lowWatermark = 100)
     {
         var nextRun = NextDailyAcquisitionRunUtc(nowUtc);
         var parts = new List<string>();
+        var low = readyInventory < lowWatermark || (settings.KeepPipelineFull && readyInventory < inventoryTarget);
+        if (low)
+            parts.Add($"discover new prospects → research contacts → qualify → prepare drafts (ready {readyInventory}/{inventoryTarget})");
         if (dueFollowUps > 0) parts.Add($"send {dueFollowUps} due follow-up{(dueFollowUps == 1 ? "" : "s")}");
         if (autoEligible > 0) parts.Add($"send {Math.Min(autoEligible, remainingToday)} initial outreach");
-        if (researchDue > 0) parts.Add($"research up to {Math.Min(researchDue, settings.ResearchContactsPerRun)} contacts");
-        else if (discoveryBackoff > 0) parts.Add($"wait on {discoveryBackoff} contact-discovery backoff(s)");
-        if (settings.AutoDiscoverProspects) parts.Add("replenish prospect inventory if capacity remains");
+        if (!low && researchDue > 0) parts.Add($"research up to {Math.Min(researchDue, settings.ResearchContactsPerRun)} contacts");
+        else if (!low && discoveryBackoff > 0) parts.Add($"wait on {discoveryBackoff} contact-discovery backoff(s)");
+        if (!low && settings.AutoDiscoverProspects) parts.Add("replenish prospect inventory if capacity remains");
         if (parts.Count == 0) parts.Add("re-evaluate inventory (no sends currently due)");
 
         return new
@@ -1830,6 +1885,9 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             initialReady = autoEligible,
             researchDue,
             remainingCapacity = remainingToday,
+            readyInventory,
+            inventoryTarget,
+            discoveryExpansionActive = low,
             scheduler = "gettrainmate-partner-outreach-weekday",
             scheduleExpression = "cron(5 14,15 ? * * *)",
         };
@@ -1944,6 +2002,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             s.DraftsPerRun,
             s.KeepPipelineFull,
             s.TargetProspectInventory,
+            s.DiscoveryLowWatermark,
+            s.LastDiscoveryMarketCursor,
             s.ActiveContactDiscoveryJobId,
             s.ComplaintPause,
             s.SentCount,
@@ -1996,6 +2056,10 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         if (patch.KeepPipelineFull.HasValue) s.KeepPipelineFull = patch.KeepPipelineFull.Value;
         if (patch.TargetProspectInventory is > 0)
             s.TargetProspectInventory = Math.Clamp(patch.TargetProspectInventory.Value, 10, 5000);
+        if (patch.DiscoveryLowWatermark is > 0)
+            s.DiscoveryLowWatermark = Math.Clamp(patch.DiscoveryLowWatermark.Value, 5, 5000);
+        if (patch.LastDiscoveryMarketCursor is >= 0)
+            s.LastDiscoveryMarketCursor = patch.LastDiscoveryMarketCursor.Value;
         if (patch.AutomaticSending.HasValue) s.AutomaticSending = patch.AutomaticSending.Value;
         if (patch.DryRun.HasValue) s.DryRun = patch.DryRun.Value;
         if (patch.DailyLimit is > 0)
@@ -2802,18 +2866,32 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             .Where(p => string.IsNullOrWhiteSpace(p.Email) || !p.Email.Contains('@'))
             .Where(p =>
             {
-                var state = (p.ContactabilityState ?? p.ContactState ?? "").ToUpperInvariant();
-                if (state is PartnerCrmLifecycle.ContactFound) return false;
-                if (state is PartnerCrmLifecycle.NoPublicContact or PartnerCrmLifecycle.ManualReview)
-                    return false;
                 if (p.NextResearchAt is DateTime next && next > now) return false;
                 if (p.ResearchAttempts >= 5) return false;
+                var discovery = (p.ContactDiscoveryStatus ?? "").ToUpperInvariant();
+                if (discovery is ContactDiscoveryRules.DiscoveryEmailFound
+                    or ContactDiscoveryRules.DiscoveryReviewRequired
+                    or ContactDiscoveryRules.DiscoveryContactFormFound
+                    or ContactDiscoveryRules.DiscoveryManualContact)
+                    return false;
+                var state = (p.ContactabilityState ?? p.ContactState ?? "").ToUpperInvariant();
+                if (state is PartnerCrmLifecycle.ContactFound) return false;
+                if (state is PartnerCrmLifecycle.ManualReview) return false;
+                // Allow NO_PUBLIC_CONTACT only after progressive cooldown (NextResearchAt elapsed).
+                if (state is PartnerCrmLifecycle.NoPublicContact
+                    || discovery == ContactDiscoveryRules.DiscoveryNoPublicContact)
+                {
+                    return p.NextResearchAt is DateTime due && due <= now;
+                }
                 return state is "" or PartnerCrmLifecycle.ContactNeeded or PartnerCrmLifecycle.RetryLater
                     or PartnerCrmLifecycle.ContactUnknown or PartnerCrmLifecycle.ContactResearching
+                    || discovery == ContactDiscoveryRules.DiscoveryContactNeeded
                     || p.Status == "no_verified_public_email";
             })
+            // Prefer never-researched inventory over repeated backoff retries.
             .OrderBy(p => p.ResearchAttempts)
             .ThenBy(p => p.NextResearchAt ?? DateTime.MinValue)
+            .ThenBy(p => p.FirstDiscoveredAt ?? p.CreatedAt)
             .Take(max)
             .Select(p => p.ProspectId)
             .ToList();
@@ -3073,6 +3151,17 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             && !string.Equals(p.AcquisitionStatus, PartnerCrmLifecycle.AcqSent, StringComparison.OrdinalIgnoreCase)
             && !string.Equals(p.EmailState, "SENT", StringComparison.OrdinalIgnoreCase)
             && p.LastContactedAt == null);
+        var inventoryTarget = settings.TargetProspectInventory > 0 ? settings.TargetProspectInventory : 200;
+        var lowWatermark = settings.DiscoveryLowWatermark > 0 ? settings.DiscoveryLowWatermark : 100;
+        var readyInventory = prospects.Count(p =>
+            ContactDiscoveryRules.HasUsableEmail(p)
+            && (p.QualificationScore >= PartnerOutreachRules.DefaultMinAcquisitionScore
+                || p.AcquisitionScore >= PartnerOutreachRules.DefaultMinAcquisitionScore)
+            && p.LastContactedAt == null
+            && !queue.Any(q =>
+                string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                && q.FollowUpNumber == 0
+                && (q.SentAt != null || q.Status is "sent" or "delivered" or "replied")));
 
         return new
         {
@@ -3091,10 +3180,14 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             attributedSignupsLifetime,
             customers,
             eligibleUnsent,
+            readyInventory,
+            inventoryTarget,
+            discoveryLowWatermark = lowWatermark,
+            inventoryDeficit = Math.Max(0, inventoryTarget - readyInventory),
+            discoveryExpansionActive = readyInventory < lowWatermark
+                || (settings.KeepPipelineFull && readyInventory < inventoryTarget),
             keepPipelineFull = settings.KeepPipelineFull,
-            targetProspectInventory = settings.TargetProspectInventory > 0
-                ? settings.TargetProspectInventory
-                : 200,
+            targetProspectInventory = inventoryTarget,
             automaticSending = settings.AutomaticSending,
             dryRun = settings.DryRun,
             dailyLimit = settings.DailyLimit,
@@ -3102,15 +3195,7 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             sendQualifiedAutomatically = settings.SendQualifiedAutomatically,
             autoDiscoverProspects = settings.AutoDiscoverProspects,
             autoDiscoverContacts = settings.AutoDiscoverContacts,
-            qualified = prospects.Count(p =>
-                ContactDiscoveryRules.HasUsableEmail(p)
-                && (p.QualificationScore >= PartnerOutreachRules.DefaultMinAcquisitionScore
-                    || p.AcquisitionScore >= PartnerOutreachRules.DefaultMinAcquisitionScore)
-                && p.LastContactedAt == null
-                && !queue.Any(q =>
-                    string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
-                    && q.FollowUpNumber == 0
-                    && (q.SentAt != null || q.Status is "sent" or "delivered" or "replied"))),
+            qualified = readyInventory,
             qualifiedLifetime = prospects.Count(p =>
                 ContactDiscoveryRules.HasUsableEmail(p)
                 && (p.QualificationScore >= PartnerOutreachRules.DefaultMinAcquisitionScore
@@ -3129,6 +3214,7 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             followUpsWaiting = queue.Count(q =>
                 q.Status == "scheduled" && q.FollowUpNumber > 0
                 && q.ScheduledAt is DateTime sat && sat > DateTime.UtcNow),
+            lastDiscoveryMarketCursor = settings.LastDiscoveryMarketCursor,
         };
     }
 
@@ -3846,6 +3932,7 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         if (row.ResearchContactsPerRun <= 0) row.ResearchContactsPerRun = 10;
         if (row.DraftsPerRun <= 0) row.DraftsPerRun = 5;
         if (row.TargetProspectInventory <= 0) row.TargetProspectInventory = 200;
+        if (row.DiscoveryLowWatermark <= 0) row.DiscoveryLowWatermark = 100;
         row.TestRecipients ??= new List<string>();
         if (!row.ProductionBootstrapped)
         {
@@ -3858,6 +3945,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             row.FollowUpsEnabled = true;
             row.SendQualifiedAutomatically = true;
             row.KeepPipelineFull = true;
+            row.TargetProspectInventory = 200;
+            row.DiscoveryLowWatermark = 100;
             row.ProductionBootstrapped = true;
             await _db.SaveAsync(row);
             await EnsurePartner001Async();

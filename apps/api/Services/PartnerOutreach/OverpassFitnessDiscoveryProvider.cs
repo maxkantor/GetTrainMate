@@ -30,12 +30,17 @@ public sealed class OverpassFitnessDiscoveryProvider
               nwr["leisure"="fitness_centre"]({south},{west},{north},{east});
               nwr["leisure"="sports_centre"]({south},{west},{north},{east});
               nwr["leisure"="pitch"]({south},{west},{north},{east});
+              nwr["leisure"="track"]({south},{west},{north},{east});
               nwr["amenity"="community_centre"]({south},{west},{north},{east});
+              nwr["amenity"="events_venue"]({south},{west},{north},{east});
+              nwr["amenity"="nightclub"]({south},{west},{north},{east});
               nwr["tourism"="attraction"]["sport"~"."]({south},{west},{north},{east});
-              nwr["sport"~"running|tennis|pickleball|cycling|crossfit|fitness|multi|soccer|volleyball|swimming"]({south},{west},{north},{east});
+              nwr["sport"~"running|tennis|pickleball|cycling|crossfit|fitness|multi|soccer|volleyball|swimming|climbing|yoga|martial_arts|basketball|hiking"]({south},{west},{north},{east});
               nwr["club"="sport"]({south},{west},{north},{east});
+              nwr["club"="social"]({south},{west},{north},{east});
+              nwr["office"="association"]({south},{west},{north},{east});
             );
-            out center {Math.Min(maxResults * 4, 250)};
+            out center {Math.Min(maxResults * 6, 400)};
             """;
 
         try
@@ -140,11 +145,13 @@ public sealed class OverpassFitnessDiscoveryProvider
         if (sport.Contains("soccer") || sport.Contains("football")) return "soccer";
         if (sport.Contains("volleyball")) return "volleyball";
         if (sport.Contains("swimming")) return "swimming";
-        if (amenity == "community_centre") return "community";
+        if (amenity == "community_centre" || amenity == "events_venue") return "community";
+        if (amenity == "nightclub" || GetTag(tags, "club") == "social") return "community";
         if (tourism == "attraction" && !string.IsNullOrWhiteSpace(sport)) return "rec_sports";
-        if (leisure == "pitch") return "rec_sports";
+        if (leisure == "pitch" || leisure == "track") return "rec_sports";
         if (leisure == "sports_centre" || GetTag(tags, "club") == "sport") return "rec_sports";
         if (amenity == "gym" || leisure == "fitness_centre") return "gym";
+        if (GetTag(tags, "office") == "association") return "community";
         return "rec_sports";
     }
 

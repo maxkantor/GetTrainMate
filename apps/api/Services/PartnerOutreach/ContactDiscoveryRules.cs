@@ -243,7 +243,8 @@ public static class ContactDiscoveryRules
         discoveryStatus switch
         {
             DiscoveryEmailFound or DiscoveryReviewRequired or DiscoveryContactFormFound => null,
-            DiscoveryNoPublicContact => null,
+            // Progressive long cooldown — do not freeze forever; still skip every run.
+            DiscoveryNoPublicContact => utcNow.AddDays(Math.Max(14, researchAttempts * 14)),
             _ => utcNow.AddDays(Math.Max(1, researchAttempts * 2)),
         };
 

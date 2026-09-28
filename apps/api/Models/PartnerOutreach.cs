@@ -318,8 +318,12 @@ public class PartnerOutreachSettingsRow
     public int DraftsPerRun { get; set; } = 5;
     /// <summary>When true, scheduled discovery tops up eligible unsent prospects toward TargetProspectInventory.</summary>
     public bool KeepPipelineFull { get; set; }
-    /// <summary>Target eligible prospect inventory when KeepPipelineFull is on.</summary>
+    /// <summary>Target eligible prospect inventory when KeepPipelineFull is on (READY_INVENTORY_TARGET).</summary>
     public int TargetProspectInventory { get; set; } = 200;
+    /// <summary>When ready inventory falls below this, discovery/contact research expands automatically.</summary>
+    public int DiscoveryLowWatermark { get; set; } = 100;
+    /// <summary>Resumable market discovery cursor (0-based index into rotated discovery targets).</summary>
+    public int LastDiscoveryMarketCursor { get; set; }
     /// <summary>Active durable contact-discovery job id (if any).</summary>
     public string? ActiveContactDiscoveryJobId { get; set; }
     /// <summary>Idempotent production bootstrap applied once.</summary>
@@ -353,6 +357,8 @@ public class PartnerOutreachSettingsPatch
     public int? DraftsPerRun { get; set; }
     public bool? KeepPipelineFull { get; set; }
     public int? TargetProspectInventory { get; set; }
+    public int? DiscoveryLowWatermark { get; set; }
+    public int? LastDiscoveryMarketCursor { get; set; }
     public bool? AutomaticSending { get; set; }
     public bool? DryRun { get; set; }
     public int? DailyLimit { get; set; }

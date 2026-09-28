@@ -163,6 +163,26 @@ export interface AcquisitionDashboard {
     remainingToday?: number;
     lastAutomaticRunAt?: string;
     sendQualifiedAutomatically?: boolean;
+    keepPipelineFull?: boolean;
+    targetProspectInventory?: number;
+    discoveryLowWatermark?: number;
+  };
+  inventory?: {
+    dailySendLimit?: number;
+    sentToday?: number;
+    remainingToday?: number;
+    totalProspects?: number;
+    contactable?: number;
+    needContact?: number;
+    qualified?: number;
+    readyNow?: number;
+    followUpsDue?: number;
+    readyInventory?: number;
+    inventoryTarget?: number;
+    inventoryDeficit?: number;
+    discoveryLowWatermark?: number;
+    discoveryExpansionActive?: boolean;
+    lastDiscoveryMarketCursor?: number;
   };
   funnelScopes?: Record<string, string>;
   blockedBreakdown?: BlockedBreakdown;
@@ -368,6 +388,8 @@ export interface OutreachSettings {
   draftsPerRun?: number;
   keepPipelineFull?: boolean;
   targetProspectInventory?: number;
+  discoveryLowWatermark?: number;
+  lastDiscoveryMarketCursor?: number;
   complaintPause?: boolean;
   sentCount?: number;
   bounceCount?: number;

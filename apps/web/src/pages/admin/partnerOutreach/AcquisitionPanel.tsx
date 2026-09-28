@@ -367,10 +367,31 @@ export const AcquisitionPanel: React.FC<Props> = ({
             gap: 1.5,
           }}
         >
+          {dashboard.inventory && (
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0.6 }}>
+                READY INVENTORY
+              </Typography>
+              <Typography variant="body1" sx={{ mt: 0.5, fontWeight: 700 }}>
+                {dashboard.inventory.readyInventory ?? 0} / {dashboard.inventory.inventoryTarget ?? 200}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Daily send limit {dashboard.inventory.dailySendLimit ?? dashboard.settings?.dailyLimit ?? 100}
+                {' · '}Sent today {dashboard.inventory.sentToday ?? dashboard.settings?.sentToday ?? 0}
+                {' · '}Remaining {dashboard.inventory.remainingToday ?? dashboard.settings?.remainingToday ?? 0}
+                {' · '}Deficit {dashboard.inventory.inventoryDeficit ?? 0}
+              </Typography>
+              {dashboard.inventory.discoveryExpansionActive && (
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  LOW INVENTORY — automatic discovery expansion active.
+                </Alert>
+              )}
+            </Box>
+          )}
           {dashboard.currentBottleneck?.summary && (
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0.6 }}>
-                CURRENT BOTTLENECK
+                PRIMARY BOTTLENECK
               </Typography>
               <Typography variant="body2" sx={{ mt: 0.5 }}>
                 {dashboard.currentBottleneck.summary}

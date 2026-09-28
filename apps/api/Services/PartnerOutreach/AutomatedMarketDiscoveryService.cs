@@ -37,11 +37,14 @@ public sealed class AutomatedMarketDiscoveryService
             maxProspects: null,
             maxResearchAttempts: null,
             maxDrafts: null,
+            startMarketIndex: 0,
             ct);
 
     /// <summary>
     /// Lambda-safe limited discovery: stops when prospect/research/draft caps are hit.
     /// Each prospect is persisted as found via CreateProspectAsync.
+    /// When <paramref name="maxResearchAttempts"/> is 0, orgs are saved as CONTACT_NEEDED
+    /// without site probing so inventory can replenish quickly.
     /// </summary>
     public Task<DiscoveryRunReport> RunLimitedAsync(
         int maxProspects,
@@ -50,16 +53,18 @@ public sealed class AutomatedMarketDiscoveryService
         string? onlyCampaignId = null,
         bool seedsOnly = false,
         bool prepareDrafts = true,
+        int startMarketIndex = 0,
         CancellationToken ct = default)
         => RunInternalAsync(
             prepareDrafts,
-            maxPerMarket: Math.Max(maxProspects, 5),
+            maxPerMarket: Math.Max(maxProspects, 8),
             seedsOnly,
             onlyCampaignId,
             onlyPartnerCode: null,
             maxProspects,
             maxResearchAttempts,
             maxDrafts,
+            startMarketIndex,
             ct);
 
     async Task<DiscoveryRunReport> RunInternalAsync(
@@ -71,6 +76,7 @@ public sealed class AutomatedMarketDiscoveryService
         int? maxProspects,
         int? maxResearchAttempts,
         int? maxDrafts,
+        int startMarketIndex,
         CancellationToken ct)
     {
         var report = new DiscoveryRunReport { StartedAtUtc = DateTime.UtcNow, SeedsOnly = seedsOnly };
@@ -79,32 +85,50 @@ public sealed class AutomatedMarketDiscoveryService
         var evidence = await BuildEvidenceAsync(campaigns, existing);
         report.MarketsEvaluated = MarketCampaignCatalog.Candidates.Count;
 
-        var targets = MarketRanker.SelectDiscoveryTargets(
-            MarketCampaignCatalog.Candidates,
-            campaigns,
-            evidence,
-            MarketCampaignCatalog.MaxActiveMarkets).ToList();
+        var targets = ExpandDiscoverableMarkets(
+            MarketRanker.SelectDiscoveryTargets(
+                MarketCampaignCatalog.Candidates,
+                campaigns,
+                evidence,
+                MarketCampaignCatalog.MaxActiveMarkets).ToList());
 
         if (!string.IsNullOrWhiteSpace(onlyCampaignId))
         {
             targets = targets
-                .Where(t => string.Equals(t.CampaignId, onlyCampaignId.Trim(), StringComparison.OrdinalIgnoreCase))
+                .Where(t => string.Equals(t.CampaignId, onlyCampaignId.Trim(), StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(t.Market, onlyCampaignId.Trim(), StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
 
-        report.MarketsActivated = targets.Count(c =>
-            campaigns.FirstOrDefault(x => x.CampaignId == c.CampaignId)?.Status == "active");
+        report.MarketsActivated = targets.Count;
+        report.StartMarketIndex = startMarketIndex;
+        if (targets.Count == 0)
+        {
+            report.CompletedAtUtc = DateTime.UtcNow;
+            report.StoppedReason = "no_markets";
+            report.MarketsExhausted = true;
+            return report;
+        }
 
+        // Rotate so each scheduled/manual run continues from the last checkpoint.
+        var rotated = RotateTargets(targets, startMarketIndex);
         var contactPathLimit = seedsOnly ? 2 : (int?)null;
+        var deferContactResearch = maxResearchAttempts is 0;
         var researchAttempts = 0;
         var prospectsCreated = 0;
         var draftsCreated = 0;
         var hitLimit = false;
+        var marketsVisited = 0;
 
-        foreach (var seed in targets)
+        for (var ti = 0; ti < rotated.Count; ti++)
         {
             if (hitLimit) break;
             ct.ThrowIfCancellationRequested();
+            var seed = rotated[ti];
+            marketsVisited++;
+            var absoluteIndex = (startMarketIndex + ti) % targets.Count;
+            report.NextMarketIndex = (absoluteIndex + 1) % targets.Count;
+
             var marketReport = new DiscoveryMarketReport
             {
                 CampaignId = seed.CampaignId,
@@ -155,21 +179,21 @@ public sealed class AutomatedMarketDiscoveryService
                     report.StoppedReason = "max_prospects";
                     break;
                 }
-                if (maxResearchAttempts.HasValue && researchAttempts >= maxResearchAttempts.Value)
+                if (!deferContactResearch
+                    && maxResearchAttempts.HasValue
+                    && maxResearchAttempts.Value > 0
+                    && researchAttempts >= maxResearchAttempts.Value)
                 {
                     hitLimit = true;
                     report.StoppedReason = "max_research_attempts";
                     break;
-                }
-                if (maxDrafts.HasValue && draftsCreated >= maxDrafts.Value && prepareDrafts)
-                {
-                    // Still allow creating prospects without drafts once draft cap is hit
                 }
 
                 ct.ThrowIfCancellationRequested();
                 if (existing.Any(p => PartnerOutreachDedupe.MatchesDiscoveredOrg(p, org, seed.CampaignId)))
                 {
                     marketReport.SkippedDuplicate++;
+                    report.DuplicatesSkipped++;
                     continue;
                 }
 
@@ -179,12 +203,14 @@ public sealed class AutomatedMarketDiscoveryService
                 if (!MarketCampaignCatalog.IsApprovedOutreachLanguage(lang))
                     lang = seed.Languages?.FirstOrDefault(l => MarketCampaignCatalog.IsApprovedOutreachLanguage(l)) ?? "en";
 
-                researchAttempts++;
-                report.ResearchAttempts = researchAttempts;
-
                 VerifiedPublicContact? verified = null;
-                if (Uri.TryCreate(org.Website, UriKind.Absolute, out var siteUri))
-                    verified = await _contactVerifier.TryVerifyAsync(siteUri, ct, contactPathLimit);
+                if (!deferContactResearch)
+                {
+                    researchAttempts++;
+                    report.ResearchAttempts = researchAttempts;
+                    if (Uri.TryCreate(org.Website, UriKind.Absolute, out var siteUri))
+                        verified = await _contactVerifier.TryVerifyAsync(siteUri, ct, contactPathLimit);
+                }
 
                 var hasEmail = verified != null;
                 var scored = ScoreProspect(org, hasEmail);
@@ -256,30 +282,36 @@ public sealed class AutomatedMarketDiscoveryService
                     prospect.QualificationReasons = scored.ScoreExplanation;
                     if (PartnerAudience.IsQualified(scored.AcquisitionScore, PartnerOutreachRules.DefaultMinAcquisitionScore))
                         prospect.QualifiedAt = DateTime.UtcNow;
+                    prospect.ResearchAttempts = 1;
+                    prospect.LastResearchAt = DateTime.UtcNow;
                     marketReport.VerifiedPublicContacts++;
                     report.VerifiedPublicContacts++;
                 }
                 else
                 {
+                    // Never freeze inventory on first miss — leave CONTACT_NEEDED for progressive research.
                     prospect.Email = "";
                     prospect.SourceUrl = org.Website;
                     prospect.EmailVerificationStatus = "no_verified_public_email";
                     prospect.EmailValidationStatus = "NO_PUBLIC_EMAIL_FOUND";
-                    prospect.EmailDiscoveryMethod = "website_probe";
-                    prospect.ContactDiscoveryStatus = ContactDiscoveryRules.DiscoveryNoPublicContact;
+                    prospect.EmailDiscoveryMethod = deferContactResearch ? "deferred" : "website_probe";
+                    prospect.ContactDiscoveryStatus = ContactDiscoveryRules.DiscoveryContactNeeded;
                     prospect.Status = "no_verified_public_email";
                     prospect.CrmLifecycle = PartnerCrmLifecycle.New;
                     prospect.ContactState = PartnerCrmLifecycle.ContactNeeded;
                     prospect.ContactabilityState = PartnerCrmLifecycle.ContactNeeded;
                     prospect.ContactabilityScore = 0;
-                    prospect.NextResearchAt = DateTime.UtcNow.AddDays(7);
+                    prospect.ResearchAttempts = deferContactResearch ? 0 : 1;
+                    prospect.LastResearchAt = deferContactResearch ? null : DateTime.UtcNow;
+                    prospect.NextResearchAt = deferContactResearch
+                        ? DateTime.UtcNow
+                        : ContactDiscoveryRules.NextResearchAtFor(
+                            ContactDiscoveryRules.DiscoveryContactNeeded, 1, DateTime.UtcNow);
                     marketReport.ContactsUnavailable++;
                     report.ContactsUnavailable++;
                 }
 
                 prospect.ProspectKind = PartnerCrmLifecycle.NormalizeProspectKind(org.OrganizationType);
-                prospect.ResearchAttempts = 1;
-                prospect.LastResearchAt = DateTime.UtcNow;
 
                 try
                 {
@@ -292,6 +324,7 @@ public sealed class AutomatedMarketDiscoveryService
 
                     var canDraft = prepareDrafts
                         && saved.Status == "prospect"
+                        && ContactDiscoveryRules.HasUsableEmail(saved)
                         && (!maxDrafts.HasValue || draftsCreated < maxDrafts.Value);
 
                     if (canDraft)
@@ -311,7 +344,9 @@ public sealed class AutomatedMarketDiscoveryService
                         {
                             try
                             {
-                                await _outreach.CreateDraftAndQueuePreviewAsync(saved.ProspectId, seed.CampaignId);
+                                // PARTNER-001 is the authoritative send campaign.
+                                await _outreach.CreateDraftAndQueuePreviewAsync(
+                                    saved.ProspectId, PartnerOutreachService.Partner001Id);
                                 draftsCreated++;
                                 marketReport.DraftsGenerated++;
                                 report.DraftsGenerated++;
@@ -342,7 +377,74 @@ public sealed class AutomatedMarketDiscoveryService
 
         report.CompletedAtUtc = DateTime.UtcNow;
         report.HitLimit = hitLimit;
+        report.MarketsVisited = marketsVisited;
+        if (!hitLimit && marketsVisited >= targets.Count)
+            report.MarketsExhausted = true;
+        if (string.IsNullOrWhiteSpace(report.StoppedReason) && report.MarketsExhausted)
+            report.StoppedReason = "markets_exhausted";
         return report;
+    }
+
+    /// <summary>
+    /// Drop multi/no-bounds seeds; ensure every MarketBounds metro is discoverable.
+    /// </summary>
+    public static List<MarketCampaignSeed> ExpandDiscoverableMarkets(IReadOnlyList<MarketCampaignSeed> ranked)
+    {
+        var result = new List<MarketCampaignSeed>();
+        var seenMarket = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var seed in ranked)
+        {
+            if (string.Equals(seed.Market, "multi", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!MarketBounds.TryGet(seed.Market, out _))
+                continue;
+            if (!seenMarket.Add(seed.Market))
+                continue;
+            result.Add(seed);
+        }
+
+        foreach (var market in MarketBounds.ByMarket.Keys)
+        {
+            if (!seenMarket.Add(market)) continue;
+            var fromCatalog = MarketCampaignCatalog.Candidates.FirstOrDefault(c =>
+                string.Equals(c.Market, market, StringComparison.OrdinalIgnoreCase));
+            if (fromCatalog != null)
+            {
+                result.Add(fromCatalog);
+                continue;
+            }
+
+            var country = MarketBounds.CountryFor(market);
+            result.Add(new MarketCampaignSeed(
+                $"geo_{country}_{market}",
+                country,
+                market,
+                TitleCaseMarket(market),
+                "UTC",
+                new[] { "en" },
+                "candidate",
+                "CROSS_MODE"));
+        }
+
+        return result;
+    }
+
+    static List<MarketCampaignSeed> RotateTargets(IReadOnlyList<MarketCampaignSeed> targets, int startIndex)
+    {
+        if (targets.Count == 0) return new List<MarketCampaignSeed>();
+        var idx = ((startIndex % targets.Count) + targets.Count) % targets.Count;
+        var rotated = new List<MarketCampaignSeed>(targets.Count);
+        for (var i = 0; i < targets.Count; i++)
+            rotated.Add(targets[(idx + i) % targets.Count]);
+        return rotated;
+    }
+
+    static string TitleCaseMarket(string market)
+    {
+        var parts = market.Split('-', StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(' ', parts.Select(p =>
+            p.Length == 0 ? p : char.ToUpperInvariant(p[0]) + p[1..]));
     }
 
     static async Task<List<MarketRanker.MarketEvidenceRow>> BuildEvidenceAsync(
@@ -481,7 +583,12 @@ public sealed class DiscoveryRunReport
     public DateTime CompletedAtUtc { get; set; }
     public int MarketsEvaluated { get; set; }
     public int MarketsActivated { get; set; }
+    public int MarketsVisited { get; set; }
+    public int StartMarketIndex { get; set; }
+    public int NextMarketIndex { get; set; }
+    public bool MarketsExhausted { get; set; }
     public int OrganizationsDiscovered { get; set; }
+    public int DuplicatesSkipped { get; set; }
     public int QualifiedOrganizations { get; set; }
     public int VerifiedPublicContacts { get; set; }
     public int ContactsUnavailable { get; set; }

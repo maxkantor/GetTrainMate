@@ -176,7 +176,7 @@ public class ContactDiscoveryRulesTests
         Assert.Null(ContactDiscoveryRules.NextResearchAtFor(ContactDiscoveryRules.DiscoveryEmailFound, 1, now));
         Assert.Null(ContactDiscoveryRules.NextResearchAtFor(ContactDiscoveryRules.DiscoveryReviewRequired, 1, now));
         Assert.Null(ContactDiscoveryRules.NextResearchAtFor(ContactDiscoveryRules.DiscoveryContactFormFound, 1, now));
-        Assert.Null(ContactDiscoveryRules.NextResearchAtFor(ContactDiscoveryRules.DiscoveryNoPublicContact, 3, now));
+        Assert.Equal(now.AddDays(42), ContactDiscoveryRules.NextResearchAtFor(ContactDiscoveryRules.DiscoveryNoPublicContact, 3, now));
         Assert.Equal(now.AddDays(4), ContactDiscoveryRules.NextResearchAtFor(ContactDiscoveryRules.DiscoveryContactNeeded, 2, now));
     }
 

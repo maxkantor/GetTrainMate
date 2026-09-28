@@ -34,6 +34,7 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
   const [draftsPerRun, setDraftsPerRun] = useState(5);
   const [keepPipelineFull, setKeepPipelineFull] = useState(false);
   const [targetProspectInventory, setTargetProspectInventory] = useState(200);
+  const [discoveryLowWatermark, setDiscoveryLowWatermark] = useState(100);
   const [automaticSending, setAutomaticSending] = useState(true);
   const [dryRun, setDryRun] = useState(false);
   const [dailyLimit, setDailyLimit] = useState(100);
@@ -54,6 +55,7 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
     setDraftsPerRun(s.draftsPerRun ?? 5);
     setKeepPipelineFull(Boolean(s.keepPipelineFull));
     setTargetProspectInventory(s.targetProspectInventory ?? 200);
+    setDiscoveryLowWatermark(s.discoveryLowWatermark ?? 100);
     setAutomaticSending(s.automaticSending !== false);
     setDryRun(Boolean(s.dryRun));
     setDailyLimit(s.dailyLimit ?? 100);
@@ -97,6 +99,7 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
         draftsPerRun,
         keepPipelineFull,
         targetProspectInventory,
+        discoveryLowWatermark,
         automaticSending,
         dryRun,
         dailyLimit,
@@ -285,7 +288,17 @@ export const SettingsPanel: React.FC<PanelSharedProps> = ({
           value={targetProspectInventory}
           onChange={(e) => setTargetProspectInventory(Number(e.target.value) || 200)}
           sx={{ mt: 1 }}
-          helperText="When ON, scheduled discovery tops up eligible unsent prospects toward this target (no duplicates)."
+          helperText="READY_INVENTORY_TARGET — scheduled discovery tops up toward this (no duplicates)."
+        />
+        <TextField
+          fullWidth
+          size="small"
+          type="number"
+          label="Discovery low-watermark"
+          value={discoveryLowWatermark}
+          onChange={(e) => setDiscoveryLowWatermark(Number(e.target.value) || 100)}
+          sx={{ mt: 1 }}
+          helperText="When ready inventory falls below this, discovery expansion runs first."
         />
       </Box>
 

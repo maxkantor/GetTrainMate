@@ -118,29 +118,76 @@ public sealed partial class PartnerOutreachService
 
         object? discovery = null;
         object? contacts = null;
+        object? followUps = null;
 
         var prospects = await ListProspectsAsync(null);
         TallyQualification(prospects, ref publicContacts, ref validContacts, ref qualified);
 
-        if (settings.AutoPrepareMessages && DateTime.UtcNow < deadline)
-            draftsPrepared += await PrepareMissingDraftsAsync(prospects, campaign, settings, deadline, Skip);
+        var inventoryTarget = settings.TargetProspectInventory > 0 ? settings.TargetProspectInventory : 200;
+        var lowWatermark = settings.DiscoveryLowWatermark > 0 ? settings.DiscoveryLowWatermark : 100;
+        var readyInventory = CountReadyInventory(prospects, queue);
+        var inventoryDeficit = Math.Max(0, inventoryTarget - readyInventory);
+        var lowInventory = readyInventory < lowWatermark
+            || (settings.KeepPipelineFull && inventoryDeficit > 0);
 
-        queue = await ListQueueAsync(null);
-        remaining = await SendReadyAsync(
-            queue, settings, dryRun, actor, deadline, quota, remaining, sesRemaining,
-            skipped, (n) => sesAttempted += n, (n) => sesAccepted += n, (n) => sesRejected += n);
+        // 1) Due follow-ups first (preserve existing policy).
+        if (settings.FollowUpsEnabled && !dryRun && DateTime.UtcNow < deadline)
+        {
+            followUps = await DispatchDueAsync(scheduledCursorAutomation: false);
+        }
 
         // HTTP/API Gateway (~29s) cannot finish Overpass + site scrapes. Replenish on the Lambda path
         // only while wall-clock remains. Leave 8s so send/stats persist before Lambda timeout.
         var replenishDeadline = deadline.AddSeconds(-8);
         var allowReplenish = budget > 20 && DateTime.UtcNow < replenishDeadline;
 
-        if (settings.AutoDiscoverContacts && allowReplenish)
+        // 2) When inventory is below target/watermark, NEW discovery gets capacity first.
+        if (settings.AutoDiscoverProspects && allowReplenish && (lowInventory || settings.KeepPipelineFull))
         {
             try
             {
                 var remain = replenishDeadline - DateTime.UtcNow;
-                var researchMax = remain.TotalSeconds < 15 ? 1 : Math.Min(settings.ResearchContactsPerRun, 4);
+                if (remain.TotalSeconds >= 10)
+                {
+                    using var cts = new CancellationTokenSource(remain);
+                    var discoverySvc = _services.GetRequiredService<AutomatedMarketDiscoveryService>();
+                    var maxProspects = lowInventory
+                        ? Math.Min(Math.Max(inventoryDeficit, settings.ProspectsPerRun), 40)
+                        : Math.Min(Math.Max(settings.ProspectsPerRun, 4), 12);
+                    // Defer site probing when starved so discovery can create CONTACT_NEEDED inventory fast.
+                    var maxResearch = lowInventory ? 0 : Math.Min(settings.ResearchAttemptsPerRun, 6);
+                    var report = await discoverySvc.RunLimitedAsync(
+                        maxProspects: maxProspects,
+                        maxResearchAttempts: maxResearch,
+                        maxDrafts: remain.TotalSeconds < 20 ? 1 : Math.Min(settings.DraftsPerRun, 4),
+                        prepareDrafts: settings.AutoPrepareMessages && maxResearch > 0,
+                        startMarketIndex: settings.LastDiscoveryMarketCursor,
+                        ct: cts.Token);
+                    discovery = report;
+                    newProspects = report.OrganizationsDiscovered;
+                    settings.LastDiscoveryMarketCursor = report.NextMarketIndex;
+                    await _db.SaveAsync(settings);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Skip("DISCOVERY_DEADLINE");
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex, "Automatic prospect discovery failed");
+            }
+        }
+
+        // 3) Contact research for existing CONTACT_NEEDED (prefer never-researched).
+        if (settings.AutoDiscoverContacts && allowReplenish && DateTime.UtcNow < replenishDeadline)
+        {
+            try
+            {
+                var remain = replenishDeadline - DateTime.UtcNow;
+                var researchMax = remain.TotalSeconds < 12
+                    ? 1
+                    : Math.Min(settings.ResearchContactsPerRun, lowInventory ? 8 : 4);
                 contacts = await ResearchContactNeededBatchAsync(researchMax, actor, replenishDeadline);
             }
             catch (Exception ex)
@@ -149,7 +196,8 @@ public sealed partial class PartnerOutreachService
             }
         }
 
-        if (settings.AutoDiscoverProspects && DateTime.UtcNow < replenishDeadline)
+        // 4) If inventory was healthy earlier, still allow a small discovery top-up when enabled.
+        if (settings.AutoDiscoverProspects && allowReplenish && discovery == null && DateTime.UtcNow < replenishDeadline)
         {
             try
             {
@@ -158,15 +206,17 @@ public sealed partial class PartnerOutreachService
                 {
                     using var cts = new CancellationTokenSource(remain);
                     var discoverySvc = _services.GetRequiredService<AutomatedMarketDiscoveryService>();
-                    var maxProspects = remain.TotalSeconds < 20 ? 2 : Math.Min(Math.Max(settings.ProspectsPerRun, 4), 8);
                     var report = await discoverySvc.RunLimitedAsync(
-                        maxProspects: maxProspects,
-                        maxResearchAttempts: remain.TotalSeconds < 20 ? 1 : Math.Min(settings.ResearchAttemptsPerRun, 6),
-                        maxDrafts: remain.TotalSeconds < 20 ? 1 : Math.Min(settings.DraftsPerRun, 4),
-                        prepareDrafts: settings.AutoPrepareMessages,
+                        maxProspects: Math.Min(Math.Max(settings.ProspectsPerRun, 4), 8),
+                        maxResearchAttempts: 0,
+                        maxDrafts: 0,
+                        prepareDrafts: false,
+                        startMarketIndex: settings.LastDiscoveryMarketCursor,
                         ct: cts.Token);
                     discovery = report;
                     newProspects = report.OrganizationsDiscovered;
+                    settings.LastDiscoveryMarketCursor = report.NextMarketIndex;
+                    await _db.SaveAsync(settings);
                 }
             }
             catch (OperationCanceledException)
@@ -185,20 +235,17 @@ public sealed partial class PartnerOutreachService
         validContacts = 0;
         qualified = 0;
         TallyQualification(prospects, ref publicContacts, ref validContacts, ref qualified);
+        readyInventory = CountReadyInventory(prospects, await ListQueueAsync(null));
 
+        // 5) Qualify + prepare drafts.
         if (settings.AutoPrepareMessages && DateTime.UtcNow < deadline)
             draftsPrepared += await PrepareMissingDraftsAsync(prospects, campaign, settings, deadline, Skip);
 
+        // 6) Send eligible outreach up to remaining daily capacity (never lower qualification).
         queue = await ListQueueAsync(null);
         remaining = await SendReadyAsync(
             queue, settings, dryRun, actor, deadline, quota, remaining, sesRemaining,
             skipped, (n) => sesAttempted += n, (n) => sesAccepted += n, (n) => sesRejected += n);
-
-        object? followUps = null;
-        if (settings.FollowUpsEnabled && !dryRun && DateTime.UtcNow < deadline)
-        {
-            followUps = await DispatchDueAsync(scheduledCursorAutomation: false);
-        }
 
         settings.LastAutomaticRunAt = DateTime.UtcNow;
         await _db.SaveAsync(settings);
@@ -220,6 +267,15 @@ public sealed partial class PartnerOutreachService
                 max24HourSend = quota?.Max24HourSend,
                 sentLast24Hours = quota?.SentLast24Hours,
             },
+            inventory = new
+            {
+                readyInventory,
+                inventoryTarget,
+                lowWatermark,
+                inventoryDeficit = Math.Max(0, inventoryTarget - readyInventory),
+                lowInventory,
+                discoveryExpansionActive = lowInventory,
+            },
             discovery = new
             {
                 prospectsEvaluated,
@@ -228,6 +284,7 @@ public sealed partial class PartnerOutreachService
                 validContacts,
                 qualified,
                 draftsPrepared,
+                marketCursor = settings.LastDiscoveryMarketCursor,
                 raw = discovery,
                 contactResearch = contacts,
             },
@@ -238,6 +295,19 @@ public sealed partial class PartnerOutreachService
             elapsedMs = (int)(DateTime.UtcNow - started).TotalMilliseconds,
             budgetSeconds = budget,
         };
+    }
+
+    static int CountReadyInventory(List<PartnerProspect> prospects, List<PartnerQueueItem> queue)
+    {
+        return prospects.Count(p =>
+            ContactDiscoveryRules.HasUsableEmail(p)
+            && (p.QualificationScore >= PartnerOutreachRules.DefaultMinAcquisitionScore
+                || p.AcquisitionScore >= PartnerOutreachRules.DefaultMinAcquisitionScore)
+            && p.LastContactedAt == null
+            && !queue.Any(q =>
+                string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                && q.FollowUpNumber == 0
+                && (q.SentAt != null || q.Status is "sent" or "delivered" or "replied")));
     }
 
     static void TallyQualification(

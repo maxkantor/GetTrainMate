@@ -581,10 +581,15 @@ export async function pollDiscoveryJob(
   signal?: { cancelled: boolean },
 ): Promise<DiscoveryJob> {
   let last: DiscoveryJob = { jobId, status: 'starting', progressPct: 0 };
+  let idleRounds = 0;
   while (!signal?.cancelled) {
     last = (await adminApiService.get(`${API}/discovery/jobs/${encodeURIComponent(jobId)}`)) as DiscoveryJob;
     onUpdate(last);
-    if (TERMINAL.has((last.status || '').toLowerCase())) return last;
+    const status = (last.status || '').toLowerCase();
+    if (TERMINAL.has(status)) return last;
+    // Cap long-running multi-chunk discovery (~3 min) so the UI never spins forever.
+    idleRounds += 1;
+    if (idleRounds > 90) return last;
     await new Promise((r) => setTimeout(r, 2000));
   }
   return last;

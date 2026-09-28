@@ -84,29 +84,57 @@ public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
                 static string ToPascal(string name) =>
                     string.IsNullOrEmpty(name) ? name : char.ToUpperInvariant(name[0]) + name[1..];
 
+                int ReadIntAllowZero(string name, int fallback)
+                {
+                    foreach (var p in t.GetProperties())
+                    {
+                        if (!string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+                        if (p.GetValue(settingsObj) is int i && i >= 0) return i;
+                    }
+                    return fallback;
+                }
+
                 var maxProspects = ReadInt("ProspectsPerRun", 8);
+                var startMarket = ReadIntAllowZero("LastDiscoveryMarketCursor", 0);
                 if (ReadBool("KeepPipelineFull"))
                 {
                     var counters = await outreach.GetPipelineCountersAsync();
                     var ct = counters.GetType();
-                    int eligible = 0, target = 200;
+                    int eligible = 0, target = 200, lowWatermark = 100, ready = 0;
                     foreach (var p in ct.GetProperties())
                     {
                         if (string.Equals(p.Name, "eligibleUnsent", StringComparison.OrdinalIgnoreCase)
                             && p.GetValue(counters) is int e) eligible = e;
+                        if (string.Equals(p.Name, "readyInventory", StringComparison.OrdinalIgnoreCase)
+                            && p.GetValue(counters) is int r) ready = r;
                         if (string.Equals(p.Name, "targetProspectInventory", StringComparison.OrdinalIgnoreCase)
                             && p.GetValue(counters) is int tg && tg > 0) target = tg;
+                        if (string.Equals(p.Name, "discoveryLowWatermark", StringComparison.OrdinalIgnoreCase)
+                            && p.GetValue(counters) is int lw && lw > 0) lowWatermark = lw;
                     }
-                    var deficit = Math.Max(0, target - eligible);
-                    if (deficit > 0)
-                        maxProspects = Math.Max(maxProspects, Math.Min(deficit, 40));
+                    if (ready <= 0) ready = eligible;
+                    var deficit = Math.Max(0, target - ready);
+                    if (ready < lowWatermark || deficit > 0)
+                        maxProspects = Math.Max(maxProspects, Math.Min(Math.Max(deficit, 12), 40));
                 }
 
-                return await discovery.RunLimitedAsync(
+                var report = await discovery.RunLimitedAsync(
                     maxProspects: maxProspects,
-                    maxResearchAttempts: ReadInt("ResearchAttemptsPerRun", 15),
+                    maxResearchAttempts: 0, // inventory first; contact research is a separate path
                     maxDrafts: ReadInt("DraftsPerRun", 5),
-                    prepareDrafts: true);
+                    prepareDrafts: false,
+                    startMarketIndex: startMarket);
+
+                try
+                {
+                    await outreach.UpdateOutreachSettingsAsync(new Models.PartnerOutreachSettingsPatch
+                    {
+                        LastDiscoveryMarketCursor = report.NextMarketIndex,
+                    });
+                }
+                catch { /* best-effort cursor persist */ }
+
+                return report;
             }
             var svc = scope.ServiceProvider.GetRequiredService<IPartnerOutreachService>();
             bool? dryRun = null;
