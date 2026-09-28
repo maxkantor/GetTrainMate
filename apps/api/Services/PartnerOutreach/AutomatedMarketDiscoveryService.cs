@@ -38,6 +38,7 @@ public sealed class AutomatedMarketDiscoveryService
             maxResearchAttempts: null,
             maxDrafts: null,
             startMarketIndex: 0,
+            maxMarketsPerRun: int.MaxValue,
             ct);
 
     /// <summary>
@@ -54,6 +55,7 @@ public sealed class AutomatedMarketDiscoveryService
         bool seedsOnly = false,
         bool prepareDrafts = true,
         int startMarketIndex = 0,
+        int maxMarketsPerRun = 4,
         CancellationToken ct = default)
         => RunInternalAsync(
             prepareDrafts,
@@ -65,6 +67,7 @@ public sealed class AutomatedMarketDiscoveryService
             maxResearchAttempts,
             maxDrafts,
             startMarketIndex,
+            maxMarketsPerRun <= 0 ? 4 : maxMarketsPerRun,
             ct);
 
     async Task<DiscoveryRunReport> RunInternalAsync(
@@ -77,6 +80,7 @@ public sealed class AutomatedMarketDiscoveryService
         int? maxResearchAttempts,
         int? maxDrafts,
         int startMarketIndex,
+        int maxMarketsPerRun,
         CancellationToken ct)
     {
         var report = new DiscoveryRunReport { StartedAtUtc = DateTime.UtcNow, SeedsOnly = seedsOnly };
@@ -123,6 +127,11 @@ public sealed class AutomatedMarketDiscoveryService
         for (var ti = 0; ti < rotated.Count; ti++)
         {
             if (hitLimit) break;
+            if (maxMarketsPerRun < int.MaxValue && marketsVisited >= maxMarketsPerRun)
+            {
+                report.StoppedReason = "max_markets_per_run";
+                break;
+            }
             ct.ThrowIfCancellationRequested();
             var seed = rotated[ti];
             marketsVisited++;
@@ -378,7 +387,7 @@ public sealed class AutomatedMarketDiscoveryService
         report.CompletedAtUtc = DateTime.UtcNow;
         report.HitLimit = hitLimit;
         report.MarketsVisited = marketsVisited;
-        if (!hitLimit && marketsVisited >= targets.Count)
+        if (!hitLimit && marketsVisited >= targets.Count && maxMarketsPerRun >= targets.Count)
             report.MarketsExhausted = true;
         if (string.IsNullOrWhiteSpace(report.StoppedReason) && report.MarketsExhausted)
             report.StoppedReason = "markets_exhausted";

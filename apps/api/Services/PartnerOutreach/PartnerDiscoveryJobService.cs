@@ -149,7 +149,8 @@ public sealed class PartnerDiscoveryJobService : IPartnerDiscoveryJobService
                 request.SeedsOnly,
                 request.PrepareDrafts,
                 checkpoint.MarketIndex,
-                cts.Token);
+                maxMarketsPerRun: 4,
+                ct: cts.Token);
 
             job.ProspectsFound += report.OrganizationsDiscovered;
             job.DraftsCreated += report.DraftsGenerated;
