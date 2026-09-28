@@ -35,7 +35,7 @@ export const pricingUa = {
   cta_elite: 'Elite',
   cta_buy: 'Купити кредити',
   cta_purchase: 'Купити',
-  trust_secure: 'Безпечна оплата',
+  trust_secure: 'Безпечна оплата через Stripe',
   trust_never_expire: 'Кредити не згорають',
   trust_instant: 'Миттєве зарахування',
   trust_no_subscription: 'Без підписок',

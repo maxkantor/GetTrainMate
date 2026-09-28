@@ -147,6 +147,14 @@
   }
 }
 
+.stripeTrust {
+  text-align: center;
+  margin: var(--space-6) auto 0;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.02em;
+}
+
 .cardColumn {
   display: flex;
   flex-direction: column;

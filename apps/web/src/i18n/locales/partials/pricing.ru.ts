@@ -35,7 +35,7 @@ export const pricingRu = {
   cta_elite: 'Elite',
   cta_buy: 'Купить кредиты',
   cta_purchase: 'Купить',
-  trust_secure: 'Безопасная оплата',
+  trust_secure: 'Безопасная оплата через Stripe',
   trust_never_expire: 'Кредиты не сгорают',
   trust_instant: 'Мгновенное зачисление',
   trust_no_subscription: 'Без подписок',

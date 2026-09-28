@@ -35,7 +35,7 @@ export const pricingZh = {
   cta_elite: '升级 Elite',
   cta_buy: '购买积分',
   cta_purchase: '立即购买',
-  trust_secure: '安全支付',
+  trust_secure: '由 Stripe 提供安全支付',
   trust_never_expire: '积分不过期',
   trust_instant: '即时到账',
   trust_no_subscription: '无订阅',

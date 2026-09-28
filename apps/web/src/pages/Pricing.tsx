@@ -243,6 +243,10 @@ export const PricingPage: React.FC = () => {
               })}
             </div>
 
+            <p className={styles.stripeTrust} data-testid="pricing-stripe-trust">
+              {t('pricing.trust_secure')}
+            </p>
+
             <section className={styles.featureSection}>
               <h2 className={styles.featureSectionTitle}>{t('pricing.section_what_title')}</h2>
               <div className={styles.featureTiles}>

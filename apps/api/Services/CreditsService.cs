@@ -485,6 +485,10 @@ public class CreditsService : ICreditsService
         var metadata = new Dictionary<string, string>
         {
             { StripeSessionOwnership.AppSourceKey, StripeSessionOwnership.AppSourceValue },
+            { "app", StripeCheckoutBranding.DisplayName },
+            { "purchaseType", "credits" },
+            { "plan", canonicalPackKey },
+            { "internalProductId", canonicalPackKey },
             { "userId", userId },
             { "packKey", canonicalPackKey },
             { "credits", pack.Credits.ToString() },
@@ -505,8 +509,9 @@ public class CreditsService : ICreditsService
                         UnitAmount = amountCents,
                         ProductData = new SessionLineItemPriceDataProductDataOptions
                         {
-                            Name = $"{pack.Title} - {pack.Credits} Credits",
-                            Description = $"GetTrainMate {pack.Credits} Credits",
+                            // Name/description only — do NOT set Images (avoids giant Checkout product art).
+                            Name = StripeCheckoutBranding.CreditPackProductName(pack.Title, pack.Credits),
+                            Description = StripeCheckoutBranding.CreditPackProductDescription(pack.Credits),
                         },
                     },
                     Quantity = 1,
@@ -517,6 +522,7 @@ public class CreditsService : ICreditsService
             CancelUrl = cancelUrl,
             ClientReferenceId = userId,
             Metadata = metadata,
+            BrandingSettings = StripeCheckoutBranding.CreateBrandingSettings(baseUrlClean),
         };
 
         var service = new SessionService();
@@ -672,7 +678,7 @@ public class CreditsService : ICreditsService
             return false;
         }
 
-        await RecordWebhookEventReceivedAsync(stripeEventId, Events.CheckoutSessionCompleted);
+        await RecordWebhookEventReceivedAsync(stripeEventId, EventTypes.CheckoutSessionCompleted);
 
         var userId = session.ClientReferenceId ?? session.Metadata?.GetValueOrDefault("userId");
         var packKey = session.Metadata?.GetValueOrDefault("packKey");

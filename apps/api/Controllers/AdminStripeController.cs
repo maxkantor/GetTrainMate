@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using GetTrainMate.Api.Infrastructure;
 using GetTrainMate.Api.Models;
 using GetTrainMate.Api.Services;
 using Amazon.DynamoDBv2.DataModel;
@@ -126,13 +127,13 @@ public class AdminStripeController : ControllerBase
                             Status = stripeSubscription.Status,
                             PlanType = stripeSubscription.Items.Data.FirstOrDefault()?.Price?.Nickname ?? "unknown",
                             CreatedAt = stripeSubscription.Created,
-                            ExpiresAt = stripeSubscription.CurrentPeriodEnd
+                            ExpiresAt = StripeSubscriptionPeriod.GetCurrentPeriodEnd(stripeSubscription)
                         };
                     }
                     else
                     {
                         subscription.Status = stripeSubscription.Status;
-                        subscription.ExpiresAt = stripeSubscription.CurrentPeriodEnd;
+                        subscription.ExpiresAt = StripeSubscriptionPeriod.GetCurrentPeriodEnd(stripeSubscription);
                     }
 
                     await _context.SaveAsync(subscription);

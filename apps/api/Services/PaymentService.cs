@@ -63,9 +63,14 @@ public class PaymentService : IPaymentService
         try
         {
             var paymentId = Guid.NewGuid().ToString();
+            var frontendBase = frontendUrl.TrimEnd('/');
             var metadata = new Dictionary<string, string>
             {
                 { StripeSessionOwnership.AppSourceKey, StripeSessionOwnership.AppSourceValue },
+                { "app", StripeCheckoutBranding.DisplayName },
+                { "purchaseType", "subscription_legacy" },
+                { "plan", planType },
+                { "internalProductId", planType },
                 { "userId", userId },
                 { "planType", planType },
                 { "paymentId", paymentId }
@@ -84,8 +89,8 @@ public class PaymentService : IPaymentService
                             Currency = "usd",
                             ProductData = new SessionLineItemPriceDataProductDataOptions
                             {
-                                Name = description,
-                                Description = $"GetTrainMate {description}",
+                                Name = $"GetTrainMate — {description}",
+                                Description = $"GetTrainMate access: {description}.",
                             },
                             UnitAmount = (long)(amount * 100), // Convert to cents
                         },
@@ -93,9 +98,10 @@ public class PaymentService : IPaymentService
                     }
                 },
                 Mode = "payment",
-                SuccessUrl = $"{frontendUrl.TrimEnd('/')}/app/subscription?session_id={{CHECKOUT_SESSION_ID}}&success=true",
-                CancelUrl = $"{frontendUrl.TrimEnd('/')}/pricing?canceled=1",
-                Metadata = metadata
+                SuccessUrl = $"{frontendBase}/app/subscription?session_id={{CHECKOUT_SESSION_ID}}&success=true",
+                CancelUrl = $"{frontendBase}/pricing?canceled=1",
+                Metadata = metadata,
+                BrandingSettings = StripeCheckoutBranding.CreateBrandingSettings(frontendBase),
             };
 
             var service = new SessionService();

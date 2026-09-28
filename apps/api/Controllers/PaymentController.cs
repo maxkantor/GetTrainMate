@@ -166,7 +166,7 @@ public class PaymentController : ControllerBase
             _logger.LogInformation("Received Stripe webhook: {Type}", stripeEvent.Type);
 
             // Handle payment success
-            if (stripeEvent.Type == Events.CheckoutSessionCompleted)
+            if (stripeEvent.Type == EventTypes.CheckoutSessionCompleted)
             {
                 var session = stripeEvent.Data.Object as Stripe.Checkout.Session;
                 if (session?.PaymentStatus == "paid" && session.Metadata != null)

@@ -180,8 +180,8 @@ public class BillingService : IBillingService
                         UnitAmount = amountCents,
                         ProductData = new SessionLineItemPriceDataProductDataOptions
                         {
-                            Name = plan.DisplayName,
-                            Description = $"GetTrainMate {plan.DisplayName} - Monthly",
+                            Name = $"GetTrainMate — {plan.DisplayName}",
+                            Description = $"Monthly GetTrainMate {plan.DisplayName} access across TRAIN, VIBE, and DATE.",
                         },
                         Recurring = new SessionLineItemPriceDataRecurringOptions
                         {
@@ -197,6 +197,10 @@ public class BillingService : IBillingService
             Metadata = new Dictionary<string, string>
             {
                 { StripeSessionOwnership.AppSourceKey, StripeSessionOwnership.AppSourceValue },
+                { "app", StripeCheckoutBranding.DisplayName },
+                { "purchaseType", "subscription" },
+                { "plan", planKey },
+                { "internalProductId", planKey },
                 { "userId", userId },
                 { "planKey", planKey },
             },
@@ -205,10 +209,15 @@ public class BillingService : IBillingService
                 Metadata = new Dictionary<string, string>
                 {
                     { StripeSessionOwnership.AppSourceKey, StripeSessionOwnership.AppSourceValue },
+                    { "app", StripeCheckoutBranding.DisplayName },
+                    { "purchaseType", "subscription" },
+                    { "plan", planKey },
+                    { "internalProductId", planKey },
                     { "userId", userId },
                     { "planKey", planKey },
                 },
             },
+            BrandingSettings = StripeCheckoutBranding.CreateBrandingSettings(baseUrlClean),
         };
 
         var service = new SessionService();
@@ -307,7 +316,7 @@ public class BillingService : IBillingService
                 UserId = userId,
                 PlanKey = planKey,
                 Status = stripeSubscription.Status ?? "active",
-                CurrentPeriodEnd = stripeSubscription.CurrentPeriodEnd,
+                CurrentPeriodEnd = StripeSubscriptionPeriod.GetCurrentPeriodEnd(stripeSubscription),
                 CancelAtPeriodEnd = stripeSubscription.CancelAtPeriodEnd,
             };
             await SaveOrUpdateSubscriptionAsync(record);

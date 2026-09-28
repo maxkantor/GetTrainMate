@@ -35,7 +35,7 @@ export const pricingDe = {
   cta_elite: 'Auf Elite wechseln',
   cta_buy: 'Credits kaufen',
   cta_purchase: 'Kaufen',
-  trust_secure: 'Sichere Zahlungen',
+  trust_secure: 'Sichere Zahlung über Stripe',
   trust_never_expire: 'Credits verfallen nicht',
   trust_instant: 'Sofortige Gutschrift',
   trust_no_subscription: 'Keine Abos',

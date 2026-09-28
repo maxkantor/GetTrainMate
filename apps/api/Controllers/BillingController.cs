@@ -298,7 +298,7 @@ public class BillingController : ControllerBase
         {
             switch (stripeEvent.Type)
             {
-                case Events.CheckoutSessionCompleted:
+                case EventTypes.CheckoutSessionCompleted:
                     await HandleCheckoutSessionCompleted(stripeEvent);
                     break;
                 case "customer.subscription.created":
@@ -400,7 +400,7 @@ public class BillingController : ControllerBase
             UserId = userId,
             PlanKey = planKey,
             Status = stripeSubscription.Status ?? "active",
-            CurrentPeriodEnd = stripeSubscription.CurrentPeriodEnd,
+            CurrentPeriodEnd = StripeSubscriptionPeriod.GetCurrentPeriodEnd(stripeSubscription),
             CancelAtPeriodEnd = stripeSubscription.CancelAtPeriodEnd,
         };
 

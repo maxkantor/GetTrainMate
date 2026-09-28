@@ -35,7 +35,7 @@ export const pricingEn = {
   cta_elite: 'Go Elite',
   cta_buy: 'Buy Credits',
   cta_purchase: 'Buy now',
-  trust_secure: 'Secure payments',
+  trust_secure: 'Secure payment powered by Stripe',
   trust_never_expire: 'Credits never expire',
   trust_instant: 'Instant delivery',
   trust_no_subscription: 'No subscriptions',

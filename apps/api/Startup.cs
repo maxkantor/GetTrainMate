@@ -132,7 +132,7 @@ public class Startup
         services.AddScoped<ICognitoAdminUserDeletionService, CognitoAdminUserDeletionService>();
         services.AddScoped<ICognitoRegistrationCheckService, CognitoRegistrationCheckService>();
         services.AddScoped<ILandingMatchPreviewService, LandingMatchPreviewService>();
-        services.AddScoped<IBillingService, BillingService>();
+        services.AddScoped<IBillingService, GetTrainMate.Api.Services.BillingService>();
         services.AddScoped<ICreditsService, CreditsService>();
         services.AddScoped<ISportsEventLayerService, SportsEventLayerService>();
         services.AddHttpClient("WorldCupScores", client =>
