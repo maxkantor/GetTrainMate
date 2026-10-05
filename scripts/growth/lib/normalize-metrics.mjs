@@ -40,7 +40,7 @@ export function aggregateGa4ByEvent(ga4Report, { hasChannelDimension = false } =
  * Resolve one canonical metric from aggregated event map.
  * @param {object} byEvent
  * @param {string} metricKey
- * @param {{ assumeZeroIfAbsent?: boolean }} [opts] When GA4 responded successfully, missing events are 0 not Unavailable.
+ * @param {{ assumeZeroIfAbsent?: boolean, forceSourceEvent?: string }} [opts]
  */
 export function resolveCanonicalMetric(byEvent, metricKey, opts = {}) {
   const assumeZeroIfAbsent = opts.assumeZeroIfAbsent !== false;
@@ -56,12 +56,21 @@ export function resolveCanonicalMetric(byEvent, metricKey, opts = {}) {
   }
 
   const candidates = [def.primary, ...(def.fallbacks || [])];
-  let chosen = null;
+  const candidateCounts = {};
   for (const name of candidates) {
-    const row = byEvent[name];
-    if (row && row.eventCount > 0) {
-      chosen = name;
-      break;
+    candidateCounts[name] = byEvent[name]?.eventCount ?? null;
+  }
+
+  let chosen = null;
+  if (opts.forceSourceEvent) {
+    chosen = opts.forceSourceEvent;
+  } else {
+    for (const name of candidates) {
+      const row = byEvent[name];
+      if (row && row.eventCount > 0) {
+        chosen = name;
+        break;
+      }
     }
   }
 
@@ -73,7 +82,8 @@ export function resolveCanonicalMetric(byEvent, metricKey, opts = {}) {
         sourceEvent: def.primary,
         method: byEvent[def.primary] ? 'primary_zero' : 'absent_as_zero',
         available: true,
-        kind: def.kind
+        kind: def.kind,
+        candidateCounts
       };
     }
     return {
@@ -82,20 +92,30 @@ export function resolveCanonicalMetric(byEvent, metricKey, opts = {}) {
       sourceEvent: def.primary,
       method: 'event_absent',
       available: false,
-      kind: def.kind
+      kind: def.kind,
+      candidateCounts
     };
   }
 
-  const row = byEvent[chosen];
+  const row = byEvent[chosen] || { eventCount: 0, totalUsers: null };
   const usedFallback = chosen !== def.primary;
-  let value = row.eventCount;
+  let value = row.eventCount ?? 0;
   let unit = 'events';
   let method = usedFallback ? 'fallback_event_count' : 'primary_event_count';
+  if (opts.forceSourceEvent) {
+    method = usedFallback ? 'aligned_fallback_event_count' : 'aligned_primary_event_count';
+  }
 
   if (def.preferUsers && row.totalUsers != null && Number.isFinite(row.totalUsers)) {
     value = row.totalUsers;
     unit = 'users';
-    method = usedFallback ? 'fallback_total_users' : 'primary_total_users';
+    method = usedFallback
+      ? opts.forceSourceEvent
+        ? 'aligned_fallback_total_users'
+        : 'fallback_total_users'
+      : opts.forceSourceEvent
+        ? 'aligned_primary_total_users'
+        : 'primary_total_users';
   } else if (def.kind === 'users') {
     unit = 'events';
     method = usedFallback ? 'fallback_event_count_as_proxy' : 'event_count_not_unique_users';
@@ -108,7 +128,89 @@ export function resolveCanonicalMetric(byEvent, metricKey, opts = {}) {
     method,
     available: true,
     kind: def.kind,
-    usedFallback
+    usedFallback,
+    candidateCounts
+  };
+}
+
+/**
+ * Choose one GA4 event name for both nested windows so 7d/30d stay comparable.
+ * Prefer primary whenever either window observed it; otherwise first fallback with data.
+ */
+export function chooseSharedSourceEvent(raw7 = {}, raw30 = {}, def) {
+  if (!def) return null;
+  const primary = def.primary;
+  if ((raw7[primary] ?? 0) > 0 || (raw30[primary] ?? 0) > 0) return primary;
+  if (raw7[primary] != null || raw30[primary] != null) return primary;
+  for (const fb of def.fallbacks || []) {
+    if ((raw7[fb] ?? 0) > 0 || (raw30[fb] ?? 0) > 0) return fb;
+  }
+  return primary;
+}
+
+/**
+ * Re-resolve metrics on both nested GA4 windows using a shared source event.
+ * Fixes impossible 7d > 30d when windows pick different aliases (e.g. view_pricing vs pricing_viewed).
+ */
+export function alignNestedGa4Windows(norm7, norm30) {
+  if (!norm7?.metrics || !norm30?.metrics) {
+    return { norm7, norm30, alignments: [] };
+  }
+  const alignments = [];
+  const byEvent7 = Object.fromEntries(
+    Object.entries(norm7.rawEventCounts || {}).map(([k, eventCount]) => [
+      k,
+      { eventCount, totalUsers: null, rows: 1 }
+    ])
+  );
+  const byEvent30 = Object.fromEntries(
+    Object.entries(norm30.rawEventCounts || {}).map(([k, eventCount]) => [
+      k,
+      { eventCount, totalUsers: null, rows: 1 }
+    ])
+  );
+  // Preserve totalUsers from original resolution when source matches.
+  for (const [key, m] of Object.entries(norm7.metrics || {})) {
+    if (m?.sourceEvent && byEvent7[m.sourceEvent] && m.unit === 'users' && m.value != null) {
+      byEvent7[m.sourceEvent].totalUsers = m.value;
+    }
+  }
+  for (const [key, m] of Object.entries(norm30.metrics || {})) {
+    if (m?.sourceEvent && byEvent30[m.sourceEvent] && m.unit === 'users' && m.value != null) {
+      byEvent30[m.sourceEvent].totalUsers = m.value;
+    }
+  }
+
+  const metrics7 = { ...norm7.metrics };
+  const metrics30 = { ...norm30.metrics };
+  for (const key of Object.keys(CANONICAL_METRICS)) {
+    const def = CANONICAL_METRICS[key];
+    const shared = chooseSharedSourceEvent(norm7.rawEventCounts, norm30.rawEventCounts, def);
+    const before7 = metrics7[key]?.sourceEvent;
+    const before30 = metrics30[key]?.sourceEvent;
+    metrics7[key] = resolveCanonicalMetric(byEvent7, key, {
+      forceSourceEvent: shared,
+      assumeZeroIfAbsent: true
+    });
+    metrics30[key] = resolveCanonicalMetric(byEvent30, key, {
+      forceSourceEvent: shared,
+      assumeZeroIfAbsent: true
+    });
+    if (before7 !== shared || before30 !== shared) {
+      alignments.push({
+        metric: key,
+        sharedSource: shared,
+        before7,
+        before30,
+        value7: metrics7[key].value,
+        value30: metrics30[key].value
+      });
+    }
+  }
+  return {
+    norm7: { ...norm7, metrics: metrics7, alignments },
+    norm30: { ...norm30, metrics: metrics30, alignments },
+    alignments
   };
 }
 

@@ -133,6 +133,48 @@ export async function fetchPartnerOutreachSnapshot() {
     };
     const ownerActions = buildOwnerActions(ownerActionState);
 
+    const sent7dNum = sent7d != null ? Number(sent7d) : 0;
+    const deliveredNum = Number(metrics?.delivered ?? 0);
+    // Prefer delivered when tracked; otherwise treat successfully sent as the outreach sample.
+    const outreachSample = deliveredNum > 0 ? deliveredNum : sent7dNum;
+    const replyNum = Number(replies);
+    const interestedNum = Number(interested);
+    const partnersNum = Number(partners);
+    const signupNum =
+      attributedSignupsLifetime != null ? Number(attributedSignupsLifetime) : 0;
+    const customersNum = Number(ns.customersAcquired ?? 0);
+
+    const pct = (numer, denom) =>
+      denom > 0 ? Number(((numer / denom) * 100).toFixed(1)) : null;
+
+    const deliveryRate =
+      sent7dNum > 0 && deliveredNum > 0 ? pct(deliveredNum, sent7dNum) : null;
+    const replyRate = pct(replyNum, outreachSample);
+    const meaningfulReplyRate = pct(interestedNum, outreachSample);
+    const partnerConversionRate = pct(partnersNum, outreachSample);
+    const signupConversionRate = pct(signupNum, outreachSample);
+    const paidCustomerConversionRate = pct(customersNum, outreachSample);
+
+    const technicalHealthy =
+      Boolean(settings?.automaticSending) &&
+      !Boolean(settings?.dryRun) &&
+      !Boolean(settings?.pauseAllOutreach) &&
+      !Boolean(settings?.complaintPause);
+    const technicalStatus = technicalHealthy ? 'HEALTHY' : 'PAUSED_OR_DEGRADED';
+
+    let acquisitionPerformance = 'INSUFFICIENT_SAMPLE';
+    let performanceFlag = null;
+    if (outreachSample >= 100 && replyNum === 0 && interestedNum === 0) {
+      acquisitionPerformance = 'UNDERPERFORMING';
+      performanceFlag = 'OUTREACH_MESSAGE_OR_TARGETING_REVIEW';
+    } else if (outreachSample >= 20 && replyNum === 0 && signupNum === 0 && customersNum === 0) {
+      acquisitionPerformance = 'UNDERPERFORMING';
+    } else if (customersNum > 0 || signupNum > 0 || replyNum > 0) {
+      acquisitionPerformance = 'MEASURING';
+    } else if (outreachSample > 0) {
+      acquisitionPerformance = 'UNDERPERFORMING';
+    }
+
     return {
       status: 'ok',
       source: 'admin_partner_outreach_api',
@@ -177,7 +219,7 @@ export async function fetchPartnerOutreachSnapshot() {
       emailsSentToday: sentToday,
       emailsSent7d: sent7d,
       emailsSentLifetime: sentLifetime,
-      delivered: Number(metrics?.delivered ?? 0),
+      delivered: deliveredNum,
       partnerResponses: replies,
       interested,
       partners,
@@ -192,8 +234,20 @@ export async function fetchPartnerOutreachSnapshot() {
       completedProfiles: ns.activeUsersAcquired != null ? Number(ns.activeUsersAcquired) : null,
       discoverUsers: null,
       connectionRequests: null,
-      customersAcquired: Number(ns.customersAcquired ?? 0),
+      customersAcquired: customersNum,
       revenueAttributedCents: Number(ns.revenueAttributedCents ?? 0),
+      technicalStatus,
+      acquisitionPerformance,
+      performanceFlag,
+      outreachSample,
+      rates: {
+        deliveryRate,
+        replyRate,
+        meaningfulReplyRate,
+        partnerConversionRate,
+        signupConversionRate,
+        paidCustomerConversionRate,
+      },
       ownerActions,
       ownerAction: ownerActionSummary(ownerActionState),
       contactsAdminUrl: CONTACTS_ADMIN_URL,

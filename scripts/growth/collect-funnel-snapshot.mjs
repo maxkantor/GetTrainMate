@@ -14,7 +14,8 @@ import {
   aggregateGa4ByEvent,
   normalizeGa4Window,
   normalizeStripe,
-  buildScoreboardRow
+  buildScoreboardRow,
+  alignNestedGa4Windows
 } from './lib/normalize-metrics.mjs';
 import {
   overlayCrmOnScoreboard,
@@ -33,28 +34,48 @@ const ssmLoad = loadSsmSecretsIntoEnv();
 const deps = await ensureGrowthDeps();
 const outDir = path.join(__dirname, '../../docs/growth/snapshots');
 const now = new Date();
-const stamp = now.toISOString().slice(0, 10);
 
+/** Calendar YMD in America/New_York (growth evaluation timezone). */
+function etYmd(date = now) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+
+const stampEt = etYmd(now);
+
+/** GA4 is typically complete through yesterday ET — use as inclusive window end. */
 function ga4DataThroughYmd() {
-  const d = new Date(now);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = stampEt.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  return dt.toISOString().slice(0, 10);
 }
 
-function daysAgo(n) {
-  const d = new Date(now);
-  d.setUTCDate(d.getUTCDate() - n);
-  return d.toISOString().slice(0, 10);
+/**
+ * Inclusive N-day window ending at endYmd (both ends inclusive in GA4).
+ * Example: days=7, end=2026-10-04 → start=2026-09-28.
+ */
+function windowStartInclusive(endYmd, days) {
+  const [y, m, d] = endYmd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - (days - 1));
+  return dt.toISOString().slice(0, 10);
 }
 
+const ga4End = ga4DataThroughYmd();
 const windows = [
-  { label: '7d', start: daysAgo(7), end: stamp },
-  { label: '30d', start: daysAgo(30), end: stamp }
+  { label: '7d', start: windowStartInclusive(ga4End, 7), end: ga4End },
+  { label: '30d', start: windowStartInclusive(ga4End, 30), end: ga4End }
 ];
 
 const report = {
   generatedAt: now.toISOString(),
-  ga4DataThrough: ga4DataThroughYmd(),
+  timezone: 'America/New_York',
+  ga4DataThrough: ga4End,
   product: 'GetTrainMate',
   measurementId: MEASUREMENT_ID,
   site: SITE.origin,
@@ -445,6 +466,65 @@ for (const w of windows) {
   }
   if (entry.exp001) {
     report.experimentAttribution[w.label] = entry.exp001;
+  }
+}
+
+function rebuildScoreboardForWindow(report, label) {
+  const entry = report.windows[label];
+  if (!entry) return report.scoreboard[label];
+  let board = buildScoreboardRow(entry.ga4Normalized, entry.stripeNormalized);
+  if (entry.ga4Overview?.available) {
+    board = {
+      ...board,
+      sessions: {
+        value: entry.ga4Overview.sessions,
+        unit: 'sessions',
+        label: 'sessions',
+        available: true,
+        method: 'ga4_sessions_metric'
+      },
+      active_users: {
+        value: entry.ga4Overview.totalUsers,
+        unit: 'users',
+        label: 'users',
+        available: true,
+        method: 'ga4_total_users_metric'
+      },
+      new_users: {
+        value: entry.ga4Overview.newUsers,
+        unit: 'users',
+        label: 'new users',
+        available: true,
+        method: 'ga4_new_users_metric'
+      }
+    };
+  }
+  return overlayCrmOnScoreboard(board, {
+    ga4Ok: report.sources.ga4 === 'ok',
+    marketplaceDensity: report.marketplaceDensity
+  });
+}
+
+const aligned = alignNestedGa4Windows(
+  report.windows['7d']?.ga4Normalized,
+  report.windows['30d']?.ga4Normalized
+);
+if (aligned.alignments?.length) {
+  report.notes.push(
+    `Aligned ${aligned.alignments.length} nested GA4 metric(s) to a shared event source so 7d ⊆ 30d.`
+  );
+  for (const a of aligned.alignments) {
+    report.notes.push(
+      `Align ${a.metric}: source=${a.sharedSource} (was 7d=${a.before7 || 'n/a'}, 30d=${a.before30 || 'n/a'}) → 7d=${a.value7}, 30d=${a.value30}`
+    );
+  }
+  if (report.windows['7d'] && aligned.norm7) {
+    report.windows['7d'].ga4Normalized = aligned.norm7;
+    report.scoreboard['7d'] = rebuildScoreboardForWindow(report, '7d');
+  }
+  if (report.windows['30d'] && aligned.norm30) {
+    report.windows['30d'].ga4Normalized = aligned.norm30;
+    report.scoreboard['30d'] = rebuildScoreboardForWindow(report, '30d');
   }
 }
 

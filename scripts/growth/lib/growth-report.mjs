@@ -408,41 +408,39 @@ export function computeBusinessScoreboard(snapshot, md) {
   const trafficSampleSufficient = trafficForGate >= TRAFFIC_EVAL_MIN;
 
   let primaryBottleneck = 'TRAFFIC / INSUFFICIENT SAMPLE';
-  let decision = 'HOLD / KEEP / COLLECT DATA';
+  let decision = 'COLLECT';
   let nextAction =
     'Grow qualified distribution (owned social + partner outreach). Do not redesign product UI.';
   let bottleneckNote = `Qualified visitors ${trafficForGate} / ${TRAFFIC_EVAL_MIN} minimum evaluation sample. Collect more traffic before diagnosing conversion.`;
 
   if (trafficSampleSufficient) {
-    bottleneckNote = `Traffic sample threshold crossed (${trafficForGate} ≥ ${TRAFFIC_EVAL_MIN}). Evaluating the next funnel stage.`;
-    const visitorToSignupRatio = visitorToSignup.raw ?? 0;
-    const signupToProfileRatio = signupToProfile.raw ?? 0;
-    const profileToInteractionRatio = profileToInteraction.raw ?? 0;
-
-    if (visitorToSignup.raw != null && visitorToSignupRatio < 0.05) {
-      primaryBottleneck = 'SIGNUP CONVERSION';
-      decision = 'EVALUATE_SIGNUP_FLOW';
-      nextAction = 'Analyze landing-to-signup dropoff by campaign and mode before modifying copy.';
-    } else if (signups > 0 && signupToProfile.raw != null && signupToProfileRatio < 0.5) {
+    // Explicit funnel stage gates — never stay on "insufficient traffic" after the sample is met.
+    if (signups === 0) {
+      primaryBottleneck = 'VISITOR → SIGNUP CONVERSION';
+      decision = 'INVESTIGATE SIGNUP CONVERSION';
+      nextAction =
+        'Investigate landing/value proposition, CTA behavior, signup initiation, Cognito/signup errors, mobile signup behavior, and signup abandonment. Report evidence — do not auto-redesign.';
+      bottleneckNote = `Qualified visitors ${trafficForGate} ≥ ${TRAFFIC_EVAL_MIN} with ${signups} external signups. Traffic sample is sufficient; conversion is the bottleneck.`;
+    } else if (completedProfiles === 0) {
       primaryBottleneck = 'ACTIVATION';
-      decision = 'EVALUATE_ONBOARDING';
-      nextAction = 'Analyze profile completion dropoff in onboarding.';
-    } else if (
-      completedProfiles > 0 &&
-      profileToInteraction.raw != null &&
-      profileToInteractionRatio < 0.4
-    ) {
+      decision = 'INVESTIGATE ACTIVATION';
+      nextAction = 'Investigate profile completion dropoff after signup. Do not auto-redesign.';
+      bottleneckNote = `${signups} signup(s) but 0 activated profiles.`;
+    } else if (interactions === 0) {
       primaryBottleneck = 'ENGAGEMENT';
-      decision = 'EVALUATE_DISCOVERY';
-      nextAction = 'Analyze Discover engagement among completed profiles.';
-    } else if ((interactions > 0 || completedProfiles > 0) && payingCustomers === 0) {
+      decision = 'INVESTIGATE ENGAGEMENT';
+      nextAction = 'Investigate Discover/meaningful interactions among activated profiles. Do not auto-redesign.';
+      bottleneckNote = `${completedProfiles} activated profile(s) but 0 meaningful interactions.`;
+    } else if (payingCustomers === 0) {
       primaryBottleneck = 'MONETIZATION';
-      decision = 'EVALUATE_PAYMENT_CONVERSION';
-      nextAction = 'Review pricing/checkout among interacting users.';
+      decision = 'INVESTIGATE MONETIZATION';
+      nextAction = 'Investigate pricing/checkout among engaged users. Do not change pricing without approval.';
+      bottleneckNote = `${interactions} meaningful interaction(s) but 0 paying customers.`;
     } else {
       primaryBottleneck = 'SCALE';
       decision = 'SCALE_DISTRIBUTION';
       nextAction = 'Double down on top-performing acquisition campaigns and markets.';
+      bottleneckNote = `Funnel stages producing customers — scale distribution.`;
     }
   }
 
@@ -501,7 +499,7 @@ export function defaultDecision({ health, reconciliation, shipped, snapshot } = 
   const board7 = snapshot?.scoreboard?.['7d'] || {};
   const traffic = board7.landings?.available ? Number(board7.landings.value ?? 0) : Number(board7.sessions?.value ?? 0);
   const decisionPhase = traffic < 100
-    ? 'HOLD / KEEP / COLLECT DATA (traffic sample below 100–200 visit evaluation threshold; no product/funnel changes)'
+    ? 'COLLECT (qualified visitors below 100 minimum evaluation sample)'
     : 'EVALUATE FUNNEL';
 
   return (
@@ -692,6 +690,11 @@ function exp002Stats(snapshot) {
     remaining: s.settings?.remaining != null ? zeroOk(s.settings.remaining) : 'Unavailable',
     sesRemaining: s.settings?.sesRemaining != null ? zeroOk(s.settings.sesRemaining) : 'Unavailable',
     deliveredTracking: s.settings?.deliveredTracking || 'NOT TRACKED',
+    technicalStatus: s.technicalStatus || 'UNKNOWN',
+    acquisitionPerformance: s.acquisitionPerformance || 'UNKNOWN',
+    performanceFlag: s.performanceFlag || null,
+    outreachSample: s.outreachSample != null ? zeroOk(s.outreachSample) : 'Unavailable',
+    rates: s.rates || {},
     ownerAction: num(s.ownerAction),
     ownerActions: Array.isArray(s.ownerActions)
       ? s.ownerActions
@@ -817,7 +820,16 @@ export function composeGrowthEmailBody({
     t.push(`Remaining: ${exp002.remaining}`);
     t.push(`SES Remaining: ${exp002.sesRemaining}`);
     t.push(`Delivered: ${exp002.deliveredTracking === 'NOT TRACKED' ? 'NOT TRACKED' : exp002.delivered}`);
-    t.push(`PARTNER AUTOMATION: ${exp002.automaticSending && !exp002.dryRun ? 'HEALTHY' : 'PAUSED/DRY'}`);
+    t.push(`Technical status: ${exp002.technicalStatus || 'UNKNOWN'}`);
+    t.push(`Outreach performance: ${exp002.acquisitionPerformance || 'UNKNOWN'}`);
+    if (exp002.performanceFlag) {
+      t.push(`Performance flag: ${exp002.performanceFlag} (≥100 delivered/sent with 0 meaningful replies — review message/targeting; do not raise daily send limit)`);
+    }
+    const rates = exp002.rates || {};
+    const fmtRate = (v) => (v == null || v === '' ? 'n/a' : `${v}%`);
+    t.push(
+      `Rates: delivery=${fmtRate(rates.deliveryRate)} reply=${fmtRate(rates.replyRate)} meaningful_reply=${fmtRate(rates.meaningfulReplyRate)} partner=${fmtRate(rates.partnerConversionRate)} signup=${fmtRate(rates.signupConversionRate)} paid=${fmtRate(rates.paidCustomerConversionRate)}`
+    );
     t.push(`PIPELINE: ready=${exp002.autoEligible ?? 0} alreadyContacted=${exp002.alreadyContactedQualified ?? 'n/a'} needContact=${exp002.contactNeeded ?? 'n/a'}`);
     t.push('');
     t.push('DISCOVERY');

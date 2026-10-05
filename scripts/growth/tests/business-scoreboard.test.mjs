@@ -23,12 +23,12 @@ describe('computeBusinessScoreboard', () => {
     };
 
     const sb = computeBusinessScoreboard(snapshot, { status: 'unavailable' });
-    // Prefer sessions over landing events when unique users unavailable
-    assert.equal(sb.qualifiedTraffic, 50);
+    // Prefer campaign/landing event cohort over raw sessions when landings are available.
+    assert.equal(sb.qualifiedTraffic, 44);
     assert.equal(sb.totalTraffic, 50);
     assert.equal(sb.totalSessions, 50);
     assert.equal(sb.landingEvents, 44);
-    assert.equal(sb.qualifiedVisitorUnit, 'sessions');
+    assert.equal(sb.qualifiedVisitorUnit, 'landing_page_view_events');
     assert.equal(sb.signups, 0);
     assert.equal(sb.completedProfiles, 0);
     assert.equal(sb.payingCustomers, 0);
@@ -37,18 +37,18 @@ describe('computeBusinessScoreboard', () => {
     assert.equal(sb.signupToProfile, 'n/a (no upstream cohort)');
     assert.equal(sb.profileToInteraction, 'n/a (no upstream cohort)');
     assert.equal(sb.primaryBottleneck, 'TRAFFIC / INSUFFICIENT SAMPLE');
-    assert.equal(sb.decision, 'HOLD / KEEP / COLLECT DATA');
+    assert.equal(sb.decision, 'COLLECT');
     assert.match(sb.nextAction, /owned social|partner outreach/i);
   });
 
-  it('evaluates SIGNUP CONVERSION bottleneck when traffic >= 100 but signups are low', () => {
+  it('evaluates VISITOR → SIGNUP CONVERSION when traffic >= 100 and signups are 0', () => {
     const snapshot = {
       scoreboard: {
         '7d': {
           landings: { value: 150, available: true, unit: 'events' },
-          completed_signups: { value: 1, available: true, unit: 'users' },
-          completed_profiles: { value: 1, available: true, unit: 'users' },
-          discover_users: { value: 1, available: true, unit: 'users' },
+          completed_signups: { value: 0, available: true, unit: 'users' },
+          completed_profiles: { value: 0, available: true, unit: 'users' },
+          discover_users: { value: 0, available: true, unit: 'users' },
           unique_paying_customers: { value: 0, available: true },
           revenue: { value: 0, available: true, unit: 'usd' }
         }
@@ -57,10 +57,29 @@ describe('computeBusinessScoreboard', () => {
 
     const sb = computeBusinessScoreboard(snapshot, { status: 'unavailable' });
     assert.equal(sb.qualifiedTraffic, 150);
-    assert.equal(sb.signups, 1);
-    assert.equal(sb.visitorToSignup, '0.7%');
-    assert.equal(sb.primaryBottleneck, 'SIGNUP CONVERSION');
-    assert.equal(sb.decision, 'EVALUATE_SIGNUP_FLOW');
+    assert.equal(sb.signups, 0);
+    assert.equal(sb.primaryBottleneck, 'VISITOR → SIGNUP CONVERSION');
+    assert.equal(sb.decision, 'INVESTIGATE SIGNUP CONVERSION');
+    assert.match(sb.nextAction, /Cognito|signup abandonment|value proposition/i);
+  });
+
+  it('evaluates VISITOR → SIGNUP CONVERSION when traffic >= 100 but signup rate is still zero-dominant', () => {
+    const snapshot = {
+      scoreboard: {
+        '7d': {
+          landings: { value: 150, available: true, unit: 'events' },
+          completed_signups: { value: 0, available: true, unit: 'users' },
+          completed_profiles: { value: 0, available: true, unit: 'users' },
+          discover_users: { value: 0, available: true, unit: 'users' },
+          unique_paying_customers: { value: 0, available: true },
+          revenue: { value: 0, available: true, unit: 'usd' }
+        }
+      }
+    };
+
+    const sb = computeBusinessScoreboard(snapshot, { status: 'unavailable' });
+    assert.notEqual(sb.primaryBottleneck, 'TRAFFIC / INSUFFICIENT SAMPLE');
+    assert.equal(sb.primaryBottleneck, 'VISITOR → SIGNUP CONVERSION');
   });
 
   it('evaluates ACTIVATION bottleneck when signups exist but profiles are not completed', () => {
@@ -69,8 +88,8 @@ describe('computeBusinessScoreboard', () => {
         '7d': {
           landings: { value: 200, available: true, unit: 'events' },
           completed_signups: { value: 20, available: true, unit: 'users' },
-          completed_profiles: { value: 2, available: true, unit: 'users' },
-          discover_users: { value: 1, available: true, unit: 'users' },
+          completed_profiles: { value: 0, available: true, unit: 'users' },
+          discover_users: { value: 0, available: true, unit: 'users' },
           unique_paying_customers: { value: 0, available: true },
           revenue: { value: 0, available: true, unit: 'usd' }
         }
@@ -80,9 +99,27 @@ describe('computeBusinessScoreboard', () => {
     const sb = computeBusinessScoreboard(snapshot, { status: 'unavailable' });
     assert.equal(sb.qualifiedTraffic, 200);
     assert.equal(sb.signups, 20);
-    assert.equal(sb.visitorToSignup, '10.0%');
-    assert.equal(sb.signupToProfile, '10.0%');
+    assert.equal(sb.completedProfiles, 0);
     assert.equal(sb.primaryBottleneck, 'ACTIVATION');
+    assert.equal(sb.decision, 'INVESTIGATE ACTIVATION');
+  });
+
+  it('evaluates ENGAGEMENT when activated profiles exist but interactions are 0', () => {
+    const snapshot = {
+      scoreboard: {
+        '7d': {
+          landings: { value: 200, available: true, unit: 'events' },
+          completed_signups: { value: 20, available: true, unit: 'users' },
+          completed_profiles: { value: 10, available: true, unit: 'users' },
+          discover_users: { value: 0, available: true, unit: 'users' },
+          unique_paying_customers: { value: 0, available: true },
+          revenue: { value: 0, available: true, unit: 'usd' }
+        }
+      }
+    };
+    const sb = computeBusinessScoreboard(snapshot, { status: 'unavailable' });
+    assert.equal(sb.primaryBottleneck, 'ENGAGEMENT');
+    assert.equal(sb.decision, 'INVESTIGATE ENGAGEMENT');
   });
 
   it('evaluates MONETIZATION bottleneck when profiles and interactions exist but 0 paying customers', () => {
@@ -101,6 +138,7 @@ describe('computeBusinessScoreboard', () => {
 
     const sb = computeBusinessScoreboard(snapshot, { status: 'unavailable' });
     assert.equal(sb.primaryBottleneck, 'MONETIZATION');
+    assert.equal(sb.decision, 'INVESTIGATE MONETIZATION');
   });
 });
 
@@ -152,7 +190,7 @@ describe('report rendering with Business Scoreboard', () => {
     assert.match(text, /Signups:\s+0 \/ 10 target/);
     assert.match(text, /Paying customers:\s+0 \/ 1–3 target/);
     assert.match(text, /PRIMARY BOTTLENECK: TRAFFIC/);
-    assert.match(text, /DECISION: HOLD \/ KEEP \/ COLLECT DATA/);
+    assert.match(text, /DECISION: COLLECT/);
     assert.match(text, /MAX — ACTION REQUIRED/);
 
     // EXP-002 partner CRM section

@@ -15,7 +15,8 @@ import {
   normalizeGa4Window,
   normalizeStripe,
   buildScoreboardRow,
-  formatCell
+  formatCell,
+  alignNestedGa4Windows
 } from '../lib/normalize-metrics.mjs';
 import { loadStripeAllowlist } from '../lib/stripe-attribution.mjs';
 import {
@@ -236,6 +237,70 @@ describe('reconcileSnapshot', () => {
     const out = applyReconciliationBlocks(board, ['7d.landings'], '7d');
     assert.equal(out.landings.available, false);
     assert.equal(out.landings.value, null);
+  });
+});
+
+describe('alignNestedGa4Windows pricing_views', () => {
+  it('fixes 7d>30d when windows pick different pricing aliases', () => {
+    // 7d only has view_pricing=3; 30d has pricing_viewed=2 (+ maybe view_pricing)
+    const by7 = {
+      view_pricing: { eventCount: 3, totalUsers: 3, rows: 1 }
+    };
+    const by30 = {
+      pricing_viewed: { eventCount: 2, totalUsers: 2, rows: 1 },
+      view_pricing: { eventCount: 3, totalUsers: 3, rows: 1 }
+    };
+    const n7 = normalizeGa4Window(by7);
+    const n30 = normalizeGa4Window(by30);
+    assert.equal(n7.metrics.pricing_views.value, 3);
+    assert.equal(n7.metrics.pricing_views.sourceEvent, 'view_pricing');
+    assert.equal(n30.metrics.pricing_views.value, 2);
+    assert.equal(n30.metrics.pricing_views.sourceEvent, 'pricing_viewed');
+    assert.ok(n7.metrics.pricing_views.value > n30.metrics.pricing_views.value);
+
+    const { norm7, norm30, alignments } = alignNestedGa4Windows(n7, n30);
+    assert.ok(alignments.some((a) => a.metric === 'pricing_views'));
+    assert.equal(norm7.metrics.pricing_views.sourceEvent, 'pricing_viewed');
+    assert.equal(norm30.metrics.pricing_views.sourceEvent, 'pricing_viewed');
+    assert.equal(norm7.metrics.pricing_views.value, 0); // primary absent in 7d → 0
+    assert.equal(norm30.metrics.pricing_views.value, 2);
+    assert.ok(norm7.metrics.pricing_views.value <= norm30.metrics.pricing_views.value);
+
+    const b7 = buildScoreboardRow(norm7, null);
+    const b30 = buildScoreboardRow(norm30, null);
+    const recon = reconcileSnapshot({
+      scoreboard7d: b7,
+      scoreboard30d: b30
+    });
+    assert.equal(
+      recon.warnings.some((w) => /pricing_views/.test(w) && /exceeds/.test(w)),
+      false
+    );
+  });
+
+  it('regression: nested equivalent metrics satisfy 30d >= 7d after alignment', () => {
+    const by7 = aggregateGa4ByEvent({
+      rows: [
+        { dimensionValues: [{ value: 'view_pricing' }], metricValues: [{ value: '5' }, { value: '4' }] },
+        { dimensionValues: [{ value: 'landing_page_view' }], metricValues: [{ value: '10' }, { value: '8' }] }
+      ]
+    });
+    const by30 = aggregateGa4ByEvent({
+      rows: [
+        { dimensionValues: [{ value: 'pricing_viewed' }], metricValues: [{ value: '4' }, { value: '3' }] },
+        { dimensionValues: [{ value: 'view_pricing' }], metricValues: [{ value: '5' }, { value: '4' }] },
+        { dimensionValues: [{ value: 'landing_page_view' }], metricValues: [{ value: '40' }, { value: '30' }] }
+      ]
+    });
+    const aligned = alignNestedGa4Windows(normalizeGa4Window(by7), normalizeGa4Window(by30));
+    const keys = ['landings', 'pricing_views', 'completed_signups', 'discover_users'];
+    for (const key of keys) {
+      const a = aligned.norm7.metrics[key];
+      const b = aligned.norm30.metrics[key];
+      if (a?.available && b?.available && a.value != null && b.value != null) {
+        assert.ok(b.value >= a.value, `${key}: 30d ${b.value} < 7d ${a.value}`);
+      }
+    }
   });
 });
 
