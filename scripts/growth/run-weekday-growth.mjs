@@ -18,6 +18,7 @@ import { ensureGrowthDeps } from './lib/ensure-growth-deps.mjs';
 import {
   runAutomaticPartnerAcquisition
 } from './lib/partner-outreach-crm.mjs';
+import { etYmd, markSnapshotStale } from './lib/snapshot-freshness.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '../..');
@@ -237,15 +238,36 @@ async function main() {
     // Collect snapshot then attach ownedSocial before email
     await ensureGrowthDeps();
     const collect = runNode('collect-funnel-snapshot.mjs');
+    const snapDir = path.join(ROOT, 'docs/growth/snapshots');
+    const todayStamp = etYmd();
+    const todayPath = path.join(snapDir, `funnel-${todayStamp}.json`);
+    let snapPath = null;
     if (collect.status !== 0) {
       report.errors.push('snapshot_failed');
+      // Never inject social into / email from an older funnel-*.json as if it were today.
+      const stalePath = path.join(snapDir, `funnel-stale-${todayStamp}.json`);
+      try {
+        fs.mkdirSync(snapDir, { recursive: true });
+        const stale = markSnapshotStale(
+          { error: 'snapshot_collect_failed', sources: {}, scoreboard: {}, notes: [] },
+          { collectError: (collect.stderr || collect.stdout || 'collect failed').slice(0, 500) }
+        );
+        fs.writeFileSync(stalePath, JSON.stringify(stale, null, 2));
+        snapPath = stalePath;
+        emailArgs.push('--snapshot', snapPath);
+      } catch (e) {
+        report.errors.push(`stale_snapshot_write: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    } else if (fs.existsSync(todayPath)) {
+      snapPath = todayPath;
+    } else {
+      report.errors.push('snapshot_missing_today');
     }
-    const snapDir = path.join(ROOT, 'docs/growth/snapshots');
-    const files = fs.existsSync(snapDir)
-      ? fs.readdirSync(snapDir).filter((f) => /^funnel-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort()
-      : [];
-    let snapPath = files.length ? path.join(snapDir, files[files.length - 1]) : null;
-    if (snapPath && (report.facebookPostId || report.instagramPostId || publishJson || args.skipSocial)) {
+    if (
+      snapPath &&
+      collect.status === 0 &&
+      (report.facebookPostId || report.instagramPostId || publishJson || args.skipSocial)
+    ) {
       try {
         const snap = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
         const publishedToday = Boolean(report.published || report.socialSkippedDuplicate);

@@ -22,6 +22,11 @@ import {
   releaseAdminEmailDayClaim
 } from './lib/admin-email-day-guard.mjs';
 import { easternIsoDate } from './lib/owned-social-catalog.mjs';
+import {
+  assessSnapshotFreshness,
+  etYmd,
+  markSnapshotStale
+} from './lib/snapshot-freshness.mjs';
 
 export { composeGrowthEmailBody, defaultDecision };
 
@@ -69,14 +74,10 @@ function parseArgs(argv) {
   return out;
 }
 
-function latestSnapshotPath() {
-  if (!fs.existsSync(SNAP_DIR)) return null;
-  const files = fs
-    .readdirSync(SNAP_DIR)
-    .filter((f) => /^funnel-\d{4}-\d{2}-\d{2}\.json$/.test(f))
-    .sort();
-  if (!files.length) return null;
-  return path.join(SNAP_DIR, files[files.length - 1]);
+/** Prefer today's ET stamp; never pretend an older file is fresh. */
+function todaysSnapshotPath(now = new Date()) {
+  const p = path.join(SNAP_DIR, `funnel-${etYmd(now)}.json`);
+  return fs.existsSync(p) ? p : null;
 }
 
 export function parseActiveExperiments(md) {
@@ -180,14 +181,51 @@ if (invokedAsCli) {
   const health = runHealth();
   let snapshot = null;
   let snapPath = args.snapshot;
+  let collectResult = null;
   if (!snapPath) {
-    ensureSnapshot();
-    snapPath = latestSnapshotPath();
+    collectResult = ensureSnapshot();
+    const todayPath = todaysSnapshotPath();
+    if (collectResult?.wrote || (collectResult && !collectResult.error && todayPath)) {
+      // Only today's ET file — never fall back to an older funnel-*.json.
+      snapPath = todayPath;
+      if (!snapPath) {
+        snapshot = markSnapshotStale(
+          { error: 'snapshot_missing_today', sources: {}, scoreboard: {}, notes: [] },
+          { collectError: 'collect reported success but funnel-{today ET}.json is missing' }
+        );
+      }
+    } else if (collectResult?.error) {
+      // Do NOT silently reuse the newest funnel-*.json — that caused Oct 8 reports
+      // to show GA4 through Oct 4 after collect crashed on undefined `stamp`.
+      snapPath = null;
+      snapshot = markSnapshotStale(
+        { error: 'snapshot_collect_failed', sources: {}, scoreboard: {}, notes: [] },
+        { collectError: collectResult.error }
+      );
+    } else {
+      snapPath = todayPath;
+      if (!snapPath) {
+        snapshot = markSnapshotStale(
+          { error: 'missing snapshot', sources: {}, scoreboard: {}, notes: [] },
+          { collectError: 'no funnel snapshot for today ET' }
+        );
+      }
+    }
   }
-  if (snapPath && fs.existsSync(snapPath)) {
+  if (!snapshot && snapPath && fs.existsSync(snapPath)) {
     snapshot = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
-  } else {
-    snapshot = { error: 'missing snapshot', sources: {}, scoreboard: {}, notes: [] };
+    const freshness = assessSnapshotFreshness(snapshot);
+    snapshot.snapshotFreshness = freshness;
+    if (freshness.stale) {
+      snapshot = markSnapshotStale(snapshot, {
+        collectError: collectResult?.error || freshness.note
+      });
+    }
+  } else if (!snapshot) {
+    snapshot = markSnapshotStale(
+      { error: 'missing snapshot', sources: {}, scoreboard: {}, notes: [] },
+      { collectError: collectResult?.error || 'no funnel snapshot for today ET' }
+    );
   }
 
   if (!args.skipSocial) {

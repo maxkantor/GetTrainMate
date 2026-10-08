@@ -220,6 +220,12 @@ export async function fetchPartnerOutreachSnapshot() {
       emailsSent7d: sent7d,
       emailsSentLifetime: sentLifetime,
       delivered: deliveredNum,
+      // SES SendRawEmail MessageId proves acceptance by SES, not mailbox delivery.
+      sesAcceptedLifetime: sentLifetime,
+      sesAcceptanceNote:
+        'SES accepted = SendRawEmail MessageId. Confirmed delivery requires PARTNER_SES_CONFIGURATION_SET + delivery events. Bounce/complaint/unsubscribe suppressions remain active independently.',
+      targetingRelevanceNote:
+        'Prospect Mode uses TRAIN/VIBE/DATE (and CROSS_MODE) from org type, but approved email copy is unified fitness/"training partners" (en/es/ru) and does not pitch VIBE or DATE. Do not raise send limits; review message/targeting before rewriting campaigns.',
       partnerResponses: replies,
       interested,
       partners,
@@ -241,14 +247,31 @@ export async function fetchPartnerOutreachSnapshot() {
       performanceFlag,
       outreachSample,
       rates: {
-        deliveryRate,
+        deliveryRate:
+          settings?.deliveredTracking === 'NOT TRACKED' || !settings?.deliveredTracking
+            ? null
+            : deliveryRate,
         replyRate,
         meaningfulReplyRate,
         partnerConversionRate,
         signupConversionRate,
         paidCustomerConversionRate,
       },
-      ownerActions,
+      ownerActions: (() => {
+        const actions = [...ownerActions];
+        if (
+          (settings?.deliveredTracking || 'NOT TRACKED') === 'NOT TRACKED' &&
+          Number(sentLifetime) >= 50
+        ) {
+          actions.push({
+            id: 'ses-delivery-tracking',
+            severity: 'required',
+            text:
+              'MAX — ACTION REQUIRED: SES delivery is NOT TRACKED. Create configuration set gettrainmate-partner-outreach (delivery/bounce/complaint), wire SNS→ApplySesEvent, set PARTNER_SES_CONFIGURATION_SET on Api Lambda. Unsubscribe/suppression/bounce/complaint gates stay as-is.',
+          });
+        }
+        return actions;
+      })(),
       ownerAction: ownerActionSummary(ownerActionState),
       contactsAdminUrl: CONTACTS_ADMIN_URL,
       approvalsAdminUrl: APPROVALS_ADMIN_URL,

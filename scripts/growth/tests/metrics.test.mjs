@@ -302,6 +302,33 @@ describe('alignNestedGa4Windows pricing_views', () => {
       }
     }
   });
+
+  it('regression: Oct-5 live case 7d view_pricing=3 vs 30d pricing_viewed=2 aligns before reconcile', () => {
+    const by7 = {
+      view_pricing: { eventCount: 3, totalUsers: 3, rows: 1 }
+    };
+    const by30 = {
+      pricing_viewed: { eventCount: 2, totalUsers: 2, rows: 1 },
+      view_pricing: { eventCount: 9, totalUsers: 8, rows: 1 }
+    };
+    const { norm7, norm30 } = alignNestedGa4Windows(
+      normalizeGa4Window(by7),
+      normalizeGa4Window(by30)
+    );
+    assert.equal(norm7.metrics.pricing_views.sourceEvent, 'pricing_viewed');
+    assert.equal(norm30.metrics.pricing_views.sourceEvent, 'pricing_viewed');
+    assert.equal(norm7.metrics.pricing_views.value, 0);
+    assert.equal(norm30.metrics.pricing_views.value, 2);
+    const recon = reconcileSnapshot({
+      scoreboard7d: buildScoreboardRow(norm7, null),
+      scoreboard30d: buildScoreboardRow(norm30, null)
+    });
+    assert.equal(recon.ok, true);
+    assert.equal(
+      recon.warnings.some((w) => /pricing_views/.test(w) && /exceeds/.test(w)),
+      false
+    );
+  });
 });
 
 describe('buildScoreboardRow + compose email', () => {

@@ -626,6 +626,9 @@ function exp002Stats(snapshot) {
       remaining: 'Unavailable',
       sesRemaining: 'Unavailable',
       deliveredTracking: 'NOT TRACKED',
+      sesAcceptanceNote:
+        'SES SendRawEmail MessageId = acceptance only; confirmed delivery requires configuration-set events.',
+      targetingRelevanceNote: null,
       ownerAction: `MAX — ACTION REQUIRED: Partner CRM ${status.toUpperCase()}: ${s.reason || 'fix credentials / API access'}`,
       ownerActions: [
         {
@@ -690,6 +693,10 @@ function exp002Stats(snapshot) {
     remaining: s.settings?.remaining != null ? zeroOk(s.settings.remaining) : 'Unavailable',
     sesRemaining: s.settings?.sesRemaining != null ? zeroOk(s.settings.sesRemaining) : 'Unavailable',
     deliveredTracking: s.settings?.deliveredTracking || 'NOT TRACKED',
+    sesAcceptanceNote:
+      s.sesAcceptanceNote ||
+      'SES SendRawEmail MessageId = acceptance only; confirmed delivery requires configuration-set events.',
+    targetingRelevanceNote: s.targetingRelevanceNote || null,
     technicalStatus: s.technicalStatus || 'UNKNOWN',
     acquisitionPerformance: s.acquisitionPerformance || 'UNKNOWN',
     performanceFlag: s.performanceFlag || null,
@@ -744,6 +751,34 @@ export function composeGrowthEmailBody({
   const ga4Ok = snapshot?.sources?.ga4 === 'ok';
   const dataQualityNeeded = recon && recon.ok === false;
   const qualityLines = dataQualityNeeded ? (recon.warnings || []).map((w) => ascii(w)) : [];
+  const expectedGa4Through = shiftYmd(et.ymd, -1);
+  const ga4Through = snapshot?.ga4DataThrough || null;
+  const freshness =
+    snapshot?.snapshotFreshness ||
+    ({
+      expectedThrough: expectedGa4Through,
+      actualThrough: ga4Through,
+      fresh: ga4Through === expectedGa4Through && !snapshot?.snapshotStale,
+      stale:
+        Boolean(snapshot?.snapshotStale) ||
+        !ga4Through ||
+        String(ga4Through) < expectedGa4Through,
+      collectFailed: Boolean(snapshot?.snapshotCollectError),
+      flag:
+        snapshot?.snapshotStale || snapshot?.snapshotCollectError
+          ? 'STALE_SNAPSHOT'
+          : !ga4Through || String(ga4Through) < expectedGa4Through
+            ? 'STALE_GA4_DATA'
+            : null,
+      note: null
+    });
+  const ga4ThroughDisplay = ga4Through
+    ? formatMonthDayYearFromYmd(ga4Through)
+    : 'UNKNOWN';
+  const ga4StaleBanner = freshness.stale
+    ? `STALE GA4 DATA — last complete day ${ga4ThroughDisplay}; expected ${formatMonthDayYearFromYmd(expectedGa4Through)}. Do not treat as current.`
+    : null;
+  if (ga4StaleBanner) qualityLines.unshift(ga4StaleBanner);
   if (!ga4Ok) {
     qualityLines.push(
       `GA4 source status is "${snapshot?.sources?.ga4 ?? 'unknown'}" — event funnel metrics may show Unavailable unless CRM fallback applied.`
@@ -752,7 +787,8 @@ export function composeGrowthEmailBody({
   if (!health?.checks?.length) {
     qualityLines.push('Production health checks did not run — overall health cannot be verified.');
   }
-  const showDataQualityWarning = dataQualityNeeded || !ga4Ok || !health?.checks?.length;
+  const showDataQualityWarning =
+    dataQualityNeeded || !ga4Ok || !health?.checks?.length || Boolean(freshness.stale);
   const healthOk = health?.ok !== false && (health?.checks?.length ?? 0) > 0;
   const stripe = stripeStatusLines(snapshot);
   const metroBlock = formatMetroUnavailable(md);
@@ -763,7 +799,6 @@ export function composeGrowthEmailBody({
   const pockets = pocketsFromMetroCrm(md).slice(0, 8);
   const social = ownedSocialSummary(snapshot);
   const naMode = (v) => (v == null ? 'Unavailable' : String(v));
-  const ga4Through = snapshot?.ga4DataThrough || shiftYmd(et.ymd, -1);
   const sha = String(commitSha || exp001?.commit || exp002row?.commit || '').trim();
   const distYes = Boolean(social.fbYes || social.igYes);
   const subject = growthEmailSubject({
@@ -789,7 +824,12 @@ export function composeGrowthEmailBody({
   t.push('===================================');
   t.push('ARE WE GETTING CUSTOMERS?');
   t.push(`Local time (America/New_York): ${et.dateStr} ${et.timeStr}`);
-  t.push(`GA4 data through: ${formatMonthDayYearFromYmd(ga4Through)}`);
+  t.push(
+    freshness.stale
+      ? `GA4 data through: ${ga4ThroughDisplay} [STALE — expected ${formatMonthDayYearFromYmd(expectedGa4Through)}]`
+      : `GA4 data through: ${ga4ThroughDisplay}`
+  );
+  if (ga4StaleBanner) t.push(ga4StaleBanner);
   t.push(`Site: ${SITE.origin}`);
   t.push('');
   t.push('7 DAYS');
@@ -802,8 +842,15 @@ export function composeGrowthEmailBody({
   t.push(`Meaningful Interactions     ${sb.interactions}`);
   t.push(`Paying Customers            ${sb.payingCustomers}`);
   t.push(`Revenue                     ${sb.revenue}`);
+  t.push(
+    `Pricing views 7d / 30d: ${formatCellLabeled(board7.pricing_views)} / ${formatCellLabeled(board30.pricing_views)}`
+  );
   t.push('');
-  t.push('TECHNICAL HEALTH: OK (collectors / Meta / Stripe)');
+  t.push(
+    freshness.stale
+      ? 'TECHNICAL HEALTH: DEGRADED (GA4 snapshot stale — collectors may still be OK)'
+      : 'TECHNICAL HEALTH: OK (collectors / Meta / Stripe)'
+  );
   t.push(`ACQUISITION PERFORMANCE: ${sb.primaryBottleneck}`);
   t.push(`PRIMARY BOTTLENECK: ${sb.primaryBottleneck}`);
   t.push(`DECISION: ${sb.decision}`);
@@ -819,11 +866,21 @@ export function composeGrowthEmailBody({
     t.push(`Sent Today: ${exp002.emailsSentToday}`);
     t.push(`Remaining: ${exp002.remaining}`);
     t.push(`SES Remaining: ${exp002.sesRemaining}`);
-    t.push(`Delivered: ${exp002.deliveredTracking === 'NOT TRACKED' ? 'NOT TRACKED' : exp002.delivered}`);
+    t.push(
+      `SES accepted (API MessageId): ${exp002.emailsSentLifetime} — acceptance is not confirmed inbox delivery`
+    );
+    t.push(
+      exp002.deliveredTracking === 'NOT TRACKED'
+        ? 'Confirmed delivery (SES delivery event): NOT TRACKED — PARTNER_SES_CONFIGURATION_SET unset / no config-set events'
+        : `Confirmed delivery (SES delivery event): ${exp002.delivered}`
+    );
     t.push(`Technical status: ${exp002.technicalStatus || 'UNKNOWN'}`);
     t.push(`Outreach performance: ${exp002.acquisitionPerformance || 'UNKNOWN'}`);
     if (exp002.performanceFlag) {
       t.push(`Performance flag: ${exp002.performanceFlag} (≥100 delivered/sent with 0 meaningful replies — review message/targeting; do not raise daily send limit)`);
+    }
+    if (exp002.targetingRelevanceNote) {
+      t.push(`Targeting relevance: ${exp002.targetingRelevanceNote}`);
     }
     const rates = exp002.rates || {};
     const fmtRate = (v) => (v == null || v === '' ? 'n/a' : `${v}%`);
@@ -1284,7 +1341,8 @@ export function composeGrowthEmailBody({
         <tr><td style="padding:22px 28px;background:#0f172a;color:#fff;border-radius:12px 12px 0 0;">
           <div style="font-size:22px;font-weight:700;line-height:1.3;">GetTrainMate — Customer Acquisition Report</div>
           <div style="font-size:14px;opacity:0.9;margin-top:6px;">${escapeHtml(et.dateStr)} ${escapeHtml(et.timeStr)}</div>
-          <div style="font-size:14px;opacity:0.9;margin-top:4px;">Report generated: ${escapeHtml(et.monthDayYear)} · GA4 data through: ${escapeHtml(formatMonthDayYearFromYmd(ga4Through))}</div>
+          <div style="font-size:14px;opacity:0.9;margin-top:4px;">Report generated: ${escapeHtml(et.monthDayYear)} · GA4 data through: ${escapeHtml(ga4ThroughDisplay)}${freshness.stale ? ` · <strong style="color:#fbbf24;">STALE</strong> (expected ${escapeHtml(formatMonthDayYearFromYmd(expectedGa4Through))})` : ''}</div>
+          ${ga4StaleBanner ? `<div style="margin-top:10px;padding:8px 10px;background:#7f1d1d;color:#fecaca;border-radius:6px;font-size:13px;font-weight:600;">${escapeHtml(ga4StaleBanner)}</div>` : ''}
           <div style="margin-top:14px;line-height:1.8;">${links}</div>
         </td></tr>
         <tr><td style="padding:24px 28px 32px;">
@@ -1344,7 +1402,17 @@ export function composeGrowthEmailBody({
                 { label: 'Sent Today', value: String(exp002.emailsSentToday) },
                 { label: 'Remaining', value: String(exp002.remaining) },
                 { label: 'SES Remaining', value: String(exp002.sesRemaining) },
-                { label: 'Delivered', value: exp002.deliveredTracking === 'NOT TRACKED' ? 'NOT TRACKED' : String(exp002.delivered) },
+                {
+                  label: 'SES accepted (MessageId)',
+                  value: String(exp002.emailsSentLifetime)
+                },
+                {
+                  label: 'Confirmed delivery',
+                  value:
+                    exp002.deliveredTracking === 'NOT TRACKED'
+                      ? 'NOT TRACKED'
+                      : String(exp002.delivered)
+                },
                 { label: 'Prospects', value: String(exp002.prospects) },
                 { label: 'Usable Contacts', value: String(exp002.contacts) },
                 { label: 'Need contact', value: String(exp002.needContact) },

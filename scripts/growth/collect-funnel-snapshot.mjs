@@ -573,12 +573,27 @@ try {
 }
 
 fs.mkdirSync(outDir, { recursive: true });
-const outPath = path.join(outDir, `funnel-${stamp}.json`);
+// Filename must match America/New_York calendar day (stampEt). Using undefined `stamp`
+// previously threw after a full GA4 fetch and left compose/run-weekday silently reusing
+// the newest funnel-*.json on disk (stale ga4DataThrough).
+const outPath = path.join(outDir, `funnel-${stampEt}.json`);
+report.snapshotStale = false;
+report.snapshotFreshness = {
+  expectedThrough: ga4End,
+  actualThrough: ga4End,
+  fresh: true,
+  stale: false,
+  collectFailed: false,
+  flag: null,
+  note: null
+};
 fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
 console.log(
   JSON.stringify(
     {
       wrote: outPath,
+      stampEt,
+      ga4DataThrough: ga4End,
       sources: report.sources,
       reconciliationOk: recon.ok,
       notes: report.notes
