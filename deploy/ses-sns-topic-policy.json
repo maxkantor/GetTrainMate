@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowSESPublish",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ses.amazonaws.com"
+      },
+      "Action": "sns:Publish",
+      "Resource": "arn:aws:sns:us-east-1:718522948657:gettrainmate-partner-outreach-ses-events",
+      "Condition": {
+        "StringEquals": {
+          "AWS:SourceAccount": "718522948657"
+        }
+      }
+    }
+  ]
+}

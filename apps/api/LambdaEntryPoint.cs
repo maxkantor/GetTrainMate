@@ -37,6 +37,39 @@ public class LambdaEntryPoint : APIGatewayHttpApiV2ProxyFunction
             return await FunctionHandlerAsync(proxy, context);
         }
 
+        // SES configuration-set events via SNS → Lambda (IAM-authenticated; not public HTTP).
+        if (PartnerSesEventProcessor.IsSnsEnvelope(request))
+        {
+            var parsed = PartnerSesEventProcessor.ParseSnsLambdaEvent(request);
+            if (parsed.Count == 0)
+                return new { ok = true, applied = 0, note = "no_actionable_ses_events" };
+
+            var webHostSes = Microsoft.AspNetCore.WebHost.CreateDefaultBuilder()
+                .UseContentRoot(Directory.GetCurrentDirectory())
+                .UseStartup<Startup>()
+                .Build();
+            await webHostSes.StartAsync();
+            try
+            {
+                using var scope = webHostSes.Services.CreateScope();
+                var svc = scope.ServiceProvider.GetRequiredService<IPartnerOutreachService>();
+                var applied = 0;
+                foreach (var (internalId, eventType, _) in parsed)
+                {
+                    await svc.ApplySesEventAsync(internalId, eventType);
+                    applied++;
+                    context.Logger.LogLine(
+                        $"partner_ses_event applied internalId={internalId} eventType={eventType}");
+                }
+                return new { ok = true, applied };
+            }
+            finally
+            {
+                await webHostSes.StopAsync();
+                webHostSes.Dispose();
+            }
+        }
+
         var detailType = request.TryGetProperty("detail-type", out var dt) ? dt.GetString() : null;
         var isDiscovery = string.Equals(detailType, "partner-outreach-discovery", StringComparison.OrdinalIgnoreCase);
 

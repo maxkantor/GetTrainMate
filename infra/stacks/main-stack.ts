@@ -161,6 +161,12 @@ export class GetTrainMateStack extends cdk.Stack {
           (this.node.tryGetContext('sesAdminEmail') as string | undefined)?.trim() ||
           (process.env.SES_ADMIN_EMAIL || '').trim() ||
           ssm.StringParameter.valueForStringParameter(this, '/gettrainmate/ses-admin-email'),
+        // Partner outreach SES configuration set (delivery/bounce/complaint → SNS → ApplySesEvent).
+        // Value is also stored at SSM /gettrainmate/partner/ses-configuration-set.
+        PARTNER_SES_CONFIGURATION_SET:
+          (this.node.tryGetContext('partnerSesConfigurationSet') as string | undefined)?.trim() ||
+          (process.env.PARTNER_SES_CONFIGURATION_SET || '').trim() ||
+          'gettrainmate-partner-outreach',
       },
     });
 

@@ -1,0 +1,1 @@
+{"ConfigurationSetName":"gettrainmate-partner-outreach","EventDestinationName":"sns-delivery-events","EventDestination":{"Enabled":true,"MatchingEventTypes":["DELIVERY","BOUNCE","COMPLAINT"],"SnsDestination":{"TopicArn":"arn:aws:sns:us-east-1:718522948657:gettrainmate-partner-outreach-ses-events"}}}

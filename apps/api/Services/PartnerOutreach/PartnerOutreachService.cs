@@ -988,7 +988,14 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         item.IdempotencyKey ??= $"send:{item.ProspectId}:{item.FollowUpNumber}:{item.Recipient.Trim().ToLowerInvariant()}";
         await _db.SaveAsync(item);
 
-        var sesId = await _email.SendRawEmailAsync(FromEmail, item.Recipient, raw, Env("PARTNER_SES_CONFIGURATION_SET"));
+        var tags = SesTagRules.CampaignTags(internalId);
+        SesTagRules.AssertNoPii(tags);
+        var sesId = await _email.SendRawEmailAsync(
+            FromEmail,
+            item.Recipient,
+            raw,
+            Env("PARTNER_SES_CONFIGURATION_SET"),
+            tags);
         // Persist SES acceptance immediately so a Lambda/API timeout cannot leave a
         // successfully-accepted email stuck as draft/approved and re-sendable.
         item.SesMessageId = sesId;
@@ -1286,14 +1293,41 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
 
     public async Task ApplySesEventAsync(string internalMessageId, string eventType)
     {
+        if (string.IsNullOrWhiteSpace(internalMessageId) || string.IsNullOrWhiteSpace(eventType))
+            return;
+
         var items = await _db.ScanAsync<PartnerQueueItem>(new List<ScanCondition>()).GetRemainingAsync();
-        var item = items.FirstOrDefault(x => x.InternalMessageId == internalMessageId);
+        PartnerQueueItem? item = null;
+        if (internalMessageId.StartsWith("ses:", StringComparison.OrdinalIgnoreCase))
+        {
+            var sesId = internalMessageId["ses:".Length..];
+            item = items.FirstOrDefault(x =>
+                string.Equals(x.SesMessageId, sesId, StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            item = items.FirstOrDefault(x =>
+                string.Equals(x.InternalMessageId, internalMessageId, StringComparison.OrdinalIgnoreCase));
+            if (item == null)
+            {
+                item = items.FirstOrDefault(x =>
+                    string.Equals(x.SesMessageId, internalMessageId, StringComparison.OrdinalIgnoreCase));
+            }
+        }
         if (item == null) return;
+
         var settings = await LoadSettingsAsync();
         var p = await _db.LoadAsync<PartnerProspect>(item.ProspectId);
-        switch (eventType.ToLowerInvariant())
+        var normalized = eventType.Trim().ToLowerInvariant();
+        var priorStatus = item.Status;
+
+        switch (normalized)
         {
             case "delivery":
+                // Never invent delivery for historical accepts; only SES delivery events reach here.
+                // Idempotent: already delivered/replied stays put.
+                if (priorStatus is "delivered" or "replied" or "bounced" or "complained")
+                    return;
                 item.Status = "delivered";
                 if (p != null)
                 {
@@ -1304,6 +1338,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 }
                 break;
             case "bounce":
+                if (priorStatus == "bounced")
+                    return; // idempotent — do not double-count or re-write suppression
                 item.Status = "bounced";
                 settings.BounceCount++;
                 await _db.SaveAsync(new PartnerSuppression { Email = item.Recipient.ToLowerInvariant(), Reason = "hard_bounce" });
@@ -1315,6 +1351,12 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 }
                 break;
             case "complaint":
+                if (priorStatus == "complained")
+                {
+                    settings.ComplaintPause = true;
+                    await _db.SaveAsync(settings);
+                    return;
+                }
                 item.Status = "complained";
                 settings.ComplaintCount++;
                 settings.ComplaintPause = true;
@@ -1329,12 +1371,18 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 break;
             case "reject":
             case "rendering failure":
+                if (priorStatus is "failed" or "bounced" or "complained" or "delivered" or "replied")
+                    return;
                 item.Status = "failed";
                 if (p != null) p.EmailState = "FAILED";
                 break;
             case "delivery delay":
+                if (priorStatus is "delivered" or "replied" or "bounced" or "complained" or "failed")
+                    return;
                 item.Status = "deferred";
                 break;
+            default:
+                return;
         }
         await _db.SaveAsync(item);
         await _db.SaveAsync(settings);

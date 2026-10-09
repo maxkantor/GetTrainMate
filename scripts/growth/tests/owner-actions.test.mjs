@@ -103,4 +103,27 @@ describe('buildOwnerActions', () => {
     assert.equal(ownerActionRequiresMax(dry), true);
     assert.match(dry[0].text, /Dry Run is ON/);
   });
+
+  it('SES NOT TRACKED with ≥50 sends is required and is the primary ownerAction', () => {
+    const state = {
+      automaticSending: true,
+      sesDeliveryNotTracked: true,
+      emailsSentLifetime: 250,
+    };
+    const actions = buildOwnerActions(state);
+    assert.equal(actions[0].id, 'ses-delivery-tracking');
+    assert.equal(ownerActionRequiresMax(actions), true);
+    assert.match(ownerActionSummary(state), /SES delivery is NOT TRACKED/);
+    assert.equal(actions.some((a) => a.id === 'none'), false);
+  });
+
+  it('does not require SES action when delivery tracking is configured', () => {
+    const actions = buildOwnerActions({
+      automaticSending: true,
+      sesDeliveryNotTracked: false,
+      emailsSentLifetime: 250,
+    });
+    assert.equal(actions[0].id, 'none');
+    assert.equal(ownerActionRequiresMax(actions), false);
+  });
 });

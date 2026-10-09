@@ -49,7 +49,11 @@ public static class PartnerEmailMime
         if (!string.IsNullOrWhiteSpace(configurationSet))
             headers.Add($"X-SES-CONFIGURATION-SET: {configurationSet}");
         if (!string.IsNullOrWhiteSpace(internalMessageId))
+        {
             headers.Add($"X-GetTrainMate-MessageId: {internalMessageId}");
+            // SES also accepts message tags via MIME for config-set event correlation.
+            headers.Add($"X-SES-MESSAGE-TAGS: gtm_mid={internalMessageId}");
+        }
 
         var raw = string.Join("\r\n", headers) + "\r\n\r\n"
             + $"--{boundary}\r\n"

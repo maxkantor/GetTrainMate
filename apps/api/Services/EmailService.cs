@@ -135,7 +135,12 @@ public class EmailService : IEmailService
         }
     }
 
-    public async Task<string> SendRawEmailAsync(string from, string to, byte[] rawMime, string? configurationSet = null)
+    public async Task<string> SendRawEmailAsync(
+        string from,
+        string to,
+        byte[] rawMime,
+        string? configurationSet = null,
+        IReadOnlyDictionary<string, string>? messageTags = null)
     {
         if (rawMime == null || rawMime.Length == 0)
             throw new ArgumentException("raw MIME required", nameof(rawMime));
@@ -149,8 +154,19 @@ public class EmailService : IEmailService
             request.ConfigurationSetName = configurationSet;
         else if (!string.IsNullOrWhiteSpace(_configurationSet))
             request.ConfigurationSetName = _configurationSet;
+        if (messageTags is { Count: > 0 })
+        {
+            request.Tags = messageTags
+                .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
+                .Select(kv => new MessageTag { Name = kv.Key.Trim(), Value = kv.Value.Trim() })
+                .ToList();
+        }
         var response = await _ses.SendRawEmailAsync(request);
-        _logger.LogInformation("Raw email accepted by SES. MessageId={MessageId}", response.MessageId);
+        _logger.LogInformation(
+            "Raw email accepted by SES. MessageId={MessageId} ConfigurationSet={ConfigurationSet} TagCount={TagCount}",
+            response.MessageId,
+            request.ConfigurationSetName ?? "(none)",
+            request.Tags?.Count ?? 0);
         return response.MessageId;
     }
 

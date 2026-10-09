@@ -19,7 +19,8 @@ public interface IEmailService
         string from,
         string to,
         byte[] rawMime,
-        string? configurationSet = null);
+        string? configurationSet = null,
+        IReadOnlyDictionary<string, string>? messageTags = null);
 
     /// <summary>SES account send quota. Returns null when the API is unavailable.</summary>
     Task<SesSendQuota?> GetSendQuotaAsync();

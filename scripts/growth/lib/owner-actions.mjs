@@ -34,6 +34,8 @@ function n(value) {
  *   discoveryUnavailable?: boolean,
  *   crmUnavailable?: boolean,
  *   crmReason?: string,
+ *   sesDeliveryNotTracked?: boolean,
+ *   emailsSentLifetime?: number,
  * }} state
  */
 export function buildOwnerActions(state = {}) {
@@ -43,6 +45,15 @@ export function buildOwnerActions(state = {}) {
   const paused = Boolean(state.pauseAllOutreach);
   const safetyPaused = Boolean(state.safetyPaused || state.complaintPause);
   const actions = [];
+
+  if (state.sesDeliveryNotTracked && n(state.emailsSentLifetime) >= 50) {
+    actions.push({
+      id: 'ses-delivery-tracking',
+      severity: 'required',
+      text:
+        'MAX — ACTION REQUIRED: SES delivery is NOT TRACKED. Create configuration set gettrainmate-partner-outreach (delivery/bounce/complaint), wire SNS→ApplySesEvent, set PARTNER_SES_CONFIGURATION_SET on Api Lambda. Unsubscribe/suppression/bounce/complaint gates stay as-is.',
+    });
+  }
 
   if (state.crmUnavailable) {
     actions.push({

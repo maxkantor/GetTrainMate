@@ -914,6 +914,66 @@ public class PartnerOutreachTests
     }
 
     [Fact]
+    public void Ses_event_processor_extracts_gtm_mid_and_normalizes_delivery()
+    {
+        var json = """
+            {
+              "eventType": "Delivery",
+              "mail": {
+                "messageId": "010001aaaa-bbbb-cccc-dddd-eeeeffffffffffff-000000",
+                "tags": { "gtm_mid": ["po_deadbeefcafef00d"] }
+              }
+            }
+            """;
+        var parsed = PartnerSesEventProcessor.ParseSesNotification(json);
+        Assert.Single(parsed);
+        Assert.Equal("po_deadbeefcafef00d", parsed[0].InternalMessageId);
+        Assert.Equal("delivery", parsed[0].EventType);
+        Assert.Equal("010001aaaa-bbbb-cccc-dddd-eeeeffffffffffff-000000", parsed[0].SesMessageId);
+        Assert.Null(PartnerSesEventProcessor.NormalizeEventType("Send"));
+        Assert.Null(PartnerSesEventProcessor.NormalizeEventType("Open"));
+        Assert.Equal("bounce", PartnerSesEventProcessor.NormalizeEventType("Bounce"));
+        Assert.Equal("complaint", PartnerSesEventProcessor.NormalizeEventType("Complaint"));
+    }
+
+    [Fact]
+    public void Ses_event_processor_falls_back_to_ses_message_id_prefix()
+    {
+        var json = """
+            {
+              "eventType": "Delivery",
+              "mail": { "messageId": "ses-only-id-123" }
+            }
+            """;
+        var parsed = PartnerSesEventProcessor.ParseSesNotification(json);
+        Assert.Single(parsed);
+        Assert.Equal("ses:ses-only-id-123", parsed[0].InternalMessageId);
+        Assert.Equal("delivery", parsed[0].EventType);
+    }
+
+    [Fact]
+    public void Ses_mime_includes_configuration_set_and_gtm_mid_tags()
+    {
+        var raw = PartnerEmailMime.BuildRaw(
+            "Max from GetTrainMate",
+            "partners@gettrainmate.com",
+            "test@example.com",
+            "partners@gettrainmate.com",
+            "Help Example find local training partners",
+            "body",
+            "<p>body</p>",
+            configurationSet: "gettrainmate-partner-outreach",
+            internalMessageId: "po_testmid00000001");
+        var text = System.Text.Encoding.UTF8.GetString(raw);
+        Assert.Contains("X-SES-CONFIGURATION-SET: gettrainmate-partner-outreach", text);
+        Assert.Contains("X-GetTrainMate-MessageId: po_testmid00000001", text);
+        Assert.Contains("X-SES-MESSAGE-TAGS: gtm_mid=po_testmid00000001", text);
+        var tags = SesTagRules.CampaignTags("po_testmid00000001");
+        Assert.Equal("po_testmid00000001", tags["gtm_mid"]);
+        SesTagRules.AssertNoPii(tags);
+    }
+
+    [Fact]
     public void Follow_up_sequence_stops_at_two()
     {
         var days = new List<int> { 4, 9, 14, 21 };

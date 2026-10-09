@@ -801,6 +801,15 @@ export function composeGrowthEmailBody({
   const naMode = (v) => (v == null ? 'Unavailable' : String(v));
   const sha = String(commitSha || exp001?.commit || exp002row?.commit || '').trim();
   const distYes = Boolean(social.fbYes || social.igYes);
+  // Keep Required owner approval consistent with MAX — ACTION REQUIRED outreach items (e.g. SES).
+  if (ownerActionRequiresMax(exp002.ownerActions)) {
+    const sesLine = (exp002.ownerActions || []).find((a) => a.id === 'ses-delivery-tracking');
+    if (sesLine && (!lead.requiredOwnerApproval || /^NO\b/i.test(String(lead.requiredOwnerApproval)))) {
+      lead.requiredOwnerApproval = 'YES — SES delivery tracking / partner outreach owner action';
+    } else if (!lead.requiredOwnerApproval || /^NO\b/i.test(String(lead.requiredOwnerApproval))) {
+      lead.requiredOwnerApproval = 'YES — partner outreach owner action required';
+    }
+  }
   const subject = growthEmailSubject({
     et,
     shipped,
