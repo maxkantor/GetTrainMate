@@ -75,22 +75,37 @@ function Invoke-LoggedCommand {
   }
 }
 
-function Test-AlreadyRanToday {
+function Test-AlreadySucceededToday {
+  # 10:30 backup must not rerun after a 10:00 success (email + Facebook/Instagram).
+  # A FAILED morning run does not match, so the backup can still retry.
   if ($DryRun) { return $false }
-  if (-not (Test-Path $mainLog)) { return $false }
   $today = Get-Date -Format "yyyy-MM-dd"
-  $recent = Get-Content $mainLog -Tail 80 -ErrorAction SilentlyContinue
-  if ($null -eq $recent) { return $false }
-  foreach ($line in $recent) {
-    if ($line -match "^$today .* scheduled run (OK|FAILED)$") {
-      return $true
-    }
+  $dayLog = Join-Path $logDir "$today-scheduled.log"
+  $lines = @()
+  if (Test-Path $dayLog) {
+    $lines = @(Get-Content $dayLog -ErrorAction SilentlyContinue)
+  } elseif (Test-Path $mainLog) {
+    $lines = @(Get-Content $mainLog -Tail 500 -ErrorAction SilentlyContinue | Where-Object { $_ -like "$today*" })
   }
-  return $false
+  if ($lines.Count -eq 0) { return $false }
+
+  $ok = $false
+  $email = $false
+  $social = $false
+  foreach ($line in $lines) {
+    if ($line -notlike "$today*") { continue }
+    # Success lines are "=== GetTrainMate scheduled run OK ===" — do not anchor on end-of-line.
+    if ($line -match "scheduled run OK" -and $line -notmatch "dry-run") { $ok = $true }
+    if ($line -match "DAILY REPORT EMAIL SENT") { $email = $true }
+    if ($line -match "EMAIL SKIPPED \(already sent today\)") { $email = $true }
+    if ($line -match '"published": true') { $social = $true }
+    if ($line -match '"socialSkippedDuplicate": true') { $social = $true }
+  }
+  return ($ok -and $email -and $social)
 }
 
-if (Test-AlreadyRanToday) {
-  Log "Skipping duplicate Windows trigger: today's scheduled run already logged in daily-task-runner.log"
+if (Test-AlreadySucceededToday) {
+  Log "Skipping 30-minute backup: today's run already sent the admin email and published owned social."
   exit 0
 }
 
