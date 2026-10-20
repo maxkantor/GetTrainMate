@@ -3,7 +3,7 @@
     Registers the GetTrainMate Daily Growth task in Windows Task Scheduler.
 .DESCRIPTION
     Creates a scheduled task that executes .\scripts\growth\run-growth-scheduled.ps1
-    daily at 10:00 AM (backup trigger optional; disabled by default).
+    daily at 10:00 AM only (no 10:30 backup trigger).
     Features:
     - Runs automatically 7 days a week including weekends.
     - StartWhenAvailable enabled: if PC is asleep or off at 10:00 AM, it runs
@@ -16,11 +16,12 @@
 .PARAMETER Time
     Primary time of day to run (default: "10:00AM"). Format: "HH:mm" or "hh:mmtt".
 .PARAMETER BackupTime
-    Optional secondary backup time (default: none). Disabled by default to avoid duplicate failure emails when a run fails before Node starts.
+    Optional secondary backup time (default: none). Leave empty.
+    Do not use 10:30AM - a second daily trigger re-ran the full growth job after
+    successful morning email/social publishes.
 
 .EXAMPLE
     .\scripts\growth\setup-windows-task.ps1
-    .\scripts\growth\setup-windows-task.ps1 -BackupTime "10:30AM"
 #>
 
 [CmdletBinding()]
@@ -28,6 +29,11 @@ param(
     [string]$Time = "10:00AM",
     [string]$BackupTime = ""
 )
+
+if ($BackupTime -and $BackupTime -match '10:30') {
+    Write-Warning "Ignoring BackupTime=$BackupTime - a 10:30 second trigger causes duplicate growth runs."
+    $BackupTime = ""
+}
 
 $ErrorActionPreference = "Stop"
 
@@ -60,7 +66,7 @@ $Action = New-ScheduledTaskAction `
     -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$RunnerScript`"" `
     -WorkingDirectory $RepoRoot
 
-# Create Scheduled Task Triggers (Daily at Primary & Backup times)
+# Create Scheduled Task Triggers (Daily at Primary only unless BackupTime is set)
 $Trigger1 = New-ScheduledTaskTrigger -Daily -At $Time
 $Triggers = @($Trigger1)
 if ($BackupTime -and $BackupTime -ne $Time) {
@@ -79,6 +85,9 @@ $Settings = New-ScheduledTaskSettingsSet `
     -WakeToRun `
     -ExecutionTimeLimit (New-TimeSpan -Hours 1)
 
+$descSuffix = if ($BackupTime) { " with $BackupTime backup" } else { "" }
+$description = "GetTrainMate Daily Paid Customer Growth automation runner (runs daily at $Time$descSuffix)."
+
 try {
     # Register the task for current user
     Register-ScheduledTask `
@@ -86,16 +95,21 @@ try {
         -Action $Action `
         -Trigger $Triggers `
         -Settings $Settings `
-        -Description "GetTrainMate Daily Paid Customer Growth automation runner (runs daily at $Time$(if ($BackupTime) { " with $BackupTime backup" } else { "" }))." `
+        -Description $description `
         -Force | Out-Null
 
-    Write-Host "`nTask '$TaskName' registered successfully!" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Task '$TaskName' registered successfully!" -ForegroundColor Green
 
     # Verify task details
     $Registered = Get-ScheduledTask -TaskName $TaskName
     $Info = Get-ScheduledTaskInfo -TaskName $TaskName
     Write-Host "Task State:     $($Registered.State)" -ForegroundColor Green
     Write-Host "Next Run Time:  $($Info.NextRunTime)" -ForegroundColor Cyan
+    Write-Host "Triggers:" -ForegroundColor Cyan
+    foreach ($t in @($Registered.Triggers)) {
+        Write-Host ("  - " + $t.StartBoundary + " Enabled=" + $t.Enabled) -ForegroundColor Gray
+    }
     Write-Host "================================================================" -ForegroundColor Cyan
     Write-Host "To test the task manually right now:" -ForegroundColor Yellow
     Write-Host "  Start-ScheduledTask -TaskName `"$TaskName`"" -ForegroundColor Gray
@@ -105,6 +119,6 @@ try {
     Write-Host "  .\scripts\growth\remove-windows-task.ps1" -ForegroundColor Gray
     Write-Host "================================================================" -ForegroundColor Cyan
 } catch {
-    Write-Error "Failed to register scheduled task: $($_.Exception.Message)"
+    Write-Error ("Failed to register scheduled task: " + $_.Exception.Message)
     exit 1
 }

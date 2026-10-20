@@ -96,7 +96,7 @@ When Cursor usage limits are reached or during subscription lapses, the daily gr
 
 ### Task Details
 - **Task Name:** `GetTrainMate-GrowthDaily`
-- **Schedule:** Daily at 10:00 AM America/New_York. A 10:30 AM backup trigger may exist; `run-growth-scheduled.ps1` exits immediately when today's run already sent the admin email and published Facebook/Instagram. A failed 10:00 run still retries at 10:30.
+- **Schedule:** Daily at **10:00 AM only** America/New_York. Do not register a 10:30 backup trigger — it duplicate-kicked the runner after a successful morning email/post. `run-growth-scheduled.ps1` still exits early if today's log already shows a full success (defense in depth).
 - **Script:** `scripts/growth/run-growth-scheduled.ps1`
 - **Features:**
   - `StartWhenAvailable: true` — If the machine was asleep or off at 10:00 AM, it automatically runs as soon as the machine is powered on or wakes up.
