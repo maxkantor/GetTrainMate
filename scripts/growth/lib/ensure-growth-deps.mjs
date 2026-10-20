@@ -25,10 +25,15 @@ export async function ensureGrowthDeps() {
   }
   if (!missing.length) return { ok: true, installed: false };
 
-  const r = spawnSync('npm', ['i', '--prefix', GROWTH_DIR, '--ignore-scripts'], {
-    encoding: 'utf8',
-    stdio: 'pipe'
-  });
+  const r = spawnSync(
+    'npm',
+    ['i', '--ignore-scripts', '--no-save', '--no-package-lock', ...missing],
+    {
+      encoding: 'utf8',
+      stdio: 'pipe',
+      cwd: GROWTH_DIR
+    }
+  );
   if (r.status !== 0) {
     return {
       ok: false,
