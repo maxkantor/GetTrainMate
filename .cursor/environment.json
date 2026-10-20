@@ -1,0 +1,11 @@
+{
+  "name": "GetTrainMate",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "web-dev",
+      "command": "npm run web:dev"
+    }
+  ],
+  "ports": [5173]
+}
