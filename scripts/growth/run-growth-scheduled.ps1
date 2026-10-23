@@ -5,15 +5,21 @@
     Runs the automated growth sequence as a local Windows scheduled task:
     1. Syncs latest git changes (git pull --rebase origin main)
     2. Runs scripts/growth/run-weekday-growth.mjs (lock, Meta social publish, snapshot, SES email)
-    3. Commits and pushes updated growth artifacts to GitHub
+    3. Keeps growth artifacts local (published-log, snapshots) — does NOT push to GitHub by default
     4. Logs all execution details to docs/growth/logs/
+
+    Daily push of docs/growth was removed: it triggered a full Amplify web redeploy for
+    log-only changes (wasted build minutes / storage). Pass -PushArtifacts only when you
+    intentionally want that commit on origin/main.
 
 .PARAMETER DryRun
     Runs checks and draft generation without live social publish, email send, or git push.
 .PARAMETER SkipSocial
     Runs snapshot and email only, skipping owned-social publishing.
 .PARAMETER SkipPush
-    Runs growth tasks but skips git commit and push.
+    Deprecated alias — push is already off by default. Kept so older task args still work.
+.PARAMETER PushArtifacts
+    Opt-in: git add/commit/push docs/growth (triggers Amplify). Off for the daily scheduled task.
 .PARAMETER ContentId
     Optional specific catalog content ID to publish.
 .PARAMETER Notes
@@ -25,6 +31,7 @@ param(
   [switch]$DryRun,
   [switch]$SkipSocial,
   [switch]$SkipPush,
+  [switch]$PushArtifacts,
   [string]$ContentId = "",
   [string]$Notes = ""
 )
@@ -142,8 +149,12 @@ try {
     throw "run-weekday-growth.mjs exited with code $nodeCode"
   }
 
-  # 3. Commit & push updated artifacts to GitHub
-  if (-not $DryRun -and -not $SkipPush) {
+  # 3. Artifacts stay local unless explicitly opted in (avoids daily Amplify redeploys).
+  if ($DryRun) {
+    Log "Skipping git push (dry-run)"
+  } elseif ($SkipPush -or -not $PushArtifacts) {
+    Log "Keeping growth artifacts local (no git push — avoids Amplify rebuild on published-log only)"
+  } else {
     Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("add", "docs/growth") | Out-Null
 
     $diffCode = Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("diff", "--staged", "--quiet")

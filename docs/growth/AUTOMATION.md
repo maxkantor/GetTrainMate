@@ -102,7 +102,7 @@ When Cursor usage limits are reached or during subscription lapses, the daily gr
   - `StartWhenAvailable: true` — If the machine was asleep or off at 10:00 AM, it automatically runs as soon as the machine is powered on or wakes up.
   - `WakeToRun: true` — Wakes computer from sleep if supported.
   - Automatically pulls latest `origin/main` before running.
-  - Automatically commits and pushes updated snapshots/distribution logs back to `origin/main`.
+  - Keeps `docs/growth` artifacts **local** by default (no daily git push). That used to trigger a full Amplify web redeploy for `published-log.json` only. Opt in with `-PushArtifacts` if you intentionally want that commit.
   - Deduped via S3 day guard: even if multiple triggers fire on the same day, only ONE email and post are executed.
   - Logs to `docs/growth/daily-task-runner.log` and `docs/growth/logs/YYYY-MM-DD-scheduled.log`.
 
