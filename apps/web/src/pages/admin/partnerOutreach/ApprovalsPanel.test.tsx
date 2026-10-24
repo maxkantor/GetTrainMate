@@ -45,6 +45,10 @@ describe('ApprovalsPanel — tabs and send controls', () => {
       if (u.includes('/queue')) return [draft];
       return {};
     });
+    postMock.mockImplementation(async (url: string) => {
+      if (String(url).includes('/dedupe')) return { readyDraftsRetired: 0 };
+      return {};
+    });
   });
 
   it('renders Ready / Sent / Held tabs and SEND control', async () => {
@@ -65,7 +69,11 @@ describe('ApprovalsPanel — tabs and send controls', () => {
   });
 
   it('row Send posts approve-and-send and shows sticky result (not wiped by reload)', async () => {
-    postMock.mockResolvedValueOnce({ sent: true });
+    postMock.mockImplementation(async (url: string) => {
+      if (String(url).includes('/dedupe')) return { readyDraftsRetired: 0 };
+      if (String(url).includes('/approve-and-send')) return { sent: true };
+      return {};
+    });
     render(<ApprovalsPanel {...props()} />);
     await screen.findByText('Body Awareness Studio');
     fireEvent.click(screen.getByRole('button', { name: /^Send$/i }));

@@ -250,6 +250,11 @@ public class ProfileController : ControllerBase
             _logger.LogInformation("UpdateMyProfile requestId={RequestId} userId={UserId} success IsComplete={IsComplete}", requestId, userId, profile.IsComplete);
             return Ok(profile);
         }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "UpdateMyProfile requestId={RequestId}: rejected", requestId);
+            return BadRequest(new { message = ex.Message, requestId });
+        }
         catch (Amazon.DynamoDBv2.AmazonDynamoDBException dbEx)
         {
             _logger.LogError(dbEx, "UpdateMyProfile requestId={RequestId}: DynamoDB error", requestId);

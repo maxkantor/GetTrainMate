@@ -84,6 +84,23 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      // Clear Ready drafts that cannot send (already contacted) so SEND is not stuck on duplicates.
+      try {
+        const dedupe = (await adminApiService.post(`${API}/dedupe`, { dryRun: false })) as {
+          readyDraftsRetired?: number;
+        };
+        const retired = Number(dedupe?.readyDraftsRetired ?? 0);
+        if (retired > 0) {
+          setLastRun({
+            severity: 'info',
+            title: `Cleared ${retired} already-contacted draft${retired === 1 ? '' : 's'}`,
+            detail: 'Those addresses/orgs were already emailed — they cannot be resent as initial outreach.',
+          });
+        }
+      } catch {
+        /* non-fatal — send gate still blocks duplicates */
+      }
+
       const [q, s, dash] = await Promise.all([
         adminApiService.get(`${API}/queue`),
         adminApiService.get(`${API}/settings`),
@@ -327,12 +344,17 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
         deferredCount ? `${deferredCount} deferred` : '',
         blocked ? `${blocked} blocked` : '',
         topReasons,
+        reasonCounts.has('duplicate_recipient') || reasonCounts.has('duplicate_organization')
+          ? 'Already-contacted drafts were removed from Ready — reload to send remaining new addresses.'
+          : '',
       ]
         .filter(Boolean)
         .join(' · '),
     });
 
     if (ok > 0) setTab('sent');
+    else if (reasonCounts.has('duplicate_recipient') || reasonCounts.has('duplicate_organization'))
+      setTab('blocked');
     setProgress(null);
     requestRefresh();
     await load();

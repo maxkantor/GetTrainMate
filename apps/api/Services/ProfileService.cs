@@ -147,6 +147,7 @@ public class ProfileService : IProfileService
         try
         {
             EnsureModesArraySynced(profile);
+            profile.IsComplete = IsProfileComplete(profile);
             var table = Table.LoadTable(_dynamoDb, _tableName);
             var document = ProfileToDocument(profile);
 
@@ -244,10 +245,18 @@ public class ProfileService : IProfileService
                     .Distinct()
                     .ToList();
                 existingProfile.PhotoKey = existingProfile.PhotoKeys.FirstOrDefault();
+                // Photo is a required profile field — never allow clearing the last real photo via update.
+                if (!HasRealProfilePhoto(existingProfile))
+                    throw new InvalidOperationException(
+                        "A profile photo is required. Upload a photo before removing your last one.");
             }
             else if (request.PhotoKey != null)
             {
-                existingProfile.PhotoKey = request.PhotoKey.Trim();
+                var trimmed = request.PhotoKey.Trim();
+                if (string.IsNullOrEmpty(trimmed))
+                    throw new InvalidOperationException(
+                        "A profile photo is required. Upload a photo before removing your last one.");
+                existingProfile.PhotoKey = trimmed;
                 if (!existingProfile.PhotoKeys.Any())
                     existingProfile.PhotoKeys = new List<string> { existingProfile.PhotoKey };
                 else

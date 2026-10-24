@@ -469,6 +469,14 @@ export const ProfilePage: React.FC = () => {
   };
 
   const removePhotoAt = async (index: number) => {
+    if (photoKeys.length <= 1) {
+      setSnack({
+        open: true,
+        message: 'A profile photo is required. Upload another photo before removing this one.',
+        severity: 'error',
+      });
+      return;
+    }
     const nextKeys = photoKeys.filter((_, i) => i !== index);
     try {
       const token = await authService.getJWT();
@@ -682,13 +690,17 @@ export const ProfilePage: React.FC = () => {
           }}
         >
           <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5 }}>
-            {searchParams.get('setup') === '1' || searchParams.get('focus') === 'photos'
-              ? 'Photo required to join Discover'
+            {searchParams.get('setup') === '1' ||
+            searchParams.get('focus') === 'photos' ||
+            searchParams.get('required') === '1'
+              ? 'Photo required'
               : 'Add a clear training photo'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, maxWidth: 640 }}>
-            {searchParams.get('setup') === '1' || searchParams.get('focus') === 'photos'
-              ? 'Upload at least one photo to finish setup. Profiles without a photo cannot appear in Discover.'
+            {searchParams.get('setup') === '1' ||
+            searchParams.get('focus') === 'photos' ||
+            searchParams.get('required') === '1'
+              ? 'A profile photo is required. Upload at least one photo to finish setup and appear in Discover.'
               : 'Your first photo is the cover card in Discover — bright, natural light, athletic kit, eyes visible. Scroll to Profile photos below or jump there now. A photo is required to appear in Discover.'}
           </Typography>
           <Button
@@ -1199,21 +1211,23 @@ export const ProfilePage: React.FC = () => {
                     alt=""
                     sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }}
                   />
-                  <IconButton
-                    size="small"
-                    aria-label="Remove photo"
-                    onClick={() => void removePhotoAt(index)}
-                    sx={{
-                      position: 'absolute',
-                      top: 2,
-                      right: 2,
-                      bgcolor: 'rgba(0,0,0,0.5)',
-                      color: 'common.white',
-                      '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
-                    }}
-                  >
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
+                  {photoKeys.length > 1 ? (
+                    <IconButton
+                      size="small"
+                      aria-label="Remove photo"
+                      onClick={() => void removePhotoAt(index)}
+                      sx={{
+                        position: 'absolute',
+                        top: 2,
+                        right: 2,
+                        bgcolor: 'rgba(0,0,0,0.5)',
+                        color: 'common.white',
+                        '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+                      }}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  ) : null}
                   {index === 0 && (
                     <Typography
                       variant="caption"

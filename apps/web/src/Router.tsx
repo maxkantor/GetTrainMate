@@ -5,6 +5,7 @@ import { Box, Container, Typography, Button, CircularProgress } from '@mui/mater
 import { Layout } from '@/components/Layout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { PhotoRequiredGate } from '@/components/PhotoRequiredGate';
 import { AdminRoute } from '@/components/AdminRoute';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { LandingPage } from '@/pages/Landing';
@@ -162,21 +163,23 @@ export const Router: React.FC = () => {
               <Route index element={<ProfileOnboardingPage />} />
             </Route>
 
-            {/* Protected app routes - require profile completion */}
+            {/* Protected app routes — photo required after quick setup (PhotoRequiredGate) */}
             <Route path="/app" element={<ProtectedRoute requireProfileComplete={false} />}>
-              <Route index element={<AppHomePage />} />
-              <Route path="dashboard" element={<AppHomePage />} />
-              <Route path="discover" element={<DiscoverPage />} />
-              <Route path="matches" element={<MatchesPage />} />
-              <Route path="sent-requests" element={<SentRequestsPage />} />
-              <Route path="skipped" element={<SkippedProfilesPage />} />
-              <Route path="chat" element={<ChatPage />} />
-              <Route path="ai-coach" element={<AICoachPage />} />
-              <Route path="events" element={<EventsPage />} />
-              <Route path="subscription" element={<SubscriptionPage />} />
-              <Route path="profile/:userId" element={<PublicProfileRoute />} />
-              <Route path="profile" element={<ProfilePage />} />
-              <Route path="settings" element={<AppDashboardPage />} />
+              <Route element={<PhotoRequiredGate />}>
+                <Route index element={<AppHomePage />} />
+                <Route path="dashboard" element={<AppHomePage />} />
+                <Route path="discover" element={<DiscoverPage />} />
+                <Route path="matches" element={<MatchesPage />} />
+                <Route path="sent-requests" element={<SentRequestsPage />} />
+                <Route path="skipped" element={<SkippedProfilesPage />} />
+                <Route path="chat" element={<ChatPage />} />
+                <Route path="ai-coach" element={<AICoachPage />} />
+                <Route path="events" element={<EventsPage />} />
+                <Route path="subscription" element={<SubscriptionPage />} />
+                <Route path="profile/:userId" element={<PublicProfileRoute />} />
+                <Route path="profile" element={<ProfilePage />} />
+                <Route path="settings" element={<AppDashboardPage />} />
+              </Route>
             </Route>
 
             {/* Protected admin routes */}

@@ -82,6 +82,7 @@ function userStatusBadgeVariant(status: string): 'success' | 'error' | 'warning'
   if (s === 'active') return 'success';
   if (s === 'banned') return 'error';
   if (s === 'deleted') return 'warning';
+  if (s === 'incomplete') return 'warning';
   return 'neutral';
 }
 
@@ -230,6 +231,11 @@ export const UsersPage: React.FC = () => {
 
   const handleRemovePhoto = async (index: number) => {
     if (!detailUser || detailIsDeleted) return;
+    const photoCount = detailUser.photoUrls?.length ?? 0;
+    if (photoCount <= 1) {
+      setError('A profile photo is required. Upload a replacement before removing the last photo.');
+      return;
+    }
     if (!confirm('Remove this profile photo?')) return;
     setPhotoUploading(true);
     setPhotoActionMsg(null);
@@ -546,6 +552,7 @@ export const UsersPage: React.FC = () => {
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={styles.select}>
           <option value="">All statuses</option>
           <option value="active">Active</option>
+          <option value="incomplete">Incomplete (no photo)</option>
           <option value="banned">Banned</option>
           <option value="inactive">Inactive</option>
           <option value="deleted">Deleted</option>
@@ -681,14 +688,16 @@ export const UsersPage: React.FC = () => {
                           >
                             Replace
                           </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={photoUploading}
-                            onClick={() => void handleRemovePhoto(i)}
-                          >
-                            Remove
-                          </Button>
+                          {(detailUser.photoUrls?.length ?? 0) > 1 ? (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={photoUploading}
+                              onClick={() => void handleRemovePhoto(i)}
+                            >
+                              Remove
+                            </Button>
+                          ) : null}
                         </div>
                       ) : null}
                     </figure>

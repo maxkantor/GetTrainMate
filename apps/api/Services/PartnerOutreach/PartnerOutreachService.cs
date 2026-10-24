@@ -305,7 +305,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         if (string.IsNullOrWhiteSpace(p.LandingUrl) || string.IsNullOrWhiteSpace(p.PartnerCode))
             throw new InvalidOperationException("Partner landing URL and code are required.");
 
-        var existingQueue = (await ListQueueAsync(null))
+        var allQueueForDraft = await ListQueueAsync(null);
+        var existingQueue = allQueueForDraft
             .Where(q => q.FollowUpNumber == 0
                 && q.Status is "draft" or "approved" or "queued"
                 && (string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
@@ -330,6 +331,28 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 await _db.SaveAsync(p);
             }
             return existingQueue;
+        }
+
+        // Never recreate a Ready draft for an email/org already contacted — Approvals SEND would only hit duplicate_*.
+        var priorSent = allQueueForDraft.FirstOrDefault(q =>
+            q.FollowUpNumber == 0
+            && IsAlreadySentQueueItem(q)
+            && (string.Equals(q.Recipient, p.Email, StringComparison.OrdinalIgnoreCase)
+                || (!string.IsNullOrWhiteSpace(p.OrganizationName)
+                    && string.Equals(q.OrganizationName, p.OrganizationName, StringComparison.OrdinalIgnoreCase))));
+        if (priorSent != null)
+        {
+            _log.LogInformation(
+                "Queue dedupe: skip new draft for {Org} — prior contact {QueueId} ({Status})",
+                p.OrganizationName, priorSent.QueueId, priorSent.Status);
+            p.Status = "contacted";
+            p.EmailState = "SENT";
+            p.AcquisitionStatus = PartnerCrmLifecycle.AcqSent;
+            p.CrmLifecycle = PartnerCrmLifecycle.Contacted;
+            p.LastContactedAt ??= priorSent.SentAt ?? DateTime.UtcNow;
+            PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
+            await _db.SaveAsync(p);
+            return priorSent;
         }
 
         var unsub = BuildUnsubUrl(p.ProspectId);
@@ -569,6 +592,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
 
         if (code != null)
         {
+            if (IsPermanentSendBlock(code))
+                await RetireUnsendableDraftAsync(item, code, actor);
             return new
             {
                 approved = true,
@@ -588,6 +613,42 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             sesMessageId = item.SesMessageId,
             sentAt = item.SentAt,
         };
+    }
+
+    static bool IsPermanentSendBlock(string? code) =>
+        code is "duplicate_recipient" or "duplicate_organization" or "recent_contact" or "suppressed";
+
+    /// <summary>
+    /// Remove permanently blocked FO0 drafts from Ready — Auto so Approvals SEND is not stuck on duplicates.
+    /// </summary>
+    async Task RetireUnsendableDraftAsync(PartnerQueueItem item, string code, string actor)
+    {
+        if (item.FollowUpNumber > 0) return;
+        if (IsAlreadySentQueueItem(item)) return;
+        item.Status = "rejected";
+        item.LastError = code;
+        item.RejectReason = code;
+        item.RejectedAt = DateTime.UtcNow;
+        item.RejectedBy = string.IsNullOrWhiteSpace(actor) ? "system" : actor;
+        await _db.SaveAsync(item);
+        var p = await _db.LoadAsync<PartnerProspect>(item.ProspectId);
+        if (p == null) return;
+        if (code is "duplicate_recipient" or "duplicate_organization" or "recent_contact")
+        {
+            p.Status = "contacted";
+            p.EmailState = "SENT";
+            p.AcquisitionStatus = PartnerCrmLifecycle.AcqSent;
+            p.CrmLifecycle = PartnerCrmLifecycle.Contacted;
+            p.LastContactedAt ??= DateTime.UtcNow;
+        }
+        else if (code == "suppressed")
+        {
+            p.Status = "opted_out";
+            p.EmailState = "OPTED_OUT";
+            p.AcquisitionStatus = "OPTED_OUT";
+        }
+        PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
+        await _db.SaveAsync(p);
     }
 
     public async Task<object> BulkApproveAndSendAsync(IEnumerable<string> queueIds, string actor, bool confirm, bool confirmOverride = false)
@@ -720,6 +781,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 }
                 if (code != null)
                 {
+                    if (IsPermanentSendBlock(code))
+                        await RetireUnsendableDraftAsync(fresh, code, actor);
                     blocked.Add(new { id = fresh.QueueId, error = code });
                     continue;
                 }
@@ -2355,15 +2418,51 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             }
         }
 
+        // Ready — Auto drafts that cannot send (already contacted email/org) — retire so Approvals SEND works.
+        var queueSnapshot = dryRun ? queue : await ListQueueAsync(null);
+        var contactedEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var contactedOrgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var q in queueSnapshot.Where(x => x.FollowUpNumber == 0 && IsAlreadySentQueueItem(x)))
+        {
+            if (!string.IsNullOrWhiteSpace(q.Recipient))
+                contactedEmails.Add(q.Recipient.Trim());
+            if (!string.IsNullOrWhiteSpace(q.OrganizationName))
+                contactedOrgs.Add(q.OrganizationName.Trim());
+        }
+
+        var readyAgain = queueSnapshot
+            .Where(q =>
+                q.FollowUpNumber == 0
+                && !IsAlreadySentQueueItem(q)
+                && q.Status is "draft" or "approved" or "approved_for_next_send")
+            .ToList();
+        var retiredReady = new List<object>();
+        foreach (var item in readyAgain)
+        {
+            string? code = null;
+            if (!string.IsNullOrWhiteSpace(item.Recipient)
+                && contactedEmails.Contains(item.Recipient.Trim()))
+                code = "duplicate_recipient";
+            else if (!string.IsNullOrWhiteSpace(item.OrganizationName)
+                     && contactedOrgs.Contains(item.OrganizationName.Trim()))
+                code = "duplicate_organization";
+            if (code == null) continue;
+            retiredReady.Add(new { item.QueueId, item.Recipient, item.OrganizationName, reason = code });
+            if (!dryRun)
+                await RetireUnsendableDraftAsync(item, code, "dedupe");
+        }
+
         return new
         {
             dryRun,
             duplicateProspectGroups = prospectGroups.Count,
             prospectsRemoved = removedProspects.Count,
             queueRemoved = removedQueue.Count,
+            readyDraftsRetired = retiredReady.Count,
             keptProspects,
             removedProspects,
             removedQueue,
+            retiredReady,
         };
     }
 

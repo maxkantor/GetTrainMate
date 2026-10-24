@@ -587,12 +587,16 @@ public class AdminUsersController : ControllerBase
             : doc.ContainsKey("Name") ? doc["Name"].AsString() : "";
         var accountClosed = DynamoProfileDocumentFlags.IsAccountClosed(doc);
         var coverPhoto = TryGetCoverPhotoFromDoc(doc);
+        // Photo is a required profile field — photo-less accounts are incomplete (not fully "active").
+        var status = accountClosed
+            ? "deleted"
+            : (string.IsNullOrWhiteSpace(coverPhoto) ? "incomplete" : "active");
         return new UserListItem
         {
             UserId = uid,
             Email = email,
             Name = name,
-            Status = accountClosed ? "deleted" : "active",
+            Status = status,
             Plan = "free",
             City = doc.ContainsKey("city") ? doc["city"].AsString()
                 : doc.ContainsKey("City") ? doc["City"].AsString() : null,
@@ -702,12 +706,15 @@ public class AdminUsersController : ControllerBase
                 }
             }
 
+            var hasPhoto = canonicalPhotos.Any(static u => !string.IsNullOrWhiteSpace(u))
+                || ProfileService.HasRealProfilePhoto(profile);
+            var detailStatus = isDeleted ? "deleted" : (hasPhoto ? "active" : "incomplete");
             return Ok(new UserDetail
             {
                 UserId = uid,
                 Email = email ?? string.Empty,
                 Name = profile.Name,
-                Status = isDeleted ? "deleted" : "active",
+                Status = detailStatus,
                 Plan = "free",
                 City = profile.City,
                 State = profile.State,
@@ -860,8 +867,12 @@ public class AdminUsersController : ControllerBase
             var beforeCount = Math.Max(profile.PhotoKeys?.Count ?? 0, profile.PhotoUrls?.Count ?? 0);
             if (index >= beforeCount)
                 return BadRequest(new { error = "Photo slot not found." });
+            if (beforeCount <= 1)
+                return BadRequest(new { error = "A profile photo is required. Upload a replacement before removing the last photo." });
 
             RemovePhotoFromProfile(profile, index);
+            if (!ProfileService.HasRealProfilePhoto(profile))
+                return BadRequest(new { error = "A profile photo is required. Upload a replacement before removing the last photo." });
             await _profileService.CreateProfileAsync(profile);
             await _auditLogService.LogActionAsync(
                 admin,

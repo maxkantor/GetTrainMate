@@ -236,3 +236,22 @@ export function getMultiplePhotoUrls(
   if (dummy) return [dummy];
   return [];
 }
+
+/** True when the profile has a real uploaded photo (matches API HasRealProfilePhoto). */
+export function profileHasRealPhoto(profile?: {
+  photoKey?: string | null;
+  photoKeys?: string[] | null;
+  photoUrls?: string[] | null;
+} | null): boolean {
+  if (!profile) return false;
+  if (profile.photoKeys?.some((k) => typeof k === 'string' && k.trim().length > 0)) return true;
+  if (profile.photoKey?.trim()) return true;
+  for (const u of profile.photoUrls ?? []) {
+    if (!u?.trim()) continue;
+    if (u.startsWith('data:')) continue;
+    if (isBackendPlaceholderPhotoUrl(u)) continue;
+    if (isStockProfilePhotoUrl(u)) continue;
+    return true;
+  }
+  return false;
+}
