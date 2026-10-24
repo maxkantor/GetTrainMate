@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-10-24",
   "strategyLock": {
     "status": "REVIEWED",
     "startedEt": "2026-08-24",
@@ -266,6 +266,26 @@
       "customers": 0,
       "outcome": "PUBLISHED_MANUAL_RECOVERY",
       "notes": "Lock day 4/7; Cursor automation Succeeded with Pull Request only — no Meta until manual publish"
+    },
+    {
+      "date": "2026-10-24",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "DATE",
+      "language": "en",
+      "hook": "date-en-sf-bay",
+      "destination": "/signup",
+      "campaign": "owned-date-en-20261024",
+      "contentId": "date-en-sf-bay",
+      "facebookPostId": "1138684902641972_122139367544773778",
+      "instagramPostId": "18198703414386139",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED",
+      "notes": "Bedrock InvokeModel denied on growth IAM user; published with approved journey-running-connection image via --image-file"
     }
   ],
   "doNotRepeat": [
