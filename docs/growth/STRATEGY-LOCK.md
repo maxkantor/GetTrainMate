@@ -33,6 +33,7 @@
 | 2026-08-29 | 6 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-30 | 7 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-31 | REVIEW | TRAIN×EN FB+IG (`…122130159662773778` / IG `18105309032166116`) | Owned-social click → `/signup` |
+| 2026-10-26 | post-lock | TRAIN×EN FB+IG (`122139643058773778` / IG `18125987461973658`); Bedrock `InvokeModel` denied — approved image recovery | NO |
 
 ## Exploit / explore (70/30)
 
