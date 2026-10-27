@@ -143,13 +143,14 @@ To enable it in the cloud:
 Paste into Cursor → Environment → **Install script**:
 
 ```bash
-npm i --prefix scripts/growth --ignore-scripts
 if ! command -v aws >/dev/null 2>&1; then
   curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
   unzip -q /tmp/awscliv2.zip -d /tmp
   /tmp/aws/install -i "$HOME/.local/aws-cli" -b "$HOME/.local/bin"
 fi
 export PATH="$HOME/.local/bin:$PATH"
+npm install --ignore-scripts
+npm i --prefix scripts/growth --ignore-scripts
 ```
 
 Confirm Environment secrets still include AWS keys + growth SSM-backed values (or IAM that can read SSM). Without AWS/SES/Meta, the runner emails a blocker — it must not silently "Succeed" via PR.

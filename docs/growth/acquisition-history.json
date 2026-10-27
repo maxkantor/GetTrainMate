@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-10-27",
   "strategyLock": {
     "status": "REVIEWED",
     "startedEt": "2026-08-24",
@@ -266,6 +266,26 @@
       "customers": 0,
       "outcome": "PUBLISHED_MANUAL_RECOVERY",
       "notes": "Lock day 4/7; Cursor automation Succeeded with Pull Request only — no Meta until manual publish"
+    },
+    {
+      "date": "2026-10-27",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "VIBE",
+      "language": "en",
+      "hook": "vibe-en-new-in-town",
+      "destination": "/signup",
+      "campaign": "owned-vibe-en-20261027",
+      "contentId": "vibe-en-new-in-town",
+      "facebookPostId": "1138684902641972_122139821972773778",
+      "instagramPostId": "18117155141276314",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED_RECOVERY",
+      "notes": "Bedrock InvokeModel denied on growth IAM; published with approved --image-file journey-vibe-beautiful-20260918. Cold start: aws CLI not on PATH until install."
     }
   ],
   "doNotRepeat": [

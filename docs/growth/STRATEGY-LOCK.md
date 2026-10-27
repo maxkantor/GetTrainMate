@@ -33,6 +33,7 @@
 | 2026-08-29 | 6 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-30 | 7 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-31 | REVIEW | TRAIN×EN FB+IG (`…122130159662773778` / IG `18105309032166116`) | Owned-social click → `/signup` |
+| 2026-10-27 | post-lock | VIBE×EN FB+IG `vibe-en-new-in-town` — FB `1138684902641972_122139821972773778` / IG `18117155141276314` (approved image-file recovery; Bedrock IAM denied) | NO |
 
 ## Exploit / explore (70/30)
 
