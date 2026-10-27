@@ -11,6 +11,21 @@ export const SETTINGS_ADMIN_URL = 'https://gettrainmate.com/admin/partner-outrea
 export const AUTOMATION_HEALTHY =
   'Partner acquisition automation is operating normally. No owner action required.';
 
+/** When automation is ON but ready drafts produced zero SES accepts today. */
+export function zeroSendsDespiteEligibleMessage({
+  autoEligible = 0,
+  emailsSentToday = 0,
+} = {}) {
+  const nEligible = n(autoEligible);
+  const sent = n(emailsSentToday);
+  return (
+    `Partner automation ON but 0 SES accepts today despite ${nEligible} auto-eligible draft(s) ` +
+    `(sentToday=${sent}). Treat as a send-path defect, not a healthy idle pipeline — ` +
+    `EventBridge discovery may have starved SendReady, or the weekday runner never completed a live automatic-run. ` +
+    `Check Admin → Partner Outreach pipeline and today's automatic-run skipped[] tallies before raising limits.`
+  );
+}
+
 function n(value) {
   const x = Number(value);
   return Number.isFinite(x) ? x : 0;
@@ -36,6 +51,9 @@ function n(value) {
  *   crmReason?: string,
  *   sesDeliveryNotTracked?: boolean,
  *   emailsSentLifetime?: number,
+ *   emailsSentToday?: number,
+ *   autoEligible?: number,
+ *   lastAutomaticRunAt?: string | null,
  * }} state
  */
 export function buildOwnerActions(state = {}) {
@@ -113,6 +131,33 @@ export function buildOwnerActions(state = {}) {
   const needContact = n(state.needContact);
   const awaitingApproval = n(state.awaitingApproval);
   const approvedEligible = n(state.approvedEligible ?? state.recipientsApproved);
+  const autoEligible = n(state.autoEligible ?? approvedEligible);
+  const emailsSentToday = n(state.emailsSentToday);
+
+  // Automation flags ON is not success — zero sends with ready inventory is a reliability defect signal.
+  // Require emailsSentToday to be explicitly present (including 0); missing metrics must not invent this alarm.
+  if (
+    automatic &&
+    autoSend &&
+    !paused &&
+    !safetyPaused &&
+    !state.dryRun &&
+    autoEligible > 0 &&
+    state.emailsSentToday != null &&
+    state.emailsSentToday !== '' &&
+    emailsSentToday === 0
+  ) {
+    actions.push({
+      id: 'zero-sends-despite-eligible',
+      severity: 'required',
+      text: `MAX — ACTION REQUIRED: ${zeroSendsDespiteEligibleMessage({
+        autoEligible,
+        emailsSentToday,
+      })}`,
+      href: APPROVALS_ADMIN_URL,
+      cta: 'OPEN APPROVALS',
+    });
+  }
 
   if (!automatic || !autoContacts) {
     if (needContact > 0) {

@@ -53,16 +53,35 @@ describe('buildOwnerActions', () => {
     assert.equal(actions[0].cta, 'OPEN APPROVALS');
   });
 
-  it('does not ask for approval when automatic sending is ON', () => {
+  it('does not ask for approval when automatic sending is ON and sends are flowing', () => {
     const actions = buildOwnerActions({
       needContact: 0,
       awaitingApproval: 9,
       approvedEligible: 3,
+      autoEligible: 3,
+      emailsSentToday: 2,
       automaticSending: true,
       sendQualifiedAutomatically: true,
     });
     assert.equal(actions[0].id, 'none');
     assert.equal(actions[0].text, AUTOMATION_HEALTHY);
+  });
+
+  it('does not claim healthy when auto-eligible drafts had zero SES accepts today', () => {
+    const actions = buildOwnerActions({
+      needContact: 0,
+      awaitingApproval: 0,
+      approvedEligible: 30,
+      autoEligible: 30,
+      emailsSentToday: 0,
+      automaticSending: true,
+      sendQualifiedAutomatically: true,
+      dryRun: false,
+    });
+    assert.equal(actions[0].id, 'zero-sends-despite-eligible');
+    assert.equal(ownerActionRequiresMax(actions), true);
+    assert.match(actions[0].text, /0 SES accepts today despite 30/);
+    assert.doesNotMatch(actions[0].text, /is operating normally\. No owner action required/);
   });
 
   it('reports ready-to-send when approved and automation is OFF', () => {

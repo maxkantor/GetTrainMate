@@ -41,7 +41,7 @@ The live Cursor automation fires **daily (including weekends)**. Experiment **ev
 | `FACEBOOK_PAGE_ID`                  | SSM `/gettrainmate/growth/facebook-page-id`                                                      |
 | `INSTAGRAM_BUSINESS_ACCOUNT_ID`     | SSM `/gettrainmate/growth/instagram-business-account-id`                                         |
 
-IAM user `cursor-gettrainmate-growth` needs `ses:SendEmail` **and** `ssm:GetParameter` on `/gettrainmate/growth/*`, `/gettrainmate/ses-from-email`, `/gettrainmate/ses-admin-email`. It cannot read `/gettrainmate/admin/*` — Partner CRM must use `/gettrainmate/growth/crm-admin-*`. Without SSM read, Admin email fails unless `SES_FROM_EMAIL` + `SES_ADMIN_EMAIL` are also in Cursor Environment secrets. Cloud runs must `npm --prefix scripts/growth install` (or rely on `ensureGrowthDeps`) so GA4 (`google-auth-library`) and Meta images (`sharp`) are available.
+IAM user `cursor-gettrainmate-growth` needs `ses:SendEmail`, `ssm:GetParameter` on `/gettrainmate/growth/*` + SES email params, S3 social image write, **and** `bedrock:InvokeModel` on Stability image models (owned-social daily creatives). Without Bedrock, Meta auth can be VALID while publishing fails at `MEDIA_GENERATION_DENIED` (seen 2026-10-27). It cannot read `/gettrainmate/admin/*` — Partner CRM must use `/gettrainmate/growth/crm-admin-*`. Cloud runs must `npm --prefix scripts/growth install` (or rely on `ensureGrowthDeps`) so GA4 (`google-auth-library`) and Meta images (`sharp`) are available.
 
 Copy from SSM when needed:
 

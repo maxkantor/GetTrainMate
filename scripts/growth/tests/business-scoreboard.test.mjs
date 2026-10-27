@@ -232,6 +232,18 @@ describe('report rendering with Business Scoreboard', () => {
           },
         },
         reconciliation: { ok: true, warnings: [] },
+        ownedSocial: {
+          distributionAttempted: true,
+          distributionExecuted: true,
+          facebook: { published: true, postId: 'fb-test' },
+          instagram: { published: true, postId: 'ig-test' },
+          metaAuth: {
+            configuration: 'PRESENT',
+            authentication: 'VALID',
+            status: 'META_VALID',
+            ownerActionRequired: false,
+          },
+        },
         partnerOutreach: {
           status: 'ok',
           prospects: 23,
@@ -241,9 +253,10 @@ describe('report rendering with Business Scoreboard', () => {
           awaitingApproval: 0,
           recipientsApproved: 0,
           emailsSent: 14,
-          emailsSentToday: 0,
+          emailsSentToday: 1,
           emailsSent7d: 0,
           emailsSentLifetime: 14,
+          autoEligible: 0,
           partnerResponses: 0,
           interested: 0,
           partners: 1,
@@ -271,6 +284,7 @@ describe('report rendering with Business Scoreboard', () => {
             deliveredTracking: 'NOT TRACKED',
             autoDiscoverContacts: true,
             sendQualifiedAutomatically: true,
+            sentToday: 1,
           },
         },
       },
@@ -291,7 +305,8 @@ describe('report rendering with Business Scoreboard', () => {
     assert.doesNotMatch(text, /OPEN APPROVALS/);
     assert.doesNotMatch(html, /OPEN APPROVALS/);
     assert.doesNotMatch(html, /DISCOVER CONTACTS/);
-    assert.match(text, /Facebook publishing: .* \(technical success\)/);
+    assert.match(text, /Facebook publishing: PUBLISHED/);
+    assert.match(text, /Instagram publishing: PUBLISHED/);
     assert.match(text, /Attributed visits: .*acquisition/);
   });
 });

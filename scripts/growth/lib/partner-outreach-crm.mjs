@@ -180,6 +180,8 @@ export async function fetchPartnerOutreachSnapshot() {
       needContact,
       awaitingApproval: awaiting,
       approvedEligible: approved,
+      autoEligible,
+      emailsSentToday: sentToday ?? settings?.sentToday ?? 0,
       pauseAllOutreach: Boolean(settings?.pauseAllOutreach ?? metrics?.pauseAllOutreach),
       automaticSending: Boolean(settings?.automaticSending),
       autoDiscoverContacts: settings?.autoDiscoverContacts !== false,
@@ -190,6 +192,7 @@ export async function fetchPartnerOutreachSnapshot() {
       complaintPause: Boolean(settings?.complaintPause),
       sesDeliveryNotTracked: deliveredTrackingStatus === 'NOT TRACKED',
       emailsSentLifetime: sentLifetime,
+      lastAutomaticRunAt: settings?.lastAutomaticRunAt || settings?.LastAutomaticRunAt || null,
     };
     const ownerActions = buildOwnerActions(ownerActionState);
 

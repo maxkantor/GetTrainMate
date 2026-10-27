@@ -136,12 +136,32 @@ public sealed partial class PartnerOutreachService
             followUps = await DispatchDueAsync(scheduledCursorAutomation: false);
         }
 
+        // 1b) Send ready drafts BEFORE discovery replenish.
+        // 2026-10-27: EventBridge run spent ~74s on Overpass discovery while 30 auto-eligible
+        // drafts sat unsent (sentToday stayed 0). Ready outreach must not be starved by inventory fill.
+        queue = await ListQueueAsync(null);
+        var readyDrafts = queue.Count(q =>
+            q.FollowUpNumber == 0 && q.Status is "draft" or "approved" or "approved_for_next_send");
+        if (readyDrafts > 0
+            && settings.AutomaticSending
+            && settings.SendQualifiedAutomatically
+            && DateTime.UtcNow < deadline)
+        {
+            remaining = await SendReadyAsync(
+                queue, settings, dryRun, actor, deadline, quota, remaining, sesRemaining,
+                skipped, (n) => sesAttempted += n, (n) => sesAccepted += n, (n) => sesRejected += n);
+        }
+
         // HTTP/API Gateway (~29s) cannot finish Overpass + site scrapes. Replenish on the Lambda path
         // only while wall-clock remains. Leave 8s so send/stats persist before Lambda timeout.
         var replenishDeadline = deadline.AddSeconds(-8);
         var allowReplenish = budget > 20 && DateTime.UtcNow < replenishDeadline;
+        // When drafts were already waiting, keep discovery short so a second send pass can still run.
+        if (readyDrafts > 0 && sesAccepted == 0 && !dryRun)
+            replenishDeadline = DateTime.UtcNow.AddSeconds(Math.Min(20, Math.Max(0, (deadline - DateTime.UtcNow).TotalSeconds - 12)));
+        allowReplenish = budget > 20 && DateTime.UtcNow < replenishDeadline;
 
-        // 2) When inventory is below target/watermark, NEW discovery gets capacity first.
+        // 2) When inventory is below target/watermark, NEW discovery gets capacity (after sends).
         if (settings.AutoDiscoverProspects && allowReplenish && (lowInventory || settings.KeepPipelineFull))
         {
             try

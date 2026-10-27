@@ -6,7 +6,29 @@ import { formatCell, formatCellLabeled } from './normalize-metrics.mjs';
 import { loadStripeAllowlist, summarizeUnattributedPayments } from './stripe-attribution.mjs';
 import { ownerActionRequiredForMeta } from './meta-token.mjs';
 import { modeTotalsFromMetro, pocketsFromMetroCrm } from './market-density.mjs';
-import { AUTOMATION_HEALTHY, buildOwnerActions, ownerActionRequiresMax } from './owner-actions.mjs';
+import {
+  AUTOMATION_HEALTHY,
+  buildOwnerActions,
+  ownerActionRequiresMax,
+  ownerActionSummary
+} from './owner-actions.mjs';
+
+/** Classify owned-social blockers for reports — auth vs media vs publish API. */
+export function classifyOwnedSocialBlocker(blocker) {
+  const b = String(blocker || '');
+  if (/bedrock:InvokeModel|AccessDeniedException.*bedrock|growth_deps_missing/i.test(b)) {
+    return 'MEDIA_GENERATION_DENIED';
+  }
+  if (/photo_required|social_image|image_generation|hard_reject/i.test(b)) {
+    return 'MEDIA_GENERATION_FAILED';
+  }
+  if (/META_TOKEN_|META_AUTH_|code 190|Session has expired|credentials/i.test(b)) {
+    return 'META_AUTHENTICATION_FAILED';
+  }
+  if (/upload|S3|AccessDenied/i.test(b)) return 'MEDIA_UPLOAD_FAILED';
+  if (b.trim()) return 'PUBLISH_OR_CONNECTOR_FAILED';
+  return 'UNKNOWN';
+}
 
 function ascii(s) {
   return String(s ?? '')
@@ -737,12 +759,16 @@ function exp002Stats(snapshot) {
           needContact: s.needContact ?? s.funnel?.contactNeeded,
           awaitingApproval: s.awaitingApproval ?? s.funnel?.awaitingApproval,
           approvedEligible: s.recipientsApproved ?? s.funnel?.approved,
+          autoEligible: s.autoEligible ?? s.funnel?.autoEligible,
+          emailsSentToday: s.emailsSentToday ?? s.settings?.sentToday,
           pauseAllOutreach: Boolean(s.settings?.pauseAllOutreach),
           automaticSending: Boolean(s.settings?.automaticSending),
           autoDiscoverContacts: s.settings?.autoDiscoverContacts !== false,
           sendQualifiedAutomatically: s.settings?.sendQualifiedAutomatically !== false,
           dryRun: Boolean(s.settings?.dryRun),
           complaintPause: Boolean(s.settings?.complaintPause),
+          sesDeliveryNotTracked: (s.settings?.deliveredTracking || '') === 'NOT TRACKED',
+          emailsSentLifetime: s.emailsSentLifetime ?? s.emailsSent,
         }),
     contactsAdminUrl: s.contactsAdminUrl || 'https://gettrainmate.com/admin/partner-outreach?tab=prospects',
     approvalsAdminUrl: s.approvalsAdminUrl || 'https://gettrainmate.com/admin/partner-outreach?tab=approvals',
@@ -969,15 +995,30 @@ export function composeGrowthEmailBody({
   }
   if (metaActionNeeded) {
     requiredActions.push('MAX — ACTION REQUIRED: Meta authentication failure — Facebook/Instagram did not publish.');
+  } else if (social.attempted && !distYes && social.blocker) {
+    requiredActions.push(
+      `MAX — ACTION REQUIRED: Owned-social distribution failed (${classifyOwnedSocialBlocker(social.blocker)}): ${String(social.blocker).slice(0, 220)}`
+    );
   }
-  if (ownerActionRequiresMax(exp002.ownerActions) || metaActionNeeded || !partnerCrmOk) {
+  const socialBlockNeedsMax = Boolean(social.attempted && !distYes && social.blocker);
+  if (ownerActionRequiresMax(exp002.ownerActions) || metaActionNeeded || !partnerCrmOk || socialBlockNeedsMax) {
     t.push('MAX — ACTION REQUIRED');
     t.push('---------------------');
     for (const a of requiredActions) t.push(`• ${a}`);
   } else {
     t.push('NEXT ACTION');
     t.push('-----------');
-    t.push(exp002.automaticSending ? AUTOMATION_HEALTHY : 'No outreach action required.');
+    t.push(
+      exp002.ownerAction ||
+        ownerActionSummary({
+          automaticSending: exp002.automaticSending,
+          autoEligible: exp002.autoEligible,
+          emailsSentToday: exp002.emailsSentToday,
+          dryRun: exp002.dryRun,
+          pauseAllOutreach: exp002.pauseAllOutreach
+        }) ||
+        (exp002.automaticSending ? AUTOMATION_HEALTHY : 'No outreach action required.')
+    );
   }
   t.push('');
   t.push('7-DAY ACQUISITION FUNNEL (detail)');
@@ -1474,10 +1515,10 @@ export function composeGrowthEmailBody({
             )
           : `<p style="margin:0 0 18px;font-size:15px;color:#9a3412;">Partner CRM ${escapeHtml(String(exp002.status || 'unavailable').toUpperCase())} — ${escapeHtml(exp002.reason || 'could not query')}</p>`
       }
-      <h2 style="${H2}">${ownerActionRequiresMax(exp002.ownerActions) || metaActionNeeded || !partnerCrmOk ? 'Max — Action Required' : 'Next action'}</h2>
+      <h2 style="${H2}">${ownerActionRequiresMax(exp002.ownerActions) || metaActionNeeded || !partnerCrmOk || (social.attempted && !distYes && social.blocker) ? 'Max — Action Required' : 'Next action'}</h2>
       <div style="margin:0 0 18px;padding:12px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:15px;line-height:1.55;">
         ${
-          ownerActionRequiresMax(exp002.ownerActions) || metaActionNeeded || !partnerCrmOk
+          ownerActionRequiresMax(exp002.ownerActions) || metaActionNeeded || !partnerCrmOk || (social.attempted && !distYes && social.blocker)
             ? `<ul style="margin:0;padding-left:18px;">${[
                 ...(partnerCrmOk
                   ? (exp002.ownerActions || [])
@@ -1494,11 +1535,16 @@ export function composeGrowthEmailBody({
                     ]),
                 metaActionNeeded
                   ? '<li style="margin:0 0 6px;">MAX — ACTION REQUIRED: Meta authentication failure — Facebook/Instagram did not publish.</li>'
-                  : '',
+                  : social.attempted && !distYes && social.blocker
+                    ? `<li style="margin:0 0 6px;">MAX — ACTION REQUIRED: Owned-social failed (${escapeHtml(classifyOwnedSocialBlocker(social.blocker))}): ${escapeHtml(String(social.blocker).slice(0, 220))}</li>`
+                    : '',
               ]
                 .filter(Boolean)
                 .join('')}</ul>`
-            : escapeHtml(exp002.automaticSending ? AUTOMATION_HEALTHY : 'No outreach action required.')
+            : escapeHtml(
+                exp002.ownerAction ||
+                  (exp002.automaticSending ? AUTOMATION_HEALTHY : 'No outreach action required.')
+              )
         }
       </div>
       <h2 style="${H2}">Social distribution</h2>
@@ -1521,9 +1567,22 @@ export function composeGrowthEmailBody({
       ${kvTable([
         { label: 'Visitors / landings 7d (GA4 events)', value: formatCell(board7.landings) },
         { label: 'New signups 7d (GA4 users)', value: formatCell(board7.completed_signups) },
-        { label: 'Completed profiles 7d (GA4)', value: formatCell(board7.completed_profiles) },
-        { label: 'Completed profiles 30d (GA4)', value: formatCell(board30.completed_profiles) },
-        { label: 'Completed profiles — CRM verified', value: md?.status === 'ok' ? 'see Top markets' : 'unavailable' },
+        {
+          label: 'Completed profiles 7d (GA4)',
+          value: `${formatCell(board7.completed_profiles)}${
+            board7.completed_profiles?.method === 'crm_fallback' ? ' — CRM lifetime, not a 7d GA4 window' : ''
+          }`
+        },
+        {
+          label: 'Completed profiles 30d (GA4)',
+          value: `${formatCell(board30.completed_profiles)}${
+            board30.completed_profiles?.method === 'crm_fallback' ? ' — CRM lifetime, not a 30d GA4 window' : ''
+          }`
+        },
+        {
+          label: 'Completed profiles — CRM verified (lifetime mode sum)',
+          value: md?.status === 'ok' ? 'see Top markets (not a substitute for GA4 7d/30d)' : 'unavailable'
+        },
         { label: 'Discover 7d / 30d (GA4)', value: `${formatCell(board7.discover_users)} / ${formatCell(board30.discover_users)}` },
         { label: 'Requests 7d / 30d (GA4)', value: `${formatCell(board7.connections_sent)} / ${formatCell(board30.connections_sent)}` },
         { label: 'Matches 7d / 30d (GA4)', value: `${formatCell(board7.matches_created)} / ${formatCell(board30.matches_created)}` },
