@@ -16,7 +16,10 @@ const PREFER_SSM_ENV = new Set([
   'INSTAGRAM_BUSINESS_ACCOUNT_ID',
   'INSTAGRAM_GRAPH_ACCESS_TOKEN',
   'META_APP_ID',
-  'META_APP_SECRET'
+  'META_APP_SECRET',
+  // Growth IAM cannot read /gettrainmate/admin/*; prefer growth-scoped CRM params over stale env.
+  'GROWTH_CRM_ADMIN_EMAIL',
+  'GROWTH_CRM_ADMIN_PASSWORD'
 ]);
 
 const MAP = [

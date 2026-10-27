@@ -114,7 +114,21 @@ async function main() {
   const ssmLoad = loadSsmSecretsIntoEnv();
   const deps = await ensureGrowthDeps();
   if (!deps.ok) {
-    console.error(JSON.stringify({ ok: false, error: 'growth_deps_missing', detail: deps.error }));
+    const fail = {
+      ok: false,
+      error: 'growth_deps_missing',
+      detail: deps.error,
+      missing: deps.missing || [],
+      distributionAttempted: false,
+      distributionExecuted: false,
+      technicalDistributionResult: 'FAILED',
+      connectorHealthy: false,
+      connectorBlocker: `growth_deps_missing:${deps.error || (deps.missing || []).join(',')}`,
+      facebook: { network: 'facebook', published: false, blocker: 'growth_deps_missing' },
+      instagram: { network: 'instagram', published: false, blocker: 'growth_deps_missing' }
+    };
+    console.log(JSON.stringify(fail, null, 2));
+    console.error(JSON.stringify(fail));
     process.exit(2);
   }
   const args = parseArgs(process.argv.slice(2));

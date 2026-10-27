@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { easternIsoDate } from './lib/owned-social-catalog.mjs';
 import { ensureGrowthDeps } from './lib/ensure-growth-deps.mjs';
+import { loadSsmSecretsIntoEnv } from './load-ssm-secrets-into-env.mjs';
 import {
   runAutomaticPartnerAcquisition
 } from './lib/partner-outreach-crm.mjs';
@@ -76,6 +77,55 @@ function tryParseJson(text) {
   }
 }
 
+function buildOwnedSocialPayload({
+  publishJson,
+  report,
+  publishedToday,
+  distributionAttempted,
+  technicalDistributionResult,
+  prior = null
+}) {
+  const fbPrior = prior?.facebook || {};
+  const igPrior = prior?.instagram || {};
+  const fbPub = publishJson?.facebook || {};
+  const igPub = publishJson?.instagram || {};
+  const connectorBlocker =
+    publishJson?.connectorBlocker ||
+    publishJson?.error ||
+    (publishJson?.detail ? `${publishJson.error || 'publish_error'}:${publishJson.detail}` : '') ||
+    '';
+  return {
+    contentId: publishJson?.contentId || prior?.contentId || '',
+    distributionAttempted,
+    distributionExecuted: publishedToday,
+    technicalDistributionResult,
+    connectorHealthy: publishJson?.connectorHealthy !== false && !connectorBlocker,
+    connectorBlocker,
+    metaAuth: publishJson?.metaAuth || prior?.metaAuth || null,
+    socialImage: publishJson?.socialImage || prior?.socialImage || null,
+    facebook: {
+      ...fbPrior,
+      ...fbPub,
+      published: publishedToday || Boolean(fbPub.published) || Boolean(report.facebookPostId),
+      postId: report.facebookPostId || fbPub.postId || fbPrior.postId || '',
+      reason: report.socialSkippedDuplicate
+        ? 'already_published_today'
+        : fbPub.reason || fbPrior.reason || '',
+      blocker: fbPub.blocker || connectorBlocker || fbPrior.blocker || ''
+    },
+    instagram: {
+      ...igPrior,
+      ...igPub,
+      published: publishedToday || Boolean(igPub.published) || Boolean(report.instagramPostId),
+      postId: report.instagramPostId || igPub.postId || igPrior.postId || '',
+      reason: report.socialSkippedDuplicate
+        ? 'already_published_today'
+        : igPub.reason || igPrior.reason || '',
+      blocker: igPub.blocker || connectorBlocker || igPrior.blocker || ''
+    }
+  };
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const iso = easternIsoDate(new Date());
@@ -91,6 +141,16 @@ async function main() {
     subject: '',
     errors: []
   };
+
+  // Load SSM before partner CRM + publish children inherit env via process.env.
+  // Growth IAM can read /gettrainmate/growth/* (including crm-admin-*); parent must load
+  // before runAutomaticPartnerAcquisition (same process — children load SSM themselves).
+  const ssmLoad = loadSsmSecretsIntoEnv();
+  report.ssmLoaded = Array.isArray(ssmLoad?.loaded) ? ssmLoad.loaded.length : 0;
+  const deps = await ensureGrowthDeps();
+  if (!deps.ok) {
+    report.errors.push(`growth_deps_missing:${deps.error || 'unknown'}`);
+  }
 
   const lock = runNode('acquire-growth-lock.mjs');
   const lockJson = tryParseJson(lock.stdout) || tryParseJson(lock.stderr);
@@ -124,7 +184,7 @@ async function main() {
       if (args.forcePublish) pubArgs.push('--force-publish');
       if (args.imageFile) pubArgs.push('--image-file', args.imageFile);
       const pub = runNode('publish-owned-social.mjs', pubArgs);
-      publishJson = tryParseJson(pub.stdout);
+      publishJson = tryParseJson(pub.stdout) || tryParseJson(pub.stderr);
       if (pub.status !== 0 && pub.status !== 2) {
         report.errors.push(pub.stderr || pub.stdout || 'publish_failed');
       }
@@ -134,6 +194,11 @@ async function main() {
         report.facebookPostId = publishJson.facebook?.postId || '';
         report.instagramPostId = publishJson.instagram?.postId || '';
         if (publishJson.connectorBlocker) report.errors.push(publishJson.connectorBlocker);
+        if (publishJson.error === 'growth_deps_missing') {
+          report.errors.push(`growth_deps_missing:${publishJson.detail || ''}`);
+        }
+      } else if (pub.status !== 0) {
+        report.errors.push((pub.stderr || pub.stdout || 'publish_failed').slice(0, 400));
       }
     }
 
@@ -186,26 +251,15 @@ async function main() {
           fs.writeFileSync(
             side,
             JSON.stringify(
-              {
-                contentId: publishJson?.contentId || '',
-                distributionAttempted: true,
-                distributionExecuted: publishedToday,
-                technicalDistributionResult: publishedToday ? 'SUCCEEDED' : 'FAILED',
-                connectorHealthy: publishJson?.connectorHealthy !== false,
-                connectorBlocker: publishJson?.connectorBlocker || '',
-                metaAuth: publishJson?.metaAuth || { authentication: 'VALID', status: 'META_VALID' },
-                socialImage: publishJson?.socialImage || null,
-                facebook: {
-                  ...(publishJson?.facebook || {}),
-                  published: publishedToday || Boolean(publishJson?.facebook?.published),
-                  postId: report.facebookPostId || publishJson?.facebook?.postId || ''
-                },
-                instagram: {
-                  ...(publishJson?.instagram || {}),
-                  published: publishedToday || Boolean(publishJson?.instagram?.published),
-                  postId: report.instagramPostId || publishJson?.instagram?.postId || ''
-                }
-              },
+              buildOwnedSocialPayload({
+                publishJson,
+                report,
+                publishedToday,
+                distributionAttempted: !args.dryRun,
+                technicalDistributionResult: publishedToday
+                  ? 'SUCCEEDED'
+                  : publishJson?.technicalDistributionResult || 'FAILED'
+              }),
               null,
               2
             )
@@ -270,31 +324,23 @@ async function main() {
     ) {
       try {
         const snap = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
-        const publishedToday = Boolean(report.published || report.socialSkippedDuplicate);
-        snap.ownedSocial = {
-          contentId: publishJson?.contentId || snap.ownedSocial?.contentId || '',
-          distributionAttempted: true,
-          distributionExecuted: publishedToday || Boolean(args.skipSocial && (report.facebookPostId || report.instagramPostId)),
+        const publishedToday = Boolean(
+          report.published ||
+            report.socialSkippedDuplicate ||
+            Boolean(args.skipSocial && (report.facebookPostId || report.instagramPostId))
+        );
+        snap.ownedSocial = buildOwnedSocialPayload({
+          publishJson,
+          report,
+          publishedToday,
+          distributionAttempted: !args.dryRun || Boolean(publishJson),
           technicalDistributionResult: publishedToday
             ? 'SUCCEEDED'
             : args.skipSocial
               ? 'SKIPPED'
-              : 'FAILED',
-          connectorHealthy: publishJson?.connectorHealthy !== false,
-          connectorBlocker: publishJson?.connectorBlocker || '',
-          metaAuth: publishJson?.metaAuth || snap.ownedSocial?.metaAuth || null,
-          socialImage: publishJson?.socialImage || snap.ownedSocial?.socialImage || null,
-          facebook: {
-            published: publishedToday || Boolean(report.facebookPostId),
-            postId: report.facebookPostId || publishJson?.facebook?.postId || snap.ownedSocial?.facebook?.postId || '',
-            reason: report.socialSkippedDuplicate ? 'already_published_today' : publishJson?.facebook?.reason || ''
-          },
-          instagram: {
-            published: publishedToday || Boolean(report.instagramPostId),
-            postId: report.instagramPostId || publishJson?.instagram?.postId || snap.ownedSocial?.instagram?.postId || '',
-            reason: report.socialSkippedDuplicate ? 'already_published_today' : publishJson?.instagram?.reason || ''
-          }
-        };
+              : publishJson?.technicalDistributionResult || 'FAILED',
+          prior: snap.ownedSocial || null
+        });
         fs.writeFileSync(snapPath, JSON.stringify(snap, null, 2));
         emailArgs.push('--snapshot', snapPath);
       } catch (e) {

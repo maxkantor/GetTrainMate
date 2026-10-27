@@ -177,6 +177,14 @@ export const PREPARED_OWNED_SOCIAL = {
   instagramUrl: 'https://www.instagram.com/gettrainmate/'
 };
 
+function networkPublishLabel({ yes, attempted, network, blocker, connectorBlocker }) {
+  if (yes) return 'PUBLISHED';
+  const failReason = blocker || connectorBlocker || '';
+  if (failReason) return 'FAILED';
+  if (attempted) return 'FAILED';
+  return 'NOT ATTEMPTED';
+}
+
 function ownedSocialSummary(snapshot) {
   const os = snapshot?.ownedSocial || {};
   const fb = os.facebook || {};
@@ -198,7 +206,21 @@ function ownedSocialSummary(snapshot) {
   const blocker = rawBlocker || (authIsFailure ? authStatus : '');
   const attempted = os.distributionAttempted === true || Boolean(os.contentId) || Boolean(blocker) || fbYes || igYes;
   const metaAuth = os.metaAuth || null;
-  return { os, fb, ig, fbYes, igYes, executed, blocker, attempted, metaAuth };
+  const fbLabel = networkPublishLabel({
+    yes: fbYes,
+    attempted,
+    network: 'facebook',
+    blocker: fb.blocker,
+    connectorBlocker: os.connectorBlocker || blocker
+  });
+  const igLabel = networkPublishLabel({
+    yes: igYes,
+    attempted,
+    network: 'instagram',
+    blocker: ig.blocker,
+    connectorBlocker: os.connectorBlocker || blocker
+  });
+  return { os, fb, ig, fbYes, igYes, fbLabel, igLabel, executed, blocker, attempted, metaAuth };
 }
 
 export function defaultAcquisitionLead(snapshot) {
@@ -404,14 +426,20 @@ export function computeBusinessScoreboard(snapshot, md) {
   const profileToInteraction = sequentialPct(interactions, completedProfiles);
 
   const TRAFFIC_EVAL_MIN = 100;
-  const trafficForGate = qualifiedVisitors ?? 0;
-  const trafficSampleSufficient = trafficForGate >= TRAFFIC_EVAL_MIN;
+  const ga4Source = String(snapshot?.sources?.ga4 || 'unknown');
+  const trafficMeasurementUnavailable = qualifiedVisitors == null;
+  const trafficForGate = qualifiedVisitors;
+  const trafficSampleSufficient = trafficForGate != null && trafficForGate >= TRAFFIC_EVAL_MIN;
 
-  let primaryBottleneck = 'TRAFFIC / INSUFFICIENT SAMPLE';
+  let primaryBottleneck = trafficMeasurementUnavailable
+    ? 'MEASUREMENT / GA4 UNAVAILABLE'
+    : 'TRAFFIC / INSUFFICIENT SAMPLE';
   let decision = 'COLLECT';
   let nextAction =
     'Grow qualified distribution (owned social + partner outreach). Do not redesign product UI.';
-  let bottleneckNote = `Qualified visitors ${trafficForGate} / ${TRAFFIC_EVAL_MIN} minimum evaluation sample. Collect more traffic before diagnosing conversion.`;
+  let bottleneckNote = trafficMeasurementUnavailable
+    ? `Qualified visitors Unavailable (GA4 source: ${ga4Source}). Do not treat unavailable measurement as zero traffic. Restore GA4 retrieval before diagnosing conversion.`
+    : `Qualified visitors ${trafficForGate} / ${TRAFFIC_EVAL_MIN} minimum evaluation sample. Collect more traffic before diagnosing conversion.`;
 
   if (trafficSampleSufficient) {
     // Explicit funnel stage gates — never stay on "insufficient traffic" after the sample is met.
@@ -454,9 +482,9 @@ export function computeBusinessScoreboard(snapshot, md) {
     campaignAttributedVisitors: campaignVisitors ?? 'Unavailable',
     qualifiedVisitors: qualifiedVisitors ?? 'Unavailable',
     qualifiedVisitorUnit,
-    // Back-compat aliases used by older report sections
-    qualifiedTraffic: qualifiedVisitors ?? 0,
-    totalTraffic: totalSessions ?? qualifiedVisitors ?? 0,
+    // Back-compat aliases — never coerce Unavailable → 0
+    qualifiedTraffic: qualifiedVisitors ?? 'Unavailable',
+    totalTraffic: totalSessions ?? 'Unavailable',
     signups,
     completedProfiles,
     discoverUsers,
@@ -922,10 +950,10 @@ export function composeGrowthEmailBody({
   t.push('SOCIAL DISTRIBUTION');
   t.push('-------------------');
   t.push(
-    `Facebook publishing: ${social.fbYes ? 'PUBLISHED' : social.attempted ? 'FAILED/SKIPPED' : 'NOT ATTEMPTED'} (technical success)${social.fb.postId ? ` (${social.fb.postId})` : ''}`,
+    `Facebook publishing: ${social.fbLabel}${social.fb.postId ? ` (${social.fb.postId})` : ''}`,
   );
   t.push(
-    `Instagram publishing: ${social.igYes ? 'PUBLISHED' : social.ig.blocker ? 'FAILED' : 'NOT ATTEMPTED'} (technical success)${social.ig.postId ? ` (${social.ig.postId})` : ''}`,
+    `Instagram publishing: ${social.igLabel}${social.ig.postId ? ` (${social.ig.postId})` : ''}`,
   );
   t.push(`Attributed visits: ${ascii(lead.attributedVisits)} (acquisition — publishing is not customer acquisition)`);
   t.push('');
@@ -1477,11 +1505,11 @@ export function composeGrowthEmailBody({
       ${kvTable([
         {
           label: 'Facebook publishing',
-          value: `${social.fbYes ? 'PUBLISHED' : 'FAILED'} (technical success)`,
+          value: social.fbLabel,
         },
         {
           label: 'Instagram publishing',
-          value: `${social.igYes ? 'PUBLISHED' : social.ig.blocker ? 'FAILED' : 'NOT ATTEMPTED'} (technical success)`,
+          value: social.igLabel,
         },
         {
           label: 'Attributed visits',
@@ -1516,8 +1544,8 @@ export function composeGrowthEmailBody({
           { label: 'Distribution attempted', value: lead.distributionAttempted },
           { label: 'Distribution executed', value: lead.distributionExecuted },
           { label: 'Technical distribution result', value: lead.technicalDistributionResult },
-          { label: 'Facebook', value: social.fbYes ? 'PUBLISHED' : 'FAILED' },
-          { label: 'Instagram', value: social.igYes ? 'PUBLISHED' : 'FAILED' },
+          { label: 'Facebook', value: social.fbLabel },
+          { label: 'Instagram', value: social.igLabel },
           { label: 'Campaign', value: social.fb.campaign || social.ig.campaign || 'n/a', left: true },
           { label: 'Audience/channel', value: lead.audienceChannel, left: true },
           { label: 'What was actually distributed', value: lead.distributionExecutedDetail, left: true },
@@ -1534,8 +1562,18 @@ export function composeGrowthEmailBody({
         { label: 'Meta configuration', value: social.metaAuth?.configuration || (social.metaAuth ? 'PRESENT' : 'UNKNOWN') },
         { label: 'Meta authentication', value: social.metaAuth?.authentication || (distYes ? 'VALID' : 'INVALID') },
         { label: 'Meta status', value: social.metaAuth?.status || (distYes ? 'META_VALID' : 'UNKNOWN'), left: true },
-        { label: 'Facebook publishing', value: social.fbYes ? 'PUBLISHED' : social.metaAuth?.facebookPublishing || 'BLOCKED' },
-        { label: 'Instagram publishing', value: social.igYes ? 'PUBLISHED' : social.ig.blocker ? 'FAILED' : social.metaAuth?.instagramPublishing || 'BLOCKED' },
+        {
+          label: 'Facebook publishing',
+          value: social.fbYes
+            ? 'PUBLISHED'
+            : social.metaAuth?.facebookPublishing || (social.attempted ? social.fbLabel : 'NOT ATTEMPTED')
+        },
+        {
+          label: 'Instagram publishing',
+          value: social.igYes
+            ? 'PUBLISHED'
+            : social.metaAuth?.instagramPublishing || (social.attempted ? social.igLabel : 'NOT ATTEMPTED')
+        },
         {
           label: 'Instagram error',
           value: social.igYes ? 'none' : social.ig.state || social.ig.blocker || 'n/a',

@@ -19,6 +19,7 @@ import { composeGrowthEmailBody, defaultDecision } from './lib/growth-report.mjs
 import {
   claimAdminEmailDay,
   finalizeAdminEmailDay,
+  readAdminEmailDayMarker,
   releaseAdminEmailDayClaim
 } from './lib/admin-email-day-guard.mjs';
 import { easternIsoDate } from './lib/owned-social-catalog.mjs';
@@ -56,7 +57,9 @@ function parseArgs(argv) {
     decision: null,
     shipped: false,
     skipSocial: false,
-    forceEmail: false
+    forceEmail: false,
+    /** Only with --force-email: allow a true second SES send after status=sent. */
+    forceEmailResend: false
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -70,6 +73,10 @@ function parseArgs(argv) {
     else if (a === '--shipped') out.shipped = true;
     else if (a === '--skip-social') out.skipSocial = true;
     else if (a === '--force-email') out.forceEmail = true;
+    else if (a === '--force-email-resend') {
+      out.forceEmail = true;
+      out.forceEmailResend = true;
+    }
   }
   return out;
 }
@@ -267,17 +274,27 @@ if (invokedAsCli) {
           pageId: creds.pageId,
           instagramId: creds.igUserId
         });
+    const prior = snapshot.ownedSocial || {};
+    const alreadyAttempted = prior.distributionAttempted === true || Boolean(prior.contentId);
+    const alreadyExecuted = Boolean(
+      prior.facebook?.published || prior.instagram?.published || prior.distributionExecuted
+    );
     snapshot.ownedSocial = {
-      ...(snapshot.ownedSocial || {}),
-      distributionAttempted: true,
-      distributionExecuted: Boolean(
-        snapshot.ownedSocial?.facebook?.published || snapshot.ownedSocial?.instagram?.published
-      ),
+      ...prior,
+      // Meta credential probe alone is NOT a distribution attempt
+      distributionAttempted: alreadyAttempted,
+      distributionExecuted: alreadyExecuted,
+      technicalDistributionResult:
+        prior.technicalDistributionResult ||
+        (alreadyExecuted ? 'SUCCEEDED' : alreadyAttempted ? 'FAILED' : 'NOT_ATTEMPTED'),
       connectorHealthy: Boolean(validation?.ok),
-      connectorBlocker: configBlocker || (validation && !validation.ok ? validation.reportStatus : ''),
+      connectorBlocker:
+        prior.connectorBlocker ||
+        configBlocker ||
+        (validation && !validation.ok ? validation.reportStatus : ''),
       metaAuth,
-      facebook: snapshot.ownedSocial?.facebook || { published: false },
-      instagram: snapshot.ownedSocial?.instagram || { published: false }
+      facebook: prior.facebook || { published: false },
+      instagram: prior.instagram || { published: false }
     };
   }
 
@@ -318,30 +335,57 @@ if (invokedAsCli) {
 
   const isoDate = et?.isoDate || easternIsoDate(now);
   let claim = { ok: true, claimed: true, claimId: 'forced', skippedGuard: true };
-  if (!args.testEmail && !args.forceEmail) {
-    claim = claimAdminEmailDay({ isoDate });
-    if (!claim.ok) {
-      console.error(JSON.stringify({ ok: false, error: 'admin_email_day_claim_failed', detail: claim.error }));
-      process.exit(1);
-    }
-    if (!claim.claimed) {
-      console.log(
-        JSON.stringify(
-          {
-            ok: true,
-            skipped: true,
-            reason: 'admin_email_already_sent_today',
-            isoDate,
-            messageId: claim.marker?.messageId || '',
-            subject: claim.marker?.subject || subject,
-            priorStatus: claim.marker?.status || 'unknown',
-            snapshotPath: snapPath
-          },
-          null,
-          2
-        )
-      );
-      process.exit(0);
+  if (!args.testEmail) {
+    // --force-email still refuses a second SES send after status=sent unless
+    // --force-email-resend (Oct 27: three runners + forced finalize → triple inbox).
+    if (args.forceEmail && !args.forceEmailResend) {
+      const existing = readAdminEmailDayMarker({ isoDate });
+      if (existing?.marker?.status === 'sent' || existing?.marker?.messageId) {
+        console.log(
+          JSON.stringify(
+            {
+              ok: true,
+              skipped: true,
+              reason: 'admin_email_already_sent_today',
+              note: 'Use --force-email-resend only for an intentional duplicate Admin email',
+              isoDate,
+              messageId: existing.marker?.messageId || '',
+              subject: existing.marker?.subject || subject,
+              priorStatus: existing.marker?.status || 'unknown',
+              snapshotPath: snapPath
+            },
+            null,
+            2
+          )
+        );
+        process.exit(0);
+      }
+      claim = { ok: true, claimed: true, claimId: 'forced', skippedGuard: true };
+    } else if (!args.forceEmail) {
+      claim = claimAdminEmailDay({ isoDate });
+      if (!claim.ok) {
+        console.error(JSON.stringify({ ok: false, error: 'admin_email_day_claim_failed', detail: claim.error }));
+        process.exit(1);
+      }
+      if (!claim.claimed) {
+        console.log(
+          JSON.stringify(
+            {
+              ok: true,
+              skipped: true,
+              reason: 'admin_email_already_sent_today',
+              isoDate,
+              messageId: claim.marker?.messageId || '',
+              subject: claim.marker?.subject || subject,
+              priorStatus: claim.marker?.status || 'unknown',
+              snapshotPath: snapPath
+            },
+            null,
+            2
+          )
+        );
+        process.exit(0);
+      }
     }
   }
 

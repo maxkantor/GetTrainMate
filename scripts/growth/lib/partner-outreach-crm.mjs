@@ -12,21 +12,77 @@ function apiBase() {
   return String(DEFAULT_API).replace(/\/$/, '');
 }
 
-export async function adminCrmToken() {
+/**
+ * Resolve Admin CRM auth. Distinguishes missing env vs login failure vs empty token
+ * so reports never claim "not configured" when login actually failed.
+ * @returns {Promise<{ token: string|null, reason: string|null, code: string|null }>}
+ */
+export async function resolveAdminCrmAuth() {
   const direct = process.env.GROWTH_CRM_ADMIN_TOKEN?.trim();
-  if (direct) return direct;
+  if (direct) return { token: direct, reason: null, code: null };
   const email = process.env.GROWTH_CRM_ADMIN_EMAIL?.trim();
   const password = process.env.GROWTH_CRM_ADMIN_PASSWORD;
-  if (!email || !password) return null;
+  if (!email && (password == null || password === '')) {
+    return {
+      token: null,
+      code: 'missing_credentials',
+      reason:
+        'Admin CRM credentials not configured. Set GROWTH_CRM_ADMIN_EMAIL/PASSWORD (or SSM /gettrainmate/growth/crm-admin-* / ses-admin-email + admin/password).',
+    };
+  }
+  if (!email) {
+    return {
+      token: null,
+      code: 'missing_email',
+      reason:
+        'Admin CRM email missing. Set GROWTH_CRM_ADMIN_EMAIL or SSM /gettrainmate/growth/crm-admin-email (fallback /gettrainmate/ses-admin-email).',
+    };
+  }
+  if (password == null || password === '') {
+    return {
+      token: null,
+      code: 'missing_password',
+      reason:
+        'Admin CRM password missing. Set GROWTH_CRM_ADMIN_PASSWORD or SSM /gettrainmate/growth/crm-admin-password (fallback /gettrainmate/admin/password). Growth IAM cannot read /gettrainmate/admin/* — use the growth-scoped parameter.',
+    };
+  }
   const res = await fetch(`${apiBase()}/api/admin/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    return {
+      token: null,
+      code: 'login_failed',
+      reason: `Admin CRM login failed (HTTP ${res.status}). Credentials present but rejected — do not treat as missing configuration.`,
+    };
+  }
   const body = await res.json();
   // Prefer sessionToken for X-Admin-Token (Cognito JWT in `token` breaks AdminTokenAuth).
-  return body?.sessionToken || body?.token || body?.Token || null;
+  const token = body?.sessionToken || body?.token || body?.Token || null;
+  if (!token) {
+    return {
+      token: null,
+      code: 'empty_token',
+      reason: 'Admin CRM login succeeded but no sessionToken/token was returned.',
+    };
+  }
+  return { token, reason: null, code: null };
+}
+
+export async function adminCrmToken() {
+  const auth = await resolveAdminCrmAuth();
+  return auth.token;
+}
+
+function skippedCrmAuth(auth) {
+  return {
+    ok: false,
+    status: 'skipped',
+    reason: auth.reason || 'Admin CRM credentials not configured',
+    code: auth.code || 'missing_credentials',
+  };
 }
 
 async function adminGet(token, path) {
@@ -69,12 +125,13 @@ async function adminPost(token, path, body) {
  * Distinguishes: ok (real numbers, including 0) vs unavailable vs error.
  */
 export async function fetchPartnerOutreachSnapshot() {
-  const token = await adminCrmToken();
+  const auth = await resolveAdminCrmAuth();
+  const token = auth.token;
   if (!token) {
     return {
       status: 'unavailable',
-      reason:
-        'Admin CRM credentials not configured. Set GROWTH_CRM_ADMIN_EMAIL/PASSWORD (or SSM /gettrainmate/growth/crm-admin-* / ses-admin-email + admin/password).',
+      reason: auth.reason || 'Admin CRM credentials unavailable',
+      code: auth.code || 'unavailable',
     };
   }
   try {
@@ -289,10 +346,9 @@ export async function runLimitedPartnerDiscovery({
   prepareDrafts = true,
   maxPollMs = 180_000,
 } = {}) {
-  const token = await adminCrmToken();
-  if (!token) {
-    return { ok: false, status: 'skipped', reason: 'Admin CRM credentials not configured' };
-  }
+  const auth = await resolveAdminCrmAuth();
+  const token = auth.token;
+  if (!token) return skippedCrmAuth(auth);
   if (dryRun) {
     return { ok: true, status: 'dry_run', note: 'Would start discovery/jobs' };
   }
@@ -340,10 +396,9 @@ export async function runLimitedPartnerDiscovery({
  * Research CONTACT_NEEDED prospects (controlled batch). Never invents emails.
  */
 export async function researchContactNeededBatch({ dryRun = false, max } = {}) {
-  const token = await adminCrmToken();
-  if (!token) {
-    return { ok: false, status: 'skipped', reason: 'Admin CRM credentials not configured' };
-  }
+  const auth = await resolveAdminCrmAuth();
+  const token = auth.token;
+  if (!token) return skippedCrmAuth(auth);
   if (dryRun) {
     return { ok: true, status: 'dry_run', note: 'Would POST research/contact-needed' };
   }
@@ -364,9 +419,15 @@ export async function researchContactNeededBatch({ dryRun = false, max } = {}) {
  * Full automatic partner acquisition: discover → contact → qualify → send → follow up.
  */
 export async function runAutomaticPartnerAcquisition({ dryRun = false } = {}) {
-  const token = await adminCrmToken();
+  const auth = await resolveAdminCrmAuth();
+  const token = auth.token;
   if (!token) {
-    return { ok: false, status: 'skipped', reason: 'Admin CRM credentials not configured' };
+    return {
+      ok: false,
+      status: 'skipped',
+      reason: auth.reason || 'Admin CRM credentials not configured',
+      code: auth.code || 'missing_credentials',
+    };
   }
   try {
     await adminPost(token, '/api/admin/partner-outreach/bootstrap', {});
@@ -437,10 +498,9 @@ async function invokeAutomaticAcquisitionLambda({ dryRun = false } = {}) {
  * Dispatch previously approved partner emails (never auto-approves).
  */
 export async function dispatchApprovedPartnerOutreach({ dryRun = false } = {}) {
-  const token = await adminCrmToken();
-  if (!token) {
-    return { ok: false, status: 'skipped', reason: 'Admin CRM credentials not configured' };
-  }
+  const auth = await resolveAdminCrmAuth();
+  const token = auth.token;
+  if (!token) return skippedCrmAuth(auth);
   if (dryRun) {
     return { ok: true, status: 'dry_run', note: 'Would POST /dispatch' };
   }

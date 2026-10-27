@@ -116,6 +116,28 @@ if (Test-AlreadySucceededToday) {
   exit 0
 }
 
+# Cross-runner guard: Cursor cloud / GitHub may have already claimed today's Admin email in S3.
+function Test-AdminEmailAlreadySentInS3 {
+  try {
+    $iso = Get-Date -Format "yyyy-MM-dd"
+    $probe = & node -e @"
+import { readAdminEmailDayMarker } from './scripts/growth/lib/admin-email-day-guard.mjs';
+const r = readAdminEmailDayMarker({ isoDate: '$iso' });
+const m = r?.marker;
+const sent = m && (m.status === 'sent' || Boolean(m.messageId));
+process.stdout.write(sent ? 'SENT' : 'OPEN');
+"@
+    return ($probe -eq 'SENT')
+  } catch {
+    return $false
+  }
+}
+
+if (-not $DryRun -and (Test-AdminEmailAlreadySentInS3)) {
+  Log "Skipping Windows scheduled run: Admin email already sent today (S3 day guard — another runner finished first)."
+  exit 0
+}
+
 Log "=== GetTrainMate scheduled run start ==="
 try {
   # 1. Pull latest changes if remote main updated

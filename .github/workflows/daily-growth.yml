@@ -1,10 +1,13 @@
 name: Daily Growth Automation
 
 on:
-  schedule:
-    # 10:00 AM EDT (America/New_York) is 14:00 UTC
-    - cron: '0 14 * * *'
+  # Schedule DISABLED — Cursor Automation is the primary daily runner.
+  # Multiple 10:00 ET schedules (Cursor + Windows + Actions) caused triple Admin emails (2026-10-27).
+  # Keep workflow_dispatch for manual recovery only.
   workflow_dispatch:
+    # To re-enable GitHub as sole runner, restore:
+    # schedule:
+    #   - cron: '0 14 * * *'
 
 jobs:
   growth:

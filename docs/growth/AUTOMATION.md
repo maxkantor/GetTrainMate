@@ -2,7 +2,9 @@
 
 **Name:** GetTrainMate Customer Growth  
 **Schedule:** Daily 10:00 AM America/New_York (live Cursor automation, 7 days/week)  
-**Notify:** Exactly **one** Admin email after **every** scheduled fire, including after owned-social publish or Meta blocker  
+**Notify:** Exactly **one** Admin email per calendar day (America/New_York), including after owned-social publish or Meta blocker.
+
+**ONE SCHEDULER ONLY:** Keep a single primary runner. On 2026-10-27, three Cursor weekday-growth agents plus `--force-email` produced three identical Admin emails at 10:04 / 10:07 / 10:08. Do **not** also enable Windows Task Scheduler and GitHub Actions `daily-growth.yml` at the same time. Disable duplicate Cursor Automations with the same 10:00 ET schedule.  
 **North star:** 1,000+ real active users (TRAIN + VIBE + DATE) then 1,000+ verified paying customers. Atlanta TRAIN is one experiment, not the product.
 
 **STRATEGY LOCK:** Read `docs/growth/STRATEGY-LOCK.md` every run. While `status: LOCKED`, do **not** rewrite overall growth strategy. Rotate acquisition variants only. Product/code changes only under lock-rule exceptions. Valid outcome: `NO PRODUCT CHANGE — collecting data` + daily FB/IG when Meta is valid.
@@ -32,11 +34,14 @@ The live Cursor automation fires **daily (including weekends)**. Experiment **ev
 | `AWS_REGION`                        | `us-east-1`                                                                                      |
 | `ADMIN_EMAIL` or `SES_ADMIN_EMAIL`  | Optional (else SSM `/gettrainmate/ses-admin-email`)                                              |
 | `SES_FROM_EMAIL`                    | Optional (else SSM `/gettrainmate/ses-from-email`)                                               |
+| `GROWTH_CRM_ADMIN_EMAIL`            | SSM `/gettrainmate/growth/crm-admin-email` (Partner CRM; growth IAM cannot read `/admin/*`)      |
+| `GROWTH_CRM_ADMIN_PASSWORD`         | SSM `/gettrainmate/growth/crm-admin-password` (SecureString; do not use `/gettrainmate/admin/password` for cloud) |
+| `GROWTH_METRO_READ_TOKEN`           | SSM `/gettrainmate/growth/metro-read-token`                                                      |
 | `META_PAGE_ACCESS_TOKEN`            | SSM `/gettrainmate/growth/meta-page-access-token`                                                |
 | `FACEBOOK_PAGE_ID`                  | SSM `/gettrainmate/growth/facebook-page-id`                                                      |
 | `INSTAGRAM_BUSINESS_ACCOUNT_ID`     | SSM `/gettrainmate/growth/instagram-business-account-id`                                         |
 
-IAM user `cursor-gettrainmate-growth` needs `ses:SendEmail` **and** `ssm:GetParameter` on `/gettrainmate/growth/*`, `/gettrainmate/ses-from-email`, `/gettrainmate/ses-admin-email`. Without SSM read, Admin email fails unless `SES_FROM_EMAIL` + `SES_ADMIN_EMAIL` are also in Cursor Environment secrets.
+IAM user `cursor-gettrainmate-growth` needs `ses:SendEmail` **and** `ssm:GetParameter` on `/gettrainmate/growth/*`, `/gettrainmate/ses-from-email`, `/gettrainmate/ses-admin-email`. It cannot read `/gettrainmate/admin/*` — Partner CRM must use `/gettrainmate/growth/crm-admin-*`. Without SSM read, Admin email fails unless `SES_FROM_EMAIL` + `SES_ADMIN_EMAIL` are also in Cursor Environment secrets. Cloud runs must `npm --prefix scripts/growth install` (or rely on `ensureGrowthDeps`) so GA4 (`google-auth-library`) and Meta images (`sharp`) are available.
 
 Copy from SSM when needed:
 
@@ -75,7 +80,7 @@ If run-weekday-growth.mjs fails:
 2) Fix secrets/env only if Meta/SSM/SES is the blocker (do not redesign product).
 3) Retry ONCE: node scripts/growth/run-weekday-growth.mjs
 4) If still failing: node scripts/growth/compose-and-send-growth-email.mjs --skip-social --notes "{\"todaysAcquisitionAction\":\"growth runner failed\",\"requiredOwnerApproval\":\"investigate automation\"}"
-   (Same-day SES guard skips a duplicate Admin email if one already sent. Use --force-email only for intentional resend.)
+   (Same-day SES guard skips a duplicate Admin email if one already sent. Never use --force-email on retries — it used to bypass the guard. Intentional second send only: --force-email-resend.)
 5) release-growth-lock.mjs
 Then stop. Do NOT open a PR as a substitute for distribution.
 
