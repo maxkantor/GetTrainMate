@@ -33,6 +33,7 @@
 | 2026-08-29 | 6 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-30 | 7 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-31 | REVIEW | TRAIN×EN FB+IG (`…122130159662773778` / IG `18105309032166116`) | Owned-social click → `/signup` |
+| 2026-10-29 | post-lock | TRAIN×ES FB+IG (`1138684902641972_122140155524773778` / IG `18169630303480886`; `train-es-socio-entrenamiento`) | NO |
 
 ## Exploit / explore (70/30)
 

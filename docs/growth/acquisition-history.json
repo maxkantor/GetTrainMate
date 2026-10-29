@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-10-29",
   "strategyLock": {
     "status": "REVIEWED",
     "startedEt": "2026-08-24",
@@ -266,6 +266,26 @@
       "customers": 0,
       "outcome": "PUBLISHED_MANUAL_RECOVERY",
       "notes": "Lock day 4/7; Cursor automation Succeeded with Pull Request only — no Meta until manual publish"
+    },
+    {
+      "date": "2026-10-29",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "TRAIN",
+      "language": "es",
+      "hook": "train-es-socio-entrenamiento",
+      "destination": "/signup",
+      "campaign": "owned-train-es-20261029",
+      "contentId": "train-es-socio-entrenamiento",
+      "facebookPostId": "1138684902641972_122140155524773778",
+      "instagramPostId": "18169630303480886",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED",
+      "notes": "Weekday automation; Admin SES 010001a187f96170-71d7c8f9-acd9-4dc8-82a6-75c90f7ddabd-000000; cloud VM needed user-local AWS CLI on PATH for first attempt"
     }
   ],
   "doNotRepeat": [
