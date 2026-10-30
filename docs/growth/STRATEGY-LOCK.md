@@ -33,6 +33,7 @@
 | 2026-08-29 | 6 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-30 | 7 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-31 | REVIEW | TRAIN×EN FB+IG (`…122130159662773778` / IG `18105309032166116`) | Owned-social click → `/signup` |
+| 2026-10-30 | post-lock | VIBE×EN FB+IG (`vibe-en-new-in-town`; FB `…122140323542773778` / IG `18219758131359087`); Admin SES `010001a18d2050ff-…` | NO — env recovery (AWS CLI v2 on PATH, growth deps) |
 
 ## Exploit / explore (70/30)
 
