@@ -86,25 +86,42 @@ public static class PartnerOutreachDedupe
 
     public static int ProspectRank(string? status) => (status ?? "").ToLowerInvariant() switch
     {
-        "approved" => 60,
-        "queued" => 50,
-        "sent" => 45,
-        "replied" => 40,
+        "replied" => 100,
+        "partner" => 95,
+        "sent" => 85,
+        "delivered" => 85,
+        "contacted" => 80,
+        "approved" => 50,
+        "queued" => 40,
         "draft" => 30,
         "prospect" => 20,
         "discovered" => 10,
         _ => 0,
     };
 
+    /// <summary>
+    /// Prefer terminal/contacted states over unsent drafts. Ranking approved above sent
+    /// caused live dedupe to delete send history and revive duplicate outreach drafts.
+    /// </summary>
     public static int QueueRank(string? status) => (status ?? "").ToLowerInvariant() switch
     {
-        "approved" => 60,
-        "queued" => 50,
-        "sent" => 45,
-        "replied" => 40,
+        "replied" => 100,
+        "delivered" => 95,
+        "bounced" => 90,
+        "sent" => 85,
+        "scheduled" => 70,
+        "approved_for_next_send" => 55,
+        "approved" => 50,
+        "queued" => 40,
         "draft" => 30,
+        "rejected" => 10,
+        "failed" => 5,
+        "opted_out" => 1,
         _ => 0,
     };
+
+    public static bool IsTerminalContactQueueStatus(string? status) =>
+        status is "sent" or "delivered" or "replied" or "bounced";
 
     public static PartnerProspect PickBestProspect(IEnumerable<PartnerProspect> group) =>
         group
@@ -116,6 +133,7 @@ public static class PartnerOutreachDedupe
     public static PartnerQueueItem PickBestQueueItem(IEnumerable<PartnerQueueItem> group) =>
         group
             .OrderByDescending(q => QueueRank(q.Status))
+            .ThenByDescending(q => q.SentAt.HasValue)
             .ThenByDescending(q => q.CreatedAt)
             .First();
 

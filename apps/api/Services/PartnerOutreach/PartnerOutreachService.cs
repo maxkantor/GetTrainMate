@@ -2492,6 +2492,13 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             var keeper = PartnerOutreachDedupe.PickBestQueueItem(group);
             foreach (var dup in group.Where(q => q.QueueId != keeper.QueueId))
             {
+                // Never destroy send/delivery history — only drop unsent duplicates.
+                if (PartnerOutreachDedupe.IsTerminalContactQueueStatus(dup.Status)
+                    || dup.SentAt != null
+                    || !string.IsNullOrWhiteSpace(dup.SesMessageId))
+                {
+                    continue;
+                }
                 removedQueue.Add(new { dup.QueueId, dup.Recipient, dup.Status, reason = "duplicate_recipient" });
                 if (!dryRun)
                     await _db.DeleteAsync(dup);

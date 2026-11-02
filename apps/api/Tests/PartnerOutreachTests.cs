@@ -835,6 +835,33 @@ public class PartnerOutreachTests
     }
 
     [Fact]
+    public void Queue_dedupe_keeps_sent_over_approved_duplicate()
+    {
+        var sent = new PartnerQueueItem
+        {
+            QueueId = "sent",
+            Status = "sent",
+            Recipient = "a@example.com",
+            CampaignId = "PARTNER-001",
+            SentAt = DateTime.UtcNow.AddDays(-2),
+            CreatedAt = DateTime.UtcNow.AddDays(-10),
+        };
+        var approved = new PartnerQueueItem
+        {
+            QueueId = "approved",
+            Status = "approved",
+            Recipient = "a@example.com",
+            CampaignId = "PARTNER-001",
+            CreatedAt = DateTime.UtcNow,
+        };
+        var keeper = PartnerOutreachDedupe.PickBestQueueItem(new[] { approved, sent });
+        Assert.Equal("sent", keeper.QueueId);
+        Assert.True(PartnerOutreachDedupe.QueueRank("sent") > PartnerOutreachDedupe.QueueRank("approved"));
+        Assert.True(PartnerOutreachDedupe.IsTerminalContactQueueStatus("sent"));
+        Assert.False(PartnerOutreachDedupe.IsTerminalContactQueueStatus("approved"));
+    }
+
+    [Fact]
     public void Suppression_reasons_map_to_why_not_sent()
     {
         var unsub = BaseSendContext();
