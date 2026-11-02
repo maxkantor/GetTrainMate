@@ -784,6 +784,42 @@ public class PartnerOutreachTests
     }
 
     [Fact]
+    public void Fo0_readiness_separates_inventory_from_sendable_for_nov2_gated_queue()
+    {
+        // Nov 2 production: 30 inventory drafts, 27 org duplicates, 3 recipient duplicates, 0 sendable.
+        var codes = Enumerable.Repeat<string?>("duplicate_organization", 27)
+            .Concat(Enumerable.Repeat<string?>("duplicate_recipient", 3));
+        var result = Fo0SendReadiness.ClassifyFromGateCodes(codes);
+
+        Assert.Equal(30, result.InventoryDrafts);
+        Assert.Equal(0, result.SendableNow);
+        Assert.Equal(30, result.Blocked);
+        Assert.True(result.AllInventoryGated);
+        Assert.Equal(27, result.BlockedByReason[WhyNotSent.DuplicateOrganization]);
+        Assert.Equal(3, result.BlockedByReason[WhyNotSent.DuplicateEmail]);
+        Assert.DoesNotContain(result.BlockedByReason.Keys, k => k == WhyNotSent.ReadyToSend);
+
+        // Gates themselves unchanged: same codes still block EvaluateSendGate.
+        var org = BaseSendContext();
+        org.DuplicateOrganizationInitial = true;
+        Assert.Equal("duplicate_organization", PartnerOutreachRules.EvaluateSendGate(org));
+        var recip = BaseSendContext();
+        recip.AlreadySentThisRecipient = true;
+        Assert.Equal("duplicate_recipient", PartnerOutreachRules.EvaluateSendGate(recip));
+    }
+
+    [Fact]
+    public void Fo0_readiness_counts_null_gate_codes_as_sendable()
+    {
+        var codes = new string?[] { null, "duplicate_organization", null, "duplicate_recipient" };
+        var result = Fo0SendReadiness.ClassifyFromGateCodes(codes);
+        Assert.Equal(4, result.InventoryDrafts);
+        Assert.Equal(2, result.SendableNow);
+        Assert.Equal(2, result.Blocked);
+        Assert.False(result.AllInventoryGated);
+    }
+
+    [Fact]
     public void Suppression_reasons_map_to_why_not_sent()
     {
         var unsub = BaseSendContext();

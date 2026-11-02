@@ -146,7 +146,15 @@ export async function fetchPartnerOutreachSnapshot() {
     const funnel = dashboard?.funnel || {};
     const actions = Array.isArray(dashboard?.todaysActions) ? dashboard.todaysActions : [];
     const awaiting = Number(funnel.awaitingApproval ?? 0);
-    const autoEligible = Number(funnel.autoEligible ?? metrics?.approvalReadyRecipients ?? 0);
+    const inventoryDrafts = Number(
+      funnel.inventoryDrafts ?? funnel.autoEligible ?? pipeline?.inventoryDrafts ?? metrics?.approvalReadyRecipients ?? 0,
+    );
+    const autoEligible = inventoryDrafts;
+    const sendableNow = Number(
+      funnel.sendableNow ?? pipeline?.sendableNow ?? pipeline?.readyToSend ?? inventoryDrafts,
+    );
+    const sendableKnown =
+      funnel.sendableNow != null || pipeline?.sendableNow != null || pipeline?.readyToSend != null;
     const humanReview = Number(funnel.humanReview ?? 0);
     const prospects = Number(
       pipeline?.prospects ?? summary?.organizationsDiscovered ?? funnel.discovered ?? 0,
@@ -181,6 +189,8 @@ export async function fetchPartnerOutreachSnapshot() {
       awaitingApproval: awaiting,
       approvedEligible: approved,
       autoEligible,
+      inventoryDrafts,
+      sendableNow: sendableKnown ? sendableNow : null,
       emailsSentToday: sentToday ?? settings?.sentToday ?? 0,
       pauseAllOutreach: Boolean(settings?.pauseAllOutreach ?? metrics?.pauseAllOutreach),
       automaticSending: Boolean(settings?.automaticSending),
@@ -276,6 +286,11 @@ export async function fetchPartnerOutreachSnapshot() {
       draftsPrepared: drafts,
       awaitingApproval: awaiting,
       autoEligible,
+      inventoryDrafts,
+      sendableNow: sendableKnown ? sendableNow : inventoryDrafts,
+      inventoryBlocked: Number(funnel.inventoryBlocked ?? pipeline?.inventoryBlocked ?? Math.max(0, inventoryDrafts - sendableNow)),
+      sendGateSkips: funnel.sendGateSkips ?? pipeline?.sendGateSkips ?? null,
+      allInventoryGated: Boolean(funnel.allInventoryGated ?? pipeline?.allInventoryGated ?? (inventoryDrafts > 0 && sendableNow === 0)),
       humanReview,
       recipientsApproved: approved,
       emailsSent: sent,

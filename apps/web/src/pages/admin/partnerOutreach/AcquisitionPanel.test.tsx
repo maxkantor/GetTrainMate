@@ -36,12 +36,15 @@ const dashboard = {
     revenue: 0,
     awaitingApproval: 0,
     autoEligible: 3,
+    inventoryDrafts: 3,
+    sendableNow: 3,
     drafts: 3,
   },
   conversionRates: {},
   settings: { pauseAllOutreach: false, testRecipientsOnly: false },
   todaysActions: [
-    { key: 'auto_eligible', label: 'Auto eligible', count: 3, filter: 'status=draft' },
+    { key: 'sendable_now', label: 'Sendable now (pass send gates)', count: 3, filter: 'fo0_sendable' },
+    { key: 'inventory_drafts', label: 'Inventory drafts (FO0)', count: 3, filter: 'status=draft|approved' },
     { key: 'human_review', label: 'Human review', count: 0, filter: 'contactDiscoveryStatus=REVIEW_REQUIRED' },
   ],
 };
@@ -64,20 +67,21 @@ describe('AcquisitionPanel — Overview links', () => {
 
   it('loads Overview metrics and primary actions', async () => {
     render(<AcquisitionPanel {...props()} />);
-    expect((await screen.findAllByText('Auto eligible')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Inventory drafts')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Sendable now')).length).toBeGreaterThan(0);
     expect(screen.queryByText('Approve drafts')).not.toBeInTheDocument();
   });
 
-  it('Auto eligible action navigates to the send queue', async () => {
+  it('Sendable now action navigates to the send queue', async () => {
     const onNavigate = vi.fn();
     render(<AcquisitionPanel {...props(onNavigate)} />);
-    fireEvent.click((await screen.findAllByText('Auto eligible'))[0]);
+    fireEvent.click((await screen.findAllByText('Sendable now'))[0]);
     expect(onNavigate).toHaveBeenCalledWith(
       expect.objectContaining({ tab: 'approvals' }),
     );
   });
 
-  it('View queue alert navigates to send queue for auto-eligible drafts', async () => {
+  it('View queue alert navigates to send queue for sendable drafts', async () => {
     const onNavigate = vi.fn();
     render(<AcquisitionPanel {...props(onNavigate)} />);
     fireEvent.click(await screen.findByRole('button', { name: /View queue/i }));

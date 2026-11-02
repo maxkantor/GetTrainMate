@@ -31,6 +31,11 @@ export interface FunnelCounts {
   discovered?: number;
   contactable?: number;
   autoEligible?: number;
+  /** FO0 draft/approved inventory (may include gated duplicates). */
+  inventoryDrafts?: number;
+  /** FO0 inventory rows that currently pass EvaluateSendGate. */
+  sendableNow?: number;
+  inventoryBlocked?: number;
   humanReview?: number;
   approved?: number;
   sent?: number;

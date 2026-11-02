@@ -38,7 +38,8 @@ const CUSTOMER_FUNNEL: { key: string; label: string }[] = [
   { key: 'discovered', label: 'Discovered' },
   { key: 'contactable', label: 'Contactable' },
   { key: 'qualified', label: 'Qualified' },
-  { key: 'autoEligible', label: 'Auto eligible' },
+  { key: 'autoEligible', label: 'Inventory drafts' },
+  { key: 'sendableNow', label: 'Sendable now' },
   { key: 'sent', label: 'Sent' },
   { key: 'clicked', label: 'Clicked' },
   { key: 'signedUp', label: 'Signed up' },
@@ -63,7 +64,12 @@ function funnelValue(funnel: FunnelCounts | undefined, key: string): number {
   if (key === 'activated') return funnel.activated ?? 0;
   if (key === 'buyers') return funnel.buyers ?? funnel.partners ?? 0;
   if (key === 'clicked') return funnel.clicked ?? 0;
-  if (key === 'autoEligible') return funnel.autoEligible ?? funnel.drafts ?? funnel.approved ?? 0;
+  if (key === 'autoEligible') {
+    return funnel.inventoryDrafts ?? funnel.autoEligible ?? funnel.drafts ?? funnel.approved ?? 0;
+  }
+  if (key === 'sendableNow') {
+    return funnel.sendableNow ?? funnel.initialReady ?? 0;
+  }
   if (key === 'qualified') return funnel.qualified ?? funnel.contactable ?? 0;
   if (key === 'revenue') return funnel.revenue ?? 0;
   return 0;
@@ -146,7 +152,9 @@ export const AcquisitionPanel: React.FC<Props> = ({
   const funnel = dashboard?.funnel;
   const rates = dashboard?.conversionRates;
   const awaiting = funnel?.awaitingApproval ?? 0;
-  const autoEligible = funnel?.autoEligible ?? funnel?.drafts ?? 0;
+  const inventoryDrafts = funnel?.inventoryDrafts ?? funnel?.autoEligible ?? funnel?.drafts ?? 0;
+  const sendableNow = funnel?.sendableNow ?? funnel?.initialReady ?? 0;
+  const autoEligible = inventoryDrafts;
   const pauseAll = Boolean(dashboard?.settings?.pauseAllOutreach);
   const testOnly = Boolean(
     (dashboard?.settings as { testRecipientsOnly?: boolean } | undefined)?.testRecipientsOnly,
@@ -157,7 +165,7 @@ export const AcquisitionPanel: React.FC<Props> = ({
       if (!funnel) return true;
       if (funnel[s.key] != null) return true;
       // Always show core path even when API still returns legacy shape
-      return ['discovered', 'contactable', 'qualified', 'autoEligible', 'sent', 'signedUp', 'activated', 'buyers', 'revenue'].includes(s.key)
+      return ['discovered', 'contactable', 'qualified', 'autoEligible', 'sendableNow', 'sent', 'signedUp', 'activated', 'buyers', 'revenue'].includes(s.key)
         || funnelValue(funnel, s.key) > 0;
     });
     return keysPresent.map((s, i) => {
@@ -173,6 +181,10 @@ export const AcquisitionPanel: React.FC<Props> = ({
             ? rates?.contactableToQualified
             : prevKey === 'qualified' && s.key === 'autoEligible'
               ? rates?.qualifiedToAutoEligible
+              : prevKey === 'autoEligible' && s.key === 'sendableNow'
+                ? rates?.qualifiedToSendable
+              : prevKey === 'sendableNow' && s.key === 'sent'
+                ? rates?.sendableToSent ?? rates?.autoEligibleToSent ?? rates?.approvedToSentRate ?? rates?.approvedToSent
               : prevKey === 'autoEligible' && s.key === 'sent'
                 ? rates?.autoEligibleToSent ?? rates?.approvedToSentRate ?? rates?.approvedToSent
               : prevKey === 'sent' && s.key === 'clicked'
@@ -190,7 +202,15 @@ export const AcquisitionPanel: React.FC<Props> = ({
   }, [funnel, rates]);
 
   const funnelNav = (key: string) => {
-    if (key === 'awaitingApproval' || key === 'drafts' || key === 'approved' || key === 'scheduled' || key === 'autoEligible') {
+    if (
+      key === 'awaitingApproval'
+      || key === 'drafts'
+      || key === 'approved'
+      || key === 'scheduled'
+      || key === 'autoEligible'
+      || key === 'sendableNow'
+      || key === 'inventoryDrafts'
+    ) {
       onNavigate({
         tab: 'approvals',
         approvalsStatus: key === 'approved' ? 'approved' : key === 'scheduled' ? 'scheduled' : 'draft',
@@ -281,7 +301,7 @@ export const AcquisitionPanel: React.FC<Props> = ({
           Test recipients only is on — APPROVE &amp; SEND delivers only to configured test addresses.
         </Alert>
       )}
-      {autoEligible > 0 && !pauseAll && (
+      {sendableNow > 0 && !pauseAll && (
         <Alert
           severity="success"
           sx={{ mb: 2 }}
@@ -295,8 +315,27 @@ export const AcquisitionPanel: React.FC<Props> = ({
             </Button>
           }
         >
-          {autoEligible} auto-eligible — scheduled acquisition sends these through SES. Manual SEND
-          remains an override only.
+          {sendableNow} sendable now (pass send gates)
+          {inventoryDrafts !== sendableNow ? ` · ${inventoryDrafts} inventory drafts` : ''} — scheduled
+          acquisition sends the sendable set through SES. Manual SEND remains an override only.
+        </Alert>
+      )}
+      {inventoryDrafts > 0 && sendableNow === 0 && !pauseAll && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => onNavigate({ tab: 'approvals', approvalsStatus: 'draft' })}
+            >
+              View queue
+            </Button>
+          }
+        >
+          {inventoryDrafts} inventory drafts are gated by send rules (duplicates / suppressions /
+          cooldowns) — 0 sendable now. Zero SES sends are expected, not a send-path outage.
         </Alert>
       )}
       {awaiting > 0 && (
@@ -494,7 +533,10 @@ export const AcquisitionPanel: React.FC<Props> = ({
                   : step.value
               }
               note={noteParts.length ? noteParts.join(' · ') : undefined}
-              attention={step.key === 'autoEligible' && autoEligible > 0 && pauseAll}
+              attention={
+                (step.key === 'sendableNow' && sendableNow > 0 && pauseAll)
+                || (step.key === 'autoEligible' && autoEligible > 0 && pauseAll)
+              }
               onClick={() => funnelNav(step.key)}
             />
           );
@@ -506,6 +548,7 @@ export const AcquisitionPanel: React.FC<Props> = ({
           if (step.conv == null || step.key === 'revenue' || step.key === 'sent') return null;
           const prev = funnelSteps[i];
           if (prev.key === 'autoEligible' && step.key === 'sent') return null;
+          if (prev.key === 'sendableNow' && step.key === 'sent') return null;
           return (
             <Chip
               key={`rate-${step.key}`}

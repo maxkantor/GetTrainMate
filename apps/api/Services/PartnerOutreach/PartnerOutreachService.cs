@@ -923,10 +923,15 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         return all.OrderByDescending(x => x.CreatedAt).ToList();
     }
 
-    async Task<PartnerSendContext> BuildGateAsync(PartnerQueueItem item, PartnerOutreachSettingsRow settings, bool scheduled)
+    async Task<PartnerSendContext> BuildGateAsync(
+        PartnerQueueItem item,
+        PartnerOutreachSettingsRow settings,
+        bool scheduled,
+        List<PartnerQueueItem>? allQueue = null)
     {
         var suppress = await _db.LoadAsync<PartnerSuppression>(item.Recipient.ToLowerInvariant());
-        var all = await _db.ScanAsync<PartnerQueueItem>(new List<ScanCondition>()).GetRemainingAsync();
+        var all = allQueue
+            ?? await _db.ScanAsync<PartnerQueueItem>(new List<ScanCondition>()).GetRemainingAsync();
         var isFollowUp = item.FollowUpNumber > 0 && item.AllowAutomatedFollowUp;
         var orgDup = !isFollowUp && all.Any(x =>
             x.QueueId != item.QueueId
@@ -1009,6 +1014,26 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         item.SentAt != null
         || !string.IsNullOrWhiteSpace(item.SesMessageId)
         || item.Status is "sent" or "delivered" or "replied";
+
+    /// <summary>
+    /// Inventory FO0 drafts vs drafts that currently pass production send gates.
+    /// Read-only — does not retire or mutate queue rows.
+    /// </summary>
+    async Task<Fo0SendReadinessResult> ClassifyFo0SendReadinessAsync(
+        List<PartnerQueueItem> queue,
+        PartnerOutreachSettingsRow settings)
+    {
+        var inventory = queue.Where(Fo0SendReadiness.IsInventoryDraft).OrderBy(q => q.CreatedAt).ToList();
+        var codes = new List<string?>(inventory.Count);
+        foreach (var item in inventory)
+        {
+            var gate = await BuildGateAsync(item, settings, scheduled: false, allQueue: queue);
+            gate.AutomaticQualifiedSend = settings.AutomaticSending && settings.SendQualifiedAutomatically;
+            gate.DryRun = settings.DryRun;
+            codes.Add(PartnerOutreachRules.EvaluateSendGate(gate));
+        }
+        return Fo0SendReadiness.ClassifyFromGateCodes(codes);
+    }
 
     async Task SendQueueItemAsync(PartnerQueueItem item, List<PartnerQueueItem>? queueSnapshot = null)
     {
@@ -1614,8 +1639,12 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             p.CrmLifecycle == PartnerCrmLifecycle.Partner
             || p.PartnershipStatus == PartnerCrmLifecycle.PartPartner);
         var drafts = queue.Count(q => q.Status == "draft" && q.FollowUpNumber == 0);
-        var autoEligible = queue.Count(q =>
-            q.FollowUpNumber == 0 && q.Status is "draft" or "approved" or "approved_for_next_send");
+        var readiness = await ClassifyFo0SendReadinessAsync(queue, settings);
+        // inventoryDrafts = FO0 draft/approved rows. sendableNow = pass EvaluateSendGate.
+        // autoEligible kept as inventory count for backward-compatible field name.
+        var inventoryDrafts = readiness.InventoryDrafts;
+        var autoEligible = inventoryDrafts;
+        var sendableNow = readiness.SendableNow;
         var humanReview = prospects.Count(p =>
             string.Equals(p.ContactDiscoveryStatus, ContactDiscoveryRules.DiscoveryReviewRequired, StringComparison.OrdinalIgnoreCase));
         var awaitingApproval = settings.AutomaticSending && settings.SendQualifiedAutomatically
@@ -1659,10 +1688,11 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             dueFollowUps, futureFollowUps);
 
         var bottleneck = BuildCurrentBottleneck(
-            qualified, autoEligible, alreadyContactedQualified, contactNeeded, discoveryBackoff,
-            noPublicContact, researchDue, dueFollowUps, remainingToday, settings, readyInventory, inventoryTarget, lowWatermark);
+            qualified, sendableNow, inventoryDrafts, alreadyContactedQualified, contactNeeded, discoveryBackoff,
+            noPublicContact, researchDue, dueFollowUps, remainingToday, settings, readyInventory, inventoryTarget,
+            lowWatermark, readiness);
         var nextAction = BuildNextAutomaticAction(
-            settings, autoEligible, dueFollowUps, researchDue, discoveryBackoff, remainingToday, nowUtc,
+            settings, sendableNow, inventoryDrafts, dueFollowUps, researchDue, discoveryBackoff, remainingToday, nowUtc,
             readyInventory, inventoryTarget, lowWatermark);
 
         var inventoryDeficit = Math.Max(0, inventoryTarget - readyInventory);
@@ -1694,7 +1724,12 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 qualifiedLifetime = pipelineQualifiedLifetime,
                 alreadyContactedQualified,
                 autoEligible,
-                initialReady = autoEligible,
+                inventoryDrafts,
+                sendableNow,
+                inventoryBlocked = readiness.Blocked,
+                sendGateSkips = readiness.BlockedByReason,
+                allInventoryGated = readiness.AllInventoryGated,
+                initialReady = sendableNow,
                 followUpsReady = dueFollowUps,
                 sent = sentLifetime,
                 sentToday,
@@ -1732,7 +1767,9 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 contactable,
                 needContact = contactNeeded,
                 qualified,
-                readyNow = autoEligible,
+                readyNow = sendableNow,
+                inventoryDrafts,
+                sendableNow,
                 followUpsDue = dueFollowUps,
                 readyInventory,
                 inventoryTarget,
@@ -1746,7 +1783,9 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 discovered = "current_inventory",
                 contactable = "current_inventory",
                 qualified = "current_unsent_email_score",
-                autoEligible = "current_fo0_draft_or_approved",
+                autoEligible = "current_fo0_draft_or_approved_inventory",
+                inventoryDrafts = "current_fo0_draft_or_approved_inventory",
+                sendableNow = "fo0_inventory_passing_EvaluateSendGate",
                 sent = "lifetime_queue_or_prospect",
                 clicked = "lifetime_attributed",
                 signedUp = "lifetime_attributed",
@@ -1758,8 +1797,10 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 discoveredToContactable = Rate(contactable, discovered),
                 contactableToQualified = Rate(qualified, contactable),
                 qualifiedToAutoEligible = Rate(autoEligible, qualified),
-                // Only rate current ready → do not mix lifetime sent into a 100% fake conversion
-                autoEligibleToSent = autoEligible > 0 ? Rate(0, autoEligible) : 0d,
+                qualifiedToSendable = Rate(sendableNow, qualified),
+                // Rate sendable inventory → do not treat gated drafts as conversion failures
+                autoEligibleToSent = sendableNow > 0 ? Rate(0, sendableNow) : 0d,
+                sendableToSent = sendableNow > 0 ? Rate(0, sendableNow) : 0d,
                 contactableToApproved = Rate(autoEligible, contactable),
                 approvedToSent = 0d,
                 sentToClicked = Rate(clicked, sentLifetime),
@@ -1779,7 +1820,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             nextAutomaticAction = nextAction,
             todaysActions = new object[]
             {
-                new { key = "auto_eligible", label = "Initial sends ready", count = autoEligible, filter = "status=draft" },
+                new { key = "sendable_now", label = "Sendable now (pass send gates)", count = sendableNow, filter = "fo0_sendable" },
+                new { key = "inventory_drafts", label = "Inventory drafts (FO0)", count = inventoryDrafts, filter = "status=draft|approved" },
                 new { key = "follow_ups", label = "Due follow-ups", count = dueFollowUps, filter = "status=scheduled" },
                 new { key = "research", label = "Contact research due", count = researchDue, filter = "contactState=CONTACT_NEEDED" },
                 new { key = "human_review", label = "Human review", count = humanReview, filter = "contactDiscoveryStatus=REVIEW_REQUIRED" },
@@ -1860,7 +1902,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
 
     static object BuildCurrentBottleneck(
         int qualified,
-        int autoEligible,
+        int sendableNow,
+        int inventoryDrafts,
         int alreadyContactedQualified,
         int contactNeeded,
         int discoveryBackoff,
@@ -1871,7 +1914,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         PartnerOutreachSettingsRow settings,
         int readyInventory = 0,
         int inventoryTarget = 200,
-        int lowWatermark = 100)
+        int lowWatermark = 100,
+        Fo0SendReadinessResult? readiness = null)
     {
         if (!settings.AutomaticSending || !settings.SendQualifiedAutomatically)
         {
@@ -1913,8 +1957,17 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             details.Add(new { reason = "NO_PUBLIC_CONTACT", count = noPublicContact });
         if (researchDue > 0)
             details.Add(new { reason = "CONTACT_DISCOVERY_REQUIRED", count = researchDue });
-        if (qualified > 0 && autoEligible == 0)
+        if (qualified > 0 && inventoryDrafts == 0)
             details.Add(new { reason = "DRAFT_MISSING", count = qualified });
+        if (inventoryDrafts > 0 && sendableNow == 0)
+        {
+            details.Add(new
+            {
+                reason = "INVENTORY_GATED",
+                count = inventoryDrafts,
+                blockedByReason = readiness?.BlockedByReason ?? new Dictionary<string, int>(),
+            });
+        }
         if (dueFollowUps > 0)
             details.Add(new { reason = "FOLLOW_UP_DUE", count = dueFollowUps });
 
@@ -1924,39 +1977,61 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             summary =
                 $"LOW INVENTORY — ready {readyInventory}/{inventoryTarget} (low-watermark {lowWatermark}). " +
                 "Automatic discovery expansion active. " +
-                $"{autoEligible} initial ready, {researchDue} contacts to research, {remainingToday} send capacity left today.";
+                $"{sendableNow} sendable now ({inventoryDrafts} inventory drafts), {researchDue} contacts to research, {remainingToday} send capacity left today.";
         }
-        else if (autoEligible == 0 && qualified == 0 && alreadyContactedQualified > 0)
+        else if (inventoryDrafts > 0 && sendableNow == 0)
+        {
+            var skipParts = readiness?.BlockedByReason?
+                .OrderByDescending(kv => kv.Value)
+                .Select(kv => $"{kv.Key}={kv.Value}")
+                .ToList() ?? new List<string>();
+            var skipText = skipParts.Count > 0 ? string.Join(", ", skipParts) : "send gates";
+            summary =
+                $"{inventoryDrafts} inventory drafts are intentionally gated ({skipText}); " +
+                $"0 sendable now" +
+                (dueFollowUps > 0 ? $"; {dueFollowUps} follow-ups due" : "") +
+                (researchDue > 0 ? $"; {researchDue} contacts to research" : "") +
+                $" ({remainingToday} send capacity left today). Not a send-path outage.";
+        }
+        else if (sendableNow == 0 && qualified == 0 && alreadyContactedQualified > 0)
         {
             summary =
                 $"{alreadyContactedQualified} score-qualified contacts already received initial outreach; " +
-                $"{autoEligible} initial sends ready" +
+                $"{sendableNow} sendable now" +
                 (dueFollowUps > 0 ? $"; {dueFollowUps} follow-ups due" : "") +
                 (researchDue > 0 ? $"; {researchDue} contacts to research" : "") +
                 $" ({remainingToday} send capacity left today).";
         }
-        else if (autoEligible == 0 && qualified > 0)
+        else if (sendableNow == 0 && qualified > 0 && inventoryDrafts == 0)
         {
             summary =
-                $"{qualified} qualified prospects, but {autoEligible} eligible for initial send — drafts not ready.";
+                $"{qualified} qualified prospects, but {sendableNow} sendable — drafts not ready.";
         }
-        else if (autoEligible == 0 && dueFollowUps == 0 && contactNeeded > 0)
+        else if (sendableNow == 0 && dueFollowUps == 0 && contactNeeded > 0)
         {
             summary =
-                $"No initial sends ready. {contactNeeded} prospects need contacts " +
+                $"No sendable initial drafts. {contactNeeded} prospects need contacts " +
                 $"({discoveryBackoff} in backoff, {noPublicContact} no public email, {researchDue} researchable now).";
         }
         else
         {
             summary =
-                $"{autoEligible} initial ready, {dueFollowUps} follow-ups due, {researchDue} contacts to research.";
+                $"{sendableNow} sendable now ({inventoryDrafts} inventory drafts), {dueFollowUps} follow-ups due, {researchDue} contacts to research.";
         }
+
+        string code;
+        if (readyInventory < lowWatermark)
+            code = "LOW_INVENTORY";
+        else if (inventoryDrafts > 0 && sendableNow == 0 && dueFollowUps == 0)
+            code = "INVENTORY_GATED";
+        else if (sendableNow == 0 && dueFollowUps == 0)
+            code = "NO_INITIAL_READY";
+        else
+            code = "RUNNING";
 
         return new
         {
-            code = readyInventory < lowWatermark
-                ? "LOW_INVENTORY"
-                : autoEligible == 0 && dueFollowUps == 0 ? "NO_INITIAL_READY" : "RUNNING",
+            code,
             summary,
             details,
         };
@@ -1964,7 +2039,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
 
     static object BuildNextAutomaticAction(
         PartnerOutreachSettingsRow settings,
-        int autoEligible,
+        int sendableNow,
+        int inventoryDrafts,
         int dueFollowUps,
         int researchDue,
         int discoveryBackoff,
@@ -1980,7 +2056,9 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         if (low)
             parts.Add($"discover new prospects → research contacts → qualify → prepare drafts (ready {readyInventory}/{inventoryTarget})");
         if (dueFollowUps > 0) parts.Add($"send {dueFollowUps} due follow-up{(dueFollowUps == 1 ? "" : "s")}");
-        if (autoEligible > 0) parts.Add($"send {Math.Min(autoEligible, remainingToday)} initial outreach");
+        if (sendableNow > 0) parts.Add($"send {Math.Min(sendableNow, remainingToday)} initial outreach");
+        else if (inventoryDrafts > 0)
+            parts.Add($"{inventoryDrafts} inventory drafts remain gated (duplicates/suppressions/cooldowns) — not scheduled to SES-send");
         if (!low && researchDue > 0) parts.Add($"research up to {Math.Min(researchDue, settings.ResearchContactsPerRun)} contacts");
         else if (!low && discoveryBackoff > 0) parts.Add($"wait on {discoveryBackoff} contact-discovery backoff(s)");
         if (!low && settings.AutoDiscoverProspects) parts.Add("replenish prospect inventory if capacity remains");
@@ -1993,7 +2071,9 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 + " ~10:05 AM ET (daily schedule)",
             summary = string.Join("; ", parts) + $" at {nextRun:yyyy-MM-dd HH:mm} UTC.",
             dueFollowUps,
-            initialReady = autoEligible,
+            initialReady = sendableNow,
+            sendableNow,
+            inventoryDrafts,
             researchDue,
             remainingCapacity = remainingToday,
             readyInventory,
@@ -3310,6 +3390,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 && q.FollowUpNumber == 0
                 && (q.SentAt != null || q.Status is "sent" or "delivered" or "replied")));
 
+        var fo0 = await ClassifyFo0SendReadinessAsync(queue, settings);
+
         return new
         {
             prospects = prospects.Count,
@@ -3347,12 +3429,13 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 ContactDiscoveryRules.HasUsableEmail(p)
                 && (p.QualificationScore >= PartnerOutreachRules.DefaultMinAcquisitionScore
                     || p.AcquisitionScore >= PartnerOutreachRules.DefaultMinAcquisitionScore)),
-            readyToSend = queue.Count(q =>
-                q.FollowUpNumber == 0
-                && q.Status is "draft" or "approved" or "approved_for_next_send"),
-            autoEligible = queue.Count(q =>
-                q.FollowUpNumber == 0
-                && q.Status is "draft" or "approved" or "approved_for_next_send"),
+            readyToSend = fo0.SendableNow,
+            autoEligible = fo0.InventoryDrafts,
+            inventoryDrafts = fo0.InventoryDrafts,
+            sendableNow = fo0.SendableNow,
+            inventoryBlocked = fo0.Blocked,
+            sendGateSkips = fo0.BlockedByReason,
+            allInventoryGated = fo0.AllInventoryGated,
             humanReview = prospects.Count(p =>
                 string.Equals(p.ContactDiscoveryStatus, ContactDiscoveryRules.DiscoveryReviewRequired, StringComparison.OrdinalIgnoreCase)),
             followUpsDue = queue.Count(q =>

@@ -67,12 +67,14 @@ describe('buildOwnerActions', () => {
     assert.equal(actions[0].text, AUTOMATION_HEALTHY);
   });
 
-  it('does not claim healthy when auto-eligible drafts had zero SES accepts today', () => {
+  it('does not claim healthy when sendable drafts had zero SES accepts today', () => {
     const actions = buildOwnerActions({
       needContact: 0,
       awaitingApproval: 0,
       approvedEligible: 30,
       autoEligible: 30,
+      inventoryDrafts: 30,
+      sendableNow: 30,
       emailsSentToday: 0,
       automaticSending: true,
       sendQualifiedAutomatically: true,
@@ -82,6 +84,25 @@ describe('buildOwnerActions', () => {
     assert.equal(ownerActionRequiresMax(actions), true);
     assert.match(actions[0].text, /0 SES accepts today despite 30/);
     assert.doesNotMatch(actions[0].text, /is operating normally\. No owner action required/);
+  });
+
+  it('treats Nov 2 gated inventory (30 drafts, 0 sendable) as healthy idle — not a send defect', () => {
+    const actions = buildOwnerActions({
+      needContact: 0,
+      awaitingApproval: 0,
+      approvedEligible: 30,
+      autoEligible: 30,
+      inventoryDrafts: 30,
+      sendableNow: 0,
+      emailsSentToday: 0,
+      automaticSending: true,
+      sendQualifiedAutomatically: true,
+      dryRun: false,
+    });
+    assert.equal(actions[0].id, 'none');
+    assert.equal(actions[0].text, AUTOMATION_HEALTHY);
+    assert.equal(ownerActionRequiresMax(actions), false);
+    assert.equal(actions.some((a) => a.id === 'zero-sends-despite-eligible'), false);
   });
 
   it('reports ready-to-send when approved and automation is OFF', () => {

@@ -11,18 +11,32 @@ export const SETTINGS_ADMIN_URL = 'https://gettrainmate.com/admin/partner-outrea
 export const AUTOMATION_HEALTHY =
   'Partner acquisition automation is operating normally. No owner action required.';
 
-/** When automation is ON but ready drafts produced zero SES accepts today. */
+/** When automation is ON but gate-sendable drafts produced zero SES accepts today. */
 export function zeroSendsDespiteEligibleMessage({
+  sendableNow = 0,
   autoEligible = 0,
   emailsSentToday = 0,
 } = {}) {
-  const nEligible = n(autoEligible);
+  const nSendable = n(sendableNow > 0 ? sendableNow : autoEligible);
   const sent = n(emailsSentToday);
   return (
-    `Partner automation ON but 0 SES accepts today despite ${nEligible} auto-eligible draft(s) ` +
+    `Partner automation ON but 0 SES accepts today despite ${nSendable} sendable draft(s) ` +
     `(sentToday=${sent}). Treat as a send-path defect, not a healthy idle pipeline — ` +
     `EventBridge discovery may have starved SendReady, or the weekday runner never completed a live automatic-run. ` +
     `Check Admin → Partner Outreach pipeline and today's automatic-run skipped[] tallies before raising limits.`
+  );
+}
+
+/** Inventory drafts exist but every row fails EvaluateSendGate — intentional, not a send outage. */
+export function gatedInventoryIdleMessage({
+  inventoryDrafts = 0,
+  sendableNow = 0,
+  emailsSentToday = 0,
+} = {}) {
+  return (
+    `Partner automation ON with ${n(inventoryDrafts)} inventory draft(s) and ${n(sendableNow)} sendable now ` +
+    `(sentToday=${n(emailsSentToday)}). Zero sends are expected while send gates block the inventory ` +
+    `(duplicates / suppressions / cooldowns) — not a technical send-path defect.`
   );
 }
 
@@ -53,6 +67,8 @@ function n(value) {
  *   emailsSentLifetime?: number,
  *   emailsSentToday?: number,
  *   autoEligible?: number,
+ *   inventoryDrafts?: number,
+ *   sendableNow?: number | null,
  *   lastAutomaticRunAt?: string | null,
  * }} state
  */
@@ -131,10 +147,16 @@ export function buildOwnerActions(state = {}) {
   const needContact = n(state.needContact);
   const awaitingApproval = n(state.awaitingApproval);
   const approvedEligible = n(state.approvedEligible ?? state.recipientsApproved);
-  const autoEligible = n(state.autoEligible ?? approvedEligible);
+  const inventoryDrafts = n(state.inventoryDrafts ?? state.autoEligible ?? approvedEligible);
+  const autoEligible = inventoryDrafts;
+  // Prefer gate-aware sendableNow when the CRM provides it. Missing sendableNow falls back to
+  // inventory only for legacy snapshots that predate the reporting split.
+  const sendableKnown = state.sendableNow != null && state.sendableNow !== '';
+  const sendableNow = sendableKnown ? n(state.sendableNow) : inventoryDrafts;
   const emailsSentToday = n(state.emailsSentToday);
 
-  // Automation flags ON is not success — zero sends with ready inventory is a reliability defect signal.
+  // Zero SES accepts is a send-path defect only when drafts currently pass EvaluateSendGate.
+  // Gated inventory (duplicates/suppressions/cooldowns) with sendableNow=0 is intentional idle.
   // Require emailsSentToday to be explicitly present (including 0); missing metrics must not invent this alarm.
   if (
     automatic &&
@@ -142,7 +164,7 @@ export function buildOwnerActions(state = {}) {
     !paused &&
     !safetyPaused &&
     !state.dryRun &&
-    autoEligible > 0 &&
+    sendableNow > 0 &&
     state.emailsSentToday != null &&
     state.emailsSentToday !== '' &&
     emailsSentToday === 0
@@ -151,6 +173,7 @@ export function buildOwnerActions(state = {}) {
       id: 'zero-sends-despite-eligible',
       severity: 'required',
       text: `MAX — ACTION REQUIRED: ${zeroSendsDespiteEligibleMessage({
+        sendableNow,
         autoEligible,
         emailsSentToday,
       })}`,

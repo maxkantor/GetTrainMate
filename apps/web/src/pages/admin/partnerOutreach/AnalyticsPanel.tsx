@@ -191,7 +191,8 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
             ['discovered', 'Discovered'],
             ['contactable', 'Contactable'],
             ['qualified', 'Qualified'],
-            ['autoEligible', 'Auto eligible'],
+            ['autoEligible', 'Inventory drafts'],
+            ['sendableNow', 'Sendable now'],
             ['sent', 'Sent'],
             ['clicked', 'Clicked'],
             ['signedUp', 'Signed up'],
@@ -229,7 +230,8 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
         <MetricCard label="Bounced" value={metrics?.bounced ?? 0} />
         <MetricCard label="Replies" value={metrics?.replies ?? 0} />
         <MetricCard label="Complaints" value={metrics?.complaints ?? 0} />
-        <MetricCard label="Auto eligible" value={funnel?.autoEligible ?? metrics?.approvedRecipients ?? 0} />
+        <MetricCard label="Inventory drafts" value={funnel?.inventoryDrafts ?? funnel?.autoEligible ?? metrics?.approvedRecipients ?? 0} />
+        <MetricCard label="Sendable now" value={funnel?.sendableNow ?? 0} />
         <MetricCard label="Positive replies" value={unavailableIfZero(metrics?.positiveReplies)} />
         <MetricCard label="Landing sessions" value={unavailableIfZero(metrics?.partnerLandingSessions)} />
         <MetricCard label="Attributed signups (metric)" value={unavailableIfZero(metrics?.partnerAttributedSignups)} />

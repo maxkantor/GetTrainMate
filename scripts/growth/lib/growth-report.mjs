@@ -709,6 +709,13 @@ function exp002Stats(snapshot) {
     draftsPrepared: zeroOk(s.draftsPrepared ?? s.funnel?.drafts),
     awaitingApproval: zeroOk(s.awaitingApproval ?? s.funnel?.awaitingApproval),
     autoEligible: zeroOk(s.autoEligible ?? s.funnel?.autoEligible ?? s.recipientsApproved ?? s.funnel?.approved),
+    inventoryDrafts: zeroOk(
+      s.inventoryDrafts ?? s.funnel?.inventoryDrafts ?? s.autoEligible ?? s.funnel?.autoEligible ?? s.recipientsApproved,
+    ),
+    sendableNow: zeroOk(s.sendableNow ?? s.funnel?.sendableNow ?? s.pipeline?.sendableNow),
+    inventoryBlocked: zeroOk(s.inventoryBlocked ?? s.funnel?.inventoryBlocked),
+    allInventoryGated: Boolean(s.allInventoryGated ?? s.funnel?.allInventoryGated),
+    sendGateSkips: s.sendGateSkips ?? s.funnel?.sendGateSkips ?? null,
     humanReview: zeroOk(s.humanReview ?? s.funnel?.humanReview ?? 0),
     recipientsApproved: zeroOk(s.recipientsApproved ?? s.funnel?.approved),
     emailsSent: zeroOk(s.emailsSent ?? s.funnel?.sent),
@@ -760,6 +767,8 @@ function exp002Stats(snapshot) {
           awaitingApproval: s.awaitingApproval ?? s.funnel?.awaitingApproval,
           approvedEligible: s.recipientsApproved ?? s.funnel?.approved,
           autoEligible: s.autoEligible ?? s.funnel?.autoEligible,
+          inventoryDrafts: s.inventoryDrafts ?? s.funnel?.inventoryDrafts ?? s.autoEligible,
+          sendableNow: s.sendableNow ?? s.funnel?.sendableNow,
           emailsSentToday: s.emailsSentToday ?? s.settings?.sentToday,
           pauseAllOutreach: Boolean(s.settings?.pauseAllOutreach),
           automaticSending: Boolean(s.settings?.automaticSending),
@@ -950,7 +959,9 @@ export function composeGrowthEmailBody({
     t.push(
       `Rates: delivery=${fmtRate(rates.deliveryRate)} reply=${fmtRate(rates.replyRate)} meaningful_reply=${fmtRate(rates.meaningfulReplyRate)} partner=${fmtRate(rates.partnerConversionRate)} signup=${fmtRate(rates.signupConversionRate)} paid=${fmtRate(rates.paidCustomerConversionRate)}`
     );
-    t.push(`PIPELINE: ready=${exp002.autoEligible ?? 0} alreadyContacted=${exp002.alreadyContactedQualified ?? 'n/a'} needContact=${exp002.contactNeeded ?? 'n/a'}`);
+    t.push(
+      `PIPELINE: inventory=${exp002.inventoryDrafts ?? exp002.autoEligible ?? 0} sendable=${exp002.sendableNow ?? 'n/a'} alreadyContacted=${exp002.alreadyContactedQualified ?? 'n/a'} needContact=${exp002.contactNeeded ?? 'n/a'}`,
+    );
     t.push('');
     t.push('DISCOVERY');
     t.push(`Prospects: ${exp002.prospects}`);
@@ -1273,7 +1284,7 @@ export function composeGrowthEmailBody({
       `  DISCOVERY: prospects=${exp002.prospects} emails_found=${exp002.contacts} need_contact=${exp002.needContact} drafts=${exp002.draftsPrepared}`
     );
     t.push(
-      `  OUTREACH: auto_eligible=${exp002.autoEligible ?? exp002.recipientsApproved} human_review=${exp002.humanReview ?? 0} sent=${exp002.emailsSent} delivered=${exp002.delivered}`
+      `  OUTREACH: inventory_drafts=${exp002.inventoryDrafts ?? exp002.autoEligible ?? exp002.recipientsApproved} sendable_now=${exp002.sendableNow ?? 'n/a'} human_review=${exp002.humanReview ?? 0} sent=${exp002.emailsSent} delivered=${exp002.delivered}`
     );
     t.push(
       `  ENGAGEMENT: replies=${exp002.partnerResponses} interested=${exp002.interested} partners=${exp002.partners}`
@@ -1494,7 +1505,11 @@ export function composeGrowthEmailBody({
                 { label: 'Prospects', value: String(exp002.prospects) },
                 { label: 'Usable Contacts', value: String(exp002.contacts) },
                 { label: 'Need contact', value: String(exp002.needContact) },
-                { label: 'Auto eligible', value: String(exp002.autoEligible ?? exp002.recipientsApproved) },
+                {
+                  label: 'Inventory drafts',
+                  value: String(exp002.inventoryDrafts ?? exp002.autoEligible ?? exp002.recipientsApproved),
+                },
+                { label: 'Sendable now', value: String(exp002.sendableNow ?? 'n/a') },
                 { label: 'Human review', value: String(exp002.humanReview ?? 0) },
                 {
                   label: 'Sent today / 7d / lifetime',
@@ -1688,7 +1703,7 @@ export function composeGrowthEmailBody({
               exp002.unavailable
                 ? `<div><b>Prospects / Contacts / Drafts / Sent:</b> Unavailable (CRM could not be queried — not zero)</div>`
                 : `<div><b>Discovery:</b> prospects ${escapeHtml(exp002.prospects)}, emails ${escapeHtml(exp002.contacts)}, need contact ${escapeHtml(exp002.needContact)}, drafts ${escapeHtml(exp002.draftsPrepared)}</div>
-            <div><b>Outreach:</b> auto eligible ${escapeHtml(exp002.autoEligible ?? exp002.recipientsApproved)}, human review ${escapeHtml(exp002.humanReview ?? 0)}, sent ${escapeHtml(exp002.emailsSent)}</div>
+            <div><b>Outreach:</b> inventory ${escapeHtml(exp002.inventoryDrafts ?? exp002.autoEligible ?? exp002.recipientsApproved)}, sendable ${escapeHtml(exp002.sendableNow ?? 'n/a')}, human review ${escapeHtml(exp002.humanReview ?? 0)}, sent ${escapeHtml(exp002.emailsSent)}</div>
             <div><b>Engagement:</b> replies ${escapeHtml(exp002.partnerResponses)}, interested ${escapeHtml(exp002.interested)}, partners ${escapeHtml(exp002.partners)}</div>
             <div><b>Customers:</b> signups ${escapeHtml(exp002.partnerSignups)}, paid ${escapeHtml(exp002.customersAcquired)}, revenue_cents ${escapeHtml(exp002.revenueAttributedCents)}</div>`
             }
