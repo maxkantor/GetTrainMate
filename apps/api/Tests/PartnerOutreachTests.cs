@@ -819,6 +819,21 @@ public class PartnerOutreachTests
         Assert.False(result.AllInventoryGated);
     }
 
+    [Theory]
+    [InlineData("duplicate_recipient", true)]
+    [InlineData("duplicate_organization", true)]
+    [InlineData("recent_contact", true)]
+    [InlineData("suppressed", true)]
+    [InlineData("daily_send_limit", false)]
+    [InlineData("dry_run", false)]
+    [InlineData("ses_quota_reached", false)]
+    public void Permanent_send_blocks_are_the_ones_safe_to_retire_from_inventory(string code, bool permanent)
+    {
+        // Mirrors PartnerOutreachService.IsPermanentSendBlock — keep in sync.
+        var isPermanent = code is "duplicate_recipient" or "duplicate_organization" or "recent_contact" or "suppressed";
+        Assert.Equal(permanent, isPermanent);
+    }
+
     [Fact]
     public void Suppression_reasons_map_to_why_not_sent()
     {

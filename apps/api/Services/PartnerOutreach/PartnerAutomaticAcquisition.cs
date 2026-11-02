@@ -448,6 +448,10 @@ public sealed partial class PartnerOutreachService
             if (code != null)
             {
                 Skip(WhyNotSent.FromGateCode(code, gate));
+                // Permanent blocks stay in Approvals forever unless retired — clear inventory noise.
+                // Never mutate queue during dry-run; never send.
+                if (!dryRun && IsPermanentSendBlock(code))
+                    await RetireUnsendableDraftAsync(item, code, actor);
                 continue;
             }
 

@@ -2498,36 +2498,29 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             }
         }
 
-        // Ready — Auto drafts that cannot send (already contacted email/org) — retire so Approvals SEND works.
+        // FO0 inventory that fails permanent EvaluateSendGate blocks — retire so Approvals/autoEligible stay honest.
+        var settings = await LoadSettingsAsync();
         var queueSnapshot = dryRun ? queue : await ListQueueAsync(null);
-        var contactedEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var contactedOrgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var q in queueSnapshot.Where(x => x.FollowUpNumber == 0 && IsAlreadySentQueueItem(x)))
-        {
-            if (!string.IsNullOrWhiteSpace(q.Recipient))
-                contactedEmails.Add(q.Recipient.Trim());
-            if (!string.IsNullOrWhiteSpace(q.OrganizationName))
-                contactedOrgs.Add(q.OrganizationName.Trim());
-        }
-
-        var readyAgain = queueSnapshot
-            .Where(q =>
-                q.FollowUpNumber == 0
-                && !IsAlreadySentQueueItem(q)
-                && q.Status is "draft" or "approved" or "approved_for_next_send")
-            .ToList();
+        var readyAgain = queueSnapshot.Where(Fo0SendReadiness.IsInventoryDraft).OrderBy(q => q.CreatedAt).ToList();
         var retiredReady = new List<object>();
+        var gatedSkipped = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in readyAgain)
         {
-            string? code = null;
-            if (!string.IsNullOrWhiteSpace(item.Recipient)
-                && contactedEmails.Contains(item.Recipient.Trim()))
-                code = "duplicate_recipient";
-            else if (!string.IsNullOrWhiteSpace(item.OrganizationName)
-                     && contactedOrgs.Contains(item.OrganizationName.Trim()))
-                code = "duplicate_organization";
-            if (code == null) continue;
-            retiredReady.Add(new { item.QueueId, item.Recipient, item.OrganizationName, reason = code });
+            var gate = await BuildGateAsync(item, settings, scheduled: false, allQueue: queueSnapshot);
+            gate.AutomaticQualifiedSend = settings.AutomaticSending && settings.SendQualifiedAutomatically;
+            gate.DryRun = false; // classify real sendability, not settings DryRun
+            var code = PartnerOutreachRules.EvaluateSendGate(gate);
+            if (code == null || !IsPermanentSendBlock(code)) continue;
+            var reason = WhyNotSent.FromGateCode(code, gate);
+            gatedSkipped[reason] = gatedSkipped.TryGetValue(reason, out var n) ? n + 1 : 1;
+            retiredReady.Add(new
+            {
+                item.QueueId,
+                item.Recipient,
+                item.OrganizationName,
+                reason = code,
+                whyNotSent = reason,
+            });
             if (!dryRun)
                 await RetireUnsendableDraftAsync(item, code, "dedupe");
         }
@@ -2539,6 +2532,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             prospectsRemoved = removedProspects.Count,
             queueRemoved = removedQueue.Count,
             readyDraftsRetired = retiredReady.Count,
+            inventoryDraftsScanned = readyAgain.Count,
+            gatedSkipped,
             keptProspects,
             removedProspects,
             removedQueue,
