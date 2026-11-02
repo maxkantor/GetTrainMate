@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-11-02",
   "strategyLock": {
     "status": "REVIEWED",
     "startedEt": "2026-08-24",
@@ -266,6 +266,26 @@
       "customers": 0,
       "outcome": "PUBLISHED_MANUAL_RECOVERY",
       "notes": "Lock day 4/7; Cursor automation Succeeded with Pull Request only — no Meta until manual publish"
+    },
+    {
+      "date": "2026-11-02",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "TRAIN",
+      "language": "en",
+      "hook": "train-en-question-consistency",
+      "destination": "/signup",
+      "campaign": "owned-facebook-train-en-20261102 / owned-instagram-train-en-20261102",
+      "contentId": "train-en-question-consistency",
+      "facebookPostId": "1138684902641972_122140758950773778",
+      "instagramPostId": "17996728442844038",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED",
+      "notes": "Weekday cron: run-weekday-growth failed (husky deps + AWS CLI v1); publish-owned-social + compose-and-send recovered; SES messageId 010001a19c95026e-612482ed-de98-4d5d-838f-84464b75386e-000000"
     }
   ],
   "doNotRepeat": [
