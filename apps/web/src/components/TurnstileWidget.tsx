@@ -8,7 +8,7 @@ declare global {
         opts: {
           sitekey: string;
           callback?: (token: string) => void;
-          'error-callback'?: (code?: string) => void;
+          'error-callback'?: (code?: string | Error | unknown) => void;
           'expired-callback'?: () => void;
           theme?: 'light' | 'dark' | 'auto';
           action?: string;
@@ -16,14 +16,16 @@ declare global {
       ) => string;
       reset: (widgetId?: string) => void;
       remove: (widgetId?: string) => void;
-      ready?: (cb: () => void) => void;
     };
     onGetTrainMateTurnstileLoad?: () => void;
   }
 }
 
 const SCRIPT_ID = 'cf-turnstile-api';
-const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onGetTrainMateTurnstileLoad';
+// Explicit render + onload callback: async/defer is correct. Do NOT call turnstile.ready()
+// with this pattern — Cloudflare throws if ready() is used with async/defer.
+const SCRIPT_SRC =
+  'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onGetTrainMateTurnstileLoad';
 
 export const TURNSTILE_SITE_KEY = String(import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim();
 
@@ -33,9 +35,17 @@ type Props = {
   disabled?: boolean;
 };
 
+function errorDetail(code: unknown): string {
+  const c = String(code ?? '');
+  if (c.includes('110200')) {
+    return 'Security check blocked: add gettrainmate.com to this Turnstile widget’s hostnames in Cloudflare.';
+  }
+  if (c) return `Security check failed (${c}). Refresh and try again.`;
+  return 'Security check failed to load. Refresh and try again.';
+}
+
 /**
  * Cloudflare Turnstile widget. Renders only when VITE_TURNSTILE_SITE_KEY is set.
- * Site keys are public; the secret stays server-side.
  */
 export const TurnstileWidget: React.FC<Props> = ({ onToken, onStatus, disabled }) => {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -60,17 +70,12 @@ export const TurnstileWidget: React.FC<Props> = ({ onToken, onStatus, disabled }
 
     const mount = () => {
       if (cancelled || !hostRef.current || !window.turnstile) return;
-      if (widgetIdRef.current) {
-        try {
-          window.turnstile.remove(widgetIdRef.current);
-        } catch {
-          /* ignore */
-        }
-        widgetIdRef.current = null;
-      }
+      if (widgetIdRef.current) return; // already mounted for this effect cycle
+
       hostRef.current.innerHTML = '';
       setErrorText(null);
       onStatusRef.current?.('idle');
+
       try {
         widgetIdRef.current = window.turnstile.render(hostRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
@@ -82,16 +87,7 @@ export const TurnstileWidget: React.FC<Props> = ({ onToken, onStatus, disabled }
             onTokenRef.current(token);
             onStatusRef.current?.('ready');
           },
-          'error-callback': (code) => {
-            const c = String(code || '');
-            const detail =
-              c.startsWith('110200')
-                ? 'Security check blocked: add gettrainmate.com to this Turnstile widget’s hostnames in Cloudflare.'
-                : c
-                  ? `Security check failed (${c}). Refresh and try again.`
-                  : 'Security check failed to load. Refresh and try again.';
-            fail(detail);
-          },
+          'error-callback': (code) => fail(errorDetail(code)),
           'expired-callback': () => {
             onTokenRef.current(null);
             onStatusRef.current?.('idle');
@@ -102,33 +98,31 @@ export const TurnstileWidget: React.FC<Props> = ({ onToken, onStatus, disabled }
       }
     };
 
-    const tryMount = () => {
-      if (cancelled) return;
-      if (window.turnstile) {
-        // turnstile.ready is available on newer api.js builds
-        if (typeof window.turnstile.ready === 'function') {
-          window.turnstile.ready(() => mount());
-        } else {
-          mount();
-        }
+    // Register before inserting script so onload never misses.
+    const prevOnload = window.onGetTrainMateTurnstileLoad;
+    window.onGetTrainMateTurnstileLoad = () => {
+      try {
+        prevOnload?.();
+      } catch {
+        /* ignore */
       }
+      mount();
     };
 
-    window.onGetTrainMateTurnstileLoad = () => tryMount();
-
-    if (!document.getElementById(SCRIPT_ID)) {
-      const s = document.createElement('script');
-      s.id = SCRIPT_ID;
-      s.src = SCRIPT_SRC;
-      s.async = true;
-      s.defer = true;
-      s.onerror = () => fail('Could not load Cloudflare security script.');
-      document.head.appendChild(s);
-    } else {
-      tryMount();
+    let script = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement('script');
+      script.id = SCRIPT_ID;
+      script.src = SCRIPT_SRC;
+      script.async = true;
+      script.defer = true;
+      script.onerror = () => fail('Could not load Cloudflare security script.');
+      document.head.appendChild(script);
+    } else if (window.turnstile) {
+      mount();
     }
 
-    // If onload already fired before our handler was assigned, retry briefly.
+    // If script finished before our onload assignment, poll briefly.
     const poll = window.setInterval(() => {
       if (cancelled || widgetIdRef.current) {
         window.clearInterval(poll);
@@ -136,10 +130,15 @@ export const TurnstileWidget: React.FC<Props> = ({ onToken, onStatus, disabled }
       }
       if (window.turnstile) {
         window.clearInterval(poll);
-        tryMount();
+        mount();
       }
-    }, 250);
-    const stop = window.setTimeout(() => window.clearInterval(poll), 8000);
+    }, 200);
+    const stop = window.setTimeout(() => {
+      window.clearInterval(poll);
+      if (!cancelled && !widgetIdRef.current) {
+        fail('Security check timed out loading. Refresh and try again.');
+      }
+    }, 10000);
 
     return () => {
       cancelled = true;
