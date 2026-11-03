@@ -1,11 +1,11 @@
-<#
+﻿<#
 .SYNOPSIS
     GetTrainMate daily growth runner for Windows Task Scheduler (local AWS credentials).
 .DESCRIPTION
     Runs the automated growth sequence as a local Windows scheduled task:
     1. Syncs latest git changes (git pull --rebase origin main)
     2. Runs scripts/growth/run-weekday-growth.mjs (lock, Meta social publish, snapshot, SES email)
-    3. Keeps growth artifacts local (published-log, snapshots) — does NOT push to GitHub by default
+    3. Keeps growth artifacts local (published-log, snapshots) - does NOT push to GitHub by default
     4. Logs all execution details to docs/growth/logs/
 
     Daily push of docs/growth was removed: it triggered a full Amplify web redeploy for
@@ -17,7 +17,7 @@
 .PARAMETER SkipSocial
     Runs snapshot and email only, skipping owned-social publishing.
 .PARAMETER SkipPush
-    Deprecated alias — push is already off by default. Kept so older task args still work.
+    Deprecated alias - push is already off by default. Kept so older task args still work.
 .PARAMETER PushArtifacts
     Opt-in: git add/commit/push docs/growth (triggers Amplify). Off for the daily scheduled task.
 .PARAMETER ContentId
@@ -40,7 +40,7 @@ $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "../..")
 Set-Location $root
 
-# Task Scheduler (Interactive/S4U) sessions often lack Node/AWS on PATH — match YouTubeBooster backup runner.
+# Task Scheduler (Interactive/S4U) sessions often lack Node/AWS on PATH - match YouTubeBooster backup runner.
 $env:Path = @(
   "C:\Program Files\nodejs",
   "C:\Program Files\Amazon\AWSCLIV2",
@@ -129,7 +129,7 @@ function Test-AlreadySucceededToday {
   $social = $false
   foreach ($line in $lines) {
     if ($line -notlike "$today*") { continue }
-    # Success lines are "=== GetTrainMate scheduled run OK ===" — do not anchor on end-of-line.
+    # Success lines are "=== GetTrainMate scheduled run OK ===" - do not anchor on end-of-line.
     if ($line -match "scheduled run OK" -and $line -notmatch "dry-run") { $ok = $true }
     if ($line -match "DAILY REPORT EMAIL SENT") { $email = $true }
     if ($line -match "EMAIL SKIPPED \(already sent today\)") { $email = $true }
@@ -162,7 +162,7 @@ process.stdout.write(sent ? 'SENT' : 'OPEN');
 }
 
 if (-not $DryRun -and (Test-AdminEmailAlreadySentInS3)) {
-  Log "Skipping Windows scheduled run: Admin email already sent today (S3 day guard — another runner finished first)."
+  Log "Skipping Windows scheduled run: Admin email already sent today (S3 day guard - another runner finished first)."
   exit 0
 }
 
@@ -209,7 +209,7 @@ try {
   if ($DryRun) {
     Log "Skipping git push (dry-run)"
   } elseif ($SkipPush -or -not $PushArtifacts) {
-    Log "Keeping growth artifacts local (no git push — avoids Amplify rebuild on published-log only)"
+    Log "Keeping growth artifacts local (no git push - avoids Amplify rebuild on published-log only)"
   } else {
     Invoke-LoggedCommand -Label "git" -FilePath $GitExe -ArgumentList @("add", "docs/growth") | Out-Null
 

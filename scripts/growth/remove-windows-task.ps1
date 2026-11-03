@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Unregisters the GetTrainMate Windows BACKUP growth task.
 #>

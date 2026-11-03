@@ -1,6 +1,6 @@
-<#
+﻿<#
 .SYNOPSIS
-    Setup Windows Scheduled Task — BACKUP for GetTrainMate Daily Growth
+    Setup Windows Scheduled Task - BACKUP for GetTrainMate Daily Growth
 
 .DESCRIPTION
     Primary trigger is Cursor Automation "GetTrainMate Customer Growth"
@@ -17,7 +17,7 @@
     Register (default), Unregister, Status, or RunNow.
 
 .PARAMETER Time
-    Backup start time HH:mm (default: "10:30" — after Cursor's 10:00).
+    Backup start time HH:mm (default: "10:30" - after Cursor's 10:00).
 
 .EXAMPLE
     .\scripts\growth\setup-windows-task.ps1 -Action Register
@@ -97,7 +97,7 @@ switch ($Action) {
         }
 
         $parsedTime = [datetime]::ParseExact($Time, "HH:mm", [System.Globalization.CultureInfo]::InvariantCulture)
-        # Daily — matches Cursor Automation (7 days/week).
+        # Daily - matches Cursor Automation (7 days/week).
         $trigger = New-ScheduledTaskTrigger -Daily -At $parsedTime
 
         $powershellExe = (Get-Command powershell.exe).Source
@@ -112,7 +112,7 @@ switch ($Action) {
             -WakeToRun `
             -MultipleInstances IgnoreNew
 
-        # Interactive: logged-on user session (reliable PATH / AWS creds) — same as YouTubeBooster backup.
+        # Interactive: logged-on user session (reliable PATH / AWS creds) - same as YouTubeBooster backup.
         $principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel Limited
 
         Register-ScheduledTask -TaskName $TaskName `
