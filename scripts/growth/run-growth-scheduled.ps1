@@ -40,6 +40,15 @@ $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "../..")
 Set-Location $root
 
+# Task Scheduler (Interactive/S4U) sessions often lack Node/AWS on PATH — match YouTubeBooster backup runner.
+$env:Path = @(
+  "C:\Program Files\nodejs",
+  "C:\Program Files\Amazon\AWSCLIV2",
+  "C:\Program Files\Git\cmd",
+  "$env:LOCALAPPDATA\Microsoft\WindowsApps",
+  $env:Path
+) -join ";"
+
 $logDir = Join-Path $root "docs\growth\logs"
 if (-not (Test-Path $logDir)) {
   New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -54,6 +63,25 @@ function Log($msg, $level = "INFO") {
   Add-Content -Path $mainLog -Value $line -Encoding utf8
   Write-Host $line
 }
+
+function Resolve-ToolPath {
+  param([string]$Name, [string[]]$Fallbacks)
+  $cmd = Get-Command $Name -ErrorAction SilentlyContinue
+  if ($cmd -and $cmd.Source) { return $cmd.Source }
+  foreach ($p in $Fallbacks) {
+    if (Test-Path $p) { return $p }
+  }
+  return $Name
+}
+
+$NodeExe = Resolve-ToolPath "node" @(
+  "C:\Program Files\nodejs\node.exe",
+  "$env:ProgramFiles\nodejs\node.exe"
+)
+$GitExe = Resolve-ToolPath "git" @(
+  "C:\Program Files\Git\cmd\git.exe",
+  "C:\Program Files\Git\bin\git.exe"
+)
 
 function Invoke-LoggedCommand {
   param(
@@ -120,7 +148,7 @@ if (Test-AlreadySucceededToday) {
 function Test-AdminEmailAlreadySentInS3 {
   try {
     $iso = Get-Date -Format "yyyy-MM-dd"
-    $probe = & node -e @"
+    $probe = & $NodeExe -e @"
 import { readAdminEmailDayMarker } from './scripts/growth/lib/admin-email-day-guard.mjs';
 const r = readAdminEmailDayMarker({ isoDate: '$iso' });
 const m = r?.marker;
@@ -138,13 +166,19 @@ if (-not $DryRun -and (Test-AdminEmailAlreadySentInS3)) {
   exit 0
 }
 
-Log "=== GetTrainMate scheduled run start ==="
+if (-not (Test-Path $NodeExe)) {
+  Log "FATAL: node.exe not found (tried $NodeExe)" "ERROR"
+  exit 1
+}
+
+Log "=== GetTrainMate scheduled run start (Windows BACKUP runner) ==="
+Log "Node executable: $NodeExe"
 try {
   # 1. Pull latest changes if remote main updated
   try {
     Log "Syncing with origin/main..."
-    Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("fetch", "origin", "main") | Out-Null
-    $rebaseCode = Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("pull", "--rebase", "origin", "main")
+    Invoke-LoggedCommand -Label "git" -FilePath $GitExe -ArgumentList @("fetch", "origin", "main") | Out-Null
+    $rebaseCode = Invoke-LoggedCommand -Label "git" -FilePath $GitExe -ArgumentList @("pull", "--rebase", "origin", "main")
     if ($rebaseCode -ne 0) {
       Log "Git pull returned $rebaseCode; continuing with local working copy..." "WARN"
     }
@@ -166,7 +200,7 @@ try {
     $runnerArgs += $Notes
   }
 
-  $nodeCode = Invoke-LoggedCommand -Label "node" -FilePath "node" -ArgumentList $runnerArgs
+  $nodeCode = Invoke-LoggedCommand -Label "node" -FilePath $NodeExe -ArgumentList $runnerArgs
   if ($nodeCode -ne 0) {
     throw "run-weekday-growth.mjs exited with code $nodeCode"
   }
@@ -177,14 +211,14 @@ try {
   } elseif ($SkipPush -or -not $PushArtifacts) {
     Log "Keeping growth artifacts local (no git push — avoids Amplify rebuild on published-log only)"
   } else {
-    Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("add", "docs/growth") | Out-Null
+    Invoke-LoggedCommand -Label "git" -FilePath $GitExe -ArgumentList @("add", "docs/growth") | Out-Null
 
-    $diffCode = Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("diff", "--staged", "--quiet")
+    $diffCode = Invoke-LoggedCommand -Label "git" -FilePath $GitExe -ArgumentList @("diff", "--staged", "--quiet")
     if ($diffCode -ne 0) {
-      Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @(
+      Invoke-LoggedCommand -Label "git" -FilePath $GitExe -ArgumentList @(
         "-c", "core.safecrlf=false", "commit", "-m", "chore(growth): daily publish snapshot [windows-task]"
       ) | Out-Null
-      $pushCode = Invoke-LoggedCommand -Label "git" -FilePath "git" -ArgumentList @("push", "origin", "main")
+      $pushCode = Invoke-LoggedCommand -Label "git" -FilePath $GitExe -ArgumentList @("push", "origin", "main")
       if ($pushCode -eq 0) {
         Log "Committed and pushed growth artifacts to origin/main"
       } else {

@@ -4,7 +4,7 @@
 **Schedule:** Daily 10:00 AM America/New_York (live Cursor automation, 7 days/week)  
 **Notify:** Exactly **one** Admin email per calendar day (America/New_York), including after owned-social publish or Meta blocker.
 
-**ONE SCHEDULER ONLY:** Keep a single primary runner. On 2026-10-27, three Cursor weekday-growth agents plus `--force-email` produced three identical Admin emails at 10:04 / 10:07 / 10:08. Do **not** also enable Windows Task Scheduler and GitHub Actions `daily-growth.yml` at the same time. Disable duplicate Cursor Automations with the same 10:00 ET schedule.  
+**Scheduler model (YouTubeBooster pattern):** Cursor Automation is **primary** at 10:00 ET. Windows Task Scheduler + GitHub Actions are **backups** at ~10:30 ET. Only **one** Cursor Automation may use the 10:00 ET schedule (2026-10-27 triple Cursor agents + `--force-email` sent three Admin emails). Backups are safe together because the S3 Admin-email day guard + local success skip allow only one live email/post per calendar day.  
 **North star:** 1,000+ real active users (TRAIN + VIBE + DATE) then 1,000+ verified paying customers. Atlanta TRAIN is one experiment, not the product.
 
 **STRATEGY LOCK:** Read `docs/growth/STRATEGY-LOCK.md` every run. While `status: LOCKED`, do **not** rewrite overall growth strategy. Rotate acquisition variants only. Product/code changes only under lock-rule exceptions. Valid outcome: `NO PRODUCT CHANGE — collecting data` + daily FB/IG when Meta is valid.
@@ -95,50 +95,52 @@ TIMEZONE: America/New_York for daily schedule + experiment eval dates.
 
 ---
 
-## Local Windows Scheduled Task (Backup for Cursor usage limit periods)
+## Local Windows Scheduled Task (BACKUP — mirrors YouTubeBooster)
 
-When Cursor usage limits are reached or during subscription lapses, the daily growth automation runs automatically via Windows Task Scheduler on this machine.
+When Cursor usage limits are reached or the cloud agent fails, this PC still runs growth via Task Scheduler (same design as `YouTubeBooster Daily Growth`).
 
 ### Task Details
 - **Task Name:** `GetTrainMate-GrowthDaily`
-- **Schedule:** Daily at **10:00 AM only** America/New_York. Do not register a 10:30 backup trigger — it duplicate-kicked the runner after a successful morning email/post. `run-growth-scheduled.ps1` still exits early if today's log already shows a full success (defense in depth).
-- **Script:** `scripts/growth/run-growth-scheduled.ps1`
+- **Role:** BACKUP — primary remains Cursor at **10:00 AM** ET; this task runs at **10:30 AM** ET daily.
+- **Script:** `scripts/growth/run-growth-scheduled.ps1` (PATH-hardened for Task Scheduler: Node + AWS CLI + Git)
 - **Features:**
-  - `StartWhenAvailable: true` — If the machine was asleep or off at 10:00 AM, it automatically runs as soon as the machine is powered on or wakes up.
-  - `WakeToRun: true` — Wakes computer from sleep if supported.
-  - Automatically pulls latest `origin/main` before running.
-  - Keeps `docs/growth` artifacts **local** by default (no daily git push). That used to trigger a full Amplify web redeploy for `published-log.json` only. Opt in with `-PushArtifacts` if you intentionally want that commit.
-  - Deduped via S3 day guard: even if multiple triggers fire on the same day, only ONE email and post are executed.
-  - Logs to `docs/growth/daily-task-runner.log` and `docs/growth/logs/YYYY-MM-DD-scheduled.log`.
+  - Interactive logon principal (reliable PATH / local AWS creds) + `MultipleInstances IgnoreNew`
+  - `StartWhenAvailable` / `WakeToRun` if the PC was asleep at 10:30
+  - Pulls `origin/main` before running
+  - Keeps `docs/growth` artifacts **local** by default (no Amplify redeploy). Opt in with `-PushArtifacts`
+  - Dedupes: local success log + S3 Admin-email day guard (skips if Cursor/GitHub already finished)
+  - Logs: `docs/growth/daily-task-runner.log` and `docs/growth/logs/YYYY-MM-DD-scheduled.log`
 
 ### Management Commands
 ```powershell
-# Check status, next run time, and recent logs:
+# Register / refresh BACKUP task (default 10:30 ET):
+.\scripts\growth\setup-windows-task.ps1 -Action Register
+
+# Status / next run / last result:
+.\scripts\growth\setup-windows-task.ps1 -Action Status
 .\scripts\growth\check-windows-task.ps1
 
-# Test-run the task manually:
-Start-ScheduledTask -TaskName "GetTrainMate-GrowthDaily"
+# Run the backup immediately (e.g. Cursor monthly limit hit):
+.\scripts\growth\setup-windows-task.ps1 -Action RunNow
 
-# Re-register or change schedule:
-.\scripts\growth\setup-windows-task.ps1
-
-# Remove legacy HybridRaceWorkouts / Cooking growth tasks (Windows only):
+# Remove legacy HybridRaceWorkouts / Cooking growth tasks:
 .\scripts\growth\remove-legacy-windows-growth-tasks.ps1
 
-# Unregister when Cursor Automations are restored:
-.\scripts\growth\remove-windows-task.ps1
+# Unregister backup task:
+.\scripts\growth\setup-windows-task.ps1 -Action Unregister
 ```
 
 ---
 
-## Cloud Backup via GitHub Actions (Optional)
+## Cloud Backup via GitHub Actions
 
-A workflow is also available at `.github/workflows/daily-growth.yml` (runs daily at 14:00 UTC / 10:00 AM EDT).
-To enable it in the cloud:
-1. In your GitHub repository settings -> **Secrets and variables** -> **Actions**, add:
-   - `AWS_ACCESS_KEY_ID`: Your IAM access key ID
-   - `AWS_SECRET_ACCESS_KEY`: Your IAM secret access key
-2. Once added, GitHub Actions will automatically execute the daily growth run in the cloud independently of your local PC.
+Workflow: `.github/workflows/daily-growth.yml` — scheduled **14:30 UTC and 15:30 UTC** daily (~10:30 ET year-round). Manual `workflow_dispatch` always available.
+
+Required repo secrets (`Settings → Secrets and variables → Actions`):
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+
+S3 day guard skips the run when Cursor or Windows already sent today's Admin email.
 
 
 ---

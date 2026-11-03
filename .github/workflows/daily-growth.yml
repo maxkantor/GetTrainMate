@@ -1,17 +1,29 @@
 name: Daily Growth Automation
 
 on:
-  # Schedule DISABLED — Cursor Automation is the primary daily runner.
-  # Multiple 10:00 ET schedules (Cursor + Windows + Actions) caused triple Admin emails (2026-10-27).
-  # Keep workflow_dispatch for manual recovery only.
+  schedule:
+    # Cloud BACKUP for Cursor Automation (primary: daily 10:00 America/New_York).
+    # Same pattern as YouTubeBooster: offset after Cursor so usage-limit / cloud-agent
+    # failures still produce owned-social + Admin email. S3 day guard dedupes if Cursor
+    # or Windows already finished.
+    # 14:30 UTC ≈ 10:30 AM EDT; 15:30 UTC ≈ 10:30 AM EST.
+    - cron: '30 14 * * *'
+    - cron: '30 15 * * *'
   workflow_dispatch:
-    # To re-enable GitHub as sole runner, restore:
-    # schedule:
-    #   - cron: '0 14 * * *'
+    inputs:
+      dry_run:
+        description: 'Dry run (no live social publish / Admin email)'
+        type: boolean
+        default: false
+      skip_social:
+        description: 'Skip owned-social publish'
+        type: boolean
+        default: false
 
 jobs:
   growth:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     permissions:
       contents: write
@@ -37,10 +49,24 @@ jobs:
           aws-region: us-east-1
 
       - name: Run Daily Growth
-        run: node scripts/growth/run-weekday-growth.mjs
+        run: |
+          ARGS=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ "${{ inputs.skip_social }}" = "true" ]; then ARGS="$ARGS --skip-social"; fi
+          node scripts/growth/run-weekday-growth.mjs $ARGS
+
+      - name: Upload run logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: growth-run-logs-${{ github.run_id }}
+          path: |
+            docs/growth/logs/
+            docs/growth/owned-social/published-log.json
+          if-no-files-found: ignore
 
       - name: Commit and push updated artifacts
-        if: always()
+        if: always() && github.event.inputs.dry_run != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

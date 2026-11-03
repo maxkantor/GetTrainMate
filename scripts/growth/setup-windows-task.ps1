@@ -1,124 +1,133 @@
 <#
 .SYNOPSIS
-    Registers the GetTrainMate Daily Growth task in Windows Task Scheduler.
+    Setup Windows Scheduled Task — BACKUP for GetTrainMate Daily Growth
+
 .DESCRIPTION
-    Creates a scheduled task that executes .\scripts\growth\run-growth-scheduled.ps1
-    daily at 10:00 AM only (no 10:30 backup trigger).
-    Features:
-    - Runs automatically 7 days a week including weekends.
-    - StartWhenAvailable enabled: if PC is asleep or off at 10:00 AM, it runs
-      immediately when the machine wakes up or boots.
-    - WakeToRun enabled: wakes computer to run if supported by system power policy.
-    - Runs in the background (WindowStyle Hidden).
-    - Logs all output to docs/growth/daily-task-runner.log and docs/growth/logs/.
-    - Dedupes safely via S3 day guard (only one email/publish per calendar day).
+    Primary trigger is Cursor Automation "GetTrainMate Customer Growth"
+    (daily 10:00 AM America/New_York).
+
+    This Windows task is the local BACKUP (YouTubeBooster pattern): it runs later
+    the same morning so a disabled / rate-limited / usage-capped Cursor Automation
+    still produces owned-social + Admin email when this PC is on.
+
+    Dedupes via local success log + S3 Admin-email day guard (safe alongside
+    Cursor and GitHub Actions).
+
+.PARAMETER Action
+    Register (default), Unregister, Status, or RunNow.
 
 .PARAMETER Time
-    Primary time of day to run (default: "10:00AM"). Format: "HH:mm" or "hh:mmtt".
-.PARAMETER BackupTime
-    Optional secondary backup time (default: none). Leave empty.
-    Do not use 10:30AM - a second daily trigger re-ran the full growth job after
-    successful morning email/social publishes.
+    Backup start time HH:mm (default: "10:30" — after Cursor's 10:00).
 
 .EXAMPLE
-    .\scripts\growth\setup-windows-task.ps1
+    .\scripts\growth\setup-windows-task.ps1 -Action Register
+    .\scripts\growth\setup-windows-task.ps1 -Action Status
+    .\scripts\growth\setup-windows-task.ps1 -Action RunNow
+    .\scripts\growth\setup-windows-task.ps1 -Action Unregister
 #>
 
 [CmdletBinding()]
 param(
-    [string]$Time = "10:00AM",
-    [string]$BackupTime = ""
+    [ValidateSet("Register", "Unregister", "Status", "RunNow")]
+    [string]$Action = "Register",
+
+    [string]$Time = "10:30"
 )
 
-if ($BackupTime -and $BackupTime -match '10:30') {
-    Write-Warning "Ignoring BackupTime=$BackupTime - a 10:30 second trigger causes duplicate growth runs."
-    $BackupTime = ""
-}
-
-$ErrorActionPreference = "Stop"
-
 $TaskName = "GetTrainMate-GrowthDaily"
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = (Resolve-Path (Join-Path $ScriptDir "..\..")).Path
-$RunnerScript = Join-Path $ScriptDir "run-growth-scheduled.ps1"
+$RunnerPs1 = Join-Path $ScriptDir "run-growth-scheduled.ps1"
 
-Write-Host "================================================================" -ForegroundColor Cyan
-Write-Host "Registering Windows Scheduled Task: $TaskName" -ForegroundColor Green
-Write-Host "Repository Root: $RepoRoot" -ForegroundColor Gray
-Write-Host "Target Script:   $RunnerScript" -ForegroundColor Gray
-Write-Host "Primary Time:    $Time Daily" -ForegroundColor Gray
-if ($BackupTime) {
-  Write-Host "Backup Time:     $BackupTime Daily" -ForegroundColor Gray
-} else {
-  Write-Host "Backup Time:     (disabled)" -ForegroundColor Gray
-}
-Write-Host "================================================================" -ForegroundColor Cyan
-
-# Verify script exists
-if (-not (Test-Path $RunnerScript)) {
-    Write-Error "Runner script not found at $RunnerScript"
-    exit 1
-}
-
-# Create Scheduled Task Action
-$Action = New-ScheduledTaskAction `
-    -Execute "powershell.exe" `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$RunnerScript`"" `
-    -WorkingDirectory $RepoRoot
-
-# Create Scheduled Task Triggers (Daily at Primary only unless BackupTime is set)
-$Trigger1 = New-ScheduledTaskTrigger -Daily -At $Time
-$Triggers = @($Trigger1)
-if ($BackupTime -and $BackupTime -ne $Time) {
-    $Trigger2 = New-ScheduledTaskTrigger -Daily -At $BackupTime
-    $Triggers += $Trigger2
-}
-
-# Configure Settings:
-# - StartWhenAvailable: Run as soon as possible if scheduled start was missed (e.g. computer was asleep/off)
-# - AllowStartIfOnBatteries & DontStopIfGoingOnBatteries: Run on laptops even when unplugged
-# - WakeToRun: Wake computer from sleep to run if supported
-$Settings = New-ScheduledTaskSettingsSet `
-    -StartWhenAvailable `
-    -AllowStartIfOnBatteries `
-    -DontStopIfGoingOnBatteries `
-    -WakeToRun `
-    -ExecutionTimeLimit (New-TimeSpan -Hours 1)
-
-$descSuffix = if ($BackupTime) { " with $BackupTime backup" } else { "" }
-$description = "GetTrainMate Daily Paid Customer Growth automation runner (runs daily at $Time$descSuffix)."
-
-try {
-    # Register the task for current user
-    Register-ScheduledTask `
-        -TaskName $TaskName `
-        -Action $Action `
-        -Trigger $Triggers `
-        -Settings $Settings `
-        -Description $description `
-        -Force | Out-Null
-
-    Write-Host ""
-    Write-Host "Task '$TaskName' registered successfully!" -ForegroundColor Green
-
-    # Verify task details
-    $Registered = Get-ScheduledTask -TaskName $TaskName
-    $Info = Get-ScheduledTaskInfo -TaskName $TaskName
-    Write-Host "Task State:     $($Registered.State)" -ForegroundColor Green
-    Write-Host "Next Run Time:  $($Info.NextRunTime)" -ForegroundColor Cyan
-    Write-Host "Triggers:" -ForegroundColor Cyan
-    foreach ($t in @($Registered.Triggers)) {
-        Write-Host ("  - " + $t.StartBoundary + " Enabled=" + $t.Enabled) -ForegroundColor Gray
+function Show-Status {
+    $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    if ($existing) {
+        $info = Get-ScheduledTaskInfo -TaskName $TaskName -ErrorAction SilentlyContinue
+        $resultHex = if ($null -ne $info.LastTaskResult) { ("0x{0:X8}" -f [uint32]$info.LastTaskResult) } else { "n/a" }
+        Write-Host "Task Name:        $($existing.TaskName)" -ForegroundColor Green
+        Write-Host "State:            $($existing.State)" -ForegroundColor Green
+        Write-Host "Role:             BACKUP (Cursor Automation is primary at 10:00 ET)" -ForegroundColor Cyan
+        Write-Host "Last Run Time:    $($info.LastRunTime)"
+        Write-Host "Last Result:      $($info.LastTaskResult) ($resultHex)"
+        Write-Host "Next Run Time:    $($info.NextRunTime)"
+        Write-Host "Script:           $RunnerPs1"
+        Write-Host "Log folder:       $(Join-Path $RepoRoot 'docs\growth\logs')"
+    } else {
+        Write-Host "Task '$TaskName' is NOT registered." -ForegroundColor Yellow
     }
-    Write-Host "================================================================" -ForegroundColor Cyan
-    Write-Host "To test the task manually right now:" -ForegroundColor Yellow
-    Write-Host "  Start-ScheduledTask -TaskName `"$TaskName`"" -ForegroundColor Gray
-    Write-Host "To check logs:" -ForegroundColor Yellow
-    Write-Host "  .\scripts\growth\check-windows-task.ps1" -ForegroundColor Gray
-    Write-Host "To remove the task when Cursor renewals resume:" -ForegroundColor Yellow
-    Write-Host "  .\scripts\growth\remove-windows-task.ps1" -ForegroundColor Gray
-    Write-Host "================================================================" -ForegroundColor Cyan
-} catch {
-    Write-Error ("Failed to register scheduled task: " + $_.Exception.Message)
-    exit 1
+}
+
+switch ($Action) {
+    "Status" {
+        Show-Status
+    }
+
+    "RunNow" {
+        $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        if (-not $existing) {
+            Write-Host "Task not registered yet. Running script directly..." -ForegroundColor Yellow
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $RunnerPs1
+        } else {
+            Write-Host "Triggering scheduled task '$TaskName'..." -ForegroundColor Cyan
+            Start-ScheduledTask -TaskName $TaskName
+            Start-Sleep -Seconds 3
+            Show-Status
+        }
+    }
+
+    "Unregister" {
+        $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        if ($existing) {
+            Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+            Write-Host "Task '$TaskName' removed successfully." -ForegroundColor Green
+        } else {
+            Write-Host "Task '$TaskName' does not exist." -ForegroundColor Yellow
+        }
+    }
+
+    "Register" {
+        if (-not (Test-Path $RunnerPs1)) {
+            throw "Runner script missing: $RunnerPs1"
+        }
+
+        $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        if ($existing) {
+            Write-Host "Task '$TaskName' already exists. Updating..." -ForegroundColor Yellow
+            Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+        }
+
+        $parsedTime = [datetime]::ParseExact($Time, "HH:mm", [System.Globalization.CultureInfo]::InvariantCulture)
+        # Daily — matches Cursor Automation (7 days/week).
+        $trigger = New-ScheduledTaskTrigger -Daily -At $parsedTime
+
+        $powershellExe = (Get-Command powershell.exe).Source
+        $argumentList = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$RunnerPs1`""
+        $taskAction = New-ScheduledTaskAction -Execute $powershellExe -Argument $argumentList -WorkingDirectory $RepoRoot
+
+        $settings = New-ScheduledTaskSettingsSet `
+            -AllowStartIfOnBatteries `
+            -DontStopIfGoingOnBatteries `
+            -StartWhenAvailable `
+            -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
+            -WakeToRun `
+            -MultipleInstances IgnoreNew
+
+        # Interactive: logged-on user session (reliable PATH / AWS creds) — same as YouTubeBooster backup.
+        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel Limited
+
+        Register-ScheduledTask -TaskName $TaskName `
+            -Trigger $trigger `
+            -Action $taskAction `
+            -Settings $settings `
+            -Principal $principal `
+            -Description "BACKUP for Cursor Automation 'GetTrainMate Customer Growth'. Primary = Cursor 10:00 ET daily; this task = $Time ET daily (owned-social + Admin email)." | Out-Null
+
+        Write-Host "Scheduled task '$TaskName' registered as BACKUP." -ForegroundColor Green
+        Write-Host "Primary:  Cursor Automation daily 10:00 ET" -ForegroundColor Cyan
+        Write-Host "Backup:   Windows task daily $Time ET (this PC must be on / logged in)" -ForegroundColor Cyan
+        Write-Host "Catch-up: StartWhenAvailable if the PC was asleep at $Time." -ForegroundColor Cyan
+        Write-Host "Dedupes:  S3 Admin-email day guard + local success log." -ForegroundColor Cyan
+        Write-Host ""
+        Show-Status
+    }
 }
