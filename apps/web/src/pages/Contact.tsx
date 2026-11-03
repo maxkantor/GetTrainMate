@@ -13,6 +13,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { PageShell } from '@/components/layout/PageShell';
 import { trackContactSubmit, trackLead } from '@/utils/analytics';
 import { API_BASE_URL } from '@/config/api';
+import { TURNSTILE_SITE_KEY, TurnstileWidget, resetTurnstile } from '@/components/TurnstileWidget';
 
 export const ContactPage: React.FC = () => {
   const { t } = useI18n();
@@ -23,6 +24,7 @@ export const ContactPage: React.FC = () => {
     message: '',
     company: '', // honeypot — leave empty
   });
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -43,6 +45,11 @@ export const ContactPage: React.FC = () => {
       return;
     }
 
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      setError(t('contact.error_captcha') || 'Please complete the security check.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/public/contact`, {
@@ -54,6 +61,7 @@ export const ContactPage: React.FC = () => {
           subject: formData.subject,
           message: formData.message.trim(),
           company: formData.company,
+          captchaToken: captchaToken || undefined,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -64,6 +72,8 @@ export const ContactPage: React.FC = () => {
       };
       if (!res.ok) {
         setError(typeof data.error === 'string' ? data.error : t('contact.error_send_failed'));
+        setCaptchaToken(null);
+        resetTurnstile();
         return;
       }
       // Only count leads when the server accepted the submission (honeypot/dedupe set accepted=false).
@@ -72,12 +82,16 @@ export const ContactPage: React.FC = () => {
         trackLead('contact', { subject_category: formData.subject });
       }
       setSubmitted(true);
+      setCaptchaToken(null);
+      resetTurnstile();
       setTimeout(() => {
         setFormData({ name: '', email: '', subject: 'general', message: '', company: '' });
         setSubmitted(false);
       }, 5000);
     } catch {
       setError(t('contact.error_network'));
+      setCaptchaToken(null);
+      resetTurnstile();
     } finally {
       setSubmitting(false);
     }
@@ -187,12 +201,13 @@ export const ContactPage: React.FC = () => {
             disabled={submitted || submitting}
             sx={{ mb: 2 }}
           />
+          <TurnstileWidget onToken={setCaptchaToken} disabled={submitted || submitting} />
           <Button
             type="submit"
             variant="contained"
             size="large"
             fullWidth
-            disabled={submitted || submitting}
+            disabled={submitted || submitting || (Boolean(TURNSTILE_SITE_KEY) && !captchaToken)}
             sx={{ py: 1.25 }}
           >
             {submitted ? t('contact.btn_sent') : submitting ? t('contact.btn_sending') : t('contact.btn_send')}

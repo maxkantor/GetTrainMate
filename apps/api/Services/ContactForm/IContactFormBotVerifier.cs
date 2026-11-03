@@ -1,3 +1,5 @@
+using Amazon.SimpleSystemsManagement;
+using Amazon.SimpleSystemsManagement.Model;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -24,30 +26,65 @@ public sealed class DisabledContactFormBotVerifier : IContactFormBotVerifier
 }
 
 /// <summary>
-/// Cloudflare Turnstile siteverify. Requires env CONTACT_FORM_TURNSTILE_SECRET.
-/// Expected hostname can be set via CONTACT_FORM_TURNSTILE_HOST (default gettrainmate.com).
+/// Cloudflare Turnstile siteverify.
+/// Secret from CONTACT_FORM_TURNSTILE_SECRET env, or SSM /gettrainmate/contact/turnstile-secret.
+/// Expected hostname: CONTACT_FORM_TURNSTILE_HOST (default gettrainmate.com).
 /// </summary>
 public sealed class TurnstileContactFormBotVerifier : IContactFormBotVerifier
 {
+    public const string SsmSecretPath = "/gettrainmate/contact/turnstile-secret";
+
     private readonly HttpClient _http;
-    private readonly string _secret;
-    private readonly string _expectedHost;
+    private readonly IAmazonSimpleSystemsManagement _ssm;
     private readonly ILogger<TurnstileContactFormBotVerifier> _logger;
+    private readonly string _expectedHost;
+    private string? _secret;
+    private bool _ssmAttempted;
 
     public TurnstileContactFormBotVerifier(
         HttpClient http,
         IConfiguration config,
+        IAmazonSimpleSystemsManagement ssm,
         ILogger<TurnstileContactFormBotVerifier> logger)
     {
         _http = http;
+        _ssm = ssm;
+        _logger = logger;
         _secret = (config["CONTACT_FORM_TURNSTILE_SECRET"] ?? Environment.GetEnvironmentVariable("CONTACT_FORM_TURNSTILE_SECRET") ?? "").Trim();
+        if (_secret.Length == 0) _secret = null;
         _expectedHost = (config["CONTACT_FORM_TURNSTILE_HOST"]
                          ?? Environment.GetEnvironmentVariable("CONTACT_FORM_TURNSTILE_HOST")
                          ?? "gettrainmate.com").Trim().ToLowerInvariant();
-        _logger = logger;
     }
 
-    public bool IsEnabled => _secret.Length > 0;
+    public bool IsEnabled
+    {
+        get
+        {
+            EnsureSecretLoaded();
+            return !string.IsNullOrEmpty(_secret);
+        }
+    }
+
+    private void EnsureSecretLoaded()
+    {
+        if (!string.IsNullOrEmpty(_secret) || _ssmAttempted) return;
+        _ssmAttempted = true;
+        try
+        {
+            var res = _ssm.GetParameterAsync(new GetParameterRequest
+            {
+                Name = SsmSecretPath,
+                WithDecryption = true,
+            }).GetAwaiter().GetResult();
+            var v = (res.Parameter?.Value ?? "").Trim();
+            if (v.Length > 0) _secret = v;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Turnstile SSM secret not loaded from {Path}", SsmSecretPath);
+        }
+    }
 
     public async Task<ContactFormBotVerifyResult> VerifyAsync(string? token, string? remoteIp, CancellationToken cancellationToken)
     {
@@ -61,7 +98,7 @@ public sealed class TurnstileContactFormBotVerifier : IContactFormBotVerifier
         {
             using var content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
-                ["secret"] = _secret,
+                ["secret"] = _secret!,
                 ["response"] = token.Trim(),
                 ["remoteip"] = remoteIp ?? "",
             });

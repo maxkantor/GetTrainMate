@@ -167,6 +167,13 @@ export class GetTrainMateStack extends cdk.Stack {
           (this.node.tryGetContext('partnerSesConfigurationSet') as string | undefined)?.trim() ||
           (process.env.PARTNER_SES_CONFIGURATION_SET || '').trim() ||
           'gettrainmate-partner-outreach',
+        // Cloudflare Turnstile (contact form). Secret preferably in SSM SecureString
+        // /gettrainmate/contact/turnstile-secret; env override for local/dev.
+        CONTACT_FORM_TURNSTILE_SECRET: (process.env.CONTACT_FORM_TURNSTILE_SECRET || '').trim(),
+        CONTACT_FORM_TURNSTILE_HOST:
+          (this.node.tryGetContext('contactFormTurnstileHost') as string | undefined)?.trim() ||
+          (process.env.CONTACT_FORM_TURNSTILE_HOST || '').trim() ||
+          'gettrainmate.com',
       },
     });
 

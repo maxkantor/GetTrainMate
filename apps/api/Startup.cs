@@ -131,17 +131,11 @@ public class Startup
         services.AddScoped<IAdminNotificationService, AdminNotificationService>();
         services.AddScoped<GetTrainMate.Api.Services.ContactForm.IContactFormGuardStore,
             GetTrainMate.Api.Services.ContactForm.DynamoContactFormGuardStore>();
+        // Turnstile enables itself when CONTACT_FORM_TURNSTILE_SECRET env or SSM
+        // /gettrainmate/contact/turnstile-secret is present.
         services.AddHttpClient<GetTrainMate.Api.Services.ContactForm.TurnstileContactFormBotVerifier>();
         services.AddScoped<GetTrainMate.Api.Services.ContactForm.IContactFormBotVerifier>(sp =>
-        {
-            var cfg = sp.GetRequiredService<IConfiguration>();
-            var secret = (cfg["CONTACT_FORM_TURNSTILE_SECRET"]
-                          ?? Environment.GetEnvironmentVariable("CONTACT_FORM_TURNSTILE_SECRET")
-                          ?? "").Trim();
-            if (secret.Length == 0)
-                return new GetTrainMate.Api.Services.ContactForm.DisabledContactFormBotVerifier();
-            return sp.GetRequiredService<GetTrainMate.Api.Services.ContactForm.TurnstileContactFormBotVerifier>();
-        });
+            sp.GetRequiredService<GetTrainMate.Api.Services.ContactForm.TurnstileContactFormBotVerifier>());
         services.AddScoped<ICognitoAdminUserDeletionService, CognitoAdminUserDeletionService>();
         services.AddScoped<ICognitoRegistrationCheckService, CognitoRegistrationCheckService>();
         services.AddScoped<ILandingMatchPreviewService, LandingMatchPreviewService>();
