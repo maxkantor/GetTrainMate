@@ -21,6 +21,7 @@ export const ContactPage: React.FC = () => {
     email: '',
     subject: 'general',
     message: '',
+    company: '', // honeypot — leave empty
   });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -52,18 +53,27 @@ export const ContactPage: React.FC = () => {
           email: formData.email.trim(),
           subject: formData.subject,
           message: formData.message.trim(),
+          company: formData.company,
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        message?: string;
+        accepted?: boolean;
+        ok?: boolean;
+      };
       if (!res.ok) {
         setError(typeof data.error === 'string' ? data.error : t('contact.error_send_failed'));
         return;
       }
-      trackContactSubmit(formData.subject);
-      trackLead('contact', { subject_category: formData.subject });
+      // Only count leads when the server accepted the submission (honeypot/dedupe set accepted=false).
+      if (data.accepted !== false) {
+        trackContactSubmit(formData.subject);
+        trackLead('contact', { subject_category: formData.subject });
+      }
       setSubmitted(true);
       setTimeout(() => {
-        setFormData({ name: '', email: '', subject: 'general', message: '' });
+        setFormData({ name: '', email: '', subject: 'general', message: '', company: '' });
         setSubmitted(false);
       }, 5000);
     } catch {
@@ -94,7 +104,7 @@ export const ContactPage: React.FC = () => {
           </Typography>
         </Box>
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 520, mx: 'auto' }}>
+        <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 520, mx: 'auto' }} autoComplete="on">
           {submitted && (
             <Alert severity="success" sx={{ mb: 2 }}>
               {t('contact.success')}
@@ -106,6 +116,30 @@ export const ContactPage: React.FC = () => {
               {error}
             </Alert>
           )}
+
+          {/* Accessible honeypot: hidden from sighted users and AT, ignored by normal autofill */}
+          <Box
+            aria-hidden="true"
+            sx={{
+              position: 'absolute',
+              left: '-10000px',
+              top: 'auto',
+              width: '1px',
+              height: '1px',
+              overflow: 'hidden',
+            }}
+          >
+            <label htmlFor="contact-company">Company</label>
+            <input
+              id="contact-company"
+              name="company"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={formData.company}
+              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+            />
+          </Box>
 
           <TextField
             fullWidth

@@ -787,6 +787,16 @@ export class GetTrainMateStack extends cdk.Stack {
     });
     tables.push(messagesTable);
 
+    // Public contact-form rate limit + content dedupe (TTL). Cross-Lambda atomic guards.
+    const contactFormGuardTable = new dynamodb.Table(this, 'ContactFormGuardTable', {
+      tableName: 'gettrainmate-contact-form-guard',
+      partitionKey: { name: 'Id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.DEFAULT,
+      timeToLiveAttribute: 'ExpiresAt',
+    });
+    tables.push(contactFormGuardTable);
+
     return tables;
   }
 
