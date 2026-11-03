@@ -25,9 +25,12 @@ export const ContactPage: React.FC = () => {
     company: '', // honeypot — leave empty
   });
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const captchaRequired = Boolean(TURNSTILE_SITE_KEY);
+  const captchaReady = !captchaRequired || Boolean(captchaToken);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,14 +204,26 @@ export const ContactPage: React.FC = () => {
             disabled={submitted || submitting}
             sx={{ mb: 2 }}
           />
-          <TurnstileWidget onToken={setCaptchaToken} disabled={submitted || submitting} />
+          <TurnstileWidget
+            onToken={setCaptchaToken}
+            onStatus={(status, detail) => {
+              if (status === 'error') setCaptchaError(detail || 'Security check failed.');
+              else setCaptchaError(null);
+            }}
+            disabled={submitted || submitting}
+          />
           <Button
             type="submit"
             variant="contained"
             size="large"
             fullWidth
-            disabled={submitted || submitting || (Boolean(TURNSTILE_SITE_KEY) && !captchaToken)}
+            disabled={submitted || submitting || (captchaRequired && !captchaReady)}
             sx={{ py: 1.25 }}
+            title={
+              captchaRequired && !captchaReady
+                ? captchaError || 'Complete the security check above to send'
+                : undefined
+            }
           >
             {submitted ? t('contact.btn_sent') : submitting ? t('contact.btn_sending') : t('contact.btn_send')}
           </Button>

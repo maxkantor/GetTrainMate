@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 declare global {
   interface Window {
@@ -8,7 +8,7 @@ declare global {
         opts: {
           sitekey: string;
           callback?: (token: string) => void;
-          'error-callback'?: () => void;
+          'error-callback'?: (code?: string) => void;
           'expired-callback'?: () => void;
           theme?: 'light' | 'dark' | 'auto';
           action?: string;
@@ -16,6 +16,7 @@ declare global {
       ) => string;
       reset: (widgetId?: string) => void;
       remove: (widgetId?: string) => void;
+      ready?: (cb: () => void) => void;
     };
     onGetTrainMateTurnstileLoad?: () => void;
   }
@@ -28,6 +29,7 @@ export const TURNSTILE_SITE_KEY = String(import.meta.env.VITE_TURNSTILE_SITE_KEY
 
 type Props = {
   onToken: (token: string | null) => void;
+  onStatus?: (status: 'idle' | 'ready' | 'error', detail?: string) => void;
   disabled?: boolean;
 };
 
@@ -35,16 +37,26 @@ type Props = {
  * Cloudflare Turnstile widget. Renders only when VITE_TURNSTILE_SITE_KEY is set.
  * Site keys are public; the secret stays server-side.
  */
-export const TurnstileWidget: React.FC<Props> = ({ onToken, disabled }) => {
+export const TurnstileWidget: React.FC<Props> = ({ onToken, onStatus, disabled }) => {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
   const onTokenRef = useRef(onToken);
+  const onStatusRef = useRef(onStatus);
   onTokenRef.current = onToken;
+  onStatusRef.current = onStatus;
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY || disabled) return;
 
     let cancelled = false;
+
+    const fail = (detail: string) => {
+      if (cancelled) return;
+      setErrorText(detail);
+      onTokenRef.current(null);
+      onStatusRef.current?.('error', detail);
+    };
 
     const mount = () => {
       if (cancelled || !hostRef.current || !window.turnstile) return;
@@ -57,19 +69,52 @@ export const TurnstileWidget: React.FC<Props> = ({ onToken, disabled }) => {
         widgetIdRef.current = null;
       }
       hostRef.current.innerHTML = '';
-      widgetIdRef.current = window.turnstile.render(hostRef.current, {
-        sitekey: TURNSTILE_SITE_KEY,
-        theme: 'dark',
-        action: 'contact',
-        callback: (token) => onTokenRef.current(token),
-        'error-callback': () => onTokenRef.current(null),
-        'expired-callback': () => onTokenRef.current(null),
-      });
+      setErrorText(null);
+      onStatusRef.current?.('idle');
+      try {
+        widgetIdRef.current = window.turnstile.render(hostRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          theme: 'dark',
+          action: 'contact',
+          callback: (token) => {
+            if (cancelled) return;
+            setErrorText(null);
+            onTokenRef.current(token);
+            onStatusRef.current?.('ready');
+          },
+          'error-callback': (code) => {
+            const c = String(code || '');
+            const detail =
+              c.startsWith('110200')
+                ? 'Security check blocked: add gettrainmate.com to this Turnstile widget’s hostnames in Cloudflare.'
+                : c
+                  ? `Security check failed (${c}). Refresh and try again.`
+                  : 'Security check failed to load. Refresh and try again.';
+            fail(detail);
+          },
+          'expired-callback': () => {
+            onTokenRef.current(null);
+            onStatusRef.current?.('idle');
+          },
+        });
+      } catch (e) {
+        fail(e instanceof Error ? e.message : 'Security check failed to start.');
+      }
     };
 
-    window.onGetTrainMateTurnstileLoad = () => {
-      if (!cancelled) mount();
+    const tryMount = () => {
+      if (cancelled) return;
+      if (window.turnstile) {
+        // turnstile.ready is available on newer api.js builds
+        if (typeof window.turnstile.ready === 'function') {
+          window.turnstile.ready(() => mount());
+        } else {
+          mount();
+        }
+      }
     };
+
+    window.onGetTrainMateTurnstileLoad = () => tryMount();
 
     if (!document.getElementById(SCRIPT_ID)) {
       const s = document.createElement('script');
@@ -77,13 +122,29 @@ export const TurnstileWidget: React.FC<Props> = ({ onToken, disabled }) => {
       s.src = SCRIPT_SRC;
       s.async = true;
       s.defer = true;
+      s.onerror = () => fail('Could not load Cloudflare security script.');
       document.head.appendChild(s);
-    } else if (window.turnstile) {
-      mount();
+    } else {
+      tryMount();
     }
+
+    // If onload already fired before our handler was assigned, retry briefly.
+    const poll = window.setInterval(() => {
+      if (cancelled || widgetIdRef.current) {
+        window.clearInterval(poll);
+        return;
+      }
+      if (window.turnstile) {
+        window.clearInterval(poll);
+        tryMount();
+      }
+    }, 250);
+    const stop = window.setTimeout(() => window.clearInterval(poll), 8000);
 
     return () => {
       cancelled = true;
+      window.clearInterval(poll);
+      window.clearTimeout(stop);
       if (widgetIdRef.current && window.turnstile) {
         try {
           window.turnstile.remove(widgetIdRef.current);
@@ -98,16 +159,16 @@ export const TurnstileWidget: React.FC<Props> = ({ onToken, disabled }) => {
   if (!TURNSTILE_SITE_KEY) return null;
 
   return (
-    <BoxLike>
+    <div style={{ marginBottom: 16, minHeight: 65 }}>
       <div ref={hostRef} />
-    </BoxLike>
+      {errorText ? (
+        <p style={{ color: '#f87171', fontSize: 13, margin: '8px 0 0' }} role="alert">
+          {errorText}
+        </p>
+      ) : null}
+    </div>
   );
 };
-
-/** Tiny spacing wrapper without pulling MUI into this module's import cycle concerns. */
-const BoxLike: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div style={{ marginBottom: 16, minHeight: 65 }}>{children}</div>
-);
 
 export function resetTurnstile(): void {
   try {
