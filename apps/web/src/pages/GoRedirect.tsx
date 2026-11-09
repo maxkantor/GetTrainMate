@@ -2,25 +2,14 @@ import React, { useEffect, useMemo } from 'react';
 import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Box, Button, Container, Typography } from '@mui/material';
 import { PageShell } from '@/components/layout/PageShell';
+import { GO_CODE_LANDINGS, landingPathForGoCode } from '@/config/goShortLinks';
 import { useI18n } from '@/hooks/useI18n';
 import { trackEvent } from '@/utils/analytics';
 
-/** Short owned-social destination codes → mode landing pages (with preserved UTMs). */
-export const GO_CODE_LANDINGS: Record<string, string> = {
-  t: '/workout-partner',
-  train: '/workout-partner',
-  v: '/meet-people',
-  vibe: '/meet-people',
-  d: '/active-dating',
-  date: '/active-dating',
-  sf: '/san-francisco',
-  signup: '/signup',
-  ig: '/go',
-  fb: '/go',
-};
+export { GO_CODE_LANDINGS };
 
 /**
- * Instant redirect for short owned-social links (Instagram captions / bio).
+ * Client fallback for short owned-social links when Amplify 301 is skipped (local/dev).
  * Preserves UTM + attribution query params onto the real landing.
  */
 export const GoRedirectPage: React.FC = () => {
@@ -32,15 +21,11 @@ export const GoRedirectPage: React.FC = () => {
     .trim()
     .toLowerCase();
 
-  const targetPath = useMemo(() => {
-    if (!code) return '/go';
-    return GO_CODE_LANDINGS[code] || '/go';
-  }, [code]);
+  const targetPath = useMemo(() => landingPathForGoCode(code), [code]);
 
   useEffect(() => {
     const qs = searchParams.toString();
-    // ig/fb codes land on the hub; mode codes go to /signup with UTMs + mode preserved.
-    const path = code === 'ig' || code === 'fb' ? '/go' : targetPath;
+    const path = targetPath;
     const to = path === '/go' ? '/go' : qs ? `${path}?${qs}` : path;
     trackEvent('owned_social_go_redirect', {
       source_page: `/go/${code || ''}`,

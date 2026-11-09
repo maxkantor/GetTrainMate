@@ -40,6 +40,14 @@ export function usePageTracking(): void {
     const seo = getRouteSeo(location.pathname);
     trackPageView(pathForAnalytics, seo.title);
 
+    const isNotFound = /page not found/i.test(seo.title);
+    if (isNotFound) {
+      trackEvent('page_not_found', {
+        source_page: location.pathname,
+        page_path: pathForAnalytics,
+      });
+    }
+
     try {
       const captured = captureAcquisitionFromSearch(location.search);
       if (Object.keys(captured).length) mergeAndPersistAcquisition(captured);
@@ -49,6 +57,7 @@ export function usePageTracking(): void {
 
     const engagedKey = `gtm_user_engaged_${pathForAnalytics}`;
     const timer = window.setTimeout(() => {
+      if (isNotFound) return;
       if (sessionStorage.getItem(engagedKey)) return;
       sessionStorage.setItem(engagedKey, '1');
       trackEvent('user_engaged', {

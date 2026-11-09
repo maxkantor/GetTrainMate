@@ -34,11 +34,9 @@ const STATIC = [
   { loc: '/atlanta-training-partners', changefreq: 'weekly', priority: '0.8' },
   { loc: '/san-francisco', changefreq: 'weekly', priority: '0.9' },
   { loc: '/go', changefreq: 'weekly', priority: '0.85' },
-  { loc: '/partners/atlanta', changefreq: 'weekly', priority: '0.85' },
+  // Canonical partner hub only — legacy /partners/atlanta* 301 → /partners/us/atlanta*
   { loc: '/partners/us/atlanta', changefreq: 'weekly', priority: '0.85' },
-  { loc: '/partners/atlanta/atl-track-club', changefreq: 'weekly', priority: '0.8' },
   { loc: '/partners/us/atlanta/atl-track-club', changefreq: 'weekly', priority: '0.8' },
-  { loc: '/partners/atlanta/atl-f3', changefreq: 'weekly', priority: '0.8' },
   { loc: '/partners/us/atlanta/atl-f3', changefreq: 'weekly', priority: '0.8' },
   { loc: '/invite', changefreq: 'weekly', priority: '0.85' },
   { loc: '/faq', changefreq: 'monthly', priority: '0.8' },

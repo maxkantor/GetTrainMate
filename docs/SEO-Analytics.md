@@ -94,4 +94,12 @@ After deploy, use [Facebook Sharing Debugger](https://developers.facebook.com/to
 
 ## Robots
 
-`apps/web/public/robots.txt` allows all crawlers (`Allow: /`) and references the sitemap. Admin routes still use `noindex` in `seoRoutes.ts` (meta only). Regenerate or extend `sitemap.xml` when you add new public marketing routes.
+`apps/web/public/robots.txt` allows crawlers for marketing pages and references the sitemap. It **Disallows** `/go/` (short owned-social redirect URLs), `/app/`, and `/admin/`. Admin/app routes also use `noindex` in `seoRoutes.ts`. Regenerate `sitemap.xml` when you add new public marketing routes (`node scripts/generate-sitemap.mjs`).
+
+## Short `/go/:code` links (Search Console “Page with redirect”)
+
+Instagram/Facebook captions use `https://gettrainmate.com/go/{t|v|d|…}?utm_…`. Amplify **301**s those to the real landing (`/workout-partner`, `/meet-people`, `/active-dating`, …) so Google indexes the destination, not the tracking short URL. Unknown codes (e.g. legacy `/go/1`) 301 to `/go`. Keep `amplify.yml` / `deploy/amplify-custom-rules.json` in sync with `apps/web/src/config/goShortLinks.ts`.
+
+## Soft 404 / GA “Page not found”
+
+Unknown paths used to rewrite to the homepage (`200` + homepage canonical) while the SPA showed “Page not found” — soft 404 in Search Console and “Page not found” as the top GA page. The Amplify catch-all now serves `/404.html` with **HTTP 404** + `noindex`. GA also emits a `page_not_found` event (and skips `user_engaged` on those paths).

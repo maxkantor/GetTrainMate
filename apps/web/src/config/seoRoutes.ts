@@ -1,3 +1,4 @@
+import { landingPathForGoCode } from '@/config/goShortLinks';
 import { absoluteUrl } from '@/config/site';
 import { getWcTeamById } from '@/config/wcTeams';
 import {
@@ -80,12 +81,6 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
     title: `Join GetTrainMate | ${BRAND}`,
     description:
       'Choose TRAIN, VIBE, or DATE on GetTrainMate. Free to join. Matches are never guaranteed.',
-    noindex: false,
-  },
-  '/partners/atlanta': {
-    title: `Atlanta TRAIN Partner Invites | ${BRAND}`,
-    description:
-      'Unique Atlanta TRAIN partner invite links for run clubs, gyms, pickleball, and trainers. No fake density claims.',
     noindex: false,
   },
   '/partners/us/atlanta': {
@@ -207,18 +202,46 @@ export function getRouteSeo(pathname: string): RouteSeo {
     });
   }
 
+  // Short owned-social links are 301'd at Amplify; keep client meta noindex + canonical to destination.
+  if (path.startsWith('/go/')) {
+    const code = decodeURIComponent(path.slice('/go/'.length).split('/')[0] ?? '');
+    const dest = landingPathForGoCode(code);
+    return base({
+      title: `Join GetTrainMate | ${BRAND}`,
+      description:
+        'Choose TRAIN, VIBE, or DATE on GetTrainMate. Free to join. Matches are never guaranteed.',
+      canonicalPath: dest,
+      noindex: true,
+    });
+  }
+
+  // Legacy /partners/atlanta → canonical /partners/us/atlanta (Amplify 301).
+  if (path === '/partners/atlanta') {
+    return base({
+      title: `Atlanta TRAIN Partner Invites | ${BRAND}`,
+      description:
+        'Unique Atlanta TRAIN partner invite links for run clubs, gyms, pickleball, and trainers. No fake density claims.',
+      canonicalPath: '/partners/us/atlanta',
+      noindex: true,
+    });
+  }
+
   if (path.startsWith('/partners/atlanta/') || /^\/partners\/[a-z]{2}\/[^/]+\//.test(path)) {
     const parts = path.split('/').filter(Boolean);
     const code = decodeURIComponent(parts.at(-1) ?? '').trim();
     const market = parts[0] === 'partners' && parts[1]?.length === 2 ? parts[2] : 'atlanta';
     const label = code || 'partner';
     const marketLabel = market.replace(/-/g, ' ');
+    const canonicalPath =
+      path.startsWith('/partners/atlanta/') && code
+        ? `/partners/us/atlanta/${encodeURIComponent(code)}`
+        : path;
     return base({
       title: `${marketLabel} TRAIN invite (${label}) | ${BRAND}`,
       description:
         'Join GetTrainMate with a local TRAIN partner invite. Set your city, complete your profile, and start Discover. An invite is not an existing partnership claim.',
-      canonicalPath: path,
-      noindex: false,
+      canonicalPath,
+      noindex: path.startsWith('/partners/atlanta/'),
     });
   }
 

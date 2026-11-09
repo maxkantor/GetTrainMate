@@ -1,87 +1,56 @@
 [
-  {
-    "source": "/app",
-    "target": "/index.html",
-    "status": "200"
-  },
-  {
-    "source": "/app/<*>",
-    "target": "/index.html",
-    "status": "200"
-  },
-  {
-    "source": "/admin",
-    "target": "/index.html",
-    "status": "200"
-  },
-  {
-    "source": "/admin/<*>",
-    "target": "/index.html",
-    "status": "200"
-  },
-  {
-    "source": "/pricing",
-    "target": "/pricing/index.html",
-    "status": "200"
-  },
-  {
-    "source": "/about",
-    "target": "/about/index.html",
-    "status": "200"
-  },
-  {
-    "source": "/faq",
-    "target": "/faq/index.html",
-    "status": "200"
-  },
-  {
-    "source": "/contact",
-    "target": "/contact/index.html",
-    "status": "200"
-  },
-  {
-    "source": "/platform",
-    "target": "/platform/index.html",
-    "status": "200"
-  },
-  {
-    "source": "/privacy",
-    "target": "/privacy/index.html",
-    "status": "200"
-  },
-  {
-    "source": "/terms",
-    "target": "/terms/index.html",
-    "status": "200"
-  },
-  {
-    "source": "/world-cup",
-    "target": "/",
-    "status": "301"
-  },
-  {
-    "source": "/world-cup/",
-    "target": "/",
-    "status": "301"
-  },
-  {
-    "source": "/world-cup/<*>",
-    "target": "/",
-    "status": "301"
-  },
-  {
-    "source": "/events/world-cup-2026",
-    "target": "/",
-    "status": "301"
-  },
-  {
-    "source": "/events/world-cup-2026/",
-    "target": "/",
-    "status": "301"
-  },
+  { "source": "/go/t", "target": "/workout-partner", "status": "301" },
+  { "source": "/go/train", "target": "/workout-partner", "status": "301" },
+  { "source": "/go/v", "target": "/meet-people", "status": "301" },
+  { "source": "/go/vibe", "target": "/meet-people", "status": "301" },
+  { "source": "/go/d", "target": "/active-dating", "status": "301" },
+  { "source": "/go/date", "target": "/active-dating", "status": "301" },
+  { "source": "/go/sf", "target": "/san-francisco", "status": "301" },
+  { "source": "/go/signup", "target": "/signup", "status": "301" },
+  { "source": "/go/ig", "target": "/go", "status": "301" },
+  { "source": "/go/fb", "target": "/go", "status": "301" },
+  { "source": "/go/<*>", "target": "/go", "status": "301" },
+  { "source": "/partners/atlanta", "target": "/partners/us/atlanta", "status": "301" },
+  { "source": "/partners/atlanta/atl-track-club", "target": "/partners/us/atlanta/atl-track-club", "status": "301" },
+  { "source": "/partners/atlanta/atl-f3", "target": "/partners/us/atlanta/atl-f3", "status": "301" },
+  { "source": "/partners/atlanta/<*>", "target": "/partners/us/atlanta/<*>", "status": "301" },
+  { "source": "/world-cup", "target": "/", "status": "301" },
+  { "source": "/world-cup/", "target": "/", "status": "301" },
+  { "source": "/world-cup/<*>", "target": "/", "status": "301" },
+  { "source": "/events/world-cup-2026", "target": "/", "status": "301" },
+  { "source": "/events/world-cup-2026/", "target": "/", "status": "301" },
+  { "source": "/app", "target": "/index.html", "status": "200" },
+  { "source": "/app/<*>", "target": "/index.html", "status": "200" },
+  { "source": "/admin", "target": "/index.html", "status": "200" },
+  { "source": "/admin/<*>", "target": "/index.html", "status": "200" },
+  { "source": "/login", "target": "/index.html", "status": "200" },
+  { "source": "/signup", "target": "/index.html", "status": "200" },
+  { "source": "/forgot-password", "target": "/index.html", "status": "200" },
+  { "source": "/verify-email", "target": "/index.html", "status": "200" },
+  { "source": "/billing/<*>", "target": "/index.html", "status": "200" },
+  { "source": "/email/unsubscribed", "target": "/index.html", "status": "200" },
+  { "source": "/gear", "target": "/index.html", "status": "200" },
+  { "source": "/pricing", "target": "/pricing/index.html", "status": "200" },
+  { "source": "/about", "target": "/about/index.html", "status": "200" },
+  { "source": "/workout-partner", "target": "/workout-partner/index.html", "status": "200" },
+  { "source": "/meet-people", "target": "/meet-people/index.html", "status": "200" },
+  { "source": "/active-dating", "target": "/active-dating/index.html", "status": "200" },
+  { "source": "/atlanta-training-partners", "target": "/atlanta-training-partners/index.html", "status": "200" },
+  { "source": "/san-francisco", "target": "/san-francisco/index.html", "status": "200" },
+  { "source": "/go", "target": "/go/index.html", "status": "200" },
+  { "source": "/partners/us/atlanta", "target": "/partners/us/atlanta/index.html", "status": "200" },
+  { "source": "/partners/us/atlanta/atl-track-club", "target": "/partners/us/atlanta/atl-track-club/index.html", "status": "200" },
+  { "source": "/partners/us/atlanta/atl-f3", "target": "/partners/us/atlanta/atl-f3/index.html", "status": "200" },
+  { "source": "/invite", "target": "/invite/index.html", "status": "200" },
+  { "source": "/invite/<*>", "target": "/invite/index.html", "status": "200" },
+  { "source": "/faq", "target": "/faq/index.html", "status": "200" },
+  { "source": "/contact", "target": "/contact/index.html", "status": "200" },
+  { "source": "/platform", "target": "/platform/index.html", "status": "200" },
+  { "source": "/privacy", "target": "/privacy/index.html", "status": "200" },
+  { "source": "/terms", "target": "/terms/index.html", "status": "200" },
   {
     "source": "</^[^.]+$|\\.(?!(css|gif|ico|jpg|jpeg|png|svg|js|mjs|map|json|txt|xml|html|webmanifest|woff|woff2|ttf|eot|mp4|webm|ogg|webp)$)([^.]+$)/>",
-    "target": "/index.html",
-    "status": "200"
+    "target": "/404.html",
+    "status": "404"
   }
 ]

@@ -22,6 +22,8 @@ type PrerenderPage = {
   ogDescription: string;
   ogImagePath: string;
   jsonLd?: Record<string, unknown>[];
+  /** When true, emit robots noindex (404 shell, retired routes). */
+  noindex?: boolean;
 };
 
 /** Always prerendered — core marketing SEO must survive after World Cup retirement. */
@@ -280,7 +282,8 @@ function injectRouteHtml(baseHtml: string, page: PrerenderPage): string {
     isPartOf: { '@type': 'WebSite', url: SITE_ORIGIN, name: 'GetTrainMate' },
   };
 
-  const html = baseHtml
+  const robots = page.noindex ? 'noindex, nofollow' : 'index, follow';
+  let html = baseHtml
     .replace(/<title>[^<]*<\/title>/, `<title>${escapeAttr(page.title)}</title>`)
     .replace(
       /<meta name="description" content="[^"]*" \/>/,
@@ -311,6 +314,15 @@ function injectRouteHtml(baseHtml: string, page: PrerenderPage): string {
     )
     .replace(/<meta name="twitter:image" content="[^"]*" \/>/, `<meta name="twitter:image" content="${ogImage}" />`);
 
+  if (/<meta name="robots" content="[^"]*"\s*\/>/.test(html)) {
+    html = html.replace(
+      /<meta name="robots" content="[^"]*"\s*\/>/,
+      `<meta name="robots" content="${robots}" />`,
+    );
+  } else {
+    html = html.replace('</head>', `    <meta name="robots" content="${robots}" />\n  </head>`);
+  }
+
   const jsonLdScripts = [webPageLd, ...(page.jsonLd ?? [])]
     .map((ld) => `<script type="application/ld+json">${JSON.stringify(ld)}</script>`)
     .join('\n    ');
@@ -339,8 +351,23 @@ export function prerenderSeoPlugin(): Plugin {
         writeFileSync(join(routeDir, 'index.html'), html, 'utf8');
       }
 
+      // True HTTP 404 shell for Amplify catch-all (avoids soft-404 homepage HTML + GA "Page not found" noise).
+      const notFoundPage: PrerenderPage = {
+        canonicalPath: '/404',
+        title: `Page not found | ${BRAND}`,
+        description: 'The page you are looking for does not exist.',
+        ogTitle: `Page not found | ${BRAND}`,
+        ogDescription: 'The page you are looking for does not exist.',
+        ogImagePath: '/images/og-image.jpg?v=2',
+        noindex: true,
+      };
+      const notFoundHtml = injectRouteHtml(baseHtml, notFoundPage);
+      writeFileSync(join(outDir, '404.html'), notFoundHtml, 'utf8');
+      mkdirSync(join(outDir, '404'), { recursive: true });
+      writeFileSync(join(outDir, '404', 'index.html'), notFoundHtml, 'utf8');
+
       console.log(
-        `[prerender-seo] wrote ${pages.length} static HTML shells`
+        `[prerender-seo] wrote ${pages.length} static HTML shells + 404.html`
         + (includeWorldCup ? ' (marketing + World Cup)' : ' (marketing only — WORLD_CUP_SEO=false)'),
       );
     },
