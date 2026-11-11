@@ -25,6 +25,7 @@
   { "source": "/billing/<*>", "target": "/index.html", "status": "200" },
   { "source": "/email/unsubscribed", "target": "/index.html", "status": "200" },
   { "source": "/gear", "target": "/index.html", "status": "200" },
+  { "source": "/how-it-works", "target": "/index.html", "status": "200" },
   { "source": "/pricing", "target": "/pricing/index.html", "status": "200" },
   { "source": "/about", "target": "/about/index.html", "status": "200" },
   { "source": "/workout-partner", "target": "/workout-partner/index.html", "status": "200" },
