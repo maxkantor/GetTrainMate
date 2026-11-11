@@ -148,6 +148,10 @@ customRules:
   - source: '/partners/us/atlanta/atl-f3'
     target: '/partners/us/atlanta/atl-f3/index.html'
     status: '200'
+  # Any other /partners/* market is an SPA route — serve the app shell so the partner hub/landing pages render (e.g. /partners/au/melbourne). Keep AFTER the prerendered Atlanta rules above so Atlanta keeps its prerendered shell.
+  - source: '/partners/<*>'
+    target: '/index.html'
+    status: '200'
   - source: '/invite'
     target: '/invite/index.html'
     status: '200'
