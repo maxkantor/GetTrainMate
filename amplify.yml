@@ -29,7 +29,6 @@ frontend:
       - node_modules/**/*
       - apps/web/node_modules/**/*
       - ~/.npm/**/*
-
 # Redirects must live at amplify.yml root (customRules). Order matters.
 # 1) 301 short /go/:code + legacy partner paths (fix GSC "Page with redirect" / duplicates)
 # 2) App/admin/auth SPA shells
@@ -70,19 +69,14 @@ customRules:
   - source: '/go/<*>'
     target: '/go'
     status: '301'
-  # Legacy partner URLs → canonical /partners/us/atlanta*
+  # Legacy partner paths → canonical /partners/us/atlanta shape (301, GSC de-dup)
   - source: '/partners/atlanta'
     target: '/partners/us/atlanta'
-    status: '301'
-  - source: '/partners/atlanta/atl-track-club'
-    target: '/partners/us/atlanta/atl-track-club'
-    status: '301'
-  - source: '/partners/atlanta/atl-f3'
-    target: '/partners/us/atlanta/atl-f3'
     status: '301'
   - source: '/partners/atlanta/<*>'
     target: '/partners/us/atlanta/<*>'
     status: '301'
+  # App/admin/auth SPA shells (200 rewrite to SPA index)
   - source: '/app'
     target: '/index.html'
     status: '200'
@@ -116,6 +110,11 @@ customRules:
   - source: '/gear'
     target: '/index.html'
     status: '200'
+  # "How it works" is a landing-page section (#how-it-works); serve the SPA shell so the Router redirect runs instead of the 404.html rule.
+  - source: '/how-it-works'
+    target: '/index.html'
+    status: '200'
+  # Prerendered marketing pages (200 → nested index.html) — SEO, no JS fetch needed
   - source: '/pricing'
     target: '/pricing/index.html'
     status: '200'
@@ -153,7 +152,7 @@ customRules:
     target: '/invite/index.html'
     status: '200'
   - source: '/invite/<*>'
-    target: '/invite/index.html'
+    target: '/index.html'
     status: '200'
   - source: '/faq'
     target: '/faq/index.html'
@@ -177,8 +176,9 @@ customRules:
     target: '/events/world-cup-2026/index.html'
     status: '200'
   - source: '/world-cup/team/<teamId>'
-    target: '/world-cup/team/<teamId>/index.html'
+    target: '/index.html'
     status: '200'
-  - source: '</^[^.]+$|\\.(?!(css|gif|ico|jpg|jpeg|png|svg|js|mjs|map|json|txt|xml|html|webmanifest|woff|woff2|ttf|eot|mp4|webm|ogg|webp)$)([^.]+$)/>'
+  # True 404 for everything else (not a soft-404 homepage)
+  - source: '</^[^.]+$|\.(?!(css|gif|ico|jpg|jpeg|png|svg|js|mjs|map|json|txt|xml|html|webmanifest|woff|woff2|ttf|eot|mp4|webm|ogg|webp)$)([^.]+$)/>'
     target: '/404.html'
     status: '404'
