@@ -24,6 +24,7 @@
   { "source": "/verify-email", "target": "/index.html", "status": "200" },
   { "source": "/billing/<*>", "target": "/index.html", "status": "200" },
   { "source": "/email/unsubscribed", "target": "/index.html", "status": "200" },
+  { "source": "/email/unsubscribe", "target": "/index.html", "status": "200" },
   { "source": "/gear", "target": "/index.html", "status": "200" },
   { "source": "/how-it-works", "target": "/index.html", "status": "200" },
   { "source": "/pricing", "target": "/pricing/index.html", "status": "200" },
