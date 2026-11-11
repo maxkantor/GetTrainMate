@@ -127,6 +127,8 @@ export const Router: React.FC = () => {
             <Route path="/billing/success" element={<BillingSuccessPage />} />
             <Route path="/billing/cancel" element={<BillingCancelPage />} />
             <Route path="/about" element={<AboutPage />} />
+            {/* "How it works" is a section on the landing page (#how-it-works), not a separate page — route the URL there instead of 404ing. */}
+            <Route path="/how-it-works" element={<Navigate to="/#how-it-works" replace />} />
             <Route path="/atlanta-training-partners" element={<AtlantaTrainingPartnersPage />} />
             <Route path="/san-francisco" element={<SanFranciscoLandingPage />} />
             <Route path="/go" element={<GoHubPage />} />
