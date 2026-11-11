@@ -37,6 +37,7 @@
   { "source": "/partners/us/atlanta", "target": "/partners/us/atlanta/index.html", "status": "200" },
   { "source": "/partners/us/atlanta/atl-track-club", "target": "/partners/us/atlanta/atl-track-club/index.html", "status": "200" },
   { "source": "/partners/us/atlanta/atl-f3", "target": "/partners/us/atlanta/atl-f3/index.html", "status": "200" },
+  { "source": "/partners/<*>", "target": "/index.html", "status": "200" },
   { "source": "/invite", "target": "/invite/index.html", "status": "200" },
   { "source": "/invite/<*>", "target": "/invite/index.html", "status": "200" },
   { "source": "/faq", "target": "/faq/index.html", "status": "200" },
