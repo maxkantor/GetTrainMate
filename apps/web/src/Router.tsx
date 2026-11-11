@@ -63,6 +63,7 @@ import { AdminActivityPage } from '@/pages/admin/AdminActivityPage';
 import { AdminMatchesPage } from '@/pages/admin/AdminMatchesPage';
 import { PartnerOutreachPage } from '@/pages/admin/PartnerOutreachPage';
 import { EmailUnsubscribedPage } from '@/pages/EmailUnsubscribedPage';
+import { EmailUnsubscribePage } from '@/pages/EmailUnsubscribePage';
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { DocumentSeo } from '@/components/seo/DocumentSeo';
 import { GlobalJsonLd } from '@/components/seo/GlobalJsonLd';
@@ -152,6 +153,7 @@ export const Router: React.FC = () => {
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/email/unsubscribed" element={<EmailUnsubscribedPage />} />
+            <Route path="/email/unsubscribe" element={<EmailUnsubscribePage />} />
 
             {/* Auth routes */}
             <Route path="/login" element={<LoginPage />} />
