@@ -27,6 +27,10 @@ jobs:
 
     permissions:
       contents: write
+      id-token: write
+
+    env:
+      HAS_AWS_KEYS: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
 
     steps:
       - name: Checkout repository
@@ -38,10 +42,24 @@ jobs:
           node-version: '20.x'
 
       - name: Install growth dependencies
+        env:
+          HUSKY: '0'
         run: |
+          # scripts/growth depends on file:../.. (root prepare runs husky), so install root dev deps first.
+          npm ci --ignore-scripts
           npm --prefix scripts/growth install --ignore-scripts
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS credentials (OIDC role)
+        id: aws_oidc
+        if: ${{ vars.AWS_GROWTH_ROLE_ARN != '' }}
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_GROWTH_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Configure AWS credentials (access keys fallback)
+        if: ${{ steps.aws_oidc.outcome != 'success' && env.HAS_AWS_KEYS == 'true' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
