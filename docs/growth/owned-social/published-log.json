@@ -2080,6 +2080,18 @@
       "imageUrl": "https://getrainmate-media-bucket.s3.us-east-1.amazonaws.com/social/generated/2026/11/01/vibe-en-new-in-town-20261101-61f963.jpg",
       "imageProvider": "stability.sd3-5-large-v1:0",
       "imageFallback": false
+    },
+    {
+      "publishedAtUtc": "2026-11-12T14:13:07.670Z",
+      "contentId": "train-en-workout-partner",
+      "mode": "TRAIN",
+      "language": "en",
+      "status": "blocked",
+      "blocker": "Meta Page access token missing. Set SSM /gettrainmate/growth/meta-page-access-token (or env META_PAGE_ACCESS_TOKEN). Run: node scripts/growth/setup-meta-token.mjs",
+      "metaStatus": "MISSING_CONFIGURATION",
+      "imageHeadline": "",
+      "visualConcept": "",
+      "imageKey": ""
     }
   ]
 }
