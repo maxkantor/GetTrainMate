@@ -7,6 +7,12 @@
 **Scheduler model (YouTubeBooster pattern):** Cursor Automation is **primary** at 10:00 ET. Windows Task Scheduler + GitHub Actions are **backups** at ~10:30 ET. Only **one** Cursor Automation may use the 10:00 ET schedule (2026-10-27 triple Cursor agents + `--force-email` sent three Admin emails). Backups are safe together because the S3 Admin-email day guard + local success skip allow only one live email/post per calendar day.  
 **North star:** 1,000+ real active users (TRAIN + VIBE + DATE) then 1,000+ verified paying customers. Atlanta TRAIN is one experiment, not the product.
 
+The GitHub backup requires either the repository variable `AWS_GROWTH_ROLE_ARN`
+for a role that trusts this repository's GitHub OIDC identity, or repository
+secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. The identity needs the
+growth IAM permissions below. An unconfigured or invalid identity fails the
+workflow before growth runs.
+
 **STRATEGY LOCK:** Read `docs/growth/STRATEGY-LOCK.md` every run. While `status: LOCKED`, do **not** rewrite overall growth strategy. Rotate acquisition variants only. Product/code changes only under lock-rule exceptions. Valid outcome: `NO PRODUCT CHANGE — collecting data` + daily FB/IG when Meta is valid.
 
 The live Cursor automation fires **daily (including weekends)**. Experiment **evaluation** is due only when the experiment log says so (America/New_York). A daily fire with no evaluation due is still a complete run: collect evidence, do or prepare distribution, and **always send the Admin email**. Never exit successfully without running `compose-and-send-growth-email.mjs`. A 1-minute no-tool success is a failed notification.
