@@ -84,23 +84,11 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Clear Ready drafts that cannot send (already contacted) so SEND is not stuck on duplicates.
-      try {
-        const dedupe = (await adminApiService.post(`${API}/dedupe`, { dryRun: false })) as {
-          readyDraftsRetired?: number;
-        };
-        const retired = Number(dedupe?.readyDraftsRetired ?? 0);
-        if (retired > 0) {
-          setLastRun({
-            severity: 'info',
-            title: `Cleared ${retired} already-contacted draft${retired === 1 ? '' : 's'}`,
-            detail: 'Those addresses/orgs were already emailed — they cannot be resent as initial outreach.',
-          });
-        }
-      } catch {
-        /* non-fatal — send gate still blocks duplicates */
-      }
-
+      // NOTE: dedupe used to run here on every load (POST /dedupe, dryRun: false).
+      // It deleted duplicate prospects AND all their queue rows — including sent
+      // history — which orphaned follow-ups and blocked them forever with
+      // missing_parent_approval. Dedupe is now manual only (Run dedupe button
+      // below); loading this panel must never delete anything.
       const [q, s, dash] = await Promise.all([
         adminApiService.get(`${API}/queue`),
         adminApiService.get(`${API}/settings`),
@@ -203,6 +191,38 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
       return;
     }
     setSelectedIds(new Set(items.map((i) => i.queueId)));
+  };
+
+  // Manual-only dedupe. It used to fire on every panel load and deleted duplicate
+  // prospects together with all their queue rows, including sent history — which
+  // orphaned follow-ups and blocked them forever (missing_parent_approval).
+  // The server now never deletes sent history or pending follow-ups, but dedupe
+  // still only runs when an admin clicks this button, never on load.
+  const runDedupe = async () => {
+    setBusy(true);
+    try {
+      const dedupe = (await adminApiService.post(`${API}/dedupe`, { dryRun: false })) as {
+        readyDraftsRetired?: number;
+        prospectsRemoved?: number;
+        queueRemoved?: number;
+      };
+      const retired = Number(dedupe?.readyDraftsRetired ?? 0);
+      const removed = Number(dedupe?.prospectsRemoved ?? 0) + Number(dedupe?.queueRemoved ?? 0);
+      setLastRun({
+        severity: 'info',
+        title: `Dedupe done — removed ${removed} duplicate${removed === 1 ? '' : 's'}${retired > 0 ? `, retired ${retired} already-contacted draft${retired === 1 ? '' : 's'}` : ''}`,
+        detail: 'Sent history and scheduled follow-ups are never deleted by dedupe.',
+      });
+      await load();
+    } catch (e: unknown) {
+      setLastRun({
+        severity: 'error',
+        title: 'Dedupe failed',
+        detail: e instanceof Error ? e.message : 'Dedupe failed',
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const sendOne = async (q: PartnerQueueItem, confirmOverride = false) => {
@@ -457,6 +477,9 @@ export const ApprovalsPanel: React.FC<PanelSharedProps & { initialStatus?: strin
               onClick={() => setTab('blocked')}
             >
               Scheduled / Held ({deferred.length + blockedRows.length})
+            </Button>
+            <Button size="small" variant="outlined" onClick={() => void runDedupe()} disabled={busy}>
+              Run dedupe
             </Button>
             {tab === 'needs' && (
               <>

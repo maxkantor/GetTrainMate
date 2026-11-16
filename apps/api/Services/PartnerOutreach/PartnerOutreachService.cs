@@ -881,19 +881,28 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             var code = PartnerOutreachRules.EvaluateSendGate(gate);
             if (code != null)
             {
+                // Persist the skip reason on the row itself: a gate-blocked item
+                // must never fail silently for days. LastError is the durable
+                // record the admin and the next run's diagnostics read.
+                item.LastError = code;
                 if (code == "suppressed")
                 {
                     item.Status = "opted_out";
-                    item.LastError = code;
-                    await _db.SaveAsync(item);
                     skippedUnsub++;
                 }
+                await _db.SaveAsync(item);
                 errors.Add($"{item.QueueId}:{code}");
                 continue;
             }
             try
             {
                 await SendQueueItemAsync(item);
+                // Clear any stale skip reason recorded by an earlier blocked run.
+                if (item.LastError != null)
+                {
+                    item.LastError = null;
+                    await _db.SaveAsync(item);
+                }
                 usedEmails.Add(emailKey);
                 usedOrgs.Add(item.OrganizationName.Trim());
                 sent++;
@@ -952,9 +961,21 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         var campaignActive = outreach == null
             || string.Equals(outreach.Status, "active", StringComparison.OrdinalIgnoreCase);
 
+        // Follow-up rows carry their own approval, copied from the parent at
+        // creation time by ScheduleFollowUpsAsync — which only runs from
+        // FinalizeSentQueueItemAsync, i.e. after the parent was actually
+        // SES-sent. That stored approval IS the authorization for the follow-up.
+        // The parent row may since have been deleted (prospect dedupe) or had its
+        // status rewritten by a later SES event (bounce / complaint / failed /
+        // deferred — see the SES event handler); neither must retroactively
+        // un-approve an already-authorized follow-up. Only consult the parent
+        // row when the follow-up row itself stores no approval at all.
+        // (Suppression is still enforced downstream: EvaluateSendGate blocks a
+        // genuinely bounced / opted-out / complained recipient with "suppressed"
+        // regardless of parent approval.)
         var parentApproved = !string.IsNullOrWhiteSpace(item.ParentApprovalId)
             || !string.IsNullOrWhiteSpace(item.ApprovalId);
-        if (isFollowUp && !string.IsNullOrWhiteSpace(item.ParentQueueId))
+        if (isFollowUp && !parentApproved && !string.IsNullOrWhiteSpace(item.ParentQueueId))
         {
             var parent = all.FirstOrDefault(x => x.QueueId == item.ParentQueueId)
                 ?? await _db.LoadAsync<PartnerQueueItem>(item.ParentQueueId);
@@ -2310,6 +2331,15 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             var maxFo = followItems.Count > 0 ? followItems.Max(q => q.FollowUpNumber) : 0;
             var maxReached = alreadySent && !followUpDue && !followUpFuture && maxFo >= 2
                 && followItems.All(q => q.Status is "sent" or "delivered");
+            // A due follow-up is the real state — report its actual gate outcome,
+            // never DRAFT_MISSING (the FO0 heuristic below cannot see follow-up
+            // rows, and the parent initial may be gone even though the follow-up
+            // draft exists).
+            if (followUpDue)
+            {
+                p.WhyNotSent = await DueFollowUpSkipReasonAsync(followItems, queue, settings);
+                continue;
+            }
             p.WhyNotSent = WhyNotSent.ForProspect(
                 new PartnerProspectState
                 {
@@ -2474,6 +2504,23 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
                 {
                     foreach (var q in queue.Where(x => x.ProspectId == dup.ProspectId))
                     {
+                        // Never destroy send history or pending authorized follow-ups.
+                        // A sent parent is the approval evidence its follow-ups rely
+                        // on (see BuildGateAsync), and a scheduled follow-up is
+                        // already-authorized work — deleting either revives the
+                        // missing_parent_approval failure and loses sent history
+                        // (the previous incident noted in PartnerOutreachDedupe).
+                        // Spared rows are re-pointed at the keeper prospect so
+                        // admin views (history, WhyNotSent) stay coherent.
+                        if (PartnerOutreachDedupe.IsTerminalContactQueueStatus(q.Status)
+                            || q.SentAt != null
+                            || !string.IsNullOrWhiteSpace(q.SesMessageId)
+                            || q.FollowUpNumber > 0)
+                        {
+                            q.ProspectId = keeper.ProspectId;
+                            await _db.SaveAsync(q);
+                            continue;
+                        }
                         removedQueue.Add(new { q.QueueId, q.Recipient, q.Status, reason = "orphan_prospect" });
                         await _db.DeleteAsync(q);
                     }

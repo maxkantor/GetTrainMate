@@ -30,6 +30,31 @@ public sealed partial class PartnerOutreachService
         };
     }
 
+    /// <summary>
+    /// True skip reason for a prospect with a due follow-up: run the actual send
+    /// gate on the earliest due follow-up row instead of the FO0-draft heuristic.
+    /// A prospect whose parent initial was deleted (prospect dedupe) or drifted
+    /// has no FO0 row, so the FO0 heuristic reports DRAFT_MISSING even though
+    /// the follow-up draft exists and is waiting. Returns FOLLOW_UP_DUE when the
+    /// gate passes.
+    /// </summary>
+    async Task<string> DueFollowUpSkipReasonAsync(
+        List<PartnerQueueItem> followItems,
+        List<PartnerQueueItem> allQueue,
+        PartnerOutreachSettingsRow settings)
+    {
+        var nowUtc = DateTime.UtcNow;
+        var due = followItems
+            .Where(q => q.Status == "scheduled"
+                && q.AllowAutomatedFollowUp
+                && (q.ScheduledAt == null || q.ScheduledAt <= nowUtc))
+            .OrderBy(q => q.ScheduledAt ?? DateTime.MinValue)
+            .First();
+        var gate = await BuildGateAsync(due, settings, scheduled: false, allQueue: allQueue);
+        var code = PartnerOutreachRules.EvaluateSendGate(gate);
+        return code == null ? WhyNotSent.FollowUpDue : WhyNotSent.FromGateCode(code, gate);
+    }
+
     public async Task<string> WhyNotSentAsync(string prospectId)
     {
         var p = await _db.LoadAsync<PartnerProspect>(prospectId);
@@ -56,6 +81,12 @@ public sealed partial class PartnerOutreachService
         var maxFo = followItems.Count > 0 ? followItems.Max(q => q.FollowUpNumber) : 0;
         var maxReached = alreadySent && !followUpDue && !followUpFuture && maxFo >= 2
             && followItems.All(q => q.Status is "sent" or "delivered");
+        // A due follow-up is the real state — report its actual gate outcome,
+        // never DRAFT_MISSING (the FO0 heuristic below cannot see follow-up
+        // rows, and the parent initial may be gone even though the follow-up
+        // draft exists).
+        if (followUpDue)
+            return await DueFollowUpSkipReasonAsync(followItems, queue, settings);
         var reason = suppress?.Reason ?? "";
         return WhyNotSent.ForProspect(
             new PartnerProspectState
