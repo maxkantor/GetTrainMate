@@ -180,6 +180,22 @@ describe('owned social log helpers', () => {
 });
 
 describe('growth report positioning', () => {
+  it('uses the verified seven-day paid-customer count in the subject, not campaign attribution', () => {
+    const report = composeGrowthEmailBody({
+      snapshot: {
+        sources: { ga4: 'ok', stripe: 'ok' },
+        scoreboard: {
+          '7d': { unique_paying_customers: { value: 1, available: true } }
+        }
+      },
+      health: { ok: true, checks: [] },
+      experiments: [],
+      generatedAt: new Date('2026-08-18T16:00:00Z')
+    });
+    assert.match(report.subject, /1 paid customer \(7d\)/);
+    assert.match(report.text, /New paying customers \(this run\): 0/);
+  });
+
   it('leads with global growth and owned social, not Atlanta TRAIN as the KPI', () => {
     const { text, html } = composeGrowthEmailBody({
       snapshot: {

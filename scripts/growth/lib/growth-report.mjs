@@ -138,7 +138,15 @@ function badge(status) {
   return { label: status, color: '#b91c1c', bg: '#fef2f2' };
 }
 
-export function growthEmailSubject({ et, shipped = false, social, testEmail = false, newCustomersThisRun = '0' } = {}) {
+function paidCustomers7dPhrase(value) {
+  const count = Number(value);
+  if (value == null || value === '' || !Number.isFinite(count)) {
+    return 'paid customers (7d): unavailable';
+  }
+  return `${count} paid customer${count === 1 ? '' : 's'} (7d)`;
+}
+
+export function growthEmailSubject({ et, shipped = false, social, testEmail = false, paidCustomers7d } = {}) {
   const published = Boolean(social?.fbYes || social?.igYes);
   const status = social?.metaAuth?.status || '';
   const phrase = shipped
@@ -150,8 +158,7 @@ export function growthEmailSubject({ et, shipped = false, social, testEmail = fa
         : social?.blocker
           ? 'Distribution failed'
           : 'No change deployed';
-  const n = Number(newCustomersThisRun) || 0;
-  const customers = n === 1 ? '1 new customer this run' : `${n} new customers this run`;
+  const customers = paidCustomers7dPhrase(paidCustomers7d);
   const base = `GetTrainMate Growth - ${phrase} - ${customers} - ${et.shortDate}`;
   return testEmail ? `[TEST] ${base}` : base;
 }
@@ -864,6 +871,10 @@ export function composeGrowthEmailBody({
   const naMode = (v) => (v == null ? 'Unavailable' : String(v));
   const sha = String(commitSha || exp001?.commit || exp002row?.commit || '').trim();
   const distYes = Boolean(social.fbYes || social.igYes);
+  const paidCustomers7dMetric = board7.unique_paying_customers;
+  const paidCustomers7d = paidCustomers7dMetric?.available
+    ? Number(paidCustomers7dMetric.value)
+    : null;
   // Keep Required owner approval consistent with MAX — ACTION REQUIRED outreach items (e.g. SES).
   if (ownerActionRequiresMax(exp002.ownerActions)) {
     const sesLine = (exp002.ownerActions || []).find((a) => a.id === 'ses-delivery-tracking');
@@ -877,7 +888,7 @@ export function composeGrowthEmailBody({
     et,
     shipped,
     social,
-    newCustomersThisRun: lead.newCustomersAcquiredByThisRun
+    paidCustomers7d
   });
 
   const t = [];
