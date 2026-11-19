@@ -1,0 +1,78 @@
+name: Deploy Lambda (GetTrainMate API)
+
+# Deploys the .NET backend to Lambda on manual dispatch only.
+# Uses the same OIDC role as the daily-growth job (vars.AWS_GROWTH_ROLE_ARN).
+# No stored AWS keys. The role needs lambda:UpdateFunctionCode on
+# GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u (see run history).
+# Build uses the repo's canonical script: build-optimized-lambda.sh.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      AWS_REGION: us-east-1
+      LAMBDA_FUNCTION: GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u
+      API_HEALTH_URL: https://goskwzjzjg.execute-api.us-east-1.amazonaws.com/api/health
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish Lambda package
+        run: |
+          chmod +x build-optimized-lambda.sh
+          ./build-optimized-lambda.sh
+          ls -lh deploy/gettrainmate-api-lambda.zip
+          # Direct zip upload caps at 50 MB; fail loudly instead of a cryptic AWS error.
+          SIZE_BYTES=$(stat -c%s deploy/gettrainmate-api-lambda.zip)
+          if [ "$SIZE_BYTES" -gt 52428800 ]; then
+            echo "Zip is $SIZE_BYTES bytes (>50 MB); deploy via S3 instead."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials (OIDC role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_GROWTH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update Lambda code
+        run: |
+          aws lambda update-function-code \
+            --function-name "$LAMBDA_FUNCTION" \
+            --zip-file fileb://deploy/gettrainmate-api-lambda.zip \
+            --region "$AWS_REGION"
+          aws lambda wait function-updated \
+            --function-name "$LAMBDA_FUNCTION" \
+            --region "$AWS_REGION"
+          aws lambda get-function \
+            --function-name "$LAMBDA_FUNCTION" \
+            --region "$AWS_REGION" \
+            --query 'Configuration.{LastModified:LastModified,CodeSha256:CodeSha256,Version:Version}'
+
+      - name: Smoke-check health endpoint
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -fsS --max-time 30 "$API_HEALTH_URL"; then
+              echo "Health check OK"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 5 attempts"
+          exit 1
