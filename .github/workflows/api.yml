@@ -30,6 +30,11 @@ jobs:
       - name: Build
         run: cd apps/api && dotnet build --no-restore --configuration Release
 
+      - name: Test contact-discovery rules
+        # The Tests folder is Debug-only (excluded from Release builds), so the
+        # regression test for the 2026-11-20 duplicate drafts executes here.
+        run: cd apps/api && dotnet test --no-restore --configuration Debug --filter "FullyQualifiedName~ContactDiscoveryRulesTests"
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
