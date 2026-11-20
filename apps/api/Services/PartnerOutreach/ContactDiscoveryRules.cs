@@ -277,6 +277,11 @@ public static class ContactDiscoveryRules
         if (p is null || string.IsNullOrWhiteSpace(p.Website)) return false;
         if (NormalizeHost(p.Website) is null) return false;
         if (filterMissingOnly && HasUsableEmail(p)) return false;
+        // Already-contacted prospects are never re-probed: re-finding their public email
+        // would recreate the initial draft they were already sent (2026-11-20 duplicates).
+        // The sent FO0 queue row may be gone (pre-2026-11-19 dedupe deleted sent history),
+        // so the prospect record itself is the durable signal.
+        if (AlreadyContacted(p)) return false;
         // A candidate already waiting on an admin accept/reject is not re-probed.
         if (!string.IsNullOrWhiteSpace(p.PendingReviewEmail)) return false;
         if (string.Equals(p.ContactDiscoveryStatus, DiscoveryReviewRequired, StringComparison.OrdinalIgnoreCase))
@@ -300,6 +305,23 @@ public static class ContactDiscoveryRules
 
     public static bool HasUsableEmail(PartnerProspect p) =>
         !string.IsNullOrWhiteSpace(p?.Email) && p!.Email.Contains('@');
+
+    /// <summary>
+    /// Durable evidence the prospect was already emailed. LastContactedAt is set by the
+    /// send path on every send (initial or follow-up), and EmailState / AcquisitionStatus
+    /// are set to SENT alongside it. Used to keep contact discovery from re-drafting
+    /// prospects whose sent FO0 queue row was deleted by the pre-2026-11-19 dedupe.
+    /// </summary>
+    public static bool AlreadyContacted(PartnerProspect p) =>
+        p is not null
+        && (p.LastContactedAt != null
+            || string.Equals(p.AcquisitionStatus, PartnerCrmLifecycle.AcqSent, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.EmailState, "SENT", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.Status, "sent", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.Status, "delivered", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.Status, "replied", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.CrmLifecycle, PartnerCrmLifecycle.Contacted, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.CrmLifecycle, PartnerCrmLifecycle.FollowUp, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Flattens a verifier probe result into the fields stored on the prospect.</summary>
     public static ContactProbeSignals FromProbe(WebsiteProbeResult? probe)

@@ -266,6 +266,54 @@ public class ContactDiscoveryRulesTests
     }
 
     [Fact]
+    public void Batch_candidates_skip_already_contacted_prospects()
+    {
+        // 2026-11-20: a contact-discovery job re-probed already-contacted prospects and
+        // recreated their initial drafts, because the sent FO0 queue rows were gone
+        // (pre-2026-11-19 dedupe deleted sent history). The prospect record itself is
+        // the durable proof of contact, so no contacted prospect is a batch candidate —
+        // even with the missing-only filter off and force on.
+        var now = DateTime.UtcNow;
+
+        var sentByDate = new PartnerProspect
+        {
+            ProspectId = "a",
+            Website = "https://gym.example",
+            Email = "hi@gym.example",
+            LastContactedAt = now.AddDays(-3),
+        };
+        Assert.False(ContactDiscoveryRules.IsBatchCandidate(sentByDate, false, true, now));
+
+        var sentByStatus = new PartnerProspect
+        {
+            ProspectId = "b",
+            Website = "https://gym.example",
+            Email = "hi@gym.example",
+            AcquisitionStatus = PartnerCrmLifecycle.AcqSent,
+        };
+        Assert.False(ContactDiscoveryRules.IsBatchCandidate(sentByStatus, false, true, now));
+
+        var sentByEmailState = new PartnerProspect
+        {
+            ProspectId = "c",
+            Website = "https://gym.example",
+            Email = "hi@gym.example",
+            EmailState = "SENT",
+        };
+        Assert.False(ContactDiscoveryRules.IsBatchCandidate(sentByEmailState, false, true, now));
+
+        // A prospect with an email but no contact evidence is still a candidate
+        // when the missing-only filter is off (unchanged behaviour).
+        var neverContacted = new PartnerProspect
+        {
+            ProspectId = "d",
+            Website = "https://gym.example",
+            Email = "hi@gym.example",
+        };
+        Assert.True(ContactDiscoveryRules.IsBatchCandidate(neverContacted, false, true, now));
+    }
+
+    [Fact]
     public void Batch_without_force_respects_cooldown_and_attempt_limits()
     {
         var now = DateTime.UtcNow;
