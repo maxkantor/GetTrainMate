@@ -334,10 +334,13 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         }
 
         // Never recreate a Ready draft for an email/org already contacted — Approvals SEND would only hit duplicate_*.
+        // A sent follow-up is the same proof of contact as a sent initial: the pre-2026-11-19
+        // dedupe deleted the sent FO0 rows, so matching FO0-only let contact discovery
+        // recreate initial drafts for already-contacted prospects (2026-11-20 duplicates).
         var priorSent = allQueueForDraft.FirstOrDefault(q =>
-            q.FollowUpNumber == 0
-            && IsAlreadySentQueueItem(q)
-            && (string.Equals(q.Recipient, p.Email, StringComparison.OrdinalIgnoreCase)
+            IsAlreadySentQueueItem(q)
+            && (string.Equals(q.ProspectId, p.ProspectId, StringComparison.Ordinal)
+                || string.Equals(q.Recipient, p.Email, StringComparison.OrdinalIgnoreCase)
                 || (!string.IsNullOrWhiteSpace(p.OrganizationName)
                     && string.Equals(q.OrganizationName, p.OrganizationName, StringComparison.OrdinalIgnoreCase))));
         if (priorSent != null)
@@ -353,6 +356,23 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
             PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
             await _db.SaveAsync(p);
             return priorSent;
+        }
+
+        // No sent queue row survives at all (all send history deleted): the prospect record
+        // itself is the durable proof of contact. Never mint a new initial draft for them.
+        // All three callers treat this as "draft skipped" (see their try/catch).
+        if (ContactDiscoveryRules.AlreadyContacted(p))
+        {
+            _log.LogInformation(
+                "Queue dedupe: skip new draft for {Org} — prospect record already contacted",
+                p.OrganizationName);
+            p.Status = "contacted";
+            p.EmailState = "SENT";
+            p.AcquisitionStatus = PartnerCrmLifecycle.AcqSent;
+            p.CrmLifecycle = PartnerCrmLifecycle.Contacted;
+            PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
+            await _db.SaveAsync(p);
+            throw new InvalidOperationException("Prospect already contacted — not creating a duplicate initial draft.");
         }
 
         var unsub = BuildUnsubUrl(p.ProspectId);
@@ -2778,6 +2798,10 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         DateTime now)
     {
         var prospectId = p.ProspectId;
+        // A prospect already contacted keeps that state: re-finding their public email must
+        // not rewind them to "contactable" or mint a second initial draft (2026-11-20
+        // duplicates — the sent FO0 rows are gone, the prospect record is the proof).
+        var alreadyContacted = ContactDiscoveryRules.AlreadyContacted(p);
         p.Email = signals.Email!.Trim().ToLowerInvariant();
         p.SourceUrl = signals.SourceUrl ?? p.SourceUrl;
         p.ContactSourceUrl = signals.SourceUrl ?? p.ContactSourceUrl;
@@ -2826,7 +2850,8 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         p.FitScore = scored.AcquisitionScore;
         p.ProspectKind ??= PartnerCrmLifecycle.NormalizeProspectKind(p.OrganizationType);
         p.LastEvaluatedAt = now;
-        p.AcquisitionStatus = PartnerCrmLifecycle.AcqContactable;
+        if (!alreadyContacted)
+            p.AcquisitionStatus = PartnerCrmLifecycle.AcqContactable;
         PartnerCrmLifecycle.AppendTimelineEvent(p, "contact_found", "Public contact verified", now,
             new { p.Email, p.ContactSourceUrl, confidence = ContactDiscoveryRules.ConfidenceHigh, fromCache = result.FromCache });
         PartnerCrmLifecycle.NormalizeAcquisitionDimensions(p);
@@ -2869,7 +2894,7 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
 
         await _db.SaveAsync(p);
 
-        if (MarketCampaignCatalog.IsApprovedOutreachLanguage(p.CampaignLanguage))
+        if (!alreadyContacted && MarketCampaignCatalog.IsApprovedOutreachLanguage(p.CampaignLanguage))
         {
             try
             {
