@@ -4,6 +4,7 @@ import type {
   AcquisitionDashboard,
   AcquisitionSourceRow,
   OutreachMetrics,
+  OutreachSettings,
   PanelSharedProps,
   PartnerCampaign,
   PartnerProspect,
@@ -26,6 +27,7 @@ import { adminApiService } from '@/services/adminApiService';
 export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey }) => {
   const [dashboard, setDashboard] = useState<AcquisitionDashboard | null>(null);
   const [metrics, setMetrics] = useState<OutreachMetrics | null>(null);
+  const [settings, setSettings] = useState<OutreachSettings | null>(null);
   const [prospects, setProspects] = useState<PartnerProspect[]>([]);
   const [campaigns, setCampaigns] = useState<PartnerCampaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,16 +35,18 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [d, m, p, c] = await Promise.all([
+      const [d, m, p, c, s] = await Promise.all([
         adminApiService.get(`${API}/acquisition/dashboard`),
         adminApiService.get(`${API}/metrics`),
         adminApiService.get(`${API}/prospects`),
         adminApiService.get(`${API}/campaigns`),
+        adminApiService.get(`${API}/settings`),
       ]);
       setDashboard(d as AcquisitionDashboard);
       setMetrics(m as OutreachMetrics);
       setProspects(asArray<PartnerProspect>(p));
       setCampaigns(asArray<PartnerCampaign>(c));
+      setSettings(s as OutreachSettings);
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : 'Failed to load analytics');
     } finally {
@@ -226,7 +230,11 @@ export const AnalyticsPanel: React.FC<PanelSharedProps> = ({ onError, refreshKey
       </Typography>
       <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap', mb: 3 }}>
         <MetricCard label="Sent" value={metrics?.sent ?? 0} />
-        <MetricCard label="Delivered" value="NOT TRACKED" note="SES delivery telemetry is not configured" />
+        {settings?.deliveredTracking === 'CONFIGURED' ? (
+          <MetricCard label="Delivered" value={metrics?.delivered ?? 0} />
+        ) : (
+          <MetricCard label="Delivered" value="NOT TRACKED" note="SES delivery telemetry is not configured" />
+        )}
         <MetricCard label="Bounced" value={metrics?.bounced ?? 0} />
         <MetricCard label="Replies" value={metrics?.replies ?? 0} />
         <MetricCard label="Complaints" value={metrics?.complaints ?? 0} />
