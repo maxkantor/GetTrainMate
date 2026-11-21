@@ -161,7 +161,7 @@ to `*`.
         "cloudformation:CreateChangeSet", "cloudformation:ExecuteChangeSet",
         "cloudformation:DescribeStacks", "cloudformation:DescribeStackEvents",
         "cloudformation:DescribeChangeSet", "cloudformation:DeleteChangeSet",
-        "cloudformation:GetTemplateSummary", "cloudformation:DescribeStackResources"
+        "cloudformation:GetTemplate", "cloudformation:GetTemplateSummary", "cloudformation:DescribeStackResources"
       ],
       "Resource": [
         "arn:aws:cloudformation:us-east-1:718522948657:stack/GetTrainMateStack/*",
