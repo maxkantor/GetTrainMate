@@ -58,6 +58,23 @@ jobs:
       - name: Build CDK
         run: npm run infra:build
 
+      - name: Set up .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish .NET API (CDK asset)
+        # The main stack's ApiFunction code asset is apps/api/publish. It is
+        # never committed, so synth fails without it (the pre-existing
+        # cdk.yml synth failure on main). The canonical build script
+        # publishes Release output to apps/api/publish, which CDK then
+        # uploads as part of this stack update — including the PR #15 API
+        # change that reads the inbound token from SSM at startup.
+        run: |
+          chmod +x build-optimized-lambda.sh
+          ./build-optimized-lambda.sh
+          ls -ld apps/api/publish
+
       - name: Configure AWS credentials (OIDC role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
