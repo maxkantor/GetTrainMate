@@ -55,6 +55,14 @@ jobs:
       - name: Install CDK dependencies
         run: cd infra && npm install
 
+      - name: Install inbound processor dependencies
+        # The processor Lambda's @aws-sdk deps live in its own package.json
+        # (infra/lambdas/inbound-processor). Its node_modules is gitignored,
+        # so without this step esbuild cannot resolve the imports and CDK
+        # bundling fails.
+        working-directory: infra/lambdas/inbound-processor
+        run: npm ci
+
       - name: Build CDK
         run: npm run infra:build
 
