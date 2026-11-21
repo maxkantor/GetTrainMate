@@ -226,6 +226,12 @@ to `*`.
       "Resource": "arn:aws:route53:::hostedzone/<ZONE_ID>"
     },
     {
+      "Sid": "CdkBootstrapVersion",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameter"],
+      "Resource": "arn:aws:ssm:us-east-1:718522948657:parameter/cdk-bootstrap/hnb659fds/version"
+    },
+    {
       "Sid": "SsmToken",
       "Effect": "Allow",
       "Action": ["ssm:PutParameter", "ssm:GetParameter", "ssm:DescribeParameters"],
