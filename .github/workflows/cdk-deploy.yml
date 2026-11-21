@@ -5,10 +5,11 @@ name: CDK Deploy (manual)
 # refs/heads/main (a branch run fails AssumeRoleWithWebIdentity).
 #
 # DO NOT run this until the IAM grant in docs/growth/PARTNER-OUTREACH-INFRA.md
-# (Deployment runbook) is attached to the OIDC role. The role currently
-# cannot do CloudFormation / IAM / Route53 / SES / S3 writes, so the deploy
-# will fail on permissions until the grant is in place. That failure is
-# expected and is not a code problem — get the grant first.
+# (Deployment runbook) is attached to the OIDC role. The grant was attached
+# Nov 21, 2026 (inline policy PartnerInboundDeploy on
+# GetTrainMateGitHubGrowth) — deploys from main are expected to work.
+# If a deploy fails on a missing permission, add exactly that action scoped
+# to the same resources (see runbook) — do not widen to *.
 #
 # Inputs:
 # - route53_hosted_zone_id: Route53 hosted zone ID for gettrainmate.com
@@ -64,6 +65,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Deploy CDK stack (partner outreach infra enabled)
+        working-directory: infra
         run: |
           CTX="--context enablePartnerOutreachInfra=true"
           if [ -n "${{ inputs.route53_hosted_zone_id }}" ]; then
