@@ -202,8 +202,8 @@ to `*`.
       "Action": [
         "s3:CreateBucket", "s3:DeleteBucket", "s3:PutBucketPolicy", "s3:DeleteBucketPolicy",
         "s3:PutEncryptionConfiguration", "s3:PutLifecycleConfiguration",
-        "s3:PutBucketPublicAccessBlock", "s3:GetBucketPolicy", "s3:GetBucketEncryption",
-        "s3:GetBucketLifecycleConfiguration", "s3:ListBucket"
+        "s3:PutBucketPublicAccessBlock", "s3:GetBucketPolicy", "s3:GetEncryptionConfiguration",
+        "s3:GetLifecycleConfiguration", "s3:ListBucket"
       ],
       "Resource": "arn:aws:s3:::gettrainmate-partner-inbound"
     },
