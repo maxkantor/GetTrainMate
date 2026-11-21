@@ -1,6 +1,12 @@
-# Partner outreach CRM — infrastructure plan (do not apply yet)
+# Partner outreach CRM — infrastructure plan
 
-**Status:** Application code is in the repo. **Campaign sending defaults to disabled.**  
+**Status (Nov 21, 2026): Max approved the inbound reply path.** The plumbing is
+implemented in the repo behind CDK context `enablePartnerOutreachInfra=true`
+(see `infra/stacks/main-stack.ts` `createPartnerInboundInfra`, the processor
+Lambda `infra/lambdas/inbound-processor/`, and the API Startup SSM token load).
+It is NOT yet deployed: the GitHub OIDC role cannot do the AWS writes (verified
+Nov 21 — see Deployment runbook below). Do not run `cdk-deploy.yml` until the
+IAM grant in the runbook is attached to the OIDC role.
 **Do not** create DNS, MX, SES receipt rules, S3 inbound buckets, IAM roles, or EventBridge schedules until Max approves this plan.
 
 Existing transactional mail (`noreply@gettrainmate.com` via `EmailService.SendEmailAsync`) stays unchanged.
@@ -122,3 +128,154 @@ npx cdk deploy --context enablePartnerOutreachInfra=true
 - No auto-replies, no auto follow-ups in v1
 - Complaint pauses all campaign sending
 - Transactional mail is a separate From identity
+
+---
+
+## Deployment runbook — inbound reply path (Nov 21, 2026)
+
+Verified live Nov 21 (inspection run 44937858217, main branch):
+- AWS account `718522948657`; OIDC role `arn:aws:iam::718522948657:role/GetTrainMateGitHubGrowth`.
+- The role trusts `refs/heads/main` only — a branch run fails `AssumeRoleWithWebIdentity`. All deploy/inspection workflows must run from main.
+- `PARTNER_SES_CONFIGURATION_SET=gettrainmate-partner-outreach` IS set on the live API Lambda (delivery events were never the problem — see below).
+- `PARTNER_EMAIL_INTERNAL_TOKEN` is UNSET on the live Lambda, so `POST /api/internal/partner-outreach/inbound` rejects everything today. The API now reads the token from SSM `/gettrainmate/partner/internal-token` at startup (Startup.cs); the processor reads the same parameter at runtime. Create the parameter once (step 2) — no secret value belongs in code, env, or chat.
+- DNS is Route53 (awsdns name servers, verified Nov 21). No MX / SPF / DMARC exist. The hosted zone ID is NOT discoverable by the OIDC role (`route53:ListHostedZones` denied) — read it from the Route53 console (Hosted zones → gettrainmate.com) and pass it as the `route53_hosted_zone_id` input to `cdk-deploy.yml`.
+- "Delivered NOT TRACKED" was a hardcoded placeholder in `AnalyticsPanel.tsx`, not a telemetry failure: the metrics API already returns the delivered count and the settings API already returns `deliveredTracking=CONFIGURED`. Fixed in the web app (card now shows the real count when tracking is configured). Web deploys via Amplify on push to main.
+
+### 1. IAM grant (needs Max's approval — do not assume it)
+
+Attach this policy (or its equivalent) to `GetTrainMateGitHubGrowth`. Replace
+`<ZONE_ID>` with the Route53 hosted zone ID. Scope is deliberately narrow:
+only the stack, the inbound bucket, the processor function, the receipt rule
+set, and the one hosted zone. If a deploy fails on a missing action, add
+exactly that action scoped to the same resources and re-run — do not widen
+to `*`.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CdkDeployStacks",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateChangeSet", "cloudformation:ExecuteChangeSet",
+        "cloudformation:DescribeStacks", "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeChangeSet", "cloudformation:DeleteChangeSet",
+        "cloudformation:GetTemplateSummary", "cloudformation:DescribeStackResources"
+      ],
+      "Resource": [
+        "arn:aws:cloudformation:us-east-1:718522948657:stack/GetTrainMateStack/*",
+        "arn:aws:cloudformation:us-east-1:718522948657:stack/CDKToolkit/*"
+      ]
+    },
+    {
+      "Sid": "CdkAssets",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": [
+        "arn:aws:s3:::cdk-*-assets-718522948657-us-east-1",
+        "arn:aws:s3:::cdk-*-assets-718522948657-us-east-1/*"
+      ]
+    },
+    {
+      "Sid": "ProcessorLambda",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction", "lambda:DeleteFunction", "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration", "lambda:GetFunction",
+        "lambda:AddPermission", "lambda:RemovePermission", "lambda:TagResource"
+      ],
+      "Resource": "arn:aws:lambda:us-east-1:718522948657:function:GetTrainMateStack-PartnerInboundProcessor*"
+    },
+    {
+      "Sid": "ProcessorRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole", "iam:DeleteRole", "iam:GetRole", "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy", "iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:PassRole"
+      ],
+      "Resource": "arn:aws:iam::718522948657:role/GetTrainMateStack-PartnerInboundProcessor*"
+    },
+    {
+      "Sid": "InboundBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket", "s3:DeleteBucket", "s3:PutBucketPolicy", "s3:DeleteBucketPolicy",
+        "s3:PutEncryptionConfiguration", "s3:PutLifecycleConfiguration",
+        "s3:PutBucketPublicAccessBlock", "s3:GetBucketPolicy", "s3:GetBucketEncryption",
+        "s3:GetBucketLifecycleConfiguration", "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::gettrainmate-partner-inbound"
+    },
+    {
+      "Sid": "SesReceipt",
+      "Effect": "Allow",
+      "Action": [
+        "ses:CreateReceiptRuleSet", "ses:DeleteReceiptRuleSet", "ses:CreateReceiptRule",
+        "ses:DeleteReceiptRule", "ses:DescribeReceiptRuleSet", "ses:DescribeActiveReceiptRuleSet",
+        "ses:SetActiveReceiptRuleSet", "ses:GetIdentityDkimAttributes",
+        "ses:GetIdentityMailFromDomainAttributes", "ses:ListConfigurationSets",
+        "ses:DescribeConfigurationSet"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Route53Zone",
+      "Effect": "Allow",
+      "Action": ["route53:ChangeResourceRecordSets", "route53:ListResourceRecordSets", "route53:GetHostedZone"],
+      "Resource": "arn:aws:route53:::hostedzone/<ZONE_ID>"
+    },
+    {
+      "Sid": "SsmToken",
+      "Effect": "Allow",
+      "Action": ["ssm:PutParameter", "ssm:GetParameter", "ssm:DescribeParameters"],
+      "Resource": "arn:aws:ssm:us-east-1:718522948657:parameter/gettrainmate/*"
+    }
+  ]
+}
+```
+
+The OIDC role is known (Nov 21) to already allow `lambda:GetFunction`,
+`lambda:UpdateFunctionCode` on the API function, and `sts:GetCallerIdentity`.
+It is known NOT to allow `route53:*`, `ses:*` reads, `s3:ListAllMyBuckets`,
+`ssm:DescribeParameters`, or `iam:List*` on itself.
+
+### 2. Create the internal token (one time, console or CLI — value never printed)
+
+```bash
+aws ssm put-parameter --name /gettrainmate/partner/internal-token \
+  --type SecureString --value "$(openssl rand -hex 32)" --region us-east-1
+```
+
+Only if the parameter does not already exist. The API (Startup SSM load) and
+the processor (runtime SSM read) both use it. Do not put the value in code,
+env, or chat.
+
+### 3. Deploy
+
+Run `.github/workflows/cdk-deploy.yml` (manual dispatch, from main) with the
+`route53_hosted_zone_id` input. It deploys with
+`--context enablePartnerOutreachInfra=true`, checks no other receipt rule set
+is active (it refuses to replace one — decide manually if one exists), then
+activates `gettrainmate-partner-inbound` and verifies the rule set.
+
+### 4. End-to-end test (Max only — no prospect contact)
+
+1. Max sends an email from his own address to `partners@gettrainmate.com`
+   (subject e.g. `[TEST] reply path`).
+2. Confirm: an object appears in S3 `gettrainmate-partner-inbound` (key = SES
+   messageId); the processor Lambda logs show the POST to
+   `/api/internal/partner-outreach/inbound` succeeding; the CRM Inbox shows
+   the thread as "Needs response"; settings ReplyCount increments; the admin
+   notification email fires (to SSM `/gettrainmate/ses-admin-email`).
+3. Do NOT send or resend anything to prospects as part of the test.
+
+### 5. Follow-ups (not in this change)
+
+- Easy DKIM: enable on the SES identity and add the three DKIM CNAMEs from
+  SES to Route53 (tokens were not readable by the OIDC role; get them from
+  the SES console).
+- Custom MAIL FROM `bounce.gettrainmate.com` (MX `10 feedback-smtp.us-east-1.amazonses.com`
+  + TXT `v=spf1 include:amazonses.com -all`) via `ses set-identity-mail-from-domain`.
+- Fix delivery telemetry display is already in this change (AnalyticsPanel);
+  verify the Delivered count appears in the live admin UI after the web deploy.

@@ -11,6 +11,9 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as ses from 'aws-cdk-lib/aws-ses';
+import * as sesActions from 'aws-cdk-lib/aws-ses-actions';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -388,6 +391,12 @@ export class GetTrainMateStack extends cdk.Stack {
       methods: [apigateway.HttpMethod.ANY],
       integration: lambdaIntegration,
     });
+
+    // Partner outreach inbound replies (SES -> S3 -> processor Lambda -> API).
+    // Created only with CDK context enablePartnerOutreachInfra=true.
+    if (enablePartnerOutreach) {
+      this.createPartnerInboundInfra(httpApi.apiEndpoint);
+    }
 
     // ----- AppSync GraphQL API (chat, discover, matches, credits) -----
     const schemaPath = path.join(__dirname, '../appsync/schema.graphql');
@@ -906,6 +915,139 @@ export class GetTrainMateStack extends cdk.Stack {
     tables.push(stripeWebhookEventsTable);
 
     return tables;
+  }
+
+  /**
+   * Partner outreach inbound reply path (SES -> S3 -> processor Lambda -> API).
+   * Created only when CDK context enablePartnerOutreachInfra=true.
+   *
+   * Why this exists: partner mail is sent From/Reply-To partners@gettrainmate.com,
+   * but that address had no MX record and no inbound path, so every reply
+   * bounced and nothing could reach the CRM. The CRM's reply-recording code
+   * (IngestInboundAsync) was already complete; only this plumbing was missing.
+   *
+   * DNS: the hosted zone ID comes from CDK context `route53HostedZoneId`
+   * (Route53 console -> Hosted zones -> gettrainmate.com). DNS is Route53
+   * (awsdns name servers, verified Nov 21), but the zone ID cannot be
+   * discovered by the GitHub OIDC role, so it must be supplied. When the
+   * context is absent, the DNS records are skipped (with a synth warning)
+   * and the SES/S3/Lambda resources are still created.
+   *
+   * The apex TXT record carries BOTH values: the existing google-site-
+   * verification string AND the new SPF record. Route53 holds one TXT
+   * record set per name — creating the SPF value alone would DELETE the
+   * google verification. Never drop the google-site-verification value.
+   *
+   * Activation is NOT done by CDK: after deploy, run
+   *   aws ses set-active-receipt-rule-set --rule-set-name gettrainmate-partner-inbound --region us-east-1
+   * Only one rule set can be active per region. Verify no other rule set
+   * is active first (aws ses describe-active-receipt-rule-set) — activating
+   * replaces the active set.
+   *
+   * The internal token is NOT stored here. The API reads it from SSM
+   * /gettrainmate/partner/internal-token at startup (see Startup.cs) and
+   * the processor reads the same parameter at runtime. Create that SSM
+   * SecureString once (console or ssm:PutParameter) before the end-to-end
+   * test; no secret value belongs in code, env, or chat.
+   */
+  private createPartnerInboundInfra(apiEndpoint: string): void {
+    const zoneId = (this.node.tryGetContext('route53HostedZoneId') as string | undefined)?.trim();
+    if (zoneId) {
+      const zone = route53.HostedZone.fromHostedZoneAttributes(this, 'PartnerInboundZone', {
+        hostedZoneId: zoneId,
+        zoneName: 'gettrainmate.com',
+      });
+      // Apex MX: replies to partners@gettrainmate.com route to SES receiving.
+      // Verified Nov 21: no MX record existed, so there is nothing to replace.
+      new route53.MxRecord(this, 'PartnerInboundMx', {
+        zone,
+        values: [{ priority: 10, hostName: 'inbound-smtp.us-east-1.amazonaws.com' }],
+      });
+      // Apex TXT: keep the existing google-site-verification value AND add SPF.
+      new route53.TxtRecord(this, 'PartnerInboundSpf', {
+        zone,
+        values: [
+          'google-site-verification=DoVO8vuWp2tfvufChTPxnVe5k8cIFZ2M0bxo2i3taaw',
+          'v=spf1 include:amazonses.com -all',
+        ],
+      });
+      // DMARC monitoring only (p=none): reports without rejecting mail.
+      new route53.TxtRecord(this, 'PartnerInboundDmarc', {
+        zone,
+        recordName: '_dmarc',
+        values: ['v=DMARC1; p=none; rua=mailto:partners@gettrainmate.com; fo=1'],
+      });
+    } else {
+      cdk.Annotations.of(this).addWarning(
+        'route53HostedZoneId context not set: skipping PartnerInbound DNS records (MX/SPF/DMARC). ' +
+          'Supply --context route53HostedZoneId=<zone id from the Route53 console> at deploy.',
+      );
+    }
+
+    // Encrypted bucket where SES stores inbound messages (key = SES messageId).
+    const inboundBucket = new s3.Bucket(this, 'PartnerInboundBucket', {
+      bucketName: 'gettrainmate-partner-inbound',
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      lifecycleRules: [{ expiration: cdk.Duration.days(2555) }],
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // Processor: S3 object -> POST /api/internal/partner-outreach/inbound.
+    const processor = new nodejs.NodejsFunction(this, 'PartnerInboundProcessor', {
+      runtime: new lambda.Runtime('nodejs22.x', lambda.RuntimeFamily.NODEJS),
+      handler: 'handler',
+      entry: path.join(__dirname, '../lambdas/inbound-processor/index.js'),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        INBOUND_BUCKET: inboundBucket.bucketName,
+        API_BASE_URL: apiEndpoint,
+        INBOUND_TOKEN_SSM_PARAM: '/gettrainmate/partner/internal-token',
+      },
+      bundling: {
+        format: nodejs.OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+        externalModules: [],
+      },
+    });
+    inboundBucket.grantRead(processor);
+    processor.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ssm:GetParameter'],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/gettrainmate/partner/internal-token`,
+        ],
+      }),
+    );
+
+    // Receipt rule set + rule for partners@gettrainmate.com (TLS required).
+    // S3 stores the message; the Lambda action then posts it to the API.
+    const ruleSet = new ses.ReceiptRuleSet(this, 'PartnerInboundRuleSet', {
+      receiptRuleSetName: 'gettrainmate-partner-inbound',
+    });
+    new ses.ReceiptRule(this, 'PartnerInboundRule', {
+      ruleSet,
+      recipients: ['partners@gettrainmate.com'],
+      tlsPolicy: ses.TlsPolicy.REQUIRE,
+      scanEnabled: true,
+      actions: [new sesActions.S3({ bucket: inboundBucket }), new sesActions.Lambda({ function: processor })],
+    });
+
+    new cdk.CfnOutput(this, 'PartnerInboundBucketName', {
+      value: inboundBucket.bucketName,
+      description: 'SES inbound S3 bucket for partner replies',
+    });
+    new cdk.CfnOutput(this, 'PartnerInboundProcessorName', {
+      value: processor.functionName,
+      description: 'SES inbound processor Lambda',
+    });
+    new cdk.CfnOutput(this, 'PartnerInboundRuleSetName', {
+      value: 'gettrainmate-partner-inbound',
+      description: 'Activate with: aws ses set-active-receipt-rule-set --rule-set-name gettrainmate-partner-inbound --region us-east-1',
+    });
   }
 
   /**

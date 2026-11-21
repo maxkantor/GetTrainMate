@@ -183,6 +183,31 @@ public class Startup
             if (!string.IsNullOrWhiteSpace(resolved))
                 options.ModelId = resolved;
         });
+
+        // Partner outreach internal token: the SES inbound processor calls
+        // POST /api/internal/partner-outreach/inbound with X-Partner-Email-Token.
+        // Priority: env PARTNER_EMAIL_INTERNAL_TOKEN > SSM
+        // /gettrainmate/partner/internal-token (SecureString). The controller
+        // rejects every internal call while this is empty — verified Nov 21
+        // the live Lambda had no token set, so the inbound endpoint was
+        // locked. Same load pattern as the Bedrock model ID above.
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PARTNER_EMAIL_INTERNAL_TOKEN")))
+        {
+            try
+            {
+                using var ssm = new AmazonSimpleSystemsManagementClient();
+                var resp = ssm.GetParameterAsync(new GetParameterRequest { Name = "/gettrainmate/partner/internal-token", WithDecryption = true }).GetAwaiter().GetResult();
+                var fromSsm = resp.Parameter?.Value?.Trim();
+                if (!string.IsNullOrWhiteSpace(fromSsm))
+                {
+                    Environment.SetEnvironmentVariable("PARTNER_EMAIL_INTERNAL_TOKEN", fromSsm);
+                    Log.Information("Partner internal token loaded from SSM");
+                }
+            }
+            catch (ParameterNotFoundException) { /* token not created yet; internal endpoints stay locked */ }
+            catch (Exception ex) { Log.Warning(ex, "Could not load partner internal token from SSM"); }
+        }
+
         services.Configure<AiCreditCostsOptions>(Configuration.GetSection(AiCreditCostsOptions.SectionName));
         services.AddSingleton<IBedrockClientWrapper, BedrockClientWrapper>();
         services.AddScoped<IBedrockChatService, BedrockChatService>();

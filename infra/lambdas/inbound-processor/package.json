@@ -1,0 +1,1 @@
+{"dependencies":{"@aws-sdk/client-s3":"^3.0.0","@aws-sdk/client-ssm":"^3.0.0"},"description":"SES inbound processor for GetTrainMate partner replies: S3 -> POST /api/internal/partner-outreach/inbound","main":"index.js","name":"gettrainmate-inbound-processor","version":"1.0.0"}

@@ -129,6 +129,28 @@ describe('Customer Acquisition secondary panels', () => {
     expect(await screen.findByText('New signups')).toBeInTheDocument();
   });
 
+  it('AnalyticsPanel shows the real Delivered count when SES tracking is configured', async () => {
+    getMock.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes('/acquisition/dashboard')) {
+        return {
+          northStars: { newSignups: 1, activatedUsers: 0, payingCustomers: 0, revenueCents: 0 },
+          funnel: { discovered: 5, sent: 2 },
+        };
+      }
+      if (u.includes('/metrics')) return { sent: 10, delivered: 7, bounced: 1 };
+      if (u.includes('/settings')) return { deliveredTracking: 'CONFIGURED' };
+      if (u.includes('/prospects')) return [];
+      if (u.includes('/campaigns')) return [];
+      return {};
+    });
+    render(<AnalyticsPanel {...shared()} />);
+    expect(await screen.findByText('Delivered')).toBeInTheDocument();
+    // The delivered count (7) must render instead of the old hardcoded placeholder.
+    expect(await screen.findByText('7')).toBeInTheDocument();
+    expect(screen.queryByText('NOT TRACKED')).not.toBeInTheDocument();
+  });
+
   it('SettingsPanel loads and can save', async () => {
     getMock.mockResolvedValue({
       dailyLimit: 10,
