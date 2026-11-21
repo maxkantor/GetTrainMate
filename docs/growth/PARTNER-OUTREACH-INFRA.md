@@ -269,9 +269,14 @@ env, or chat.
 
 Run `.github/workflows/cdk-deploy.yml` (manual dispatch, from main) with the
 `route53_hosted_zone_id` input. It deploys with
-`--context enablePartnerOutreachInfra=true`, checks no other receipt rule set
-is active (it refuses to replace one — decide manually if one exists), then
-activates `gettrainmate-partner-inbound` and verifies the rule set.
+`--context enablePartnerOutreachInfra=true`, verifies the account's shared
+ACTIVE rule set is `INBOUND_MAIL` (it never activates another set — SES
+allows one active set per region and `INBOUND_MAIL` also routes mail for
+the other businesses), and verifies the partners@ rule is in it. The
+partners@ rule lives in `INBOUND_MAIL`, not in a GetTrainMate-owned set:
+an earlier `gettrainmate-partner-inbound` set was created by the first
+successful deploy and left inactive; the next deploy deletes it when the
+rule moves into `INBOUND_MAIL`.
 
 ### 4. End-to-end test (Max only — no prospect contact)
 

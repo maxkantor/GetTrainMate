@@ -1009,11 +1009,16 @@ export class GetTrainMateStack extends cdk.Stack {
       }),
     );
 
-    // Receipt rule set + rule for partners@gettrainmate.com (TLS required).
-    // S3 stores the message; the Lambda action then posts it to the API.
-    const ruleSet = new ses.ReceiptRuleSet(this, 'PartnerInboundRuleSet', {
-      receiptRuleSetName: 'gettrainmate-partner-inbound',
-    });
+    // The partners@ rule lives in the account's shared ACTIVE rule set
+    // INBOUND_MAIL — SES allows only one active rule set per region, and
+    // INBOUND_MAIL already routes inbound mail for the other businesses
+    // (JobCompassAI, YouTubeBoosterAI, HybridRaceWorkouts, LuckyNumbersLab,
+    // MaxKantorPortfolio, PetBehaviorTranslator). Activating a separate
+    // GetTrainMate set would replace it and break those routes, so the
+    // stack adds the rule to INBOUND_MAIL instead and never activates
+    // its own set. S3 stores the message; the Lambda action then posts
+    // it to the API.
+    const ruleSet = ses.ReceiptRuleSet.fromReceiptRuleSetName(this, 'PartnerInboundRuleSet', 'INBOUND_MAIL');
     new ses.ReceiptRule(this, 'PartnerInboundRule', {
       ruleSet,
       recipients: ['partners@gettrainmate.com'],
@@ -1031,8 +1036,8 @@ export class GetTrainMateStack extends cdk.Stack {
       description: 'SES inbound processor Lambda',
     });
     new cdk.CfnOutput(this, 'PartnerInboundRuleSetName', {
-      value: 'gettrainmate-partner-inbound',
-      description: 'Activate with: aws ses set-active-receipt-rule-set --rule-set-name gettrainmate-partner-inbound --region us-east-1',
+      value: 'INBOUND_MAIL',
+      description: 'Shared active SES receipt rule set; the partners@ rule lives in it. Do NOT activate any other set.',
     });
   }
 

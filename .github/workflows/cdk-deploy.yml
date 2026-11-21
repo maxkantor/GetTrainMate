@@ -15,6 +15,11 @@ name: CDK Deploy (manual)
 # - route53_hosted_zone_id: Route53 hosted zone ID for gettrainmate.com
 #   (Route53 console -> Hosted zones). Empty = DNS records are skipped
 #   (SES/S3/Lambda still deploy); supply it to create the MX/SPF/DMARC rows.
+#
+# SES note: the partners@ rule is added to the account's shared ACTIVE
+# rule set INBOUND_MAIL (SES allows one active set per region; INBOUND_MAIL
+# also routes mail for the other businesses). The workflow verifies
+# INBOUND_MAIL is the active set and never activates another one.
 
 on:
   workflow_dispatch:
@@ -107,26 +112,24 @@ jobs:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           AWS_REGION: us-east-1
 
-      - name: Check the currently active SES receipt rule set
+      - name: Check the active SES receipt rule set
+        # The partners@ rule lives in the account's shared ACTIVE set
+        # INBOUND_MAIL (SES allows one active set per region; INBOUND_MAIL
+        # also routes mail for the other businesses). The deploy must
+        # never activate a different set. Fail loudly if INBOUND_MAIL is
+        # not the active set.
         run: |
           set -uo pipefail
           ACTIVE=$(aws ses describe-active-receipt-rule-set --region "$AWS_REGION" \
             --query 'Metadata.Name' --output text 2>/dev/null || echo "NONE")
           echo "ACTIVE_RULE_SET=$ACTIVE"
-          if [ "$ACTIVE" != "None" ] && [ -n "$ACTIVE" ]; then
-            echo "ERROR: an SES receipt rule set is already active ($ACTIVE)."
-            echo "Activating gettrainmate-partner-inbound would replace it. Stop and decide manually."
+          if [ "$ACTIVE" != "INBOUND_MAIL" ]; then
+            echo "ERROR: the active SES receipt rule set is '$ACTIVE', not INBOUND_MAIL."
+            echo "The partners@ rule lives in INBOUND_MAIL. Do not activate any other set."
             exit 1
           fi
 
-      - name: Activate the partner inbound receipt rule set
+      - name: Verify the partners rule in INBOUND_MAIL
         run: |
-          aws ses set-active-receipt-rule-set \
-            --rule-set-name gettrainmate-partner-inbound \
-            --region "$AWS_REGION"
-          aws ses describe-active-receipt-rule-set --region "$AWS_REGION"
-
-      - name: Verify the receipt rule set
-        run: |
-          aws ses describe-receipt-rule-set --rule-set-name gettrainmate-partner-inbound --region "$AWS_REGION" \
+          aws ses describe-receipt-rule-set --rule-set-name INBOUND_MAIL --region "$AWS_REGION" \
             --query 'Rules[].{Name:Name,Recipients:Recipients,Enabled:Enabled}'
