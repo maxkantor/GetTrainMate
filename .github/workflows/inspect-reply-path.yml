@@ -10,6 +10,12 @@ name: Inspect Reply Path (read-only)
 
 on:
   workflow_dispatch:
+  # Temporary: workflow_dispatch requires the file on the default branch.
+  # The push trigger lets this read-only inspection run from this branch.
+  # It is scoped to this branch name, so it never fires after merge.
+  push:
+    branches: [feat/gtm-inbound-reply-path]
+    paths: [.github/workflows/inspect-reply-path.yml]
 
 jobs:
   inspect:
