@@ -1,0 +1,113 @@
+name: Inspect Reply Path (read-only)
+
+# Read-only inspection for the GetTrainMate inbound reply path.
+# No resource is created, modified, or deleted. Used to ground the
+# implementation in live state: Lambda env, Route53 zone/records,
+# SES identity + receipt rules + configuration set, S3 buckets,
+# SSM parameter presence, and the OIDC role's own policies.
+# Secret-safe: prints env var NAMES and the non-secret config-set
+# name only; never prints token or secret values.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      AWS_REGION: us-east-1
+      LAMBDA_FUNCTION: GetTrainMateStack-ApiFunctionCE271BD4-nktpjXfuOe0u
+
+    steps:
+      - name: Configure AWS credentials (OIDC role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_GROWTH_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Caller identity
+        run: |
+          set -uo pipefail
+          aws sts get-caller-identity --query 'Arn' --output text || echo "STS DENIED"
+
+      - name: API Lambda environment (names + non-secret values only)
+        run: |
+          set -uo pipefail
+          echo "--- env var names ---"
+          aws lambda get-function --function-name "$LAMBDA_FUNCTION" --region "$AWS_REGION" \
+            --query 'Configuration.Environment.Variables | keys(@)' --output text \
+            || echo "LAMBDA GET-FUNCTION DENIED"
+          echo "--- PARTNER_SES_CONFIGURATION_SET value (non-secret) ---"
+          aws lambda get-function --function-name "$LAMBDA_FUNCTION" --region "$AWS_REGION" \
+            --query 'Configuration.Environment.Variables.PARTNER_SES_CONFIGURATION_SET' --output text \
+            || echo "DENIED"
+          echo "--- PARTNER_EMAIL_INTERNAL_TOKEN set? (yes/no only, value never printed) ---"
+          TOKEN=$(aws lambda get-function --function-name "$LAMBDA_FUNCTION" --region "$AWS_REGION" \
+            --query 'Configuration.Environment.Variables.PARTNER_EMAIL_INTERNAL_TOKEN' --output text 2>/dev/null || echo "__DENIED__")
+          if [ "$TOKEN" = "__DENIED__" ]; then echo "DENIED"; elif [ "$TOKEN" = "None" ] || [ -z "$TOKEN" ]; then echo "UNSET"; else echo "SET"; fi
+
+      - name: Route53 hosted zones + records for gettrainmate.com
+        run: |
+          set -uo pipefail
+          echo "--- hosted zones ---"
+          aws route53 list-hosted-zones --query 'HostedZones[?contains(Name, `gettrainmate`)].{Name:Name,Id:Id,Private:Config.PrivateZone}' --output table \
+            || echo "ROUTE53 LIST-HOSTED-ZONES DENIED"
+          ZONE_ID=$(aws route53 list-hosted-zones --query "HostedZones[?Name=='gettrainmate.com.'].Id" --output text 2>/dev/null || true)
+          echo "ZONE_ID=$ZONE_ID"
+          if [ -n "$ZONE_ID" ] && [ "$ZONE_ID" != "None" ]; then
+            echo "--- record sets ---"
+            aws route53 list-resource-record-sets --hosted-zone-id "$ZONE_ID" \
+              --query 'ResourceRecordSets[].{Name:Name,Type:Type,Value:ResourceRecords[].Value}' --output json \
+              || echo "ROUTE53 LIST-RECORDS DENIED"
+          fi
+
+      - name: SES identity, receipt rules, configuration set
+        run: |
+          set -uo pipefail
+          echo "--- DKIM attributes ---"
+          aws ses get-identity-dkim-attributes --identities gettrainmate.com --region "$AWS_REGION" \
+            || echo "SES GET-IDENTITY-DKIM DENIED"
+          echo "--- mail-from attributes ---"
+          aws ses get-identity-mail-from-domain-attributes --identities gettrainmate.com --region "$AWS_REGION" \
+            || echo "SES GET-MAIL-FROM DENIED"
+          echo "--- active receipt rule set ---"
+          aws ses describe-active-receipt-rule-set --region "$AWS_REGION" \
+            || echo "SES DESCRIBE-ACTIVE-RULE-SET DENIED"
+          echo "--- configuration sets ---"
+          aws ses list-configuration-sets --region "$AWS_REGION" \
+            || echo "SES LIST-CONFIGURATION-SETS DENIED"
+          echo "--- partner config set detail ---"
+          aws ses describe-configuration-set --configuration-set-name gettrainmate-partner-outreach --region "$AWS_REGION" \
+            || echo "SES DESCRIBE-CONFIGURATION-SET DENIED"
+
+      - name: S3 buckets + SSM parameter presence (metadata only)
+        run: |
+          set -uo pipefail
+          echo "--- gettrainmate buckets ---"
+          aws s3api list-buckets --query "Buckets[?contains(Name, 'gettrainmate')].Name" --output text \
+            || echo "S3 LIST-BUCKETS DENIED"
+          echo "--- SSM /gettrainmate/partner/internal-token exists? ---"
+          aws ssm describe-parameters --parameter-filters "Key=Name,Values=/gettrainmate/partner/internal-token" \
+            --query 'Parameters[].{Name:Name,Type:Type}' --output text \
+            || echo "SSM DESCRIBE-PARAMETERS DENIED"
+
+      - name: OIDC role policies (read-only probe)
+        run: |
+          set -uo pipefail
+          ROLE_ARN=$(aws sts get-caller-identity --query 'Arn' --output text 2>/dev/null || echo "")
+          ROLE_NAME=$(echo "$ROLE_ARN" | sed -n 's#.*assumed-role/\([^/]*\)/.*#\1#p')
+          echo "ROLE_NAME=$ROLE_NAME"
+          if [ -n "$ROLE_NAME" ]; then
+            echo "--- attached managed policies ---"
+            aws iam list-attached-role-policies --role-name "$ROLE_NAME" --output table \
+              || echo "IAM LIST-ATTACHED DENIED"
+            echo "--- inline policies ---"
+            aws iam list-role-policies --role-name "$ROLE_NAME" --output text \
+              || echo "IAM LIST-ROLE-POLICIES DENIED"
+          fi
