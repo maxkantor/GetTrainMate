@@ -950,14 +950,13 @@ export class GetTrainMateStack extends cdk.Stack {
         zone,
         values: [{ priority: 10, hostName: 'inbound-smtp.us-east-1.amazonaws.com' }],
       });
-      // Apex TXT: keep the existing google-site-verification value AND add SPF.
-      new route53.TxtRecord(this, 'PartnerInboundSpf', {
-        zone,
-        values: [
-          'google-site-verification=DoVO8vuWp2tfvufChTPxnVe5k8cIFZ2M0bxo2i3taaw',
-          'v=spf1 include:amazonses.com -all',
-        ],
-      });
+      // Apex TXT: NOT managed here. A TXT record set for gettrainmate.com
+      // already exists (google-site-verification) and CloudFormation
+      // refuses to replace a record set it does not manage, so a
+      // TxtRecord in this template fails the deploy with AlreadyExists
+      // (Nov 21). The SPF value below was added to the existing record
+      // set manually instead — keep it there, do not re-add it here.
+      //   "v=spf1 include:amazonses.com -all"
       // DMARC monitoring only (p=none): reports without rejecting mail.
       new route53.TxtRecord(this, 'PartnerInboundDmarc', {
         zone,
