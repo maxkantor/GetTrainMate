@@ -97,3 +97,32 @@ test('handler throws when the S3 object is missing', async () => {
     /failed for 1\/1/,
   );
 });
+
+test('handler uses API_BASE_URL from the environment when no apiBaseUrl is injected (production path)', async () => {
+  // Regression test for the Nov 21 E2E failure: production never passes
+  // apiBaseUrl, so the guard must read the resolved value (env fallback),
+  // not the injected param. Without that, every real invocation threw
+  // "API_BASE_URL is not set" while these tests passed.
+  const posts = [];
+  const prev = process.env.API_BASE_URL;
+  process.env.API_BASE_URL = 'https://api.example.invalid';
+  try {
+    const handler = createHandler({
+      bucket: 'gettrainmate-partner-inbound',
+      s3: fakeS3({ 'abc-1': RAW_MIME }),
+      ssm: fakeSsm('tok-123'),
+      fetchImpl: async (url, opts) => {
+        posts.push({ url, opts });
+        return { ok: true, status: 200 };
+      },
+    });
+    const result = await handler({ Records: [{ ses: { mail: { messageId: 'abc-1' } } }] });
+    assert.equal(result.ok, true);
+    assert.equal(result.processed, 1);
+    assert.equal(posts.length, 1);
+    assert.match(posts[0].url, /^https:\/\/api\.example\.invalid\/api\/internal\/partner-outreach\/inbound$/);
+  } finally {
+    if (prev === undefined) delete process.env.API_BASE_URL;
+    else process.env.API_BASE_URL = prev;
+  }
+});

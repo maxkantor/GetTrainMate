@@ -61,7 +61,12 @@ function createHandler({ s3, ssm, fetchImpl, bucket, apiBaseUrl }) {
     for (const messageId of ids) {
       try {
         if (!inboundBucket) throw new Error('INBOUND_BUCKET is not set');
-        if (!apiBaseUrl) throw new Error('API_BASE_URL is not set');
+        // NB: check the RESOLVED value, not the injected param. Production
+        // never passes apiBaseUrl — it comes from the API_BASE_URL env var
+        // — so checking the param here threw on every real invocation
+        // (Nov 21 E2E test) while the unit tests, which always inject it,
+        // passed. See the env-only regression test below.
+        if (!resolvedApiBaseUrl) throw new Error('API_BASE_URL is not set');
         const obj = await s3.send(new GetObjectCommand({ Bucket: inboundBucket, Key: messageId }));
         const rawMime = await streamToString(obj.Body);
         if (!rawMime) throw new Error(`empty S3 object for message ${messageId}`);
