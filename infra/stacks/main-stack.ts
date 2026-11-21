@@ -296,25 +296,12 @@ export class GetTrainMateStack extends cdk.Stack {
 
     // Daily ticks at 14:05 and 15:05 UTC cover ~10:05 America/New_York in EDT and EST.
     if (enablePartnerOutreach) {
-      const partnerDispatch = new events.Rule(this, 'PartnerOutreachWeekdayDispatch', {
-        ruleName: 'gettrainmate-partner-outreach-weekday',
-        description: 'PARTNER-001 daily automatic acquisition (DST-safe via app window; includes weekends)',
-        schedule: events.Schedule.cron({
-          minute: '5',
-          hour: '14,15',
-          weekDay: '*',
-        }),
-      });
-      partnerDispatch.addTarget(
-        new targets.LambdaFunction(apiLambda, {
-          event: events.RuleTargetInput.fromObject({
-            'detail-type': 'partner-outreach-dispatch',
-            source: 'gettrainmate.partner',
-          }),
-          retryAttempts: 0,
-        }),
-      );
-
+      // The weekday dispatch rule already exists outside this stack
+      // (gettrainmate-partner-outreach-weekday) and is intentionally NOT
+      // created here: creating it fails changeset validation with
+      // "already exists" (Nov 21: 11 name conflicts). Verified Nov 21 it
+      // is Enabled, cron 5 14,15 ? * * *, and already targets the API
+      // Lambda — so the stack leaves it untouched.
       const partnerDiscovery = new events.Rule(this, 'PartnerOutreachWeeklyDiscovery', {
         ruleName: 'gettrainmate-partner-outreach-discovery',
         description: 'Weekly automated international market org discovery (no send)',
@@ -1055,29 +1042,25 @@ export class GetTrainMateStack extends cdk.Stack {
    * enablePartnerOutreachInfra=true. Do not enable without Max approval.
    */
   private createPartnerOutreachTables(): dynamodb.ITable[] {
-    const mk = (id: string, name: string, pk: string, sk?: string) => {
-      const t = new dynamodb.Table(this, id, {
-        tableName: name,
-        partitionKey: { name: pk, type: dynamodb.AttributeType.STRING },
-        sortKey: sk ? { name: sk, type: dynamodb.AttributeType.STRING } : undefined,
-        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-        encryption: dynamodb.TableEncryption.AWS_MANAGED,
-        pointInTimeRecovery: true,
-        removalPolicy: cdk.RemovalPolicy.RETAIN,
-      });
-      return t;
-    };
+    // These tables already exist (created outside this stack during the
+    // partner-outreach build-out) and hold live CRM data. Reference them
+    // by name — like the core tables (UsersTable, ProfilesTable, ...) —
+    // instead of creating them: a create attempt fails changeset
+    // validation with "already exists" (Nov 21: 11 name conflicts).
+    // Key schemas are defined by the API models (PartnerOutreach.cs).
+    const ref = (id: string, name: string) =>
+      dynamodb.Table.fromTableName(this, id, name);
     return [
-      mk('PartnerProspects', 'gettrainmate-partner-prospects', 'ProspectId'),
-      mk('PartnerCampaigns', 'gettrainmate-partner-campaigns', 'CampaignId'),
-      mk('PartnerApprovals', 'gettrainmate-partner-approvals', 'ApprovalId'),
-      mk('PartnerQueue', 'gettrainmate-partner-queue', 'QueueId'),
-      mk('PartnerThreads', 'gettrainmate-partner-threads', 'ThreadId'),
-      mk('PartnerMessages', 'gettrainmate-partner-messages', 'ThreadId', 'MessageId'),
-      mk('PartnerSuppressions', 'gettrainmate-partner-suppressions', 'Email'),
-      mk('PartnerSettings', 'gettrainmate-partner-settings', 'Id'),
-      mk('PartnerInboundDedupe', 'gettrainmate-partner-inbound-dedupe', 'DedupeKey'),
-      mk('PartnerDiscoveryJobs', 'gettrainmate-partner-discovery-jobs', 'JobId'),
+      ref('PartnerProspects', 'gettrainmate-partner-prospects'),
+      ref('PartnerCampaigns', 'gettrainmate-partner-campaigns'),
+      ref('PartnerApprovals', 'gettrainmate-partner-approvals'),
+      ref('PartnerQueue', 'gettrainmate-partner-queue'),
+      ref('PartnerThreads', 'gettrainmate-partner-threads'),
+      ref('PartnerMessages', 'gettrainmate-partner-messages'),
+      ref('PartnerSuppressions', 'gettrainmate-partner-suppressions'),
+      ref('PartnerSettings', 'gettrainmate-partner-settings'),
+      ref('PartnerInboundDedupe', 'gettrainmate-partner-inbound-dedupe'),
+      ref('PartnerDiscoveryJobs', 'gettrainmate-partner-discovery-jobs'),
     ];
   }
 }
