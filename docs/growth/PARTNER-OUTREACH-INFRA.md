@@ -169,6 +169,12 @@ to `*`.
       ]
     },
     {
+      "Sid": "CdkCfnExecRole",
+      "Effect": "Allow",
+      "Action": ["iam:PassRole"],
+      "Resource": "arn:aws:iam::718522948657:role/cdk-hnb659fds-cfn-exec-role-718522948657-us-east-1"
+    },
+    {
       "Sid": "CdkAssets",
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket", "s3:GetBucketLocation"],
