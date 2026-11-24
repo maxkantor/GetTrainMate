@@ -41,6 +41,9 @@ public static class MarketRanker
     /// <summary>
     /// Select discovery targets: all active campaigns first, then ranked candidates
     /// up to <paramref name="maxTargets"/> (soft ranking ceiling, not an activate block).
+    /// U.S.-only (owner decision Nov 24, 2026): only markets with Country == "us"
+    /// are ever selected, for both active and candidate picks. Non-U.S. seeds stay
+    /// in the catalog but are never discovery targets.
     /// </summary>
     public static IEnumerable<MarketCampaignSeed> SelectDiscoveryTargets(
         IReadOnlyList<MarketCampaignSeed> catalog,
@@ -49,11 +52,14 @@ public static class MarketRanker
         int maxTargets = 50)
     {
         if (maxTargets <= 0) maxTargets = 50;
+        var usCatalog = catalog
+            .Where(c => string.Equals(c.Country, "us", StringComparison.OrdinalIgnoreCase))
+            .ToList();
         var ranked = Rank(evidence);
         var rankById = ranked.Select((r, i) => (r.CampaignId, i)).ToDictionary(x => x.CampaignId, x => x.i, StringComparer.OrdinalIgnoreCase);
         var statusById = stored.ToDictionary(c => c.CampaignId, c => c.Status, StringComparer.OrdinalIgnoreCase);
 
-        var active = catalog
+        var active = usCatalog
             .Where(c => statusById.TryGetValue(c.CampaignId, out var st) && st == "active")
             .OrderBy(c => rankById.GetValueOrDefault(c.CampaignId, 999))
             .ToList();
@@ -63,7 +69,7 @@ public static class MarketRanker
             return active.Take(maxTargets);
 
         var need = maxTargets - active.Count;
-        var candidates = catalog
+        var candidates = usCatalog
             .Where(c => !active.Any(a => a.CampaignId == c.CampaignId))
             .Where(c => !statusById.TryGetValue(c.CampaignId, out var st) || st is "candidate" or "paused" or "draft")
             .OrderBy(c => rankById.GetValueOrDefault(c.CampaignId, 999))

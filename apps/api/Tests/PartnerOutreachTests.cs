@@ -295,7 +295,11 @@ public class PartnerOutreachTests
         }).ToList();
         var targets = MarketRanker.SelectDiscoveryTargets(catalog, stored, evidence, MarketCampaignCatalog.MaxActiveMarkets).ToList();
         Assert.True(targets.Count >= Math.Min(4, catalog.Count));
-        Assert.True(targets.Count >= stored.Count(c => c.Status == "active") || targets.Count == catalog.Count);
+        // U.S.-only (owner decision Nov 24, 2026): with every catalog market stored
+        // active, only the U.S. seeds may be selected — non-U.S. actives are excluded.
+        var usCount = catalog.Count(c => string.Equals(c.Country, "us", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(usCount, targets.Count);
+        Assert.All(targets, t => Assert.True(string.Equals(t.Country, "us", StringComparison.OrdinalIgnoreCase)));
     }
 
     [Fact]
@@ -563,6 +567,45 @@ public class PartnerOutreachTests
         var targets = MarketRanker.SelectDiscoveryTargets(catalog, stored, evidence, 5).ToList();
         Assert.True(targets.Count >= 1);
         Assert.Equal("us_atlanta_train_partners", targets[0].CampaignId);
+        // U.S.-only (owner decision Nov 24, 2026): no non-U.S. market may be
+        // selected, even when it is a candidate with evidence behind it.
+        Assert.All(targets, t => Assert.True(string.Equals(t.Country, "us", StringComparison.OrdinalIgnoreCase)));
+        Assert.DoesNotContain(targets, t => t.CampaignId == "mx_mexico_city_train_partners");
+    }
+
+    [Fact]
+    public void Market_ranker_selects_us_only_active_and_candidate()
+    {
+        // Synthetic catalog: non-U.S. markets are active AND carry the strongest
+        // evidence, and one U.S. seed uses uppercase "US" — the guard must still
+        // select U.S.-only, case-insensitively, for both active and candidate picks.
+        var catalog = new List<MarketCampaignSeed>
+        {
+            new("us_test_a", "US", "a", "A", "America/New_York", new[] { "en" }, "active", "TRAIN"),
+            new("mx_test_b", "mx", "b", "B", "America/Mexico_City", new[] { "es" }, "active", "TRAIN"),
+            new("gb_test_c", "GB", "c", "C", "Europe/London", new[] { "en" }, "candidate", "TRAIN"),
+            new("us_test_d", "us", "d", "D", "America/New_York", new[] { "en" }, "candidate", "TRAIN"),
+        };
+        var stored = catalog.Select(c => new PartnerCampaign
+        {
+            CampaignId = c.CampaignId,
+            Status = c.Status,
+            DisplayName = c.DisplayName,
+        }).ToList();
+        var evidence = catalog.Select(c => new MarketRanker.MarketEvidenceRow
+        {
+            CampaignId = c.CampaignId,
+            Country = c.Country,
+            Market = c.Market,
+            DisplayName = c.DisplayName,
+            CompletedProfiles = c.Country == "mx" ? 1000 : 0,
+        }).ToList();
+        var targets = MarketRanker.SelectDiscoveryTargets(catalog, stored, evidence, 5).ToList();
+        Assert.Equal(2, targets.Count);
+        Assert.Contains(targets, t => t.CampaignId == "us_test_a");
+        Assert.Contains(targets, t => t.CampaignId == "us_test_d");
+        Assert.DoesNotContain(targets, t => t.CampaignId == "mx_test_b");
+        Assert.DoesNotContain(targets, t => t.CampaignId == "gb_test_c");
     }
 
     [Fact]
