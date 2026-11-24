@@ -53,7 +53,7 @@ jobs:
           open("dest.json", "w").write(json.dumps(dest))
           PY
           aws ses send-email --region us-east-1 \
-            --source "$SES_SOURCE" \
+            --from "$SES_SOURCE" \
             --reply-to-addresses "$SES_REPLY_TO" \
             --destination file://dest.json \
             --message file://msg.json
@@ -85,7 +85,7 @@ jobs:
           open("dest.json", "w").write(json.dumps(dest))
           PY
           aws ses send-email --region us-east-1 \
-            --source "$SES_SOURCE" \
+            --from "$SES_SOURCE" \
             --reply-to-addresses "$SES_REPLY_TO" \
             --destination file://dest.json \
             --message file://msg.json
@@ -116,7 +116,7 @@ jobs:
           open("dest.json", "w").write(json.dumps(dest))
           PY
           aws ses send-email --region us-east-1 \
-            --source "$SES_SOURCE" \
+            --from "$SES_SOURCE" \
             --reply-to-addresses "$SES_REPLY_TO" \
             --destination file://dest.json \
             --message file://msg.json
@@ -147,7 +147,7 @@ jobs:
           open("dest.json", "w").write(json.dumps(dest))
           PY
           aws ses send-email --region us-east-1 \
-            --source "$SES_SOURCE" \
+            --from "$SES_SOURCE" \
             --reply-to-addresses "$SES_REPLY_TO" \
             --destination file://dest.json \
             --message file://msg.json
