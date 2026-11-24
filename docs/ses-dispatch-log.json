@@ -1,0 +1,56 @@
+{
+  "records": [
+    {
+      "sent_at_utc": "2026-11-24T14:54:18Z",
+      "business": "gettrainmate",
+      "from": "noreply@gettrainmate.com",
+      "reply_to": "partners@gettrainmate.com",
+      "to": "KnoxvilleTN@acepickleballclub.com",
+      "subject": "Re: A free way for Ace members to find a doubles partner",
+      "fingerprint": "c6d1ac6f4393b35988176bfdf4a31c5d2b4f89593557ce1abc692179cb85e31a",
+      "message_id": "010001a20e0cee5e-d89165f5-4661-4961-bb48-988d9ee87e95-000000",
+      "config_set": null,
+      "approval_ref": "Max 2026-11-24 ~09:52 ET: one-off SES send approval",
+      "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45419276408"
+    },
+    {
+      "sent_at_utc": "2026-11-24T14:54:19Z",
+      "business": "gettrainmate",
+      "from": "noreply@gettrainmate.com",
+      "reply_to": "partners@gettrainmate.com",
+      "to": "info@chickennpickle.com",
+      "subject": "Re: A free way for Chicken N Pickle players to find a regular partner",
+      "fingerprint": "2be9f09e73a024f0cd172f483955a399fb91f21141bdffbe5c230247b3803865",
+      "message_id": "010001a20e0cf183-68093ea7-613d-47ba-a76a-c7efa3ed926f-000000",
+      "config_set": null,
+      "approval_ref": "Max 2026-11-24 ~09:52 ET: one-off SES send approval",
+      "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45419276408"
+    },
+    {
+      "sent_at_utc": "2026-11-24T14:54:19Z",
+      "business": "hybridraceworkouts",
+      "from": "noreply@hybridraceworkouts.com",
+      "reply_to": "mykantor@bellsouth.net",
+      "to": "Atlanta@carbonperformance.com",
+      "subject": "Re: A free printable HYROX workout card for your Atlanta classes",
+      "fingerprint": "b75d1acddfd744900ef1580e44a60363fc5e468b5cf2208b8985fa1123a7f1ea",
+      "message_id": "010001a20e0cf4ce-b7f7f52f-cec4-4cee-841c-ff42f372ffcf-000000",
+      "config_set": null,
+      "approval_ref": "Max 2026-11-24 ~09:52 ET: one-off SES send approval",
+      "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45419276408"
+    },
+    {
+      "sent_at_utc": "2026-11-24T14:54:20Z",
+      "business": "hybridraceworkouts",
+      "from": "noreply@hybridraceworkouts.com",
+      "reply_to": "mykantor@bellsouth.net",
+      "to": "info@crossfitmiamibeach.net",
+      "subject": "Re: A free printable HYROX workout card for your Miami Beach members",
+      "fingerprint": "49a942573f60f97fd0efd552bd3e54421cd4302ebdc9c402eb6e60c4e9d2d7ae",
+      "message_id": "010001a20e0cf834-dbe397dd-a7f0-48d7-8d0a-8f0e7635dae1-000000",
+      "config_set": null,
+      "approval_ref": "Max 2026-11-24 ~09:52 ET: one-off SES send approval",
+      "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45419276408"
+    }
+  ]
+}

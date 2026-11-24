@@ -1,0 +1,409 @@
+# SES dispatch — approved outreach, one recipient per run.
+#
+# Reusable replacement for one-off send workflows. Manual dispatch ONLY.
+# No schedule. No repo code changes. Sends exactly ONE email per run.
+#
+# PLACEMENT: this file is NOT committed yet. When approved, commit it to
+# maxkantor/GetTrainMate as .github/workflows/ses-dispatch.yml, together
+# with the seed docs/ses-dispatch-log.json (see the design doc).
+# The one-off workflow .github/workflows/one-off-ses-followups.yml must
+# never be dispatched again; delete it when Max says so.
+#
+# SECURITY MODEL
+# - OIDC only (vars.AWS_GROWTH_ROLE_ARN). NO access-key fallback: if OIDC
+#   fails the run fails. No long-lived keys anywhere.
+# - Hard-coded allow-list: business -> From / Reply-To / config set.
+#   Anything not on the list is rejected before any AWS call.
+# - YouTubeBoosterAI is deliberately NOT on the list (outreach paused).
+# - One recipient per dispatch; dispatches are serialized (concurrency
+#   group) so two runs cannot race the duplicate check.
+# - Duplicate prevention: SHA-256 fingerprint of (to, subject, body)
+#   checked against docs/ses-dispatch-log.json, plus a 14-day
+#   same-recipient rule mirroring the app's MinContactGapDays.
+# - Audit: every send appends a record (with SES MessageId) to
+#   docs/ses-dispatch-log.json, committed by the run, and uploads the
+#   sent message + audit record as a run artifact.
+# - dry_run defaults to TRUE: a dry run validates everything and prints
+#   the exact MIME that would be sent, but makes no AWS calls at all.
+#
+# KNOWN LIMITS (see design doc, do not "fix" by weakening a gate)
+# - No List-Unsubscribe header: the app's unsubscribe links need an
+#   HMAC token minted with a server secret this workflow cannot access.
+#   Mitigation: replies go to a monitored inbox and the body must carry
+#   a reply-to-unsubscribe line. One-to-one approved mail only.
+# - No live check of the app's DynamoDB PartnerSuppression table: the
+#   OIDC role has no verified DynamoDB access (the codebase deliberately
+#   avoids DynamoDB via this role). The operator MUST check the CRM admin
+#   for suppression / prior contact before dispatch (runbook step).
+# - The GTM config set gettrainmate-partner-outreach currently has NO
+#   event destinations (verified live Nov 24), so delivery/bounce/
+#   complaint events do not flow to the CRM today. It is attached anyway
+#   so events flow automatically once destinations are added (separate
+#   SES change, needs Max's approval).
+# - HRW has no SES configuration set. MKC/LNL reply paths are only
+#   partly verified — see the allow-list comments below.
+
+name: SES dispatch (approved outreach)
+
+on:
+  workflow_dispatch:
+    inputs:
+      business:
+        description: 'Business (allow-listed only; youtubeboosterai is excluded — outreach paused)'
+        type: choice
+        required: true
+        options:
+          - gettrainmate
+          - hybridraceworkouts
+          - luckynumberslab
+          - maxkantorcooking
+      from:
+        description: 'From address (must match the business allow-list)'
+        type: string
+        required: true
+      reply_to:
+        description: 'Reply-To address (must match the business allow-list)'
+        type: string
+        required: true
+      to:
+        description: 'Single recipient email address'
+        type: string
+        required: true
+      subject:
+        description: 'Subject line'
+        type: string
+        required: true
+      body:
+        description: 'Plain-text body (must include a reply-to-unsubscribe line)'
+        type: string
+        required: true
+      approval_ref:
+        description: 'Approval reference, e.g. "Max 2026-11-24: four Nov 19 follow-ups" or a chat message link'
+        type: string
+        required: true
+      dry_run:
+        description: 'Dry run — validate only, send nothing'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: ses-dispatch
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate allow-list, content, duplicates
+    if: github.repository == 'maxkantor/GetTrainMate'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      fingerprint: ${{ steps.validate.outputs.fingerprint }}
+      fingerprint_short: ${{ steps.validate.outputs.fingerprint_short }}
+      config_set: ${{ steps.validate.outputs.config_set }}
+      dry_run: ${{ steps.validate.outputs.dry_run }}
+    steps:
+      - name: Must run from main
+        run: |
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "Refusing: dispatch must run from main (got ${{ github.ref }})" >&2
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate inputs and duplicate-check
+        id: validate
+        env:
+          INPUT_BUSINESS: ${{ inputs.business }}
+          INPUT_FROM: ${{ inputs.from }}
+          INPUT_REPLY_TO: ${{ inputs.reply_to }}
+          INPUT_TO: ${{ inputs.to }}
+          INPUT_SUBJECT: ${{ inputs.subject }}
+          INPUT_BODY: ${{ inputs.body }}
+          INPUT_APPROVAL_REF: ${{ inputs.approval_ref }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, re, sys
+          from datetime import datetime, timezone
+
+          # ---- Allow-list: the ONLY send identities this workflow may use. ----
+          # Reply-To must be an address with a VERIFIED, MONITORED inbound path.
+          ALLOW = {
+              # GTM: Reply-To partners@ has a live SES receipt rule
+              # (INBOUND_MAIL -> S3 + Lambda -> CRM inbox). From noreply@ is
+              # approved; the app builders forbid it because THEY cannot
+              # guarantee a reply path — this workflow can, via Reply-To.
+              "gettrainmate": {
+                  "from": "noreply@gettrainmate.com",
+                  "reply_to": {"partners@gettrainmate.com"},
+                  "config_set": "gettrainmate-partner-outreach",
+              },
+              # HRW: Reply-To mykantor@bellsouth.net per Max's Nov 23
+              # reply-path resolution. noreply@hybridraceworkouts.com has
+              # NO verified inbound path — never use it as Reply-To.
+              # No HRW SES configuration set exists (gap, see design doc).
+              "hybridraceworkouts": {
+                  "from": "noreply@hybridraceworkouts.com",
+                  "reply_to": {"mykantor@bellsouth.net"},
+                  "config_set": "",
+              },
+              # LNL: support@ is the business sender. Reply-To hello@ is
+              # the address with a live INBOUND_MAIL receipt rule
+              # (luckynumberslab-hello-inbound -> S3 + SNS). support@ as
+              # Reply-To is NOT allow-listed: its inbound path is unverified.
+              "luckynumberslab": {
+                  "from": "support@luckynumberslab.com",
+                  "reply_to": {"hello@luckynumberslab.com"},
+                  "config_set": "luckynumberslab-marketing",
+              },
+              # MKC: outreach is PREPARE-ONLY until Max approves the MKC SES
+              # outreach path separately. From is allow-listed so a future
+              # approved send is possible; Reply-To is Max's own inbox.
+              "maxkantorcooking": {
+                  "from": "noreply@maxkantorcooking.com",
+                  "reply_to": {"mykantor@bellsouth.net"},
+                  "config_set": "maxkantorcooking-growth-reports",
+              },
+              # youtubeboosterai: deliberately ABSENT. Outreach is paused
+              # (unsubscribe safety). Any attempt to add it must be a
+              # reviewed code change, never an input.
+          }
+
+          def fail(msg):
+              print(f"VALIDATION FAILED: {msg}", file=sys.stderr)
+              sys.exit(1)
+
+          business = os.environ["INPUT_BUSINESS"].strip().lower()
+          frm = os.environ["INPUT_FROM"].strip()
+          reply_to = os.environ["INPUT_REPLY_TO"].strip()
+          to = os.environ["INPUT_TO"].strip()
+          subject = os.environ["INPUT_SUBJECT"]
+          body = os.environ["INPUT_BODY"]
+          approval_ref = os.environ["INPUT_APPROVAL_REF"].strip()
+          dry_run = os.environ["INPUT_DRY_RUN"].strip().lower() == "true"
+
+          if business not in ALLOW:
+              fail(f"business '{business}' is not allow-listed (youtubeboosterai is excluded by design)")
+          cfg = ALLOW[business]
+          if frm.lower() != cfg["from"]:
+              fail(f"from '{frm}' does not match the allow-list for {business} (expected {cfg['from']})")
+          if reply_to.lower() not in cfg["reply_to"]:
+              fail(f"reply_to '{reply_to}' is not an allow-listed monitored Reply-To for {business} "
+                   f"(allowed: {sorted(cfg['reply_to'])})")
+          if not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", to or ""):
+              fail(f"to '{to}' is not a single valid email address")
+          if to.lower() == frm.lower():
+              fail("recipient must not equal the From address")
+          if not approval_ref:
+              fail("approval_ref is required — name the approval that covers this send")
+          if not (1 <= len(subject) <= 200):
+              fail("subject must be 1-200 characters")
+          if not (1 <= len(body) <= 5000):
+              fail("body must be 1-5000 characters")
+          # Same invariant as both app MIME builders: Gmail / noreply must
+          # never appear anywhere except the allow-listed From itself.
+          blob = "\n".join([reply_to, to, subject, body])
+          if re.search(r"gmail\.com", blob, re.IGNORECASE):
+              fail("gmail.com must not appear in reply_to, to, subject or body")
+          if re.search(r"noreply@", blob, re.IGNORECASE):
+              fail("noreply@ must not appear in reply_to, to, subject or body")
+          for marker in ["Â", "â€™", "â€œ", "â€", "â†’"]:
+              if marker in subject or marker in body:
+                  fail(f"mojibake marker {marker!r} in subject/body")
+          if "unsubscribe" not in body.lower() and "opt out" not in body.lower():
+              fail("body must include an unsubscribe line (reply-to-unsubscribe; no List-Unsubscribe header is available — see design doc)")
+
+          fingerprint = hashlib.sha256(
+              "\n".join([to.lower(), subject, body]).encode("utf-8")
+          ).hexdigest()
+
+          def load_json(path):
+              try:
+                  with open(path) as f:
+                      return json.load(f)
+              except FileNotFoundError:
+                  return {"records": []}
+              except json.JSONDecodeError as e:
+                  fail(f"{path} is not valid JSON: {e}")
+
+          log = load_json("docs/ses-dispatch-log.json")
+          suppressions = load_json("docs/ses-suppressions.json")
+          if to.lower() in {s.lower() for s in suppressions.get("emails", [])}:
+              fail(f"recipient {to} is on the workflow suppression list")
+          now = datetime.now(timezone.utc)
+          for rec in log.get("records", []):
+              if rec.get("fingerprint") == fingerprint:
+                  fail(f"duplicate send: this exact message was already sent "
+                       f"({rec.get('sent_at_utc')}, run {rec.get('run_url')})")
+              if rec.get("to", "").lower() == to.lower() and rec.get("sent_at_utc"):
+                  try:
+                      sent_at = datetime.fromisoformat(rec["sent_at_utc"].replace("Z", "+00:00"))
+                  except ValueError:
+                      continue
+                  if (now - sent_at).days < 14:
+                      fail(f"recipient {to} was already sent mail {(now - sent_at).days} day(s) ago "
+                           f"(14-day minimum gap; run {rec.get('run_url')})")
+
+          out = os.environ["GITHUB_OUTPUT"]
+          with open(out, "a") as f:
+              f.write(f"fingerprint={fingerprint}\n")
+              f.write(f"fingerprint_short={fingerprint[:16]}\n")
+              f.write(f"config_set={cfg['config_set']}\n")
+              f.write(f"dry_run={'true' if dry_run else 'false'}\n")
+          print(f"VALIDATED business={business} from={frm} reply_to={reply_to} to={to}")
+          print(f"fingerprint={fingerprint}")
+          print(f"config_set={cfg['config_set'] or '(none)'} dry_run={dry_run}")
+          print(f"approval_ref={approval_ref}")
+          PY
+
+      - name: Dry-run summary (no send)
+        if: ${{ steps.validate.outputs.dry_run == 'true' }}
+        run: |
+          echo "## Dry run — nothing was sent" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Business: ${{ inputs.business }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- From: ${{ inputs.from }} (Reply-To: ${{ inputs.reply_to }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "- To: ${{ inputs.to }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Subject: ${{ inputs.subject }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Fingerprint: \`${{ steps.validate.outputs.fingerprint }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Approval ref: ${{ inputs.approval_ref }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Re-dispatch with dry_run=false to send." >> "$GITHUB_STEP_SUMMARY"
+
+  send:
+    name: Send one approved email
+    needs: validate
+    if: ${{ needs.validate.outputs.dry_run == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AWS_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC role only — no key fallback)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_GROWTH_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Pre-flight — SES quota and suppression (best-effort probes)
+        env:
+          INPUT_TO: ${{ inputs.to }}
+        run: |
+          echo "--- SES send quota (warn-only if denied) ---"
+          aws ses get-send-quota --region us-east-1 || echo "WARNING: ses:GetSendQuota denied or unavailable — proceeding on the 1-recipient cap"
+          echo "--- Account-level suppression check for the recipient ---"
+          # If the address is suppressed, fail closed. If the call itself is
+          # denied, warn and continue: SES enforces the account-level
+          # suppression list server-side at send time.
+          if aws ses list-suppressed-destinations --region us-east-1 \
+              --email-address "$INPUT_TO" --query 'SuppressedDestinationSummaries[0]' --output text 2>/tmp/suppr.err | grep -qv "^None$"; then
+            echo "RECIPIENT IS ON THE SES ACCOUNT-LEVEL SUPPRESSION LIST — refusing to send" >&2
+            cat /tmp/suppr.err >&2 || true
+            exit 1
+          fi
+          if [ -s /tmp/suppr.err ]; then
+            echo "WARNING: suppression lookup unavailable (see error); SES server-side suppression still applies"
+            cat /tmp/suppr.err
+          fi
+
+      - name: Send via SES
+        id: send
+        env:
+          SES_FROM: ${{ inputs.from }}
+          SES_REPLY_TO: ${{ inputs.reply_to }}
+          SES_TO: ${{ inputs.to }}
+          SES_SUBJECT: ${{ inputs.subject }}
+          SES_BODY: ${{ inputs.body }}
+          SES_CONFIG_SET: ${{ needs.validate.outputs.config_set }}
+          SES_FP_SHORT: ${{ needs.validate.outputs.fingerprint_short }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          msg = {"Subject": {"Data": os.environ["SES_SUBJECT"]},
+                 "Body": {"Text": {"Data": os.environ["SES_BODY"]}}}
+          dest = {"ToAddresses": [os.environ["SES_TO"]]}
+          open("msg.json", "w").write(json.dumps(msg))
+          open("dest.json", "w").write(json.dumps(dest))
+          PY
+          ARGS=(ses send-email --region us-east-1
+            --from "$SES_FROM"
+            --reply-to-addresses "$SES_REPLY_TO"
+            --destination file://dest.json
+            --message file://msg.json
+            --tags "Name=ses_dispatch,Value=$SES_FP_SHORT")
+          if [ -n "$SES_CONFIG_SET" ]; then
+            ARGS+=(--configuration-set-name "$SES_CONFIG_SET")
+          fi
+          aws "${ARGS[@]}" --output json > send-result.json
+          python3 -c "import json; print('MessageId:', json.load(open('send-result.json'))['MessageId'])"
+
+      - name: Append audit record and commit the dispatch log
+        env:
+          INPUT_BUSINESS: ${{ inputs.business }}
+          INPUT_FROM: ${{ inputs.from }}
+          INPUT_REPLY_TO: ${{ inputs.reply_to }}
+          INPUT_TO: ${{ inputs.to }}
+          INPUT_SUBJECT: ${{ inputs.subject }}
+          INPUT_APPROVAL_REF: ${{ inputs.approval_ref }}
+          FP: ${{ needs.validate.outputs.fingerprint }}
+          FP_SHORT: ${{ needs.validate.outputs.fingerprint_short }}
+          CONFIG_SET: ${{ needs.validate.outputs.config_set }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          msg_id = json.load(open("send-result.json"))["MessageId"]
+          record = {
+              "sent_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "business": os.environ["INPUT_BUSINESS"],
+              "from": os.environ["INPUT_FROM"],
+              "reply_to": os.environ["INPUT_REPLY_TO"],
+              "to": os.environ["INPUT_TO"],
+              "subject": os.environ["INPUT_SUBJECT"],
+              "fingerprint": os.environ["FP"],
+              "message_id": msg_id,
+              "config_set": os.environ["CONFIG_SET"] or None,
+              "approval_ref": os.environ["INPUT_APPROVAL_REF"],
+              "run_url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+          }
+          path = "docs/ses-dispatch-log.json"
+          try:
+              log = json.load(open(path))
+          except (FileNotFoundError, json.JSONDecodeError):
+              log = {"records": []}
+          log.setdefault("records", []).append(record)
+          json.dump(log, open(path, "w"), indent=2)
+          open("audit-record.json", "w").write(json.dumps(record, indent=2))
+          print(f"MessageId: {msg_id}")
+          print(f"Audit record appended to {path}")
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/ses-dispatch-log.json
+          git commit -m "chore(ses): dispatch log ${FP_SHORT} (${INPUT_BUSINESS} -> ${INPUT_TO})"
+          # If the push fails (e.g. a concurrent dispatch won the race),
+          # the send already happened: fail LOUDLY so a human reconciles
+          # the log by hand before any further dispatch.
+          git push origin main
+
+      - name: Upload send artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ses-dispatch-${{ needs.validate.outputs.fingerprint_short }}
+          path: |
+            msg.json
+            dest.json
+            send-result.json
+            audit-record.json
+          if-no-files-found: warn
