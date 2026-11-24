@@ -51,6 +51,19 @@
       "config_set": null,
       "approval_ref": "Max 2026-11-24 ~09:52 ET: one-off SES send approval",
       "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45419276408"
+    },
+    {
+      "sent_at_utc": "2026-11-24T20:33:28Z",
+      "business": "hybridraceworkouts",
+      "from": "noreply@hybridraceworkouts.com",
+      "reply_to": "mykantor@bellsouth.net",
+      "to": "talon@ftxhybrid.com",
+      "subject": "A free printable HYROX workout card for your Fort Worth classes",
+      "fingerprint": "57fda37af5b16a7308be422076da25c6143a7531683287e28322296337c48764",
+      "message_id": "010001a20f437179-46060869-bac6-4c49-b01e-15585f7618ea-000000",
+      "config_set": null,
+      "approval_ref": "Max 2026-11-24 ~15:30 ET: FTX recipient-specific approval (chat); one-word unsubscribe fix approved ~15:32 ET",
+      "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45481983962"
     }
   ]
 }
