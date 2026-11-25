@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-31",
+  "updatedAt": "2026-11-25",
   "strategyLock": {
     "status": "REVIEWED",
     "startedEt": "2026-08-24",
@@ -266,6 +266,26 @@
       "customers": 0,
       "outcome": "PUBLISHED_MANUAL_RECOVERY",
       "notes": "Lock day 4/7; Cursor automation Succeeded with Pull Request only — no Meta until manual publish"
+    },
+    {
+      "date": "2026-11-25",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": "DATE",
+      "language": "en",
+      "hook": "date-en-active-singles",
+      "destination": "/signup",
+      "campaign": "owned-date-en-20261125",
+      "contentId": "date-en-active-singles",
+      "facebookPostId": "1138684902641972_122143900232773778",
+      "instagramPostId": "17919741333469590",
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "PUBLISHED",
+      "notes": "Wed rotation; Admin SES 010001a2130721bb-…; cold pod needed AWS CLI v2 + npm ignore-scripts deps before runner succeeded"
     }
   ],
   "doNotRepeat": [
