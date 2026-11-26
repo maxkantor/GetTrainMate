@@ -116,6 +116,19 @@
       "config_set": null,
       "approval_ref": "Max 2026-11-26 final directive section 2: batch-1 approved (Running Niche, Matt's Pickle and Padel, Chicago Strength)",
       "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45854211936"
+    },
+    {
+      "sent_at_utc": "2026-11-26T16:30:40Z",
+      "business": "luckynumberslab",
+      "from": "support@luckynumberslab.com",
+      "reply_to": "hello@luckynumberslab.com",
+      "to": "businesscostango33@gmail.com",
+      "subject": "Your LuckyNumbersLab credits are still there",
+      "fingerprint": "af22c611e6f3a247c24d3c28e21fe7544eae7549154d7fe1c9dea5f17c3f885d",
+      "message_id": "010001a218b1e12c-53ed0d1b-38de-4a4c-9026-c3b42c42eb30-000000",
+      "config_set": "luckynumberslab-marketing",
+      "approval_ref": "Max 2026-11-26 final directive section 8: reactivation to 4 paying customers approved",
+      "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45859371730"
     }
   ]
 }
