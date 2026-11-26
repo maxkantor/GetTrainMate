@@ -64,6 +64,19 @@
       "config_set": null,
       "approval_ref": "Max 2026-11-24 ~15:30 ET: FTX recipient-specific approval (chat); one-word unsubscribe fix approved ~15:32 ET",
       "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45481983962"
+    },
+    {
+      "sent_at_utc": "2026-11-26T15:55:15Z",
+      "business": "luckynumberslab",
+      "from": "support@luckynumberslab.com",
+      "reply_to": "hello@luckynumberslab.com",
+      "to": "jhsif@hotmail.com",
+      "subject": "Your LuckyNumbersLab credits are still there",
+      "fingerprint": "a3fdb411ed7af275ef59e390e2428afda1ceb066da8a35f3ef5a73501cdc0313",
+      "message_id": "010001a21891721a-fe72a63c-b49b-4ba5-bade-d30e1d5a4c17-000000",
+      "config_set": "luckynumberslab-marketing",
+      "approval_ref": "Max 2026-11-26 final directive section 8: reactivation to 4 paying customers approved",
+      "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45853750636"
     }
   ]
 }
