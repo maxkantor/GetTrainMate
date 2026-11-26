@@ -26,6 +26,50 @@ type PrerenderPage = {
   noindex?: boolean;
 };
 
+/**
+ * Auth shells for Googlebot: clean canonical + noindex.
+ * Without these, Amplify serves homepage index.html for /signup?utm=… and GSC reports
+ * "Duplicate without user-selected canonical".
+ */
+const AUTH_PAGES: PrerenderPage[] = [
+  {
+    canonicalPath: '/signup',
+    title: `Sign up | ${BRAND}`,
+    description: 'Create your GetTrainMate account — TRAIN, VIBE, or DATE. Free to join.',
+    ogTitle: `Sign up | ${BRAND}`,
+    ogDescription: 'Create your GetTrainMate account — TRAIN, VIBE, or DATE. Free to join.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+    noindex: true,
+  },
+  {
+    canonicalPath: '/login',
+    title: `Log in | ${BRAND}`,
+    description: 'Log in to your GetTrainMate account.',
+    ogTitle: `Log in | ${BRAND}`,
+    ogDescription: 'Log in to your GetTrainMate account.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+    noindex: true,
+  },
+  {
+    canonicalPath: '/forgot-password',
+    title: `Reset Password | ${BRAND}`,
+    description: 'Reset your GetTrainMate password using the verification code sent to your email.',
+    ogTitle: `Reset Password | ${BRAND}`,
+    ogDescription: 'Reset your GetTrainMate password using the verification code sent to your email.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+    noindex: true,
+  },
+  {
+    canonicalPath: '/verify-email',
+    title: `Verify email | ${BRAND}`,
+    description: 'Verify your GetTrainMate email to finish creating your account.',
+    ogTitle: `Verify email | ${BRAND}`,
+    ogDescription: 'Verify your GetTrainMate email to finish creating your account.',
+    ogImagePath: '/images/og-image.jpg?v=2',
+    noindex: true,
+  },
+];
+
 /** Always prerendered — core marketing SEO must survive after World Cup retirement. */
 const MARKETING_PAGES: PrerenderPage[] = [
   {
@@ -341,8 +385,8 @@ export function prerenderSeoPlugin(): Plugin {
       const baseHtml = readFileSync(join(outDir, 'index.html'), 'utf8');
       const includeWorldCup = isWorldCupSeoEnabled();
       const pages = includeWorldCup
-        ? [...MARKETING_PAGES, ...WORLD_CUP_PAGES, ...teamPages()]
-        : [...MARKETING_PAGES];
+        ? [...AUTH_PAGES, ...MARKETING_PAGES, ...WORLD_CUP_PAGES, ...teamPages()]
+        : [...AUTH_PAGES, ...MARKETING_PAGES];
 
       for (const page of pages) {
         const html = injectRouteHtml(baseHtml, page);

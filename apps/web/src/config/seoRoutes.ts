@@ -129,7 +129,7 @@ const PUBLIC: Record<string, Omit<RouteSeo, 'canonicalPath'> & { canonicalPath?:
   '/forgot-password': {
     title: `Reset Password | ${BRAND}`,
     description: 'Reset your GetTrainMate password using the verification code sent to your email.',
-    noindex: false,
+    noindex: true,
   },
   '/world-cup': {
     title: `World Cup 2026 Fan Hub | ${BRAND}`,
@@ -323,11 +323,12 @@ export function getRouteSeo(pathname: string): RouteSeo {
   }
 
   if (AUTH_PATHS.has(path)) {
+    // Auth URLs carry UTM/partner query junk; never index variants. Canonical is always the clean path.
     return base({
       title: path.includes('signup') ? `Sign up | ${BRAND}` : path.includes('login') ? `Log in | ${BRAND}` : `Account | ${BRAND}`,
       description: 'Sign in or create your GetTrainMate account.',
       canonicalPath: path,
-      noindex: false,
+      noindex: true,
     });
   }
 
