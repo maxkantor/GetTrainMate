@@ -206,13 +206,24 @@ jobs:
               fail("subject must be 1-200 characters")
           if not (1 <= len(body) <= 5000):
               fail("body must be 1-5000 characters")
-          # Same invariant as both app MIME builders: Gmail / noreply must
-          # never appear anywhere except the allow-listed From itself.
-          blob = "\n".join([reply_to, to, subject, body])
+          # Sender-identity rule (design doc docs/growth/PARTNER-OUTREACH-INFRA.md:
+          # "Do not use gettrainmate@gmail.com or noreply@ for partner outreach").
+          # Purpose: business mail must never go out FROM a personal Gmail
+          # address, and replies must never be routed to one — the From is
+          # checked against the allow-list above, and reply_to / subject /
+          # body must not smuggle a Gmail or noreply address in as the
+          # contact. The RECIPIENT (to) is deliberately NOT part of this
+          # check: a recipient's domain is not a sender identity, and
+          # including it wrongly rejected legitimate Gmail recipients
+          # (fixed Nov 26, 2026, owner-approved: 3 LNL reactivation sends
+          # to gmail.com buyers were refused by the over-broad scope).
+          # Recipient eligibility is enforced separately below (format,
+          # suppression list, duplicate fingerprint, 14-day rule).
+          blob = "\n".join([reply_to, subject, body])
           if re.search(r"gmail\.com", blob, re.IGNORECASE):
-              fail("gmail.com must not appear in reply_to, to, subject or body")
+              fail("gmail.com must not appear in reply_to, subject or body")
           if re.search(r"noreply@", blob, re.IGNORECASE):
-              fail("noreply@ must not appear in reply_to, to, subject or body")
+              fail("noreply@ must not appear in reply_to, subject or body")
           for marker in ["Â", "â€™", "â€œ", "â€", "â†’"]:
               if marker in subject or marker in body:
                   fail(f"mojibake marker {marker!r} in subject/body")
