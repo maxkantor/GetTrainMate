@@ -129,6 +129,19 @@
       "config_set": "luckynumberslab-marketing",
       "approval_ref": "Max 2026-11-26 final directive section 8: reactivation to 4 paying customers approved",
       "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45859371730"
+    },
+    {
+      "sent_at_utc": "2026-11-26T16:31:17Z",
+      "business": "luckynumberslab",
+      "from": "support@luckynumberslab.com",
+      "reply_to": "hello@luckynumberslab.com",
+      "to": "jasondonmorris@gmail.com",
+      "subject": "Your LuckyNumbersLab credits are still there",
+      "fingerprint": "d84639a0c701b40f40674ba1ed949b3b12ae63c7559b4b6ccb04d303a8f03f8d",
+      "message_id": "010001a218b27078-023c4d1a-1df6-46b9-a217-16ea99f02e90-000000",
+      "config_set": "luckynumberslab-marketing",
+      "approval_ref": "Max 2026-11-26 final directive section 8: reactivation to 4 paying customers approved",
+      "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45859474265"
     }
   ]
 }
