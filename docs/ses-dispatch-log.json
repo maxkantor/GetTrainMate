@@ -103,6 +103,19 @@
       "config_set": "gettrainmate-partner-outreach",
       "approval_ref": "Max 2026-11-26 final directive section 2: batch-1 approved (Running Niche, Matt's Pickle and Padel, Chicago Strength)",
       "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45854116060"
+    },
+    {
+      "sent_at_utc": "2026-11-26T15:58:09Z",
+      "business": "hybridraceworkouts",
+      "from": "noreply@hybridraceworkouts.com",
+      "reply_to": "mykantor@bellsouth.net",
+      "to": "support@chicagostrength.com",
+      "subject": "Free race-paced workout card for Chicago Strength's HYROX athletes",
+      "fingerprint": "206a0add9c1559d20a918373fecbb04c8553fe7913b4803ebd7e0da3357f06b2",
+      "message_id": "010001a218941cd6-a3f98e35-13c0-4e06-a320-0c2f8dc8cf54-000000",
+      "config_set": null,
+      "approval_ref": "Max 2026-11-26 final directive section 2: batch-1 approved (Running Niche, Matt's Pickle and Padel, Chicago Strength)",
+      "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45854211936"
     }
   ]
 }
