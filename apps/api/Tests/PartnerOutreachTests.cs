@@ -682,6 +682,50 @@ public class PartnerOutreachTests
         Assert.Equal("<po_abc@gettrainmate.com>", parsed.InReplyTo);
         Assert.Contains("<po_abc@gettrainmate.com>", parsed.References);
         Assert.Contains("interested", parsed.TextBody);
+        Assert.Null(InboundMimeParser.ClassifyIgnoreReason(parsed, raw));
+    }
+
+    [Fact]
+    public void Inbound_ignores_yahoo_dmarc_aggregate_report()
+    {
+        var raw =
+            "From: noreply-dmarc-support@yahoo.com\n" +
+            "To: partners@gettrainmate.com\n" +
+            "Subject: Report Domain: gettrainmate.com Submitter: bellsouth.net Report-ID: <1795564800.95158548333957354307088664402027640266>\n" +
+            "Message-ID: <dmarc-yahoo-1@yahoo.com>\n" +
+            "MIME-Version: 1.0\n" +
+            "Content-Type: multipart/mixed; boundary=\"_----------_179570427838501710150\"\n" +
+            "\n" +
+            "This is a multi-part message in MIME format.\n" +
+            "\n" +
+            "--_----------_179570427838501710150\n" +
+            "Content-Disposition: inline\n" +
+            "Content-Transfer-Encoding: 8bit\n" +
+            "Content-Type: text/plain\n" +
+            "\n" +
+            "This is an aggregate DMARC report from Yahoo for your domain \"gettrainmate.com\".\n" +
+            "\n" +
+            "This domain has a DMARC record published with a 'mailto' address that redirected the report to this mailbox.\n" +
+            "--_----------_179570427838501710150--\n";
+        var parsed = InboundMimeParser.Parse(raw);
+        Assert.Equal("dmarc_report", InboundMimeParser.ClassifyIgnoreReason(parsed, raw));
+        Assert.Contains("aggregate DMARC report", parsed.TextBody);
+        Assert.DoesNotContain("Content-Type: text/plain", parsed.TextBody);
+        Assert.DoesNotContain("multi-part message in MIME format", parsed.TextBody);
+    }
+
+    [Fact]
+    public void Inbound_parser_extracts_multipart_text_plain()
+    {
+        var raw =
+            "From: Org <info@example.test>\nTo: partners@gettrainmate.com\nSubject: Re: hello\n" +
+            "MIME-Version: 1.0\nContent-Type: multipart/alternative; boundary=\"abc123\"\n\n" +
+            "--abc123\nContent-Type: text/plain; charset=UTF-8\n\nWe are interested.\n" +
+            "--abc123\nContent-Type: text/html; charset=UTF-8\n\n<p>We are interested.</p>\n" +
+            "--abc123--\n";
+        var parsed = InboundMimeParser.Parse(raw);
+        Assert.Equal("We are interested.", parsed.TextBody.Trim());
+        Assert.Contains("<p>We are interested.</p>", parsed.HtmlBody);
     }
 
     [Fact]

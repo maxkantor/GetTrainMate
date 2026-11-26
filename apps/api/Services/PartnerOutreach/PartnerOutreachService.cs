@@ -1347,6 +1347,13 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         await _db.SaveAsync(new PartnerInboundDedupe { DedupeKey = dedupeKey });
 
         var parsed = InboundMimeParser.Parse(rawMime);
+        var ignoreReason = InboundMimeParser.ClassifyIgnoreReason(parsed, rawMime);
+        if (!string.IsNullOrWhiteSpace(ignoreReason))
+        {
+            // Keep dedupe so SES redeliveries of DMARC/ARF noise are not reprocessed.
+            return new { ingested = false, reason = ignoreReason, subject = parsed.Subject };
+        }
+
         PartnerQueueItem? match = null;
         var queues = await _db.ScanAsync<PartnerQueueItem>(new List<ScanCondition>()).GetRemainingAsync();
         if (!string.IsNullOrWhiteSpace(parsed.InReplyTo))
@@ -1405,19 +1412,23 @@ public sealed partial class PartnerOutreachService : IPartnerOutreachService
         settings.ReplyCount++;
         await _db.SaveAsync(settings);
 
-        var preview = parsed.TextBody.Length > 280 ? parsed.TextBody[..280] + "…" : parsed.TextBody;
-        var et = TimeZoneInfo.ConvertTimeFromUtc(PartnerOutreachRules.AsUtc(DateTime.UtcNow), PartnerOutreachRules.EasternTimeZone());
-        var admin = First(Env("SES_ADMIN_EMAIL"), Env("ADMIN_EMAIL"));
-        if (!string.IsNullOrWhiteSpace(admin))
+        // Only notify Admin for matched partner-thread replies — not unmatched inbox noise.
+        if (match != null)
         {
-            var org = match?.OrganizationName ?? "Unknown organization";
-            var link = $"{Frontend}/admin/partner-outreach?thread={thread.ThreadId}";
-            await _email.SendEmailAsync(
-                admin,
-                $"[GetTrainMate] Partner reply: {org}",
-                $"Organization: {org}\nSubject: {parsed.Subject}\nReceived: {et:MMM d, yyyy h:mm tt} ET\nCRM: {link}\n\nPreview:\n{preview}\n\nReply from the Admin CRM only.");
+            var preview = parsed.TextBody.Length > 280 ? parsed.TextBody[..280] + "…" : parsed.TextBody;
+            var et = TimeZoneInfo.ConvertTimeFromUtc(PartnerOutreachRules.AsUtc(DateTime.UtcNow), PartnerOutreachRules.EasternTimeZone());
+            var admin = First(Env("SES_ADMIN_EMAIL"), Env("ADMIN_EMAIL"));
+            if (!string.IsNullOrWhiteSpace(admin))
+            {
+                var org = string.IsNullOrWhiteSpace(match.OrganizationName) ? "Unknown organization" : match.OrganizationName;
+                var link = $"{Frontend}/admin/partner-outreach?thread={thread.ThreadId}";
+                await _email.SendEmailAsync(
+                    admin,
+                    $"[GetTrainMate] Partner reply: {org}",
+                    $"Organization: {org}\nSubject: {parsed.Subject}\nReceived: {et:MMM d, yyyy h:mm tt} ET\nCRM: {link}\n\nPreview:\n{preview}\n\nReply from the Admin CRM only.");
+            }
         }
-        return new { ingested = true, threadId = thread.ThreadId };
+        return new { ingested = true, threadId = thread.ThreadId, matched = match != null };
     }
 
     public async Task ApplySesEventAsync(string internalMessageId, string eventType)

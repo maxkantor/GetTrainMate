@@ -356,6 +356,69 @@ public static class InboundMimeParser
         var split = raw.Split("\n\n", 2);
         var headerBlock = split[0];
         var body = split.Length > 1 ? split[1] : "";
+        var headers = ParseHeaderBlock(headerBlock);
+        headers.TryGetValue("From", out var from);
+        headers.TryGetValue("To", out var to);
+        headers.TryGetValue("Subject", out var subject);
+        headers.TryGetValue("Message-ID", out var messageId);
+        headers.TryGetValue("In-Reply-To", out var inReplyTo);
+        headers.TryGetValue("References", out var references);
+        headers.TryGetValue("Date", out var date);
+        headers.TryGetValue("Content-Type", out var contentType);
+        headers.TryGetValue("Content-Transfer-Encoding", out var transferEncoding);
+        headers.TryGetValue("Auto-Submitted", out var autoSubmitted);
+
+        var (text, html) = ExtractBodies(body, contentType ?? "", transferEncoding);
+        return new ParsedInboundMessage
+        {
+            From = from ?? "",
+            To = to ?? "",
+            Subject = subject ?? "",
+            MessageId = messageId ?? "",
+            InReplyTo = inReplyTo,
+            References = string.IsNullOrWhiteSpace(references) ? Array.Empty<string>() : references.Split(' ', StringSplitOptions.RemoveEmptyEntries),
+            DateHeader = date,
+            ContentType = contentType ?? "",
+            AutoSubmitted = autoSubmitted,
+            TextBody = PartnerEmailMime.SanitizeHtml(text),
+            HtmlBody = PartnerEmailMime.SanitizeHtml(html)
+        };
+    }
+
+    /// <summary>
+    /// DMARC rua=/ruf= and other automated reports land on partners@ and must not
+    /// be treated as partner CRM replies.
+    /// </summary>
+    public static string? ClassifyIgnoreReason(ParsedInboundMessage parsed, string? rawMime = null)
+    {
+        var subject = parsed.Subject ?? "";
+        var from = parsed.From ?? "";
+        var text = parsed.TextBody ?? "";
+        var contentType = parsed.ContentType ?? "";
+        var hay = $"{subject}\n{from}\n{text}\n{contentType}\n{rawMime}";
+
+        if (Regex.IsMatch(subject, @"Report\s+Domain\s*:", RegexOptions.IgnoreCase))
+            return "dmarc_report";
+        if (Regex.IsMatch(hay, @"aggregate\s+DMARC\s+report", RegexOptions.IgnoreCase))
+            return "dmarc_report";
+        if (Regex.IsMatch(contentType, @"multipart/report", RegexOptions.IgnoreCase)
+            && Regex.IsMatch(contentType, @"report-type\s*=\s*feedback-report", RegexOptions.IgnoreCase))
+            return "feedback_report";
+        if (Regex.IsMatch(from, @"dmarc", RegexOptions.IgnoreCase)
+            || Regex.IsMatch(from, @"noreply-dmarc", RegexOptions.IgnoreCase))
+            return "dmarc_report";
+        if (Regex.IsMatch(subject, @"\bDMARC\b", RegexOptions.IgnoreCase)
+            && Regex.IsMatch(hay, @"Report(\s|-)?ID|rua=|ruf=", RegexOptions.IgnoreCase))
+            return "dmarc_report";
+        if (!string.IsNullOrWhiteSpace(parsed.AutoSubmitted)
+            && !parsed.AutoSubmitted.Equals("no", StringComparison.OrdinalIgnoreCase)
+            && Regex.IsMatch(hay, @"DMARC|feedback-report|mailer-daemon|postmaster", RegexOptions.IgnoreCase))
+            return "automated_report";
+        return null;
+    }
+
+    static Dictionary<string, string> ParseHeaderBlock(string headerBlock)
+    {
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         string? last = null;
         foreach (var line in headerBlock.Split('\n'))
@@ -370,29 +433,90 @@ public static class InboundMimeParser
             last = line[..i];
             headers[last] = line[(i + 1)..].Trim();
         }
-        headers.TryGetValue("From", out var from);
-        headers.TryGetValue("To", out var to);
-        headers.TryGetValue("Subject", out var subject);
-        headers.TryGetValue("Message-ID", out var messageId);
-        headers.TryGetValue("In-Reply-To", out var inReplyTo);
-        headers.TryGetValue("References", out var references);
-        headers.TryGetValue("Date", out var date);
-        var text = body;
-        if (body.Contains("quoted-printable", StringComparison.OrdinalIgnoreCase))
-            text = PartnerEmailMime.DecodeQuotedPrintable(body);
-        return new ParsedInboundMessage
-        {
-            From = from ?? "",
-            To = to ?? "",
-            Subject = subject ?? "",
-            MessageId = messageId ?? "",
-            InReplyTo = inReplyTo,
-            References = string.IsNullOrWhiteSpace(references) ? Array.Empty<string>() : references.Split(' ', StringSplitOptions.RemoveEmptyEntries),
-            DateHeader = date,
-            TextBody = PartnerEmailMime.SanitizeHtml(text),
-            HtmlBody = PartnerEmailMime.SanitizeHtml(body.Contains("<html", StringComparison.OrdinalIgnoreCase) ? body : null)
-        };
+        return headers;
     }
+
+    static (string Text, string? Html) ExtractBodies(string body, string contentType, string? transferEncoding)
+    {
+        if (string.IsNullOrEmpty(body)) return ("", null);
+
+        var boundary = ExtractBoundary(contentType);
+        if (!string.IsNullOrEmpty(boundary) && contentType.Contains("multipart/", StringComparison.OrdinalIgnoreCase))
+        {
+            string? plain = null;
+            string? html = null;
+            foreach (var part in SplitMultipart(body, boundary))
+            {
+                var partSplit = part.Split("\n\n", 2);
+                var partHeaders = ParseHeaderBlock(partSplit[0]);
+                var partBody = partSplit.Length > 1 ? partSplit[1] : "";
+                partHeaders.TryGetValue("Content-Type", out var partType);
+                partHeaders.TryGetValue("Content-Transfer-Encoding", out var partEncoding);
+                partHeaders.TryGetValue("Content-Disposition", out var disposition);
+                if (!string.IsNullOrWhiteSpace(disposition)
+                    && disposition.Contains("attachment", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var decoded = DecodePartBody(partBody.TrimEnd('-', '\n', '\r'), partEncoding);
+                if (string.IsNullOrWhiteSpace(partType)) continue;
+                if (partType.Contains("text/plain", StringComparison.OrdinalIgnoreCase) && plain == null)
+                    plain = decoded;
+                else if (partType.Contains("text/html", StringComparison.OrdinalIgnoreCase) && html == null)
+                    html = decoded;
+            }
+            if (plain != null || html != null)
+                return (plain ?? StripTags(html ?? ""), html);
+        }
+
+        var single = DecodePartBody(body, transferEncoding);
+        if (contentType.Contains("text/html", StringComparison.OrdinalIgnoreCase)
+            || single.Contains("<html", StringComparison.OrdinalIgnoreCase))
+            return (StripTags(single), single);
+        return (single, single.Contains("<html", StringComparison.OrdinalIgnoreCase) ? single : null);
+    }
+
+    static string? ExtractBoundary(string contentType)
+    {
+        var m = Regex.Match(contentType ?? "", @"boundary\s*=\s*""?([^"";]+)""?", RegexOptions.IgnoreCase);
+        return m.Success ? m.Groups[1].Value.Trim() : null;
+    }
+
+    static IEnumerable<string> SplitMultipart(string body, string boundary)
+    {
+        var token = "--" + boundary;
+        var parts = body.Split(new[] { token }, StringSplitOptions.None);
+        foreach (var part in parts)
+        {
+            var p = part.Trim('\n', '\r', ' ');
+            if (string.IsNullOrWhiteSpace(p) || p == "--" || p.StartsWith("--"))
+                continue;
+            yield return p;
+        }
+    }
+
+    static string DecodePartBody(string body, string? transferEncoding)
+    {
+        if (string.IsNullOrEmpty(body)) return "";
+        var enc = transferEncoding ?? "";
+        if (enc.Contains("quoted-printable", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("=3D") || Regex.IsMatch(body, @"=[0-9A-Fa-f]{2}"))
+            return PartnerEmailMime.DecodeQuotedPrintable(body);
+        if (enc.Contains("base64", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var cleaned = Regex.Replace(body, @"\s+", "");
+                return Encoding.UTF8.GetString(Convert.FromBase64String(cleaned));
+            }
+            catch
+            {
+                return body;
+            }
+        }
+        return body;
+    }
+
+    static string StripTags(string html) =>
+        Regex.Replace(WebUtility.HtmlDecode(Regex.Replace(html, "<[^>]+>", " ")), @"\s+", " ").Trim();
 }
 
 public sealed class ParsedInboundMessage
@@ -404,6 +528,8 @@ public sealed class ParsedInboundMessage
     public string? InReplyTo { get; set; }
     public string[] References { get; set; } = Array.Empty<string>();
     public string? DateHeader { get; set; }
+    public string ContentType { get; set; } = "";
+    public string? AutoSubmitted { get; set; }
     public string TextBody { get; set; } = "";
     public string? HtmlBody { get; set; }
 }

@@ -46,13 +46,22 @@ function parseArgs(argv) {
   return out;
 }
 
-function firstAdminEmail(raw) {
-  const first = String(raw || '')
+export function parseAdminEmails(raw) {
+  const list = String(raw || '')
     .split(/[,;]/)
     .map((s) => s.trim())
-    .find(Boolean);
-  if (!first) throw new Error('No admin email configured');
-  return first;
+    .filter(Boolean);
+  // Deduplicate case-insensitively while preserving first-seen casing.
+  const seen = new Set();
+  const out = [];
+  for (const email of list) {
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(email);
+  }
+  if (!out.length) throw new Error('No admin email configured');
+  return out;
 }
 
 export function resolveAdminFromEmail(from) {
@@ -71,7 +80,8 @@ export async function sendAdminGrowthEmail({ subject, body, htmlBody }) {
   const adminRaw =
     (process.env.ADMIN_EMAIL || process.env.SES_ADMIN_EMAIL || '').trim() ||
     getSsm('/gettrainmate/ses-admin-email', false);
-  const to = firstAdminEmail(adminRaw);
+  const recipients = parseAdminEmails(adminRaw);
+  const to = recipients.join(', ');
   const sent = await sendRawSesEmail({
     fromName: 'GetTrainMate Growth',
     fromEmail: from,
@@ -81,7 +91,7 @@ export async function sendAdminGrowthEmail({ subject, body, htmlBody }) {
     text: body,
     html: htmlBody
   });
-  return { ok: true, to, messageId: sent.messageId, subjectSent: subject };
+  return { ok: true, to, recipients, messageId: sent.messageId, subjectSent: subject };
 }
 
 const invokedAsCli =
