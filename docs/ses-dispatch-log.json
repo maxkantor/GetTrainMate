@@ -77,6 +77,19 @@
       "config_set": "luckynumberslab-marketing",
       "approval_ref": "Max 2026-11-26 final directive section 8: reactivation to 4 paying customers approved",
       "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45853750636"
+    },
+    {
+      "sent_at_utc": "2026-11-26T15:56:53Z",
+      "business": "gettrainmate",
+      "from": "noreply@gettrainmate.com",
+      "reply_to": "partners@gettrainmate.com",
+      "to": "info@runningniche.com",
+      "subject": "A partner-finder for your Wednesday 5K runners",
+      "fingerprint": "900d52ec68e69ec4bdb2fe734f73c0efc6370417da6d128eb286bf0144138605",
+      "message_id": "010001a21892f312-9349e76c-cfab-43f6-9827-e98a5ecf7aa4-000000",
+      "config_set": "gettrainmate-partner-outreach",
+      "approval_ref": "Max 2026-11-26 final directive section 2: batch-1 approved (Running Niche, Matt's Pickle and Padel, Chicago Strength)",
+      "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45853997351"
     }
   ]
 }
