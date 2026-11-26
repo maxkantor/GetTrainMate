@@ -90,6 +90,19 @@
       "config_set": "gettrainmate-partner-outreach",
       "approval_ref": "Max 2026-11-26 final directive section 2: batch-1 approved (Running Niche, Matt's Pickle and Padel, Chicago Strength)",
       "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45853997351"
+    },
+    {
+      "sent_at_utc": "2026-11-26T15:57:33Z",
+      "business": "gettrainmate",
+      "from": "noreply@gettrainmate.com",
+      "reply_to": "partners@gettrainmate.com",
+      "to": "hello@mattspickleandpadel.com",
+      "subject": "Partners for your padel players \u2014 Pittsburgh's only padel courts",
+      "fingerprint": "f0d1d355816dbda868be061b4b53652fdf6f019192420b753b9f56d9def426d9",
+      "message_id": "010001a218938f5b-b047eba1-106a-4ae2-8e40-339785f3c469-000000",
+      "config_set": "gettrainmate-partner-outreach",
+      "approval_ref": "Max 2026-11-26 final directive section 2: batch-1 approved (Running Niche, Matt's Pickle and Padel, Chicago Strength)",
+      "run_url": "https://github.com/maxkantor/GetTrainMate/actions/runs/45854116060"
     }
   ]
 }
