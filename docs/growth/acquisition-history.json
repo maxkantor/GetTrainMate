@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-11-25",
+  "updatedAt": "2026-11-26",
   "strategyLock": {
     "status": "REVIEWED",
     "startedEt": "2026-08-24",
@@ -286,6 +286,26 @@
       "customers": 0,
       "outcome": "PUBLISHED",
       "notes": "Wed rotation; Admin SES 010001a2130721bb-…; cold pod needed AWS CLI v2 + npm ignore-scripts deps before runner succeeded"
+    },
+    {
+      "date": "2026-11-26",
+      "channel": "owned_social",
+      "platform": "facebook+instagram",
+      "market": "international",
+      "mode": null,
+      "language": null,
+      "hook": null,
+      "destination": "/signup",
+      "campaign": "weekday-automation",
+      "contentId": null,
+      "facebookPostId": null,
+      "instagramPostId": null,
+      "traffic": null,
+      "signups": 0,
+      "profiles": 0,
+      "customers": 0,
+      "outcome": "FAILED_ENV_BLOCKER",
+      "notes": "run-weekday-growth failed: aws CLI absent → SSM/Meta load error + admin_email_day_claim_failed; manual aws-cli install; compose-and-send --skip-social blocker email SES 010001a2182cc6d4-…; apply AUTOMATION.md Install script on Environment"
     }
   ],
   "doNotRepeat": [

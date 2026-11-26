@@ -34,6 +34,7 @@
 | 2026-08-30 | 7 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-31 | REVIEW | TRAIN×EN FB+IG (`…122130159662773778` / IG `18105309032166116`) | Owned-social click → `/signup` |
 | 2026-11-25 | post-lock | DATE×EN `date-en-active-singles` — FB `…122143900232773778` / IG `17919741333469590` | NO (cold pod: AWS CLI + deps; single runner pass) |
+| 2026-11-26 | post-lock | **No FB/IG** — cold pod missing `aws` on PATH blocked SSM + admin-email S3 claim; Admin SES blocker email sent (`010001a2182cc6d4-…`) | NO |
 
 ## Exploit / explore (70/30)
 
