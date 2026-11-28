@@ -34,6 +34,7 @@
 | 2026-08-30 | 7 / 7 | Weekday owned social (automation) | NO |
 | 2026-08-31 | REVIEW | TRAIN×EN FB+IG (`…122130159662773778` / IG `18105309032166116`) | Owned-social click → `/signup` |
 | 2026-11-25 | post-lock | DATE×EN `date-en-active-singles` — FB `…122143900232773778` / IG `17919741333469590` | NO (cold pod: AWS CLI + deps; single runner pass) |
+| 2026-11-28 | post-lock | DATE×EN `date-en-sf-bay` — FB `…122144281640773778` / IG `18210196492335723` | NO (cold pod: 1st pass no AWS CLI; 2nd pass SUCCESS) |
 
 ## Exploit / explore (70/30)
 
